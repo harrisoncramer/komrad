@@ -15,7 +15,7 @@ func (a *archivedAgents) details(m *model, in screen.Inputs) details {
 	}
 
 	if r.isTask() {
-		return taskDetails(m, a.deps.glyphs, r)
+		return taskDetails(m, in, a.deps.glyphs, r)
 	}
 
 	if r.header {
@@ -25,7 +25,7 @@ func (a *archivedAgents) details(m *model, in screen.Inputs) details {
 		}
 	}
 
-	return agentDetails(m, a.deps.glyphs, r)
+	return agentDetails(m, in, a.deps.glyphs, r)
 }
 
 // doc is the markdown rendered beside the list for the row the cursor is on.
@@ -74,7 +74,7 @@ func (a *archivedAgents) snapshot(m *model, in screen.Inputs, pane list.Pane) vi
 		workflowDirs: in.Listing.WorkflowDirs(),
 		focused:      list.KeyAt(rows, a.Row),
 		caret:        pane.Caret,
-		loaderFrame:  m.loading.frame(),
+		loaderFrame:  in.Room.Spinner,
 		matcher:      m.filter.pattern,
 		picked:       pickedRows(m.filter, rows, m.agentRowFits(in.Listing)),
 		tasks:        in.Listing.Tasks,

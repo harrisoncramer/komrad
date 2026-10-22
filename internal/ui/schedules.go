@@ -5,6 +5,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/api"
+	"komrad/internal/ui/column"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
@@ -282,14 +283,6 @@ func (w *schedulesScreen) takesEveryKey() bool {
 	return w.isRenaming()
 }
 
-func (w *schedulesScreen) detailsFit(m *model, in screen.Inputs) bool {
-	return m.listFitsDetails(w.listParams(m, in))
-}
-
-func (w *schedulesScreen) detailsRoom(m *model, in screen.Inputs) int {
-	return m.listRecordRoom(w.listParams(m, in))
-}
-
 func (w *schedulesScreen) activeList() keyedList {
 	return w.list()
 }
@@ -299,11 +292,11 @@ func (w *schedulesScreen) hoveredName(m *model, in screen.Inputs) string {
 }
 
 // column is the hovered schedule's own record rendered beside the list.
-func (w *schedulesScreen) column() columnSpec {
-	return columnSpec{
-		floor: columnFloor,
-		read:  isAlwaysRead,
-		docRows: func(m *model, in screen.Inputs, width int) []string {
+func (w *schedulesScreen) column(m *model, in screen.Inputs) column.Spec {
+	return column.Spec{
+		Floor: columnFloor,
+		Read:  column.Always,
+		DocRows: func(width int) []string {
 			return m.schedules.docRows(m, in, width)
 		},
 	}

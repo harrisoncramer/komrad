@@ -23,10 +23,11 @@ const (
 
 // listStops lists the screen's stops in forward order, leaving out any it is not rendering.
 func (m *model) listStops() []stop {
+	in := m.inputs()
 	stops := []stop{stopList}
 
 	switch {
-	case m.isScreenBlockRendered(), m.isDocReadable() && !m.isDormantHovered():
+	case m.isScreenBlockRendered(), m.isDocReadable(in) && !m.isDormantHovered():
 		stops = append(stops, stopBlock)
 	case m.findFocusPane() != "":
 		stops = append(stops, stopAgent)
@@ -36,7 +37,7 @@ func (m *model) listStops() []stop {
 		stops = append(stops, stopTerminal)
 	}
 
-	if m.isDetailsRendered(m.hoveredDetails()) {
+	if m.isDetailsRendered(in, m.hoveredDetails(in)) {
 		stops = append(stops, stopRecord)
 	}
 
@@ -91,10 +92,11 @@ func (m *model) enterSidebar(to stop) {
 
 // atStop is the stop inside the panel that holds the keys.
 func (m *model) atStop() stop {
+	in := m.inputs()
 	switch {
-	case m.isDetailsFocused():
+	case m.isDetailsFocused(in):
 		return stopRecord
-	case m.isDocFocused():
+	case in.Room.Doc.Focused:
 		return stopBlock
 	}
 

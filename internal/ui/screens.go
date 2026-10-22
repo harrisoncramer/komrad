@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"komrad/internal/ui/column"
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
@@ -49,7 +50,7 @@ type screenModel interface {
 	takesEveryKey() bool
 
 	// column is the block the screen renders beside its own list.
-	column() columnSpec
+	column(m *model, in screen.Inputs) column.Spec
 
 	// stageResting stages the row the cursor came to rest on and asks for what the screen reads of it.
 	stageResting(m *model, in screen.Inputs) screen.Request
@@ -63,12 +64,11 @@ type screenModel interface {
 type recordRenderer interface {
 	// details is the record the cursor is standing on.
 	details(m *model, in screen.Inputs) details
+}
 
-	// detailsFit is whether the screen has the room to render the record at all.
-	detailsFit(m *model, in screen.Inputs) bool
-
-	// detailsRoom is the rows the screen has under its header and the legend it is rendering.
-	detailsRoom(m *model, in screen.Inputs) int
+// listRenderer is a screen the root renders as a list from the params it answers.
+type listRenderer interface {
+	listParams(m *model, in screen.Inputs) screenListParams
 }
 
 // activeLister is a screen whose list the user can narrow by typing a pattern.
@@ -109,9 +109,6 @@ type kindSwitcher interface {
 	// stepKind moves the list delta kinds along, wrapping at both ends.
 	stepKind(m *model, in screen.Inputs, delta int) screen.Request
 
-	// kindsFit is whether the screen has the room to render the row of kinds.
-	kindsFit(m *model, in screen.Inputs) bool
-
 	// kindsSwitch is whether the kind listed may change.
 	kindsSwitch(m *model) bool
 }
@@ -122,9 +119,6 @@ type tabSwitcher interface {
 
 	// tabsState is where the screen keeps the tab chosen and whether the strip holds the keys.
 	tabsState() *tabsState
-
-	// tabsFit is whether the screen has the room to render the strip.
-	tabsFit(m *model, in screen.Inputs) bool
 }
 
 // columnFocuser is a screen whose block beside the list can take the keys and be scrolled.

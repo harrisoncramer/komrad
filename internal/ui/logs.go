@@ -8,6 +8,7 @@ import (
 	"komrad/config"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/api"
+	"komrad/internal/ui/column"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/keys"
@@ -460,17 +461,21 @@ func (l *logsScreen) nameSource(in screen.Inputs, source *logv1.LogSource) strin
 }
 
 func (l *logsScreen) listParams(m *model, in screen.Inputs) screenListParams {
+	rows := l.rows(m, in)
+	row, ok := list.At(rows, l.Row)
+
 	return screenListParams{
-		help:     l.help,
-		empty:    l.emptyLine(),
-		rows:     len(l.rows(m, in)),
-		snapshot: func(pane list.Pane) view.Snapshot { return l.snapshot(m, in, pane) },
+		help:       l.help,
+		empty:      l.emptyLine(),
+		rows:       len(rows),
+		snapshot:   func(pane list.Pane) view.Snapshot { return l.snapshot(m, in, pane) },
+		hidesKinds: !ok || !row.isServerLog(),
 	}
 }
 
 // buildFrame fits the log's cursor and view to the block it is rendered in.
-func (l *logsScreen) buildFrame(m *model, _ screen.Inputs) {
-	split := m.screenColumnSplit()
+func (l *logsScreen) buildFrame(_ *model, in screen.Inputs) {
+	split := in.Room.Split
 	if !split.On || !l.read || l.viewer.Len() == 0 {
 		return
 	}
@@ -507,10 +512,10 @@ func (l *logsScreen) isSearchTyping() bool {
 	return l.logFilter.typing
 }
 
-func (l *logsScreen) column() columnSpec {
-	return columnSpec{
-		floor: columnFloor,
-		docRows: func(m *model, in screen.Inputs, width int) []string {
+func (l *logsScreen) column(m *model, in screen.Inputs) column.Spec {
+	return column.Spec{
+		Floor: columnFloor,
+		DocRows: func(width int) []string {
 			return m.logs.block(m, in, width)
 		},
 	}
@@ -518,7 +523,7 @@ func (l *logsScreen) column() columnSpec {
 
 // isBlockRendered reports whether the block beside the list holds lines of the log.
 func (l *logsScreen) isBlockRendered(m *model, in screen.Inputs) bool {
-	if !m.screenColumnSplit().On {
+	if !in.Room.Split.On {
 		return false
 	}
 
@@ -527,11 +532,11 @@ func (l *logsScreen) isBlockRendered(m *model, in screen.Inputs) bool {
 
 // isBlockFocused reports whether the log holds the keys.
 func (l *logsScreen) isBlockFocused(m *model, in screen.Inputs) bool {
-	if !l.logFocus || !m.isListFocused() {
+	if !l.logFocus || !in.Room.ListFocused {
 		return false
 	}
 
-	if m.screenColumnSplit().On && l.logFilter.isStanding() {
+	if in.Room.Split.On && l.logFilter.isStanding() {
 		return true
 	}
 
@@ -610,13 +615,6 @@ func (l *logsScreen) kinds(*model) stops {
 		focus:  noStop,
 		lit:    int(l.format),
 	}
-}
-
-// kindsFit renders the format strip only over a server log.
-func (l *logsScreen) kindsFit(m *model, in screen.Inputs) bool {
-	row, ok := list.At(l.rows(m, in), l.Row)
-
-	return ok && row.isServerLog() && m.listFitsTabs(l.listParams(m, in))
 }
 
 func (l *logsScreen) kindsFocused(*model) *bool {

@@ -17,19 +17,20 @@ import (
 const maxHelpColumns = 3
 
 func (m *model) renderHelp(k keyMap, above ...string) string {
-	if m.isDetailsFocused() {
+	in := m.inputs()
+	if m.isDetailsFocused(in) {
 		k = m.detailsHelp()
 	}
-	if m.isDocFocused() {
+	if in.Room.Doc.Focused {
 		k = m.docHelp()
 	}
-	if m.isTabsFocused() {
+	if m.isTabsFocused(in) {
 		k = m.tabsHelp()
 	}
-	if m.isKindsFocused() {
+	if m.isKindsFocused(in) {
 		k = m.kindsHelp()
 	}
-	if m.isMessagesFocused() {
+	if in.Room.MessagesFocused {
 		k = m.messagesHelp()
 	}
 	if m.filter.typing {

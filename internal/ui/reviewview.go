@@ -39,12 +39,12 @@ const reviewChangeFolds = 2
 // view renders the diff and, beside it, the file tree, with the thread the cursor is standing on
 // in a popup over them.
 func (r reviewScreen) view(m *model, in screen.Inputs) string {
-	split := m.screenColumnSplit()
+	split := in.Room.Split
 	if !split.On && m.term.paneMeasure > 0 {
 		return r.sidebarView(m, in)
 	}
 	if !split.On {
-		band := r.bandView(m)
+		band := r.bandView(m, in)
 		layout := r.layoutSidebar(m, in, band)
 
 		return r.overlayThread(m, in, strings.TrimRight(band+r.renderSidebar(layout, layout.block()), "\n"))
@@ -52,7 +52,7 @@ func (r reviewScreen) view(m *model, in screen.Inputs) string {
 
 	// The band stands over the diff rather than over the whole window, and what it carries acts on
 	// the patch.
-	band := r.bandView(m)
+	band := r.bandView(m, in)
 	area := band + r.diffView(m, in, split)
 	diff := m.markZone(zoneList, area, split.Column)
 
@@ -63,7 +63,7 @@ func (r reviewScreen) view(m *model, in screen.Inputs) string {
 // height.
 func (r reviewScreen) sidebarView(m *model, in screen.Inputs) string {
 	layout := r.layoutSidebar(m, in)
-	block := m.markZone(zoneBlock, layout.block(), lineWidthOf(m.paneWidth()))
+	block := m.markZone(zoneBlock, layout.block(), lineWidthOf(in.Room.Width))
 
 	return strings.TrimRight(r.renderSidebar(layout, block), "\n")
 }
@@ -75,9 +75,9 @@ func (r reviewScreen) overlayThread(m *model, in screen.Inputs, area string) str
 		return area
 	}
 
-	inner := r.measurePopupInner(m)
+	inner := r.measurePopupInner(in)
 	body, back := r.popupBody(m, in, inner)
-	if m.isPopupForm() && m.form.isActive() {
+	if in.Room.PopupForm {
 		body = withSection(body, m.heldFormView(), inner)
 		back = 0
 	}
@@ -153,12 +153,12 @@ func (r reviewScreen) layoutUnder(m *model, in screen.Inputs, bar string, above 
 		bar:   bar,
 		rule:  rule,
 		help:  help,
-		notes: r.notesView(m),
+		notes: r.notesView(in),
 		spare: spare,
 	}
 
 	if spare < 0 {
-		layout.change = r.changeView(m, 0)
+		layout.change = r.changeView(in, 0)
 		layout.side = r.sideView(m, in, paint.Unbounded)
 		layout.files = r.filesView(m, in, paint.Unbounded)
 
@@ -185,7 +185,7 @@ func (r reviewScreen) foldChange(m *model, in screen.Inputs, room int) string {
 
 	var shortest string
 	for fold := range reviewChangeFolds {
-		change := r.changeView(m, fold)
+		change := r.changeView(in, fold)
 		if paint.CountLines(change)+wanted <= room {
 			return change
 		}
@@ -242,17 +242,17 @@ func reviewNote(width int, style lipgloss.Style, text string) string {
 }
 
 // notesView is what the reader was last told under the place the cursor is standing.
-func (r reviewScreen) notesView(m *model) string {
+func (r reviewScreen) notesView(in screen.Inputs) string {
 	if r.loading || r.diff.View() == nil || r.diff.View().Len() == 0 {
 		return ""
 	}
 
 	if notice := r.notice; notice != "" {
-		return "\n" + reviewNote(lineWidthOf(m.paneWidth()), paint.Panel.Style(reviewNoticeTone), notice)
+		return "\n" + reviewNote(lineWidthOf(in.Room.Width), paint.Panel.Style(reviewNoticeTone), notice)
 	}
 
 	if since := r.diff.since; since != "" && r.diff.spec.isWholeChange() {
-		return "\n" + reviewNote(lineWidthOf(m.paneWidth()), dimStyle(), since)
+		return "\n" + reviewNote(lineWidthOf(in.Room.Width), dimStyle(), since)
 	}
 
 	return ""
@@ -484,7 +484,7 @@ func (d reviewDiff) viewedDesc() string {
 
 // changeView is what the sidebar says about the change under review, which a higher fold joins
 // onto fewer rows before they wrap.
-func (r reviewScreen) changeView(m *model, fold int) string {
+func (r reviewScreen) changeView(in screen.Inputs, fold int) string {
 	stat := r.diff.statView()
 
 	var rows []string
@@ -494,7 +494,7 @@ func (r reviewScreen) changeView(m *model, fold int) string {
 		rows = []string{joinViews(r.agentName, stat)}
 	}
 
-	width := lineWidthOf(m.paneWidth())
+	width := lineWidthOf(in.Room.Width)
 
 	var out strings.Builder
 	for _, row := range rows {

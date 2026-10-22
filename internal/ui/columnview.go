@@ -72,7 +72,7 @@ func renderDividerRow(fromLeft, fromRight bool) string {
 // columnView renders a screen as its list beside its own block, or as the list alone on a window
 // that will not hold both.
 func (m *model) columnView(list func(*model) string) string {
-	split := m.screenColumnSplit()
+	split := m.inputs().Room.Split
 	if !split.On {
 		return list(m)
 	}
@@ -87,7 +87,7 @@ func (m *model) columnView(list func(*model) string) string {
 // docColumnView is the first screenful of the block beside the list, with a marker under it
 // counting what is past it.
 func (m *model) docColumnView(split column.Split) string {
-	return m.columnDoc(split).view(split.Rows)
+	return m.columnDoc(m.inputs(), split).view(split.Rows)
 }
 
 // fitColumn squares a block off at a width.

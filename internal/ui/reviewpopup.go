@@ -10,18 +10,18 @@ import (
 
 // popupAnchor is the columns the popup takes beside the diff's code, which are the sidebar, the
 // divider and the gutter with a split and the whole pane without one.
-func (r reviewScreen) popupAnchor(m *model) popupAnchor {
-	split := m.screenColumnSplit()
+func (r reviewScreen) popupAnchor(in screen.Inputs) popupAnchor {
+	split := in.Room.Split
 	if !split.On {
-		return popupAnchor{right: m.paneWidth()}
+		return popupAnchor{right: in.Room.Width}
 	}
 
 	return popupAnchor{right: split.Sidebar + dividerCols + diffview.GutterWidth, codeOnRight: true}
 }
 
 // measurePopupInner is the room inside the popup over the review.
-func (r reviewScreen) measurePopupInner(m *model) int {
-	return r.popupAnchor(m).measureWidth() - popupChrome
+func (r reviewScreen) measurePopupInner(in screen.Inputs) int {
+	return r.popupAnchor(in).measureWidth() - popupChrome
 }
 
 // popupBody is what the popup holds where the cursor stands and how far it is scrolled back from
@@ -64,7 +64,7 @@ func (r reviewScreen) conversationAtCursor(m *model, in screen.Inputs, inner int
 
 // placeThread is where a popup holding a body stands beside the cursor's row of the review.
 func (r reviewScreen) placeThread(m *model, in screen.Inputs, body string) popupSlot {
-	return placePopup(r.popupAnchor(m), r.measurePopupStage(m, in), len(splitPopupRows(body))+2)
+	return placePopup(r.popupAnchor(in), r.measurePopupStage(m, in), len(splitPopupRows(body))+2)
 }
 
 // isPopupForm reports whether the form stands in the review's popup rather than in a column of its own.
@@ -74,15 +74,15 @@ func (m *model) isPopupForm() bool {
 
 // measurePopupRoom is the rows inside the tallest popup the review has room for beside the cursor.
 func (r reviewScreen) measurePopupRoom(m *model, in screen.Inputs) int {
-	return placePopup(r.popupAnchor(m), r.measurePopupStage(m, in), popupHeight).room()
+	return placePopup(r.popupAnchor(in), r.measurePopupStage(m, in), popupHeight).room()
 }
 
 // measurePopupStage is the rows the popup stands over, the band and the diff beside the sidebar or
 // the band and the sidebar without a split, less the bar at the top that carries the messages.
 func (r reviewScreen) measurePopupStage(m *model, in screen.Inputs) popupStage {
-	split := m.screenColumnSplit()
+	split := in.Room.Split
 	if !split.On {
-		band := r.bandView(m)
+		band := r.bandView(m, in)
 		layout := r.layoutSidebar(m, in, band)
 
 		cursor := paint.CountLines(band+layout.bar+layout.change+layout.block()+r.placeView()) - 1
@@ -95,8 +95,8 @@ func (r reviewScreen) measurePopupStage(m *model, in screen.Inputs) popupStage {
 		}
 	}
 
-	above := strings.Count(r.bandView(m), "\n")
-	first, height := r.diff.GetCursorLines(r.diffWindow(m))
+	above := strings.Count(r.bandView(m, in), "\n")
+	first, height := r.diff.GetCursorLines(r.diffWindow(in))
 
 	return popupStage{
 		top:        strings.Count(r.layoutSidebar(m, in).bar, "\n"),

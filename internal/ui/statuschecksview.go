@@ -64,7 +64,7 @@ func (c *statusChecksScreen) snapshot(m *model, in screen.Inputs, pane list.Pane
 				Matches: matchesIn(m.filter.pattern, r.item.name),
 				Process: view.ProcessNone,
 				Cells: []view.Cell{
-					statusCheckIcon(r.item, m.loading.frame()),
+					statusCheckIcon(r.item, in.Room.Spinner),
 				},
 			}
 		}),
@@ -101,7 +101,7 @@ func (c *statusChecksScreen) docRows(m *model, in screen.Inputs, width int) []st
 	item := rows[c.Row].item
 	indent := strings.Repeat(" ", docMargin())
 	icon := func(item statusCheckItem) string {
-		cell := statusCheckIcon(item, m.loading.frame())
+		cell := statusCheckIcon(item, in.Room.Spinner)
 		text := cell.Text
 		if text == "" {
 			text = c.deps.glyphs.Spell(cell.Glyph)

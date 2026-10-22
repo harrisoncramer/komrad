@@ -24,29 +24,29 @@ const reviewNoFileWord = "no file matches"
 
 // reviewColumn is the diff rendered beside the review's own threads, whose row budget is what the
 // band over it leaves.
-func reviewColumn() columnSpec {
-	return columnSpec{
-		floor: diffFloor,
+func reviewColumn(m *model, in screen.Inputs) column.Spec {
+	return column.Spec{
+		Floor: diffFloor,
 		// The editor is another process holding the stage, so the panel owns the window only while
 		// there is none.
-		holds:  func(m *model, _ screen.Inputs) bool { return !m.review.hold.atEditor },
-		beside: func(m *model, _ screen.Inputs) (panel.AgentRow, bool) { return m.review.writerPane(m) },
-		rows: func(m *model, in screen.Inputs, split column.Split) int {
+		Holds:  func() bool { return !m.review.hold.atEditor },
+		Beside: func() (panel.AgentRow, bool) { return m.review.writerPane(m) },
+		Rows: func(split column.Split) int {
 			// The band stands on the diff's own rows rather than the window's, so what is left is
 			// what the patch is rendered in and what the cursor is scrolled against.
-			return split.Rows - strings.Count(m.review.bandView(m), "\n")
+			return split.Rows - strings.Count(m.review.bandView(m, in), "\n")
 		},
 	}
 }
 
 // bandView is what stands over the diff: the range it runs over and the pattern it is searched for.
-func (r reviewScreen) bandView(m *model) string {
-	return r.rangeView(m) +
-		m.markSearch(stopList, r.measureBandWidth(m), r.diff.filter.view(r.deps.glyphs)) + diffMatchCount(&r.diff.Pane, r.diff.filter)
+func (r reviewScreen) bandView(m *model, in screen.Inputs) string {
+	return r.rangeView(in) +
+		m.markSearch(stopList, r.measureBandWidth(in), r.diff.filter.view(r.deps.glyphs)) + diffMatchCount(&r.diff.Pane, r.diff.filter)
 }
 
 // rangeView names both ends of the range on screen and, past its end, the snapshot new comments go on.
-func (r reviewScreen) rangeView(m *model) string {
+func (r reviewScreen) rangeView(in screen.Inputs) string {
 	if r.diff.View() == nil {
 		return ""
 	}
@@ -56,21 +56,21 @@ func (r reviewScreen) rangeView(m *model) string {
 		said += "   " + paint.Panel.Style(reviewHistoryTone).Render(newest)
 	}
 
-	return ansi.Wrap(said, r.measureBandWidth(m), "") + "\n"
+	return ansi.Wrap(said, r.measureBandWidth(in), "") + "\n"
 }
 
-func (r reviewScreen) measureBandWidth(m *model) int {
-	if split := m.columnGeometry(); split.On {
+func (r reviewScreen) measureBandWidth(in screen.Inputs) int {
+	if split := in.Room.Geometry; split.On {
 		return split.Column
 	}
 
-	return lineWidthOf(m.paneWidth())
+	return lineWidthOf(in.Room.Width)
 }
 
 // diffNotice is what stands in the diff's own column before a patch does.
-func (r reviewScreen) diffNotice(m *model) string {
+func (r reviewScreen) diffNotice(in screen.Inputs) string {
 	if r.loading {
-		return m.loading.frame() + " _" + reviewLoadingWord + "_"
+		return in.Room.Spinner + " _" + reviewLoadingWord + "_"
 	}
 
 	return "_" + reviewEmptyWord + "_"
@@ -84,7 +84,7 @@ func (r reviewScreen) diffView(m *model, in screen.Inputs, split column.Split) s
 		// This is the larger half of the window, so it says what is being waited on rather than
 		// standing empty under a band, and stands rather than collapsing so the frame does not
 		// shift under the reader when the patch lands.
-		return docWindow{rows: paint.DocStyledRows(r.diffNotice(m), split.Column, reviewColumnStyle())}.view(split.Rows)
+		return docWindow{rows: paint.DocStyledRows(r.diffNotice(in), split.Column, reviewColumnStyle())}.view(split.Rows)
 	}
 
 	held := diffview.LiveCursor
@@ -92,7 +92,7 @@ func (r reviewScreen) diffView(m *model, in screen.Inputs, split column.Split) s
 		held = diffview.DimCursor
 	}
 
-	window := r.diffWindow(m)
+	window := r.diffWindow(in)
 
 	return strings.Join(m.markDiff(&r.diff.Pane, window, r.diff.Render(window, held)), "\n")
 }

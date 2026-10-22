@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/screen"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -185,16 +186,22 @@ func (m *model) activeTabs() (tabSwitcher, bool) {
 	return t, ok
 }
 
-func (m *model) isTabsRendered() bool {
-	t, ok := m.activeTabs()
+func (m *model) isTabsRendered(in screen.Inputs) bool {
+	_, ok := m.activeTabs()
 
-	return ok && t.tabsFit(m, m.inputs())
+	return ok && m.tabsFit(in)
 }
 
-func (m *model) isTabsFocused() bool {
+func (m *model) isTabsFocused(in screen.Inputs) bool {
 	t, ok := m.activeTabs()
 
-	return ok && t.tabsState().focused && t.tabsFit(m, m.inputs())
+	return ok && t.tabsState().focused && m.tabsFit(in)
+}
+
+func (m *model) tabsFit(in screen.Inputs) bool {
+	params, ok := m.activeListParams(in)
+
+	return ok && m.listFitsTabs(params)
 }
 
 // listFitsTabs is whether a list has the room to render its strips, judged with the keys on the
@@ -233,7 +240,7 @@ func (m *model) blurTabs() {
 
 func (m *model) focusTabs() {
 	t, ok := m.activeTabs()
-	if !ok || !t.tabsFit(m, m.inputs()) {
+	if !ok || !m.tabsFit(m.inputs()) {
 		return
 	}
 

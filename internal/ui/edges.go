@@ -48,7 +48,7 @@ func (m *model) edgeFloor() int {
 		return 1
 	}
 
-	return m.columnOf().floor + dividerCols
+	return m.columnOf(m.inputs()).Floor + dividerCols
 }
 
 // atRegion is the region holding the keys.
@@ -67,15 +67,16 @@ func (m *model) atRegion() keyRegion {
 
 // isColumnKeyed reports whether the keys are on the block the panel renders beside its list.
 func (m *model) isColumnKeyed() bool {
-	if !m.columnGeometry().On {
+	in := m.inputs()
+	if !in.Room.Geometry.On {
 		return false
 	}
 
 	switch {
-	case m.isMessagesFocused(), m.form.isOpening() && !m.isPopupForm(), m.isDocFocused():
+	case in.Room.MessagesFocused, m.form.isOpening() && !m.isPopupForm(), in.Room.Doc.Focused:
 		return true
 	case m.screen == screen.Review:
-		return m.review.isDiffFocused(m, m.inputs())
+		return m.review.isDiffFocused(m, in)
 	}
 
 	b, ok := m.active().(columnFocuser)

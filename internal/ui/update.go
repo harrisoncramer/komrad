@@ -211,7 +211,7 @@ func (m *model) route(msg tea.Msg) tea.Cmd {
 		return m.updateFilterInput(key)
 	}
 
-	if m.reading.filter.typing && m.isDocReadable() {
+	if m.reading.filter.typing && m.isDocReadable(m.inputs()) {
 		return m.updateDocFilter(key)
 	}
 
@@ -237,10 +237,10 @@ func (m *model) resizeTo(size tea.WindowSizeMsg) {
 	m.term.paneCols = size.Width
 	m.term.awaitingSince = time.Time{}
 
-	if !m.isTabsRendered() {
+	if !m.isTabsRendered(m.inputs()) {
 		m.blurTabs()
 	}
-	if !m.isKindsRendered() {
+	if !m.isKindsRendered(m.inputs()) {
 		m.blurKinds()
 	}
 
@@ -296,7 +296,7 @@ func (m *model) relayout() {
 
 	// A field open in the review's sidebar is rendered in a column of this window rather than in the
 	// form's, so the size is rewritten here too.
-	m.review.threads.editor.resize(reviewInputWidth(m.review.measurePopupInner(m)))
+	m.review.threads.editor.resize(reviewInputWidth(m.review.measurePopupInner(m.inputs())))
 }
 
 // routeScreenMessage hands a message to the screen that is up.
@@ -462,7 +462,7 @@ func (m *model) isTyping() bool {
 }
 
 func (m *model) isSearchTyping() bool {
-	if m.filter.typing || (m.reading.filter.typing && m.isDocReadable()) {
+	if m.filter.typing || (m.reading.filter.typing && m.isDocReadable(m.inputs())) {
 		return true
 	}
 

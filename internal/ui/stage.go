@@ -149,8 +149,8 @@ func (m *model) stageSelection() {
 // stagedAgent is the agent whose pane the stage shows, the one the screen keeps beside its block
 // and the hovered agent on a screen that keeps none.
 func (m *model) stagedAgent() (panel.AgentRow, bool) {
-	if beside := m.active().column().beside; beside != nil {
-		return beside(m, m.inputs())
+	if beside := m.active().column(m, m.inputs()).Beside; beside != nil {
+		return beside()
 	}
 
 	return m.agents.hoveredPane(m, m.inputs())

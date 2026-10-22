@@ -5,8 +5,6 @@ import (
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/column"
-	"komrad/internal/ui/paint"
-	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 )
 
@@ -37,61 +35,22 @@ func splitOf(width, rows, sidebar, floor int) column.Split {
 // columnFloor is the narrowest a document is worth rendering beside a list at.
 const columnFloor = 40
 
-// columnSpec is the block a screen renders beside its own list, left nil by a screen that renders
-// none.
-type columnSpec struct {
-	// floor is the narrowest the block is worth rendering at, below which the sidebar keeps the whole
-	// window.
-	floor int
-
-	// doc is the markdown the block is rendered from, and is nil on a screen that renders and scrolls
-	// its block itself.
-	doc func(*model, screen.Inputs) string
-
-	// docRows renders the block's rows at a width in place of doc, for a document with rows markdown
-	// cannot style.
-	docRows func(*model, screen.Inputs, int) []string
-
-	// read reports whether the block is a document the keys can be handed to, and is nil on a
-	// screen whose block never is.
-	read          func(*model, screen.Inputs) bool
-	searchOptions []filterOption
-
-	// holds reports whether the screen is rendering its own block at all, and is nil on a screen that
-	// always is.
-	holds func(*model, screen.Inputs) bool
-
-	// rows is the row budget the block is actually rendered in, and is nil on a screen with nothing
-	// standing over it.
-	rows func(*model, screen.Inputs, column.Split) int
-
-	// beside is the agent the screen keeps on the stage beside its block, and is nil on a screen that
-	// keeps none.
-	beside func(*model, screen.Inputs) (panel.AgentRow, bool)
-}
-
-// isHeld reports whether the screen is rendering its own block rather than handing its columns to
-// another process.
-func (s columnSpec) isHeld(m *model) bool {
-	return s.holds == nil || s.holds(m, m.inputs())
-}
-
 // sidebarColumns is how wide the panel's own list is rendered while it holds the window, and the
 // block it is holding it for.
-func (m *model) sidebarColumns() (int, columnSpec, bool) {
+func (m *model) sidebarColumns(in screen.Inputs) (int, column.Spec, bool) {
 	// Nothing can be divided before the first window size arrives, and the frame has no layout to
 	// answer for either.
 	if m.term.width <= 0 || m.term.height <= 0 {
-		return 0, columnSpec{}, false
+		return 0, column.Spec{}, false
 	}
 
-	spec := m.columnOf()
-	if !spec.isHeld(m) {
-		return 0, columnSpec{}, false
+	spec := m.columnOf(in)
+	if !spec.IsHeld() {
+		return 0, column.Spec{}, false
 	}
 
 	if !m.frame.IsSolo() && !m.frame.IsBeside() {
-		return 0, columnSpec{}, false
+		return 0, column.Spec{}, false
 	}
 
 	sidebar, measured := m.frame.SidebarWidth(m.term.paneCols)
@@ -100,7 +59,7 @@ func (m *model) sidebarColumns() (int, columnSpec, bool) {
 	// widened to what a list of names reads in and capped at what leaves the block its floor,
 	// while a measured one is rendered where the divider is whatever that leaves either half.
 	if !measured {
-		sidebar = min(max(sidebar, nameWidth+sidebarChrome), m.term.width-spec.floor)
+		sidebar = min(max(sidebar, nameWidth+sidebarChrome), m.term.width-spec.Floor)
 	}
 
 	// Clamped so the fold and the render are at one width.
@@ -109,28 +68,28 @@ func (m *model) sidebarColumns() (int, columnSpec, bool) {
 
 // columnGeometry is how wide each half of the window is, and how many rows the block beside the
 // list is rendered in.
-func (m *model) columnGeometry() column.Split {
-	sidebar, spec, ok := m.sidebarColumns()
+func (m *model) columnGeometry(in screen.Inputs) column.Split {
+	sidebar, spec, ok := m.sidebarColumns(in)
 	if !ok {
 		return column.Split{}
 	}
 
 	// The whole height, with the sidebar's chrome rendered inside the sidebar and no rows reserved
 	// here.
-	return splitOf(m.term.width-dividerCols, m.term.height, sidebar, spec.floor)
+	return splitOf(m.term.width-dividerCols, m.term.height, sidebar, spec.Floor)
 }
 
 // columnSplit is the window the block is actually rendered in, being the geometry with whatever
 // stands over the block taken off its rows.
-func (m *model) columnSplit() column.Split {
-	split := m.columnGeometry()
+func (m *model) columnSplit(in screen.Inputs) column.Split {
+	split := in.Room.Geometry
 	if !split.On {
 		return split
 	}
 
 	// Only ever asked of a block rendered in the other column.
-	if spec := m.columnOf(); spec.rows != nil {
-		split.Rows = max(spec.rows(m, m.inputs(), split), 1)
+	if spec := m.columnOf(in); spec.Rows != nil {
+		split.Rows = max(spec.Rows(split), 1)
 	}
 
 	return split
@@ -138,18 +97,18 @@ func (m *model) columnSplit() column.Split {
 
 // screenColumnSplit is the split a screen's own block is rendered across, refused while a form is
 // up.
-func (m *model) screenColumnSplit() column.Split {
-	if (m.form.isOpening() && !m.isPopupForm()) || m.isMessagesFocused() {
+func (m *model) screenColumnSplit(in screen.Inputs) column.Split {
+	if (m.form.isOpening() && !m.isPopupForm()) || in.Room.MessagesFocused {
 		return column.Split{}
 	}
 
-	return m.columnSplit()
+	return in.Room.Column
 }
 
 // columnOf is the block the panel renders beside its list, which is the form's while one is up and
 // the screen's otherwise.
-func (m *model) columnOf() columnSpec {
-	if m.isMessagesFocused() {
+func (m *model) columnOf(in screen.Inputs) column.Spec {
+	if in.Room.MessagesFocused {
 		return buildMessagesColumn()
 	}
 
@@ -157,13 +116,13 @@ func (m *model) columnOf() columnSpec {
 		return formColumn(m.form.Narrow)
 	}
 
-	return m.active().column()
+	return m.active().column(m, in)
 }
 
 // holdsWindow reports whether the panel is rendering a block beside its own list, and so takes the
 // window from the panes beside it.
 func (m *model) holdsWindow() bool {
-	return m.columnOf().isHeld(m)
+	return m.columnOf(m.inputs()).IsHeld()
 }
 
 // wantsSolo reports whether the panel should hold the whole window.
@@ -174,16 +133,16 @@ func (m *model) wantsSolo() bool {
 // isStageBeside reports whether the screen keeps an agent on the stage beside its block, which it
 // does only while the agent is running and the window has room for both.
 func (m *model) isStageBeside() bool {
-	spec := m.active().column()
-	if spec.beside == nil || m.terminalDir != "" {
+	spec := m.active().column(m, m.inputs())
+	if spec.Beside == nil || m.terminalDir != "" {
 		return false
 	}
 
-	if !m.frame.FitsBeside(m.term.windowCols, spec.floor) {
+	if !m.frame.FitsBeside(m.term.windowCols, spec.Floor) {
 		return false
 	}
 
-	_, live := spec.beside(m, m.inputs())
+	_, live := spec.Beside()
 
 	return live
 }
@@ -191,8 +150,8 @@ func (m *model) isStageBeside() bool {
 // restageBeside restages the screen when the frame no longer matches whether its agent belongs
 // beside its block.
 func (m *model) restageBeside() {
-	spec := m.active().column()
-	if spec.beside != nil && spec.isHeld(m) && m.isStageBeside() != m.frame.IsBeside() {
+	spec := m.active().column(m, m.inputs())
+	if spec.Beside != nil && spec.IsHeld() && m.isStageBeside() != m.frame.IsBeside() {
 		m.stageSelection()
 	}
 }
@@ -200,7 +159,7 @@ func (m *model) restageBeside() {
 // syncBeside draws the sidebar across the stage for the block while an agent is beside it, and
 // gives the stage its columns back once none is or another process has them.
 func (m *model) syncBeside() {
-	m.frame.Beside(m.isStageBeside() && m.active().column().isHeld(m))
+	m.frame.Beside(m.isStageBeside() && m.active().column(m, m.inputs()).IsHeld())
 }
 
 // reconcileSolo settles whether the panel has the whole window, and hands it back while the info
@@ -239,7 +198,7 @@ func (m *model) syncKeys() {
 
 // isOverColumn reports whether a column of the window falls in the block beside the list.
 func (m *model) isOverColumn(x int) bool {
-	split := m.screenColumnSplit()
+	split := m.inputs().Room.Split
 	if !split.On {
 		return false
 	}
@@ -250,14 +209,19 @@ func (m *model) isOverColumn(x int) bool {
 // paneWidth is the column the panel renders its own list, record and legend in, which is the whole
 // pane except while it is rendering a block beside them.
 func (m *model) paneWidth() int {
+	return m.measuredInputsFor(m.active()).Room.Width
+}
+
+// paneWidthAt is the pane's width beside the geometry a window is divided by.
+func (m *model) paneWidthAt(geometry column.Split) int {
 	// A half of a split is laid out at the column already chosen for it rather than asking for the
 	// split again.
 	if m.term.paneMeasure > 0 {
 		return m.term.paneMeasure
 	}
 
-	if split := m.columnGeometry(); split.On {
-		return split.Sidebar
+	if geometry.On {
+		return geometry.Sidebar
 	}
 
 	return m.term.width
@@ -265,16 +229,16 @@ func (m *model) paneWidth() int {
 
 // docShown names what the block beside the list is showing, so the reader is dropped once it
 // changes.
-func (m *model) docShown() string {
-	hovered := m.hoveredDetails().id
+func (m *model) docShown(in screen.Inputs) string {
+	hovered := m.hoveredDetails(in).id
 	if f, ok := m.active().(activeLister); ok {
-		hovered = f.activeList().hovered(m, m.inputs())
+		hovered = f.activeList().hovered(m, in)
 	}
 	if n, ok := m.active().(docNamer); ok {
 		hovered = n.docName(m)
 	}
 
-	return fmt.Sprintf("%d/%s/%t", m.screen, hovered, m.isMessagesFocused())
+	return fmt.Sprintf("%d/%s/%t", m.screen, hovered, in.Room.MessagesFocused)
 }
 
 // docNamer is a screen whose every row reads the one document, named so the reader keeps its place
@@ -284,31 +248,27 @@ type docNamer interface {
 }
 
 // columnDoc is the document the block is rendered from, read where the reader left it.
-func (m *model) columnDoc(split column.Split) docWindow {
-	if m.isMessagesFocused() {
+func (m *model) columnDoc(in screen.Inputs, split column.Split) docWindow {
+	if in.Room.MessagesFocused {
 		return m.renderMessagesWindow(split.Column, split.Rows)
 	}
 
-	if m.isDocReadable() {
-		return docWindow{rows: m.docBlock(split)}
+	if m.isDocReadable(in) {
+		return docWindow{rows: m.docBlock(in, split)}
 	}
 
 	return docWindow{
-		rows:    m.columnRows(split),
+		rows:    m.columnRows(in, split),
 		markers: true,
 	}
 }
 
 // columnRows is the block rendered at its width, and empty on a screen whose block is not a
 // document.
-func (m *model) columnRows(split column.Split) []string {
-	spec := m.columnOf()
-	if spec.docRows != nil {
-		return spec.docRows(m, m.inputs(), split.Column)
-	}
-	if spec.doc == nil {
-		return nil
+func (m *model) columnRows(in screen.Inputs, split column.Split) []string {
+	if spec := m.columnOf(in); spec.DocRows != nil {
+		return spec.DocRows(split.Column)
 	}
 
-	return paint.DocStyledRows(spec.doc(m, m.inputs()), max(split.Column, 1), columnStyle())
+	return nil
 }

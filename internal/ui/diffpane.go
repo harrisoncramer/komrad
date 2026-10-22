@@ -74,7 +74,7 @@ func (k diffKeys) table() []keys.Action[*model] {
 			Keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.PanLeft, b.Diff.PanRight) },
 			When: isPanning,
 			Nav: func(m *model, pressed string) screen.Request {
-				k.pane.PanBy(keys.DirectionOf(pressed, k.keys.Diff.PanLeft) * panStep(m))
+				k.pane.PanBy(keys.DirectionOf(pressed, k.keys.Diff.PanLeft) * panStep(m.inputs()))
 
 				return nil
 			},
@@ -317,8 +317,8 @@ func (k diffKeys) moveToEnd(m *model, direction int) screen.Request {
 }
 
 // panStep is a third of the pane, or the smallest jump until the pane is measured.
-func panStep(m *model) int {
-	split := m.screenColumnSplit()
+func panStep(in screen.Inputs) int {
+	split := in.Room.Split
 	if !split.On {
 		return diffPanStep
 	}

@@ -7,6 +7,7 @@ import (
 	"komrad/internal/diff"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/api"
+	"komrad/internal/ui/column"
 	"komrad/internal/ui/editor"
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/keys"
@@ -116,7 +117,7 @@ func (r reviewScreen) isBusy() bool {
 
 // isDiffFocused is whether the patch holds the keys.
 func (r reviewScreen) isDiffFocused(m *model, in screen.Inputs) bool {
-	return m.isListFocused() && !r.isWriting() && !r.isBlockFocused(m, in)
+	return in.Room.ListFocused && !r.isWriting() && !r.isBlockFocused(m, in)
 }
 
 func (r *reviewScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen.Request {
@@ -179,8 +180,8 @@ func (r *reviewScreen) doesRenderFromListing() bool {
 	return false
 }
 
-func (r *reviewScreen) column() columnSpec {
-	return reviewColumn()
+func (r *reviewScreen) column(m *model, in screen.Inputs) column.Spec {
+	return reviewColumn(m, in)
 }
 
 func (r reviewScreen) typedLine() (field.Line, bool) {

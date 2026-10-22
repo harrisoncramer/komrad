@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 
+	"komrad/internal/ui/column"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
@@ -172,10 +173,6 @@ func (w *worktreesScreen) kinds(*model) stops {
 	}
 }
 
-func (w *worktreesScreen) kindsFit(m *model, in screen.Inputs) bool {
-	return m.listFitsTabs(w.listParams(m, in))
-}
-
 func (w *worktreesScreen) kindsFocused(*model) *bool {
 	return &w.scopeFocus
 }
@@ -244,14 +241,6 @@ func (w *worktreesScreen) takesEveryKey() bool {
 	return false
 }
 
-func (w *worktreesScreen) detailsFit(m *model, in screen.Inputs) bool {
-	return m.listFitsDetails(w.listParams(m, in))
-}
-
-func (w *worktreesScreen) detailsRoom(m *model, in screen.Inputs) int {
-	return m.listRecordRoom(w.listParams(m, in))
-}
-
 func (w *worktreesScreen) activeList() keyedList {
 	return w.list()
 }
@@ -268,15 +257,11 @@ func (w *worktreesScreen) tabsState() *tabsState {
 	return &w.sort
 }
 
-func (w *worktreesScreen) tabsFit(m *model, in screen.Inputs) bool {
-	return m.listFitsTabs(w.listParams(m, in))
-}
-
-func (w *worktreesScreen) column() columnSpec {
-	return columnSpec{
-		floor: columnFloor,
-		read:  isAlwaysRead,
-		docRows: func(m *model, in screen.Inputs, width int) []string {
+func (w *worktreesScreen) column(m *model, in screen.Inputs) column.Spec {
+	return column.Spec{
+		Floor: columnFloor,
+		Read:  column.Always,
+		DocRows: func(width int) []string {
 			return m.withLastScreen(paint.DocStyledRows(m.worktrees.doc(m, in), max(width, 1), columnStyle()), width)
 		},
 	}

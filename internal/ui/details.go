@@ -45,13 +45,13 @@ func (r detailsRow) Key() string {
 	return r.id
 }
 
-func (m *model) hoveredDetails() details {
+func (m *model) hoveredDetails(in screen.Inputs) details {
 	d, ok := m.active().(recordRenderer)
 	if !ok {
 		return details{}
 	}
 
-	return d.details(m, m.inputs())
+	return d.details(m, in)
 }
 
 // detailsRows is the record's fields as its search leaves them.
@@ -90,13 +90,13 @@ func (m *model) detailsList() screenList[detailsRow] {
 	return screenList[detailsRow]{
 		keys:   m.keys,
 		cursor: m.detailsRowCursor,
-		rows:   func(m *model, _ screen.Inputs) []detailsRow { return m.detailsRows(m.hoveredDetails()) },
+		rows:   func(m *model, in screen.Inputs) []detailsRow { return m.detailsRows(m.hoveredDetails(in)) },
 		name:   func(row detailsRow) string { return row.text },
 	}
 }
 
 func (m *model) detailsRowCursor() *list.Cursor {
-	if held := m.hoveredDetails(); m.details.held != held.id {
+	if held := m.hoveredDetails(m.inputs()); m.details.held != held.id {
 		m.details.Cursor = list.Cursor{}
 		m.details.held = held.id
 	}
@@ -104,17 +104,22 @@ func (m *model) detailsRowCursor() *list.Cursor {
 	return &m.details.Cursor
 }
 
-func (m *model) isDetailsRendered(held details) bool {
+func (m *model) isDetailsRendered(in screen.Inputs, held details) bool {
 	if len(held.fields) == 0 || m.detailsLines() == 0 {
 		return false
 	}
 
-	d, ok := m.active().(recordRenderer)
-	if !ok {
+	if _, ok := m.active().(recordRenderer); !ok {
 		return true
 	}
 
-	return m.detailsFits.read(m.shownScreen(), func() bool { return d.detailsFit(m, m.inputs()) })
+	return m.detailsFits.read(m.shownScreen(), func() bool { return m.detailsFit(in) })
+}
+
+func (m *model) detailsFit(in screen.Inputs) bool {
+	params, ok := m.activeListParams(in)
+
+	return ok && m.listFitsDetails(params)
 }
 
 // listFitsDetails is whether the record's share fits under a list, judged with the keys on the
@@ -142,14 +147,14 @@ func (m *model) listRecordRoom(params screenListParams) int {
 	return m.spareLines(header, m.renderHelp(m.listHelpOf(params), header))
 }
 
-func (m *model) isDetailsFocused() bool {
-	return m.details.focused && m.isDetailsRendered(m.hoveredDetails())
+func (m *model) isDetailsFocused(in screen.Inputs) bool {
+	return m.details.focused && m.isDetailsRendered(in, m.hoveredDetails(in))
 }
 
 // focusDetails gives the record the keys, reading its directory again on the way in.
 func (m *model) focusDetails() tea.Cmd {
-	held := m.hoveredDetails()
-	if !m.isDetailsRendered(held) {
+	in := m.inputs()
+	if !m.isDetailsRendered(in, m.hoveredDetails(in)) {
 		return nil
 	}
 
@@ -163,7 +168,7 @@ func (m *model) focusDetails() tea.Cmd {
 
 // releaseHiddenDetails hands the keys back from a record the pane no longer renders.
 func (m *model) releaseHiddenDetails() {
-	if !m.details.focused || m.isDetailsRendered(m.hoveredDetails()) {
+	if in := m.inputs(); !m.details.focused || m.isDetailsRendered(in, m.hoveredDetails(in)) {
 		return
 	}
 
@@ -254,7 +259,7 @@ func (m *model) detailsHelp() keyMap {
 }
 
 func (m *model) copyDetailsField() tea.Cmd {
-	held := m.hoveredDetails()
+	held := m.hoveredDetails(m.inputs())
 	rows := m.detailsRows(held)
 	if len(rows) == 0 {
 		return nil
@@ -281,15 +286,15 @@ func (m *model) detailsLines() int {
 
 // grownDetailsLines is every line the record needs once it holds the keys, as far as the rows
 // left under the header and the legend allow with one kept back for the list.
-func (m *model) grownDetailsLines(held details) int {
+func (m *model) grownDetailsLines(in screen.Inputs, held details) int {
 	lines := max(m.detailsLines(), m.detailsWanted(held))
 
-	d, ok := m.active().(recordRenderer)
+	params, ok := m.activeListParams(in)
 	if !ok {
 		return lines
 	}
 
-	return max(min(lines, d.detailsRoom(m, m.inputs())-detailsChromeLines-1), 0)
+	return max(min(lines, m.listRecordRoom(params)-detailsChromeLines-1), 0)
 }
 
 // detailsWanted is the lines the whole record takes: its notices, a blank under them, and every

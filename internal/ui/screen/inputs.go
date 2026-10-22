@@ -5,6 +5,7 @@ import "komrad/internal/ui/panel"
 // Inputs is what the root hands a screen each time it asks the screen something.
 type Inputs struct {
 	Listing panel.Listing
+	Room    Room
 	Holds   Holds
 	// Inspections is what the server answered for each worktree directory.
 	Inspections map[string]panel.WorktreeInspection

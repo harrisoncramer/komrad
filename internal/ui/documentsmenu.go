@@ -39,7 +39,7 @@ func (d *documentsScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, 
 
 		return d.documentTypeMenu(t), t != nil
 	}
-	if d.isDiffFocused(m) {
+	if d.isDiffFocused(in) {
 		return menu.Menu{}, false
 	}
 
@@ -47,7 +47,7 @@ func (d *documentsScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, 
 }
 
 // buildScreenMenu builds the documents screen's own band, for writing a new document or type.
-func (d *documentsScreen) buildScreenMenu(m *model, _ screen.Inputs) (menu.Menu, bool) {
+func (d *documentsScreen) buildScreenMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
 	if d.kind == documentKindTypes {
 		return menu.Menu{
 			Title: "document types",
@@ -60,7 +60,7 @@ func (d *documentsScreen) buildScreenMenu(m *model, _ screen.Inputs) (menu.Menu,
 			},
 		}, true
 	}
-	if d.isDiffFocused(m) {
+	if d.isDiffFocused(in) {
 		return menu.Menu{}, false
 	}
 

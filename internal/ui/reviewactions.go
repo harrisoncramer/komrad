@@ -281,7 +281,7 @@ const (
 
 // buildItemMenu builds the band on the thread under the diff's cursor.
 func (r *reviewScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
-	if side, ok := r.findSide(m); ok && r.isBlockFocused(m, in) {
+	if side, ok := r.findSide(m, in); ok && r.isBlockFocused(m, in) {
 		return r.sideMenu(m, in, side)
 	}
 

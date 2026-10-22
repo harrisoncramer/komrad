@@ -3,6 +3,8 @@ package ui
 import (
 	"slices"
 
+	"komrad/internal/ui/screen"
+
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 )
@@ -14,16 +16,22 @@ func (m *model) activeKinds() (kindSwitcher, bool) {
 	return k, ok
 }
 
-func (m *model) isKindsRendered() bool {
-	k, ok := m.activeKinds()
+func (m *model) isKindsRendered(in screen.Inputs) bool {
+	_, ok := m.activeKinds()
 
-	return ok && k.kindsFit(m, m.inputs())
+	return ok && m.kindsFit(in)
 }
 
-func (m *model) isKindsFocused() bool {
+func (m *model) isKindsFocused(in screen.Inputs) bool {
 	k, ok := m.activeKinds()
 
-	return ok && *k.kindsFocused(m) && k.kindsFit(m, m.inputs())
+	return ok && *k.kindsFocused(m) && m.kindsFit(in)
+}
+
+func (m *model) kindsFit(in screen.Inputs) bool {
+	params, ok := m.activeListParams(in)
+
+	return ok && !params.hidesKinds && m.listFitsTabs(params)
 }
 
 func (m *model) blurKinds() {
@@ -34,7 +42,7 @@ func (m *model) blurKinds() {
 
 func (m *model) focusKinds() {
 	k, ok := m.activeKinds()
-	if !ok || !k.kindsFit(m, m.inputs()) || !k.kindsSwitch(m) {
+	if !ok || !m.kindsFit(m.inputs()) || !k.kindsSwitch(m) {
 		return
 	}
 

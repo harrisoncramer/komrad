@@ -34,7 +34,7 @@ func (w *worktreesScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) v
 		caret:    pane.Caret,
 		matcher:  m.filter.pattern,
 		pane:     pane.Width,
-		now:      m.clock.Now(),
+		now:      in.Room.Now,
 	})
 }
 
@@ -51,7 +51,7 @@ func (w *worktreesScreen) details(m *model, in screen.Inputs) details {
 		}
 	}
 
-	return details{id: row.Key(), fields: worktreeFields(m, row.item, m.clock.Now())}
+	return details{id: row.Key(), fields: worktreeFields(m, row.item, in.Room.Now)}
 }
 
 func worktreeFields(m *model, item panel.Worktree, now time.Time) []recordField {
@@ -211,10 +211,10 @@ func (w *worktreesScreen) gitDoc(m *model, in screen.Inputs) string {
 	case read.Err != nil && !read.IsRead():
 		return renderDocument(row.name(), "_"+row.item.Dir+"_", "could not read: "+errui.GetReason(read.Err), "")
 	case read.Err != nil:
-		return renderDocument(row.name(), "_"+row.item.Dir+"_", "_could not read: "+errui.GetReason(read.Err)+"_\n\n"+worktreeProse(row.item, read, m.clock.Now()), "")
+		return renderDocument(row.name(), "_"+row.item.Dir+"_", "_could not read: "+errui.GetReason(read.Err)+"_\n\n"+worktreeProse(row.item, read, in.Room.Now), "")
 	}
 
-	return renderDocument(row.name(), "_"+row.item.Dir+"_", worktreeProse(row.item, read, m.clock.Now()), "")
+	return renderDocument(row.name(), "_"+row.item.Dir+"_", worktreeProse(row.item, read, in.Room.Now), "")
 }
 
 // worktreeProse is the three blocks the document renders, each fenced.

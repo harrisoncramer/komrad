@@ -32,7 +32,7 @@ func globalTable() []globalArm {
 			describe: "the view switcher",
 			keys:     func(k config.Keybindings) []string { return slices.Concat(k.Views.Next, k.Views.Previous) },
 			on:       rendersSwitcher,
-			when:     func(m *model) bool { return !m.isTabsFocused() && !m.isKindsFocused() },
+			when:     func(m *model) bool { return !m.isTabsFocused(m.inputs()) && !m.isKindsFocused(m.inputs()) },
 			run:      func(m *model, key tea.KeyPressMsg) tea.Cmd { return m.openViews(m.viewsDelta(key.String())) },
 		},
 		{
@@ -48,7 +48,7 @@ func globalTable() []globalArm {
 			describe: "the tabs focus",
 			keys:     func(k config.Keybindings) []string { return k.Tabs.Focus },
 			on:       screenIs[tabSwitcher],
-			when:     func(m *model) bool { return !m.isTabsFocused() },
+			when:     func(m *model) bool { return !m.isTabsFocused(m.inputs()) },
 			run: func(m *model, _ tea.KeyPressMsg) tea.Cmd {
 				m.focusTabs()
 
@@ -60,7 +60,7 @@ func globalTable() []globalArm {
 			keys:     func(k config.Keybindings) []string { return k.Kinds.Focus },
 			on:       screenIs[kindSwitcher],
 			when: func(m *model) bool {
-				return !m.isTabsFocused() && m.isKindsRendered() && !m.isKindsFocused()
+				return !m.isTabsFocused(m.inputs()) && m.isKindsRendered(m.inputs()) && !m.isKindsFocused(m.inputs())
 			},
 			run: func(m *model, _ tea.KeyPressMsg) tea.Cmd {
 				m.focusKinds()
@@ -72,7 +72,7 @@ func globalTable() []globalArm {
 			describe: "the menu",
 			keys:     func(k config.Keybindings) []string { return k.Menu.Open },
 			when: func(m *model) bool {
-				if m.isTabsFocused() || m.isKindsFocused() {
+				if m.isTabsFocused(m.inputs()) || m.isKindsFocused(m.inputs()) {
 					return false
 				}
 
@@ -89,13 +89,13 @@ func globalTable() []globalArm {
 		{
 			describe: "the tabs",
 			every:    true,
-			when:     (*model).isTabsFocused,
+			when:     func(m *model) bool { return m.isTabsFocused(m.inputs()) },
 			run:      (*model).updateTabs,
 		},
 		{
 			describe: "the kinds",
 			every:    true,
-			when:     (*model).isKindsFocused,
+			when:     func(m *model) bool { return m.isKindsFocused(m.inputs()) },
 			run:      (*model).updateKinds,
 		},
 		{
@@ -104,13 +104,13 @@ func globalTable() []globalArm {
 			guarded:  true,
 			on:       screenIs[recordRenderer],
 			every:    true,
-			when:     (*model).isDetailsFocused,
+			when:     func(m *model) bool { return m.isDetailsFocused(m.inputs()) },
 			run:      (*model).updateDetails,
 		},
 		{
 			describe: "the document",
 			every:    true,
-			when:     (*model).isDocFocused,
+			when:     func(m *model) bool { return m.inputs().Room.Doc.Focused },
 			run:      (*model).updateDoc,
 		},
 	}

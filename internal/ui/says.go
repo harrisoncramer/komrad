@@ -110,7 +110,7 @@ func (m *model) layoutSaid() bool {
 		return false
 	}
 
-	split := m.columnSplit()
+	split := m.inputs().Room.Column
 	if !split.On {
 		return false
 	}

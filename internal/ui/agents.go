@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"komrad/internal/ui/api"
+	"komrad/internal/ui/column"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
@@ -363,14 +364,6 @@ func (a *agentsScreen) takesEveryKey() bool {
 	return a.isRenaming()
 }
 
-func (a *agentsScreen) detailsFit(m *model, in screen.Inputs) bool {
-	return m.listFitsDetails(a.listParams(m, in))
-}
-
-func (a *agentsScreen) detailsRoom(m *model, in screen.Inputs) int {
-	return m.listRecordRoom(a.listParams(m, in))
-}
-
 func (a *agentsScreen) activeList() keyedList {
 	return a.list()
 }
@@ -387,15 +380,11 @@ func (a *agentsScreen) tabsState() *tabsState {
 	return &a.sort
 }
 
-func (a *agentsScreen) tabsFit(m *model, in screen.Inputs) bool {
-	return m.listFitsTabs(a.listParams(m, in))
-}
-
-func (a *agentsScreen) column() columnSpec {
-	return columnSpec{
-		floor: columnFloor,
-		read:  isAlwaysRead,
-		docRows: func(m *model, in screen.Inputs, width int) []string {
+func (a *agentsScreen) column(m *model, in screen.Inputs) column.Spec {
+	return column.Spec{
+		Floor: columnFloor,
+		Read:  column.Always,
+		DocRows: func(width int) []string {
 			if !m.agents.isHoveringNotes(m) {
 				if rows := m.saidColumnRows(m.agents.hoveredAgentID(m, in), width); rows != nil {
 					return rows
@@ -404,7 +393,7 @@ func (a *agentsScreen) column() columnSpec {
 
 			return m.withLastScreen(paint.DocStyledRows(m.agents.doc(m, in), max(width, 1), columnStyle()), width)
 		},
-		holds: func(m *model, in screen.Inputs) bool {
+		Holds: func() bool {
 			return !m.agents.isEditorOpen() && (m.agents.hasNoAgentPane(m, in) || m.filter.hasSaid(m.agents.hoveredAgentID(m, in)))
 		},
 	}
