@@ -72,7 +72,7 @@ func (a *agentsScreen) kindsFocused(*model) *bool {
 }
 
 // kindsSwitch holds the agents view on its kind while the user selects any of its agents.
-func (a *agentsScreen) kindsSwitch(*model) bool {
+func (a *agentsScreen) kindsSwitch() bool {
 	return !a.Selected.IsActive()
 }
 
@@ -83,10 +83,10 @@ func (a *agentsScreen) stepKind(m *model, _ screen.Inputs, delta int) screen.Req
 		var staged screen.Request
 		if shown := a.shownArchive(); shown != nil {
 			shown.Selected = list.Selection{}
-			staged = shown.stage(m, m.inputs())
+			staged = shown.stage()
 		} else {
 			a.Selected = list.Selection{}
-			staged = a.stage(m, m.inputs())
+			staged = a.stage()
 		}
 
 		return screen.Batch{screen.ResetFilter{}, screen.Reconcile{}, staged, screen.Settle{}}
@@ -108,15 +108,15 @@ func (a *agentsScreen) shownArchive() *archivedAgents {
 
 // enter lands on the task the target names, or on its agent when no row stands for the task.
 func (a *archivedAgents) enter(m *model, in screen.Inputs, target screen.Target) screen.Request {
-	a.place(m, in, "")
-	rows := a.listRows(m, in)
+	a.place(in, "")
+	rows := a.listRows(in)
 	if idx := list.IndexOf(rows, taskRowKey(target.TaskID)); target.TaskID != "" && idx >= 0 {
 		a.Row = idx
 	} else if idx := rowIndexOfAgentID(rows, target.AgentID); target.AgentID != "" && idx >= 0 {
 		a.Row = idx
 	}
 
-	return screen.Batch{a.stage(m, in), screen.Settle{}}
+	return screen.Batch{a.stage(), screen.Settle{}}
 }
 
 func (a *archivedAgents) update(m *model, in screen.Inputs, msg tea.Msg) screen.Request {
@@ -129,12 +129,12 @@ func (a *archivedAgents) update(m *model, in screen.Inputs, msg tea.Msg) screen.
 		return nil
 	}
 
-	a.reconcileRename(m, in)
+	a.reconcileRename(in)
 	if a.isRenaming() {
 		return a.updateRename(a.deps.register, a.deps.clients, msg)
 	}
 
-	return a.list().update(m, key, a.actions())
+	return a.actions(in).DispatchTop(a.deps.top, a, a.deps.keys, key.String())
 }
 
 func (a *archivedAgents) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
@@ -143,7 +143,7 @@ func (a *archivedAgents) receive(m *model, in screen.Inputs, msg tea.Msg) (scree
 		return nil, false
 	}
 
-	a.settleRename(m, in, settled.Row, settled.Err)
+	a.settleRename(in, settled.Row, settled.Err)
 
 	return nil, true
 }
@@ -157,7 +157,7 @@ func (a *archivedAgents) kindsFocused(m *model) *bool {
 }
 
 // kindsSwitch holds the archived agents on their kind while the user selects any of them.
-func (a *archivedAgents) kindsSwitch(*model) bool {
+func (a *archivedAgents) kindsSwitch() bool {
 	return !a.Selected.IsActive()
 }
 
@@ -175,8 +175,8 @@ func (a *archivedAgents) list() screenList[agentRow] {
 		fits:   agentRowFits,
 		refs:   refsOf,
 		header: "folder",
-		placed: a.stage,
-		moved:  func(m *model, in screen.Inputs) screen.Request { return screen.Batch{a.stage(m, in), screen.Settle{}} },
+		placed: func(screen.Inputs) screen.Request { return a.stage() },
+		moved:  func(screen.Inputs) screen.Request { return screen.Batch{a.stage(), screen.Settle{}} },
 	}
 }
 
@@ -206,7 +206,7 @@ type archivedRowsKey struct {
 	filter     list.PatternKey
 }
 
-func (a *archivedAgents) listRows(m *model, in screen.Inputs) []agentRow {
+func (a *archivedAgents) listRows(in screen.Inputs) []agentRow {
 	order := stripOrder(archivedAgentTabs(), a.sort)
 	key := archivedRowsKey{
 		generation: in.Listing.Generation,
@@ -310,17 +310,17 @@ func isWorkflowOnDeletedList(l panel.Listing, workflowID string) bool {
 }
 
 // place keeps the cursor on the row it was on as the rows under it change.
-func (a *archivedAgents) place(m *model, in screen.Inputs, hovered string) {
-	rows := a.listRows(m, in)
+func (a *archivedAgents) place(in screen.Inputs, hovered string) {
+	rows := a.listRows(in)
 	a.Selected = a.Selected.Pruned(refsOf(rows))
 
 	a.Row = cursor.Place(list.IndexOf(rows, hovered), a.Row, len(rows))
-	a.reconcileRename(m, in)
+	a.reconcileRename(in)
 }
 
 // hoveredAgent is the archived agent the cursor is on, and none on a folder.
-func (a *archivedAgents) hoveredAgent(m *model, in screen.Inputs) (panel.Agent, bool) {
-	row, ok := list.At(a.listRows(m, in), a.Row)
+func (a *archivedAgents) hoveredAgent(in screen.Inputs) (panel.Agent, bool) {
+	row, ok := list.At(a.listRows(in), a.Row)
 	if !ok || !row.isAgentRow() {
 		return panel.Agent{}, false
 	}
@@ -331,8 +331,8 @@ func (a *archivedAgents) hoveredAgent(m *model, in screen.Inputs) (panel.Agent, 
 
 // hoveredWorkflow is the archived workflow the cursor is on, and none on an agent or on the
 // folder of a live workflow.
-func (a *archivedAgents) hoveredWorkflow(m *model, in screen.Inputs) (panel.Workflow, bool) {
-	workflow, ok := hoveredHeader(list.At(a.listRows(m, in), a.Row))
+func (a *archivedAgents) hoveredWorkflow(in screen.Inputs) (panel.Workflow, bool) {
+	workflow, ok := hoveredHeader(list.At(a.listRows(in), a.Row))
 	if !ok || workflow.ArchivedAt == nil {
 		return panel.Workflow{}, false
 	}
@@ -340,23 +340,23 @@ func (a *archivedAgents) hoveredWorkflow(m *model, in screen.Inputs) (panel.Work
 	return workflow, true
 }
 
-func (a *archivedAgents) hoveredRow(m *model, in screen.Inputs) (agentRow, bool) {
-	return list.At(a.listRows(m, in), a.Row)
+func (a *archivedAgents) hoveredRow(in screen.Inputs) (agentRow, bool) {
+	return list.At(a.listRows(in), a.Row)
 }
 
 func (a *archivedAgents) isLoading(m *model, in screen.Inputs) bool {
-	return slices.ContainsFunc(a.listRows(m, in), func(r agentRow) bool { return isRowLoading(in.Listing, r) })
+	return slices.ContainsFunc(a.listRows(in), func(r agentRow) bool { return isRowLoading(in.Listing, r) })
 }
 
 func (a *archivedAgents) stageResting(m *model, in screen.Inputs) screen.Request {
-	return screen.Batch{a.stage(m, in), screen.ReadLastScreen{}, m.inspectTaskWorktree(a.deps.clock.Now())}
+	return screen.Batch{a.stage(), screen.ReadLastScreen{}, m.inspectTaskWorktree(a.deps.clock.Now())}
 }
 
 // menuTarget is what the archive menu would act on, and none on the folder of a live workflow
 // with no archived orchestrator.
-func (a *archivedAgents) menuTarget(m *model, in screen.Inputs) (archived, bool) {
+func (a *archivedAgents) menuTarget(in screen.Inputs) (archived, bool) {
 	if a.Selected.IsActive() {
-		work := splitChosen(in.Listing, chosenAgents(a.Selected, a.listRows(m, in)))
+		work := splitChosen(in.Listing, chosenAgents(a.Selected, a.listRows(in)))
 
 		return archived{
 			work:   work,
@@ -365,11 +365,11 @@ func (a *archivedAgents) menuTarget(m *model, in screen.Inputs) (archived, bool)
 		}, len(work.chosen) > 0
 	}
 
-	if workflow, ok := a.hoveredWorkflow(m, in); ok {
+	if workflow, ok := a.hoveredWorkflow(in); ok {
 		return archived{workflow: &workflow}, true
 	}
 
-	row, ok := a.hoveredRow(m, in)
+	row, ok := a.hoveredRow(in)
 	if !ok {
 		return archived{}, false
 	}
@@ -413,13 +413,13 @@ func (a *archivedAgents) menuTarget(m *model, in screen.Inputs) (archived, bool)
 }
 
 func (a *archivedAgents) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
-	target, ok := a.menuTarget(m, in)
+	target, ok := a.menuTarget(in)
 	if !ok {
 		return menu.Menu{}, false
 	}
 
 	band := rowMenu(target.name())
-	if row, ok := list.At(a.listRows(m, in), a.Row); ok && a.holdsAnAgent(m, in) {
+	if row, ok := list.At(a.listRows(in), a.Row); ok && a.holdsAnAgent(in) {
 		item, _ := row.paneItem()
 		band = agentMenu(m, a.deps.keys, item)
 	}
@@ -472,21 +472,21 @@ func confirmDeleteWorkflow(m *model, clients api.Clients, workflow panel.Workflo
 }
 
 // stage keeps the info pane on the row the cursor is standing on.
-func (a *archivedAgents) stage(*model, screen.Inputs) screen.Request {
+func (a *archivedAgents) stage() screen.Request {
 	return screen.StageTerminal{}
 }
 
-func (a *archivedAgents) listParams(m *model, in screen.Inputs) list.Params {
+func (a *archivedAgents) listParams(_ *model, in screen.Inputs) list.Params {
 	return list.Params{
-		Help:     a.help(m),
+		Help:     a.help(in),
 		Empty:    a.emptySaid(),
-		Rows:     len(a.listRows(m, in)),
-		Snapshot: func(pane list.Pane) view.Snapshot { return a.snapshot(m, in, pane) },
+		Rows:     len(a.listRows(in)),
+		Snapshot: func(pane list.Pane) view.Snapshot { return a.snapshot(in, pane) },
 	}
 }
 
-func (a *archivedAgents) help(m *model) legend.Help {
-	return m.helpOf(a.actions())
+func (a *archivedAgents) help(in screen.Inputs) legend.Help {
+	return a.actions(in).Help(a, a.deps.keys)
 }
 
 func archivedAgentTabs() tabs.Strip {
@@ -526,8 +526,8 @@ func (a *archivedAgents) activeList() keyedList {
 	return a.list()
 }
 
-func (a *archivedAgents) hoveredName(m *model, in screen.Inputs) string {
-	return a.list().hoveredName(m, in)
+func (a *archivedAgents) hoveredName(in screen.Inputs) string {
+	return a.list().hoveredName(in)
 }
 
 func (a *archivedAgents) tabs() tabs.Strip {
@@ -543,25 +543,25 @@ func (a *archivedAgents) column(m *model, in screen.Inputs) column.Spec {
 		Floor: columnFloor,
 		Read:  column.IsAlwaysRead,
 		DocRows: func(width int) []string {
-			if agentID, ok := a.screenedAgentID(m, in); ok {
+			if agentID, ok := a.screenedAgentID(in); ok {
 				if rows := m.said.columnRows(in.Room.Pattern, agentID, width); rows != nil {
 					return rows
 				}
 			}
 
-			return m.withLastScreen(a.docRows(m, in, width), width)
+			return m.withLastScreen(a.docRows(in, width), width)
 		},
 	}
 }
 
 // renameable is the row under the cursor when the user can rename it, which is an agent, a task, or a
 // live workflow's folder.
-func (a *archivedAgents) renameable(m *model, in screen.Inputs) (agentRow, bool) {
+func (a *archivedAgents) renameable(in screen.Inputs) (agentRow, bool) {
 	if a.Selected.IsActive() {
 		return agentRow{}, false
 	}
 
-	row, ok := list.At(a.listRows(m, in), a.Row)
+	row, ok := list.At(a.listRows(in), a.Row)
 	if !ok || (row.header && !row.isTask() && row.workflow.ArchivedAt != nil) {
 		return agentRow{}, false
 	}
@@ -570,24 +570,24 @@ func (a *archivedAgents) renameable(m *model, in screen.Inputs) (agentRow, bool)
 }
 
 // openRename types over the name of the agent or live folder under the cursor.
-func (a *archivedAgents) openRename(m *model, in screen.Inputs) screen.Request {
-	if row, ok := a.renameable(m, in); ok {
+func (a *archivedAgents) openRename(in screen.Inputs) screen.Request {
+	if row, ok := a.renameable(in); ok {
 		a.renaming = renameAgentRow(row)
 	}
 
 	return nil
 }
 
-func (a *archivedAgents) reconcileRename(m *model, in screen.Inputs) {
-	reconcileRename(&a.renameSlot, a.listRows(m, in), a.list().hovered(m, in), agentRowName)
+func (a *archivedAgents) reconcileRename(in screen.Inputs) {
+	reconcileRename(&a.renameSlot, a.listRows(in), a.list().hovered(in), agentRowName)
 }
 
-func (a *archivedAgents) settleRename(m *model, in screen.Inputs, row string, err error) {
+func (a *archivedAgents) settleRename(in screen.Inputs, row string, err error) {
 	if a.settleField(row, err) {
-		a.reconcileRename(m, in)
+		a.reconcileRename(in)
 	}
 }
 
 func (a *archivedAgents) dispatches(*model) []keys.Table {
-	return []keys.Table{a.actions()}
+	return []keys.Table{a.actions(screen.Inputs{})}
 }

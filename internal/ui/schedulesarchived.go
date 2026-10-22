@@ -47,7 +47,7 @@ func (w *schedulesScreen) kindsFocused(*model) *bool {
 	return &w.kindFocus
 }
 
-func (w *schedulesScreen) kindsSwitch(*model) bool {
+func (w *schedulesScreen) kindsSwitch() bool {
 	return true
 }
 
@@ -61,7 +61,7 @@ func (w *schedulesScreen) stepKind(m *model, in screen.Inputs, delta int) screen
 }
 
 func (a *archivedSchedules) enter(m *model, in screen.Inputs, _ screen.Target) screen.Request {
-	return screen.Batch{a.stage(m, in), screen.Settle{}}
+	return screen.Batch{a.stage(), screen.Settle{}}
 }
 
 func (a *archivedSchedules) update(m *model, in screen.Inputs, msg tea.Msg) screen.Request {
@@ -70,7 +70,7 @@ func (a *archivedSchedules) update(m *model, in screen.Inputs, msg tea.Msg) scre
 		return nil
 	}
 
-	return a.list().update(m, key, a.actions())
+	return a.actions(in).DispatchTop(a.deps.top, a, a.deps.keys, key.String())
 }
 
 func (a *archivedSchedules) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
@@ -79,7 +79,7 @@ func (a *archivedSchedules) receive(m *model, in screen.Inputs, msg tea.Msg) (sc
 		return nil, false
 	}
 
-	a.place(m, in, a.list().hovered(m, relisted.Before(in)))
+	a.place(in, a.list().hovered(relisted.Before(in)))
 
 	return nil, true
 }
@@ -92,7 +92,7 @@ func (a *archivedSchedules) kindsFocused(m *model) *bool {
 	return m.schedules.kindsFocused(m)
 }
 
-func (a *archivedSchedules) kindsSwitch(*model) bool {
+func (a *archivedSchedules) kindsSwitch() bool {
 	return true
 }
 
@@ -108,12 +108,12 @@ func (a *archivedSchedules) list() screenList[scheduleItem] {
 		rows:   a.listRows,
 		name:   func(item scheduleItem) string { return item.schedule.Name },
 		fits:   scheduleItemFits,
-		placed: a.stage,
-		moved:  func(m *model, in screen.Inputs) screen.Request { return screen.Batch{a.stage(m, in), screen.Settle{}} },
+		placed: func(screen.Inputs) screen.Request { return a.stage() },
+		moved:  func(screen.Inputs) screen.Request { return screen.Batch{a.stage(), screen.Settle{}} },
 	}
 }
 
-func (a *archivedSchedules) listRows(m *model, in screen.Inputs) []scheduleItem {
+func (a *archivedSchedules) listRows(in screen.Inputs) []scheduleItem {
 	return a.built.read(listingKeyOf(in), func() []scheduleItem {
 		return list.Narrowed(in.Room.Pattern, list.NarrowedParams[scheduleItem]{
 			Rows:  xslice.Map(in.Listing.ArchivedSchedules, scheduleItemOf),
@@ -125,21 +125,21 @@ func (a *archivedSchedules) listRows(m *model, in screen.Inputs) []scheduleItem 
 }
 
 // hoveredSchedule is the archived schedule the cursor is on.
-func (a *archivedSchedules) hoveredSchedule(m *model, in screen.Inputs) (panel.Schedule, bool) {
-	item, ok := list.At(a.listRows(m, in), a.Row)
+func (a *archivedSchedules) hoveredSchedule(in screen.Inputs) (panel.Schedule, bool) {
+	item, ok := list.At(a.listRows(in), a.Row)
 
 	return item.schedule, ok
 }
 
 // menuTarget is the archived schedule the archive menu would act on.
-func (a *archivedSchedules) menuTarget(m *model, in screen.Inputs) (archived, bool) {
-	schedule, ok := a.hoveredSchedule(m, in)
+func (a *archivedSchedules) menuTarget(in screen.Inputs) (archived, bool) {
+	schedule, ok := a.hoveredSchedule(in)
 
 	return archived{schedule: &schedule}, ok
 }
 
 func (a *archivedSchedules) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
-	target, ok := a.menuTarget(m, in)
+	target, ok := a.menuTarget(in)
 	if !ok {
 		return menu.Menu{}, false
 	}
@@ -171,32 +171,32 @@ func confirmDeleteSchedule(clients api.Clients, schedule panel.Schedule) screen.
 }
 
 // place keeps the cursor on the archived schedule it was on as the rows under it change.
-func (a *archivedSchedules) place(m *model, in screen.Inputs, hovered string) {
-	rows := a.listRows(m, in)
+func (a *archivedSchedules) place(in screen.Inputs, hovered string) {
+	rows := a.listRows(in)
 	a.Row = cursor.Place(list.IndexOf(rows, hovered), a.Row, len(rows))
 }
 
 // stage keeps the info pane on the row the cursor is standing on.
-func (a *archivedSchedules) stage(*model, screen.Inputs) screen.Request {
+func (a *archivedSchedules) stage() screen.Request {
 	return screen.StageTerminal{}
 }
 
-func (a *archivedSchedules) listParams(m *model, in screen.Inputs) list.Params {
+func (a *archivedSchedules) listParams(_ *model, in screen.Inputs) list.Params {
 	return list.Params{
-		Help:  a.help(m),
-		Rows:  len(a.listRows(m, in)),
+		Help:  a.help(in),
+		Rows:  len(a.listRows(in)),
 		Empty: "no archived schedules",
 		Snapshot: func(pane list.Pane) view.Snapshot {
 			return scheduleSnapshot(in, pane, scheduleSnapshotParams{
-				rows:   a.listRows(m, in),
+				rows:   a.listRows(in),
 				cursor: a.Row,
 			})
 		},
 	}
 }
 
-func (a *archivedSchedules) help(m *model) legend.Help {
-	return m.helpOf(a.actions())
+func (a *archivedSchedules) help(in screen.Inputs) legend.Help {
+	return a.actions(in).Help(a, a.deps.keys)
 }
 
 var (
@@ -220,8 +220,8 @@ func (a *archivedSchedules) activeList() keyedList {
 	return a.list()
 }
 
-func (a *archivedSchedules) hoveredName(m *model, in screen.Inputs) string {
-	return a.list().hoveredName(m, in)
+func (a *archivedSchedules) hoveredName(in screen.Inputs) string {
+	return a.list().hoveredName(in)
 }
 
 func (a *archivedSchedules) column(m *model, in screen.Inputs) column.Spec {
@@ -229,15 +229,15 @@ func (a *archivedSchedules) column(m *model, in screen.Inputs) column.Spec {
 		Floor: columnFloor,
 		Read:  column.IsAlwaysRead,
 		DocRows: func(width int) []string {
-			return a.docRows(m, in, width)
+			return a.docRows(in, width)
 		},
 	}
 }
 
 func (a *archivedSchedules) dispatches(*model) []keys.Table {
-	return []keys.Table{a.actions()}
+	return []keys.Table{a.actions(screen.Inputs{})}
 }
 
 func (a *archivedSchedules) stageResting(m *model, in screen.Inputs) screen.Request {
-	return a.stage(m, in)
+	return a.stage()
 }

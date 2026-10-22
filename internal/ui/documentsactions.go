@@ -4,117 +4,115 @@ import (
 	"slices"
 
 	"komrad/config"
-	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 // actions is the documents screen as one table and the legend that names it.
-func (d *documentsScreen) actions(m *model) keys.Spec[*model] {
-	in := m.inputs()
+func (d *documentsScreen) actions(in screen.Inputs) keys.Spec[*documentsScreen] {
 	switch {
-	case d.isDiffFocused(in) && d.isDiffRendered(m, in):
-		return d.diffActions()
+	case d.isDiffFocused(in) && d.isDiffRendered(in):
+		return d.diffActions(in)
 	case d.isDiffFocused(in):
-		return d.stepActions()
+		return d.stepActions(in)
 	}
 
-	return d.listActions()
+	return d.listActions(in)
 }
 
 // listActions is the keys on the list of documents.
-func (d *documentsScreen) listActions() keys.Spec[*model] {
-	return keys.Spec[*model]{
-		Table:  d.table(),
-		Legend: d.legend(),
+func (d *documentsScreen) listActions(in screen.Inputs) keys.Spec[*documentsScreen] {
+	return keys.Spec[*documentsScreen]{
+		Table:  d.table(in),
+		Legend: d.legend(in),
 	}
 }
 
-func (d *documentsScreen) table() []keys.Action[*model] {
+func (d *documentsScreen) table(in screen.Inputs) []keys.Action[*documentsScreen] {
 	return slices.Concat(
-		guarded(d.onDocuments, d.documentTable()),
-		guarded(d.onDocumentTypes, d.documentTypeTable()),
+		guarded((*documentsScreen).onDocuments, d.documentTable(in)),
+		guarded((*documentsScreen).onDocumentTypes, d.documentTypeTable(in)),
 	)
 }
 
 // guarded narrows each action to answer only while when holds.
-func guarded(when func(*model) bool, actions []keys.Action[*model]) []keys.Action[*model] {
-	return xslice.Map(actions, func(action keys.Action[*model]) keys.Action[*model] {
+func guarded[S any](when func(S) bool, actions []keys.Action[S]) []keys.Action[S] {
+	return xslice.Map(actions, func(action keys.Action[S]) keys.Action[S] {
 		inner := action.When
-		action.When = func(m *model) bool { return when(m) && (inner == nil || inner(m)) }
+		action.When = func(s S) bool { return when(s) && (inner == nil || inner(s)) }
 
 		return action
 	})
 }
 
-func (d *documentsScreen) documentTypeTable() []keys.Action[*model] {
-	return append(d.documentTypeList().actions(),
-		keys.Action[*model]{
+func (d *documentsScreen) documentTypeTable(in screen.Inputs) []keys.Action[*documentsScreen] {
+	return append(listActions[*documentsScreen](d.documentTypeList(), in),
+		keys.Action[*documentsScreen]{
 			ID:   actionDocumentsBack,
 			Keys: keys.FixedBack,
-			Nav:  func(m *model, _ string) screen.Request { return d.back(m) },
+			Nav:  func(*documentsScreen, string) screen.Request { return d.back() },
 		},
 	)
 }
 
-func (d *documentsScreen) documentTable() []keys.Action[*model] {
-	return slices.Concat(d.list().actions(), []keys.Action[*model]{
+func (d *documentsScreen) documentTable(in screen.Inputs) []keys.Action[*documentsScreen] {
+	return slices.Concat(listActions[*documentsScreen](d.list(), in), []keys.Action[*documentsScreen]{
 		{
 			ID:   actionDocumentsOlder,
 			Keys: func(k config.Keybindings) []string { return k.Documents.Older },
-			Nav: func(m *model, _ string) screen.Request {
-				return d.stepOlder(m, m.inputs())
+			Nav: func(*documentsScreen, string) screen.Request {
+				return d.stepOlder(in)
 			},
 		},
 		{
 			ID:   actionDocumentsNewer,
 			Keys: func(k config.Keybindings) []string { return k.Documents.Newer },
-			Nav: func(m *model, _ string) screen.Request {
-				return d.stepNewer(m, m.inputs())
+			Nav: func(*documentsScreen, string) screen.Request {
+				return d.stepNewer(in)
 			},
 		},
 		{
 			ID:   actionDocumentsBack,
 			Keys: keys.FixedBack,
-			Nav: func(m *model, _ string) screen.Request {
-				return d.back(m)
+			Nav: func(*documentsScreen, string) screen.Request {
+				return d.back()
 			},
 		},
 	})
 }
 
-func (d *documentsScreen) legend() []keys.LegendRow[*model] {
-	return slices.Concat(keys.NavLegend[*model](), []keys.LegendRow[*model]{
+func (d *documentsScreen) legend(in screen.Inputs) []keys.LegendRow[*documentsScreen] {
+	onDocument := func(*documentsScreen) bool { return d.isOnDocument(in) }
+
+	return slices.Concat(keys.NavLegend[*documentsScreen](), []keys.LegendRow[*documentsScreen]{
 		{
 			Of:   []keys.ID{keys.FilterOpen},
-			Desc: filterDescOf,
+			Desc: filterDescOf[*documentsScreen](in),
 		},
 		{
 			Of:   []keys.ID{actionDocumentsOlder},
-			Desc: func(*model) string { return "an earlier version" },
-			Show: d.isOnDocument,
+			Desc: func(*documentsScreen) string { return "an earlier version" },
+			Show: onDocument,
 		},
 		{
 			Of:   []keys.ID{actionDocumentsNewer},
-			Desc: func(*model) string { return "a later version" },
-			Show: d.isOnDocument,
+			Desc: func(*documentsScreen) string { return "a later version" },
+			Show: onDocument,
 		},
 		{
 			Of:    []keys.ID{keys.FilterClear},
-			Desc:  filterClearDescOf,
+			Desc:  filterClearDescOf[*documentsScreen](in),
 			Strip: true,
 		},
 		{
 			Of:    []keys.ID{keys.FilterMatch},
-			Desc:  func(*model) string { return "next/prev match" },
+			Desc:  func(*documentsScreen) string { return "next/prev match" },
 			Strip: true,
 		},
 		{
 			Of:    []keys.ID{actionDocumentsBack},
-			Desc:  func(*model) string { return "back" },
+			Desc:  func(*documentsScreen) string { return "back" },
 			Strip: true,
 		},
 	})
@@ -122,24 +120,24 @@ func (d *documentsScreen) legend() []keys.LegendRow[*model] {
 
 // diffActions is the keys on a write's diff: the ones every diff pane shares, stepping between
 // the writes, and handing the keys back to the list.
-func (d *documentsScreen) diffActions() keys.Spec[*model] {
+func (d *documentsScreen) diffActions(in screen.Inputs) keys.Spec[*documentsScreen] {
 	diff := d.diffKeys()
-	step := d.stepActions()
+	step := d.stepActions(in)
 
-	return keys.Spec[*model]{
-		Table:  slices.Concat(step.Table, diff.table(), diff.shapeTable()),
-		Legend: slices.Concat(diff.legend(), step.Legend),
+	return keys.Spec[*documentsScreen]{
+		Table:  slices.Concat(step.Table, diffTable[*documentsScreen](diff, in), diffShapeTable[*documentsScreen](diff, in)),
+		Legend: slices.Concat(diffLegend[*documentsScreen](diff, in), step.Legend),
 	}
 }
 
 // stepActions is the keys on a focused diff with no write rendered yet.
-func (d *documentsScreen) stepActions() keys.Spec[*model] {
-	return keys.Spec[*model]{
-		Table: []keys.Action[*model]{
+func (d *documentsScreen) stepActions(in screen.Inputs) keys.Spec[*documentsScreen] {
+	return keys.Spec[*documentsScreen]{
+		Table: []keys.Action[*documentsScreen]{
 			{
 				ID:   actionDocumentsBack,
 				Keys: keys.FixedBack,
-				Nav: func(*model, string) screen.Request {
+				Nav: func(*documentsScreen, string) screen.Request {
 					d.focus = false
 
 					return nil
@@ -148,31 +146,31 @@ func (d *documentsScreen) stepActions() keys.Spec[*model] {
 			{
 				ID:   keys.Quit,
 				Keys: keys.FixedQuit,
-				Nav:  func(m *model, _ string) screen.Request { return screen.Hide{} },
+				Nav:  func(*documentsScreen, string) screen.Request { return screen.Hide{} },
 			},
 			{
 				ID:   actionDocumentsOlder,
 				Keys: func(k config.Keybindings) []string { return k.Documents.Older },
-				Nav:  func(m *model, _ string) screen.Request { return d.stepOlder(m, m.inputs()) },
+				Nav:  func(*documentsScreen, string) screen.Request { return d.stepOlder(in) },
 			},
 			{
 				ID:   actionDocumentsNewer,
 				Keys: func(k config.Keybindings) []string { return k.Documents.Newer },
-				Nav:  func(m *model, _ string) screen.Request { return d.stepNewer(m, m.inputs()) },
+				Nav:  func(*documentsScreen, string) screen.Request { return d.stepNewer(in) },
 			},
 		},
-		Legend: []keys.LegendRow[*model]{
+		Legend: []keys.LegendRow[*documentsScreen]{
 			{
 				Of:   []keys.ID{actionDocumentsOlder},
-				Desc: func(*model) string { return "an earlier version" },
+				Desc: func(*documentsScreen) string { return "an earlier version" },
 			},
 			{
 				Of:   []keys.ID{actionDocumentsNewer},
-				Desc: func(*model) string { return "a later version" },
+				Desc: func(*documentsScreen) string { return "a later version" },
 			},
 			{
 				Of:    []keys.ID{actionDocumentsBack},
-				Desc:  func(*model) string { return "back to the list" },
+				Desc:  func(*documentsScreen) string { return "back to the list" },
 				Strip: true,
 			},
 		},
@@ -191,22 +189,17 @@ func (d *documentsScreen) diffKeys() diffKeys {
 		register: d.deps.register,
 		pane:     &h.pane,
 		filter:   &h.filter,
-		window:   func(m *model) diffview.Window { return d.diffWindow(m, m.inputs()) },
+		window:   d.diffWindow,
 	}
 }
 
-// updateDiff is the diff taking the keys.
-func (d *documentsScreen) updateDiff(m *model, key tea.KeyPressMsg) screen.Request {
-	return d.actions(m).DispatchTop(d.deps.top, m, d.deps.keys, key.String())
-}
-
 // isDiffRendered reports whether the panel renders a write's change as a diff beside the list.
-func (d *documentsScreen) isDiffRendered(m *model, in screen.Inputs) bool {
+func (d *documentsScreen) isDiffRendered(in screen.Inputs) bool {
 	if !in.Room.Split.On {
 		return false
 	}
 
-	return d.isSteppingHovered(m, in) && d.history.isRendered(in.Room.Dark)
+	return d.isSteppingHovered(in) && d.history.isRendered(in.Room.Dark)
 }
 
 // isDiffFocused reports whether the diff of the write stepped to holds the keys.
@@ -215,15 +208,15 @@ func (d *documentsScreen) isDiffFocused(in screen.Inputs) bool {
 }
 
 // isBlockFocused reports whether the diff of one of its writes holds the keys.
-func (d *documentsScreen) isBlockFocused(m *model, in screen.Inputs) bool {
+func (d *documentsScreen) isBlockFocused(in screen.Inputs) bool {
 	return d.isDiffFocused(in)
 }
 
-func (d *documentsScreen) isBlockRendered(m *model, in screen.Inputs) bool {
-	return d.isDiffRendered(m, in)
+func (d *documentsScreen) isBlockRendered(in screen.Inputs) bool {
+	return d.isDiffRendered(in)
 }
 
-func (d *documentsScreen) focusBlock(*model) {
+func (d *documentsScreen) focusBlock() {
 	d.focus = true
 }
 
@@ -238,12 +231,12 @@ func (d *documentsScreen) leaveScreen(m *model) screen.Request {
 	return d.closeEdit(m)
 }
 
-func (d *documentsScreen) doesScrollColumn(m *model, in screen.Inputs) bool {
-	return d.isBlockRendered(m, in)
+func (d *documentsScreen) doesScrollColumn(in screen.Inputs) bool {
+	return d.isBlockRendered(in)
 }
 
 func (d *documentsScreen) scrollColumn(m *model, rows int) screen.Request {
-	return d.diffKeys().moveBy(m, rows)
+	return d.diffKeys().moveBy(m.inputs(), rows)
 }
 
 // docKeys steps through the writes from the document as it stands, handing the keys to the diff.
@@ -256,7 +249,7 @@ func (d *documentsScreen) docKeys() keys.Spec[*model] {
 				Nav: func(m *model, _ string) screen.Request {
 					d.focus = true
 
-					return d.stepOlder(m, m.inputs())
+					return d.stepOlder(m.inputs())
 				},
 			},
 			{
@@ -275,8 +268,8 @@ func (d *documentsScreen) docKeys() keys.Spec[*model] {
 }
 
 // isOnDocument reports whether the cursor is on a document.
-func (d *documentsScreen) isOnDocument(m *model) bool {
-	_, ok := d.hovered(m, m.inputs())
+func (d *documentsScreen) isOnDocument(in screen.Inputs) bool {
+	_, ok := d.hovered(in)
 
 	return ok
 }

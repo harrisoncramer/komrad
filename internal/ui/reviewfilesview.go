@@ -17,7 +17,7 @@ import (
 )
 
 // filesView is the FILES block cut to lines rows, windowed on the row the cursor is in.
-func (r reviewScreen) filesView(m *model, in screen.Inputs, lines int) string {
+func (r reviewScreen) filesView(in screen.Inputs, lines int) string {
 	switch {
 	case lines == 0:
 		return ""
@@ -29,8 +29,8 @@ func (r reviewScreen) filesView(m *model, in screen.Inputs, lines int) string {
 
 	width := lineWidthOf(in.Room.Width)
 	tree := r.readFilesTree()
-	_, onSide := r.findSide(m, in)
-	focused := r.isBlockFocused(m, in) && !onSide
+	_, onSide := r.findSide(in)
+	focused := r.isBlockFocused(in) && !onSide
 	columns := measureStatColumns(r.deps.glyphs, tree.rows)
 	rows := make([]string, 0, len(tree.rows))
 	keys := make([]string, 0, len(tree.rows))

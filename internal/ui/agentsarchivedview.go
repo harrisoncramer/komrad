@@ -10,7 +10,7 @@ import (
 )
 
 func (a *archivedAgents) details(m *model, in screen.Inputs) record.Details {
-	r, ok := list.At(a.listRows(m, in), a.Row)
+	r, ok := list.At(a.listRows(in), a.Row)
 	if !ok {
 		return record.Details{}
 	}
@@ -30,8 +30,8 @@ func (a *archivedAgents) details(m *model, in screen.Inputs) record.Details {
 }
 
 // doc is the markdown rendered beside the list for the row the cursor is on.
-func (a *archivedAgents) doc(m *model, in screen.Inputs) string {
-	r, ok := list.At(a.listRows(m, in), a.Row)
+func (a *archivedAgents) doc(in screen.Inputs) string {
+	r, ok := list.At(a.listRows(in), a.Row)
 	switch {
 	case !ok:
 		return a.emptyMarkdown()
@@ -45,8 +45,8 @@ func (a *archivedAgents) doc(m *model, in screen.Inputs) string {
 }
 
 // docRows is the block rendered beside the list at a width for the row the cursor is on.
-func (a *archivedAgents) docRows(m *model, in screen.Inputs, width int) []string {
-	return paint.DocStyledRows(a.doc(m, in), width, columnStyle())
+func (a *archivedAgents) docRows(in screen.Inputs, width int) []string {
+	return paint.DocStyledRows(a.doc(in), width, columnStyle())
 }
 
 // archiveDocument is what the panel renders beside an archived agent's row.
@@ -59,8 +59,8 @@ func archiveDocument(agent panel.Agent) string {
 }
 
 // snapshot is the archived agents' rows as the plain data the shared rendering reads.
-func (a *archivedAgents) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
-	rows := a.listRows(m, in)
+func (a *archivedAgents) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
+	rows := a.listRows(in)
 	work := splitChosen(in.Listing, chosenAgents(a.Selected, rows))
 
 	return agentsSnapshot(snapshotParams{

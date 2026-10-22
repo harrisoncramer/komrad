@@ -157,7 +157,7 @@ func (m *model) hoveredAgentID() string {
 		return ""
 	}
 
-	return screen.hoveredAgentID(m, m.inputs())
+	return screen.hoveredAgentID(m.inputs())
 }
 
 func (m *model) viewsBinding() key.Binding {

@@ -26,10 +26,10 @@ func (m *model) Help(help legend.Help, above ...string) string {
 	if in.Room.Doc.Focused {
 		help = m.docHelp()
 	}
-	if m.isTabsFocused(in) {
+	if m.isTabsFocused() {
 		help = m.tabsHelp()
 	}
-	if m.isKindsFocused(in) {
+	if m.isKindsFocused() {
 		help = m.kindsHelp()
 	}
 	if in.Room.MessagesFocused {

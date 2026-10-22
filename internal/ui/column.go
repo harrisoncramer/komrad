@@ -232,10 +232,10 @@ func (m *model) paneWidthAt(geometry column.Split) int {
 func (m *model) docShown(in screen.Inputs) string {
 	hovered := m.hoveredDetails(in).ID
 	if f, ok := m.active().(activeLister); ok {
-		hovered = f.activeList().hovered(m, in)
+		hovered = f.activeList().hovered(in)
 	}
 	if n, ok := m.active().(docNamer); ok {
-		hovered = n.docName(m)
+		hovered = n.docName()
 	}
 
 	return fmt.Sprintf("%d/%s/%t", m.screen, hovered, in.Room.MessagesFocused)
@@ -244,7 +244,7 @@ func (m *model) docShown(in screen.Inputs) string {
 // docNamer is a screen whose every row reads the one document, named so the reader keeps its place
 // as the cursor moves.
 type docNamer interface {
-	docName(m *model) string
+	docName() string
 }
 
 // columnDoc is the document the block is rendered from, read where the reader left it.

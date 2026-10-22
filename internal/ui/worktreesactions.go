@@ -13,63 +13,63 @@ import (
 )
 
 // actions is the worktrees screen as one table and the legend that names it.
-func (w *worktreesScreen) actions() keys.Spec[*model] {
-	return keys.Spec[*model]{
-		Table:  w.table(),
-		Legend: w.legend(),
+func (w *worktreesScreen) actions(in screen.Inputs) keys.Spec[*worktreesScreen] {
+	return keys.Spec[*worktreesScreen]{
+		Table:  w.table(in),
+		Legend: w.legend(in),
 	}
 }
 
-func (w *worktreesScreen) table() []keys.Action[*model] {
+func (w *worktreesScreen) table(in screen.Inputs) []keys.Action[*worktreesScreen] {
 	list := w.list()
 
-	return append(list.actions(),
-		keys.Action[*model]{
+	return append(listActions[*worktreesScreen](list, in),
+		keys.Action[*worktreesScreen]{
 			ID:   actionWorktreesBack,
 			Keys: keys.FixedBack,
-			When: list.isBrowsing,
-			Nav:  func(m *model, _ string) screen.Request { return screen.PickView{} },
+			When: func(*worktreesScreen) bool { return list.isBrowsing() },
+			Nav:  func(*worktreesScreen, string) screen.Request { return screen.PickView{} },
 		},
 	)
 }
 
-func (w *worktreesScreen) legend() []keys.LegendRow[*model] {
+func (w *worktreesScreen) legend(in screen.Inputs) []keys.LegendRow[*worktreesScreen] {
 	list := w.list()
 
-	return slices.Concat(list.selectionLegend(), []keys.LegendRow[*model]{
+	return slices.Concat(selectionLegend[*worktreesScreen](list, in), []keys.LegendRow[*worktreesScreen]{
 		{
 			Of:   []keys.ID{keys.SelectToggle},
-			Desc: list.toggleDesc,
-			Show: w.holdsARow,
+			Desc: func(*worktreesScreen) string { return list.toggleDesc(in) },
+			Show: func(*worktreesScreen) bool { return w.holdsARow(in) },
 		},
 		{
 			Of:   []keys.ID{keys.FilterOpen},
-			Desc: filterDescOf,
+			Desc: filterDescOf[*worktreesScreen](in),
 		},
-	}, keys.NavLegend[*model](), []keys.LegendRow[*model]{
+	}, keys.NavLegend[*worktreesScreen](), []keys.LegendRow[*worktreesScreen]{
 		{
 			Of:   []keys.ID{actionWorktreesBack},
-			Desc: func(*model) string { return "back" },
+			Desc: func(*worktreesScreen) string { return "back" },
 		},
 		{
 			Of:    []keys.ID{keys.FilterClear},
-			Desc:  filterClearDescOf,
+			Desc:  filterClearDescOf[*worktreesScreen](in),
 			Strip: true,
 		},
 		{
 			Of:    []keys.ID{keys.FilterMatch},
-			Desc:  func(*model) string { return "next/prev match" },
+			Desc:  func(*worktreesScreen) string { return "next/prev match" },
 			Strip: true,
 		},
 	})
 }
 
-func (w *worktreesScreen) holdsARow(m *model) bool {
+func (w *worktreesScreen) holdsARow(in screen.Inputs) bool {
 	if w.Selected.IsActive() {
 		return false
 	}
 
-	_, ok := list.At(w.rows(m, m.inputs()), w.Row)
+	_, ok := list.At(w.rows(in), w.Row)
 
 	return ok
 }
@@ -107,9 +107,9 @@ func (w *worktreesScreen) deleteWorktree(m *model, item panel.Worktree) screen.R
 }
 
 // chosenDeletion is what deleting every chosen directory takes.
-func (w *worktreesScreen) chosenDeletion(m *model, in screen.Inputs) worktreeDeletion {
+func (w *worktreesScreen) chosenDeletion(in screen.Inputs) worktreeDeletion {
 	deletion := worktreeDeletion{}
-	for _, row := range w.rows(m, in) {
+	for _, row := range w.rows(in) {
 		if row.header || !w.Selected.Has(row.Key()) {
 			continue
 		}
@@ -127,9 +127,9 @@ func (w *worktreesScreen) chosenDeletion(m *model, in screen.Inputs) worktreeDel
 }
 
 // clearDeletion is every directory on the screen no task answers for.
-func (w *worktreesScreen) clearDeletion(m *model, in screen.Inputs) worktreeDeletion {
+func (w *worktreesScreen) clearDeletion(in screen.Inputs) worktreeDeletion {
 	deletion := worktreeDeletion{}
-	for _, row := range w.rows(m, in) {
+	for _, row := range w.rows(in) {
 		if !row.header && row.item.Fate == panel.FateUnowned {
 			deletion.unowned = append(deletion.unowned, row.item)
 		}
@@ -220,8 +220,8 @@ func (w *worktreesScreen) deleteWorktreesWrite(deletion worktreeDeletion) screen
 }
 
 func (w *worktreesScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
-	if w.list().isSelecting(m) {
-		deletion := w.chosenDeletion(m, in)
+	if w.list().isSelecting() {
+		deletion := w.chosenDeletion(in)
 		if deletion.chosen() == 0 {
 			return menu.Menu{}, false
 		}
@@ -231,7 +231,7 @@ func (w *worktreesScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, 
 		}))), true
 	}
 
-	row, ok := list.At(w.rows(m, in), w.Row)
+	row, ok := list.At(w.rows(in), w.Row)
 	if !ok {
 		return menu.Menu{}, false
 	}
@@ -260,7 +260,7 @@ func (w *worktreesScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, 
 
 // buildScreenMenu builds the worktrees screen's own band, for clearing every directory that can go.
 func (w *worktreesScreen) buildScreenMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
-	clearable := w.clearDeletion(m, in)
+	clearable := w.clearDeletion(in)
 	clearAll := menu.Leaving("delete unused worktrees", w.deps.keys.ArchiveMenu.Clear, func() screen.Request {
 		return w.confirmDeleteWorktrees(m, clearable)
 	})

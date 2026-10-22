@@ -237,10 +237,10 @@ func (m *model) resizeTo(size tea.WindowSizeMsg) {
 	m.term.paneCols = size.Width
 	m.term.awaitingSince = time.Time{}
 
-	if !m.isTabsRendered(m.inputs()) {
+	if !m.isTabsRendered() {
 		m.blurTabs()
 	}
-	if !m.isKindsRendered(m.inputs()) {
+	if !m.isKindsRendered() {
 		m.blurKinds()
 	}
 

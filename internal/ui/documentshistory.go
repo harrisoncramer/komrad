@@ -44,8 +44,8 @@ type versionRead struct {
 }
 
 // stepOlder steps back to the write before the one rendered, starting from the newest.
-func (d *documentsScreen) stepOlder(m *model, in screen.Inputs) screen.Request {
-	item, ok := d.hovered(m, in)
+func (d *documentsScreen) stepOlder(in screen.Inputs) screen.Request {
+	item, ok := d.hovered(in)
 	if !ok || d.editing != nil {
 		return nil
 	}
@@ -67,8 +67,8 @@ func (d *documentsScreen) stepOlder(m *model, in screen.Inputs) screen.Request {
 
 // stepNewer steps forward to the write after the one rendered, and past the newest back to the
 // document as it stands.
-func (d *documentsScreen) stepNewer(m *model, in screen.Inputs) screen.Request {
-	if !d.isSteppingHovered(m, in) {
+func (d *documentsScreen) stepNewer(in screen.Inputs) screen.Request {
+	if !d.isSteppingHovered(in) {
 		return nil
 	}
 
@@ -100,8 +100,8 @@ func (h *documentHistory) forgetFailedReads() {
 }
 
 // isSteppingHovered reports whether the user steps through the document under the cursor.
-func (d *documentsScreen) isSteppingHovered(m *model, in screen.Inputs) bool {
-	item, ok := d.hovered(m, in)
+func (d *documentsScreen) isSteppingHovered(in screen.Inputs) bool {
+	item, ok := d.hovered(in)
 
 	return ok && d.history != nil && d.history.item.id == item.id
 }
@@ -192,7 +192,7 @@ type documentVersionReadMsg struct {
 // the one stood on and the one before it.
 func (m *model) readHistoryCmd() tea.Cmd {
 	d := &m.documents
-	if !d.isSteppingHovered(m, m.inputs()) {
+	if !d.isSteppingHovered(m.inputs()) {
 		return nil
 	}
 
@@ -286,23 +286,23 @@ func (d *documentsScreen) applyVersionRead(msg documentVersionReadMsg) {
 }
 
 // buildFrame builds the diff of the write stepped to once it is rendered beside the list.
-func (d *documentsScreen) buildFrame(m *model, in screen.Inputs) {
-	if in.Room.Split.On && d.isSteppingHovered(m, in) {
+func (d *documentsScreen) buildFrame(_ *model, in screen.Inputs) {
+	if in.Room.Split.On && d.isSteppingHovered(in) {
 		d.history.keepDiff(in.Room.Dark)
 	}
 }
 
 // diffWindow is the size the panel renders the diff at, under the rows over it.
-func (d *documentsScreen) diffWindow(m *model, in screen.Inputs) diffview.Window {
+func (d *documentsScreen) diffWindow(in screen.Inputs) diffview.Window {
 	split := in.Room.Split
-	item, hovered := d.hovered(m, in)
+	item, hovered := d.hovered(in)
 	if !split.On || !hovered || d.history == nil {
 		return diffview.Window{Height: 1, Wrap: in.Room.Wrap}
 	}
 
 	return diffview.Window{
 		Width:  split.Column,
-		Height: max(split.Rows-len(d.history.head(m, in, item, split.Column)), 1),
+		Height: max(split.Rows-len(d.history.head(in, d.deps.glyphs, item, split.Column)), 1),
 		Wrap:   in.Room.Wrap,
 	}
 }

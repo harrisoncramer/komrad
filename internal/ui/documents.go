@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"komrad/config"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/api"
 	"komrad/internal/ui/column"
 	"komrad/internal/ui/keys"
@@ -59,6 +60,7 @@ type documentsDeps struct {
 	top           *keys.Top
 	editorCommand string
 	draftDir      string
+	glyphs        glyph.Set
 }
 
 // documentsScreen lists every agent's documents and renders the one under the cursor beside the list.
@@ -130,7 +132,7 @@ func (d *documentsScreen) enter(m *model, in screen.Inputs, target screen.Target
 }
 
 func (d *documentsScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen.Request {
-	d.reconcileRename(m, in)
+	d.reconcileRename(in)
 	if d.isRenaming() {
 		return d.updateRename(msg)
 	}
@@ -140,19 +142,11 @@ func (d *documentsScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen
 		return nil
 	}
 
-	if d.kind == documentKindTypes {
-		return d.documentTypeList().update(m, key, d.actions(m))
+	if d.kind != documentKindTypes && d.history != nil && d.history.filter.typing {
+		return d.diffKeys().updateFilter(in, key)
 	}
 
-	if d.history != nil && d.history.filter.typing {
-		return d.diffKeys().updateFilter(m, key)
-	}
-
-	if d.isDiffFocused(in) {
-		return d.updateDiff(m, key)
-	}
-
-	return d.list().update(m, key, d.actions(m))
+	return d.actions(in).DispatchTop(d.deps.top, d, d.deps.keys, key.String())
 }
 
 func (d *documentsScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
@@ -172,7 +166,7 @@ func (d *documentsScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (scre
 	case documentEditorStaged:
 		return d.applyEditorStaged(msg), true
 	case api.RenameSettled:
-		d.settleRename(m, in, msg.Row, msg.Err)
+		d.settleRename(in, msg.Row, msg.Err)
 
 		return nil, true
 	}
@@ -180,11 +174,11 @@ func (d *documentsScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (scre
 	return nil, false
 }
 
-func (d *documentsScreen) onDocuments(*model) bool {
+func (d *documentsScreen) onDocuments() bool {
 	return d.kind == documentKindDocuments
 }
 
-func (d *documentsScreen) onDocumentTypes(*model) bool {
+func (d *documentsScreen) onDocumentTypes() bool {
 	return d.kind == documentKindTypes
 }
 
@@ -201,7 +195,7 @@ func (d *documentsScreen) kindsFocused(*model) *bool {
 }
 
 // kindsSwitch holds the view on its documents while the user edits one.
-func (d *documentsScreen) kindsSwitch(*model) bool {
+func (d *documentsScreen) kindsSwitch() bool {
 	return d.editing == nil
 }
 
@@ -221,8 +215,8 @@ func (d *documentsScreen) list() screenList[documentRow] {
 		rows:   d.rows,
 		name:   documentRowName,
 		fits:   d.documentRowFits,
-		placed: func(*model, screen.Inputs) screen.Request { return screen.StageTerminal{} },
-		moved: func(*model, screen.Inputs) screen.Request {
+		placed: func(screen.Inputs) screen.Request { return screen.StageTerminal{} },
+		moved: func(screen.Inputs) screen.Request {
 			d.history, d.focus = nil, false
 
 			return screen.Settle{}
@@ -237,8 +231,8 @@ func (d *documentsScreen) documentTypeList() screenList[documentTypeRow] {
 		cursor: func() *list.Cursor { return &d.documentTypes },
 		rows:   d.documentTypeRows,
 		name:   documentTypeRowName,
-		placed: func(*model, screen.Inputs) screen.Request { return screen.StageTerminal{} },
-		moved:  func(*model, screen.Inputs) screen.Request { return screen.Settle{} },
+		placed: func(screen.Inputs) screen.Request { return screen.StageTerminal{} },
+		moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
 	}
 }
 
@@ -249,7 +243,7 @@ type documentRowsKey struct {
 	taskID   string
 }
 
-func (d *documentsScreen) rows(m *model, in screen.Inputs) []documentRow {
+func (d *documentsScreen) rows(in screen.Inputs) []documentRow {
 	key := documentRowsKey{
 		revision: d.revision,
 		listing:  listingKeyOf(in),
@@ -269,7 +263,7 @@ func (d *documentsScreen) rows(m *model, in screen.Inputs) []documentRow {
 	})
 }
 
-func (d *documentsScreen) documentTypeRows(m *model, in screen.Inputs) []documentTypeRow {
+func (d *documentsScreen) documentTypeRows(in screen.Inputs) []documentTypeRow {
 	return d.builtTypes.read(listingKeyOf(in), func() []documentTypeRow {
 		return list.Narrowed(in.Room.Pattern, list.NarrowedParams[documentTypeRow]{
 			Rows: xslice.Map(in.Listing.DocumentTypes, func(t *agentv1.DocumentType) documentTypeRow {
@@ -289,42 +283,42 @@ func documentTypeRowName(row documentTypeRow) string {
 	return row.documentType.GetName()
 }
 
-func (d *documentsScreen) hovered(m *model, in screen.Inputs) (documentItem, bool) {
+func (d *documentsScreen) hovered(in screen.Inputs) (documentItem, bool) {
 	if d.kind != documentKindDocuments {
 		return documentItem{}, false
 	}
 
-	row, ok := list.At(d.rows(m, in), d.Row)
+	row, ok := list.At(d.rows(in), d.Row)
 
 	return row.item, ok
 }
 
 // hoveredDocumentType is the document type the cursor is on, nil for none.
-func (d *documentsScreen) hoveredDocumentType(m *model, in screen.Inputs) *agentv1.DocumentType {
+func (d *documentsScreen) hoveredDocumentType(in screen.Inputs) *agentv1.DocumentType {
 	if d.kind != documentKindTypes {
 		return nil
 	}
 
-	row, _ := list.At(d.documentTypeRows(m, in), d.documentTypes.Row)
+	row, _ := list.At(d.documentTypeRows(in), d.documentTypes.Row)
 
 	return row.documentType
 }
 
-func (d *documentsScreen) listParams(m *model, in screen.Inputs) list.Params {
+func (d *documentsScreen) listParams(_ *model, in screen.Inputs) list.Params {
 	if d.kind == documentKindTypes {
 		return list.Params{
-			Help:     d.help(m),
+			Help:     d.help(in),
 			Empty:    "no document types",
-			Rows:     len(d.documentTypeRows(m, in)),
-			Snapshot: func(pane list.Pane) view.Snapshot { return d.documentTypeSnapshot(m, in, pane) },
+			Rows:     len(d.documentTypeRows(in)),
+			Snapshot: func(pane list.Pane) view.Snapshot { return d.documentTypeSnapshot(in, pane) },
 		}
 	}
 
 	return list.Params{
-		Help:     d.help(m),
+		Help:     d.help(in),
 		Empty:    d.emptyLine(),
-		Rows:     len(d.rows(m, in)),
-		Snapshot: func(pane list.Pane) view.Snapshot { return d.snapshot(m, in, pane) },
+		Rows:     len(d.rows(in)),
+		Snapshot: func(pane list.Pane) view.Snapshot { return d.snapshot(in, pane) },
 	}
 }
 
@@ -333,14 +327,14 @@ func (d *documentsScreen) parent() screen.ID {
 }
 
 // crumbs runs down to the version stepped to, and counts the documents while none is.
-func (d *documentsScreen) crumbs(m *model, in screen.Inputs) screen.Crumbs {
+func (d *documentsScreen) crumbs(in screen.Inputs) screen.Crumbs {
 	var trail screen.Crumbs
 	if d.kind == documentKindTypes {
 		trail.Tally = fmt.Sprint(len(in.Listing.DocumentTypes))
 
 		return trail
 	}
-	if item, ok := d.hovered(m, in); ok && d.history != nil && d.history.item.id == item.id && len(d.history.versions) > 0 {
+	if item, ok := d.hovered(in); ok && d.history != nil && d.history.item.id == item.id && len(d.history.versions) > 0 {
 		current := d.history.versions[d.history.at]
 		trail.Trail = append(trail.Trail, item.name, fmt.Sprintf("v%d of %d", current.version, d.history.versions[0].version))
 
@@ -353,7 +347,7 @@ func (d *documentsScreen) crumbs(m *model, in screen.Inputs) screen.Crumbs {
 	return trail
 }
 
-func (d *documentsScreen) back(*model) screen.Request {
+func (d *documentsScreen) back() screen.Request {
 	return screen.PickView{}
 }
 
@@ -366,8 +360,8 @@ func findAgentName(l panel.Listing, agentID string) string {
 	return agentID
 }
 
-func (d *documentsScreen) help(m *model) legend.Help {
-	return m.helpOf(d.actions(m))
+func (d *documentsScreen) help(in screen.Inputs) legend.Help {
+	return d.actions(in).Help(d, d.deps.keys)
 }
 
 // documentsListedMsg is the documents come back.
@@ -469,10 +463,10 @@ func (d *documentsScreen) applyListed(m *model, in screen.Inputs, msg documentsL
 		return nil
 	}
 
-	hovered := d.list().hovered(m, in)
+	hovered := d.list().hovered(in)
 	d.items, d.listedAt, d.listedCount, d.listed, d.err = msg.items, msg.written.newest, msg.written.count, true, nil
 	d.revision++
-	d.keepCursor(m, in, hovered)
+	d.keepCursor(in, hovered)
 
 	return screen.Cmd(m.readDocumentsCmd())
 }
@@ -481,7 +475,7 @@ func (d *documentsScreen) applyListed(m *model, in screen.Inputs, msg documentsL
 // the listing, once at a time.
 func (m *model) readHoveredDocumentCmd() tea.Cmd {
 	d := &m.documents
-	item, ok := d.hovered(m, m.inputs())
+	item, ok := d.hovered(m.inputs())
 	if !ok {
 		return nil
 	}
@@ -538,7 +532,7 @@ var (
 	_ recordRenderer   = (*documentsScreen)(nil)
 )
 
-func (d *documentsScreen) stage(*model, screen.Inputs) screen.Request {
+func (d *documentsScreen) stage() screen.Request {
 	return screen.StageTerminal{}
 }
 
@@ -558,10 +552,10 @@ func (d *documentsScreen) column(m *model, in screen.Inputs) column.Spec {
 	return column.Spec{
 		Floor: columnFloor,
 		DocRows: func(width int) []string {
-			return m.documents.docRows(m, in, width)
+			return m.documents.docRows(in, width)
 		},
 		Holds: func() bool { return m.documents.editing == nil },
-		Read:  func() bool { return !m.documents.isSteppingHovered(m, in) },
+		Read:  func() bool { return !m.documents.isSteppingHovered(in) },
 	}
 }
 
@@ -574,5 +568,5 @@ func (d *documentsScreen) activeList() keyedList {
 }
 
 func (d *documentsScreen) dispatches(m *model) []keys.Table {
-	return []keys.Table{d.listActions(), d.diffActions(), m.docActions(), d.docKeys()}
+	return []keys.Table{d.listActions(screen.Inputs{}), d.diffActions(screen.Inputs{}), m.docActions(), d.docKeys()}
 }

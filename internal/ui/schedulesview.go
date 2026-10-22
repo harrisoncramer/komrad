@@ -16,7 +16,7 @@ import (
 )
 
 func (w *schedulesScreen) details(m *model, in screen.Inputs) record.Details {
-	item, ok := w.selected(m, in)
+	item, ok := w.selected(in)
 	if !ok {
 		return record.Details{}
 	}
@@ -37,8 +37,8 @@ func scheduleDetails(m *model, item scheduleItem) record.Details {
 // docRows is the document rendered beside the list at a width: the notice for an empty list, or
 // the schedule the cursor is on with the firings River holds for it between its next run and
 // its prompt.
-func (w *schedulesScreen) docRows(m *model, in screen.Inputs, width int) []string {
-	item, ok := w.selected(m, in)
+func (w *schedulesScreen) docRows(in screen.Inputs, width int) []string {
+	item, ok := w.selected(in)
 	if !ok {
 		return paint.DocStyledRows(noSchedulesMarkdown, width, columnStyle())
 	}
@@ -46,9 +46,9 @@ func (w *schedulesScreen) docRows(m *model, in screen.Inputs, width int) []strin
 	return scheduleDocRows(item, width)
 }
 
-func (w *schedulesScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
+func (w *schedulesScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
 	return scheduleSnapshot(in, pane, scheduleSnapshotParams{
-		rows:     w.listRows(m, in),
+		rows:     w.listRows(in),
 		cursor:   w.Row,
 		renaming: w.renamingField(),
 	})

@@ -86,7 +86,7 @@ func (m *model) detailsList() screenList[detailsRow] {
 	return screenList[detailsRow]{
 		keys:   m.keys,
 		cursor: m.detailsRowCursor,
-		rows:   func(m *model, in screen.Inputs) []detailsRow { return m.detailsRows(m.hoveredDetails(in)) },
+		rows:   func(in screen.Inputs) []detailsRow { return m.detailsRows(m.hoveredDetails(in)) },
 		name:   func(row detailsRow) string { return row.text },
 	}
 }
@@ -100,7 +100,7 @@ func (m *model) detailsRowCursor() *list.Cursor {
 	return &m.details.Cursor
 }
 
-func (m *model) isDetailsRendered(in screen.Inputs, held record.Details) bool {
+func (m *model) isDetailsRendered(held record.Details) bool {
 	if len(held.Fields) == 0 || m.detailsLines() == 0 {
 		return false
 	}
@@ -109,18 +109,20 @@ func (m *model) isDetailsRendered(in screen.Inputs, held record.Details) bool {
 		return true
 	}
 
-	return m.detailsFits.read(m.shownScreen(), func() bool { return m.detailsFit(in) })
+	return m.detailsFits.read(m.shownScreen(), m.detailsFit)
 }
 
 // detailsFit is whether the record's share fits under a list, judged with the keys on the
 // list.
-func (m *model) detailsFit(in screen.Inputs) bool {
-	probe := *m
-	probe.details.focused = false
-	params, ok := m.listParamsOn(&probe, in)
+func (m *model) detailsFit() bool {
+	l, ok := m.active().(listRenderer)
 	if !ok {
 		return false
 	}
+
+	probe := *m
+	probe.details.focused = false
+	params := l.listParams(&probe, probe.inputs())
 
 	header := probe.tabbedHeader(params.Title, params.Tally)
 	legend := probe.Help(probe.listHelp(params.Help), header)
@@ -143,13 +145,13 @@ func (m *model) listRecordRoom(params list.Params) int {
 }
 
 func (m *model) isDetailsFocused(in screen.Inputs) bool {
-	return m.details.focused && m.isDetailsRendered(in, m.hoveredDetails(in))
+	return m.details.focused && m.isDetailsRendered(m.hoveredDetails(in))
 }
 
 // focusDetails gives the record the keys, reading its directory again on the way in.
 func (m *model) focusDetails() tea.Cmd {
 	in := m.inputs()
-	if !m.isDetailsRendered(in, m.hoveredDetails(in)) {
+	if !m.isDetailsRendered(m.hoveredDetails(in)) {
 		return nil
 	}
 
@@ -163,7 +165,7 @@ func (m *model) focusDetails() tea.Cmd {
 
 // releaseHiddenDetails hands the keys back from a record the pane no longer renders.
 func (m *model) releaseHiddenDetails() {
-	if in := m.inputs(); !m.details.focused || m.isDetailsRendered(in, m.hoveredDetails(in)) {
+	if in := m.inputs(); !m.details.focused || m.isDetailsRendered(m.hoveredDetails(in)) {
 		return
 	}
 
@@ -181,7 +183,7 @@ func (m *model) updateDetails(key tea.KeyPressMsg) tea.Cmd {
 
 func (m *model) detailsActions() keys.Spec[*model] {
 	return keys.Spec[*model]{
-		Table: append(m.detailsList().actions(), []keys.Action[*model]{
+		Table: append(listActions[*model](m.detailsList(), m.inputs()), []keys.Action[*model]{
 			{
 				ID:   keys.Details,
 				Keys: keys.FixedBack,
@@ -210,7 +212,7 @@ func (m *model) detailsActions() keys.Spec[*model] {
 			},
 			{
 				Of:   []keys.ID{keys.FilterOpen},
-				Desc: func(*model) string { return m.filterDesc() },
+				Desc: func(*model) string { return m.filter.openDesc() },
 			},
 			{
 				Of:   []keys.ID{keys.FilterMatch},
@@ -218,7 +220,7 @@ func (m *model) detailsActions() keys.Spec[*model] {
 			},
 			{
 				Of:   []keys.ID{keys.FilterClear},
-				Desc: func(*model) string { return m.filterClearDesc() },
+				Desc: func(*model) string { return m.filter.clearDesc() },
 			},
 			{
 				Of:    []keys.ID{keys.Move},

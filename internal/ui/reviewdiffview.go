@@ -30,7 +30,7 @@ func reviewColumn(m *model, in screen.Inputs) column.Spec {
 		// The editor is another process holding the stage, so the panel owns the window only while
 		// there is none.
 		Holds:  func() bool { return !m.review.edit.atEditor },
-		Beside: func() (panel.AgentRow, bool) { return m.review.writerPane(m) },
+		Beside: func() (panel.AgentRow, bool) { return m.review.writerPane(m.inputs()) },
 		Rows: func(split column.Split) int {
 			// The band stands on the diff's own rows rather than the window's, so what is left is
 			// what the patch is rendered in and what the cursor is scrolled against.
@@ -82,7 +82,7 @@ func (r reviewScreen) diffNotice(in screen.Inputs) string {
 
 // diffView is the screenful of the patch beside the sidebar, starting at top, with the cursor's
 // own row dim while the keys are on the record rather than on the diff.
-func (r reviewScreen) diffView(m *model, in screen.Inputs, split column.Split) string {
+func (r reviewScreen) diffView(in screen.Inputs, split column.Split) string {
 	view := r.diff.View()
 	if view == nil || view.Len() == 0 {
 		// This is the larger half of the window, so it says what is being waited on rather than
@@ -92,7 +92,7 @@ func (r reviewScreen) diffView(m *model, in screen.Inputs, split column.Split) s
 	}
 
 	held := diffview.LiveCursor
-	if !r.isDiffFocused(m, in) {
+	if !r.isDiffFocused(in) {
 		held = diffview.DimCursor
 	}
 

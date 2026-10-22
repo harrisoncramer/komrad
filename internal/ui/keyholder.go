@@ -17,9 +17,9 @@ func (m *model) keyholder(in screen.Inputs) list.Section {
 
 func (m *model) keyholderBehindViews(in screen.Inputs) list.Section {
 	switch {
-	case m.isTabsFocused(in):
+	case m.isTabsFocused():
 		return list.SectionTabs
-	case m.isKindsFocused(in):
+	case m.isKindsFocused():
 		return list.SectionKinds
 	case m.isDetailsFocused(in):
 		return list.SectionRecord

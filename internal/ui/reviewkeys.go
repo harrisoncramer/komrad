@@ -21,21 +21,21 @@ func (r *reviewScreen) updateKey(m *model, in screen.Inputs, key tea.KeyPressMsg
 		return request
 	}
 
-	return r.actions(m).DispatchTop(r.deps.top, m, r.deps.keys, key.String())
+	return r.actions(in).DispatchTop(r.deps.top, r, r.deps.keys, key.String())
 }
 
 // takeKey handles a key before the screen's actions see it, and false for one it leaves to them.
 func (r *reviewScreen) takeKey(m *model, in screen.Inputs, key tea.KeyPressMsg) (screen.Request, bool) {
 	if r.threads.composing {
-		return r.updateComposer(m, key), true
+		return r.updateComposer(in, key), true
 	}
 
 	if r.filesFilter.typing {
-		return r.updateFilesFilter(m, key), true
+		return r.updateFilesFilter(in, key), true
 	}
 
 	if r.diff.filter.typing {
-		return r.diffKeys().updateFilter(m, key), true
+		return r.diffKeys().updateFilter(in, key), true
 	}
 
 	k := key.String()
@@ -44,7 +44,7 @@ func (r *reviewScreen) takeKey(m *model, in screen.Inputs, key tea.KeyPressMsg) 
 	// something to render.
 	if r.diff.View() == nil {
 		if keys.IsBound(k, fixedKeys().Back) {
-			return r.back(m), true
+			return r.back(in), true
 		}
 
 		return nil, true
@@ -65,8 +65,8 @@ func (r *reviewScreen) diffKeys() diffKeys {
 		register: r.deps.register,
 		pane:     &r.diff.Pane,
 		filter:   &r.diff.filter,
-		window:   func(m *model) diffview.Window { return r.diffWindow(m.inputs()) },
-		moved: func(m *model) screen.Request {
+		window:   r.diffWindow,
+		moved: func() screen.Request {
 			r.threads.scroll.reset()
 
 			return screen.Settle{}
@@ -76,13 +76,13 @@ func (r *reviewScreen) diffKeys() diffKeys {
 }
 
 // refuseExpand says why the file under the cursor cannot render whole.
-func (r *reviewScreen) refuseExpand(m *model) string {
+func (r *reviewScreen) refuseExpand() string {
 	file, ok := r.diff.View().GetRenderedFileAt(r.diff.Cursor())
 	if !ok || r.diff.View().IsExpanded(file.Path()) || !r.diff.View().IsViewed(file.Path()) {
 		return ""
 	}
 
-	return "that file is folded away" + separated + m.menuChordLabel(r.deps.keys.Review.ToggleViewed) + " to open it"
+	return "that file is folded away" + separated + menuChordLabel(r.deps.keys, r.deps.keys.Review.ToggleViewed) + " to open it"
 }
 
 // diffWindow is the window that renders the diff, zero-sized without a split.
@@ -100,13 +100,13 @@ func (r *reviewScreen) diffWindow(in screen.Inputs) diffview.Window {
 }
 
 // jumpOpenThread moves to the next comment nobody has settled, stopping at the ends.
-func (r *reviewScreen) jumpOpenThread(m *model, direction int) screen.Request {
+func (r *reviewScreen) jumpOpenThread(in screen.Inputs, direction int) screen.Request {
 	next, ok := r.diff.View().JumpOpenThread(r.diff.Cursor(), direction)
 	if !ok || next == r.diff.Cursor() {
 		return screen.NewNote(screen.Warning, r.diff.noOpenThreadSaid())
 	}
 
-	return r.moveCursor(m, next)
+	return r.moveCursor(in, next)
 }
 
 // noOpenThreadSaid is why the key moved nowhere.
@@ -159,11 +159,11 @@ func (d reviewDiff) threadByID(id string) (*agentv1.ReviewThread, bool) {
 	return d.View().GetThreadAt(row)
 }
 
-func (r *reviewScreen) moveCursor(m *model, next int) screen.Request {
-	return r.diffKeys().moveTo(m, next)
+func (r *reviewScreen) moveCursor(in screen.Inputs, next int) screen.Request {
+	return r.diffKeys().moveTo(in, next)
 }
 
-func (r *reviewScreen) doesScrollColumn(*model, screen.Inputs) bool {
+func (r *reviewScreen) doesScrollColumn(screen.Inputs) bool {
 	return true
 }
 
@@ -172,7 +172,7 @@ func (r *reviewScreen) scrollColumn(m *model, rows int) screen.Request {
 		return nil
 	}
 
-	return r.diffKeys().moveBy(m, rows)
+	return r.diffKeys().moveBy(m.inputs(), rows)
 }
 
 // scrollList presses the scroll key once for every row, past the popup.
@@ -192,7 +192,7 @@ func (r *reviewScreen) scrollList(m *model, rows int) screen.Request {
 
 	var requests screen.Batch
 	for range max(rows, -rows) {
-		requests = append(requests, r.diffActions().Dispatch(m, r.deps.keys, pressed[0]))
+		requests = append(requests, r.diffActions(m.inputs()).Dispatch(r, r.deps.keys, pressed[0]))
 	}
 
 	return requests
@@ -200,7 +200,7 @@ func (r *reviewScreen) scrollList(m *model, rows int) screen.Request {
 
 // scrollPopupAt moves the conversation in the popup when the popup holds the cell.
 func (r *reviewScreen) scrollPopupAt(m *model, in screen.Inputs, at image.Point, rows int) bool {
-	body, _ := r.popupBody(m, in, r.measurePopupInner(in))
+	body, _ := r.popupBody(in, r.measurePopupInner(in))
 	if body == "" || !r.placeThread(m, in, body).contains(at.X, at.Y) {
 		return false
 	}
@@ -213,14 +213,14 @@ func (r *reviewScreen) scrollPopupAt(m *model, in screen.Inputs, at image.Point,
 }
 
 // scrollToCursor moves the window only when the cursor is about to leave it.
-func (r *reviewScreen) scrollToCursor(m *model) {
-	r.diff.ScrollToCursor(r.diffWindow(m.inputs()))
+func (r *reviewScreen) scrollToCursor(in screen.Inputs) {
+	r.diff.ScrollToCursor(r.diffWindow(in))
 }
 
 // scrollPopup moves the conversation in the popup down by rows, up when rows is negative, and
 // reports whether there was a conversation there to move.
 func (r *reviewScreen) scrollPopup(m *model, in screen.Inputs, rows int) bool {
-	id, body, ok := r.conversationAtCursor(m, in, r.measurePopupInner(in))
+	id, body, ok := r.conversationAtCursor(in, r.measurePopupInner(in))
 	if !ok {
 		return false
 	}
@@ -242,7 +242,7 @@ func (r *reviewScreen) scrollSidebarAt(m *model, in screen.Inputs, y, rows int) 
 		return nil, true
 	}
 
-	return section.moveBy(m, rows), true
+	return section.moveBy(in, rows), true
 }
 
 // sidebarNavAt is the sidebar section rendered on row y, and false for a row the wheel leaves alone.
@@ -253,7 +253,7 @@ func (r *reviewScreen) sidebarNavAt(m *model, in screen.Inputs, y int) (navigabl
 
 	layout := r.layoutSidebar(m, in, m)
 	filesTop := paint.CountLines(layout.bar + layout.change + layout.side)
-	if y >= filesTop && y < filesTop+paint.CountLines(layout.files) && r.isBlockRendered(m, in) {
+	if y >= filesTop && y < filesTop+paint.CountLines(layout.files) && r.isBlockRendered(in) {
 		return filesNav{r}, true
 	}
 

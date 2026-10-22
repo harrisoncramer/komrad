@@ -36,8 +36,8 @@ func (m *model) buildMenu() (menu.Menu, bool) {
 }
 
 func (a *agentsScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
-	if a.list().isSelecting(m) {
-		chosen := chosenAgents(a.Selected, a.rows(m, in))
+	if a.list().isSelecting() {
+		chosen := chosenAgents(a.Selected, a.rows(in))
 		if len(chosen) == 0 {
 			return menu.Menu{}, false
 		}
@@ -52,11 +52,11 @@ func (a *agentsScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, boo
 		return menu.WithNested(band, "archive", a.deps.keys.Menu.Archive, a.chosenArchiveMenu(m, work)), true
 	}
 
-	if !a.isBrowsing(m) {
+	if !a.isBrowsing() {
 		return menu.Menu{}, false
 	}
 
-	row, ok := a.hoveredRow(m, in)
+	row, ok := a.hoveredRow(in)
 	if !ok {
 		return menu.Menu{}, false
 	}
@@ -66,7 +66,7 @@ func (a *agentsScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, boo
 
 	item, hasAgent := row.paneItem()
 
-	if workflow, ok := a.hoveredWorkflow(m, in); ok {
+	if workflow, ok := a.hoveredWorkflow(in); ok {
 		band := rowMenu(workflow.Name)
 		var orchestrator *panel.Agent
 		if hasAgent {
@@ -88,7 +88,7 @@ func (a *agentsScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, boo
 }
 
 func (w *schedulesScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
-	item, ok := w.selected(m, in)
+	item, ok := w.selected(in)
 	if !ok {
 		return menu.Menu{}, false
 	}

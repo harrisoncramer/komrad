@@ -205,7 +205,7 @@ func (l *logsScreen) readCmd() tea.Cmd {
 
 // applySources takes a listing of the sources, landing the first on the agent's failed run
 // and keeping the cursor on the source it was on after that.
-func (l *logsScreen) applySources(m *model, in screen.Inputs, msg logsSourcesMsg) screen.Request {
+func (l *logsScreen) applySources(in screen.Inputs, msg logsSourcesMsg) screen.Request {
 	if msg.generation != l.generation {
 		return nil
 	}
@@ -219,19 +219,19 @@ func (l *logsScreen) applySources(m *model, in screen.Inputs, msg logsSourcesMsg
 		return screen.Cmd(l.tickCmd(l.deps.clock))
 	}
 
-	hovered := list.KeyAt(l.rows(m, in), l.Row)
+	hovered := list.KeyAt(l.rows(in), l.Row)
 	l.sources = msg.sources
 	if l.listed {
-		rows := l.rows(m, in)
+		rows := l.rows(in)
 		l.Row = cursor.Place(list.IndexOf(rows, hovered), l.Row, len(rows))
 
-		return l.switchSource(m, in)
+		return l.switchSource(in)
 	}
 
 	l.listed, l.err = true, nil
-	l.Row = max(slices.IndexFunc(l.rows(m, in), func(row logSourceRow) bool { return row.failed }), 0)
+	l.Row = max(slices.IndexFunc(l.rows(in), func(row logSourceRow) bool { return row.failed }), 0)
 
-	return l.switchSource(m, in)
+	return l.switchSource(in)
 }
 
 func (l *logsScreen) applyRead(msg logsReadMsg) screen.Request {
@@ -277,8 +277,8 @@ func (l *logsScreen) tickCmd(clock screen.Clock) tea.Cmd {
 }
 
 // switchSource starts the block over on the source the cursor is on, unless it is the one being read.
-func (l *logsScreen) switchSource(m *model, in screen.Inputs) screen.Request {
-	row, ok := list.At(l.rows(m, in), l.Row)
+func (l *logsScreen) switchSource(in screen.Inputs) screen.Request {
+	row, ok := list.At(l.rows(in), l.Row)
 	if !ok || row.Key() == sourceKey(l.reading) {
 		return nil
 	}
@@ -391,17 +391,13 @@ func (l *logsScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen.Requ
 		return l.updateLogFilter(key)
 	}
 
-	if l.isBlockFocused(m, in) {
-		return l.actions(m).DispatchTop(l.deps.top, m, l.deps.keys, key.String())
-	}
-
-	return l.list().update(m, key, l.actions(m))
+	return l.actions(in).DispatchTop(l.deps.top, l, l.deps.keys, key.String())
 }
 
 func (l *logsScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 	switch msg := msg.(type) {
 	case logsSourcesMsg:
-		return l.applySources(m, in, msg), true
+		return l.applySources(in, msg), true
 	case logsReadMsg:
 		return l.applyRead(msg), true
 	case logsTickMsg:
@@ -420,11 +416,11 @@ func (l *logsScreen) list() screenList[logSourceRow] {
 		cursor: func() *list.Cursor { return &l.Cursor },
 		rows:   l.rows,
 		name:   logSourceRowName,
-		moved:  func(*model, screen.Inputs) screen.Request { return screen.Settle{} },
+		moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
 	}
 }
 
-func (l *logsScreen) rows(m *model, in screen.Inputs) []logSourceRow {
+func (l *logsScreen) rows(in screen.Inputs) []logSourceRow {
 	var failedRun *int32
 	if item, ok := in.Listing.AnyAgent(l.agentID); ok {
 		failedRun = item.FailedRunLog
@@ -461,15 +457,15 @@ func (l *logsScreen) nameSource(in screen.Inputs, source *logv1.LogSource) strin
 	return name + " " + sourceLabel(source)
 }
 
-func (l *logsScreen) listParams(m *model, in screen.Inputs) list.Params {
-	rows := l.rows(m, in)
+func (l *logsScreen) listParams(_ *model, in screen.Inputs) list.Params {
+	rows := l.rows(in)
 	row, ok := list.At(rows, l.Row)
 
 	return list.Params{
-		Help:       l.help(m),
+		Help:       l.help(in),
 		Empty:      l.emptyLine(),
 		Rows:       len(rows),
-		Snapshot:   func(pane list.Pane) view.Snapshot { return l.snapshot(m, in, pane) },
+		Snapshot:   func(pane list.Pane) view.Snapshot { return l.snapshot(in, pane) },
 		HidesKinds: !ok || !row.isServerLog(),
 	}
 }
@@ -488,7 +484,7 @@ func (l *logsScreen) parent() screen.ID {
 	return l.openedFrom
 }
 
-func (l *logsScreen) crumbs(_ *model, in screen.Inputs) screen.Crumbs {
+func (l *logsScreen) crumbs(in screen.Inputs) screen.Crumbs {
 	if task, ok := in.Listing.Tasks[l.taskID]; ok {
 		return screen.Crumbs{Trail: []string{task.Slug, "logs"}}
 	}
@@ -517,13 +513,13 @@ func (l *logsScreen) column(m *model, in screen.Inputs) column.Spec {
 	return column.Spec{
 		Floor: columnFloor,
 		DocRows: func(width int) []string {
-			return m.logs.block(m, in, width)
+			return m.logs.block(in, width)
 		},
 	}
 }
 
 // isBlockRendered reports whether the block beside the list holds lines of the log.
-func (l *logsScreen) isBlockRendered(m *model, in screen.Inputs) bool {
+func (l *logsScreen) isBlockRendered(in screen.Inputs) bool {
 	if !in.Room.Split.On {
 		return false
 	}
@@ -532,7 +528,7 @@ func (l *logsScreen) isBlockRendered(m *model, in screen.Inputs) bool {
 }
 
 // isBlockFocused reports whether the log holds the keys.
-func (l *logsScreen) isBlockFocused(m *model, in screen.Inputs) bool {
+func (l *logsScreen) isBlockFocused(in screen.Inputs) bool {
 	if !l.logFocus || !in.Room.ListFocused {
 		return false
 	}
@@ -541,10 +537,10 @@ func (l *logsScreen) isBlockFocused(m *model, in screen.Inputs) bool {
 		return true
 	}
 
-	return l.isBlockRendered(m, in)
+	return l.isBlockRendered(in)
 }
 
-func (l *logsScreen) focusBlock(*model) {
+func (l *logsScreen) focusBlock() {
 	l.logFocus = true
 }
 
@@ -552,8 +548,8 @@ func (l *logsScreen) blurBlock() {
 	l.logFocus = false
 }
 
-func (l *logsScreen) doesScrollColumn(m *model, in screen.Inputs) bool {
-	return l.isBlockRendered(m, in)
+func (l *logsScreen) doesScrollColumn(in screen.Inputs) bool {
+	return l.isBlockRendered(in)
 }
 
 func (l *logsScreen) scrollColumn(_ *model, rows int) screen.Request {
@@ -596,14 +592,14 @@ func (l *logsScreen) typedLine() (field.Line, bool) {
 }
 
 func (l *logsScreen) dispatches(*model) []keys.Table {
-	return []keys.Table{l.listActions(), l.logActions()}
+	return []keys.Table{l.listActions(screen.Inputs{}), l.logActions(screen.Inputs{})}
 }
 
-func (l *logsScreen) moveBy(_ *model, rows int) screen.Request {
+func (l *logsScreen) moveBy(_ screen.Inputs, rows int) screen.Request {
 	return l.move(rows)
 }
 
-func (l *logsScreen) moveToEnd(_ *model, direction int) screen.Request {
+func (l *logsScreen) moveToEnd(_ screen.Inputs, direction int) screen.Request {
 	return l.move(direction * l.viewer.Len())
 }
 
@@ -622,14 +618,14 @@ func (l *logsScreen) kindsFocused(*model) *bool {
 	return &l.formatFocus
 }
 
-func (l *logsScreen) kindsSwitch(*model) bool {
+func (l *logsScreen) kindsSwitch() bool {
 	return true
 }
 
 // stepKind renders the server log in another format.
 func (l *logsScreen) stepKind(m *model, in screen.Inputs, delta int) screen.Request {
 	l.format = logview.Format(tabs.StepStop(int(l.format), delta, len(logFormatLabels)))
-	if row, ok := list.At(l.rows(m, in), l.Row); ok {
+	if row, ok := list.At(l.rows(in), l.Row); ok {
 		l.applyFormat(row)
 	}
 

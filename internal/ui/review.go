@@ -91,7 +91,7 @@ func (r reviewScreen) parent() screen.ID {
 }
 
 // crumbs runs through the agent whose work is under review.
-func (r reviewScreen) crumbs(*model, screen.Inputs) screen.Crumbs {
+func (r reviewScreen) crumbs(screen.Inputs) screen.Crumbs {
 	return screen.Crumbs{Trail: []string{r.agentName, "review"}}
 }
 
@@ -116,8 +116,8 @@ func (r reviewScreen) isBusy() bool {
 }
 
 // isDiffFocused is whether the patch holds the keys.
-func (r reviewScreen) isDiffFocused(m *model, in screen.Inputs) bool {
-	return in.Room.ListFocused && !r.isWriting() && !r.isBlockFocused(m, in)
+func (r reviewScreen) isDiffFocused(in screen.Inputs) bool {
+	return in.Room.ListFocused && !r.isWriting() && !r.isBlockFocused(in)
 }
 
 func (r *reviewScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen.Request {
@@ -132,13 +132,13 @@ func (r *reviewScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen.Re
 func (r *reviewScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 	switch msg := msg.(type) {
 	case reviewEditorStaged:
-		return r.applyEditorStaged(m, msg), true
+		return r.applyEditorStaged(msg), true
 	case reviewLoadedMsg, reviewWroteMsg, messageEditedMsg:
 		if !in.Up {
 			return nil, true
 		}
 
-		routed := r.route(m, msg)
+		routed := r.route(m, in, msg)
 
 		return screen.Batch{routed, r.followWorld(m, in)}, true
 	}
@@ -146,14 +146,14 @@ func (r *reviewScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.
 	return nil, false
 }
 
-func (r *reviewScreen) route(m *model, msg tea.Msg) screen.Request {
+func (r *reviewScreen) route(m *model, in screen.Inputs, msg tea.Msg) screen.Request {
 	switch msg := msg.(type) {
 	case reviewLoadedMsg:
-		return r.applyLoaded(m, msg)
+		return r.applyLoaded(m, in, msg)
 	case reviewWroteMsg:
-		return r.applyWrote(m, msg)
+		return r.applyWrote(in, msg)
 	case messageEditedMsg:
-		return r.applyMessageEdited(m, msg)
+		return r.applyMessageEdited(in, msg)
 	}
 
 	return nil
@@ -190,13 +190,13 @@ func (r reviewScreen) typedLine() (field.Line, bool) {
 }
 
 func (r *reviewScreen) dispatches(*model) []keys.Table {
-	return []keys.Table{r.diffActions(), r.filesActions(), r.sideActions()}
+	return []keys.Table{r.diffActions(screen.Inputs{}), r.filesActions(screen.Inputs{}), r.sideActions(screen.Inputs{})}
 }
 
 // writerPane is the agent whose work is under review, which the stage keeps beside the diff while
 // its pane is running, held for your editor or not.
-func (r reviewScreen) writerPane(m *model) (panel.AgentRow, bool) {
-	item, ok := r.agentRow(m)
+func (r reviewScreen) writerPane(in screen.Inputs) (panel.AgentRow, bool) {
+	item, ok := r.agentRow(in)
 	if !ok || !item.Alive || item.Agent.Pane == "" || item.Agent.State == panel.StateSettingUp || item.Agent.State.IsFailed() {
 		return panel.AgentRow{}, false
 	}

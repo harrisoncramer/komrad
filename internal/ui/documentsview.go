@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"komrad/internal/errui"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
@@ -34,8 +35,8 @@ func documentColumns() view.Columns {
 	return view.Columns{{Kind: view.ColumnText, Width: ageColumns}}
 }
 
-func (d *documentsScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
-	rows := d.rows(m, in)
+func (d *documentsScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
+	rows := d.rows(in)
 	picked := list.Picked(in.Room.Pattern, rows, d.documentRowFits(in))
 	now := in.Room.Now
 	caret := pane.Caret
@@ -62,7 +63,7 @@ func (d *documentsScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) v
 }
 
 func (d *documentsScreen) details(m *model, in screen.Inputs) record.Details {
-	item, ok := d.hovered(m, in)
+	item, ok := d.hovered(in)
 	if !ok {
 		return record.Details{}
 	}
@@ -77,8 +78,8 @@ func (d *documentsScreen) details(m *model, in screen.Inputs) record.Details {
 	}
 }
 
-func (d *documentsScreen) documentTypeSnapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
-	rows := d.documentTypeRows(m, in)
+func (d *documentsScreen) documentTypeSnapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
+	rows := d.documentTypeRows(in)
 	now := in.Room.Now
 
 	return view.Snapshot{
@@ -100,8 +101,8 @@ func (d *documentsScreen) documentTypeSnapshot(m *model, in screen.Inputs, pane 
 }
 
 // doc is the markdown rendered beside the list for the document the cursor is on.
-func (d *documentsScreen) doc(m *model, in screen.Inputs) string {
-	item, ok := d.hovered(m, in)
+func (d *documentsScreen) doc(in screen.Inputs) string {
+	item, ok := d.hovered(in)
 	if !ok {
 		return renderDocument("Documents", "_"+d.emptyLine()+"_", "", "")
 	}
@@ -133,21 +134,21 @@ func documentProse(name, body string) string {
 
 // docRows is the document rendered beside the list at a width: the write stepped to and what it
 // changed, or the document as it stands.
-func (d *documentsScreen) docRows(m *model, in screen.Inputs, width int) []string {
+func (d *documentsScreen) docRows(in screen.Inputs, width int) []string {
 	if d.kind == documentKindTypes {
-		return paint.DocStyledRows(documentTypeFrom(d.hoveredDocumentType(m, in), in.Room.Now), max(width, 1), columnStyle())
+		return paint.DocStyledRows(documentTypeFrom(d.hoveredDocumentType(in), in.Room.Now), max(width, 1), columnStyle())
 	}
 
-	item, ok := d.hovered(m, in)
+	item, ok := d.hovered(in)
 	if !ok {
-		return paint.DocStyledRows(d.doc(m, in), max(width, 1), columnStyle())
+		return paint.DocStyledRows(d.doc(in), max(width, 1), columnStyle())
 	}
-	if !d.isSteppingHovered(m, in) {
-		return in.Room.Pattern.MarkSaid(item.id, paint.DocStyledRows(d.doc(m, in), max(width, 1), columnStyle()))
+	if !d.isSteppingHovered(in) {
+		return in.Room.Pattern.MarkSaid(item.id, paint.DocStyledRows(d.doc(in), max(width, 1), columnStyle()))
 	}
 
 	h := d.history
-	head := h.head(m, in, item, width)
+	head := h.head(in, d.deps.glyphs, item, width)
 	if h.err != nil || h.versions == nil {
 		return head
 	}
@@ -161,7 +162,7 @@ func (d *documentsScreen) docRows(m *model, in screen.Inputs, width int) []strin
 		held = diffview.LiveCursor
 	}
 
-	window := d.diffWindow(m, in)
+	window := d.diffWindow(in)
 	window.Width = width
 
 	lines := h.pane.Render(window, held)
@@ -173,7 +174,7 @@ func (d *documentsScreen) docRows(m *model, in screen.Inputs, width int) []strin
 }
 
 // head is the rows over the change: which write it is and the search.
-func (h *documentHistory) head(m *model, in screen.Inputs, item documentItem, width int) []string {
+func (h *documentHistory) head(in screen.Inputs, glyphs glyph.Set, item documentItem, width int) []string {
 	notice := "_reading its versions…_"
 	switch {
 	case h.err != nil:
@@ -189,7 +190,7 @@ func (h *documentHistory) head(m *model, in screen.Inputs, item documentItem, wi
 
 	count := strings.TrimRight(diffMatchCount(&h.pane, h.filter), "\n")
 
-	return append(rows, h.filter.head(m, count, "", width)...)
+	return append(rows, h.filter.head(headParams{glyphs: glyphs, marks: in.Room.Marks, count: count, width: width})...)
 }
 
 // notice names the write stepped to, who made it and how long ago.

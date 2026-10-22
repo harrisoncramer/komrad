@@ -248,8 +248,8 @@ func (r reviewScreen) doesWalk() bool {
 }
 
 // doesFitBaseLegend reports whether the step keys are worth a legend row.
-func (r reviewScreen) doesFitBaseLegend(m *model) bool {
-	if m.helpExpanded && m.term.height > 0 && m.term.height < reviewLegendFloor {
+func (r reviewScreen) doesFitBaseLegend(in screen.Inputs) bool {
+	if in.Room.HelpExpanded && in.Room.Height > 0 && in.Room.Height < reviewLegendFloor {
 		return false
 	}
 
@@ -361,11 +361,11 @@ func (d reviewDiff) jumpOffSaid() string {
 }
 
 // editOffSaid is why opening the editor is drawn off, empty when it would open.
-func (r reviewScreen) editOffSaid(m *model) string {
+func (r reviewScreen) editOffSaid(in screen.Inputs) string {
 	switch {
 	case r.edit.atEditor:
 		return ""
-	case r.isWorktreeRemoved(m):
+	case r.isWorktreeRemoved(in):
 		return worktreeRemovedSaid
 	case !r.isHistory():
 		return ""

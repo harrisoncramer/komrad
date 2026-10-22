@@ -50,7 +50,7 @@ func (m *model) settleUnstaged(agents []panel.Agent, killed bool) {
 	}
 
 	if stager, ok := m.active().(rowStager); ok {
-		m.apply(stager.stage(m, m.inputs()))
+		m.apply(stager.stage())
 	}
 }
 
@@ -81,11 +81,11 @@ func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 }
 
 func (w *worktreesScreen) stageResting(m *model, in screen.Inputs) screen.Request {
-	return screen.Batch{w.stage(m, in), m.inspectWorktree(), screen.ReadLastScreen{}}
+	return screen.Batch{w.stage(), m.inspectWorktree(), screen.ReadLastScreen{}}
 }
 
 func (d *documentsScreen) stageResting(m *model, in screen.Inputs) screen.Request {
-	return screen.Batch{d.stage(m, in), screen.Cmd(m.readDocumentsCmd())}
+	return screen.Batch{d.stage(), screen.Cmd(m.readDocumentsCmd())}
 }
 
 func (w *schedulesScreen) stageResting(*model, screen.Inputs) screen.Request {
@@ -93,7 +93,7 @@ func (w *schedulesScreen) stageResting(*model, screen.Inputs) screen.Request {
 }
 
 func (l *logsScreen) stageResting(m *model, in screen.Inputs) screen.Request {
-	return l.switchSource(m, in)
+	return l.switchSource(in)
 }
 
 func (a *agentsScreen) stageResting(m *model, in screen.Inputs) screen.Request {
@@ -102,10 +102,10 @@ func (a *agentsScreen) stageResting(m *model, in screen.Inputs) screen.Request {
 
 func (r *reviewScreen) stageResting(m *model, in screen.Inputs) screen.Request {
 	if r.edit.atEditor {
-		return r.markThreadRead(m)
+		return r.markThreadRead(in)
 	}
 
-	return screen.Batch{screen.Restage{}, r.markThreadRead(m)}
+	return screen.Batch{screen.Restage{}, r.markThreadRead(in)}
 }
 
 // paneStatusRows is the rows the blank status line tmux renders over every pane takes from its window.
@@ -153,7 +153,7 @@ func (m *model) stagedAgent() (panel.AgentRow, bool) {
 		return beside()
 	}
 
-	return m.agents.hoveredPane(m, m.inputs())
+	return m.agents.hoveredPane(m.inputs())
 }
 
 // reclaimStageKeys puts the keys back on the panel when they sit on the pane in the stage.

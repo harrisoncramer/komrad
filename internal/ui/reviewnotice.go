@@ -33,7 +33,7 @@ func (n *reviewNotices) lower(key string) screen.Request {
 }
 
 // followNotices raises what the review has to say about the agent and lowers what is no longer true.
-func (r *reviewScreen) followNotices(m *model) screen.Request {
+func (r *reviewScreen) followNotices(m *model, in screen.Inputs) screen.Request {
 	if r.diff.View() == nil || r.diff.View().Len() == 0 || m.screen != screen.Review {
 		return nil
 	}
@@ -41,7 +41,7 @@ func (r *reviewScreen) followNotices(m *model) screen.Request {
 	var requests screen.Batch
 
 	archived := "archived:" + r.agentID
-	if r.isArchived(m) {
+	if r.isArchived(in) {
 		requests = append(requests, r.notices.raise(screen.Note{
 			Kind:    screen.Warning,
 			Key:     archived,
@@ -52,7 +52,7 @@ func (r *reviewScreen) followNotices(m *model) screen.Request {
 		requests = append(requests, r.notices.lower(archived))
 	}
 
-	moved := r.movedNotice(m)
+	moved := r.movedNotice(in)
 	if moved.Key != r.notices.moved {
 		requests = append(requests, r.notices.lower(r.notices.moved))
 		r.notices.moved = moved.Key
@@ -66,8 +66,8 @@ func (r *reviewScreen) followNotices(m *model) screen.Request {
 }
 
 // movedNotice is what the reader is told about the agent having written past the diff on screen.
-func (r reviewScreen) movedNotice(m *model) screen.Note {
-	moved := r.findMovedSnapshot(m)
+func (r reviewScreen) movedNotice(in screen.Inputs) screen.Note {
+	moved := r.findMovedSnapshot(in)
 	if moved == "" || r.edit.atEditor {
 		return screen.Note{}
 	}
@@ -76,6 +76,6 @@ func (r reviewScreen) movedNotice(m *model) screen.Note {
 		Kind:    screen.Warning,
 		Key:     "moved:" + r.agentID + ":" + moved,
 		Summary: "the worktree has moved",
-		Detail:  m.menuChordLabel(r.deps.keys.Review.Reload) + " to catch up",
+		Detail:  menuChordLabel(r.deps.keys, r.deps.keys.Review.Reload) + " to catch up",
 	}
 }

@@ -67,19 +67,19 @@ type worktreesScreen struct {
 
 // apply takes a fresh listing, keeping the cursor on the row it was on, or on the agent the
 // screen was opened for.
-func (w *worktreesScreen) apply(m *model, in screen.Inputs, hovered string) {
+func (w *worktreesScreen) apply(in screen.Inputs, hovered string) {
 	w.items = in.Listing.Worktrees
 	w.revision++
 
 	focus := w.focus
 	w.focus = ""
 
-	rows := w.rows(m, in)
+	rows := w.rows(in)
 	if idx := rowIndexOfWorktreeAgent(rows, focus); idx >= 0 {
 		hovered = rows[idx].Key()
 	}
 
-	w.place(m, in, hovered)
+	w.place(in, hovered)
 }
 
 // shown is the directories the scope lists.
@@ -88,8 +88,8 @@ func (w *worktreesScreen) shown() []panel.Worktree {
 }
 
 // place keeps the cursor on the row it was on as the rows under it change.
-func (w *worktreesScreen) place(m *model, in screen.Inputs, hovered string) {
-	rows := w.rows(m, in)
+func (w *worktreesScreen) place(in screen.Inputs, hovered string) {
+	rows := w.rows(in)
 	w.Selected = w.Selected.Pruned(worktreeRefs(rows))
 
 	w.Row = cursor.Place(list.IndexOf(rows, hovered), w.Row, len(rows))

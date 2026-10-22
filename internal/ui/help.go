@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"komrad/config"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/legend"
 	"komrad/lib/xslice"
@@ -89,8 +90,8 @@ func (m *model) fullGlobalHelp() []key.Binding {
 }
 
 // menuChordLabel is the presses that reach an entry through the menu, spaced apart.
-func (m *model) menuChordLabel(entries ...[]string) string {
-	return strings.Join(xslice.Map(slices.Concat([][]string{m.keys.Menu.Open}, entries), keys.Label), " ")
+func menuChordLabel(k config.Keybindings, entries ...[]string) string {
+	return strings.Join(xslice.Map(slices.Concat([][]string{k.Menu.Open}, entries), keys.Label), " ")
 }
 
 // helpOf is a screen's legend built from its table.

@@ -366,7 +366,7 @@ func sortedAgents(items []panel.AgentRow, columns []sortColumn[panel.AgentRow], 
 }
 
 // rows are the rows the keyboard can reach.
-func (a *agentsScreen) rows(m *model, in screen.Inputs) []agentRow {
+func (a *agentsScreen) rows(in screen.Inputs) []agentRow {
 	return a.layout(in).cursorRows()
 }
 
@@ -435,18 +435,18 @@ func narrowedAgentRows(in screen.Inputs, rows []agentRow) []agentRow {
 	})
 }
 
-func (a *agentsScreen) hoveredRow(m *model, in screen.Inputs) (agentRow, bool) {
+func (a *agentsScreen) hoveredRow(in screen.Inputs) (agentRow, bool) {
 	return a.layout(in).cursorRow(a.Row)
 }
 
-func (a *agentsScreen) hoveredWorkflow(m *model, in screen.Inputs) (panel.Workflow, bool) {
-	return hoveredHeader(a.hoveredRow(m, in))
+func (a *agentsScreen) hoveredWorkflow(in screen.Inputs) (panel.Workflow, bool) {
+	return hoveredHeader(a.hoveredRow(in))
 }
 
 // hoveredPane is the agent whose pane the row under the cursor shows, and none where that row
 // has no pane worth putting in the window.
-func (a *agentsScreen) hoveredPane(m *model, in screen.Inputs) (panel.AgentRow, bool) {
-	r, ok := a.hoveredRow(m, in)
+func (a *agentsScreen) hoveredPane(in screen.Inputs) (panel.AgentRow, bool) {
+	r, ok := a.hoveredRow(in)
 	if !ok {
 		return panel.AgentRow{}, false
 	}
@@ -460,8 +460,8 @@ func (a *agentsScreen) hoveredPane(m *model, in screen.Inputs) (panel.AgentRow, 
 }
 
 // hoveredResting is the agent the row under the cursor stands for when it is dormant or paused.
-func (a *agentsScreen) hoveredResting(m *model, in screen.Inputs) (panel.AgentRow, bool) {
-	r, ok := a.hoveredRow(m, in)
+func (a *agentsScreen) hoveredResting(in screen.Inputs) (panel.AgentRow, bool) {
+	r, ok := a.hoveredRow(in)
 	if !ok {
 		return panel.AgentRow{}, false
 	}
@@ -475,15 +475,15 @@ func (a *agentsScreen) hoveredResting(m *model, in screen.Inputs) (panel.AgentRo
 }
 
 // hasNoAgentPane reports whether the row the cursor is on has no pane of its own.
-func (a *agentsScreen) hasNoAgentPane(m *model, in screen.Inputs) bool {
-	_, ok := a.hoveredPane(m, in)
+func (a *agentsScreen) hasNoAgentPane(in screen.Inputs) bool {
+	_, ok := a.hoveredPane(in)
 
 	return !ok
 }
 
 // hoveredAgentID is the agent under the cursor, or the orchestrator behind a hovered workflow.
-func (a *agentsScreen) hoveredAgentID(m *model, in screen.Inputs) string {
-	item, ok := a.hoveredPaneItem(m, in)
+func (a *agentsScreen) hoveredAgentID(in screen.Inputs) string {
+	item, ok := a.hoveredPaneItem(in)
 	if !ok {
 		return ""
 	}
@@ -492,8 +492,8 @@ func (a *agentsScreen) hoveredAgentID(m *model, in screen.Inputs) string {
 }
 
 // hoveredPaneItem is the agent under the cursor, or the orchestrator of the workflow under it.
-func (a *agentsScreen) hoveredPaneItem(m *model, in screen.Inputs) (panel.AgentRow, bool) {
-	row, ok := a.hoveredRow(m, in)
+func (a *agentsScreen) hoveredPaneItem(in screen.Inputs) (panel.AgentRow, bool) {
+	row, ok := a.hoveredRow(in)
 	if !ok {
 		return panel.AgentRow{}, false
 	}
@@ -628,13 +628,13 @@ func displayState(item panel.AgentRow) panel.State {
 }
 
 // apply takes a fresh listing, keeping the cursor on the row named.
-func (a *agentsScreen) apply(m *model, in screen.Inputs, selected string) {
+func (a *agentsScreen) apply(in screen.Inputs, selected string) {
 	placed := a.placed
 	if !placed {
 		selected = ""
 	}
 
-	rows := a.rows(m, in)
+	rows := a.rows(in)
 
 	switch idx := list.IndexOf(rows, selected); {
 	case idx >= 0:
@@ -651,19 +651,19 @@ func (a *agentsScreen) apply(m *model, in screen.Inputs, selected string) {
 	}
 
 	a.placed = true
-	a.Selected = a.Selected.Pruned(refsOf(a.rows(m, in)))
-	a.reconcileRename(m, in)
+	a.Selected = a.Selected.Pruned(refsOf(a.rows(in)))
+	a.reconcileRename(in)
 }
 
 // revealAgent puts the cursor on an agent, showing the hidden rows when it needs them.
 func (a *agentsScreen) revealAgent(m *model, in screen.Inputs, id string) {
-	if toTreeRowKey(a.list().hovered(m, in)) == agentRowKey(id) {
+	if toTreeRowKey(a.list().hovered(in)) == agentRowKey(id) {
 		return
 	}
 
 	a.showHiddenFor(m, id)
 
-	rows := a.rows(m, in)
+	rows := a.rows(in)
 	if idx := list.IndexOf(rows, findLandingKey(rows, "", agentRowKey(id))); idx >= 0 {
 		a.Row = idx
 	}
@@ -674,7 +674,7 @@ func (a *agentsScreen) revealTask(m *model, in screen.Inputs, taskID, writerID s
 	if in.Listing.Tasks[taskID].Hidden {
 		a.showHidden = true
 	}
-	if idx := list.IndexOf(a.rows(m, in), taskRowKey(taskID)); idx >= 0 {
+	if idx := list.IndexOf(a.rows(in), taskRowKey(taskID)); idx >= 0 {
 		a.Row = idx
 
 		return

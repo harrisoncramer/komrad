@@ -18,8 +18,8 @@ import (
 	"komrad/lib/xslice"
 )
 
-func (w *worktreesScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
-	rows := w.rows(m, in)
+func (w *worktreesScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
+	rows := w.rows(in)
 
 	return worktreesSnapshot(worktreesSnapshotParams{
 		rows:     rows,
@@ -36,7 +36,7 @@ func (w *worktreesScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) v
 }
 
 func (w *worktreesScreen) details(m *model, in screen.Inputs) record.Details {
-	row, ok := list.At(w.rows(m, in), w.Row)
+	row, ok := list.At(w.rows(in), w.Row)
 	if !ok {
 		return record.Details{}
 	}
@@ -188,12 +188,12 @@ func worktreeWorkflowField(l panel.Listing, item panel.Worktree) string {
 }
 
 // doc is the markdown rendered beside the list for the row the cursor is on.
-func (w *worktreesScreen) doc(m *model, in screen.Inputs) string {
-	return w.gitDoc(m, in)
+func (w *worktreesScreen) doc(in screen.Inputs) string {
+	return w.gitDoc(in)
 }
 
-func (w *worktreesScreen) gitDoc(m *model, in screen.Inputs) string {
-	row, ok := list.At(w.rows(m, in), w.Row)
+func (w *worktreesScreen) gitDoc(in screen.Inputs) string {
+	row, ok := list.At(w.rows(in), w.Row)
 	switch {
 	case !ok:
 		return renderDocument("Worktrees", "_no worktrees_", "", "")

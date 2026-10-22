@@ -1,11 +1,13 @@
 package ui
 
 import (
+	"slices"
 	"testing"
 
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/screen"
+	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -74,14 +76,12 @@ func TestActionKeysGoThroughTheMenu(t *testing.T) {
 	for _, s := range []screen.ID{screen.Agents, screen.Schedules, screen.Review, screen.Worktrees, screen.Documents, screen.Logs, screen.StatusChecks} {
 		var direct []keys.ID
 
-		for _, spec := range specsOf(s) {
-			for _, arm := range spec.Table {
-				assert.NotEqual(t, arm.Nav == nil, arm.Direct == nil, "%s: an arm moves or acts directly, never both or neither", s.String())
+		for _, arm := range armsOf(t, s) {
+			assert.NotEqual(t, arm.moves, arm.acts, "%s: an arm moves or acts directly, never both or neither", s.String())
 
-				if arm.Direct != nil {
-					assert.NotEmpty(t, arm.Direct.Reason, "%s: a direct arm says why", s.String())
-					direct = append(direct, arm.ID)
-				}
+			if arm.acts {
+				assert.NotEmpty(t, arm.reason, "%s: a direct arm says why", s.String())
+				direct = append(direct, arm.id)
 			}
 		}
 
@@ -89,14 +89,62 @@ func TestActionKeysGoThroughTheMenu(t *testing.T) {
 	}
 }
 
-func specsOf(s screen.ID) []keys.Spec[*model] {
-	var specs []keys.Spec[*model]
+type specArm struct {
+	id     keys.ID
+	moves  bool
+	acts   bool
+	reason string
+	named  bool
+}
 
+func armsOf(t *testing.T, s screen.ID) []specArm {
+	t.Helper()
+
+	var arms []specArm
 	for _, table := range actionsOf(s) {
-		if spec, ok := table.(keys.Spec[*model]); ok {
-			specs = append(specs, spec)
+		switch spec := table.(type) {
+		case keys.Spec[*model]:
+			arms = append(arms, specArms(spec)...)
+		case keys.Spec[*agentsScreen]:
+			arms = append(arms, specArms(spec)...)
+		case keys.Spec[*archivedAgents]:
+			arms = append(arms, specArms(spec)...)
+		case keys.Spec[*schedulesScreen]:
+			arms = append(arms, specArms(spec)...)
+		case keys.Spec[*archivedSchedules]:
+			arms = append(arms, specArms(spec)...)
+		case keys.Spec[*reviewScreen]:
+			arms = append(arms, specArms(spec)...)
+		case keys.Spec[*worktreesScreen]:
+			arms = append(arms, specArms(spec)...)
+		case keys.Spec[*documentsScreen]:
+			arms = append(arms, specArms(spec)...)
+		case keys.Spec[*logsScreen]:
+			arms = append(arms, specArms(spec)...)
+		case keys.Spec[*statusChecksScreen]:
+			arms = append(arms, specArms(spec)...)
+		case keys.Spec[statusCheckLogsScreen]:
+			arms = append(arms, specArms(spec)...)
+		default:
+			t.Fatalf("%s dispatches through a %T no case here reads", s, table)
 		}
 	}
 
-	return specs
+	return arms
+}
+
+func specArms[S any](spec keys.Spec[S]) []specArm {
+	return xslice.Map(spec.Table, func(action keys.Action[S]) specArm {
+		arm := specArm{
+			id:    action.ID,
+			moves: action.Nav != nil,
+			acts:  action.Direct != nil,
+			named: slices.ContainsFunc(spec.Legend, func(row keys.LegendRow[S]) bool { return slices.Contains(row.Of, action.ID) }),
+		}
+		if action.Direct != nil {
+			arm.reason = action.Direct.Reason
+		}
+
+		return arm
+	})
 }

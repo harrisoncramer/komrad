@@ -18,11 +18,11 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-func (c *statusChecksScreen) emptyLine(m *model) string {
+func (c *statusChecksScreen) emptyLine(in screen.Inputs) string {
 	switch {
 	case c.err != nil:
 		return "could not list: " + errui.GetReason(c.err)
-	case m.statusChecksPullRequestID(c.agentID) == "":
+	case statusChecksPullRequestID(in.Listing, c.agentID) == "":
 		return "no pull request"
 	case !c.listed:
 		return "reading…"
@@ -48,8 +48,8 @@ func statusCheckColumns() view.Columns {
 	}
 }
 
-func (c *statusChecksScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
-	rows := c.rows(m, in)
+func (c *statusChecksScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
+	rows := c.rows(in)
 
 	return view.Snapshot{
 		Rows: xslice.Map(rows, func(r statusCheckRow) view.Row {
@@ -88,8 +88,8 @@ func statusCheckIcon(item statusCheckItem, loaderFrame string) view.Cell {
 	return view.Cell{Glyph: glyph.StatusCheckFailing, Tone: paint.ToneDanger}
 }
 
-func (c *statusChecksScreen) docRows(m *model, in screen.Inputs, width int) []string {
-	rows := c.rows(m, in)
+func (c *statusChecksScreen) docRows(in screen.Inputs, width int) []string {
+	rows := c.rows(in)
 	if c.Row < 0 || c.Row >= len(rows) {
 		return nil
 	}

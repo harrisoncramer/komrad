@@ -23,10 +23,10 @@ func (l *logsScreen) emptyLine() string {
 	return "reading…"
 }
 
-func (l *logsScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
-	rows := l.rows(m, in)
+func (l *logsScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
+	rows := l.rows(in)
 	caret := pane.Caret
-	if l.isBlockFocused(m, in) {
+	if l.isBlockFocused(in) {
 		caret = view.CaretRendered
 	}
 
@@ -64,14 +64,14 @@ func sourceLabel(source *logv1.LogSource) string {
 
 // block is the log rendered at the width and height of the block beside the sidebar, its lines
 // pinned to the prompt at its foot.
-func (l *logsScreen) block(m *model, in screen.Inputs, width int) []string {
+func (l *logsScreen) block(in screen.Inputs, width int) []string {
 	split := in.Room.Split
 	if !split.On {
 		return nil
 	}
 
 	height := max(split.Rows-1, 1)
-	rows := l.logRows(m, in, width, height)
+	rows := l.logRows(in, width, height)
 	if l.read && l.viewer.Len() > 0 {
 		rows = append(make([]string, max(height-len(rows), 0)), rows...)
 	}
@@ -97,8 +97,8 @@ func (l *logsScreen) logFilterLine(glyphs glyph.Set) string {
 }
 
 // logRows is the lines of the log rendered in height rows, or what stands in for them.
-func (l *logsScreen) logRows(m *model, in screen.Inputs, width, height int) []string {
-	row, hovered := list.At(l.rows(m, in), l.Row)
+func (l *logsScreen) logRows(in screen.Inputs, width, height int) []string {
+	row, hovered := list.At(l.rows(in), l.Row)
 
 	switch {
 	case !hovered:
@@ -120,7 +120,7 @@ func (l *logsScreen) logRows(m *model, in screen.Inputs, width, height int) []st
 	if in.Room.Marks {
 		lines = l.viewer.Lines(width-len(list.Blank), height)
 	}
-	focused := l.isBlockFocused(m, in)
+	focused := l.isBlockFocused(in)
 	for i, row := range rows {
 		prefix := list.Blank
 		if focused && i == cursor {

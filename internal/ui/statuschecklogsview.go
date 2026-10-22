@@ -20,8 +20,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-func (c *statusCheckLogsScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
-	rows := c.rows(m, in)
+func (c statusCheckLogsScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
+	rows := c.rows(in)
 
 	return view.Snapshot{
 		Rows: xslice.Map(rows, func(r statusCheckLogRow) view.Row {
@@ -62,8 +62,8 @@ func statusCheckLogStepIcon(step *pullrequestv1.CheckLogStep) view.Cell {
 }
 
 // doc is the logs of the shown checks rendered at a width, with the row each list row's header is rendered on.
-func (c *statusCheckLogsScreen) doc(m *model, width int) statusCheckLogsRendered {
-	shown := c.shown(m)
+func (c statusCheckLogsScreen) doc(width int) statusCheckLogsRendered {
+	shown := c.shown()
 	shape := c.docShape(shown, width)
 	if c.rendered.shape == shape {
 		return c.rendered
@@ -105,7 +105,7 @@ func (c *statusCheckLogsScreen) doc(m *model, width int) statusCheckLogsRendered
 			}
 		}
 
-		read := c.logs[item.checkID]
+		read := c.reads[item.checkID]
 		for n, text := range read.lines {
 			header(n + 1)
 
@@ -128,11 +128,11 @@ func (c *statusCheckLogsScreen) doc(m *model, width int) statusCheckLogsRendered
 }
 
 // docShape names everything the document is rendered from, so it is rendered again only once that changes.
-func (c *statusCheckLogsScreen) docShape(shown []statusCheckItem, width int) string {
+func (c statusCheckLogsScreen) docShape(shown []statusCheckItem, width int) string {
 	var shape strings.Builder
 	fmt.Fprintf(&shape, "%d/%d", c.generation, width)
 	for _, item := range shown {
-		read := c.logs[item.checkID]
+		read := c.reads[item.checkID]
 		lines, reading, failed := 0, false, false
 		if read != nil {
 			lines, reading, failed = len(read.lines), read.reading, read.err != nil
@@ -144,8 +144,8 @@ func (c *statusCheckLogsScreen) docShape(shown []statusCheckItem, width int) str
 }
 
 // logNotice is what is rendered under a check in place of its log, empty while there are lines to render.
-func (c *statusCheckLogsScreen) logNotice(item statusCheckItem) string {
-	read := c.logs[item.checkID]
+func (c statusCheckLogsScreen) logNotice(item statusCheckItem) string {
+	read := c.reads[item.checkID]
 	switch {
 	case read != nil && read.err != nil:
 		return "could not read: " + errui.GetReason(read.err)

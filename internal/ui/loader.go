@@ -42,7 +42,7 @@ func (m *model) isLoading() bool {
 }
 
 func (a *agentsScreen) isLoading(m *model, in screen.Inputs) bool {
-	return slices.ContainsFunc(a.rows(m, in), func(r agentRow) bool { return isRowLoading(in.Listing, r) })
+	return slices.ContainsFunc(a.rows(in), func(r agentRow) bool { return isRowLoading(in.Listing, r) })
 }
 
 func (r reviewScreen) isLoading(m *model, in screen.Inputs) bool {

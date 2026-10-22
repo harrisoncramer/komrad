@@ -15,6 +15,7 @@ func (m *model) inputsFor(s screenModel) screen.Inputs {
 	in.Room.Column = m.columnSplit(in)
 	in.Room.Split = m.screenColumnSplit(in)
 	in.Room.Doc = m.docReaderOf(in)
+	in.Room.Doc.Window = m.docWindowOf(in)
 	in.Room.Caret = m.listCaret(in)
 
 	return in
