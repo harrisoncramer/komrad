@@ -52,7 +52,6 @@ type armMsg struct {
 
 type wait struct {
 	due  time.Time
-	seq  int
 	fire func(time.Time) tea.Msg
 }
 
@@ -177,10 +176,8 @@ func (p *Panel) answerTerminal() {
 }
 
 func (p *Panel) arm(msg armMsg) {
-	p.armed++
 	p.waits = append(p.waits, wait{
 		due:  p.clock.Now().Add(msg.wait),
-		seq:  p.armed,
 		fire: msg.fire,
 	})
 }
@@ -192,7 +189,7 @@ func (p *Panel) takeDue(at time.Time) (wait, bool) {
 		if armed.due.After(at) {
 			continue
 		}
-		if next < 0 || armed.due.Before(p.waits[next].due) || armed.due.Equal(p.waits[next].due) && armed.seq < p.waits[next].seq {
+		if next < 0 || armed.due.Before(p.waits[next].due) {
 			next = i
 		}
 	}

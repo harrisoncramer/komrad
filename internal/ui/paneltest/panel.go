@@ -87,7 +87,6 @@ type Panel struct {
 	editor   *editor
 	clip     *clipboard
 	waits    []wait
-	armed    int
 	parked   []parkedCmd
 	// sent is the size the terminal last told the panel its pane is.
 	sent tea.WindowSizeMsg
@@ -299,15 +298,13 @@ func (p *Panel) Advance(by time.Duration) {
 
 	target := p.clock.Now().Add(by)
 	for {
-		due, ok := p.takeDue(target)
+		fired, ok := p.takeDue(target)
 		if !ok {
 			break
 		}
 
-		if due.due.After(p.clock.Now()) {
-			p.clock.set(due.due)
-		}
-		msg := due.fire(due.due)
+		p.clock.set(fired.due)
+		msg := fired.fire(fired.due)
 		p.settle(func() tea.Msg { return msg })
 		p.answerTerminal()
 	}
