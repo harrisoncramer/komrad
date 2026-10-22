@@ -11,25 +11,28 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// ID names one thing a screen does with a key, unique across the packages that declare them.
-type ID string
+// ID names one thing a screen does with a key.
+type ID int
 
 // The actions every screen shares.
 const (
-	Move         ID = "move"
-	Jump         ID = "jump"
-	NavPage      ID = "nav page"
-	ColumnScroll ID = "column scroll"
-	ColumnBack   ID = "column back"
-	Details      ID = "details"
-	DetailsCopy  ID = "details copy"
-	FilterOpen   ID = "filter open"
-	FilterClear  ID = "filter clear"
-	FilterMatch  ID = "filter match"
-	Quit         ID = "quit"
-	SelectToggle ID = "select toggle"
-	SelectRange  ID = "select range"
-	SelectClear  ID = "select clear"
+	_ ID = iota
+	Move
+	Jump
+	NavPage
+	ColumnScroll
+	ColumnBack
+	Details
+	DetailsCopy
+	FilterOpen
+	FilterClear
+	FilterMatch
+	Quit
+	SelectToggle
+	SelectRange
+	SelectClear
+	// Own is the first ID a package declares of its own.
+	Own
 )
 
 // NotInMenu is the reason on an action arm that has not moved into the menu yet.
