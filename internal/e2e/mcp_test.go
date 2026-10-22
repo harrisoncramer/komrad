@@ -13,6 +13,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,7 +22,7 @@ import (
 
 // toolCaller calls tools over an MCP session as one agent.
 type toolCaller struct {
-	agentID string
+	agentID uuid.UUID
 	session *mcpsdk.ClientSession
 }
 
@@ -41,7 +42,7 @@ func TestIntegrationMCPTools(t *testing.T) {
 	require.NoError(t, err)
 	reviewer := requested.Msg.GetReviewer()
 
-	writerTools := connectMCP(t, instance, api.GetId())
+	writerTools := connectMCP(t, instance, uuid.MustParse(api.GetId()))
 
 	t.Run("a writer is served the tools for writing work", func(t *testing.T) {
 		served := writerTools.listTools(t)
@@ -52,21 +53,21 @@ func TestIntegrationMCPTools(t *testing.T) {
 	})
 
 	t.Run("an orchestrator is served the tools for handing work out", func(t *testing.T) {
-		served := connectMCP(t, instance, orchestrator.GetId()).listTools(t)
+		served := connectMCP(t, instance, uuid.MustParse(orchestrator.GetId())).listTools(t)
 
 		assert.Subset(t, served, []string{"send_mail", "create_agent", "start_orchestrator", "rebase_worktree", "query"})
 		assert.NotContains(t, served, "request_review")
 	})
 
 	t.Run("a reviewer is not served the tools for spawning agents", func(t *testing.T) {
-		served := connectMCP(t, instance, reviewer.GetId()).listTools(t)
+		served := connectMCP(t, instance, uuid.MustParse(reviewer.GetId())).listTools(t)
 
 		assert.Subset(t, served, []string{"send_mail", "take_review_snapshot", "query"})
 		assert.NotContains(t, served, "create_agent")
 	})
 
 	t.Run("a caller komrad cannot place is served every tool", func(t *testing.T) {
-		served := connectMCP(t, instance, "").listTools(t)
+		served := connectMCP(t, instance, uuid.Nil).listTools(t)
 
 		assert.Subset(t, served, writerTools.listTools(t))
 		assert.Subset(t, served, []string{"start_orchestrator", "rebase_worktree"})
@@ -125,8 +126,8 @@ func TestIntegrationMCPTools(t *testing.T) {
 	})
 }
 
-// connectMCP connects a tool caller as an agent, or as nobody komrad can place when agentID is empty.
-func connectMCP(t *testing.T, instance *komradtest.Instance, agentID string) toolCaller {
+// connectMCP connects a tool caller as an agent, or as nobody komrad can place when agentID is nil.
+func connectMCP(t *testing.T, instance *komradtest.Instance, agentID uuid.UUID) toolCaller {
 	t.Helper()
 
 	client := mcpsdk.NewClient(&mcpsdk.Implementation{Name: "e2e", Version: "0"}, nil)
@@ -172,7 +173,7 @@ func (s toolCaller) call(t *testing.T, name string, args map[string]any) (string
 	return text.Text, result.IsError
 }
 
-func newCallerContext(t *testing.T, agentID string) context.Context {
+func newCallerContext(t *testing.T, agentID uuid.UUID) context.Context {
 	t.Helper()
 
 	return caller.With(t.Context(), caller.Caller{AgentID: agentID})

@@ -20,6 +20,7 @@ import (
 
 	"komrad/internal/harness"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -266,7 +267,7 @@ func (h *Harness) ReadLog(path string, offset int64) (harness.LogRead, error) {
 }
 
 // SetActivity is what the test writes to move an agent, which shows in its pane within a tick.
-func (h *Harness) SetActivity(agentID string, activity harness.Activity) error {
+func (h *Harness) SetActivity(agentID uuid.UUID, activity harness.Activity) error {
 	line := idleLine
 	switch activity {
 	case harness.ActivityWorking:
@@ -280,8 +281,8 @@ func (h *Harness) SetActivity(agentID string, activity harness.Activity) error {
 }
 
 // Show is the line an agent prints on its next tick.
-func (h *Harness) Show(agentID, line string) error {
-	path := filepath.Join(h.root, "state", agentID)
+func (h *Harness) Show(agentID uuid.UUID, line string) error {
+	path := filepath.Join(h.root, "state", agentID.String())
 	if err := os.WriteFile(path, []byte(line), 0o600); err != nil {
 		return fmt.Errorf("failed to set the activity for agent %q: %w", agentID, err)
 	}

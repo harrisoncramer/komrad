@@ -7,6 +7,8 @@ package models
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
 
 const claimEngineAccess = `-- name: ClaimEngineAccess :one
@@ -38,7 +40,7 @@ WHERE
 `
 
 type GetCurrentEngineRow struct {
-	ID   string
+	ID   uuid.UUID
 	Name string
 }
 
@@ -58,9 +60,9 @@ WHERE
     name = $1
 `
 
-func (q *Queries) GetEngineIDByName(ctx context.Context, name string) (string, error) {
+func (q *Queries) GetEngineIDByName(ctx context.Context, name string) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, getEngineIDByName, name)
-	var id string
+	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
 }
@@ -111,7 +113,7 @@ ON CONFLICT (
 `
 
 type GrantEngineAccessParams struct {
-	EngineID string
+	EngineID uuid.UUID
 	Email    string
 }
 
@@ -144,7 +146,7 @@ WHERE engine_id = $1
 `
 
 type RevokeEngineAccessParams struct {
-	EngineID string
+	EngineID uuid.UUID
 	Email    string
 }
 

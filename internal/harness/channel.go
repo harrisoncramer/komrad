@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/google/uuid"
 )
 
 // maxSocketPath is the longest path a unix socket can be bound or dialled at on macOS, with room
@@ -15,7 +17,7 @@ const maxSocketPath = 103
 
 // Target is the agent a channel speaks to or an observer reads.
 type Target struct {
-	AgentID   string
+	AgentID   uuid.UUID
 	Pane      string
 	HarnessID string
 	// SessionID is the conversation the agent's CLI is in, empty until komrad has learned it.
@@ -30,14 +32,14 @@ type Channel interface {
 }
 
 // SocketPath is where an agent's CLI listens for what komrad sends it.
-func SocketPath(cacheDir, harnessID, agentID string) string {
-	sum := sha256.Sum256([]byte(agentID))
+func SocketPath(cacheDir, harnessID string, agentID uuid.UUID) string {
+	sum := sha256.Sum256([]byte(agentID.String()))
 
 	return filepath.Join(cacheDir, harnessID, hex.EncodeToString(sum[:])[:16]+".sock")
 }
 
 // PrepareSocket makes the directory an agent's socket goes in, refusing a path too long to bind.
-func PrepareSocket(cacheDir, harnessID, agentID string) (string, error) {
+func PrepareSocket(cacheDir, harnessID string, agentID uuid.UUID) (string, error) {
 	path := SocketPath(cacheDir, harnessID, agentID)
 	if len(path) > maxSocketPath {
 		return "", fmt.Errorf("the socket %q is longer than the %d bytes a unix socket path can be", path, maxSocketPath)

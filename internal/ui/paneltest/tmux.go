@@ -9,6 +9,8 @@ import (
 	"komrad/internal/panes"
 	"komrad/internal/ui"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // The panes the recorded tmux hands out, named for what the frame puts in them.
@@ -711,12 +713,12 @@ func (t *recordedTmux) GetSiblingPanes(pane string) []string {
 	return nil
 }
 
-func (t *recordedTmux) GetPaneOwner(pane string) string {
+func (t *recordedTmux) GetPaneOwner(pane string) uuid.UUID {
 	if t.wrapped != nil {
 		return t.wrapped.GetPaneOwner(pane)
 	}
 
-	return ""
+	return uuid.Nil
 }
 
 func (t *recordedTmux) BreakPane(pane string) {

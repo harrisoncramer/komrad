@@ -6,8 +6,9 @@ import (
 	"time"
 
 	"komrad/db/models"
-	"komrad/internal/store"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -17,7 +18,7 @@ const (
 
 // RunOccurrence names one firing of a schedule by the time it was due.
 type RunOccurrence struct {
-	ScheduleID   string
+	ScheduleID   uuid.UUID
 	ScheduledFor time.Time
 }
 
@@ -69,11 +70,7 @@ func (s *ScheduleStore) FinishRun(ctx context.Context, occurrence RunOccurrence,
 }
 
 // ListRuns returns a schedule's most recent firings, newest first.
-func (s *ScheduleStore) ListRuns(ctx context.Context, scheduleID string, limit int) ([]Run, error) {
-	if !store.IsID(scheduleID) {
-		return nil, nil
-	}
-
+func (s *ScheduleStore) ListRuns(ctx context.Context, scheduleID uuid.UUID, limit int) ([]Run, error) {
 	rows, err := s.queries.ListScheduleRuns(ctx, models.ListScheduleRunsParams{ScheduleID: scheduleID, Lim: int32(limit)})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the runs of schedule %q: %w", scheduleID, err)
@@ -90,7 +87,7 @@ func (s *ScheduleStore) attachRuns(ctx context.Context, schedules []Schedule, pe
 	}
 
 	rows, err := s.queries.ListRecentScheduleRuns(ctx, models.ListRecentScheduleRunsParams{
-		ScheduleIds: xslice.Map(schedules, func(schedule Schedule) string {
+		ScheduleIds: xslice.Map(schedules, func(schedule Schedule) uuid.UUID {
 			return schedule.ID
 		}),
 		PerSchedule: int32(perSchedule),
@@ -99,7 +96,7 @@ func (s *ScheduleStore) attachRuns(ctx context.Context, schedules []Schedule, pe
 		return nil, fmt.Errorf("failed to list the recent runs of %d schedules: %w", len(schedules), err)
 	}
 
-	recent := map[string][]Run{}
+	recent := map[uuid.UUID][]Run{}
 	for _, row := range rows {
 		recent[row.ScheduleRun.ScheduleID] = append(recent[row.ScheduleRun.ScheduleID], runFromRow(row.ScheduleRun))
 	}

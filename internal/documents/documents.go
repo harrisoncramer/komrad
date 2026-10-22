@@ -19,6 +19,7 @@ import (
 	"komrad/lib/xptr"
 	"komrad/proto/gen/oneofs"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 )
@@ -92,11 +93,11 @@ func NewDocumentService(params NewDocumentServiceParams) *DocumentService {
 type WriteDocumentParams struct {
 	// AgentID is the agent writing, whose document it is, or empty for a person rewriting the
 	// document ID names.
-	AgentID string
+	AgentID uuid.UUID
 	// For is the agent a person creates a document for, and empty for an agent writing its own.
-	For string
+	For uuid.UUID
 	// ID is the document to rewrite, or nil to create one.
-	ID *string
+	ID *uuid.UUID
 	// Version is the version a rewrite replaces, required with ID.
 	Version *int32
 	Name    string
@@ -108,7 +109,7 @@ type WriteDocumentParams struct {
 
 // WriteDocument creates a document, or rewrites the one ID names.
 func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumentParams) (*documentstore.Document, error) {
-	if params.AgentID != "" && params.For != "" && params.For != params.AgentID {
+	if params.AgentID != uuid.Nil && params.For != uuid.Nil && params.For != params.AgentID {
 		return nil, ErrAgentWritingForAnother
 	}
 
@@ -116,7 +117,7 @@ func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumen
 		return nil, ErrNoVersion
 	}
 
-	byPerson := params.AgentID == ""
+	byPerson := params.AgentID == uuid.Nil
 	if byPerson {
 		owner, err := s.ownerFor(ctx, params)
 		if err != nil {
@@ -192,10 +193,10 @@ func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumen
 
 // ownerFor is the agent a person's write is to: the owner of the document it rewrites, or the
 // agent it names for a new one.
-func (s *DocumentService) ownerFor(ctx context.Context, params WriteDocumentParams) (string, error) {
+func (s *DocumentService) ownerFor(ctx context.Context, params WriteDocumentParams) (uuid.UUID, error) {
 	if params.ID == nil {
-		if params.For == "" {
-			return "", ErrNoAuthor
+		if params.For == uuid.Nil {
+			return uuid.Nil, ErrNoAuthor
 		}
 
 		return params.For, nil
@@ -203,10 +204,10 @@ func (s *DocumentService) ownerFor(ctx context.Context, params WriteDocumentPara
 
 	held, err := s.documents.Get(ctx, *params.ID)
 	if err != nil {
-		return "", fmt.Errorf("failed to find the document to rewrite: %w", err)
+		return uuid.Nil, fmt.Errorf("failed to find the document to rewrite: %w", err)
 	}
-	if params.For != "" && params.For != held.AgentID {
-		return "", ErrForAnother
+	if params.For != uuid.Nil && params.For != held.AgentID {
+		return uuid.Nil, ErrForAnother
 	}
 
 	return held.AgentID, nil
@@ -260,7 +261,7 @@ func checkBody(body string) error {
 }
 
 // GetDocument returns one document whole, as it stands or as the write version names left it.
-func (s *DocumentService) GetDocument(ctx context.Context, id string, version *int32) (*documentstore.Document, error) {
+func (s *DocumentService) GetDocument(ctx context.Context, id uuid.UUID, version *int32) (*documentstore.Document, error) {
 	got, err := s.documents.Get(ctx, id)
 	if err != nil || version == nil {
 		return got, err
@@ -279,14 +280,14 @@ func (s *DocumentService) GetDocument(ctx context.Context, id string, version *i
 
 // DeleteDocumentParams is the document to delete and the agent asking.
 type DeleteDocumentParams struct {
-	ID string
+	ID uuid.UUID
 	// ByAgentID is the agent asking, empty for a person.
-	ByAgentID string
+	ByAgentID uuid.UUID
 }
 
 // DeleteDocument removes a document and every write of it.
 func (s *DocumentService) DeleteDocument(ctx context.Context, params DeleteDocumentParams) error {
-	if params.ByAgentID != "" {
+	if params.ByAgentID != uuid.Nil {
 		return ErrDeleteByAgent
 	}
 
@@ -294,15 +295,15 @@ func (s *DocumentService) DeleteDocument(ctx context.Context, params DeleteDocum
 }
 
 // ListDocumentVersions returns every write of a document, the newest first, with the agent that owns it.
-func (s *DocumentService) ListDocumentVersions(ctx context.Context, id string) (string, []documentstore.Version, error) {
+func (s *DocumentService) ListDocumentVersions(ctx context.Context, id uuid.UUID) (uuid.UUID, []documentstore.Version, error) {
 	got, err := s.documents.Get(ctx, id)
 	if err != nil {
-		return "", nil, err
+		return uuid.Nil, nil, err
 	}
 
 	versions, err := s.documents.ListVersions(ctx, id)
 	if err != nil {
-		return "", nil, err
+		return uuid.Nil, nil, err
 	}
 
 	return got.AgentID, versions, nil
@@ -310,7 +311,7 @@ func (s *DocumentService) ListDocumentVersions(ctx context.Context, id string) (
 
 // ListDocumentsParams narrows a page of documents.
 type ListDocumentsParams struct {
-	AgentID *string
+	AgentID *uuid.UUID
 	Task    oneofs.Task
 	Type    *string
 	Limit   int32
@@ -319,7 +320,7 @@ type ListDocumentsParams struct {
 
 // ListDocuments returns a page of documents without their bodies, newest write first.
 func (s *DocumentService) ListDocuments(ctx context.Context, params ListDocumentsParams) ([]documentstore.Document, error) {
-	var taskID *string
+	var taskID *uuid.UUID
 	if params.Task != (oneofs.Task{}) {
 		task, err := s.tasks.FindTask(ctx, params.Task)
 		if err != nil {

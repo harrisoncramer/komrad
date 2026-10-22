@@ -8,6 +8,8 @@ package models
 import (
 	"context"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const countOpenReviewComments = `-- name: CountOpenReviewComments :one
@@ -19,7 +21,7 @@ WHERE
     m.review_id = $1
 `
 
-func (q *Queries) CountOpenReviewComments(ctx context.Context, reviewID *string) (int64, error) {
+func (q *Queries) CountOpenReviewComments(ctx context.Context, reviewID *uuid.UUID) (int64, error) {
 	row := q.db.QueryRow(ctx, countOpenReviewComments, reviewID)
 	var count int64
 	err := row.Scan(&count)
@@ -32,7 +34,7 @@ WHERE author_agent_id = ANY ($1::uuid[])
     AND released_at IS NULL
 `
 
-func (q *Queries) DeleteOpenReviewsByAuthor(ctx context.Context, authorAgentIds []string) error {
+func (q *Queries) DeleteOpenReviewsByAuthor(ctx context.Context, authorAgentIds []uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteOpenReviewsByAuthor, authorAgentIds)
 	return err
 }
@@ -42,7 +44,7 @@ DELETE FROM reviews
 WHERE id = $1
 `
 
-func (q *Queries) DeleteReview(ctx context.Context, id string) error {
+func (q *Queries) DeleteReview(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteReview, id)
 	return err
 }
@@ -59,7 +61,7 @@ ORDER BY
 LIMIT 1
 `
 
-func (q *Queries) GetLatestReviewSnapshot(ctx context.Context, taskID string) (*ReviewSnapshot, error) {
+func (q *Queries) GetLatestReviewSnapshot(ctx context.Context, taskID uuid.UUID) (*ReviewSnapshot, error) {
 	row := q.db.QueryRow(ctx, getLatestReviewSnapshot, taskID)
 	var i ReviewSnapshot
 	err := row.Scan(
@@ -88,9 +90,9 @@ WHERE
 `
 
 type GetOpenReviewParams struct {
-	TaskID        string
+	TaskID        uuid.UUID
 	AuthorKind    ReviewAuthorKind
-	AuthorAgentID *string
+	AuthorAgentID *uuid.UUID
 }
 
 func (q *Queries) GetOpenReview(ctx context.Context, arg GetOpenReviewParams) (*Review, error) {
@@ -123,7 +125,7 @@ WHERE
     v.id = $1
 `
 
-func (q *Queries) GetReview(ctx context.Context, id string) (*Review, error) {
+func (q *Queries) GetReview(ctx context.Context, id uuid.UUID) (*Review, error) {
 	row := q.db.QueryRow(ctx, getReview, id)
 	var i Review
 	err := row.Scan(
@@ -153,7 +155,7 @@ WHERE
     m.id = $1
 `
 
-func (q *Queries) GetReviewMessage(ctx context.Context, id string) (*ReviewMessage, error) {
+func (q *Queries) GetReviewMessage(ctx context.Context, id uuid.UUID) (*ReviewMessage, error) {
 	row := q.db.QueryRow(ctx, getReviewMessage, id)
 	var i ReviewMessage
 	err := row.Scan(
@@ -189,7 +191,7 @@ WHERE
     r.id = $1
 `
 
-func (q *Queries) GetReviewSnapshot(ctx context.Context, id string) (*ReviewSnapshot, error) {
+func (q *Queries) GetReviewSnapshot(ctx context.Context, id uuid.UUID) (*ReviewSnapshot, error) {
 	row := q.db.QueryRow(ctx, getReviewSnapshot, id)
 	var i ReviewSnapshot
 	err := row.Scan(
@@ -219,7 +221,7 @@ LIMIT 1
 `
 
 type GetReviewSnapshotByShaParams struct {
-	TaskID string
+	TaskID uuid.UUID
 	Sha    string
 }
 
@@ -248,7 +250,7 @@ WHERE
     t.id = $1
 `
 
-func (q *Queries) GetReviewThread(ctx context.Context, id string) (*ReviewThread, error) {
+func (q *Queries) GetReviewThread(ctx context.Context, id uuid.UUID) (*ReviewThread, error) {
 	row := q.db.QueryRow(ctx, getReviewThread, id)
 	var i ReviewThread
 	err := row.Scan(
@@ -297,8 +299,8 @@ RETURNING
 `
 
 type InsertForgeReviewParams struct {
-	TaskID        string
-	SnapshotID    string
+	TaskID        uuid.UUID
+	SnapshotID    uuid.UUID
 	ExternalLogin *string
 }
 
@@ -339,10 +341,10 @@ RETURNING
 `
 
 type InsertReviewParams struct {
-	TaskID        string
-	SnapshotID    string
+	TaskID        uuid.UUID
+	SnapshotID    uuid.UUID
 	AuthorKind    ReviewAuthorKind
-	AuthorAgentID *string
+	AuthorAgentID *uuid.UUID
 }
 
 func (q *Queries) InsertReview(ctx context.Context, arg InsertReviewParams) (*Review, error) {
@@ -470,40 +472,40 @@ FROM
 `
 
 type InsertReviewMessageParams struct {
-	ThreadID       string
-	ReviewID       *string
-	SnapshotID     *string
+	ThreadID       uuid.UUID
+	ReviewID       *uuid.UUID
+	SnapshotID     *uuid.UUID
 	AuthorKind     ReviewAuthorKind
-	AuthorAgentID  *string
+	AuthorAgentID  *uuid.UUID
 	Body           string
 	Suggestion     []string
 	ExternalLogin  *string
-	ForgeCommentID *string
+	ForgeCommentID *uuid.UUID
 	ForgeEditedAt  *time.Time
 	Held           bool
-	AcceptedFrom   *string
+	AcceptedFrom   *uuid.UUID
 }
 
 type InsertReviewMessageRow struct {
-	ID             string
-	ThreadID       string
+	ID             uuid.UUID
+	ThreadID       uuid.UUID
 	AuthorKind     ReviewAuthorKind
-	AuthorAgentID  *string
+	AuthorAgentID  *uuid.UUID
 	Body           string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
-	ReviewID       *string
+	ReviewID       *uuid.UUID
 	Suggestion     []string
-	EngineID       string
-	SnapshotID     *string
+	EngineID       uuid.UUID
+	SnapshotID     *uuid.UUID
 	ExternalLogin  *string
-	ForgeCommentID *string
+	ForgeCommentID *uuid.UUID
 	ForgeEditedAt  *time.Time
 	Held           bool
-	AcceptedFrom   *string
-	MailID         *string
+	AcceptedFrom   *uuid.UUID
+	MailID         *uuid.UUID
 	ReadAt         *time.Time
-	ReadSnapshotID *string
+	ReadSnapshotID *uuid.UUID
 }
 
 func (q *Queries) InsertReviewMessage(ctx context.Context, arg InsertReviewMessageParams) (*InsertReviewMessageRow, error) {
@@ -566,7 +568,7 @@ RETURNING
 `
 
 type InsertReviewSnapshotParams struct {
-	TaskID  string
+	TaskID  uuid.UUID
 	BaseSha string
 	Sha     string
 }
@@ -661,11 +663,11 @@ FROM
 `
 
 type InsertReviewThreadWithMessageParams struct {
-	TaskID         string
-	ReviewID       *string
+	TaskID         uuid.UUID
+	ReviewID       *uuid.UUID
 	AuthorKind     ReviewAuthorKind
-	AuthorAgentID  *string
-	SnapshotID     string
+	AuthorAgentID  *uuid.UUID
+	SnapshotID     uuid.UUID
 	BaseSha        string
 	FilePath       string
 	OldStart       int32
@@ -673,17 +675,17 @@ type InsertReviewThreadWithMessageParams struct {
 	NewStart       int32
 	NewEnd         int32
 	QuotedLines    []string
-	ForgeThreadID  *string
+	ForgeThreadID  *uuid.UUID
 	Body           string
 	Suggestion     []string
 	ExternalLogin  *string
-	ForgeCommentID *string
+	ForgeCommentID *uuid.UUID
 	ForgeEditedAt  *time.Time
 	Held           bool
 }
 
 type InsertReviewThreadWithMessageRow struct {
-	ID                  string
+	ID                  uuid.UUID
 	FilePath            string
 	OldStart            int32
 	OldEnd              int32
@@ -695,18 +697,18 @@ type InsertReviewThreadWithMessageRow struct {
 	UpdatedAt           time.Time
 	LastAgentActivityAt *time.Time
 	ResolvedAt          *time.Time
-	ReviewID            *string
-	SnapshotID          string
+	ReviewID            *uuid.UUID
+	SnapshotID          uuid.UUID
 	BaseSha             string
 	ResolvedByKind      NullReviewAuthorKind
-	ResolvedByAgentID   *string
-	EngineID            string
-	ForgeThreadID       *string
+	ResolvedByAgentID   *uuid.UUID
+	EngineID            uuid.UUID
+	ForgeThreadID       *uuid.UUID
 	ForgeResolved       bool
-	TaskID              string
+	TaskID              uuid.UUID
 	AuthorKind          ReviewAuthorKind
-	AuthorAgentID       *string
-	MessageID           string
+	AuthorAgentID       *uuid.UUID
+	MessageID           uuid.UUID
 }
 
 func (q *Queries) InsertReviewThreadWithMessage(ctx context.Context, arg InsertReviewThreadWithMessageParams) (*InsertReviewThreadWithMessageRow, error) {
@@ -773,7 +775,7 @@ WHERE
 `
 
 type LandReviewSnapshotsParams struct {
-	TaskID  string
+	TaskID  uuid.UUID
 	Ordinal int32
 }
 
@@ -821,14 +823,14 @@ ORDER BY
 `
 
 type ListForgeMirrorTasksRow struct {
-	TaskID      string
+	TaskID      uuid.UUID
 	Cwd         string
-	SnapshotID  string
+	SnapshotID  uuid.UUID
 	BaseSha     string
 	SnapshotSha string
 }
 
-func (q *Queries) ListForgeMirrorTasks(ctx context.Context, pullRequestID string) ([]*ListForgeMirrorTasksRow, error) {
+func (q *Queries) ListForgeMirrorTasks(ctx context.Context, pullRequestID uuid.UUID) ([]*ListForgeMirrorTasksRow, error) {
 	rows, err := q.db.Query(ctx, listForgeMirrorTasks, pullRequestID)
 	if err != nil {
 		return nil, err
@@ -877,17 +879,17 @@ ORDER BY
 `
 
 type ListForgeMirroredMessagesRow struct {
-	ThreadID       string
-	ForgeThreadID  string
+	ThreadID       uuid.UUID
+	ForgeThreadID  uuid.UUID
 	ResolvedAt     *time.Time
 	ResolvedByKind NullReviewAuthorKind
 	ForgeResolved  bool
-	MessageID      *string
-	ForgeCommentID *string
+	MessageID      *uuid.UUID
+	ForgeCommentID *uuid.UUID
 	ForgeEditedAt  *time.Time
 }
 
-func (q *Queries) ListForgeMirroredMessages(ctx context.Context, taskID string) ([]*ListForgeMirroredMessagesRow, error) {
+func (q *Queries) ListForgeMirroredMessages(ctx context.Context, taskID uuid.UUID) ([]*ListForgeMirroredMessagesRow, error) {
 	rows, err := q.db.Query(ctx, listForgeMirroredMessages, taskID)
 	if err != nil {
 		return nil, err
@@ -945,15 +947,15 @@ ORDER BY
     a.id
 `
 
-func (q *Queries) ListLiveReviewers(ctx context.Context, taskID string) ([]string, error) {
+func (q *Queries) ListLiveReviewers(ctx context.Context, taskID uuid.UUID) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, listLiveReviewers, taskID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []uuid.UUID
 	for rows.Next() {
-		var id string
+		var id uuid.UUID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -977,7 +979,7 @@ ORDER BY
 `
 
 type ListNewestTaskReviewSnapshotsRow struct {
-	TaskID string
+	TaskID uuid.UUID
 	Sha    string
 }
 
@@ -1012,15 +1014,15 @@ ORDER BY
     v.id
 `
 
-func (q *Queries) ListReviewIDsOfTasks(ctx context.Context, taskIds []string) ([]string, error) {
+func (q *Queries) ListReviewIDsOfTasks(ctx context.Context, taskIds []uuid.UUID) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, listReviewIDsOfTasks, taskIds)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []uuid.UUID
 	for rows.Next() {
-		var id string
+		var id uuid.UUID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -1051,7 +1053,7 @@ type ListReviewMessagesOfThreadsRow struct {
 	ReviewReleasedAt *time.Time
 }
 
-func (q *Queries) ListReviewMessagesOfThreads(ctx context.Context, threadIds []string) ([]*ListReviewMessagesOfThreadsRow, error) {
+func (q *Queries) ListReviewMessagesOfThreads(ctx context.Context, threadIds []uuid.UUID) ([]*ListReviewMessagesOfThreadsRow, error) {
 	rows, err := q.db.Query(ctx, listReviewMessagesOfThreads, threadIds)
 	if err != nil {
 		return nil, err
@@ -1103,7 +1105,7 @@ ORDER BY
     r.ordinal
 `
 
-func (q *Queries) ListReviewSnapshots(ctx context.Context, taskID string) ([]*ReviewSnapshot, error) {
+func (q *Queries) ListReviewSnapshots(ctx context.Context, taskID uuid.UUID) ([]*ReviewSnapshot, error) {
 	rows, err := q.db.Query(ctx, listReviewSnapshots, taskID)
 	if err != nil {
 		return nil, err
@@ -1186,7 +1188,7 @@ FROM
 `
 
 type ListReviewTalliesRow struct {
-	TaskID      string
+	TaskID      uuid.UUID
 	Snapshots   int32
 	Verdict     NullReviewVerdict
 	SnapshotSha *string
@@ -1228,15 +1230,15 @@ ORDER BY
     t.id
 `
 
-func (q *Queries) ListReviewThreadIDsOfTasks(ctx context.Context, taskIds []string) ([]string, error) {
+func (q *Queries) ListReviewThreadIDsOfTasks(ctx context.Context, taskIds []uuid.UUID) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, listReviewThreadIDsOfTasks, taskIds)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []uuid.UUID
 	for rows.Next() {
-		var id string
+		var id uuid.UUID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -1269,7 +1271,7 @@ ORDER BY
 `
 
 type ListReviewThreadsRow struct {
-	ID                  string
+	ID                  uuid.UUID
 	FilePath            string
 	OldStart            int32
 	OldEnd              int32
@@ -1281,22 +1283,22 @@ type ListReviewThreadsRow struct {
 	UpdatedAt           time.Time
 	LastAgentActivityAt *time.Time
 	ResolvedAt          *time.Time
-	ReviewID            *string
-	SnapshotID          string
+	ReviewID            *uuid.UUID
+	SnapshotID          uuid.UUID
 	BaseSha             string
 	ResolvedByKind      NullReviewAuthorKind
-	ResolvedByAgentID   *string
-	EngineID            string
-	ForgeThreadID       *string
+	ResolvedByAgentID   *uuid.UUID
+	EngineID            uuid.UUID
+	ForgeThreadID       *uuid.UUID
 	ForgeResolved       bool
-	TaskID              string
+	TaskID              uuid.UUID
 	AuthorKind          ReviewAuthorKind
-	AuthorAgentID       *string
+	AuthorAgentID       *uuid.UUID
 	SnapshotOrdinal     int32
 	UnreadByHuman       *bool
 }
 
-func (q *Queries) ListReviewThreads(ctx context.Context, taskID string) ([]*ListReviewThreadsRow, error) {
+func (q *Queries) ListReviewThreads(ctx context.Context, taskID uuid.UUID) ([]*ListReviewThreadsRow, error) {
 	rows, err := q.db.Query(ctx, listReviewThreads, taskID)
 	if err != nil {
 		return nil, err
@@ -1353,7 +1355,7 @@ ORDER BY
     v.file_path
 `
 
-func (q *Queries) ListReviewViewedFiles(ctx context.Context, taskID string) ([]*ReviewViewedFile, error) {
+func (q *Queries) ListReviewViewedFiles(ctx context.Context, taskID uuid.UUID) ([]*ReviewViewedFile, error) {
 	rows, err := q.db.Query(ctx, listReviewViewedFiles, taskID)
 	if err != nil {
 		return nil, err
@@ -1407,7 +1409,7 @@ type ListReviewsRow struct {
 	OpenThreads     int32
 }
 
-func (q *Queries) ListReviews(ctx context.Context, taskID string) ([]*ListReviewsRow, error) {
+func (q *Queries) ListReviews(ctx context.Context, taskID uuid.UUID) ([]*ListReviewsRow, error) {
 	rows, err := q.db.Query(ctx, listReviews, taskID)
 	if err != nil {
 		return nil, err
@@ -1496,7 +1498,7 @@ WHERE
 `
 
 type ListUnlandedReviewSnapshotsRow struct {
-	TaskID   string
+	TaskID   uuid.UUID
 	Ordinal  int32
 	BaseSha  string
 	Sha      string
@@ -1548,14 +1550,14 @@ WHERE
         WHERE
             a.task_id = t.task_id
             AND a.archived_at IS NULL)
-    AND ($1::text[] IS NULL
+    AND ($1::uuid[] IS NULL
         OR t.id = ANY ($1::uuid[]))
 ORDER BY
     t.id
 `
 
 type ListWatchedReviewThreadsRow struct {
-	ID                  string
+	ID                  uuid.UUID
 	FilePath            string
 	OldStart            int32
 	OldEnd              int32
@@ -1567,22 +1569,22 @@ type ListWatchedReviewThreadsRow struct {
 	UpdatedAt           time.Time
 	LastAgentActivityAt *time.Time
 	ResolvedAt          *time.Time
-	ReviewID            *string
-	SnapshotID          string
+	ReviewID            *uuid.UUID
+	SnapshotID          uuid.UUID
 	BaseSha             string
 	ResolvedByKind      NullReviewAuthorKind
-	ResolvedByAgentID   *string
-	EngineID            string
-	ForgeThreadID       *string
+	ResolvedByAgentID   *uuid.UUID
+	EngineID            uuid.UUID
+	ForgeThreadID       *uuid.UUID
 	ForgeResolved       bool
-	TaskID              string
+	TaskID              uuid.UUID
 	AuthorKind          ReviewAuthorKind
-	AuthorAgentID       *string
+	AuthorAgentID       *uuid.UUID
 	SnapshotOrdinal     int32
 	UnreadByHuman       *bool
 }
 
-func (q *Queries) ListWatchedReviewThreads(ctx context.Context, keys []string) ([]*ListWatchedReviewThreadsRow, error) {
+func (q *Queries) ListWatchedReviewThreads(ctx context.Context, keys []uuid.UUID) ([]*ListWatchedReviewThreadsRow, error) {
 	rows, err := q.db.Query(ctx, listWatchedReviewThreads, keys)
 	if err != nil {
 		return nil, err
@@ -1646,18 +1648,18 @@ FROM
     reviews v
     JOIN review_snapshots r ON r.id = v.snapshot_id
 WHERE
-    $1::text[] IS NULL
+    $1::uuid[] IS NULL
     OR v.id = ANY ($1::uuid[])
 ORDER BY
     v.id
 `
 
 type ListWatchedReviewsRow struct {
-	ID               string
-	TaskID           string
-	SnapshotID       string
+	ID               uuid.UUID
+	TaskID           uuid.UUID
+	SnapshotID       uuid.UUID
 	AuthorKind       ReviewAuthorKind
-	AuthorAgentID    *string
+	AuthorAgentID    *uuid.UUID
 	Verdict          NullReviewVerdict
 	ReleasedAt       *time.Time
 	CreatedAt        time.Time
@@ -1667,7 +1669,7 @@ type ListWatchedReviewsRow struct {
 	SnapshotLandedAt *time.Time
 }
 
-func (q *Queries) ListWatchedReviews(ctx context.Context, keys []string) ([]*ListWatchedReviewsRow, error) {
+func (q *Queries) ListWatchedReviews(ctx context.Context, keys []uuid.UUID) ([]*ListWatchedReviewsRow, error) {
 	rows, err := q.db.Query(ctx, listWatchedReviews, keys)
 	if err != nil {
 		return nil, err
@@ -1720,7 +1722,7 @@ ON CONFLICT (
 `
 
 type MarkReviewFileViewedParams struct {
-	TaskID      string
+	TaskID      uuid.UUID
 	FilePath    string
 	Fingerprint string
 }
@@ -1752,8 +1754,8 @@ RETURNING
 `
 
 type MarkReviewMessagesReadParams struct {
-	ReadSnapshotID *string
-	MailIds        []string
+	ReadSnapshotID *uuid.UUID
+	MailIds        []uuid.UUID
 }
 
 func (q *Queries) MarkReviewMessagesRead(ctx context.Context, arg MarkReviewMessagesReadParams) ([]*ReviewMessage, error) {
@@ -1807,7 +1809,7 @@ RETURNING
     id, file_path, old_start, old_end, new_start, new_end, quoted_lines, human_read_at, created_at, updated_at, last_agent_activity_at, resolved_at, review_id, snapshot_id, base_sha, resolved_by_kind, resolved_by_agent_id, engine_id, forge_thread_id, forge_resolved, task_id, author_kind, author_agent_id
 `
 
-func (q *Queries) MarkReviewThreadRead(ctx context.Context, id string) (*ReviewThread, error) {
+func (q *Queries) MarkReviewThreadRead(ctx context.Context, id uuid.UUID) (*ReviewThread, error) {
 	row := q.db.QueryRow(ctx, markReviewThreadRead, id)
 	var i ReviewThread
 	err := row.Scan(
@@ -1856,7 +1858,7 @@ type ReleaseReviewParams struct {
 	Verdict NullReviewVerdict
 	Body    string
 	Path    string
-	ID      string
+	ID      uuid.UUID
 }
 
 func (q *Queries) ReleaseReview(ctx context.Context, arg ReleaseReviewParams) (*Review, error) {
@@ -1896,7 +1898,7 @@ WHERE
 
 type SetForgeThreadResolvedParams struct {
 	ForgeResolved bool
-	ID            string
+	ID            uuid.UUID
 }
 
 func (q *Queries) SetForgeThreadResolved(ctx context.Context, arg SetForgeThreadResolvedParams) error {
@@ -1914,8 +1916,8 @@ WHERE
 `
 
 type SetReviewMessageMailParams struct {
-	MailID *string
-	ID     string
+	MailID *uuid.UUID
+	ID     uuid.UUID
 }
 
 func (q *Queries) SetReviewMessageMail(ctx context.Context, arg SetReviewMessageMailParams) error {
@@ -1951,8 +1953,8 @@ RETURNING
 type SetReviewThreadResolvedParams struct {
 	Resolved          bool
 	ResolvedByKind    NullReviewAuthorKind
-	ResolvedByAgentID *string
-	ID                string
+	ResolvedByAgentID *uuid.UUID
+	ID                uuid.UUID
 }
 
 func (q *Queries) SetReviewThreadResolved(ctx context.Context, arg SetReviewThreadResolvedParams) (*ReviewThread, error) {
@@ -1998,7 +2000,7 @@ WHERE task_id = $1::uuid
 `
 
 type UnmarkReviewFileViewedParams struct {
-	TaskID   string
+	TaskID   uuid.UUID
 	FilePath string
 }
 
@@ -2022,7 +2024,7 @@ type UpdateForgeReviewMessageParams struct {
 	Body          string
 	ForgeEditedAt *time.Time
 	Held          bool
-	ID            string
+	ID            uuid.UUID
 }
 
 func (q *Queries) UpdateForgeReviewMessage(ctx context.Context, arg UpdateForgeReviewMessageParams) error {
@@ -2108,29 +2110,29 @@ FROM
 type UpdateReviewMessageBodyParams struct {
 	Body       string
 	Suggestion []string
-	ID         string
+	ID         uuid.UUID
 }
 
 type UpdateReviewMessageBodyRow struct {
-	ID             string
-	ThreadID       string
+	ID             uuid.UUID
+	ThreadID       uuid.UUID
 	AuthorKind     ReviewAuthorKind
-	AuthorAgentID  *string
+	AuthorAgentID  *uuid.UUID
 	Body           string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
-	ReviewID       *string
+	ReviewID       *uuid.UUID
 	Suggestion     []string
-	EngineID       string
-	SnapshotID     *string
+	EngineID       uuid.UUID
+	SnapshotID     *uuid.UUID
 	ExternalLogin  *string
-	ForgeCommentID *string
+	ForgeCommentID *uuid.UUID
 	ForgeEditedAt  *time.Time
 	Held           bool
-	AcceptedFrom   *string
-	MailID         *string
+	AcceptedFrom   *uuid.UUID
+	MailID         *uuid.UUID
 	ReadAt         *time.Time
-	ReadSnapshotID *string
+	ReadSnapshotID *uuid.UUID
 }
 
 func (q *Queries) UpdateReviewMessageBody(ctx context.Context, arg UpdateReviewMessageBodyParams) (*UpdateReviewMessageBodyRow, error) {

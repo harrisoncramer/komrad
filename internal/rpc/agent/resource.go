@@ -62,7 +62,7 @@ func (p searchPage) Cursor() (transcriptstore.Cursor, error) {
 
 func renderSearchHit(hit transcriptstore.SearchHit) *agentv1.SearchHit {
 	rendered := &agentv1.SearchHit{
-		AgentId:       hit.AgentID,
+		AgentId:       hit.AgentID.String(),
 		Name:          hit.Name,
 		Archived:      hit.Archived,
 		Snippet:       hit.Snippet,

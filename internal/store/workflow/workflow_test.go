@@ -6,6 +6,7 @@ import (
 	"komrad/internal/dbtest"
 	"komrad/internal/store"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -140,7 +141,7 @@ func TestWorktreeConfigRoundTrip(t *testing.T) {
 	}
 }
 
-const missingID = "00000000-0000-0000-0000-000000000000"
+var missingID = uuid.New()
 
 func open(t *testing.T) *WorkflowStore {
 	t.Helper()

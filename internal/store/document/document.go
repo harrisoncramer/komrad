@@ -3,6 +3,7 @@ package document
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -12,6 +13,8 @@ import (
 	"komrad/internal/store"
 	textsearchstore "komrad/internal/store/textsearch"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // ErrUnknownType is a document naming a type that does not exist.
@@ -22,9 +25,9 @@ var ErrChanged = fail.Precondition("the document has been written since that ver
 
 // Document is one document, with an empty Body when it came from a listing.
 type Document struct {
-	ID        string
-	AgentID   string
-	TaskID    *string
+	ID        uuid.UUID
+	AgentID   uuid.UUID
+	TaskID    *uuid.UUID
 	Name      string
 	Type      string
 	Body      string
@@ -70,7 +73,7 @@ func fromListRow(row *models.ListDocumentsRow) Document {
 }
 
 type CreateParams struct {
-	AgentID string
+	AgentID uuid.UUID
 	Name    string
 	Type    string
 	Body    string
@@ -103,8 +106,8 @@ func (s *DocumentStore) Create(ctx context.Context, params CreateParams) (*Docum
 }
 
 type UpdateParams struct {
-	ID      string
-	AgentID string
+	ID      uuid.UUID
+	AgentID uuid.UUID
 	Name    string
 	Type    string
 	Body    string
@@ -116,10 +119,6 @@ type UpdateParams struct {
 
 // Update rewrites one of the agent's own documents, refusing a version it has moved past.
 func (s *DocumentStore) Update(ctx context.Context, params UpdateParams) (*Document, error) {
-	if !store.IsID(params.ID) {
-		return nil, fmt.Errorf("%w: document %q", store.ErrNotFound, params.ID)
-	}
-
 	row, err := s.queries.UpdateDocument(ctx, models.UpdateDocumentParams{
 		ID:          params.ID,
 		AgentID:     params.AgentID,
@@ -165,7 +164,7 @@ func unknownType(err error) bool {
 	return db.IsForeignKeyViolation(err, "documents_type_fkey")
 }
 
-func (s *DocumentStore) nameTaken(ctx context.Context, agentID, name string) error {
+func (s *DocumentStore) nameTaken(ctx context.Context, agentID uuid.UUID, name string) error {
 	id, err := s.queries.GetDocumentIDByName(ctx, models.GetDocumentIDByNameParams{AgentID: agentID, Name: name})
 	if err != nil {
 		return fmt.Errorf("%w: the agent already has a document named %q", store.ErrNameTaken, name)
@@ -175,11 +174,7 @@ func (s *DocumentStore) nameTaken(ctx context.Context, agentID, name string) err
 }
 
 // Get returns one document whole.
-func (s *DocumentStore) Get(ctx context.Context, id string) (*Document, error) {
-	if !store.IsID(id) {
-		return nil, fmt.Errorf("%w: document %q", store.ErrNotFound, id)
-	}
-
+func (s *DocumentStore) Get(ctx context.Context, id uuid.UUID) (*Document, error) {
 	row, err := s.queries.GetDocument(ctx, id)
 	if db.IsNoRows(err) {
 		return nil, fmt.Errorf("%w: document %q", store.ErrNotFound, id)
@@ -196,13 +191,13 @@ func (s *DocumentStore) Get(ctx context.Context, id string) (*Document, error) {
 // Cursor is where a page of documents left off: when the last was written and its id.
 type Cursor struct {
 	UpdatedAt time.Time `json:"updated_at"`
-	ID        string    `json:"id"`
+	ID        uuid.UUID `json:"id"`
 }
 
 // Validate refuses a cursor that names no row.
 func (c Cursor) Validate() error {
-	if !store.IsID(c.ID) {
-		return fmt.Errorf("cursor id %q is not an id", c.ID)
+	if c.ID == uuid.Nil {
+		return errors.New("cursor names no row")
 	}
 
 	return nil
@@ -210,8 +205,8 @@ func (c Cursor) Validate() error {
 
 // ListParams narrows a page of documents to one agent, one task and one type when any is set.
 type ListParams struct {
-	AgentID *string
-	TaskID  *string
+	AgentID *uuid.UUID
+	TaskID  *uuid.UUID
 	Type    *string
 	Limit   int32
 	Cursor  *Cursor
@@ -219,13 +214,6 @@ type ListParams struct {
 
 // List returns a page of documents without their bodies, newest write first.
 func (s *DocumentStore) List(ctx context.Context, params ListParams) ([]Document, error) {
-	if params.AgentID != nil && !store.IsID(*params.AgentID) {
-		return nil, nil
-	}
-	if params.TaskID != nil && !store.IsID(*params.TaskID) {
-		return nil, nil
-	}
-
 	query := models.ListDocumentsParams{
 		AgentID: params.AgentID,
 		TaskID:  params.TaskID,
@@ -257,11 +245,7 @@ type Version struct {
 }
 
 // ListVersions returns every write of a document, the newest first.
-func (s *DocumentStore) ListVersions(ctx context.Context, documentID string) ([]Version, error) {
-	if !store.IsID(documentID) {
-		return nil, nil
-	}
-
+func (s *DocumentStore) ListVersions(ctx context.Context, documentID uuid.UUID) ([]Version, error) {
 	rows, err := s.queries.ListDocumentVersions(ctx, documentID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the versions of document %q: %w", documentID, err)
@@ -279,11 +263,7 @@ func (s *DocumentStore) ListVersions(ctx context.Context, documentID string) ([]
 }
 
 // GetVersion returns one write of a document whole.
-func (s *DocumentStore) GetVersion(ctx context.Context, documentID string, version int32) (*Version, error) {
-	if !store.IsID(documentID) {
-		return nil, fmt.Errorf("%w: document %q", store.ErrNotFound, documentID)
-	}
-
+func (s *DocumentStore) GetVersion(ctx context.Context, documentID uuid.UUID, version int32) (*Version, error) {
 	row, err := s.queries.GetDocumentVersion(ctx, models.GetDocumentVersionParams{DocumentID: documentID, Version: version})
 	if db.IsNoRows(err) {
 		return nil, fmt.Errorf("%w: version %d of document %q", store.ErrNotFound, version, documentID)
@@ -303,11 +283,7 @@ func (s *DocumentStore) GetVersion(ctx context.Context, documentID string, versi
 }
 
 // Delete removes a document and every write of it.
-func (s *DocumentStore) Delete(ctx context.Context, id string) error {
-	if !store.IsID(id) {
-		return fmt.Errorf("%w: document %q", store.ErrNotFound, id)
-	}
-
+func (s *DocumentStore) Delete(ctx context.Context, id uuid.UUID) error {
 	deleted, err := s.queries.DeleteDocument(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete document %q: %w", id, err)
@@ -324,8 +300,8 @@ const defaultSearchLimit = 50
 
 // SearchHit is one document whose body a search found, with the passage that matched.
 type SearchHit struct {
-	ID      string
-	AgentID string
+	ID      uuid.UUID
+	AgentID uuid.UUID
 	Name    string
 	Snippet string
 }
@@ -340,7 +316,7 @@ type Results struct {
 // when either is set.
 type SearchParams struct {
 	Query   string
-	AgentID *string
+	AgentID *uuid.UUID
 	Type    *string
 	Limit   int32
 }
@@ -350,9 +326,6 @@ type SearchParams struct {
 func (s *DocumentStore) Search(ctx context.Context, params SearchParams) (*Results, error) {
 	prepared := textsearchstore.Prepare(params.Query)
 	if len(prepared.Terms.Wanted) == 0 {
-		return &Results{}, nil
-	}
-	if params.AgentID != nil && !store.IsID(*params.AgentID) {
 		return &Results{}, nil
 	}
 
@@ -404,7 +377,7 @@ func (s *DocumentStore) Search(ctx context.Context, params SearchParams) (*Resul
 }
 
 // searchHit is the hit for one document a search found, with its snippet.
-func searchHit(id, agentID, name, snippet string) SearchHit {
+func searchHit(id, agentID uuid.UUID, name, snippet string) SearchHit {
 	return SearchHit{
 		ID:      id,
 		AgentID: agentID,

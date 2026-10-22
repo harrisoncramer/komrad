@@ -17,6 +17,8 @@ import (
 	"komrad/internal/pty"
 	agentstore "komrad/internal/store/agent"
 	"komrad/lib/clock"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -34,11 +36,11 @@ var (
 )
 
 type agentGetter interface {
-	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*agentstore.Agent, error)
 }
 
 type viewAttacher interface {
-	GetPaneOwner(pane string) string
+	GetPaneOwner(pane string) uuid.UUID
 	OpenView(view, session, pane string) error
 	CountSessionClients(session string) (int, error)
 	KillSession(session string) error
@@ -73,7 +75,7 @@ func NewAttachService(params NewAttachServiceParams) *AttachService {
 
 // OpenParams is the attach a person asked for.
 type OpenParams struct {
-	AgentID string
+	AgentID uuid.UUID
 	Size    pty.Size
 	Term    string
 }

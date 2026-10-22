@@ -27,8 +27,8 @@ type fixture struct {
 	mail     *mailstore.MailStore
 	pool     store.DBTX
 	reader   string
-	engineID string
-	workflow string
+	engineID uuid.UUID
+	workflow uuid.UUID
 }
 
 // tallyRelease is one thing released about the tree named: the person's comment when verdict is
@@ -40,8 +40,8 @@ type tallyRelease struct {
 
 // liveReviewerSeed is the writer and the reviewer on its task in a test of live reviewers.
 type liveReviewerSeed struct {
-	writerID   string
-	reviewerID string
+	writerID   uuid.UUID
+	reviewerID uuid.UUID
 }
 
 // TestASnapshotIsNumberedAfterTheOnesBeforeIt pins that the ordinal is the store's to decide, counted per task.
@@ -146,17 +146,17 @@ func TestReadingTheMailStampsTheComment(t *testing.T) {
 	sent := st.mailComment(t, thread)
 	readOn := st.takeSnapshot(t, agentID, "tree-two")
 
-	read, err := st.MarkMessagesRead(ctx, []string{sent}, &readOn.ID)
+	read, err := st.MarkMessagesRead(ctx, []uuid.UUID{sent}, &readOn.ID)
 	require.NoError(t, err)
 	require.Len(t, read, 1)
 	assert.NotNil(t, read[0].ReadAt)
 	assert.Equal(t, &readOn.ID, read[0].ReadSnapshotID)
 
-	again, err := st.MarkMessagesRead(ctx, []string{sent}, nil)
+	again, err := st.MarkMessagesRead(ctx, []uuid.UUID{sent}, nil)
 	require.NoError(t, err)
 	assert.Empty(t, again, "a comment is read once")
 
-	messages, err := st.ListMessages(ctx, []string{thread.ID})
+	messages, err := st.ListMessages(ctx, []uuid.UUID{thread.ID})
 	require.NoError(t, err)
 	require.Len(t, messages, 1)
 	assert.Equal(t, &sent, messages[0].MailID)
@@ -173,11 +173,11 @@ func TestDeletingTheMailLeavesTheCommentRead(t *testing.T) {
 	thread := st.comment(t, st.takeSnapshot(t, agentID, "tree-one"), "this needs a nil check")
 	sent := st.mailComment(t, thread)
 
-	_, err := st.MarkMessagesRead(ctx, []string{sent}, nil)
+	_, err := st.MarkMessagesRead(ctx, []uuid.UUID{sent}, nil)
 	require.NoError(t, err)
-	require.NoError(t, st.mail.Delete(ctx, []string{sent}))
+	require.NoError(t, st.mail.Delete(ctx, []uuid.UUID{sent}))
 
-	messages, err := st.ListMessages(ctx, []string{thread.ID})
+	messages, err := st.ListMessages(ctx, []uuid.UUID{thread.ID})
 	require.NoError(t, err)
 	require.Len(t, messages, 1)
 	assert.Nil(t, messages[0].MailID)
@@ -188,19 +188,19 @@ func TestDeletingTheMailLeavesTheCommentRead(t *testing.T) {
 func TestThreadsAreReadByTask(t *testing.T) {
 	tests := []struct {
 		name   string
-		retire func(t *testing.T, st *fixture, agentID string)
+		retire func(t *testing.T, st *fixture, agentID uuid.UUID)
 	}{
 		{
 			name: "the first writer archived",
-			retire: func(t *testing.T, st *fixture, agentID string) {
-				_, err := st.agents.Archive(t.Context(), []string{agentID})
+			retire: func(t *testing.T, st *fixture, agentID uuid.UUID) {
+				_, err := st.agents.Archive(t.Context(), []uuid.UUID{agentID})
 				require.NoError(t, err)
 			},
 		},
 		{
 			name: "the first writer deleted",
-			retire: func(t *testing.T, st *fixture, agentID string) {
-				_, err := st.agents.Delete(t.Context(), []string{agentID})
+			retire: func(t *testing.T, st *fixture, agentID uuid.UUID) {
+				_, err := st.agents.Delete(t.Context(), []uuid.UUID{agentID})
 				require.NoError(t, err)
 			},
 		},
@@ -274,7 +274,7 @@ func TestMarkThreadReadCatchesUpOneSide(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, threads, 2)
 
-	byID := xslice.KeyBy(threads, func(thread Thread) string {
+	byID := xslice.KeyBy(threads, func(thread Thread) uuid.UUID {
 		return thread.ID
 	})
 	assert.False(t, byID[first.ID].UnreadByHuman, "the thread that was opened is caught up")
@@ -285,15 +285,11 @@ func TestMarkThreadReadCatchesUpOneSide(t *testing.T) {
 func TestMissingRowsAnswerNotFound(t *testing.T) {
 	tests := []struct {
 		name string
-		id   string
+		id   uuid.UUID
 	}{
 		{
-			name: "a string that is not an id at all",
-			id:   "not-an-id",
-		},
-		{
 			name: "a well formed id naming nothing",
-			id:   uuid.NewString(),
+			id:   uuid.New(),
 		},
 	}
 
@@ -431,7 +427,7 @@ func TestWritingInASettledThread(t *testing.T) {
 			reviewerID := st.seedAgent(t, "reviewer")
 			thread := st.comment(t, st.takeSnapshot(t, workerID, "tree-one"), "this needs a nil check")
 
-			agentIDs := map[string]*string{
+			agentIDs := map[string]*uuid.UUID{
 				"person":   nil,
 				"worker":   &workerID,
 				"reviewer": &reviewerID,
@@ -519,7 +515,7 @@ func TestAnAnswerCarryingASnapshotSettlesTheThread(t *testing.T) {
 				thread = st.comment(t, snapshot, "this needs a nil check")
 			}
 
-			var snapshotID *string
+			var snapshotID *uuid.UUID
 			if tt.withSnapshot {
 				snapshotID = &st.takeSnapshot(t, workerID, "tree-two").ID
 			}
@@ -573,7 +569,7 @@ func TestASuggestionIsCarriedWithTheComment(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	messages, err := st.ListMessages(t.Context(), []string{thread.ID})
+	messages, err := st.ListMessages(t.Context(), []uuid.UUID{thread.ID})
 	require.NoError(t, err)
 	require.Len(t, messages, 1)
 	assert.Equal(t, []string{"if thing == nil {", "\treturn nil", "}"}, messages[0].Suggestion)
@@ -751,12 +747,12 @@ func TestUnlandedSnapshotsAreTheReleasedOnesNotYetLanded(t *testing.T) {
 	}
 	st.openReviewBy(t, st.takeSnapshot(t, agentID, "tree-draft"), st.seedReviewer(t, agentID))
 	st.comment(t, st.takeSnapshot(t, archived, "tree-gone"), "a note")
-	_, err := st.agents.Archive(ctx, []string{archived})
+	_, err := st.agents.Archive(ctx, []uuid.UUID{archived})
 	require.NoError(t, err)
 
 	unlanded, err := st.ListUnlandedSnapshots(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, map[string][]UnlandedSnapshot{
+	assert.Equal(t, map[uuid.UUID][]UnlandedSnapshot{
 		st.taskOf(t, agentID): {
 			{
 				Ordinal: 3,
@@ -881,7 +877,7 @@ func TestDeletingAnAuthorsOpenReviewsLeavesWhatTheyReleased(t *testing.T) {
 	st.releaseReview(t, released, VerdictChangesRequested)
 	draft := st.openReviewBy(t, st.takeSnapshot(t, agentID, "tree-two"), reviewer)
 
-	require.NoError(t, st.DeleteOpenReviewsBy(ctx, []string{reviewer}))
+	require.NoError(t, st.DeleteOpenReviewsBy(ctx, []uuid.UUID{reviewer}))
 
 	_, err := st.GetReview(ctx, draft.ID)
 	require.ErrorIs(t, err, store.ErrNotFound, "the draft nobody will finish goes")
@@ -951,7 +947,7 @@ func TestLiveReviewers(t *testing.T) {
 				return
 			}
 
-			assert.Equal(t, []string{seeded.reviewerID}, live)
+			assert.Equal(t, []uuid.UUID{seeded.reviewerID}, live)
 		})
 	}
 }
@@ -970,7 +966,7 @@ func TestLiveReviewersAreOldestFirst(t *testing.T) {
 
 	live, err := st.ListLiveReviewers(t.Context(), taskID)
 	require.NoError(t, err)
-	assert.Equal(t, []string{first, second}, live)
+	assert.Equal(t, []uuid.UUID{first, second}, live)
 }
 
 // TestAReviewCountsWhatIsStillOwedAnAnswer pins the count a released review carries.
@@ -1025,14 +1021,14 @@ func openFixture(t *testing.T) *fixture {
 	}
 }
 
-func (st *fixture) seedAgent(t *testing.T, name string) string {
+func (st *fixture) seedAgent(t *testing.T, name string) uuid.UUID {
 	t.Helper()
 
 	return st.seedAgentLike(t, agentstore.Agent{Name: name})
 }
 
 // seedReviewer is a reviewer on the task of the writer whose work it reads.
-func (st *fixture) seedReviewer(t *testing.T, writerID string) string {
+func (st *fixture) seedReviewer(t *testing.T, writerID uuid.UUID) uuid.UUID {
 	t.Helper()
 
 	writer, err := st.agents.GetByID(t.Context(), writerID)
@@ -1046,7 +1042,7 @@ func (st *fixture) seedReviewer(t *testing.T, writerID string) string {
 	})
 }
 
-func (st *fixture) seedAgentLike(t *testing.T, agent agentstore.Agent) string {
+func (st *fixture) seedAgentLike(t *testing.T, agent agentstore.Agent) uuid.UUID {
 	t.Helper()
 
 	agent.State = agentstore.StateIdle
@@ -1056,7 +1052,7 @@ func (st *fixture) seedAgentLike(t *testing.T, agent agentstore.Agent) string {
 }
 
 // taskOf is the task an agent works on.
-func (st *fixture) taskOf(t *testing.T, agentID string) string {
+func (st *fixture) taskOf(t *testing.T, agentID uuid.UUID) uuid.UUID {
 	t.Helper()
 
 	agent, err := st.agents.GetByID(t.Context(), agentID)
@@ -1067,7 +1063,7 @@ func (st *fixture) taskOf(t *testing.T, agentID string) string {
 }
 
 // writerOf is the live writer of a task.
-func (st *fixture) writerOf(t *testing.T, taskID string) string {
+func (st *fixture) writerOf(t *testing.T, taskID uuid.UUID) uuid.UUID {
 	t.Helper()
 
 	writer, err := st.agents.GetTaskWriter(t.Context(), taskID)
@@ -1076,7 +1072,7 @@ func (st *fixture) writerOf(t *testing.T, taskID string) string {
 	return writer.ID
 }
 
-func (st *fixture) takeSnapshot(t *testing.T, agentID, tree string) *Snapshot {
+func (st *fixture) takeSnapshot(t *testing.T, agentID uuid.UUID, tree string) *Snapshot {
 	t.Helper()
 
 	snapshot, err := st.CreateSnapshot(t.Context(), CreateSnapshotParams{
@@ -1091,7 +1087,7 @@ func (st *fixture) takeSnapshot(t *testing.T, agentID, tree string) *Snapshot {
 }
 
 // openReviewBy opens a reviewing agent's review of a snapshot.
-func (st *fixture) openReviewBy(t *testing.T, snapshot *Snapshot, reviewerID string) *Review {
+func (st *fixture) openReviewBy(t *testing.T, snapshot *Snapshot, reviewerID uuid.UUID) *Review {
 	t.Helper()
 
 	review, err := st.OpenReview(t.Context(), OpenReviewParams{
@@ -1128,7 +1124,7 @@ func (st *fixture) comment(t *testing.T, snapshot *Snapshot, body string) *Threa
 
 // mailComment sends the mail that carries the person's comment opening a thread to the writer,
 // returning the mail's id.
-func (st *fixture) mailComment(t *testing.T, thread *Thread) string {
+func (st *fixture) mailComment(t *testing.T, thread *Thread) uuid.UUID {
 	t.Helper()
 
 	sent, err := st.mail.Send(t.Context(), mailstore.SendParams{
@@ -1139,7 +1135,7 @@ func (st *fixture) mailComment(t *testing.T, thread *Thread) string {
 	require.NoError(t, err)
 	require.NotNil(t, sent)
 
-	messages, err := st.ListMessages(t.Context(), []string{thread.ID})
+	messages, err := st.ListMessages(t.Context(), []uuid.UUID{thread.ID})
 	require.NoError(t, err)
 	require.NotEmpty(t, messages)
 	require.NoError(t, st.SetMessageMail(t.Context(), messages[0].ID, sent.ID))
@@ -1148,10 +1144,10 @@ func (st *fixture) mailComment(t *testing.T, thread *Thread) string {
 }
 
 // messageBy is the first message an agent wrote in a thread.
-func (st *fixture) messageBy(t *testing.T, threadID, agentID string) Message {
+func (st *fixture) messageBy(t *testing.T, threadID, agentID uuid.UUID) Message {
 	t.Helper()
 
-	messages, err := st.ListMessages(t.Context(), []string{threadID})
+	messages, err := st.ListMessages(t.Context(), []uuid.UUID{threadID})
 	require.NoError(t, err)
 
 	for _, message := range messages {
@@ -1203,7 +1199,7 @@ func (st *fixture) writeAnswer(t *testing.T, thread *Thread) *Message {
 }
 
 // settle settles a thread as the agent named, or as the person when none is.
-func (st *fixture) settle(t *testing.T, thread *Thread, agentID *string) {
+func (st *fixture) settle(t *testing.T, thread *Thread, agentID *uuid.UUID) {
 	t.Helper()
 
 	byKind := AuthorHuman
@@ -1233,7 +1229,7 @@ func (st *fixture) releaseReview(t *testing.T, review *Review, verdict Verdict) 
 }
 
 // markAllRead reads the person up to date on every thread of a task.
-func (st *fixture) markAllRead(t *testing.T, taskID string) {
+func (st *fixture) markAllRead(t *testing.T, taskID uuid.UUID) {
 	t.Helper()
 
 	threads, err := st.ListThreads(t.Context(), taskID)

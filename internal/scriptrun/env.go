@@ -18,6 +18,8 @@ import (
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+
+	"github.com/google/uuid"
 )
 
 const maxScriptPrompt = 16 * 1024
@@ -25,19 +27,19 @@ const maxScriptPrompt = 16 * 1024
 type configLoader func() (*config.Config, error)
 
 type scriptPayload struct {
-	ID              string `json:"id"`
-	Name            string `json:"name"`
-	State           string `json:"state"`
-	Alive           bool   `json:"alive"`
-	Cwd             string `json:"cwd"`
-	Harness         string `json:"harness"`
-	SessionID       string `json:"session_id"`
-	Flags           string `json:"flags"`
-	Prompt          string `json:"prompt"`
-	PromptTruncated bool   `json:"prompt_truncated"`
-	Pane            string `json:"pane"`
-	Workflow        string `json:"workflow"`
-	CreatedAt       string `json:"created_at"`
+	ID              uuid.UUID `json:"id"`
+	Name            string    `json:"name"`
+	State           string    `json:"state"`
+	Alive           bool      `json:"alive"`
+	Cwd             string    `json:"cwd"`
+	Harness         string    `json:"harness"`
+	SessionID       string    `json:"session_id"`
+	Flags           string    `json:"flags"`
+	Prompt          string    `json:"prompt"`
+	PromptTruncated bool      `json:"prompt_truncated"`
+	Pane            string    `json:"pane"`
+	Workflow        string    `json:"workflow"`
+	CreatedAt       string    `json:"created_at"`
 }
 
 type scriptEnvParams struct {
@@ -158,7 +160,7 @@ func (s *ScriptService) env(ctx context.Context, params scriptEnvParams) ([]stri
 
 	env := []string{
 		"KOMRAD_AGENT=" + string(encoded),
-		"KOMRAD_AGENT_ID=" + agent.ID,
+		"KOMRAD_AGENT_ID=" + agent.ID.String(),
 		"KOMRAD_AGENT_CWD=" + agent.Cwd,
 		"KOMRAD_ADDR=" + s.addr,
 		"KOMRAD_TMUX_SOCKET=" + s.socket,
@@ -208,7 +210,7 @@ func taskEnv(task *taskstore.Task) []string {
 	}
 
 	return []string{
-		"KOMRAD_TASK_ID=" + task.ID,
+		"KOMRAD_TASK_ID=" + task.ID.String(),
 		"KOMRAD_TASK_SLUG=" + task.Slug,
 	}
 }
@@ -273,7 +275,7 @@ func (s *ScriptService) worktreeEnv(ctx context.Context, workflow workflowstore.
 		"KOMRAD_WORKTREE_SYMLINK_PATHS=" + strings.Join(cfg.SymlinkPaths, "\n"),
 		"KOMRAD_WORKTREE_SETUP_COMMAND=" + cfg.SetupCommand,
 		"KOMRAD_WORKTREE_ADOPT_BRANCH=" + task.Checkout.AdoptedBranch,
-		"KOMRAD_WORKTREE_NAME=" + task.ID,
-		"KOMRAD_WORKTREE_BRANCH=task/" + task.ID,
+		"KOMRAD_WORKTREE_NAME=" + task.ID.String(),
+		"KOMRAD_WORKTREE_BRANCH=task/" + task.ID.String(),
 	}, nil
 }

@@ -6,7 +6,8 @@ import (
 
 	"komrad/db"
 	"komrad/db/models"
-	"komrad/internal/store"
+
+	"github.com/google/uuid"
 )
 
 // Create inserts a workflow together with the config rows holding what new agents inherit and
@@ -67,11 +68,7 @@ func (s *WorkflowStore) Create(ctx context.Context, cfg Config) (*Workflow, erro
 }
 
 // Rename changes a workflow's display name, keyed by id.
-func (s *WorkflowStore) Rename(ctx context.Context, id, name string) error {
-	if !store.IsID(id) {
-		return nil
-	}
-
+func (s *WorkflowStore) Rename(ctx context.Context, id uuid.UUID, name string) error {
 	if err := s.queries.RenameWorkflow(ctx, models.RenameWorkflowParams{ID: id, Name: name}); err != nil {
 		return fmt.Errorf("failed to rename workflow %q: %w", id, err)
 	}
@@ -81,11 +78,7 @@ func (s *WorkflowStore) Rename(ctx context.Context, id, name string) error {
 
 // Update rewrites a workflow's name, context, hooks, prompts and linked config, keyed by id,
 // taking a transaction through InTx when the caller is outside one.
-func (s *WorkflowStore) Update(ctx context.Context, id string, cfg Config) error {
-	if !store.IsID(id) {
-		return nil
-	}
-
+func (s *WorkflowStore) Update(ctx context.Context, id uuid.UUID, cfg Config) error {
 	if err := s.queries.RenameWorkflow(ctx, models.RenameWorkflowParams{ID: id, Name: cfg.Name}); err != nil {
 		return fmt.Errorf("failed to rename workflow %q: %w", id, err)
 	}
@@ -127,11 +120,7 @@ func (s *WorkflowStore) Update(ctx context.Context, id string, cfg Config) error
 
 // Delete permanently removes a workflow row along with the config rows it alone owns, and is
 // refused by the database while an agent or a schedule still points at it.
-func (s *WorkflowStore) Delete(ctx context.Context, id string) error {
-	if !store.IsID(id) {
-		return nil
-	}
-
+func (s *WorkflowStore) Delete(ctx context.Context, id uuid.UUID) error {
 	ids, err := s.queries.DeleteWorkflow(ctx, id)
 	if db.IsNoRows(err) {
 		return nil

@@ -11,6 +11,8 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -22,7 +24,7 @@ var (
 
 // Type is one sort of document and the context an agent reads before writing one.
 type Type struct {
-	ID        string
+	ID        uuid.UUID
 	Name      string
 	Context   string
 	Version   int32
@@ -61,11 +63,7 @@ func (s *DocumentTypeStore) List(ctx context.Context) ([]Type, error) {
 }
 
 // Get returns one document type by id.
-func (s *DocumentTypeStore) Get(ctx context.Context, id string) (*Type, error) {
-	if !store.IsID(id) {
-		return nil, fmt.Errorf("%w: document type %q", store.ErrNotFound, id)
-	}
-
+func (s *DocumentTypeStore) Get(ctx context.Context, id uuid.UUID) (*Type, error) {
 	row, err := s.queries.GetDocumentType(ctx, id)
 	if db.IsNoRows(err) {
 		return nil, fmt.Errorf("%w: document type %q", store.ErrNotFound, id)
@@ -110,7 +108,7 @@ func (s *DocumentTypeStore) Create(ctx context.Context, name, typeContext string
 }
 
 type UpdateParams struct {
-	ID      string
+	ID      uuid.UUID
 	Name    string
 	Context string
 	// Version is the version the rewrite replaces.
@@ -119,10 +117,6 @@ type UpdateParams struct {
 
 // Update renames or rewrites a document type, refusing a version it has moved past.
 func (s *DocumentTypeStore) Update(ctx context.Context, params UpdateParams) (*Type, error) {
-	if !store.IsID(params.ID) {
-		return nil, fmt.Errorf("%w: document type %q", store.ErrNotFound, params.ID)
-	}
-
 	row, err := s.queries.UpdateDocumentType(ctx, models.UpdateDocumentTypeParams{
 		ID:          params.ID,
 		Name:        params.Name,
@@ -151,7 +145,7 @@ func (s *DocumentTypeStore) Update(ctx context.Context, params UpdateParams) (*T
 }
 
 // Delete removes a document type, refusing one that documents are still written as.
-func (s *DocumentTypeStore) Delete(ctx context.Context, id string) error {
+func (s *DocumentTypeStore) Delete(ctx context.Context, id uuid.UUID) error {
 	held, err := s.Get(ctx, id)
 	if err != nil {
 		return err
@@ -186,11 +180,7 @@ type Version struct {
 }
 
 // ListVersions returns every write of a document type, the newest first.
-func (s *DocumentTypeStore) ListVersions(ctx context.Context, documentTypeID string) ([]Version, error) {
-	if !store.IsID(documentTypeID) {
-		return nil, nil
-	}
-
+func (s *DocumentTypeStore) ListVersions(ctx context.Context, documentTypeID uuid.UUID) ([]Version, error) {
 	rows, err := s.queries.ListDocumentTypeVersions(ctx, documentTypeID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the versions of document type %q: %w", documentTypeID, err)
@@ -206,11 +196,7 @@ func (s *DocumentTypeStore) ListVersions(ctx context.Context, documentTypeID str
 }
 
 // GetVersion returns one write of a document type whole.
-func (s *DocumentTypeStore) GetVersion(ctx context.Context, documentTypeID string, version int32) (*Version, error) {
-	if !store.IsID(documentTypeID) {
-		return nil, fmt.Errorf("%w: document type %q", store.ErrNotFound, documentTypeID)
-	}
-
+func (s *DocumentTypeStore) GetVersion(ctx context.Context, documentTypeID uuid.UUID, version int32) (*Version, error) {
 	row, err := s.queries.GetDocumentTypeVersion(ctx, models.GetDocumentTypeVersionParams{DocumentTypeID: documentTypeID, Version: version})
 	if db.IsNoRows(err) {
 		return nil, fmt.Errorf("%w: version %d of document type %q", store.ErrNotFound, version, documentTypeID)

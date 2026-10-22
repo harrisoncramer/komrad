@@ -15,6 +15,7 @@ import (
 	"komrad/internal/rpcerr"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 )
 
 type rolesInterceptor struct {
@@ -83,7 +84,7 @@ func (r *rolesInterceptor) authorize(ctx context.Context, procedure string) erro
 	}
 
 	agentID := caller.From(ctx).AgentID
-	if agentID == "" {
+	if agentID == uuid.Nil {
 		return nil
 	}
 

@@ -11,6 +11,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -49,7 +50,7 @@ func TestMeasureOnlyReadsWhereASettledDirectoryStands(t *testing.T) {
 	before, after, unmeasured, live := fixture.cut(t), fixture.cut(t), fixture.cut(t), fixture.cut(t)
 	fixture.recordSize(t, before, time.Now().Add(-time.Hour))
 	for _, dir := range []string{before, after, unmeasured} {
-		require.NoError(t, fixture.stores.Tasks.Archive(t.Context(), filepath.Base(dir)))
+		require.NoError(t, fixture.stores.Tasks.Archive(t.Context(), uuid.MustParse(filepath.Base(dir))))
 	}
 	fixture.now = time.Now().Add(3 * time.Hour).Truncate(time.Second)
 	fixture.recordSize(t, after, fixture.now.Add(-2*time.Hour))
@@ -200,7 +201,7 @@ func TestMeasureLeavesOutWhatADeleteNames(t *testing.T) {
 	named := fixture.cutUnowned(t)
 	owned := fixture.cut(t)
 	kept := fixture.cut(t)
-	require.NoError(t, fixture.stores.Tasks.MarkDeleting(t.Context(), []string{filepath.Base(deleting)}))
+	require.NoError(t, fixture.stores.Tasks.MarkDeleting(t.Context(), []uuid.UUID{uuid.MustParse(filepath.Base(deleting))}))
 	fixture.own(t, owned, agentstore.Agent{Name: "live"})
 	for _, dir := range []string{deleting, named, owned, kept} {
 		fixture.recordSize(t, dir, fixture.now.Add(-2*time.Hour))

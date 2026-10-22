@@ -15,6 +15,7 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 )
 
@@ -40,8 +41,8 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 		return nil, err
 	}
 
-	if change.Recipient != "" {
-		recipients = slices.DeleteFunc(recipients, func(recipient string) bool { return recipient != change.Recipient })
+	if change.Recipient != nil {
+		recipients = slices.DeleteFunc(recipients, func(recipient uuid.UUID) bool { return recipient != *change.Recipient })
 	}
 
 	statusChecks := pullrequeststore.NewStatusCheckStore(tx)
@@ -92,11 +93,11 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 			OnlyRewrite: len(recipientStarted) == 0,
 			Holding:     holding,
 		})
-		if errors.Is(err, mail.ErrMailboxFull) && change.Recipient == "" {
+		if errors.Is(err, mail.ErrMailboxFull) && change.Recipient == nil {
 			retry, err := events.NewEvent(Change{
 				ID:        change.ID,
 				Moves:     change.Moves,
-				Recipient: recipient,
+				Recipient: &recipient,
 			})
 			if err != nil {
 				return nil, err

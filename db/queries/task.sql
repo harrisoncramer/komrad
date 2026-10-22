@@ -137,7 +137,7 @@ WITH watched AS (
         tasks t
     WHERE
         t.deleting_at IS NULL
-        AND (sqlc.narg('keys')::text[] IS NULL
+        AND (sqlc.narg('keys')::uuid[] IS NULL
             OR t.id = ANY (sqlc.narg('keys')::uuid[]))
 ),
 written AS (

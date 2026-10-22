@@ -14,6 +14,7 @@ import (
 	"komrad/internal/caller"
 	"komrad/internal/rpcapi"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,25 +23,25 @@ import (
 func TestHandlerCallerRole(t *testing.T) {
 	tests := []struct {
 		name       string
-		agentID    string
+		agentID    uuid.UUID
 		lookup     error
 		wantStatus int
 	}{
 		{
 			name:       "an agent komrad does not know is refused",
-			agentID:    "gone",
+			agentID:    uuid.New(),
 			lookup:     rpcapi.ErrUnknownCaller,
 			wantStatus: http.StatusBadRequest,
 		},
 		{
 			name:       "an agent whose role cannot be read is refused until it can",
-			agentID:    "unreadable",
+			agentID:    uuid.New(),
 			lookup:     errors.New("connection refused"),
 			wantStatus: http.StatusServiceUnavailable,
 		},
 		{
 			name:       "a known agent is served",
-			agentID:    "writer",
+			agentID:    uuid.New(),
 			wantStatus: http.StatusOK,
 		},
 		{
@@ -53,7 +54,7 @@ func TestHandlerCallerRole(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			handler, err := NewHandler(NewHandlerParams{
 				BaseURL: "http://127.0.0.1:1",
-				RoleOf: func(context.Context, string) (annotationv1.Role, error) {
+				RoleOf: func(context.Context, uuid.UUID) (annotationv1.Role, error) {
 					return annotationv1.Role_ROLE_WRITER, tt.lookup
 				},
 				Logger: slog.New(slog.DiscardHandler),

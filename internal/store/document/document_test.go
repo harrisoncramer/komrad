@@ -111,7 +111,7 @@ func TestCreate(t *testing.T) {
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 				if tt.wantID {
-					require.ErrorContains(t, err, first.ID)
+					require.ErrorContains(t, err, first.ID.String())
 				}
 
 				return
@@ -142,7 +142,7 @@ func TestCreateRecordsTheAuthorsTask(t *testing.T) {
 	tests := []struct {
 		name     string
 		author   *agentstore.Agent
-		wantTask *string
+		wantTask *uuid.UUID
 	}{
 		{
 			name:   "an orchestrator's document",
@@ -230,21 +230,7 @@ func TestUpdate(t *testing.T) {
 			name: "an id no document holds is not found",
 			params: func(doc *documentstore.Document) documentstore.UpdateParams {
 				return documentstore.UpdateParams{
-					ID:      uuid.NewString(),
-					AgentID: author.ID,
-					Name:    doc.Name,
-					Type:    doc.Type,
-					Body:    "lost",
-					Version: doc.Version,
-				}
-			},
-			wantErr: store.ErrNotFound,
-		},
-		{
-			name: "a value that is not an id is not found",
-			params: func(doc *documentstore.Document) documentstore.UpdateParams {
-				return documentstore.UpdateParams{
-					ID:      "not-an-id",
+					ID:      uuid.New(),
 					AgentID: author.ID,
 					Name:    doc.Name,
 					Type:    doc.Type,
@@ -315,10 +301,8 @@ func TestUpdate(t *testing.T) {
 func TestGet(t *testing.T) {
 	stores := storetest.Open(t)
 
-	for _, id := range []string{uuid.NewString(), "not-an-id"} {
-		_, err := stores.Documents.Get(t.Context(), id)
-		assert.ErrorIs(t, err, store.ErrNotFound, id)
-	}
+	_, err := stores.Documents.Get(t.Context(), uuid.New())
+	assert.ErrorIs(t, err, store.ErrNotFound)
 }
 
 // TestDelete pins that deleting a document takes every write of it, and that an id holding none is not found.
@@ -344,7 +328,7 @@ func TestDelete(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, versions, "and every write of it")
 
-	for _, id := range []string{created.ID, uuid.NewString(), "not-an-id"} {
+	for _, id := range []uuid.UUID{created.ID, uuid.New()} {
 		assert.ErrorIs(t, stores.Documents.Delete(ctx, id), store.ErrNotFound, id)
 	}
 }
@@ -363,7 +347,7 @@ func TestList(t *testing.T) {
 		TaskID: author.TaskID,
 	})
 
-	write := func(agentID, name string, typeName string) string {
+	write := func(agentID uuid.UUID, name, typeName string) uuid.UUID {
 		created, err := stores.Documents.Create(ctx, documentstore.CreateParams{
 			AgentID: agentID,
 			Name:    name,
@@ -389,54 +373,52 @@ func TestList(t *testing.T) {
 		Version: 1,
 	})
 	require.NoError(t, err)
-	_, err = stores.Agents.Archive(ctx, []string{other.ID})
+	_, err = stores.Agents.Archive(ctx, []uuid.UUID{other.ID})
 	require.NoError(t, err)
-	_, err = stores.Agents.MarkDeleting(ctx, []string{leaving.ID})
+	_, err = stores.Agents.MarkDeleting(ctx, []uuid.UUID{leaving.ID})
 	require.NoError(t, err)
 
 	tests := []struct {
 		name     string
-		agentID  *string
-		taskID   *string
+		agentID  *uuid.UUID
+		taskID   *uuid.UUID
 		typeName *string
-		want     []string
+		want     []uuid.UUID
 	}{
 		{
 			name:    "an agent's own documents, the newest write first",
 			agentID: xptr.Ptr(author.ID),
-			want:    []string{rfc, notes},
+			want:    []uuid.UUID{rfc, notes},
 		},
 		{
 			name:     "narrowed to one type",
 			agentID:  xptr.Ptr(author.ID),
 			typeName: xptr.Ptr("notes"),
-			want:     []string{notes},
+			want:     []uuid.UUID{notes},
 		},
 		{
 			name: "every agent's documents, archived agents included",
-			want: []string{rfc, findings, elsewhere, notes},
+			want: []uuid.UUID{rfc, findings, elsewhere, notes},
 		},
 		{
 			name:     "every agent's documents of one type",
 			typeName: xptr.Ptr("RFC"),
-			want:     []string{rfc, elsewhere},
+			want:     []uuid.UUID{rfc, elsewhere},
 		},
 		{
 			name:   "a task's documents, from every agent that worked on it",
 			taskID: author.TaskID,
-			want:   []string{rfc, findings, notes},
+			want:   []uuid.UUID{rfc, findings, notes},
 		},
 		{
 			name:     "a task's documents of one type",
 			taskID:   author.TaskID,
 			typeName: xptr.Ptr("notes"),
-			want:     []string{findings, notes},
+			want:     []uuid.UUID{findings, notes},
 		},
-		{name: "a task with none", taskID: xptr.Ptr(uuid.NewString())},
-		{name: "a task that is not an id", taskID: xptr.Ptr("not-an-id")},
-		{name: "an agent with none", agentID: xptr.Ptr(uuid.NewString())},
+		{name: "a task with none", taskID: xptr.Ptr(uuid.New())},
+		{name: "an agent with none", agentID: xptr.Ptr(uuid.New())},
 		{name: "an agent being deleted", agentID: xptr.Ptr(leaving.ID)},
-		{name: "a value that is not an id", agentID: xptr.Ptr("not-an-id")},
 	}
 
 	for _, tt := range tests {
@@ -449,7 +431,7 @@ func TestList(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			ids := make([]string, 0, len(listed))
+			ids := make([]uuid.UUID, 0, len(listed))
 			for _, doc := range listed {
 				ids = append(ids, doc.ID)
 				assert.Empty(t, doc.Body, "a listing carries no bodies")
@@ -471,8 +453,8 @@ func TestList(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	paged := append([]string{first[0].ID}, xslice.Map(rest, func(doc documentstore.Document) string { return doc.ID })...)
-	assert.Equal(t, []string{rfc, findings, elsewhere, notes}, paged, "a cursor carries on where its page left off")
+	paged := append([]uuid.UUID{first[0].ID}, xslice.Map(rest, func(doc documentstore.Document) uuid.UUID { return doc.ID })...)
+	assert.Equal(t, []uuid.UUID{rfc, findings, elsewhere, notes}, paged, "a cursor carries on where its page left off")
 }
 
 // TestDeletingTheAgentDeletesItsDocuments pins that archiving keeps an agent's documents and deleting it removes them.
@@ -490,12 +472,12 @@ func TestDeletingTheAgentDeletesItsDocuments(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = stores.Agents.Archive(ctx, []string{author.ID})
+	_, err = stores.Agents.Archive(ctx, []uuid.UUID{author.ID})
 	require.NoError(t, err)
 	_, err = stores.Documents.Get(ctx, created.ID)
 	require.NoError(t, err, "archiving keeps the document")
 
-	_, err = stores.Agents.Delete(ctx, []string{author.ID})
+	_, err = stores.Agents.Delete(ctx, []uuid.UUID{author.ID})
 	require.NoError(t, err)
 	_, err = stores.Documents.Get(ctx, created.ID)
 	require.ErrorIs(t, err, store.ErrNotFound)
@@ -586,12 +568,11 @@ func TestListVersions(t *testing.T) {
 	assert.Equal(t, "draft", first.Body)
 
 	for _, missing := range []struct {
-		id      string
+		id      uuid.UUID
 		version int32
 	}{
 		{id: draft.ID, version: 4},
-		{id: uuid.NewString(), version: 1},
-		{id: "not-an-id", version: 1},
+		{id: uuid.New(), version: 1},
 	} {
 		_, err := stores.Documents.GetVersion(ctx, missing.id, missing.version)
 		assert.ErrorIs(t, err, store.ErrNotFound, "%s at %d", missing.id, missing.version)
@@ -607,7 +588,7 @@ func TestSearch(t *testing.T) {
 	other := stores.SeedAgent(t, agentstore.Agent{Name: "other"})
 	leaving := stores.SeedAgent(t, agentstore.Agent{Name: "leaving"})
 
-	write := func(agentID, name, typeName, body string) string {
+	write := func(agentID uuid.UUID, name, typeName, body string) uuid.UUID {
 		created, err := stores.Documents.Create(ctx, documentstore.CreateParams{
 			AgentID: agentID,
 			Name:    name,
@@ -634,60 +615,59 @@ func TestSearch(t *testing.T) {
 		Version: 1,
 	})
 	require.NoError(t, err)
-	_, err = stores.Agents.MarkDeleting(ctx, []string{leaving.ID})
+	_, err = stores.Agents.MarkDeleting(ctx, []uuid.UUID{leaving.ID})
 	require.NoError(t, err)
 
 	tests := []struct {
 		name        string
 		params      documentstore.SearchParams
-		wantMatches []string
-		wantNear    []string
+		wantMatches []uuid.UUID
+		wantNear    []uuid.UUID
 	}{
 		{
 			name:        "every document holding the words, the best first",
 			params:      documentstore.SearchParams{Query: "trigram index"},
-			wantMatches: []string{elsewhere, plan},
+			wantMatches: []uuid.UUID{elsewhere, plan},
 		},
 		{
 			name:        "a word a document holds only inside a longer one comes after as near",
 			params:      documentstore.SearchParams{Query: "index"},
-			wantMatches: []string{elsewhere, notes, plan},
-			wantNear:    []string{near},
+			wantMatches: []uuid.UUID{elsewhere, notes, plan},
+			wantNear:    []uuid.UUID{near},
 		},
 		{
 			name:        "a word left out drops the documents holding it",
 			params:      documentstore.SearchParams{Query: "index -trigram"},
-			wantMatches: []string{notes},
-			wantNear:    []string{near},
+			wantMatches: []uuid.UUID{notes},
+			wantNear:    []uuid.UUID{near},
 		},
 		{
 			name:        "narrowed to one agent",
 			params:      documentstore.SearchParams{Query: "trigram", AgentID: xptr.Ptr(other.ID)},
-			wantMatches: []string{elsewhere},
+			wantMatches: []uuid.UUID{elsewhere},
 		},
 		{
 			name:        "narrowed to one type",
 			params:      documentstore.SearchParams{Query: "index", Type: xptr.Ptr("notes")},
-			wantMatches: []string{notes},
-			wantNear:    []string{near},
+			wantMatches: []uuid.UUID{notes},
+			wantNear:    []uuid.UUID{near},
 		},
 		{
 			name:        "the limit holds across both sections",
 			params:      documentstore.SearchParams{Query: "index", Limit: 3},
-			wantMatches: []string{elsewhere, notes, plan},
+			wantMatches: []uuid.UUID{elsewhere, notes, plan},
 		},
 		{name: "only the current body is searched", params: documentstore.SearchParams{Query: "old text"}},
 		{name: "a query wanting no word finds nothing", params: documentstore.SearchParams{Query: "-trigram"}},
-		{name: "an agent id that is not an id finds nothing", params: documentstore.SearchParams{Query: "trigram", AgentID: xptr.Ptr("not-an-id")}},
 		{
 			name:        "a NUL in the query is dropped",
 			params:      documentstore.SearchParams{Query: "trig\x00ram", AgentID: xptr.Ptr(other.ID)},
-			wantMatches: []string{elsewhere},
+			wantMatches: []uuid.UUID{elsewhere},
 		},
 	}
 
-	ids := func(hits []documentstore.SearchHit) []string {
-		return xslice.Map(hits, func(hit documentstore.SearchHit) string { return hit.ID })
+	ids := func(hits []documentstore.SearchHit) []uuid.UUID {
+		return xslice.Map(hits, func(hit documentstore.SearchHit) uuid.UUID { return hit.ID })
 	}
 
 	for _, tt := range tests {
@@ -720,7 +700,7 @@ func TestSearch(t *testing.T) {
 	})
 }
 
-func nilIfEmpty(ids []string) []string {
+func nilIfEmpty(ids []uuid.UUID) []uuid.UUID {
 	if len(ids) == 0 {
 		return nil
 	}

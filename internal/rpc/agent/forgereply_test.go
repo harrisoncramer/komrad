@@ -14,6 +14,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -43,7 +44,7 @@ func TestForgeReplyRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "an agent replying on the forge",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.ReplyOnForge(ctx, connect.NewRequest(&agentv1.ReplyOnForgeRequest{ThreadId: betaID, Body: "done"}))
+				_, err := svc.ReplyOnForge(ctx, connect.NewRequest(&agentv1.ReplyOnForgeRequest{ThreadId: betaID.String(), Body: "done"}))
 
 				return err
 			},
@@ -53,7 +54,7 @@ func TestForgeReplyRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "an agent retrying a reply",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.RetryForgeReply(ctx, connect.NewRequest(&agentv1.RetryForgeReplyRequest{Id: betaID}))
+				_, err := svc.RetryForgeReply(ctx, connect.NewRequest(&agentv1.RetryForgeReplyRequest{Id: betaID.String()}))
 
 				return err
 			},
@@ -63,7 +64,7 @@ func TestForgeReplyRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "an agent discarding a failed reply",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.DiscardForgeReply(ctx, connect.NewRequest(&agentv1.DiscardForgeReplyRequest{Id: betaID}))
+				_, err := svc.DiscardForgeReply(ctx, connect.NewRequest(&agentv1.DiscardForgeReplyRequest{Id: betaID.String()}))
 
 				return err
 			},
@@ -90,17 +91,17 @@ func TestForgeReplyCallsNameTheCaller(t *testing.T) {
 
 	calls := map[string]func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error{
 		"replying": func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-			_, err := svc.ReplyOnForge(ctx, connect.NewRequest(&agentv1.ReplyOnForgeRequest{ThreadId: betaID, Body: "done"}))
+			_, err := svc.ReplyOnForge(ctx, connect.NewRequest(&agentv1.ReplyOnForgeRequest{ThreadId: betaID.String(), Body: "done"}))
 
 			return err
 		},
 		"retrying": func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-			_, err := svc.RetryForgeReply(ctx, connect.NewRequest(&agentv1.RetryForgeReplyRequest{Id: betaID}))
+			_, err := svc.RetryForgeReply(ctx, connect.NewRequest(&agentv1.RetryForgeReplyRequest{Id: betaID.String()}))
 
 			return err
 		},
 		"discarding": func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-			_, err := svc.DiscardForgeReply(ctx, connect.NewRequest(&agentv1.DiscardForgeReplyRequest{Id: betaID}))
+			_, err := svc.DiscardForgeReply(ctx, connect.NewRequest(&agentv1.DiscardForgeReplyRequest{Id: betaID.String()}))
 
 			return err
 		},
@@ -121,8 +122,8 @@ func TestForgeReplyCallsNameTheCaller(t *testing.T) {
 // TestForgeReplyDrawsWhatTheServiceHeld pins the reply a call answers with.
 func TestForgeReplyDrawsWhatTheServiceHeld(t *testing.T) {
 	svc := newForgeReplyHandler(&fakeForgeReplier{reply: reviewstore.ForgeReply{
-		ID:                     "reply-1",
-		ThreadID:               "thread-1",
+		ID:                     replyID,
+		ThreadID:               threadID,
 		State:                  reviewstore.ForgeReplySent,
 		Body:                   "added the guard, thanks",
 		ApprovedAt:             &reviewedAt,
@@ -131,12 +132,12 @@ func TestForgeReplyDrawsWhatTheServiceHeld(t *testing.T) {
 		CreatedAt:              reviewedAt,
 	}})
 
-	got, err := svc.RetryForgeReply(t.Context(), connect.NewRequest(&agentv1.RetryForgeReplyRequest{Id: betaID}))
+	got, err := svc.RetryForgeReply(t.Context(), connect.NewRequest(&agentv1.RetryForgeReplyRequest{Id: betaID.String()}))
 	require.NoError(t, err)
 
 	want := &agentv1.ForgeReply{
-		Id:         "reply-1",
-		ThreadId:   "thread-1",
+		Id:         replyID.String(),
+		ThreadId:   threadID.String(),
 		State:      agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT,
 		Body:       "added the guard, thanks",
 		ApprovedAt: dates.Stamp(reviewedAt),
@@ -161,13 +162,18 @@ func (f *fakeForgeReplier) ReplyOnForge(_ context.Context, params reviews.ReplyO
 }
 
 // RetryForgeReply records the author and answers the reply it holds.
-func (f *fakeForgeReplier) RetryForgeReply(_ context.Context, _ string, author reviews.ReviewAuthor) (*reviewstore.ForgeReply, error) {
+func (f *fakeForgeReplier) RetryForgeReply(_ context.Context, _ uuid.UUID, author reviews.ReviewAuthor) (*reviewstore.ForgeReply, error) {
 	return f.answer(author)
 }
 
 // DiscardForgeReply records the author and answers err.
-func (f *fakeForgeReplier) DiscardForgeReply(_ context.Context, _ string, author reviews.ReviewAuthor) error {
+func (f *fakeForgeReplier) DiscardForgeReply(_ context.Context, _ uuid.UUID, author reviews.ReviewAuthor) error {
 	_, err := f.answer(author)
 
 	return err
 }
+
+var (
+	replyID  = uuid.New()
+	threadID = uuid.New()
+)

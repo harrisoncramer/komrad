@@ -16,6 +16,7 @@ import (
 	schedulestore "komrad/internal/store/schedule"
 	workflowstore "komrad/internal/store/workflow"
 
+	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
 )
 
@@ -43,7 +44,7 @@ type ScheduleService struct {
 	agents    *agentstore.AgentStore
 	armMu     sync.Mutex
 	periodic  periodicJobRegistrar
-	armed     map[string]registration
+	armed     map[uuid.UUID]registration
 }
 
 // NewScheduleService builds the service from its dependencies.
@@ -52,12 +53,12 @@ func NewScheduleService(params NewScheduleServiceParams) *ScheduleService {
 		store:     params.Schedules,
 		workflows: params.Workflows,
 		agents:    params.Agents,
-		armed:     make(map[string]registration),
+		armed:     make(map[uuid.UUID]registration),
 	}
 }
 
 // GetSchedule returns a schedule by id, or nil when none has that id.
-func (s *ScheduleService) GetSchedule(ctx context.Context, id string) (*schedulestore.Schedule, error) {
+func (s *ScheduleService) GetSchedule(ctx context.Context, id uuid.UUID) (*schedulestore.Schedule, error) {
 	found, err := s.store.Get(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get schedule %q: %w", id, err)
@@ -91,7 +92,7 @@ func (s *ScheduleService) NewSchedule(ctx context.Context, cfg schedulestore.Con
 
 // UpdateSchedule replaces a schedule's editable fields, keeping the name it already has when a
 // blank one is given.
-func (s *ScheduleService) UpdateSchedule(ctx context.Context, id string, cfg schedulestore.Config) error {
+func (s *ScheduleService) UpdateSchedule(ctx context.Context, id uuid.UUID, cfg schedulestore.Config) error {
 	existing, err := s.GetSchedule(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return ErrScheduleNotFound.Saying("no schedule with id %q", id)
@@ -119,7 +120,7 @@ func (s *ScheduleService) UpdateSchedule(ctx context.Context, id string, cfg sch
 }
 
 // SetScheduleEnabled pauses or resumes a schedule, leaving everything else as it stands.
-func (s *ScheduleService) SetScheduleEnabled(ctx context.Context, id string, enabled bool) error {
+func (s *ScheduleService) SetScheduleEnabled(ctx context.Context, id uuid.UUID, enabled bool) error {
 	_, err := s.GetSchedule(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return ErrScheduleNotFound.Saying("no schedule with id %q", id)
@@ -137,7 +138,7 @@ func (s *ScheduleService) SetScheduleEnabled(ctx context.Context, id string, ena
 
 // ArchiveSchedule stops a schedule from firing again, leaving the agents it already launched
 // alone.
-func (s *ScheduleService) ArchiveSchedule(ctx context.Context, id string) error {
+func (s *ScheduleService) ArchiveSchedule(ctx context.Context, id uuid.UUID) error {
 	_, err := s.GetSchedule(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return ErrScheduleNotFound.Saying("no schedule with id %q", id)
@@ -154,7 +155,7 @@ func (s *ScheduleService) ArchiveSchedule(ctx context.Context, id string) error 
 }
 
 // RestoreSchedule takes a schedule out of the archive, refusing while what it fires at is gone.
-func (s *ScheduleService) RestoreSchedule(ctx context.Context, id string) error {
+func (s *ScheduleService) RestoreSchedule(ctx context.Context, id uuid.UUID) error {
 	existing, err := s.getArchived(ctx, id)
 	if err != nil {
 		return err
@@ -172,7 +173,7 @@ func (s *ScheduleService) RestoreSchedule(ctx context.Context, id string) error 
 }
 
 // DeleteSchedule permanently removes an archived schedule and its firings.
-func (s *ScheduleService) DeleteSchedule(ctx context.Context, id string) error {
+func (s *ScheduleService) DeleteSchedule(ctx context.Context, id uuid.UUID) error {
 	existing, err := s.getArchived(ctx, id)
 	if err != nil {
 		return err
@@ -185,7 +186,7 @@ func (s *ScheduleService) DeleteSchedule(ctx context.Context, id string) error {
 	return s.syncAfterWrite(ctx, id)
 }
 
-func (s *ScheduleService) getArchived(ctx context.Context, id string) (*schedulestore.Schedule, error) {
+func (s *ScheduleService) getArchived(ctx context.Context, id uuid.UUID) (*schedulestore.Schedule, error) {
 	existing, err := s.store.GetIncludingArchived(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, ErrScheduleNotFound.Saying("no schedule with id %q", id)
@@ -228,7 +229,7 @@ func (s *ScheduleService) ListSchedules(ctx context.Context, params ListSchedule
 }
 
 type ListScheduleRunsParams struct {
-	ScheduleID string
+	ScheduleID uuid.UUID
 	Limit      int
 }
 
@@ -283,7 +284,7 @@ func (s *ScheduleService) resolveTarget(ctx context.Context, cfg schedulestore.C
 }
 
 // RequireOrchestrator returns the live orchestrator an id names, or says which way it is unusable.
-func (s *ScheduleService) RequireOrchestrator(ctx context.Context, id string) (*agentstore.Agent, error) {
+func (s *ScheduleService) RequireOrchestrator(ctx context.Context, id uuid.UUID) (*agentstore.Agent, error) {
 	agent, err := s.agents.GetByID(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, ErrOrchestratorNotFound.Saying("no agent with id %q", id)
@@ -301,7 +302,7 @@ func (s *ScheduleService) RequireOrchestrator(ctx context.Context, id string) (*
 	return agent, nil
 }
 
-func (s *ScheduleService) requireWorkflow(ctx context.Context, workflowID string) error {
+func (s *ScheduleService) requireWorkflow(ctx context.Context, workflowID uuid.UUID) error {
 	_, err := s.workflows.Get(ctx, workflowID)
 	if errors.Is(err, store.ErrNotFound) {
 		return s.workflowGone(ctx, workflowID)
@@ -314,7 +315,7 @@ func (s *ScheduleService) requireWorkflow(ctx context.Context, workflowID string
 }
 
 // workflowGone says which way a workflow a schedule named is unusable.
-func (s *ScheduleService) workflowGone(ctx context.Context, workflowID string) error {
+func (s *ScheduleService) workflowGone(ctx context.Context, workflowID uuid.UUID) error {
 	archived, err := s.workflows.GetIncludingArchived(ctx, workflowID)
 	if err == nil && archived != nil {
 		return ErrWorkflowArchived.Saying("workflow %q has been archived", archived.Name)

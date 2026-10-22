@@ -18,11 +18,14 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
 	"komrad/lib/xslice"
+	"komrad/lib/xuuid"
+
+	"github.com/google/uuid"
 )
 
 // Agent is what a listing says about an agent working in a directory.
 type Agent struct {
-	ID             string
+	ID             uuid.UUID
 	Name           string
 	State          agentstore.State
 	StateChangedAt time.Time
@@ -31,8 +34,8 @@ type Agent struct {
 
 // Task is what a listing says about the task whose checkout a directory is.
 type Task struct {
-	ID         string
-	WorkflowID string
+	ID         uuid.UUID
+	WorkflowID uuid.UUID
 	Slug       string
 	// Adopted says the branch was somebody's before the task was put on it.
 	Adopted    bool
@@ -230,7 +233,7 @@ func (l *Lister) answerer(ctx context.Context) (func(dir string) Worktree, error
 	if err != nil {
 		return nil, err
 	}
-	tasks := xslice.KeyBy(summaries, func(summary taskstore.Summary) string { return summary.ID })
+	tasks := xslice.KeyBy(summaries, func(summary taskstore.Summary) uuid.UUID { return summary.ID })
 
 	sizes, err := l.worktrees.ListSizes(ctx)
 	if err != nil {
@@ -240,7 +243,7 @@ func (l *Lister) answerer(ctx context.Context) (func(dir string) Worktree, error
 
 	return func(dir string) Worktree {
 		worktree := read(dir)
-		if summary, ok := tasks[filepath.Base(dir)]; ok {
+		if summary, ok := tasks[xuuid.ParseOrNil(filepath.Base(dir))]; ok {
 			worktree.Task = describeTask(summary)
 		}
 		worktree.Occupants = listOccupants(dir, rows)
@@ -384,9 +387,9 @@ func readBranch(gitdir string) string {
 // listOccupants is every agent working in a directory, those provisioned for its task included,
 // live ones first and then newer before older.
 func listOccupants(dir string, rows []agentstore.AgentDir) []Agent {
-	name := filepath.Base(dir)
+	taskID := xuuid.ParseOrNil(filepath.Base(dir))
 	working := xslice.Filter(rows, func(row agentstore.AgentDir) bool {
-		return row.ProvisionedTaskID == name || filepath.Clean(row.Cwd) == dir
+		return (taskID != uuid.Nil && row.ProvisionedTaskID == taskID) || filepath.Clean(row.Cwd) == dir
 	})
 	slices.SortFunc(working, compareOccupants)
 

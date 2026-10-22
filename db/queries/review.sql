@@ -129,7 +129,7 @@ FROM
     reviews v
     JOIN review_snapshots r ON r.id = v.snapshot_id
 WHERE
-    sqlc.narg('keys')::text[] IS NULL
+    sqlc.narg('keys')::uuid[] IS NULL
     OR v.id = ANY (sqlc.narg('keys')::uuid[])
 ORDER BY
     v.id;
@@ -294,7 +294,7 @@ WHERE
         WHERE
             a.task_id = t.task_id
             AND a.archived_at IS NULL)
-    AND (sqlc.narg('keys')::text[] IS NULL
+    AND (sqlc.narg('keys')::uuid[] IS NULL
         OR t.id = ANY (sqlc.narg('keys')::uuid[]))
 ORDER BY
     t.id;

@@ -24,6 +24,7 @@ import (
 	"komrad/internal/logging"
 	"komrad/internal/rpcapi"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -76,7 +77,7 @@ func NewHandler(params NewHandlerParams) (http.Handler, error) {
 
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		role, err := getCallerRole(request, params.RoleOf)
-		if errors.Is(err, rpcapi.ErrUnknownCaller) {
+		if errors.Is(err, rpcapi.ErrUnknownCaller) || errors.Is(err, caller.ErrMalformedAgentID) {
 			http.Error(writer, err.Error(), http.StatusBadRequest)
 
 			return
@@ -97,12 +98,15 @@ type callerRoleKey struct{}
 
 // getCallerRole reads the role of whoever is making the request.
 func getCallerRole(request *http.Request, roleOf rpcapi.RoleOf) (annotationv1.Role, error) {
-	agentID := caller.FromHeader(request.Header).AgentID
-	if roleOf == nil || agentID == "" {
+	from, err := caller.FromHeader(request.Header)
+	if err != nil {
+		return annotationv1.Role_ROLE_UNSPECIFIED, err
+	}
+	if roleOf == nil || from.AgentID == uuid.Nil {
 		return annotationv1.Role_ROLE_UNSPECIFIED, nil
 	}
 
-	return roleOf(request.Context(), agentID)
+	return roleOf(request.Context(), from.AgentID)
 }
 
 func newServer(params NewHandlerParams, role annotationv1.Role) (*mcpsdk.Server, error) {

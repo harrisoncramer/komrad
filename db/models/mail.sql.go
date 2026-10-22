@@ -7,6 +7,8 @@ package models
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
 
 const claimMailByID = `-- name: ClaimMailByID :many
@@ -37,8 +39,8 @@ RETURNING
 `
 
 type ClaimMailByIDParams struct {
-	ToAgentID string
-	Ids       []string
+	ToAgentID uuid.UUID
+	Ids       []uuid.UUID
 }
 
 func (q *Queries) ClaimMailByID(ctx context.Context, arg ClaimMailByIDParams) ([]*Mail, error) {
@@ -93,15 +95,15 @@ RETURNING
     id
 `
 
-func (q *Queries) ClaimMailNudge(ctx context.Context, toAgentID string) ([]string, error) {
+func (q *Queries) ClaimMailNudge(ctx context.Context, toAgentID uuid.UUID) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, claimMailNudge, toAgentID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []uuid.UUID
 	for rows.Next() {
-		var id string
+		var id uuid.UUID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -123,7 +125,7 @@ WHERE
     AND claimed_at IS NULL
 `
 
-func (q *Queries) ClearMailNudge(ctx context.Context, toAgentID string) error {
+func (q *Queries) ClearMailNudge(ctx context.Context, toAgentID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, clearMailNudge, toAgentID)
 	return err
 }
@@ -142,8 +144,8 @@ WHERE
 `
 
 type CountMailExchangedBetweenAgentsParams struct {
-	One   string
-	Other string
+	One   uuid.UUID
+	Other uuid.UUID
 }
 
 func (q *Queries) CountMailExchangedBetweenAgents(ctx context.Context, arg CountMailExchangedBetweenAgentsParams) (int64, error) {
@@ -164,7 +166,7 @@ WHERE
     AND m.expires_at > NOW()
 `
 
-func (q *Queries) CountPendingMail(ctx context.Context, toAgentID string) (int64, error) {
+func (q *Queries) CountPendingMail(ctx context.Context, toAgentID uuid.UUID) (int64, error) {
 	row := q.db.QueryRow(ctx, countPendingMail, toAgentID)
 	var count int64
 	err := row.Scan(&count)
@@ -176,7 +178,7 @@ DELETE FROM mail
 WHERE id = ANY ($1::uuid[])
 `
 
-func (q *Queries) DeleteMailByID(ctx context.Context, ids []string) error {
+func (q *Queries) DeleteMailByID(ctx context.Context, ids []uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteMailByID, ids)
 	return err
 }
@@ -196,9 +198,9 @@ SELECT
 `
 
 type ExistsReadAboutParams struct {
-	ToAgentID string
+	ToAgentID uuid.UUID
 	Kind      MailKind
-	SubjectID string
+	SubjectID uuid.UUID
 }
 
 func (q *Queries) ExistsReadAbout(ctx context.Context, arg ExistsReadAboutParams) (bool, error) {
@@ -217,7 +219,7 @@ WHERE
     m.id = $1
 `
 
-func (q *Queries) GetMail(ctx context.Context, id string) (*Mail, error) {
+func (q *Queries) GetMail(ctx context.Context, id uuid.UUID) (*Mail, error) {
 	row := q.db.QueryRow(ctx, getMail, id)
 	var i Mail
 	err := row.Scan(
@@ -291,9 +293,9 @@ FOR UPDATE
 `
 
 type GetUnreadAboutParams struct {
-	ToAgentID string
+	ToAgentID uuid.UUID
 	Kind      MailKind
-	SubjectID string
+	SubjectID uuid.UUID
 }
 
 func (q *Queries) GetUnreadAbout(ctx context.Context, arg GetUnreadAboutParams) (*Mail, error) {
@@ -345,12 +347,12 @@ RETURNING
 `
 
 type InsertMailParams struct {
-	FromAgentID    *string
+	FromAgentID    *uuid.UUID
 	FromName       string
-	ToAgentID      string
+	ToAgentID      uuid.UUID
 	Body           string
 	Kind           MailKind
-	ReplyTo        *string
+	ReplyTo        *uuid.UUID
 	IdempotencyKey *string
 	DeadlineMicros int64
 }
@@ -398,7 +400,7 @@ WHERE
     m.id = ANY ($1::uuid[])
 `
 
-func (q *Queries) ListMailByID(ctx context.Context, ids []string) ([]*Mail, error) {
+func (q *Queries) ListMailByID(ctx context.Context, ids []uuid.UUID) ([]*Mail, error) {
 	rows, err := q.db.Query(ctx, listMailByID, ids)
 	if err != nil {
 		return nil, err
@@ -451,8 +453,8 @@ LIMIT $3
 `
 
 type ListMailPageParams struct {
-	ToAgentID string
-	CursorID  *string
+	ToAgentID uuid.UUID
+	CursorID  *uuid.UUID
 	Lim       int32
 }
 
@@ -509,8 +511,8 @@ LIMIT $3
 `
 
 type ListMailSentPageParams struct {
-	FromAgentID *string
-	CursorID    *string
+	FromAgentID *uuid.UUID
+	CursorID    *uuid.UUID
 	Lim         int32
 }
 
@@ -565,15 +567,15 @@ WHERE
         OR m.reported_at IS NULL)
 `
 
-func (q *Queries) ListMailboxesWithPendingMail(ctx context.Context) ([]string, error) {
+func (q *Queries) ListMailboxesWithPendingMail(ctx context.Context) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, listMailboxesWithPendingMail)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []uuid.UUID
 	for rows.Next() {
-		var to_agent_id string
+		var to_agent_id uuid.UUID
 		if err := rows.Scan(&to_agent_id); err != nil {
 			return nil, err
 		}
@@ -600,7 +602,7 @@ LIMIT $2
 `
 
 type ListWaitingMailParams struct {
-	ToAgentID string
+	ToAgentID uuid.UUID
 	Lim       int32
 }
 
@@ -649,13 +651,13 @@ FROM
     mail m
 WHERE
     m.claimed_at IS NULL
-    AND ($1::text[] IS NULL
+    AND ($1::uuid[] IS NULL
         OR m.id = ANY ($1::uuid[]))
 ORDER BY
     m.id
 `
 
-func (q *Queries) ListWatchedMail(ctx context.Context, keys []string) ([]*Mail, error) {
+func (q *Queries) ListWatchedMail(ctx context.Context, keys []uuid.UUID) ([]*Mail, error) {
 	rows, err := q.db.Query(ctx, listWatchedMail, keys)
 	if err != nil {
 		return nil, err
@@ -722,7 +724,7 @@ WHERE
         id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, engine_id, idempotency_key, subject_id, events, nudged_at
 `
 
-func (q *Queries) ReportExpiredMail(ctx context.Context, toAgentID string) ([]*Mail, error) {
+func (q *Queries) ReportExpiredMail(ctx context.Context, toAgentID uuid.UUID) ([]*Mail, error) {
 	rows, err := q.db.Query(ctx, reportExpiredMail, toAgentID)
 	if err != nil {
 		return nil, err
@@ -797,10 +799,10 @@ WHERE
 
 type UpsertFromKomradParams struct {
 	FromName       string
-	ToAgentID      string
+	ToAgentID      uuid.UUID
 	Body           string
 	Kind           MailKind
-	SubjectID      string
+	SubjectID      uuid.UUID
 	Events         []string
 	DeadlineMicros int64
 }

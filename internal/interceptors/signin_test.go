@@ -145,7 +145,9 @@ func TestSignInGuard(t *testing.T) {
 				},
 				Access: stores.Access,
 				Next: http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
-					served = caller.FromRequest(r.Context(), r.Header)
+					var err error
+					served, err = caller.FromRequest(r.Context(), r.Header)
+					assert.NoError(t, err)
 					agentHeader = r.Header.Get(caller.AgentHeader)
 				}),
 			})

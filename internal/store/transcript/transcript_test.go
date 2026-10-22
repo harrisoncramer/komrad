@@ -15,6 +15,7 @@ import (
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -140,64 +141,24 @@ func TestListLastTurns(t *testing.T) {
 	}
 }
 
-// TestListLastTurnsOfUnknownID pins that an unused id and a string that is not an id both read
-// as no turns rather than an error.
+// TestListLastTurnsOfUnknownID pins that an id nothing holds reads as no turns rather than an
+// error.
 func TestListLastTurnsOfUnknownID(t *testing.T) {
-	tests := []struct {
-		name string
-		id   string
-	}{
-		{
-			name: "a malformed id is not an agent",
-			id:   "missing",
-		},
-		{
-			name: "a well-formed id nothing holds",
-			id:   "00000000-0000-7000-8000-000000000000",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := open(t)
-
-			got, err := st.ListLastTurns(t.Context(), ListLastTurnsParams{
-				AgentID: tt.id,
-				Role:    "assistant",
-				Limit:   1,
-			})
-			require.NoError(t, err)
-			assert.Empty(t, got)
-		})
-	}
+	got, err := open(t).ListLastTurns(t.Context(), ListLastTurnsParams{
+		AgentID: uuid.New(),
+		Role:    "assistant",
+		Limit:   1,
+	})
+	require.NoError(t, err)
+	assert.Empty(t, got)
 }
 
-// TestGetOfUnknownID pins that an unused id and a string that is not an id both read as the
-// zero transcript rather than an error.
+// TestGetOfUnknownID pins that an id nothing holds reads as the zero transcript rather than an
+// error.
 func TestGetOfUnknownID(t *testing.T) {
-	tests := []struct {
-		name string
-		id   string
-	}{
-		{
-			name: "a malformed id is not an agent",
-			id:   "missing",
-		},
-		{
-			name: "a well-formed id nothing holds",
-			id:   "00000000-0000-7000-8000-000000000000",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := open(t)
-
-			got, err := st.Get(t.Context(), tt.id)
-			require.NoError(t, err)
-			assert.Empty(t, got)
-		})
-	}
+	got, err := open(t).Get(t.Context(), uuid.New())
+	require.NoError(t, err)
+	assert.Empty(t, got)
 }
 
 // TestSearch pins that a search spans archived agents and that each hit says whether the
@@ -433,7 +394,7 @@ func TestSearch(t *testing.T) {
 				archived, findErr := st.agents.GetInWorkflow(ctx, st.workflow, "one")
 				require.NoError(t, findErr)
 				require.NotNil(t, archived)
-				_, archiveErr := st.agents.Archive(ctx, []string{archived.ID})
+				_, archiveErr := st.agents.Archive(ctx, []uuid.UUID{archived.ID})
 				require.NoError(t, archiveErr)
 			}
 
@@ -508,10 +469,10 @@ func TestSearchScopedToOneAgent(t *testing.T) {
 
 	unscoped, err := st.Search(ctx, SearchParams{Query: "reconciler", Limit: 10})
 	require.NoError(t, err)
-	require.Len(t, uniqueStrings(agentIDs(allHits(unscoped))), 2, "both agents said it")
+	require.Len(t, unique(agentIDs(allHits(unscoped))), 2, "both agents said it")
 
 	var (
-		ids    []string
+		ids    []uuid.UUID
 		cursor *Cursor
 	)
 	for range 3 {
@@ -532,16 +493,7 @@ func TestSearchScopedToOneAgent(t *testing.T) {
 		cursor = page.Next
 	}
 
-	assert.Equal(t, []string{mine, mine}, ids, "both of one agent's turns, and neither of the other's")
-
-	nobody := "not-an-id"
-	none, err := st.Search(ctx, SearchParams{
-		Query:   "reconciler",
-		Limit:   10,
-		AgentID: &nobody,
-	})
-	require.NoError(t, err, "a string that is not an id is a miss rather than a failure")
-	assert.Empty(t, allHits(none))
+	assert.Equal(t, []uuid.UUID{mine, mine}, ids, "both of one agent's turns, and neither of the other's")
 }
 
 // TestSearchPages walks a result set the way the RPC does, covering both the ordering the
@@ -650,7 +602,7 @@ func TestSearchPages(t *testing.T) {
 
 			var (
 				names  []string
-				ids    []string
+				ids    []uuid.UUID
 				cursor *Cursor
 			)
 			for range len(tt.seeds) + 1 {
@@ -678,7 +630,7 @@ func TestSearchPages(t *testing.T) {
 			}
 
 			assert.Len(t, names, tt.wantCount)
-			assert.Len(t, uniqueStrings(ids), tt.wantCount, "each page returns hits the previous pages did not")
+			assert.Len(t, unique(ids), tt.wantCount, "each page returns hits the previous pages did not")
 
 			if tt.wantNames != nil {
 				assert.Equal(t, tt.wantNames, names)
@@ -692,7 +644,7 @@ func TestSearchPages(t *testing.T) {
 func TestCursorValidate(t *testing.T) {
 	valid := Position{
 		Key:     0.5,
-		AgentID: "00000000-0000-7000-8000-000000000000",
+		AgentID: uuid.New(),
 		Seq:     1,
 	}
 
@@ -724,8 +676,8 @@ func TestCursorValidate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "a position holding something that is not an agent id",
-			cursor:  Cursor{Sort: SortBest, Near: &Position{AgentID: "not-an-id"}},
+			name:    "a position naming no agent",
+			cursor:  Cursor{Sort: SortBest, Near: &Position{}},
 			wantErr: true,
 		},
 	}
@@ -803,7 +755,7 @@ type fixture struct {
 	*TranscriptStore
 	agents   *agentstore.AgentStore
 	db       store.DBTX
-	workflow string
+	workflow uuid.UUID
 }
 
 func open(t *testing.T) *fixture {
@@ -824,7 +776,7 @@ func open(t *testing.T) *fixture {
 	}
 }
 
-func seedAgent(t *testing.T, st *fixture, name string) string {
+func seedAgent(t *testing.T, st *fixture, name string) uuid.UUID {
 	t.Helper()
 	ctx := t.Context()
 	taskID, err := tasktest.Seed(ctx, st.db, st.workflow)
@@ -842,12 +794,12 @@ func seedAgent(t *testing.T, st *fixture, name string) string {
 	return got.ID
 }
 
-func seedTranscript(t *testing.T, st *fixture, id, content string) {
+func seedTranscript(t *testing.T, st *fixture, id uuid.UUID, content string) {
 	t.Helper()
 	seedTurns(t, st, id, []Turn{{Role: "user", Content: content}})
 }
 
-func seedTurns(t *testing.T, st *fixture, id string, turns []Turn) {
+func seedTurns(t *testing.T, st *fixture, id uuid.UUID, turns []Turn) {
 	t.Helper()
 	require.NoError(t, st.AppendTurns(t.Context(), AppendTurnsParams{
 		AgentID:   id,
@@ -856,11 +808,11 @@ func seedTurns(t *testing.T, st *fixture, id string, turns []Turn) {
 	}))
 }
 
-func openSession(t *testing.T, st *fixture, id string) session {
+func openSession(t *testing.T, st *fixture, id uuid.UUID) session {
 	t.Helper()
 	session, err := st.OpenSession(t.Context(), OpenSessionParams{
 		AgentID:   id,
-		SessionID: "session-" + id,
+		SessionID: "session-" + id.String(),
 	})
 	require.NoError(t, err)
 
@@ -873,23 +825,23 @@ func allHits(results Results) []SearchHit {
 	return append(append([]SearchHit{}, results.Matches...), results.Near...)
 }
 
-func agentIDs(hits []SearchHit) []string {
-	ids := xslice.Map(hits, func(hit SearchHit) string {
+func agentIDs(hits []SearchHit) []uuid.UUID {
+	ids := xslice.Map(hits, func(hit SearchHit) uuid.UUID {
 		return hit.AgentID
 	})
 
 	return ids
 }
 
-func uniqueStrings(in []string) []string {
-	seen := make(map[string]bool, len(in))
-	out := make([]string, 0, len(in))
-	for _, s := range in {
-		if seen[s] {
+func unique[T comparable](in []T) []T {
+	seen := make(map[T]bool, len(in))
+	out := make([]T, 0, len(in))
+	for _, value := range in {
+		if seen[value] {
 			continue
 		}
-		seen[s] = true
-		out = append(out, s)
+		seen[value] = true
+		out = append(out, value)
 	}
 
 	return out
@@ -963,7 +915,7 @@ func TestAppendTurnsPlacesEachTurn(t *testing.T) {
 	}
 }
 
-func onlyHit(t *testing.T, st *fixture, id, query string) SearchHit {
+func onlyHit(t *testing.T, st *fixture, id uuid.UUID, query string) SearchHit {
 	t.Helper()
 	got, err := st.Search(t.Context(), SearchParams{
 		Query:   query,
@@ -1036,13 +988,13 @@ func seedNarrowed(t *testing.T) narrowed {
 		},
 	})
 
-	_, err = st.agents.Archive(ctx, []string{beta})
+	_, err = st.agents.Archive(ctx, []uuid.UUID{beta})
 	require.NoError(t, err)
 
 	return narrowed{fixture: st, start: start}
 }
 
-func seedAgentAs(t *testing.T, st *fixture, agent agentstore.Agent) string {
+func seedAgentAs(t *testing.T, st *fixture, agent agentstore.Agent) uuid.UUID {
 	t.Helper()
 	agent.State = agentstore.StateIdle
 	if agent.Role != agentstore.RoleOrchestrator {

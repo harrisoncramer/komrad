@@ -17,6 +17,7 @@ import (
 
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -284,7 +285,7 @@ func TestAProvisionerDisabledAgentRunsNoHooksOnTheWayBackIn(t *testing.T) {
 			fire: func(t *testing.T, manager *testAgents, agent agentstore.Agent) {
 				t.Helper()
 
-				_, err := manager.lifecycle.RestoreAgents(t.Context(), []string{agent.ID})
+				_, err := manager.lifecycle.RestoreAgents(t.Context(), []uuid.UUID{agent.ID})
 				require.NoError(t, err)
 			},
 		},
@@ -362,7 +363,7 @@ func TestRestoreFiresPostRestoreOnlyOnWhatWasArchived(t *testing.T) {
 
 	require.NoError(t, st.SoftDelete(ctx, "auth"))
 
-	restored, err := manager.lifecycle.RestoreAgents(ctx, []string{archived.ID, live.ID})
+	restored, err := manager.lifecycle.RestoreAgents(ctx, []uuid.UUID{archived.ID, live.ID})
 	require.NoError(t, err)
 	assert.Len(t, restored, 2, "an agent that was not archived still comes back as it stands")
 
@@ -459,14 +460,14 @@ func TestAFailedPreResumeRefusesTheResume(t *testing.T) {
 
 type archiveCall struct {
 	name    string
-	archive func(t *testing.T, st *testStore, lifecycle *fakeLifecycle, workflowID string, agents []agentstore.Agent) error
+	archive func(t *testing.T, st *testStore, lifecycle *fakeLifecycle, workflowID uuid.UUID, agents []agentstore.Agent) error
 }
 
 func archiveCalls() []archiveCall {
 	return []archiveCall{
 		{
 			name: "archiving the agents",
-			archive: func(t *testing.T, st *testStore, lifecycle *fakeLifecycle, _ string, agents []agentstore.Agent) error {
+			archive: func(t *testing.T, st *testStore, lifecycle *fakeLifecycle, _ uuid.UUID, agents []agentstore.Agent) error {
 				t.Helper()
 
 				manager := st.agentServiceWithLifecycle(tmuxtest.NewFake(), harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
@@ -476,7 +477,7 @@ func archiveCalls() []archiveCall {
 		},
 		{
 			name: "archiving the workflow",
-			archive: func(t *testing.T, st *testStore, lifecycle *fakeLifecycle, workflowID string, _ []agentstore.Agent) error {
+			archive: func(t *testing.T, st *testStore, lifecycle *fakeLifecycle, workflowID uuid.UUID, _ []agentstore.Agent) error {
 				t.Helper()
 
 				workflows := st.workflowService(workflowServiceOptions{tmux: tmuxtest.NewFake(), lifecycle: lifecycle})
@@ -487,7 +488,7 @@ func archiveCalls() []archiveCall {
 	}
 }
 
-func seedHookedAgents(t *testing.T, st *testStore, hooks []workflowstore.Hook, names ...string) (string, []agentstore.Agent) {
+func seedHookedAgents(t *testing.T, st *testStore, hooks []workflowstore.Hook, names ...string) (uuid.UUID, []agentstore.Agent) {
 	t.Helper()
 	ctx := t.Context()
 
@@ -627,15 +628,15 @@ func TestArchiveHooks(t *testing.T) {
 
 // TestPreRestore covers a veto on the way out of the archive and the directory that has gone.
 func TestPreRestore(t *testing.T) {
-	restoreAgent := func(t *testing.T, st *testStore, lifecycle *fakeLifecycle, _ string, agent agentstore.Agent) error {
+	restoreAgent := func(t *testing.T, st *testStore, lifecycle *fakeLifecycle, _ uuid.UUID, agent agentstore.Agent) error {
 		t.Helper()
 
 		manager := st.agentServiceWithLifecycle(tmuxtest.NewFake(), harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
-		_, err := manager.lifecycle.RestoreAgents(t.Context(), []string{agent.ID})
+		_, err := manager.lifecycle.RestoreAgents(t.Context(), []uuid.UUID{agent.ID})
 
 		return err
 	}
-	restoreWorkflow := func(t *testing.T, st *testStore, lifecycle *fakeLifecycle, workflowID string, _ agentstore.Agent) error {
+	restoreWorkflow := func(t *testing.T, st *testStore, lifecycle *fakeLifecycle, workflowID uuid.UUID, _ agentstore.Agent) error {
 		t.Helper()
 
 		workflows := st.workflowService(workflowServiceOptions{tmux: tmuxtest.NewFake(), lifecycle: lifecycle})
@@ -646,7 +647,7 @@ func TestPreRestore(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		restore    func(t *testing.T, st *testStore, lifecycle *fakeLifecycle, workflowID string, agent agentstore.Agent) error
+		restore    func(t *testing.T, st *testStore, lifecycle *fakeLifecycle, workflowID uuid.UUID, agent agentstore.Agent) error
 		removeDir  bool
 		nameTaken  bool
 		wantErr    string
@@ -774,7 +775,7 @@ func TestDeleteWaitsForTheHooksStillRunning(t *testing.T) {
 		Event:   workflowstore.HookAgentPostArchive,
 	}.Start(ctx)
 	deleted := make(chan error, 1)
-	go func() { deleted <- manager.lifecycle.deleteNow(ctx, []string{agent.ID}) }()
+	go func() { deleted <- manager.lifecycle.deleteNow(ctx, []uuid.UUID{agent.ID}) }()
 
 	present := func() bool {
 		remaining, err := st.Agents.ListAll(ctx)
@@ -961,14 +962,14 @@ func TestTaskPostArchive(t *testing.T) {
 	tests := []struct {
 		name        string
 		worktree    bool
-		archive     func(t *testing.T, fx *taskDeleteFixture, lifecycle *fakeLifecycle, ids []string) error
+		archive     func(t *testing.T, fx *taskDeleteFixture, lifecycle *fakeLifecycle, ids []uuid.UUID) error
 		wantCwd     func(fx *taskDeleteFixture, writer agentstore.Agent) string
 		wantNoneRun bool
 	}{
 		{
 			name:     "archiving the task's reviewer leaves it open",
 			worktree: true,
-			archive: func(t *testing.T, fx *taskDeleteFixture, _ *fakeLifecycle, ids []string) error {
+			archive: func(t *testing.T, fx *taskDeleteFixture, _ *fakeLifecycle, ids []uuid.UUID) error {
 				t.Helper()
 
 				return fx.agents.lifecycle.ArchiveAgents(t.Context(), ArchiveAgentsParams{IDs: ids[1:]})
@@ -977,7 +978,7 @@ func TestTaskPostArchive(t *testing.T) {
 		},
 		{
 			name: "a task with no worktree runs agent.post-archive in the workflow's directory",
-			archive: func(t *testing.T, fx *taskDeleteFixture, _ *fakeLifecycle, ids []string) error {
+			archive: func(t *testing.T, fx *taskDeleteFixture, _ *fakeLifecycle, ids []uuid.UUID) error {
 				t.Helper()
 
 				return archiveWriters(t.Context(), fx.agents.lifecycle, ids)
@@ -987,7 +988,7 @@ func TestTaskPostArchive(t *testing.T) {
 		{
 			name:     "archiving the last agents runs agent.post-archive once, in the worktree",
 			worktree: true,
-			archive: func(t *testing.T, fx *taskDeleteFixture, _ *fakeLifecycle, ids []string) error {
+			archive: func(t *testing.T, fx *taskDeleteFixture, _ *fakeLifecycle, ids []uuid.UUID) error {
 				t.Helper()
 
 				return archiveWriters(t.Context(), fx.agents.lifecycle, ids)
@@ -997,7 +998,7 @@ func TestTaskPostArchive(t *testing.T) {
 		{
 			name:     "archiving the workflow runs agent.post-archive",
 			worktree: true,
-			archive: func(t *testing.T, fx *taskDeleteFixture, lifecycle *fakeLifecycle, _ []string) error {
+			archive: func(t *testing.T, fx *taskDeleteFixture, lifecycle *fakeLifecycle, _ []uuid.UUID) error {
 				t.Helper()
 
 				return fx.st.workflowService(workflowServiceOptions{tmux: tmuxtest.NewFake(), lifecycle: lifecycle}).ArchiveWorkflow(t.Context(), fx.workflow.ID)
@@ -1015,7 +1016,7 @@ func TestTaskPostArchive(t *testing.T) {
 			reviewer, err := launchOnTask(t, fx, reviewerOf(*writer, "reviewer"))
 			require.NoError(t, err)
 
-			require.NoError(t, tt.archive(t, fx, lifecycle, []string{writer.ID, reviewer.ID}))
+			require.NoError(t, tt.archive(t, fx, lifecycle, []uuid.UUID{writer.ID, reviewer.ID}))
 
 			if tt.wantNoneRun {
 				waitForTaskHooks(t, lifecycle, 0)
@@ -1051,10 +1052,10 @@ func TestRestoreOpensTheTask(t *testing.T) {
 			fx := newTaskDeleteFixture(t, lifecycle, taskHookConfig(t, workflowstore.HookTaskPreOpen, true))
 			agent, err := launchOnTask(t, fx, NewAgentParams{Title: "auth"})
 			require.NoError(t, err)
-			require.NoError(t, archiveWriters(t.Context(), fx.agents.lifecycle, []string{agent.ID}))
+			require.NoError(t, archiveWriters(t.Context(), fx.agents.lifecycle, []uuid.UUID{agent.ID}))
 
 			lifecycle.hookErrs = map[string]error{taskHook: tt.hookErr}
-			_, err = fx.agents.lifecycle.RestoreAgents(t.Context(), []string{agent.ID})
+			_, err = fx.agents.lifecycle.RestoreAgents(t.Context(), []uuid.UUID{agent.ID})
 			if tt.wantRestored {
 				require.NoError(t, err)
 			} else {
@@ -1082,11 +1083,11 @@ func TestTaskPreOpenWaitsForTheTasksPostArchive(t *testing.T) {
 
 	hold := make(chan struct{})
 	lifecycle.holdHooks = hold
-	require.NoError(t, archiveWriters(t.Context(), fx.agents.lifecycle, []string{agent.ID}))
+	require.NoError(t, archiveWriters(t.Context(), fx.agents.lifecycle, []uuid.UUID{agent.ID}))
 
 	restored := make(chan error, 1)
 	go func() {
-		_, err := fx.agents.lifecycle.RestoreAgents(t.Context(), []string{agent.ID})
+		_, err := fx.agents.lifecycle.RestoreAgents(t.Context(), []uuid.UUID{agent.ID})
 		restored <- err
 	}()
 	require.Never(t, func() bool { return len(restored) > 0 }, 200*time.Millisecond, 20*time.Millisecond)
@@ -1159,7 +1160,7 @@ func TestTaskPreDelete(t *testing.T) {
 				require.NoError(t, os.RemoveAll(agent.Cwd))
 			}
 			if tt.deleteAgentOnly {
-				require.NoError(t, fx.agents.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
+				require.NoError(t, fx.agents.lifecycle.deleteNow(t.Context(), []uuid.UUID{agent.ID}))
 			} else {
 				require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), DeleteTasksParams{Tasks: []oneofs.Task{taskByID(*agent.TaskID)}, Records: true}))
 			}

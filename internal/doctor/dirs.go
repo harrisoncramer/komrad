@@ -9,6 +9,9 @@ import (
 
 	"komrad/config"
 	"komrad/lib/xslice"
+	"komrad/lib/xuuid"
+
+	"github.com/google/uuid"
 )
 
 const maxNamedOrphans = 3
@@ -65,7 +68,7 @@ type dirState struct {
 }
 
 type worktreeOwners struct {
-	TaskIDs      []string
+	TaskIDs      []uuid.UUID
 	AgentDirs    []string
 	WorkflowDirs []string
 }
@@ -203,7 +206,7 @@ func reportOrphans(env Env, owners worktreeOwners, dirs []worktreeDir) Result {
 		var unowned []string
 		for _, name := range state.Directories {
 			checked++
-			if tasks[name] || held[filepath.Join(dir.resolved, name)] {
+			if isTaskDir(tasks, name) || held[filepath.Join(dir.resolved, name)] {
 				continue
 			}
 
@@ -242,8 +245,8 @@ func collectWorktreeDirs(typed, shared string, workflowDirs []string) []worktree
 	return xslice.UniqueBy(dirs, func(dir worktreeDir) string { return dir.resolved })
 }
 
-func toSet(values []string) map[string]bool {
-	set := make(map[string]bool, len(values))
+func toSet[T comparable](values []T) map[T]bool {
+	set := make(map[T]bool, len(values))
 	for _, value := range values {
 		set[value] = true
 	}
@@ -288,4 +291,8 @@ func describeCount(count int, singular, plural string) string {
 	default:
 		return strconv.Itoa(count) + " " + plural
 	}
+}
+
+func isTaskDir(tasks map[uuid.UUID]bool, name string) bool {
+	return tasks[xuuid.ParseOrNil(name)]
 }

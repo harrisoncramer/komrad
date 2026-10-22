@@ -136,7 +136,7 @@ func (s *Handler) render(ctx context.Context, connection forgestore.Connection) 
 	}
 
 	return &forgev1.Forge{
-		Id:            connection.ID,
+		Id:            connection.ID.String(),
 		Kind:          connection.Kind,
 		Host:          connection.Host,
 		ApiUrl:        connection.APIURL,

@@ -14,6 +14,7 @@ import (
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -91,16 +92,16 @@ func TestIntegrationWorkflowsAgainstRealRepositories(t *testing.T) {
 		_, err = instance.Workflows.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: workflowID, Records: true}))
 		require.NoError(t, err)
 
-		got, err := instance.Stores.Workflows.GetIncludingArchived(ctx, workflowID)
+		got, err := instance.Stores.Workflows.GetIncludingArchived(ctx, uuid.MustParse(workflowID))
 		require.NoError(t, err)
 		assert.NotNil(t, got, "the workflow is not gone yet, since its agent's delete has not run")
 		instance.WorkQueue()
 
 		require.EventuallyWithT(t, func(c *assert.CollectT) {
-			_, err := instance.Stores.Agents.GetByID(ctx, created.Msg.GetAgent().GetId())
+			_, err := instance.Stores.Agents.GetByID(ctx, uuid.MustParse(created.Msg.GetAgent().GetId()))
 			assert.ErrorIs(c, err, store.ErrNotFound, "its agent is gone once the deprovisioner finishes")
 
-			_, err = instance.Stores.Workflows.GetIncludingArchived(ctx, workflowID)
+			_, err = instance.Stores.Workflows.GetIncludingArchived(ctx, uuid.MustParse(workflowID))
 			assert.ErrorIs(c, err, store.ErrNotFound, "and the workflow it emptied out goes with it, with no second delete")
 		}, 5*time.Second, 20*time.Millisecond)
 	})

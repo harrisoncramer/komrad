@@ -42,7 +42,7 @@ func (s *LaunchService) failExitedStartup(ctx context.Context, launched agentsto
 	if err != nil {
 		if !errors.Is(err, store.ErrNotFound) {
 			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to read an agent whose CLI exited while starting",
-				append([]slog.Attr{slog.String(logging.AgentID, launched.ID)}, logging.Err(err)...)...)
+				append([]slog.Attr{slog.String(logging.AgentID, launched.ID.String())}, logging.Err(err)...)...)
 		}
 
 		return

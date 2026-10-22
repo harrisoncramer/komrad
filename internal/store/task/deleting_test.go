@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -25,19 +26,19 @@ func TestClaimEmpty(t *testing.T) {
 	})
 	taken := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: live.WorkflowID, Slug: "taken"})
 	empty := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: live.WorkflowID, Slug: "empty"})
-	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{busy.ID, taken.ID, empty.ID}))
+	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []uuid.UUID{busy.ID, taken.ID, empty.ID}))
 	first, err := stores.Tasks.ClaimEmpty(ctx, taken.ID)
 	require.NoError(t, err)
 	require.True(t, first)
 
 	tests := []struct {
 		name string
-		id   string
+		id   uuid.UUID
 		want bool
 	}{
 		{
 			name: "a ref that is not an id is not taken",
-			id:   "taken",
+			id:   takenTaskID,
 			want: false,
 		},
 		{
@@ -83,7 +84,7 @@ func TestClaimCleanup(t *testing.T) {
 		TaskID:     &busy.ID,
 	})
 	deleting := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: live.WorkflowID, Slug: "deleting"})
-	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{deleting.ID}))
+	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []uuid.UUID{deleting.ID}))
 	taken := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: live.WorkflowID, Slug: "taken"})
 	first, err := stores.Tasks.ClaimCleanup(ctx, taken.ID)
 	require.NoError(t, err)
@@ -91,12 +92,12 @@ func TestClaimCleanup(t *testing.T) {
 
 	tests := []struct {
 		name string
-		id   string
+		id   uuid.UUID
 		want bool
 	}{
 		{
 			name: "a ref that is not an id is not taken",
-			id:   "taken",
+			id:   takenTaskID,
 			want: false,
 		},
 		{
@@ -159,7 +160,7 @@ func TestRecordCleanupFailure(t *testing.T) {
 	stores := storetest.Open(t)
 	ctx := t.Context()
 	task := stores.SeedTask(t, taskstore.CreateParams{Slug: "work"})
-	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{task.ID}))
+	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []uuid.UUID{task.ID}))
 	claimed, err := stores.Tasks.ClaimEmpty(ctx, task.ID)
 	require.NoError(t, err)
 	require.True(t, claimed)
@@ -170,7 +171,7 @@ func TestRecordCleanupFailure(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, failed.DeletingAt)
 	assert.Equal(t, "teardown exited 1", failed.FailureReason)
-	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{task.ID}))
+	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []uuid.UUID{task.ID}))
 	retried, err := stores.Tasks.ClaimEmpty(ctx, task.ID)
 	require.NoError(t, err)
 	assert.True(t, retried)
@@ -190,7 +191,7 @@ func TestClearAbandonedDeleting(t *testing.T) {
 		WorkflowID: held.WorkflowID,
 		TaskID:     &held.ID,
 	})
-	_, err := stores.Agents.MarkDeleting(ctx, []string{leaving.ID})
+	_, err := stores.Agents.MarkDeleting(ctx, []uuid.UUID{leaving.ID})
 	require.NoError(t, err)
 	staying := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: held.WorkflowID, Slug: "staying"})
 	stores.SeedAgent(t, agentstore.Agent{
@@ -199,13 +200,13 @@ func TestClearAbandonedDeleting(t *testing.T) {
 		TaskID:     &staying.ID,
 	})
 	empty := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: held.WorkflowID, Slug: "empty"})
-	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{held.ID, staying.ID, empty.ID}))
+	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []uuid.UUID{held.ID, staying.ID, empty.ID}))
 
 	require.NoError(t, stores.Tasks.ClearAbandonedDeleting(ctx))
 
 	tests := []struct {
 		name         string
-		id           string
+		id           uuid.UUID
 		wantDeleting bool
 	}{
 		{
@@ -242,7 +243,7 @@ func TestMarkDeletingHidesTheTask(t *testing.T) {
 	archived := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: task.WorkflowID, Slug: "archived"})
 	require.NoError(t, stores.Tasks.Archive(ctx, archived.ID))
 
-	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{task.ID, archived.ID, "not-an-id"}))
+	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []uuid.UUID{task.ID, archived.ID}))
 
 	live, err := stores.Tasks.List(ctx, task.WorkflowID, false)
 	require.NoError(t, err)
@@ -258,7 +259,7 @@ func TestLockUndeleted(t *testing.T) {
 	ctx := t.Context()
 	live := stores.SeedTask(t, taskstore.CreateParams{Slug: "live"})
 	deleting := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: live.WorkflowID, Slug: "deleting"})
-	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{deleting.ID}))
+	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []uuid.UUID{deleting.ID}))
 
 	require.ErrorIs(t, stores.Tasks.LockUndeleted(ctx, deleting.ID), taskstore.ErrDeleting)
 	require.NoError(t, stores.Tasks.LockUndeleted(ctx, live.ID))
@@ -271,7 +272,7 @@ func TestGetUndeletedForUpdate(t *testing.T) {
 	ctx := t.Context()
 	live := stores.SeedTask(t, taskstore.CreateParams{Slug: "live"})
 	deleting := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: live.WorkflowID, Slug: "deleting"})
-	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{deleting.ID}))
+	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []uuid.UUID{deleting.ID}))
 
 	_, err := stores.Tasks.GetUndeletedForUpdate(ctx, deleting.ID)
 	require.ErrorIs(t, err, taskstore.ErrDeleting)
@@ -289,10 +290,14 @@ func TestListUndeletedSlugs(t *testing.T) {
 	archived := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: live.WorkflowID, Slug: "archived"})
 	require.NoError(t, stores.Tasks.Archive(ctx, archived.ID))
 	deleting := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: live.WorkflowID, Slug: "deleting"})
-	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{deleting.ID}))
+	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []uuid.UUID{deleting.ID}))
 
 	got, err := stores.Tasks.ListUndeletedSlugs(ctx)
 	require.NoError(t, err)
 
-	assert.Equal(t, map[string]string{live.ID: "live", archived.ID: "archived"}, got)
+	assert.Equal(t, map[uuid.UUID]string{live.ID: "live", archived.ID: "archived"}, got)
 }
+
+var (
+	takenTaskID = uuid.New()
+)

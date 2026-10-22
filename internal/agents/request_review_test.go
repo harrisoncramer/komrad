@@ -50,7 +50,7 @@ func TestRequestReviewSpawnsTheReviewer(t *testing.T) {
 	assert.Equal(t, author.WorkflowID, reviewer.WorkflowID)
 
 	assert.Contains(t, reviewer.Prompt, "it rewrites the parser", "what the asker said reaches it")
-	assert.Contains(t, reviewer.Prompt, author.ID, "and so does whose work it is")
+	assert.Contains(t, reviewer.Prompt, author.ID.String(), "and so does whose work it is")
 
 	assert.Contains(t, guidance, "Settle everything it raises",
 		"the asker is handed the rest of the loop, since it was not launched with this half")
@@ -114,17 +114,17 @@ func TestRequestReviewTitleOverridesTheName(t *testing.T) {
 func TestRequestReviewRefusals(t *testing.T) {
 	tests := []struct {
 		name      string
-		agentID   func(author, reviewer agentstore.Agent) string
+		agentID   func(author, reviewer agentstore.Agent) uuid.UUID
 		wantErrIs error
 	}{
 		{
 			name:      "a reviewer asking for a review of the reading it did",
-			agentID:   func(_, reviewer agentstore.Agent) string { return reviewer.ID },
+			agentID:   func(_, reviewer agentstore.Agent) uuid.UUID { return reviewer.ID },
 			wantErrIs: agenterr.ErrReviewNeedsOwnWork,
 		},
 		{
 			name:      "an agent nothing answers to",
-			agentID:   func(_, _ agentstore.Agent) string { return "b9b1a1de-0000-7000-8000-000000000000" },
+			agentID:   func(_, _ agentstore.Agent) uuid.UUID { return uuid.MustParse("b9b1a1de-0000-7000-8000-000000000000") },
 			wantErrIs: agenterr.ErrAgentNotFound,
 		},
 	}
@@ -241,7 +241,7 @@ func TestRequestReviewKeyIsScopedToCaller(t *testing.T) {
 	manager := newManager(tmux, st)
 	ctx := t.Context()
 
-	ids := map[string]string{}
+	ids := map[string]uuid.UUID{}
 	for _, name := range []string{"author", "other author"} {
 		author, err := manager.launch.NewAgent(ctx, NewAgentParams{
 			Title:      name,
@@ -275,12 +275,12 @@ func TestRequestReviewKeyIsScopedToCaller(t *testing.T) {
 func TestRequestReviewRefusesAKeySpentOnAnotherAgent(t *testing.T) {
 	tests := []struct {
 		name  string
-		spend func(t *testing.T, launch *LaunchService, ids map[string]string)
+		spend func(t *testing.T, launch *LaunchService, ids map[string]uuid.UUID)
 		asker string
 	}{
 		{
 			name: "a key spent on a spawn of the author's own",
-			spend: func(t *testing.T, launch *LaunchService, ids map[string]string) {
+			spend: func(t *testing.T, launch *LaunchService, ids map[string]uuid.UUID) {
 				_, err := launch.NewAgent(caller.With(t.Context(), caller.Caller{AgentID: ids["author"]}), NewAgentParams{
 					Title:          "side work",
 					Dir:            t.TempDir(),
@@ -294,7 +294,7 @@ func TestRequestReviewRefusesAKeySpentOnAnotherAgent(t *testing.T) {
 		},
 		{
 			name: "one caller's key on two authors",
-			spend: func(t *testing.T, launch *LaunchService, ids map[string]string) {
+			spend: func(t *testing.T, launch *LaunchService, ids map[string]uuid.UUID) {
 				_, _, err := launch.RequestReview(t.Context(), RequestReviewParams{
 					AgentID:        ids["other author"],
 					Prompt:         "read it",
@@ -312,7 +312,7 @@ func TestRequestReviewRefusesAKeySpentOnAnotherAgent(t *testing.T) {
 			manager := newManager(tmux, st)
 			ctx := t.Context()
 
-			ids := map[string]string{"workflow": seedWorkflow(t, st)}
+			ids := map[string]uuid.UUID{"workflow": seedWorkflow(t, st)}
 			for _, name := range []string{"author", "other author"} {
 				author, err := manager.launch.NewAgent(ctx, NewAgentParams{
 					Title:      name,

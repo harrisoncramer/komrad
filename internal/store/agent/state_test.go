@@ -8,6 +8,7 @@ import (
 	"komrad/internal/store"
 	"komrad/lib/xptr"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -17,35 +18,28 @@ import (
 func TestSetStateByID(t *testing.T) {
 	tests := []struct {
 		name      string
-		target    string
+		target    uuid.UUID
 		archived  bool
 		wantErr   error
 		wantState State
 	}{
 		{
 			name:      "an id no agent holds",
-			target:    "00000000-0000-0000-0000-0000000000ff",
+			target:    uuid.MustParse("00000000-0000-0000-0000-0000000000ff"),
 			archived:  false,
 			wantErr:   nil,
 			wantState: StateIdle,
 		},
 		{
-			name:      "an id that is not an id",
-			target:    "not-a-uuid",
-			archived:  false,
-			wantErr:   store.ErrNotFound,
-			wantState: StateIdle,
-		},
-		{
 			name:      "an archived agent",
-			target:    "",
+			target:    uuid.Nil,
 			archived:  true,
 			wantErr:   nil,
 			wantState: StateIdle,
 		},
 		{
 			name:      "the agent's own id",
-			target:    "",
+			target:    uuid.Nil,
 			archived:  false,
 			wantErr:   nil,
 			wantState: StateThinking,
@@ -66,7 +60,7 @@ func TestSetStateByID(t *testing.T) {
 			}
 
 			target := tt.target
-			if target == "" {
+			if target == uuid.Nil {
 				target = created.ID
 			}
 
@@ -113,31 +107,31 @@ func TestSetStateByIDStampsOnlyOnAChange(t *testing.T) {
 func TestSettersRefuseAnIDThatIsNotOne(t *testing.T) {
 	tests := []struct {
 		name           string
-		write          func(*AgentStore, string) error
+		write          func(*AgentStore, uuid.UUID) error
 		refusesMissing bool
 	}{
 		{
 			name: "the cut-off turn",
-			write: func(s *AgentStore, id string) error {
+			write: func(s *AgentStore, id uuid.UUID) error {
 				return s.SetInterruptedAtByID(t.Context(), id, xptr.Ptr(time.Now()))
 			},
 		},
 		{
 			name:  "the session",
-			write: func(s *AgentStore, id string) error { return s.SetSessionID(t.Context(), id, "session") },
+			write: func(s *AgentStore, id uuid.UUID) error { return s.SetSessionID(t.Context(), id, "session") },
 		},
 		{
 			name:           "the reported reason",
-			write:          func(s *AgentStore, id string) error { return s.SetReportedReason(t.Context(), id, "Bash") },
+			write:          func(s *AgentStore, id uuid.UUID) error { return s.SetReportedReason(t.Context(), id, "Bash") },
 			refusesMissing: true,
 		},
 		{
 			name:  "the failed turn",
-			write: func(s *AgentStore, id string) error { return s.SetTurnFailed(t.Context(), id, "overloaded") },
+			write: func(s *AgentStore, id uuid.UUID) error { return s.SetTurnFailed(t.Context(), id, "overloaded") },
 		},
 		{
 			name:  "the hooks",
-			write: func(s *AgentStore, id string) error { return s.SetHooksByID(t.Context(), id, []string{"Stop"}) },
+			write: func(s *AgentStore, id uuid.UUID) error { return s.SetHooksByID(t.Context(), id, []string{"Stop"}) },
 		},
 	}
 
@@ -145,8 +139,7 @@ func TestSettersRefuseAnIDThatIsNotOne(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := open(t)
 
-			require.ErrorIs(t, tt.write(st.AgentStore, "not-a-uuid"), store.ErrNotFound)
-			missing := tt.write(st.AgentStore, "00000000-0000-0000-0000-0000000000ff")
+			missing := tt.write(st.AgentStore, uuid.MustParse("00000000-0000-0000-0000-0000000000ff"))
 			if tt.refusesMissing {
 				require.ErrorIs(t, missing, store.ErrNotFound)
 
@@ -277,14 +270,6 @@ func TestARetriedCreateDropsTheFailureReason(t *testing.T) {
 	assert.Empty(t, retried.FailureReason)
 }
 
-// TestSetTurnEndedRefusesAnIDThatIsNotOne pins that a malformed id is an error rather than a
-// write that silently reaches nothing.
-func TestSetTurnEndedRefusesAnIDThatIsNotOne(t *testing.T) {
-	st := open(t)
-
-	require.ErrorIs(t, st.SetTurnEnded(t.Context(), "not-a-uuid"), store.ErrNotFound)
-}
-
 // TestAliveFollowsThePane pins that every write of the pane writes liveness beside it: a pane
 // given makes the row alive, and every write that clears the pane makes it dormant.
 func TestAliveFollowsThePane(t *testing.T) {
@@ -343,7 +328,7 @@ func TestAliveFollowsThePane(t *testing.T) {
 		{
 			name: "archiving",
 			clear: func(ctx context.Context, st *fixture, agent Agent) error {
-				_, err := st.Archive(ctx, []string{agent.ID})
+				_, err := st.Archive(ctx, []uuid.UUID{agent.ID})
 
 				return err
 			},

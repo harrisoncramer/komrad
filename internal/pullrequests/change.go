@@ -1,6 +1,10 @@
 package pullrequests
 
-import "komrad/internal/eventprompts"
+import (
+	"komrad/internal/eventprompts"
+
+	"github.com/google/uuid"
+)
 
 const changeTopic = "pull_request_changed"
 
@@ -32,9 +36,9 @@ type Move struct {
 
 // Change is the fields of one pull request that moved in one write.
 type Change struct {
-	ID        string `json:"id"`
-	Moves     []Move `json:"moves"`
-	Recipient string `json:"recipient,omitempty"`
+	ID        uuid.UUID  `json:"id"`
+	Moves     []Move     `json:"moves"`
+	Recipient *uuid.UUID `json:"recipient,omitempty"`
 }
 
 // Topic names the handler that tells the agents on the branch.
@@ -57,7 +61,7 @@ func moved(field field, from, to *string) *Move {
 
 // newChange is the change for the fields of a pull request that moved or a check that newly failed, nil when
 // neither happened.
-func newChange(id string, moves []Move, newFailure bool) *Change {
+func newChange(id uuid.UUID, moves []Move, newFailure bool) *Change {
 	if len(moves) == 0 && !newFailure {
 		return nil
 	}

@@ -12,6 +12,7 @@ import (
 	"komrad/internal/harnesstest"
 
 	"github.com/coder/websocket"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -19,7 +20,7 @@ import (
 // TestChannelSend covers how the channel hands text to an agent's thread: a steer into a running
 // turn, the queue otherwise, and the false it returns when nothing took the text.
 func TestChannelSend(t *testing.T) {
-	const agentID = "agent-1"
+	agentID := uuid.New()
 
 	opening := []string{"initialize", "initialized", "thread/turns/list"}
 

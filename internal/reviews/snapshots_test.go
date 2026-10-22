@@ -62,7 +62,7 @@ func TestTakeSnapshotReleasesTheRefOfASnapshotItFailedToWrite(t *testing.T) {
 	fx := newReviewFixture(t)
 	fx.snapshots.SHA = secondSnapshot
 	fx.snapshots.Taking = func() {
-		_, err := fx.stores.Agents.Delete(t.Context(), []string{fx.writer.ID, fx.reviewer.ID})
+		_, err := fx.stores.Agents.Delete(t.Context(), []uuid.UUID{fx.writer.ID, fx.reviewer.ID})
 		require.NoError(t, err)
 		require.NoError(t, fx.stores.Workflows.Delete(t.Context(), fx.writer.WorkflowID))
 	}
@@ -169,7 +169,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 			written, err := os.ReadFile(released.Path)
 			require.NoError(t, err)
 
-			for _, said := range append(tt.wantSaid, *fx.writer.TaskID) {
+			for _, said := range append(tt.wantSaid, fx.writer.TaskID.String()) {
 				assert.Contains(t, string(written), said)
 			}
 			for _, unsaid := range tt.wantNotSaid {
@@ -193,7 +193,7 @@ func TestReleaseReviewRingsTheAgent(t *testing.T) {
 	rung := fx.listMail(t, fx.writer.ID)
 	require.Len(t, rung, 1, "one mail per release however many comments it holds")
 	assert.Equal(t, mailstore.KindReviewActivity, rung[0].Kind)
-	assert.Contains(t, rung[0].Body, "get_review with review id "+released.Review.ID)
+	assert.Contains(t, rung[0].Body, "get_review with review id "+released.Review.ID.String())
 	assert.Contains(t, rung[0].Body, "or read "+released.Path)
 	assert.Contains(t, rung[0].Body, "changes requested")
 	assert.Equal(t, []string{eventprompts.ReviewChangesRequested}, rung[0].Events)
@@ -203,7 +203,7 @@ func TestReleaseReviewRingsTheAgent(t *testing.T) {
 // TestReleaseReviewRingsNobodyOnceTheWriterIsArchived pins that a release on a task whose writer is archived sends no mail.
 func TestReleaseReviewRingsNobodyOnceTheWriterIsArchived(t *testing.T) {
 	fx := newReviewFixture(t)
-	_, err := fx.stores.Agents.Archive(t.Context(), []string{fx.writer.ID})
+	_, err := fx.stores.Agents.Archive(t.Context(), []uuid.UUID{fx.writer.ID})
 	require.NoError(t, err)
 
 	fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictApproved)
@@ -545,7 +545,7 @@ func fillMailbox(t *testing.T, fx *reviewFixture) {
 		_, err := mailer.SendFromKomrad(t.Context(), mail.SendFromKomradParams{
 			ToAgentID: fx.writer.ID,
 			Mail:      eventprompts.ThreadAnswered{WriterName: "waiting"},
-			SubjectID: uuid.NewString(),
+			SubjectID: uuid.New(),
 		})
 		if errors.Is(err, mail.ErrMailboxFull) {
 			return

@@ -14,12 +14,13 @@ import (
 	runstore "komrad/internal/store/run"
 	taskstore "komrad/internal/store/task"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // rowOf reads one agent's row back.
-func rowOf(t *testing.T, st *storetest.Stores, id string) rowstore.Row {
+func rowOf(t *testing.T, st *storetest.Stores, id uuid.UUID) rowstore.Row {
 	t.Helper()
 
 	row, err := st.Rows.Get(t.Context(), id)
@@ -122,9 +123,9 @@ func TestListPage(t *testing.T) {
 	archived := st.SeedAgent(t, agentstore.Agent{Name: "archived"})
 	deleting := st.SeedAgent(t, agentstore.Agent{Name: "deleting"})
 	archivedDeleting := st.SeedAgent(t, agentstore.Agent{Name: "archived-deleting"})
-	_, err := st.Agents.Archive(ctx, []string{archived.ID, archivedDeleting.ID})
+	_, err := st.Agents.Archive(ctx, []uuid.UUID{archived.ID, archivedDeleting.ID})
 	require.NoError(t, err)
-	_, err = st.Agents.MarkDeleting(ctx, []string{deleting.ID, archivedDeleting.ID})
+	_, err = st.Agents.MarkDeleting(ctx, []uuid.UUID{deleting.ID, archivedDeleting.ID})
 	require.NoError(t, err)
 
 	names := func(rows []rowstore.Row) []string {
@@ -160,22 +161,18 @@ func TestListWatched(t *testing.T) {
 	second := st.SeedAgent(t, agentstore.Agent{Name: "second"})
 	archived := st.SeedAgent(t, agentstore.Agent{Name: "archived"})
 	deleting := st.SeedAgent(t, agentstore.Agent{Name: "deleting"})
-	_, err := st.Agents.Archive(ctx, []string{archived.ID})
+	_, err := st.Agents.Archive(ctx, []uuid.UUID{archived.ID})
 	require.NoError(t, err)
-	_, err = st.Agents.MarkDeleting(ctx, []string{deleting.ID})
+	_, err = st.Agents.MarkDeleting(ctx, []uuid.UUID{deleting.ID})
 	require.NoError(t, err)
 
-	rows, err := st.Rows.ListWatched(ctx, []string{first.ID, second.ID, archived.ID, deleting.ID, "00000000-0000-0000-0000-000000000000", "not-an-id"})
+	rows, err := st.Rows.ListWatched(ctx, []uuid.UUID{first.ID, second.ID, archived.ID, deleting.ID, uuid.New()})
 	require.NoError(t, err)
-	assert.Equal(t, []string{archived.ID, second.ID, first.ID}, xslice.Map(rows, func(row rowstore.Row) string { return row.ID }))
-
-	rows, err = st.Rows.ListWatched(ctx, []string{"not-an-id"})
-	require.NoError(t, err)
-	assert.Empty(t, rows)
+	assert.Equal(t, []uuid.UUID{archived.ID, second.ID, first.ID}, xslice.Map(rows, func(row rowstore.Row) uuid.UUID { return row.ID }))
 
 	live, err := st.Rows.ListWatched(ctx, nil)
 	require.NoError(t, err)
-	assert.Equal(t, []string{archived.ID, second.ID, first.ID}, xslice.Map(live, func(row rowstore.Row) string { return row.ID }), "the whole watched set reads the same way")
+	assert.Equal(t, []uuid.UUID{archived.ID, second.ID, first.ID}, xslice.Map(live, func(row rowstore.Row) uuid.UUID { return row.ID }), "the whole watched set reads the same way")
 }
 
 // TestListWatchedCarriesTheTaskSlug pins that a watched row names its agent's task by slug, and
@@ -190,14 +187,14 @@ func TestListWatchedCarriesTheTaskSlug(t *testing.T) {
 	})
 	idle := st.SeedAgent(t, agentstore.Agent{Name: "idle", Role: agentstore.RoleOrchestrator})
 
-	rows, err := st.Rows.ListWatched(t.Context(), []string{working.ID, idle.ID})
+	rows, err := st.Rows.ListWatched(t.Context(), []uuid.UUID{working.ID, idle.ID})
 	require.NoError(t, err)
 
-	slugs := map[string]*string{}
+	slugs := map[uuid.UUID]*string{}
 	for _, row := range rows {
 		slugs[row.ID] = row.TaskSlug
 	}
-	assert.Equal(t, map[string]*string{working.ID: xptr.Ptr("fix-login"), idle.ID: nil}, slugs)
+	assert.Equal(t, map[uuid.UUID]*string{working.ID: xptr.Ptr("fix-login"), idle.ID: nil}, slugs)
 }
 
 // TestGet pins the one-row read: an archived row answers, and one a delete has claimed, an id
@@ -207,9 +204,9 @@ func TestGet(t *testing.T) {
 	ctx := t.Context()
 	archived := st.SeedAgent(t, agentstore.Agent{Name: "archived"})
 	deleting := st.SeedAgent(t, agentstore.Agent{Name: "deleting"})
-	_, err := st.Agents.Archive(ctx, []string{archived.ID})
+	_, err := st.Agents.Archive(ctx, []uuid.UUID{archived.ID})
 	require.NoError(t, err)
-	_, err = st.Agents.MarkDeleting(ctx, []string{deleting.ID})
+	_, err = st.Agents.MarkDeleting(ctx, []uuid.UUID{deleting.ID})
 	require.NoError(t, err)
 
 	row, err := st.Rows.Get(ctx, archived.ID)
@@ -220,9 +217,6 @@ func TestGet(t *testing.T) {
 	_, err = st.Rows.Get(ctx, deleting.ID)
 	require.ErrorIs(t, err, store.ErrNotFound)
 
-	_, err = st.Rows.Get(ctx, "00000000-0000-0000-0000-000000000000")
-	require.ErrorIs(t, err, store.ErrNotFound)
-
-	_, err = st.Rows.Get(ctx, "not-an-id")
+	_, err = st.Rows.Get(ctx, uuid.New())
 	require.ErrorIs(t, err, store.ErrNotFound)
 }

@@ -5,10 +5,11 @@ import (
 	"fmt"
 
 	"komrad/db/models"
-	"komrad/internal/store"
 	"komrad/internal/watch"
 	"komrad/lib/xslice"
 	watchv1 "komrad/proto/gen/watch/v1"
+
+	"github.com/google/uuid"
 )
 
 // WatchedTasks declares the tasks to the watch.
@@ -33,11 +34,7 @@ var WatchedTasks = watch.Resource{
 }
 
 // ListWatched returns the tasks among keys, or every one when keys is nil, newest first.
-func (s *TaskStore) ListWatched(ctx context.Context, keys []string) ([]Task, error) {
-	if keys != nil {
-		keys = store.KeepIDs(keys)
-	}
-
+func (s *TaskStore) ListWatched(ctx context.Context, keys []uuid.UUID) ([]Task, error) {
 	rows, err := s.queries.ListWatchedTasks(ctx, keys)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the watched tasks: %w", err)

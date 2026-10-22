@@ -14,6 +14,8 @@ import (
 
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
+
+	"github.com/google/uuid"
 )
 
 type batchHooksParams struct {
@@ -24,8 +26,8 @@ type batchHooksParams struct {
 	skipGoneDir bool
 }
 
-func runPreHooksFor(ctx context.Context, params batchHooksParams) map[string]error {
-	refused := make(map[string]error)
+func runPreHooksFor(ctx context.Context, params batchHooksParams) map[uuid.UUID]error {
+	refused := make(map[uuid.UUID]error)
 	if params.scripts == nil {
 		return refused
 	}
@@ -65,7 +67,7 @@ func runPreHooksFor(ctx context.Context, params batchHooksParams) map[string]err
 	return refused
 }
 
-func joinRefusals(agents []agentstore.Agent, refused map[string]error) error {
+func joinRefusals(agents []agentstore.Agent, refused map[uuid.UUID]error) error {
 	var errs []error
 	for _, agent := range agents {
 		if err, ok := refused[agent.ID]; ok {
@@ -115,8 +117,8 @@ func workflowFor(ctx context.Context, workflows *workflowstore.WorkflowStore, ag
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the workflow could not be read",
 			append([]slog.Attr{
-				slog.String(logging.WorkflowID, agent.WorkflowID),
-				slog.String(logging.ScriptAgentID, agent.ID),
+				slog.String(logging.WorkflowID, agent.WorkflowID.String()),
+				slog.String(logging.ScriptAgentID, agent.ID.String()),
 				slog.String(logging.ScriptAgentCwd, agent.Cwd),
 			}, logging.Err(err)...)...)
 

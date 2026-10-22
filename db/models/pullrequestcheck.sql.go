@@ -8,6 +8,8 @@ package models
 import (
 	"context"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const deleteCheckLogSteps = `-- name: DeleteCheckLogSteps :exec
@@ -15,7 +17,7 @@ DELETE FROM pull_request_check_log_steps
 WHERE log_id = $1
 `
 
-func (q *Queries) DeleteCheckLogSteps(ctx context.Context, logID string) error {
+func (q *Queries) DeleteCheckLogSteps(ctx context.Context, logID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteCheckLogSteps, logID)
 	return err
 }
@@ -38,7 +40,7 @@ WHERE s.check_id = c.id
 `
 
 type DeleteStatusCheckStepsExceptParams struct {
-	ReadingID       string
+	ReadingID       uuid.UUID
 	Complete        []string
 	KeptProviderIds []string
 	KeptNumbers     []int32
@@ -61,7 +63,7 @@ WHERE reading_id = $1
 `
 
 type DeleteStatusChecksExceptParams struct {
-	ReadingID string
+	ReadingID uuid.UUID
 	Kept      []string
 }
 
@@ -87,7 +89,7 @@ WHERE
 `
 
 type GetCheckForLogFetchRow struct {
-	ID            string
+	ID            uuid.UUID
 	State         string
 	JobID         *int64
 	FinishedAt    *time.Time
@@ -95,7 +97,7 @@ type GetCheckForLogFetchRow struct {
 	RepositoryUrl string
 }
 
-func (q *Queries) GetCheckForLogFetch(ctx context.Context, checkID string) (*GetCheckForLogFetchRow, error) {
+func (q *Queries) GetCheckForLogFetch(ctx context.Context, checkID uuid.UUID) (*GetCheckForLogFetchRow, error) {
 	row := q.db.QueryRow(ctx, getCheckForLogFetch, checkID)
 	var i GetCheckForLogFetchRow
 	err := row.Scan(
@@ -125,7 +127,7 @@ type GetCheckLogTextRow struct {
 	LineCount int32
 }
 
-func (q *Queries) GetCheckLogText(ctx context.Context, checkID string) (*GetCheckLogTextRow, error) {
+func (q *Queries) GetCheckLogText(ctx context.Context, checkID uuid.UUID) (*GetCheckLogTextRow, error) {
 	row := q.db.QueryRow(ctx, getCheckLogText, checkID)
 	var i GetCheckLogTextRow
 	err := row.Scan(&i.Text, &i.LineCount)
@@ -148,8 +150,8 @@ WHERE
 `
 
 type ListCheckFailureNotesParams struct {
-	AgentID       string
-	PullRequestID string
+	AgentID       uuid.UUID
+	PullRequestID uuid.UUID
 	HeadSha       string
 }
 
@@ -196,13 +198,13 @@ ORDER BY
 `
 
 type ListCheckLogStepsOfChecksRow struct {
-	CheckID   string
+	CheckID   uuid.UUID
 	Number    int32
 	FirstLine int32
 	LineCount int32
 }
 
-func (q *Queries) ListCheckLogStepsOfChecks(ctx context.Context, checkIds []string) ([]*ListCheckLogStepsOfChecksRow, error) {
+func (q *Queries) ListCheckLogStepsOfChecks(ctx context.Context, checkIds []uuid.UUID) ([]*ListCheckLogStepsOfChecksRow, error) {
 	rows, err := q.db.Query(ctx, listCheckLogStepsOfChecks, checkIds)
 	if err != nil {
 		return nil, err
@@ -248,7 +250,7 @@ ORDER BY
 `
 
 type ListCheckLogStepsOfReadingsRow struct {
-	CheckID    string
+	CheckID    uuid.UUID
 	Number     int32
 	Name       string
 	Conclusion string
@@ -257,7 +259,7 @@ type ListCheckLogStepsOfReadingsRow struct {
 	ErrorCount int32
 }
 
-func (q *Queries) ListCheckLogStepsOfReadings(ctx context.Context, readingIds []string) ([]*ListCheckLogStepsOfReadingsRow, error) {
+func (q *Queries) ListCheckLogStepsOfReadings(ctx context.Context, readingIds []uuid.UUID) ([]*ListCheckLogStepsOfReadingsRow, error) {
 	rows, err := q.db.Query(ctx, listCheckLogStepsOfReadings, readingIds)
 	if err != nil {
 		return nil, err
@@ -299,11 +301,11 @@ ORDER BY
 `
 
 type ListCheckLogTextsRow struct {
-	CheckID string
+	CheckID uuid.UUID
 	Text    string
 }
 
-func (q *Queries) ListCheckLogTexts(ctx context.Context, checkIds []string) ([]*ListCheckLogTextsRow, error) {
+func (q *Queries) ListCheckLogTexts(ctx context.Context, checkIds []uuid.UUID) ([]*ListCheckLogTextsRow, error) {
 	rows, err := q.db.Query(ctx, listCheckLogTexts, checkIds)
 	if err != nil {
 		return nil, err
@@ -340,14 +342,14 @@ ORDER BY
 `
 
 type ListCheckLogsOfReadingsRow struct {
-	CheckID    string
+	CheckID    uuid.UUID
 	FetchedAt  time.Time
 	Outcome    string
 	LineCount  int32
 	ErrorCount int32
 }
 
-func (q *Queries) ListCheckLogsOfReadings(ctx context.Context, readingIds []string) ([]*ListCheckLogsOfReadingsRow, error) {
+func (q *Queries) ListCheckLogsOfReadings(ctx context.Context, readingIds []uuid.UUID) ([]*ListCheckLogsOfReadingsRow, error) {
 	rows, err := q.db.Query(ctx, listCheckLogsOfReadings, readingIds)
 	if err != nil {
 		return nil, err
@@ -396,15 +398,15 @@ ORDER BY
     c.id
 `
 
-func (q *Queries) ListHeadChecksWantingLogs(ctx context.Context, pullRequestID string) ([]string, error) {
+func (q *Queries) ListHeadChecksWantingLogs(ctx context.Context, pullRequestID uuid.UUID) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, listHeadChecksWantingLogs, pullRequestID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []uuid.UUID
 	for rows.Next() {
-		var id string
+		var id uuid.UUID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -431,7 +433,7 @@ ORDER BY
     r.id DESC
 `
 
-func (q *Queries) ListHeadStatusCheckReadings(ctx context.Context, pullRequestIds []string) ([]*PullRequestCheckReading, error) {
+func (q *Queries) ListHeadStatusCheckReadings(ctx context.Context, pullRequestIds []uuid.UUID) ([]*PullRequestCheckReading, error) {
 	rows, err := q.db.Query(ctx, listHeadStatusCheckReadings, pullRequestIds)
 	if err != nil {
 		return nil, err
@@ -471,7 +473,7 @@ ORDER BY
     r.id
 `
 
-func (q *Queries) ListStatusCheckReadings(ctx context.Context, pullRequestID string) ([]*PullRequestCheckReading, error) {
+func (q *Queries) ListStatusCheckReadings(ctx context.Context, pullRequestID uuid.UUID) ([]*PullRequestCheckReading, error) {
 	rows, err := q.db.Query(ctx, listStatusCheckReadings, pullRequestID)
 	if err != nil {
 		return nil, err
@@ -511,7 +513,7 @@ ORDER BY
     s.number
 `
 
-func (q *Queries) ListStatusCheckStepsOfReadings(ctx context.Context, readingIds []string) ([]*PullRequestCheckStep, error) {
+func (q *Queries) ListStatusCheckStepsOfReadings(ctx context.Context, readingIds []uuid.UUID) ([]*PullRequestCheckStep, error) {
 	rows, err := q.db.Query(ctx, listStatusCheckStepsOfReadings, readingIds)
 	if err != nil {
 		return nil, err
@@ -557,7 +559,7 @@ ORDER BY
     c.id
 `
 
-func (q *Queries) ListStatusChecksOfReadings(ctx context.Context, readingIds []string) ([]*PullRequestCheck, error) {
+func (q *Queries) ListStatusChecksOfReadings(ctx context.Context, readingIds []uuid.UUID) ([]*PullRequestCheck, error) {
 	rows, err := q.db.Query(ctx, listStatusChecksOfReadings, readingIds)
 	if err != nil {
 		return nil, err
@@ -616,7 +618,7 @@ type ListStepsOfCheckRow struct {
 	StartedAt  *time.Time
 }
 
-func (q *Queries) ListStepsOfCheck(ctx context.Context, checkID string) ([]*ListStepsOfCheckRow, error) {
+func (q *Queries) ListStepsOfCheck(ctx context.Context, checkID uuid.UUID) ([]*ListStepsOfCheckRow, error) {
 	rows, err := q.db.Query(ctx, listStepsOfCheck, checkID)
 	if err != nil {
 		return nil, err
@@ -670,7 +672,7 @@ ON CONFLICT (
 `
 
 type RecordCheckLogParams struct {
-	CheckID    string
+	CheckID    uuid.UUID
 	FetchedAt  time.Time
 	Outcome    string
 	Text       string
@@ -678,7 +680,7 @@ type RecordCheckLogParams struct {
 	ErrorCount int32
 }
 
-func (q *Queries) RecordCheckLog(ctx context.Context, arg RecordCheckLogParams) (string, error) {
+func (q *Queries) RecordCheckLog(ctx context.Context, arg RecordCheckLogParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, recordCheckLog,
 		arg.CheckID,
 		arg.FetchedAt,
@@ -687,7 +689,7 @@ func (q *Queries) RecordCheckLog(ctx context.Context, arg RecordCheckLogParams) 
 		arg.LineCount,
 		arg.ErrorCount,
 	)
-	var id string
+	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
 }
@@ -717,20 +719,20 @@ ON CONFLICT (
 `
 
 type RecordStatusCheckReadingParams struct {
-	PullRequestID string
+	PullRequestID uuid.UUID
 	HeadSha       string
 	Blank         bool
 	ReadAt        time.Time
 }
 
-func (q *Queries) RecordStatusCheckReading(ctx context.Context, arg RecordStatusCheckReadingParams) (string, error) {
+func (q *Queries) RecordStatusCheckReading(ctx context.Context, arg RecordStatusCheckReadingParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, recordStatusCheckReading,
 		arg.PullRequestID,
 		arg.HeadSha,
 		arg.Blank,
 		arg.ReadAt,
 	)
-	var id string
+	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
 }

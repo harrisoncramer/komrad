@@ -13,6 +13,7 @@ import (
 	"komrad/internal/tasks"
 	"komrad/internal/tmuxtest"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -231,10 +232,10 @@ func TestRestartAgentRefuses(t *testing.T) {
 			orchestrator := seedOrchestrator(t, st, tmux)
 			writer := seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "writer", "%1")
 			archived := seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "archived writer", "%2")
-			require.NoError(t, archiveWriters(t.Context(), service.lifecycle, []string{archived.ID}))
+			require.NoError(t, archiveWriters(t.Context(), service.lifecycle, []uuid.UUID{archived.ID}))
 			removed := seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "removed writer", "%3")
 			require.NoError(t, st.Tasks.SetHead(t.Context(), *removed.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone}))
-			seeded := map[string]string{
+			seeded := map[string]uuid.UUID{
 				"orchestrator":    orchestrator.ID,
 				"reviewer":        seedReviewer(t, st, tmux, writer).ID,
 				"archived writer": archived.ID,

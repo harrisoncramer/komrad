@@ -31,7 +31,7 @@ import (
 type rebaseFixture struct {
 	stores          *storetest.Stores
 	events          *eventstest.Queue
-	workflowID      string
+	workflowID      uuid.UUID
 	checkoutSync    *waketest.Counter
 	cascade         *waketest.Counter
 	pullRequestSync *waketest.Counter
@@ -64,27 +64,27 @@ func (f *retargetingForge) SetBase(_ context.Context, url, base string) error {
 func TestRebaseRefusals(t *testing.T) {
 	tests := []struct {
 		name       string
-		lay        func(t *testing.T, fixture *rebaseFixture) string
-		beforeMove func(t *testing.T, fixture *rebaseFixture, task string)
+		lay        func(t *testing.T, fixture *rebaseFixture) uuid.UUID
+		beforeMove func(t *testing.T, fixture *rebaseFixture, task uuid.UUID)
 		wantErr    error
 	}{
 		{
 			name: "a task no id names",
-			lay: func(*testing.T, *rebaseFixture) string {
-				return uuid.NewString()
+			lay: func(*testing.T, *rebaseFixture) uuid.UUID {
+				return uuid.New()
 			},
 			wantErr: store.ErrNotFound,
 		},
 		{
 			name: "a task whose writer is still being set up",
-			lay: func(t *testing.T, fixture *rebaseFixture) string {
+			lay: func(t *testing.T, fixture *rebaseFixture) uuid.UUID {
 				return *fixture.seed(t, agentstore.Agent{State: agentstore.StateSettingUp}).TaskID
 			},
 			wantErr: errBusy,
 		},
 		{
 			name: "a branch a human made, whose history is not komrad's to rewrite",
-			lay: func(t *testing.T, fixture *rebaseFixture) string {
+			lay: func(t *testing.T, fixture *rebaseFixture) uuid.UUID {
 				agent := fixture.seed(t, agentstore.Agent{})
 				claimed, err := fixture.stores.Tasks.ClaimCheckout(t.Context(), taskstore.ClaimCheckoutParams{ID: *agent.TaskID, AdoptedBranch: "harry/spike"})
 				require.NoError(t, err)
@@ -96,14 +96,14 @@ func TestRebaseRefusals(t *testing.T) {
 		},
 		{
 			name: "a task komrad cut no checkout for",
-			lay: func(t *testing.T, fixture *rebaseFixture) string {
+			lay: func(t *testing.T, fixture *rebaseFixture) uuid.UUID {
 				return fixture.stores.SeedTask(t, taskstore.CreateParams{WorkflowID: fixture.workflowID, Slug: "bare"}).ID
 			},
 			wantErr: ErrNoWorktree,
 		},
 		{
 			name: "a task whose directory is gone",
-			lay: func(t *testing.T, fixture *rebaseFixture) string {
+			lay: func(t *testing.T, fixture *rebaseFixture) uuid.UUID {
 				agent := fixture.seed(t, agentstore.Agent{})
 				fixture.stores.SeedTaskHead(t, agent.ID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone})
 
@@ -113,9 +113,9 @@ func TestRebaseRefusals(t *testing.T) {
 		},
 		{
 			name: "a task being deleted",
-			lay: func(t *testing.T, fixture *rebaseFixture) string {
+			lay: func(t *testing.T, fixture *rebaseFixture) uuid.UUID {
 				agent := fixture.seed(t, agentstore.Agent{})
-				require.NoError(t, fixture.stores.Tasks.MarkDeleting(t.Context(), []string{*agent.TaskID}))
+				require.NoError(t, fixture.stores.Tasks.MarkDeleting(t.Context(), []uuid.UUID{*agent.TaskID}))
 
 				return *agent.TaskID
 			},
@@ -123,7 +123,7 @@ func TestRebaseRefusals(t *testing.T) {
 		},
 		{
 			name: "a task in a workflow that makes no worktrees",
-			lay: func(t *testing.T, fixture *rebaseFixture) string {
+			lay: func(t *testing.T, fixture *rebaseFixture) uuid.UUID {
 				flow := fixture.stores.SeedWorkflow(t, workflowstore.Config{Name: "no-worktrees"})
 
 				return *fixture.seed(t, agentstore.Agent{WorkflowID: flow.ID}).TaskID
@@ -132,17 +132,17 @@ func TestRebaseRefusals(t *testing.T) {
 		},
 		{
 			name: "a writer part way through a turn, before anything moves the branch",
-			lay: func(t *testing.T, fixture *rebaseFixture) string {
+			lay: func(t *testing.T, fixture *rebaseFixture) uuid.UUID {
 				return *fixture.seed(t, agentstore.Agent{Pane: "%1", State: agentstore.StateThinking}).TaskID
 			},
 			wantErr: errWriterNotAtRest,
 		},
 		{
 			name: "a writer that starts a turn after the rebase read it",
-			lay: func(t *testing.T, fixture *rebaseFixture) string {
+			lay: func(t *testing.T, fixture *rebaseFixture) uuid.UUID {
 				return *fixture.seed(t, agentstore.Agent{Pane: "%1"}).TaskID
 			},
-			beforeMove: func(t *testing.T, fixture *rebaseFixture, task string) {
+			beforeMove: func(t *testing.T, fixture *rebaseFixture, task uuid.UUID) {
 				writer, err := fixture.stores.Agents.GetTaskWriter(t.Context(), task)
 				require.NoError(t, err)
 				require.NoError(t, fixture.stores.Agents.SetStateByID(t.Context(), writer.ID, agentstore.StateThinking))
@@ -151,7 +151,7 @@ func TestRebaseRefusals(t *testing.T) {
 		},
 		{
 			name: "a task whose tree something else is working in",
-			lay: func(t *testing.T, fixture *rebaseFixture) string {
+			lay: func(t *testing.T, fixture *rebaseFixture) uuid.UUID {
 				return *fixture.seed(t, agentstore.Agent{Cwd: "/locked"}).TaskID
 			},
 			wantErr: errBusy,
@@ -185,7 +185,7 @@ func TestRebaseRefusals(t *testing.T) {
 func TestRebaseWithNoWriter(t *testing.T) {
 	fixture := newRebaseFixture(t)
 	agent := fixture.seed(t, agentstore.Agent{Pane: "%1"})
-	_, err := fixture.stores.Agents.Archive(t.Context(), []string{agent.ID})
+	_, err := fixture.stores.Agents.Archive(t.Context(), []uuid.UUID{agent.ID})
 	require.NoError(t, err)
 	task, err := fixture.stores.Tasks.Get(t.Context(), *agent.TaskID)
 	require.NoError(t, err)
@@ -196,7 +196,7 @@ func TestRebaseWithNoWriter(t *testing.T) {
 
 	assert.Equal(t, []string{"park", "rebase"}, rebaser.Calls)
 	assert.Empty(t, fixture.readInbox(t, agent.ID), "the archived agent is not the writer, so it is told nothing")
-	assert.Contains(t, rebaser.Parked[0], "/"+task.ID+"/", "the park is kept under the task")
+	assert.Contains(t, rebaser.Parked[0], "/"+task.ID.String()+"/", "the park is kept under the task")
 }
 
 // TestTreeLocksHoldOnePathAtATime covers two agents in different trees not blocking each other.
@@ -401,12 +401,12 @@ func TestRebaseRefusesATaskInTheCallersCheckout(t *testing.T) {
 		name string
 		// askerCwd seeds the caller in that directory unless asker names one.
 		askerCwd string
-		asker    func(targetID string) caller.Caller
+		asker    func(targetID uuid.UUID) caller.Caller
 		wantErr  error
 	}{
 		{
 			name: "the writer itself, whose turn the rebase would cut off",
-			asker: func(targetID string) caller.Caller {
+			asker: func(targetID uuid.UUID) caller.Caller {
 				return caller.Caller{AgentID: targetID}
 			},
 			wantErr: errSelf,
@@ -535,7 +535,7 @@ func (f *rebaseFixture) seed(t *testing.T, agent agentstore.Agent) *agentstore.A
 	if agent.Cwd == "" {
 		agent.Cwd = "/tree"
 	}
-	if agent.WorkflowID == "" {
+	if agent.WorkflowID == uuid.Nil {
 		agent.WorkflowID = f.workflowID
 	}
 
@@ -589,7 +589,7 @@ func (f *rebaseFixture) newService(params NewServiceParams) *Service {
 	return NewService(params)
 }
 
-func (f *rebaseFixture) readInbox(t *testing.T, id string) []string {
+func (f *rebaseFixture) readInbox(t *testing.T, id uuid.UUID) []string {
 	t.Helper()
 
 	sent, err := f.stores.Mail.ListPage(t.Context(), id, 10, nil)
@@ -621,8 +621,6 @@ func TestALateRebaseRetryTellsTheLatestRebase(t *testing.T) {
 }
 
 // taskByID names a task by the id the store gave it.
-func taskByID(id string) oneofs.Task {
-	parsed := uuid.MustParse(id)
-
-	return oneofs.Task{TaskId: &parsed}
+func taskByID(id uuid.UUID) oneofs.Task {
+	return oneofs.Task{TaskId: &id}
 }

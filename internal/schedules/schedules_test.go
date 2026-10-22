@@ -12,6 +12,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -309,7 +310,7 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 	tests := []struct {
 		name            string
 		archiveWorkflow bool
-		workflowID      string
+		workflowID      uuid.UUID
 		wantErr         error
 		wantSaying      string
 	}{
@@ -322,11 +323,6 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 		{
 			name:       "a well-formed id no workflow holds",
 			workflowID: missingWorkflowID,
-			wantErr:    ErrWorkflowNotFound,
-		},
-		{
-			name:       "an id that is not an id at all",
-			workflowID: "not-a-uuid",
 			wantErr:    ErrWorkflowNotFound,
 		},
 	}
@@ -444,7 +440,7 @@ func TestOrchestratorSchedule(t *testing.T) {
 				WorkflowID: home,
 			})
 			if tt.archived {
-				_, err := st.Agents.Archive(ctx, []string{agent.ID})
+				_, err := st.Agents.Archive(ctx, []uuid.UUID{agent.ID})
 				require.NoError(t, err)
 			}
 			target := agent.ID
@@ -507,7 +503,7 @@ func TestOrchestratorSchedule(t *testing.T) {
 	}
 }
 
-const missingWorkflowID = "00000000-0000-0000-0000-0000000000ff"
+var missingWorkflowID = uuid.MustParse("00000000-0000-0000-0000-0000000000ff")
 
 // TestRestoreSchedule pins which archived schedules come back and which komrad refuses while what
 // they fire at is gone.
@@ -578,7 +574,7 @@ func TestRestoreSchedule(t *testing.T) {
 				require.NoError(t, svc.ArchiveSchedule(ctx, created.ID))
 			}
 			if tt.archiveOrchestrator {
-				_, err := st.Agents.Archive(ctx, []string{lead.ID})
+				_, err := st.Agents.Archive(ctx, []uuid.UUID{lead.ID})
 				require.NoError(t, err)
 			}
 			if tt.archiveWorkflow {
@@ -664,7 +660,7 @@ func TestScheduleNotFound(t *testing.T) {
 						Name:       "x",
 						Cron:       "0 9 * * *",
 						Prompt:     "go",
-						WorkflowID: "w1",
+						WorkflowID: uuid.New(),
 					})
 			},
 		},
@@ -715,4 +711,4 @@ func TestScheduleNotFound(t *testing.T) {
 	}
 }
 
-const missingScheduleID = "00000000-0000-0000-0000-000000000000"
+var missingScheduleID = uuid.New()

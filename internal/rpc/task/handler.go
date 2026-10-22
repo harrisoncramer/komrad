@@ -28,9 +28,9 @@ import (
 type taskReadWriter interface {
 	CreateTask(ctx context.Context, params taskstore.CreateParams) (*taskstore.Task, error)
 	FindTask(ctx context.Context, task oneofs.Task) (*taskstore.Task, error)
-	ListTasks(ctx context.Context, workflowID string, archived bool) ([]taskstore.Task, error)
+	ListTasks(ctx context.Context, workflowID uuid.UUID, archived bool) ([]taskstore.Task, error)
 	UpdateTask(ctx context.Context, params tasks.UpdateTaskParams) (*taskstore.Task, error)
-	MarkTaskRunsRead(ctx context.Context, taskID string) error
+	MarkTaskRunsRead(ctx context.Context, taskID uuid.UUID) error
 	SetTaskHidden(ctx context.Context, task oneofs.Task, hidden bool) error
 }
 
@@ -66,7 +66,7 @@ func NewHandler(params NewHandlerParams) *Handler {
 // CreateTask records a task and returns it as stored.
 func (s *Handler) CreateTask(ctx context.Context, req *taskv1komrad.CreateTaskRequest) (*taskv1.CreateTaskResponse, *fail.Error) {
 	created, err := s.tasks.CreateTask(ctx, taskstore.CreateParams{
-		WorkflowID: req.WorkflowId.String(),
+		WorkflowID: req.WorkflowId,
 		Slug:       req.Slug,
 		Title:      req.Title,
 		Goal:       req.Goal,
@@ -90,7 +90,7 @@ func (s *Handler) GetTask(ctx context.Context, req *taskv1komrad.GetTaskRequest)
 
 // ListTasks returns a workflow's live or archived tasks, newest first.
 func (s *Handler) ListTasks(ctx context.Context, req *taskv1komrad.ListTasksRequest) (*taskv1.ListTasksResponse, *fail.Error) {
-	listed, err := s.tasks.ListTasks(ctx, req.WorkflowId.String(), req.Archived)
+	listed, err := s.tasks.ListTasks(ctx, req.WorkflowId, req.Archived)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list tasks")
 	}
@@ -173,7 +173,7 @@ func (s *Handler) SetTaskHidden(ctx context.Context, req *taskv1komrad.SetTaskHi
 
 // MarkTaskRunsRead claims the failed runs on a task.
 func (s *Handler) MarkTaskRunsRead(ctx context.Context, req *taskv1komrad.MarkTaskRunsReadRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.tasks.MarkTaskRunsRead(ctx, req.Id.String()); err != nil {
+	if err := s.tasks.MarkTaskRunsRead(ctx, req.Id); err != nil {
 		return nil, rpcerr.From(err, "failed to mark the task's runs read")
 	}
 

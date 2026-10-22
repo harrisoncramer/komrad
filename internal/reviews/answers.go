@@ -7,6 +7,8 @@ import (
 
 	"komrad/internal/fail"
 	reviewstore "komrad/internal/store/review"
+
+	"github.com/google/uuid"
 )
 
 // errReviewAddressedByOwner answers a reply with addressed from anyone but the writer of the task the thread is on.
@@ -60,7 +62,7 @@ func (s *ReviewService) getWrittenSnapshot(ctx context.Context, thread reviewsto
 		return s.reviews.GetSnapshot(ctx, thread.SnapshotID)
 	}
 
-	messages, err := s.reviews.ListMessages(ctx, []string{thread.ID})
+	messages, err := s.reviews.ListMessages(ctx, []uuid.UUID{thread.ID})
 	if err != nil {
 		return nil, err
 	}

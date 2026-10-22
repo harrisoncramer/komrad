@@ -51,7 +51,7 @@ func TestWriteDocumentType(t *testing.T) {
 			params: documents.WriteDocumentTypeParams{
 				Name:      "incident",
 				Context:   "What broke.",
-				ByAgentID: uuid.NewString(),
+				ByAgentID: uuid.New(),
 			},
 			wantErr: documents.ErrDocumentTypeByAgent,
 		},
@@ -122,7 +122,7 @@ func TestReadAnEarlierTypeWrite(t *testing.T) {
 
 	_, err = service.GetDocumentType(ctx, "incident", xptr.Ptr(int32(3)))
 	require.ErrorIs(t, err, store.ErrNotFound)
-	_, err = service.ListDocumentTypeVersions(ctx, uuid.NewString())
+	_, err = service.ListDocumentTypeVersions(ctx, uuid.New())
 	require.ErrorIs(t, err, store.ErrNotFound)
 }
 
@@ -139,7 +139,7 @@ func TestDeleteDocumentTypeRefusesAnAgent(t *testing.T) {
 
 	err = service.DeleteDocumentType(t.Context(), documents.DeleteDocumentTypeParams{
 		ID:        created.ID,
-		ByAgentID: uuid.NewString(),
+		ByAgentID: uuid.New(),
 	})
 	require.ErrorIs(t, err, documents.ErrDocumentTypeByAgent)
 

@@ -226,7 +226,7 @@ func renderRefusalReason(reason worktrees.RefusalReason) worktreev1.RefusalReaso
 
 func renderAgent(agent worktrees.Agent) *worktreev1.WorktreeAgent {
 	return &worktreev1.WorktreeAgent{
-		Id:         agent.ID,
+		Id:         agent.ID.String(),
 		Name:       agent.Name,
 		State:      render.AgentStateOf(agent.State),
 		ArchivedAt: dates.StampPtr(agent.ArchivedAt),
@@ -235,7 +235,7 @@ func renderAgent(agent worktrees.Agent) *worktreev1.WorktreeAgent {
 
 func renderTask(task worktrees.Task) *worktreev1.WorktreeTask {
 	return &worktreev1.WorktreeTask{
-		Id:         task.ID,
+		Id:         task.ID.String(),
 		Slug:       task.Slug,
 		ArchivedAt: dates.StampPtr(task.ArchivedAt),
 		Adopted:    task.Adopted,

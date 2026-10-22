@@ -15,6 +15,7 @@ import (
 	"komrad/internal/waketest"
 	"komrad/lib/xptr"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -424,7 +425,7 @@ func seedChildTask(t *testing.T, stores *storetest.Stores, seeded childTask) {
 }
 
 // seedBranchTask records a task whose checkout is on a branch of the test repository.
-func seedBranchTask(t *testing.T, stores *storetest.Stores, workflowID, branch string) string {
+func seedBranchTask(t *testing.T, stores *storetest.Stores, workflowID uuid.UUID, branch string) uuid.UUID {
 	t.Helper()
 
 	agent := stores.SeedAgent(t, agentstore.Agent{Name: branch, WorkflowID: workflowID})

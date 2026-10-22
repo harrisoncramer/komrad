@@ -20,9 +20,9 @@ import (
 // pullRequestLister is what the handler reads of what the sync has stored.
 type pullRequestLister interface {
 	ListPullRequests(ctx context.Context, params pullrequests.ListPullRequestsParams) ([]pullrequeststore.PullRequest, error)
-	ListStatusChecks(ctx context.Context, pullRequestID string) ([]pullrequeststore.StatusCheckReading, error)
-	ReadCheckLog(ctx context.Context, checkID string, firstLine, count int) (*pullrequeststore.CheckLogLines, error)
-	SearchCheckLogs(ctx context.Context, checkIDs []string, pattern string) (*pullrequeststore.CheckLogSearch, error)
+	ListStatusChecks(ctx context.Context, pullRequestID uuid.UUID) ([]pullrequeststore.StatusCheckReading, error)
+	ReadCheckLog(ctx context.Context, checkID uuid.UUID, firstLine, count int) (*pullrequeststore.CheckLogLines, error)
+	SearchCheckLogs(ctx context.Context, checkIDs []uuid.UUID, pattern string) (*pullrequeststore.CheckLogSearch, error)
 }
 
 type NewHandlerParams struct {
@@ -89,7 +89,7 @@ func renderPullRequestPage(stored pullrequeststore.PullRequest) pullRequestPage 
 
 // ListStatusChecks is the status checks read on each of a pull request's heads, oldest first and empty when they never were.
 func (s *Handler) ListStatusChecks(ctx context.Context, req *pullrequestv1komrad.ListStatusChecksRequest) (*pullrequestv1.ListStatusChecksResponse, *fail.Error) {
-	readings, err := s.pullRequests.ListStatusChecks(ctx, req.PullRequestId.String())
+	readings, err := s.pullRequests.ListStatusChecks(ctx, req.PullRequestId)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the checks")
 	}
@@ -99,7 +99,7 @@ func (s *Handler) ListStatusChecks(ctx context.Context, req *pullrequestv1komrad
 
 // ReadCheckLog is a window of lines of a check's fetched log.
 func (s *Handler) ReadCheckLog(ctx context.Context, req *pullrequestv1komrad.ReadCheckLogRequest) (*pullrequestv1.ReadCheckLogResponse, *fail.Error) {
-	lines, err := s.pullRequests.ReadCheckLog(ctx, req.CheckId.String(), int(req.FirstLine), int(req.Count))
+	lines, err := s.pullRequests.ReadCheckLog(ctx, req.CheckId, int(req.FirstLine), int(req.Count))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the check log")
 	}
@@ -109,7 +109,7 @@ func (s *Handler) ReadCheckLog(ctx context.Context, req *pullrequestv1komrad.Rea
 
 // SearchCheckLogs is the lines of the checks' fetched logs an RE2 pattern matches.
 func (s *Handler) SearchCheckLogs(ctx context.Context, req *pullrequestv1komrad.SearchCheckLogsRequest) (*pullrequestv1.SearchCheckLogsResponse, *fail.Error) {
-	search, err := s.pullRequests.SearchCheckLogs(ctx, xslice.Map(req.CheckIds, uuid.UUID.String), req.Pattern)
+	search, err := s.pullRequests.SearchCheckLogs(ctx, req.CheckIds, req.Pattern)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to search the check logs")
 	}

@@ -13,6 +13,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -44,7 +45,7 @@ panel that cannot be reached prints nothing.`,
 		if err != nil {
 			reportHookProblem(cmd, state, "komrad read no hook payload", err)
 		}
-		if state.env.AgentID == "" {
+		if state.env.AgentID == uuid.Nil {
 			return nil
 		}
 

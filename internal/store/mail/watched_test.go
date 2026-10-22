@@ -6,6 +6,7 @@ import (
 
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -17,7 +18,7 @@ func TestListWatchedIsTheUnclaimedSet(t *testing.T) {
 	sender := seedAgent(t, st, "sender")
 	recipient := seedAgent(t, st, "recipient")
 
-	send := func(body string, deadline time.Duration) string {
+	send := func(body string, deadline time.Duration) uuid.UUID {
 		t.Helper()
 
 		sent, err := st.Send(ctx, SendParams{
@@ -34,17 +35,17 @@ func TestListWatchedIsTheUnclaimedSet(t *testing.T) {
 	waiting := send("waiting", time.Hour)
 	expired := send("expired", -time.Hour)
 
-	ids := func(mail []Mail) []string { return xslice.Map(mail, func(m Mail) string { return m.ID }) }
+	ids := func(mail []Mail) []uuid.UUID { return xslice.Map(mail, func(m Mail) uuid.UUID { return m.ID }) }
 
-	listed, err := st.ListWatched(ctx, []string{waiting})
+	listed, err := st.ListWatched(ctx, []uuid.UUID{waiting})
 	require.NoError(t, err)
-	assert.Equal(t, []string{waiting}, ids(listed))
+	assert.Equal(t, []uuid.UUID{waiting}, ids(listed))
 
 	unclaimed, err := st.ListWatched(ctx, nil)
 	require.NoError(t, err)
-	assert.ElementsMatch(t, []string{waiting, expired}, ids(unclaimed), "the clock does not decide membership")
+	assert.ElementsMatch(t, []uuid.UUID{waiting, expired}, ids(unclaimed), "the clock does not decide membership")
 
-	none, err := st.ListWatched(ctx, []string{})
+	none, err := st.ListWatched(ctx, []uuid.UUID{})
 	require.NoError(t, err)
 	assert.Empty(t, none)
 
@@ -52,7 +53,7 @@ func TestListWatchedIsTheUnclaimedSet(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, claimed, 1)
 
-	listed, err = st.ListWatched(ctx, []string{waiting, expired})
+	listed, err = st.ListWatched(ctx, []uuid.UUID{waiting, expired})
 	require.NoError(t, err)
-	assert.Equal(t, []string{expired}, ids(listed), "a claimed piece is a tombstone")
+	assert.Equal(t, []uuid.UUID{expired}, ids(listed), "a claimed piece is a tombstone")
 }

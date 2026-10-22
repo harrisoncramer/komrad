@@ -6,6 +6,7 @@ import (
 	"komrad/config"
 	"komrad/internal/caller"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -49,13 +50,17 @@ func TestGetAPIBaseIsWhereTheEngineIsServed(t *testing.T) {
 func TestCallerIsDroppedForAnotherEngine(t *testing.T) {
 	t.Parallel()
 
-	local := &app{env: &config.Environment{AgentID: "a1", SessionID: "s1"}}
-	assert.Equal(t, caller.Caller{AgentID: "a1", SessionID: "s1"}, local.caller())
+	local := &app{env: &config.Environment{AgentID: firstAgentID, SessionID: "s1"}}
+	assert.Equal(t, caller.Caller{AgentID: firstAgentID, SessionID: "s1"}, local.caller())
 
 	remote := &app{env: &config.Environment{
-		AgentID:   "a1",
+		AgentID:   firstAgentID,
 		SessionID: "s1",
 		URL:       "https://komrad.example.com",
 	}}
 	assert.Equal(t, caller.Caller{}, remote.caller())
 }
+
+var (
+	firstAgentID = uuid.New()
+)

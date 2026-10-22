@@ -8,10 +8,12 @@ import (
 	"komrad/internal/harness"
 	"komrad/internal/logging"
 	agentstore "komrad/internal/store/agent"
+
+	"github.com/google/uuid"
 )
 
 type hooksSetter interface {
-	SetHooksByID(ctx context.Context, id string, hooks []string) error
+	SetHooksByID(ctx context.Context, id uuid.UUID, hooks []string) error
 }
 
 type agentStarter struct {
@@ -98,9 +100,9 @@ func (s *agentStarter) start(ctx context.Context, agent agentstore.Agent, mode s
 	return mode.finish(ctx, agent)
 }
 
-func (s *agentStarter) recordHooks(ctx context.Context, agentID string, hooks []string) {
+func (s *agentStarter) recordHooks(ctx context.Context, agentID uuid.UUID, hooks []string) {
 	if err := s.agents.SetHooksByID(ctx, agentID, hooks); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record the hooks an agent's launch installed",
-			append([]slog.Attr{slog.String(logging.AgentID, agentID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.AgentID, agentID.String())}, logging.Err(err)...)...)
 	}
 }

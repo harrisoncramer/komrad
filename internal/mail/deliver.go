@@ -12,6 +12,8 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
+
+	"github.com/google/uuid"
 )
 
 type Delivery int
@@ -28,7 +30,7 @@ type treeReader interface {
 }
 
 type agentGetter interface {
-	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*agentstore.Agent, error)
 }
 
 type harnessGetter interface {
@@ -96,7 +98,7 @@ func (s *DeliveryService) DeliverAll(ctx context.Context) error {
 
 // Deliver makes one attempt at telling an agent about what is waiting for it, and reports what
 // it managed.
-func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery, error) {
+func (s *DeliveryService) Deliver(ctx context.Context, agentID uuid.UUID) (Delivery, error) {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return DeliveryDone, nil
@@ -160,7 +162,7 @@ func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pen
 	}
 
 	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "told an agent to read its mail",
-		slog.String(logging.TargetAgentID, agent.ID),
+		slog.String(logging.TargetAgentID, agent.ID.String()),
 		slog.Int64(logging.UnreadMail, pending))
 
 	return true, nil
@@ -180,7 +182,7 @@ func (s *DeliveryService) reportExpired(ctx context.Context, agent agentstore.Ag
 
 	for _, item := range expired {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "a piece of mail expired before it was read",
-			slog.String(logging.TargetAgentID, agent.ID),
-			slog.String(logging.MailID, item.ID))
+			slog.String(logging.TargetAgentID, agent.ID.String()),
+			slog.String(logging.MailID, item.ID.String()))
 	}
 }

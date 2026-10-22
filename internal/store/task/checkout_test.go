@@ -5,11 +5,11 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
@@ -20,21 +20,13 @@ import (
 // TestClaimCheckout pins that a task's checkout is claimed once, whoever asks.
 func TestClaimCheckout(t *testing.T) {
 	tests := []struct {
-		name    string
-		seed    func(t *testing.T, stores *storetest.Stores, taskID string)
-		missing bool
-		wantErr error
-		want    bool
+		name string
+		seed func(t *testing.T, stores *storetest.Stores, taskID uuid.UUID)
+		want bool
 	}{
 		{
-			name:    "a task that is not an id is not found",
-			seed:    func(*testing.T, *storetest.Stores, string) {},
-			missing: true,
-			wantErr: store.ErrNotFound,
-		},
-		{
 			name: "a task already claimed is not claimed again",
-			seed: func(t *testing.T, stores *storetest.Stores, taskID string) {
+			seed: func(t *testing.T, stores *storetest.Stores, taskID uuid.UUID) {
 				claimed, err := stores.Tasks.ClaimCheckout(t.Context(), taskstore.ClaimCheckoutParams{ID: taskID})
 				require.NoError(t, err)
 				require.True(t, claimed)
@@ -43,14 +35,14 @@ func TestClaimCheckout(t *testing.T) {
 		},
 		{
 			name: "a task whose checkout was taken away is not claimed again",
-			seed: func(t *testing.T, stores *storetest.Stores, taskID string) {
+			seed: func(t *testing.T, stores *storetest.Stores, taskID uuid.UUID) {
 				require.NoError(t, stores.Tasks.SetHead(t.Context(), taskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone}))
 			},
 			want: false,
 		},
 		{
 			name: "a task with no checkout is claimed",
-			seed: func(*testing.T, *storetest.Stores, string) {},
+			seed: func(*testing.T, *storetest.Stores, uuid.UUID) {},
 			want: true,
 		},
 	}
@@ -62,18 +54,7 @@ func TestClaimCheckout(t *testing.T) {
 			task := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
 			tt.seed(t, stores, task.ID)
 
-			id := task.ID
-			if tt.missing {
-				id = "work"
-			}
-
-			got, err := stores.Tasks.ClaimCheckout(t.Context(), taskstore.ClaimCheckoutParams{ID: id})
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-
-				return
-			}
-
+			got, err := stores.Tasks.ClaimCheckout(t.Context(), taskstore.ClaimCheckoutParams{ID: task.ID})
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 		})

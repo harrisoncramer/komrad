@@ -9,6 +9,7 @@ import (
 	"komrad/internal/agents"
 	agentstore "komrad/internal/store/agent"
 
+	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,7 +17,7 @@ import (
 
 type fakeAgentResumer struct {
 	err     error
-	resumed []string
+	resumed []uuid.UUID
 }
 
 func (f *fakeAgentResumer) ResumeAgent(_ context.Context, params agents.ResumeAgentParams) (*agentstore.Agent, error) {
@@ -51,11 +52,12 @@ func TestWakeAgentWorker(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			resumer := &fakeAgentResumer{err: tt.resumeErr}
+			agentID := uuid.New()
 
-			err := NewWakeAgentWorker(resumer).Work(t.Context(), &river.Job[WakeAgentArgs]{Args: WakeAgentArgs{AgentID: "a"}})
+			err := NewWakeAgentWorker(resumer).Work(t.Context(), &river.Job[WakeAgentArgs]{Args: WakeAgentArgs{AgentID: agentID}})
 
 			require.ErrorIs(t, err, tt.wantErr)
-			assert.Equal(t, []string{"a"}, resumer.resumed)
+			assert.Equal(t, []uuid.UUID{agentID}, resumer.resumed)
 		})
 	}
 }

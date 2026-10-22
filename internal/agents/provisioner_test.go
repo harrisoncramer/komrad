@@ -9,6 +9,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	"komrad/lib/xptr"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,7 +23,7 @@ func TestRunDeprovisionLogsOneThatWouldNotStart(t *testing.T) {
 	runDeprovision(ctx, runDeprovisionParams{
 		deprovision: lifecycle,
 		agent: agentstore.Agent{
-			ID:  "a1",
+			ID:  firstAgentID,
 			Cwd: "/repo/.worktrees/auth",
 		},
 		name: "was-renamed",
@@ -44,7 +45,7 @@ func TestProvisionerLogsAWorkflowThatWouldNotRead(t *testing.T) {
 	cancel()
 
 	agent := agentstore.Agent{
-		ID:         "a1",
+		ID:         firstAgentID,
 		Cwd:        "/repo/.worktrees/auth",
 		WorkflowID: workflowID,
 	}
@@ -52,8 +53,8 @@ func TestProvisionerLogsAWorkflowThatWouldNotRead(t *testing.T) {
 
 	got := recordFor(t, records(), "the workflow could not be read")
 	assert.Equal(t, "ERROR", got["severity_text"])
-	assert.Equal(t, workflowID, got["komrad.workflow.id"])
-	assert.Equal(t, "a1", got["komrad.script.agent.id"])
+	assert.Equal(t, workflowID.String(), got["komrad.workflow.id"])
+	assert.Equal(t, firstAgentID.String(), got["komrad.script.agent.id"])
 	assert.Equal(t, "/repo/.worktrees/auth", got["komrad.script.agent.cwd"])
 }
 
@@ -62,12 +63,12 @@ func TestProvisionerLogsAWorkflowThatWouldNotRead(t *testing.T) {
 func TestProvisionerSaysNothingWhenThereIsNothingToSetUp(t *testing.T) {
 	tests := []struct {
 		name       string
-		workflowID func(t *testing.T, st *testStore) string
+		workflowID func(t *testing.T, st *testStore) uuid.UUID
 	}{
 		{
 			name: "a workflow no row holds",
-			workflowID: func(*testing.T, *testStore) string {
-				return "b9b1a1de-0000-7000-8000-000000000000"
+			workflowID: func(*testing.T, *testStore) uuid.UUID {
+				return uuid.MustParse("b9b1a1de-0000-7000-8000-000000000000")
 			},
 		},
 		{
@@ -80,7 +81,7 @@ func TestProvisionerSaysNothingWhenThereIsNothingToSetUp(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			agent := agentstore.Agent{
-				ID:         "a1",
+				ID:         firstAgentID,
 				WorkflowID: tt.workflowID(t, st),
 			}
 			ctx, records := loggedContext(t)
@@ -137,7 +138,7 @@ func TestTheWorktreeToggleIsTheWholeProvisioner(t *testing.T) {
 			require.NoError(t, err)
 
 			agent := agentstore.Agent{
-				ID:               "a1",
+				ID:               firstAgentID,
 				WorkflowID:       workflow.ID,
 				ProvisionEnabled: tt.provision,
 			}
@@ -146,3 +147,7 @@ func TestTheWorktreeToggleIsTheWholeProvisioner(t *testing.T) {
 		})
 	}
 }
+
+var (
+	firstAgentID = uuid.New()
+)

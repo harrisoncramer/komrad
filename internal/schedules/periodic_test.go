@@ -9,6 +9,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 
+	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,7 +20,7 @@ type recordingPeriodic struct {
 	refused bool
 }
 
-func (r *recordingPeriodic) Add(_ string, _ river.PeriodicSchedule) error {
+func (r *recordingPeriodic) Add(_ uuid.UUID, _ river.PeriodicSchedule) error {
 	r.events = append(r.events, "add")
 
 	if r.refused {
@@ -29,11 +30,11 @@ func (r *recordingPeriodic) Add(_ string, _ river.PeriodicSchedule) error {
 	return nil
 }
 
-func (r *recordingPeriodic) Remove(_ string) {
+func (r *recordingPeriodic) Remove(_ uuid.UUID) {
 	r.events = append(r.events, "remove")
 }
 
-type scheduleEdit func(ctx context.Context, svc *ScheduleService, id string, cfg schedulestore.Config) error
+type scheduleEdit func(ctx context.Context, svc *ScheduleService, id uuid.UUID, cfg schedulestore.Config) error
 
 // TestScheduleWritesKeepRegistrations pins what each schedule write does to its River registration.
 func TestScheduleWritesKeepRegistrations(t *testing.T) {
@@ -178,13 +179,13 @@ func TestArmPeriodic(t *testing.T) {
 }
 
 func newEnabledEdit(enabled bool) scheduleEdit {
-	return func(ctx context.Context, svc *ScheduleService, id string, _ schedulestore.Config) error {
+	return func(ctx context.Context, svc *ScheduleService, id uuid.UUID, _ schedulestore.Config) error {
 		return svc.SetScheduleEnabled(ctx, id, enabled)
 	}
 }
 
 func newCronEdit(cron, timezone string) scheduleEdit {
-	return func(ctx context.Context, svc *ScheduleService, id string, cfg schedulestore.Config) error {
+	return func(ctx context.Context, svc *ScheduleService, id uuid.UUID, cfg schedulestore.Config) error {
 		cfg.Cron = cron
 		cfg.Timezone = timezone
 
@@ -192,20 +193,20 @@ func newCronEdit(cron, timezone string) scheduleEdit {
 	}
 }
 
-func renameEdit(ctx context.Context, svc *ScheduleService, id string, cfg schedulestore.Config) error {
+func renameEdit(ctx context.Context, svc *ScheduleService, id uuid.UUID, cfg schedulestore.Config) error {
 	cfg.Name = "renamed"
 
 	return svc.UpdateSchedule(ctx, id, cfg)
 }
 
-func archiveEdit(ctx context.Context, svc *ScheduleService, id string, _ schedulestore.Config) error {
+func archiveEdit(ctx context.Context, svc *ScheduleService, id uuid.UUID, _ schedulestore.Config) error {
 	return svc.ArchiveSchedule(ctx, id)
 }
 
-func restoreEdit(ctx context.Context, svc *ScheduleService, id string, _ schedulestore.Config) error {
+func restoreEdit(ctx context.Context, svc *ScheduleService, id uuid.UUID, _ schedulestore.Config) error {
 	return svc.RestoreSchedule(ctx, id)
 }
 
-func deleteEdit(ctx context.Context, svc *ScheduleService, id string, _ schedulestore.Config) error {
+func deleteEdit(ctx context.Context, svc *ScheduleService, id uuid.UUID, _ schedulestore.Config) error {
 	return svc.DeleteSchedule(ctx, id)
 }

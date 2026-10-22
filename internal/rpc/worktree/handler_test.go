@@ -16,6 +16,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -90,7 +91,7 @@ func TestListWorktrees(t *testing.T) {
 	assert.Equal(t, "/trees/aaaa", first.GetDir())
 	assert.Equal(t, "agent/aaaa", first.GetBranch())
 	assert.True(t, first.GetReadable())
-	assert.Equal(t, "aaaa", first.GetTask().GetId())
+	assert.Equal(t, firstTaskID.String(), first.GetTask().GetId())
 	assert.Equal(t, "first-task", first.GetTask().GetSlug())
 	assert.Equal(t, "2026-09-19T12:00:00Z", first.GetTask().GetArchivedAt())
 	assert.True(t, first.GetTask().GetAdopted())
@@ -251,20 +252,20 @@ func buildListedWorktree() worktrees.Worktree {
 		Branch:   "agent/aaaa",
 		Readable: true,
 		Task: &worktrees.Task{
-			ID:         "aaaa",
+			ID:         firstTaskID,
 			Slug:       "first-task",
 			Adopted:    true,
 			ArchivedAt: &archived,
 		},
 		Occupants: []worktrees.Agent{
 			{
-				ID:         "first",
+				ID:         uuid.New(),
 				Name:       "first",
 				State:      agentstore.StateIdle,
 				ArchivedAt: &archived,
 			},
 			{
-				ID:    "bbbb",
+				ID:    uuid.New(),
 				Name:  "first-reviewer",
 				State: agentstore.StateThinking,
 			},
@@ -278,3 +279,5 @@ func buildListedWorktree() worktrees.Worktree {
 		LastActiveAt: archived,
 	}
 }
+
+var firstTaskID = uuid.New()

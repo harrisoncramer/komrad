@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/testing/protocmp"
 
@@ -33,26 +34,30 @@ func TestAgent(t *testing.T) {
 		{
 			name: "an agent nothing has written to",
 			stored: agentstore.Agent{
-				ID:   "a2",
-				Name: "reviewer",
+				ID:         secondAgentID,
+				WorkflowID: workflowID,
+				Name:       "reviewer",
 			},
 			want: &agentv1.Agent{
-				Id:    "a2",
-				Name:  "reviewer",
-				Alive: xptr.Ptr(false),
+				Id:         secondAgentID.String(),
+				WorkflowId: workflowID.String(),
+				Name:       "reviewer",
+				Alive:      xptr.Ptr(false),
 			},
 		},
 		{
 			name: "an agent whose state was written",
 			stored: agentstore.Agent{
-				ID:             "a1",
+				ID:             firstAgentID,
+				WorkflowID:     workflowID,
 				Name:           "worker",
 				State:          agentstore.StateWaiting,
 				Role:           agentstore.RoleReviewer,
 				StateChangedAt: changed,
 			},
 			want: &agentv1.Agent{
-				Id:             "a1",
+				Id:             firstAgentID.String(),
+				WorkflowId:     workflowID.String(),
 				Name:           "worker",
 				State:          agentv1.AgentState_AGENT_STATE_WAITING,
 				Role:           agentv1.AgentRole_AGENT_ROLE_REVIEWER,
@@ -63,8 +68,9 @@ func TestAgent(t *testing.T) {
 		{
 			name: "an agent whose last turn ended after one that failed",
 			stored: agentstore.Agent{
-				ID:   "a4",
-				Name: "recovered",
+				ID:         fourthAgentID,
+				WorkflowID: workflowID,
+				Name:       "recovered",
 				Turn: agentstore.Turn{
 					EndedAt:  xptr.Ptr(changed.Add(time.Minute)),
 					FailedAt: xptr.Ptr(changed),
@@ -72,17 +78,19 @@ func TestAgent(t *testing.T) {
 				},
 			},
 			want: &agentv1.Agent{
-				Id:    "a4",
-				Name:  "recovered",
-				Alive: xptr.Ptr(false),
+				Id:         fourthAgentID.String(),
+				WorkflowId: workflowID.String(),
+				Name:       "recovered",
+				Alive:      xptr.Ptr(false),
 			},
 		},
 		{
 			name: "an agent whose last turn failed",
 			stored: agentstore.Agent{
-				ID:    "a5",
-				Name:  "failed",
-				State: agentstore.StateErrored,
+				ID:         fifthAgentID,
+				WorkflowID: workflowID,
+				Name:       "failed",
+				State:      agentstore.StateErrored,
 				Turn: agentstore.Turn{
 					EndedAt:  xptr.Ptr(changed),
 					FailedAt: xptr.Ptr(changed),
@@ -90,25 +98,28 @@ func TestAgent(t *testing.T) {
 				},
 			},
 			want: &agentv1.Agent{
-				Id:        "a5",
-				Name:      "failed",
-				State:     agentv1.AgentState_AGENT_STATE_ERRORED,
-				TurnError: "Overloaded",
-				Alive:     xptr.Ptr(false),
+				Id:         fifthAgentID.String(),
+				WorkflowId: workflowID.String(),
+				Name:       "failed",
+				State:      agentv1.AgentState_AGENT_STATE_ERRORED,
+				TurnError:  "Overloaded",
+				Alive:      xptr.Ptr(false),
 			},
 		},
 		{
 			name: "an agent that has written documents, stamped to within the second",
 			stored: agentstore.Agent{
-				ID:   "a3",
-				Name: "author",
+				ID:         thirdAgentID,
+				WorkflowID: workflowID,
+				Name:       "author",
 			},
 			beside: rowstore.Row{
 				Documents:          2,
 				DocumentsUpdatedAt: &written,
 			},
 			want: &agentv1.Agent{
-				Id:                 "a3",
+				Id:                 thirdAgentID.String(),
+				WorkflowId:         workflowID.String(),
 				Name:               "author",
 				Alive:              xptr.Ptr(false),
 				Documents:          2,
@@ -118,15 +129,17 @@ func TestAgent(t *testing.T) {
 		{
 			name: "an agent whose launch installed hooks",
 			stored: agentstore.Agent{
-				ID:    "a6",
-				Name:  "hooked",
-				Hooks: []string{"PreToolUse", "Stop"},
+				ID:         sixthAgentID,
+				WorkflowID: workflowID,
+				Name:       "hooked",
+				Hooks:      []string{"PreToolUse", "Stop"},
 			},
 			want: &agentv1.Agent{
-				Id:    "a6",
-				Name:  "hooked",
-				Alive: xptr.Ptr(false),
-				Hooks: []string{"PreToolUse", "Stop"},
+				Id:         sixthAgentID.String(),
+				WorkflowId: workflowID.String(),
+				Name:       "hooked",
+				Alive:      xptr.Ptr(false),
+				Hooks:      []string{"PreToolUse", "Stop"},
 			},
 		},
 	}
@@ -171,7 +184,7 @@ func TestWatchedAgent(t *testing.T) {
 			t.Parallel()
 
 			rendered := WatchedAgent(rowOf(agentstore.Agent{
-				ID:         "a1",
+				ID:         firstAgentID,
 				Prompt:     prompt,
 				ArchivedAt: tt.archivedAt,
 			}))
@@ -221,3 +234,13 @@ func TestAgentRoleOf(t *testing.T) {
 	}
 	assert.Equal(t, agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED, agentRoleOf(""))
 }
+
+var (
+	workflowID    = uuid.New()
+	fifthAgentID  = uuid.New()
+	firstAgentID  = uuid.New()
+	fourthAgentID = uuid.New()
+	secondAgentID = uuid.New()
+	sixthAgentID  = uuid.New()
+	thirdAgentID  = uuid.New()
+)

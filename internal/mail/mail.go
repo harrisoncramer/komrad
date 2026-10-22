@@ -20,6 +20,8 @@ import (
 	"komrad/lib/xslice"
 	"komrad/lib/xstr"
 	"komrad/proto/gen/oneofs"
+
+	"github.com/google/uuid"
 )
 
 const maxPendingMail = 100
@@ -114,7 +116,7 @@ func (s *MailService) IsDormant(agent agentstore.Agent) bool {
 }
 
 type FindRecipientParams struct {
-	From string
+	From uuid.UUID
 	To   oneofs.To
 }
 
@@ -123,7 +125,7 @@ type FindRecipientParams struct {
 func (s *MailService) FindRecipient(ctx context.Context, params FindRecipientParams) (*agentstore.Agent, error) {
 	switch {
 	case params.To.ToAgentId != nil:
-		return s.getRecipient(ctx, params.To.ToAgentId.String())
+		return s.getRecipient(ctx, *params.To.ToAgentId)
 	case params.To.ToAgentName != nil:
 		return s.resolveRecipient(ctx, params.From, *params.To.ToAgentName)
 	}
@@ -132,7 +134,7 @@ func (s *MailService) FindRecipient(ctx context.Context, params FindRecipientPar
 }
 
 // getRecipient returns the agent an id names.
-func (s *MailService) getRecipient(ctx context.Context, id string) (*agentstore.Agent, error) {
+func (s *MailService) getRecipient(ctx context.Context, id uuid.UUID) (*agentstore.Agent, error) {
 	recipient, err := s.agents.GetByID(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, ErrRecipientNotFound.Saying("no agent holds the id %q", id)
@@ -146,13 +148,13 @@ func (s *MailService) getRecipient(ctx context.Context, id string) (*agentstore.
 
 // resolveRecipient returns the live agent a name names, looked for in the sender's own workflow
 // before every workflow.
-func (s *MailService) resolveRecipient(ctx context.Context, from, name string) (*agentstore.Agent, error) {
+func (s *MailService) resolveRecipient(ctx context.Context, from uuid.UUID, name string) (*agentstore.Agent, error) {
 	named, err := s.agents.ListLiveNamed(ctx, name)
 	if err != nil {
 		return nil, err
 	}
 
-	if from != "" {
+	if from != uuid.Nil {
 		sender, err := s.findSender(ctx, from)
 		if err != nil {
 			return nil, err
@@ -190,10 +192,10 @@ func (s *MailService) describeHolders(ctx context.Context, holders []agentstore.
 }
 
 type SendMailParams struct {
-	From      string
-	ToAgentID string
+	From      uuid.UUID
+	ToAgentID uuid.UUID
 	Body      string
-	ReplyTo   *string
+	ReplyTo   *uuid.UUID
 }
 
 // SendMail records one piece of ordinary mail from one agent to another.
@@ -208,7 +210,7 @@ func (s *MailService) SendMail(ctx context.Context, params SendMailParams) (*mai
 }
 
 type SendScheduledMailParams struct {
-	ToAgentID      string
+	ToAgentID      uuid.UUID
 	ScheduleName   string
 	Body           string
 	IdempotencyKey string
@@ -238,10 +240,10 @@ var errSubjectMissing = fail.InvalidArgument("mail from komrad must name the sub
 var ErrNothingUnread = fail.NotFound("the recipient holds no unread mail of this kind about this subject")
 
 type SendFromKomradParams struct {
-	ToAgentID string
+	ToAgentID uuid.UUID
 	Mail      eventprompts.Mail
 	// SubjectID is the agent, document, pull request or worktree the mail is about.
-	SubjectID string
+	SubjectID uuid.UUID
 	// OnlyRewrite writes nothing when the recipient holds no unread mail of this kind about this subject.
 	OnlyRewrite bool
 	// Holding are the events true of the subject now, which keeps those an earlier unread mail started.
@@ -258,7 +260,7 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 	if kind == "" || kind == mailstore.KindPlain {
 		return nil, fmt.Errorf("%w: mail from komrad needs a kind of its own to be told apart by", ErrKindMissing)
 	}
-	if params.SubjectID == "" {
+	if params.SubjectID == uuid.Nil {
 		return nil, errSubjectMissing
 	}
 
@@ -365,10 +367,10 @@ func isOrchestratorOf(orchestrator, agent agentstore.Agent) bool {
 }
 
 type sendParams struct {
-	From      string
-	ToAgentID string
+	From      uuid.UUID
+	ToAgentID uuid.UUID
 	Body      string
-	ReplyTo   *string
+	ReplyTo   *uuid.UUID
 	Kind      mailstore.Kind
 	// SenderName names mail sent on a person's behalf by something other than an agent.
 	SenderName     string
@@ -388,7 +390,7 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 	}
 
 	var sender *agentstore.Agent
-	if params.From != "" {
+	if params.From != uuid.Nil {
 		var err error
 		sender, err = s.findSender(ctx, params.From)
 		if err != nil {
@@ -476,8 +478,8 @@ func (s *MailService) holdToTheExchangeCap(ctx context.Context, sender, recipien
 // tellTheCapWasReached tells the recipient that mail meant for it was refused.
 func (s *MailService) tellTheCapWasReached(ctx context.Context, sender, recipient agentstore.Agent, exchanged int64) {
 	attrs := []slog.Attr{
-		slog.String(logging.AgentID, sender.ID),
-		slog.String(logging.TargetAgentID, recipient.ID),
+		slog.String(logging.AgentID, sender.ID.String()),
+		slog.String(logging.TargetAgentID, recipient.ID.String()),
 		slog.Int64(logging.ExchangedMail, exchanged),
 	}
 
@@ -497,7 +499,7 @@ func (s *MailService) tellTheCapWasReached(ctx context.Context, sender, recipien
 
 // ListWaitingMail is the mail waiting for an agent, as much of it as one claim takes, oldest
 // first, without claiming any of it.
-func (s *MailService) ListWaitingMail(ctx context.Context, agentID string) ([]mailstore.Mail, error) {
+func (s *MailService) ListWaitingMail(ctx context.Context, agentID uuid.UUID) ([]mailstore.Mail, error) {
 	agent, err := s.getAgent(ctx, agentID)
 	if err != nil {
 		return nil, err
@@ -508,12 +510,12 @@ func (s *MailService) ListWaitingMail(ctx context.Context, agentID string) ([]ma
 
 // ClaimMailParams is the waiting mail an agent takes and the snapshot it is read on.
 type ClaimMailParams struct {
-	AgentID string
+	AgentID uuid.UUID
 	// IDs is the mail to claim, as ListWaitingMail listed it.
-	IDs []string
+	IDs []uuid.UUID
 	// ReadSnapshotID is the snapshot taken of the agent's task before the claim, which the comments
 	// its review_comment mail carries are read on, nil when the task has no worktree.
-	ReadSnapshotID *string
+	ReadSnapshotID *uuid.UUID
 }
 
 // ClaimMail takes the given mail waiting for an agent, emptying it from the mailbox rather than
@@ -538,7 +540,7 @@ func (s *MailService) ClaimMail(ctx context.Context, params ClaimMailParams) ([]
 			return nil
 		}
 
-		ids := xslice.Map(comments, func(m mailstore.Mail) string { return m.ID })
+		ids := xslice.Map(comments, func(m mailstore.Mail) uuid.UUID { return m.ID })
 		_, err = reviewstore.NewReviewStore(tx).MarkMessagesRead(ctx, ids, params.ReadSnapshotID)
 
 		return err
@@ -551,7 +553,7 @@ func (s *MailService) ClaimMail(ctx context.Context, params ClaimMailParams) ([]
 }
 
 // getAgent is the agent a mailbox belongs to.
-func (s *MailService) getAgent(ctx context.Context, agentID string) (*agentstore.Agent, error) {
+func (s *MailService) getAgent(ctx context.Context, agentID uuid.UUID) (*agentstore.Agent, error) {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, ErrAgentNotFound.Saying("no agent with id %q", agentID)
@@ -564,7 +566,7 @@ func (s *MailService) getAgent(ctx context.Context, agentID string) (*agentstore
 }
 
 type ListMailParams struct {
-	AgentID string
+	AgentID uuid.UUID
 	// Sent reads the mail the agent wrote rather than the mail written to it.
 	Sent   bool
 	Limit  int32
@@ -594,21 +596,21 @@ func (s *MailService) ListMail(ctx context.Context, params ListMailParams) ([]ma
 
 // DeleteMail permanently removes a batch of mail by id, deleting nothing at all unless every
 // id holds mail.
-func (s *MailService) DeleteMail(ctx context.Context, ids []string) error {
+func (s *MailService) DeleteMail(ctx context.Context, ids []uuid.UUID) error {
 	found, err := s.mail.ListByID(ctx, ids)
 	if err != nil {
 		return fmt.Errorf("failed to look up %d mail: %w", len(ids), err)
 	}
 	if len(found) != len(ids) {
-		present := xslice.KeyBy(found, func(mail mailstore.Mail) string { return mail.ID })
+		present := xslice.KeyBy(found, func(mail mailstore.Mail) uuid.UUID { return mail.ID })
 
-		missing := xslice.Filter(ids, func(id string) bool {
+		missing := xslice.Filter(ids, func(id uuid.UUID) bool {
 			_, ok := present[id]
 
 			return !ok
 		})
 
-		return fmt.Errorf("%w: %s", ErrMailNotFound, xstr.JoinSome(missing, namedMissing))
+		return fmt.Errorf("%w: %s", ErrMailNotFound, xstr.JoinSome(xslice.Map(missing, uuid.UUID.String), namedMissing))
 	}
 
 	if err := s.mail.Delete(ctx, ids); err != nil {
@@ -618,7 +620,7 @@ func (s *MailService) DeleteMail(ctx context.Context, ids []string) error {
 	return nil
 }
 
-func (s *MailService) findSender(ctx context.Context, from string) (*agentstore.Agent, error) {
+func (s *MailService) findSender(ctx context.Context, from uuid.UUID) (*agentstore.Agent, error) {
 	sender, err := s.agents.GetByID(ctx, from)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("%w: %q", ErrSenderUnknown, from)
@@ -644,7 +646,7 @@ func carryEvents(held *mailstore.Mail, params SendFromKomradParams) []string {
 	return carried
 }
 
-func (s *MailService) getWorkflow(ctx context.Context, workflowID string) (*workflowstore.Workflow, error) {
+func (s *MailService) getWorkflow(ctx context.Context, workflowID uuid.UUID) (*workflowstore.Workflow, error) {
 	workflow, err := s.workflows.Get(ctx, workflowID)
 	if errors.Is(err, store.ErrNotFound) {
 		return &workflowstore.Workflow{}, nil

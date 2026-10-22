@@ -152,6 +152,6 @@ func (s *Service) isOwnRebase(ctx context.Context, target checkoutTarget, sequen
 func (s *Service) recordAborted(ctx context.Context, task taskstore.Task) {
 	if err := s.tasks.SetSequence(ctx, task.ID, taskstore.SequenceNone); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record that a task's sequence was aborted",
-			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.TaskID, task.ID.String())}, logging.Err(err)...)...)
 	}
 }

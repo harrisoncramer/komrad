@@ -9,11 +9,13 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // StatusCheckReading is what the forge last listed for the checks on one head commit of a pull request.
 type StatusCheckReading struct {
-	ID      string
+	ID      uuid.UUID
 	HeadSHA string
 	// Blank is whether the last read listed no checks, which keeps the checks listed before it.
 	Blank        bool
@@ -21,10 +23,10 @@ type StatusCheckReading struct {
 	ReadAt       time.Time
 	StatusChecks []forge.StatusCheck
 	// CheckIDs is the id komrad keeps each check under, by the id the forge gives it.
-	CheckIDs map[string]string
+	CheckIDs map[string]uuid.UUID
 	// Logs is the log kept for each check that has one, by the id komrad keeps the check under, filled only
 	// for the readings of one pull request.
-	Logs map[string]CheckLog
+	Logs map[uuid.UUID]CheckLog
 }
 
 // StatusCheckStore holds the checks the forge listed on each head commit of a pull request.
@@ -39,7 +41,7 @@ func NewStatusCheckStore(db store.DBTX) *StatusCheckStore {
 
 // SetStatusChecksParams is one read of the checks on a pull request's head commit.
 type SetStatusChecksParams struct {
-	PullRequestID string
+	PullRequestID uuid.UUID
 	HeadSHA       string
 	StatusChecks  []forge.StatusCheck
 	// Truncated is whether the forge listed only some of the checks, which keeps the ones it left out.
@@ -93,7 +95,7 @@ func setStatusChecks(ctx context.Context, queries *models.Queries, params SetSta
 
 // setStatusCheckSteps writes the steps listed on each check of a reading, writing only the steps that changed,
 // and removes the steps no longer listed on checks whose steps were listed whole.
-func setStatusCheckSteps(ctx context.Context, queries *models.Queries, readingID string, params SetStatusChecksParams) error {
+func setStatusCheckSteps(ctx context.Context, queries *models.Queries, readingID uuid.UUID, params SetStatusChecksParams) error {
 	headSHA := params.HeadSHA
 	listed := statusCheckStepRows(readingID, params.StatusChecks)
 	if err := queries.UpsertStatusCheckSteps(ctx, listed).Close(); err != nil {
@@ -117,11 +119,7 @@ func setStatusCheckSteps(ctx context.Context, queries *models.Queries, readingID
 }
 
 // ListOfPullRequest is every check reading on a pull request with its checks, oldest head first.
-func (s *StatusCheckStore) ListOfPullRequest(ctx context.Context, pullRequestID string) ([]StatusCheckReading, error) {
-	if !store.IsID(pullRequestID) {
-		return nil, nil
-	}
-
+func (s *StatusCheckStore) ListOfPullRequest(ctx context.Context, pullRequestID uuid.UUID) ([]StatusCheckReading, error) {
 	rows, err := s.queries.ListStatusCheckReadings(ctx, pullRequestID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the check readings of pull request %s: %w", pullRequestID, err)
@@ -132,17 +130,17 @@ func (s *StatusCheckStore) ListOfPullRequest(ctx context.Context, pullRequestID 
 		return nil, err
 	}
 
-	logs, err := s.ListCheckLogsOfReadings(ctx, xslice.Map(readings, func(reading StatusCheckReading) string { return reading.ID }))
+	logs, err := s.ListCheckLogsOfReadings(ctx, xslice.Map(readings, func(reading StatusCheckReading) uuid.UUID { return reading.ID }))
 	if err != nil {
 		return nil, err
 	}
 
-	byCheck := make(map[string]CheckLog, len(logs))
+	byCheck := make(map[uuid.UUID]CheckLog, len(logs))
 	for _, log := range logs {
 		byCheck[log.CheckID] = log
 	}
 	for i, reading := range readings {
-		readings[i].Logs = map[string]CheckLog{}
+		readings[i].Logs = map[uuid.UUID]CheckLog{}
 		for _, checkID := range reading.CheckIDs {
 			if log, ok := byCheck[checkID]; ok {
 				readings[i].Logs[checkID] = log
@@ -154,22 +152,21 @@ func (s *StatusCheckStore) ListOfPullRequest(ctx context.Context, pullRequestID 
 }
 
 // headReadings is each pull request's reading of its head, or its latest reading when the head was never read.
-func headReadings(ctx context.Context, queries *models.Queries, pullRequestIDs []string) (map[string]StatusCheckReading, error) {
-	storable := store.KeepIDs(pullRequestIDs)
-	if len(storable) == 0 {
-		return map[string]StatusCheckReading{}, nil
+func headReadings(ctx context.Context, queries *models.Queries, pullRequestIDs []uuid.UUID) (map[uuid.UUID]StatusCheckReading, error) {
+	if len(pullRequestIDs) == 0 {
+		return map[uuid.UUID]StatusCheckReading{}, nil
 	}
 
-	rows, err := queries.ListHeadStatusCheckReadings(ctx, storable)
+	rows, err := queries.ListHeadStatusCheckReadings(ctx, pullRequestIDs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the latest check readings of %d pull request(s): %w", len(storable), err)
+		return nil, fmt.Errorf("failed to list the latest check readings of %d pull request(s): %w", len(pullRequestIDs), err)
 	}
 	readings, err := withStatusChecks(ctx, queries, rows)
 	if err != nil {
 		return nil, err
 	}
 
-	byPullRequest := make(map[string]StatusCheckReading, len(readings))
+	byPullRequest := make(map[uuid.UUID]StatusCheckReading, len(readings))
 	for i, row := range rows {
 		byPullRequest[row.PullRequestID] = readings[i]
 	}
@@ -183,7 +180,7 @@ func withStatusChecks(ctx context.Context, queries *models.Queries, rows []*mode
 		return nil, nil
 	}
 
-	ids := xslice.Map(rows, func(row *models.PullRequestCheckReading) string { return row.ID })
+	ids := xslice.Map(rows, func(row *models.PullRequestCheckReading) uuid.UUID { return row.ID })
 	checks, err := queries.ListStatusChecksOfReadings(ctx, ids)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the checks of %d reading(s): %w", len(ids), err)
@@ -194,7 +191,7 @@ func withStatusChecks(ctx context.Context, queries *models.Queries, rows []*mode
 		return nil, fmt.Errorf("failed to list the check steps of %d reading(s): %w", len(ids), err)
 	}
 
-	byCheck := map[string][]forge.StatusCheckStep{}
+	byCheck := map[uuid.UUID][]forge.StatusCheckStep{}
 	for _, row := range steps {
 		byCheck[row.CheckID] = append(byCheck[row.CheckID], forge.StatusCheckStep{
 			Number:     int(row.Number),
@@ -206,11 +203,11 @@ func withStatusChecks(ctx context.Context, queries *models.Queries, rows []*mode
 		})
 	}
 
-	byReading := map[string][]forge.StatusCheck{}
-	checkIDs := map[string]map[string]string{}
+	byReading := map[uuid.UUID][]forge.StatusCheck{}
+	checkIDs := map[uuid.UUID]map[string]uuid.UUID{}
 	for _, row := range checks {
 		if checkIDs[row.ReadingID] == nil {
-			checkIDs[row.ReadingID] = map[string]string{}
+			checkIDs[row.ReadingID] = map[string]uuid.UUID{}
 		}
 		checkIDs[row.ReadingID][row.ProviderID] = row.ID
 		byReading[row.ReadingID] = append(byReading[row.ReadingID], forge.StatusCheck{
@@ -255,7 +252,7 @@ func rememberedChecksOf(reading StatusCheckReading) forge.RememberedAnswer[forge
 }
 
 // statusCheckRows is each check as a row of the reading.
-func statusCheckRows(readingID string, checks []forge.StatusCheck) []models.UpsertStatusChecksParams {
+func statusCheckRows(readingID uuid.UUID, checks []forge.StatusCheck) []models.UpsertStatusChecksParams {
 	return xslice.Map(checks, func(check forge.StatusCheck) models.UpsertStatusChecksParams {
 		return models.UpsertStatusChecksParams{
 			ReadingID:    readingID,
@@ -284,7 +281,7 @@ func providerIDOf(check forge.StatusCheck) string {
 
 // statusCheckStepRows is every step of the checks as a row of the reading, each step of a check listed once,
 // the last listing of a number winning.
-func statusCheckStepRows(readingID string, checks []forge.StatusCheck) []models.UpsertStatusCheckStepsParams {
+func statusCheckStepRows(readingID uuid.UUID, checks []forge.StatusCheck) []models.UpsertStatusCheckStepsParams {
 	rows := []models.UpsertStatusCheckStepsParams{}
 	for _, check := range checks {
 		rows = append(rows, xslice.Map(xslice.LastBy(check.Steps, numberOf), func(step forge.StatusCheckStep) models.UpsertStatusCheckStepsParams {

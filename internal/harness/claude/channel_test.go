@@ -8,6 +8,7 @@ import (
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -15,7 +16,7 @@ import (
 // TestChannelSend covers what the channel writes to an agent's messaging socket, and the false it
 // returns when nothing there takes the line.
 func TestChannelSend(t *testing.T) {
-	const agentID = "agent-1"
+	agentID := uuid.New()
 
 	tests := []struct {
 		name     string

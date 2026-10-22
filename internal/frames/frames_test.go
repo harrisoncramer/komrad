@@ -8,16 +8,17 @@ import (
 	"komrad/internal/frames"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func on() frames.Settings { return frames.Settings{On: true, Keep: 3} }
 
-func written(t *testing.T, dir, agentID string) []string {
+func written(t *testing.T, dir string, agentID uuid.UUID) []string {
 	t.Helper()
 
-	entries, err := os.ReadDir(filepath.Join(dir, agentID))
+	entries, err := os.ReadDir(filepath.Join(dir, agentID.String()))
 	if os.IsNotExist(err) {
 		return nil
 	}
@@ -37,16 +38,16 @@ func TestRecordWritesTheFrameItWasRead(t *testing.T) {
 	frame := "✻ Cogitating… (12s)\n───────\n❯ \n───────"
 
 	require.NoError(t, frames.NewRecorder(dir, on).Record(frames.RecordParams{
-		AgentID:  "a1",
+		AgentID:  firstAgentID,
 		Frame:    frame,
 		Activity: "working",
 	}))
 
-	names := written(t, dir, "a1")
+	names := written(t, dir, firstAgentID)
 	require.Len(t, names, 1)
 	assert.Contains(t, names[0], "-working.txt")
 
-	kept, err := os.ReadFile(filepath.Join(dir, "a1", names[0]))
+	kept, err := os.ReadFile(filepath.Join(dir, firstAgentID.String(), names[0]))
 	require.NoError(t, err)
 	assert.Equal(t, frame, string(kept))
 }
@@ -56,9 +57,9 @@ func TestRecordWritesNothingWhileOff(t *testing.T) {
 	dir := t.TempDir()
 	off := func() frames.Settings { return frames.Settings{Keep: 3} }
 
-	require.NoError(t, frames.NewRecorder(dir, off).Record(frames.RecordParams{AgentID: "a1", Frame: "anything"}))
+	require.NoError(t, frames.NewRecorder(dir, off).Record(frames.RecordParams{AgentID: firstAgentID, Frame: "anything"}))
 
-	assert.Empty(t, written(t, dir, "a1"))
+	assert.Empty(t, written(t, dir, firstAgentID))
 }
 
 // TestRecordSkipsAFrameItAlreadyHolds keeps a still pane from filling the directory with the
@@ -69,13 +70,13 @@ func TestRecordSkipsAFrameItAlreadyHolds(t *testing.T) {
 
 	for range 3 {
 		require.NoError(t, recorder.Record(frames.RecordParams{
-			AgentID:  "a1",
+			AgentID:  firstAgentID,
 			Frame:    "same",
 			Activity: "idle",
 		}))
 	}
 
-	assert.Len(t, written(t, dir, "a1"), 1)
+	assert.Len(t, written(t, dir, firstAgentID), 1)
 }
 
 // TestRecordKeepsAFrameDisputingTheStateOnRecord is the case a recording exists for: the pane
@@ -85,18 +86,18 @@ func TestRecordKeepsAFrameDisputingTheStateOnRecord(t *testing.T) {
 	recorder := frames.NewRecorder(dir, on)
 
 	require.NoError(t, recorder.Record(frames.RecordParams{
-		AgentID:  "a1",
+		AgentID:  firstAgentID,
 		Frame:    "same",
 		Activity: "idle",
 	}))
 	require.NoError(t, recorder.Record(frames.RecordParams{
-		AgentID:  "a1",
+		AgentID:  firstAgentID,
 		Frame:    "same",
 		Activity: "idle",
 		Disputes: true,
 	}))
 
-	assert.Len(t, written(t, dir, "a1"), 2)
+	assert.Len(t, written(t, dir, firstAgentID), 2)
 }
 
 // TestRecordSkipsAnUnrecognizedFrameItAlreadyHolds covers the frames a stuck pane repeats,
@@ -107,13 +108,13 @@ func TestRecordSkipsAnUnrecognizedFrameItAlreadyHolds(t *testing.T) {
 
 	for range 5 {
 		require.NoError(t, recorder.Record(frames.RecordParams{
-			AgentID:  "a1",
+			AgentID:  firstAgentID,
 			Frame:    "same",
 			Activity: "unrecognized",
 		}))
 	}
 
-	assert.Len(t, written(t, dir, "a1"), 1)
+	assert.Len(t, written(t, dir, firstAgentID), 1)
 }
 
 // TestRecordTakesAFrameAgainAfterAFailedWrite covers a full disk, where the frame the write
@@ -125,7 +126,7 @@ func TestRecordTakesAFrameAgainAfterAFailedWrite(t *testing.T) {
 
 	recorder := frames.NewRecorder(blocked, on)
 	reading := frames.RecordParams{
-		AgentID:  "a1",
+		AgentID:  firstAgentID,
 		Frame:    "same",
 		Activity: "idle",
 	}
@@ -135,7 +136,7 @@ func TestRecordTakesAFrameAgainAfterAFailedWrite(t *testing.T) {
 	require.NoError(t, os.Remove(blocked))
 	require.NoError(t, recorder.Record(reading))
 
-	assert.Len(t, written(t, blocked, "a1"), 1, "the same recorder has to take the frame it failed to write")
+	assert.Len(t, written(t, blocked, firstAgentID), 1, "the same recorder has to take the frame it failed to write")
 }
 
 // TestRecordDropsTheOldestPastTheLimit bounds what a busy agent can leave on disk.
@@ -145,13 +146,13 @@ func TestRecordDropsTheOldestPastTheLimit(t *testing.T) {
 
 	for _, frame := range []string{"one", "two", "three", "four", "five"} {
 		require.NoError(t, recorder.Record(frames.RecordParams{
-			AgentID:  "a1",
+			AgentID:  firstAgentID,
 			Frame:    frame,
 			Activity: "idle",
 		}))
 	}
 
-	assert.Len(t, written(t, dir, "a1"), 3)
+	assert.Len(t, written(t, dir, firstAgentID), 3)
 }
 
 // TestRecordSeparatesAgents keeps one agent's evidence out of another's directory.
@@ -160,18 +161,18 @@ func TestRecordSeparatesAgents(t *testing.T) {
 	recorder := frames.NewRecorder(dir, on)
 
 	require.NoError(t, recorder.Record(frames.RecordParams{
-		AgentID:  "a1",
+		AgentID:  firstAgentID,
 		Frame:    "one",
 		Activity: "idle",
 	}))
 	require.NoError(t, recorder.Record(frames.RecordParams{
-		AgentID:  "a2",
+		AgentID:  secondAgentID,
 		Frame:    "two",
 		Activity: "idle",
 	}))
 
-	assert.Len(t, written(t, dir, "a1"), 1)
-	assert.Len(t, written(t, dir, "a2"), 1)
+	assert.Len(t, written(t, dir, firstAgentID), 1)
+	assert.Len(t, written(t, dir, secondAgentID), 1)
 }
 
 // TestForgetDropsWhatADeletedAgentLeft stops a new agent inheriting the frame an old one under
@@ -181,16 +182,21 @@ func TestForgetDropsWhatADeletedAgentLeft(t *testing.T) {
 	recorder := frames.NewRecorder(dir, on)
 
 	require.NoError(t, recorder.Record(frames.RecordParams{
-		AgentID:  "a1",
+		AgentID:  firstAgentID,
 		Frame:    "same",
 		Activity: "idle",
 	}))
-	recorder.Forget(map[string]struct{}{})
+	recorder.Forget(map[uuid.UUID]struct{}{})
 	require.NoError(t, recorder.Record(frames.RecordParams{
-		AgentID:  "a1",
+		AgentID:  firstAgentID,
 		Frame:    "same",
 		Activity: "idle",
 	}))
 
-	assert.Len(t, written(t, dir, "a1"), 2)
+	assert.Len(t, written(t, dir, firstAgentID), 2)
 }
+
+var (
+	firstAgentID  = uuid.New()
+	secondAgentID = uuid.New()
+)

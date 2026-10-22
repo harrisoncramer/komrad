@@ -6,6 +6,8 @@ import (
 	"time"
 
 	agentstore "komrad/internal/store/agent"
+
+	"github.com/google/uuid"
 )
 
 const unrecognizedHoldLimit = 5
@@ -25,7 +27,7 @@ type tally struct {
 	// mu guards hasPassed, tracked and every field of the entries inside it, which the reconcile
 	// pass and the RPC handler both reach.
 	mu      sync.Mutex
-	tracked map[string]trackedAgent
+	tracked map[uuid.UUID]trackedAgent
 	// hasPassed is whether a pass has finished, so a turn end the first pass finds counts as old.
 	hasPassed bool
 	now       func() time.Time
@@ -47,12 +49,12 @@ type trackedAgent struct {
 
 // newTally builds an empty tally over the wall clock.
 func newTally() *tally {
-	return &tally{tracked: map[string]trackedAgent{}, now: time.Now}
+	return &tally{tracked: map[uuid.UUID]trackedAgent{}, now: time.Now}
 }
 
 // read is what earlier passes accrued about an agent, the zero value standing for an agent
 // with no record yet.
-func (t *tally) read(agentID string) trackedAgent {
+func (t *tally) read(agentID uuid.UUID) trackedAgent {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -61,7 +63,7 @@ func (t *tally) read(agentID string) trackedAgent {
 
 // update hands fn what earlier passes accrued about an agent and keeps whatever it leaves,
 // starting an entry when there is none.
-func (t *tally) update(agentID string, fn func(*trackedAgent)) {
+func (t *tally) update(agentID uuid.UUID, fn func(*trackedAgent)) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -72,7 +74,7 @@ func (t *tally) update(agentID string, fn func(*trackedAgent)) {
 
 // updateExisting is update for the clears, which write nothing for an agent no pass has recorded
 // anything about.
-func (t *tally) updateExisting(agentID string, fn func(*trackedAgent)) {
+func (t *tally) updateExisting(agentID uuid.UUID, fn func(*trackedAgent)) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -114,7 +116,7 @@ func (t *tally) hasFreshTurnEnd(agent agentstore.Agent) bool {
 	return entry.turnEnd.Equal(*agent.Turn.EndedAt) && t.now().Sub(entry.turnEndSeen) < turnEndGrace
 }
 
-func (t *tally) recordMiss(agentID string, state agentstore.State) int {
+func (t *tally) recordMiss(agentID uuid.UUID, state agentstore.State) int {
 	misses := 0
 	t.update(agentID, func(entry *trackedAgent) {
 		if entry.missesToward != state {
@@ -128,7 +130,7 @@ func (t *tally) recordMiss(agentID string, state agentstore.State) int {
 	return misses
 }
 
-func (t *tally) clearMisses(agentID string) {
+func (t *tally) clearMisses(agentID uuid.UUID) {
 	t.updateExisting(agentID, func(entry *trackedAgent) {
 		entry.misses = 0
 		entry.missesToward = ""
@@ -137,7 +139,7 @@ func (t *tally) clearMisses(agentID string) {
 
 // clearDebounce drops what an agent had accrued towards a transition once a pass decides one,
 // leaving the frame hash and the turn end.
-func (t *tally) clearDebounce(agentID string) {
+func (t *tally) clearDebounce(agentID uuid.UUID) {
 	t.updateExisting(agentID, func(entry *trackedAgent) {
 		entry.misses = 0
 		entry.missesToward = ""
@@ -149,7 +151,7 @@ func (t *tally) clearDebounce(agentID string) {
 
 // isAbsenceDoubted reports whether a pane the listing left out is to be waited on rather than
 // forgotten, which holds until enough listings in a row have agreed the pane is gone.
-func (t *tally) isAbsenceDoubted(agentID string, inListing bool) bool {
+func (t *tally) isAbsenceDoubted(agentID uuid.UUID, inListing bool) bool {
 	if inListing {
 		t.updateExisting(agentID, func(entry *trackedAgent) { entry.listingsMissing = 0 })
 
@@ -167,7 +169,7 @@ func (t *tally) isAbsenceDoubted(agentID string, inListing bool) bool {
 
 // hasShellGraceElapsed reports whether an agent's pane has been showing a bare shell for longer
 // than the grace a CLI gets to start, noting the first sighting when this is one.
-func (t *tally) hasShellGraceElapsed(agentID string) bool {
+func (t *tally) hasShellGraceElapsed(agentID uuid.UUID) bool {
 	elapsed := false
 	t.update(agentID, func(entry *trackedAgent) {
 		if entry.shellSince.IsZero() {
@@ -182,13 +184,13 @@ func (t *tally) hasShellGraceElapsed(agentID string) bool {
 	return elapsed
 }
 
-func (t *tally) clearShell(agentID string) {
+func (t *tally) clearShell(agentID uuid.UUID) {
 	t.updateExisting(agentID, func(entry *trackedAgent) { entry.shellSince = time.Time{} })
 }
 
 // isUnrecognizedHeld records the frame an agent is sitting on and reports whether it differing
 // from the one before is still reason to wait rather than demote.
-func (t *tally) isUnrecognizedHeld(agentID string, hash uint64) bool {
+func (t *tally) isUnrecognizedHeld(agentID uuid.UUID, hash uint64) bool {
 	held := false
 	t.update(agentID, func(entry *trackedAgent) {
 		changed := entry.frameHashSeen && hash != entry.frameHash
@@ -213,11 +215,11 @@ func (t *tally) markPassed() {
 }
 
 // prune forgets the agents the store no longer holds.
-func (t *tally) prune(known map[string]struct{}) {
+func (t *tally) prune(known map[uuid.UUID]struct{}) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	maps.DeleteFunc(t.tracked, func(id string, _ trackedAgent) bool {
+	maps.DeleteFunc(t.tracked, func(id uuid.UUID, _ trackedAgent) bool {
 		_, stillKnown := known[id]
 
 		return !stillKnown

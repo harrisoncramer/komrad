@@ -16,6 +16,7 @@ import (
 	forgev1 "komrad/proto/gen/forge/v1"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -173,7 +174,12 @@ func gitlabToken(ctx context.Context, state *app, host string) (*forgev1.Forge, 
 		return nil, forge.Secret{}, errNoGitLabConnection.Saying("%s is not connected as a gitlab forge with a token", host)
 	}
 
-	token, err := forge.NewFileStore(state.env.StateDir).Get(ctx, connection.GetId())
+	connectionID, err := uuid.Parse(connection.GetId())
+	if err != nil {
+		return nil, forge.Secret{}, fmt.Errorf("failed to read forge connection id %q: %w", connection.GetId(), err)
+	}
+
+	token, err := forge.NewFileStore(state.env.StateDir).Get(ctx, connectionID)
 	if err != nil {
 		return nil, forge.Secret{}, err
 	}

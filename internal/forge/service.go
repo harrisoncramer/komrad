@@ -13,6 +13,8 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/store"
 	forgestore "komrad/internal/store/forge"
+
+	"github.com/google/uuid"
 )
 
 // The kinds of trouble a check reports.
@@ -276,7 +278,7 @@ func (s *Service) Connect(ctx context.Context, params ConnectParams) (*forgestor
 }
 
 // keepCredential stores what a new connection sends the forge, which an App mints rather than keeps.
-func (s *Service) keepCredential(ctx context.Context, build Builder, params ConnectParams, connectionID string) error {
+func (s *Service) keepCredential(ctx context.Context, build Builder, params ConnectParams, connectionID uuid.UUID) error {
 	switch params.Method {
 	case MethodToken:
 		return s.credentials.Set(ctx, connectionID, params.Token)
@@ -524,7 +526,7 @@ func (s *Service) HasCredential(ctx context.Context, connection forgestore.Conne
 }
 
 // SetThrottledUntil records when a connection's forge said its rate limit resets, or clears it.
-func (s *Service) SetThrottledUntil(ctx context.Context, id string, until *time.Time) error {
+func (s *Service) SetThrottledUntil(ctx context.Context, id uuid.UUID, until *time.Time) error {
 	return s.connections.SetThrottledUntil(ctx, id, until)
 }
 

@@ -27,7 +27,7 @@ func TestACommentGoesToTheWriterAtOnce(t *testing.T) {
 	require.Len(t, rung, 1)
 	assert.Equal(t, mailstore.KindReviewComment, rung[0].Kind)
 	assert.Equal(t, []string{eventprompts.ReviewCommentedByPerson}, rung[0].Events)
-	assert.Contains(t, rung[0].Body, "the person commented on snapshot 1 at greet.go:41, thread "+written.Thread.ID)
+	assert.Contains(t, rung[0].Body, "the person commented on snapshot 1 at greet.go:41, thread "+written.Thread.ID.String())
 	assert.Contains(t, rung[0].Body, "+\tgreet(nil)")
 	assert.Contains(t, rung[0].Body, "this needs a nil check")
 	require.Len(t, written.Messages, 1)
@@ -105,7 +105,7 @@ func TestARemarkOnTheWholeChange(t *testing.T) {
 	assert.Empty(t, written.Thread.FilePath)
 	rung := fx.listMail(t, fx.writer.ID)
 	require.Len(t, rung, 1)
-	assert.Contains(t, rung[0].Body, "the person commented on the whole change as of snapshot 1, thread "+written.Thread.ID)
+	assert.Contains(t, rung[0].Body, "the person commented on the whole change as of snapshot 1, thread "+written.Thread.ID.String())
 }
 
 // TestReadMail pins that reading mail with a comment waiting takes the snapshot the comment is
@@ -255,7 +255,7 @@ func (fx *reviewFixture) sendPlainMail(t *testing.T) {
 	_, err := fx.service.mailer.SendFromKomrad(t.Context(), mail.SendFromKomradParams{
 		ToAgentID: fx.writer.ID,
 		Mail:      eventprompts.ThreadAnswered{WriterName: "waiting"},
-		SubjectID: uuid.NewString(),
+		SubjectID: uuid.New(),
 	})
 	require.NoError(t, err)
 }

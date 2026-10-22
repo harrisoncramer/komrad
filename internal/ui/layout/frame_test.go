@@ -9,6 +9,7 @@ import (
 	"komrad/internal/engine"
 	"komrad/internal/panes"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -525,7 +526,7 @@ func TestFrameClaimedForgetsWhatWasRendered(t *testing.T) {
 func TestFrameAttachReclaimsTheWindow(t *testing.T) {
 	tmux := &recordingTmux{
 		siblings: []string{agentPane, otherPane},
-		owners:   map[string]string{agentPane: "019fbb22-3735-71a9-ad83-acf4aa537acb"},
+		owners:   map[string]uuid.UUID{agentPane: uuid.MustParse("019fbb22-3735-71a9-ad83-acf4aa537acb")},
 	}
 
 	New(tmux, config.Layout{SidebarWidth: 40}).Attach(sidebarPane)
@@ -1421,7 +1422,7 @@ type recordingTmux struct {
 	respawnPanes []string
 	respawnDirs  []string
 	siblings     []string
-	owners       map[string]string
+	owners       map[string]uuid.UUID
 	broken       []string
 	killed       []string
 	deadPanes    map[string]bool
@@ -1530,8 +1531,8 @@ func (t *recordingTmux) RespawnPane(pane, dir string, argv ...string) {
 	t.respawnDirs = append(t.respawnDirs, dir)
 }
 
-func (t *recordingTmux) GetSiblingPanes(string) []string { return t.siblings }
-func (t *recordingTmux) GetPaneOwner(pane string) string { return t.owners[pane] }
+func (t *recordingTmux) GetSiblingPanes(string) []string    { return t.siblings }
+func (t *recordingTmux) GetPaneOwner(pane string) uuid.UUID { return t.owners[pane] }
 
 func (t *recordingTmux) BreakPane(pane string) {
 	t.broken = append(t.broken, pane)

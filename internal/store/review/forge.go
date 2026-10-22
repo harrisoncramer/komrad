@@ -6,14 +6,15 @@ import (
 	"time"
 
 	"komrad/db/models"
-	"komrad/internal/store"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // OpenForgeReviewParams is one forge reviewer's comments from one sync, gathered into a review.
 type OpenForgeReviewParams struct {
-	TaskID     string
-	SnapshotID string
+	TaskID     uuid.UUID
+	SnapshotID uuid.UUID
 	// Login is the forge login of whoever wrote the comments.
 	Login string
 }
@@ -36,7 +37,7 @@ func (s *ReviewStore) OpenForgeReview(ctx context.Context, params OpenForgeRevie
 
 // UpdateForgeMessageParams is a forge comment's edit.
 type UpdateForgeMessageParams struct {
-	ID       string
+	ID       uuid.UUID
 	Body     string
 	EditedAt *time.Time
 	// Held is whether the author could not write to the repository when they made the edit.
@@ -59,7 +60,7 @@ func (s *ReviewStore) UpdateForgeMessage(ctx context.Context, params UpdateForge
 }
 
 // SetForgeResolved records whether the forge last said a mirrored thread was resolved.
-func (s *ReviewStore) SetForgeResolved(ctx context.Context, threadID string, resolved bool) error {
+func (s *ReviewStore) SetForgeResolved(ctx context.Context, threadID uuid.UUID, resolved bool) error {
 	err := s.queries.SetForgeThreadResolved(ctx, models.SetForgeThreadResolvedParams{
 		ID:            threadID,
 		ForgeResolved: resolved,
@@ -73,24 +74,20 @@ func (s *ReviewStore) SetForgeResolved(ctx context.Context, threadID string, res
 
 // ForgeMirrored is a thread mirrored from the forge with one of the forge comments in it.
 type ForgeMirrored struct {
-	ThreadID       string
-	ForgeThreadID  string
+	ThreadID       uuid.UUID
+	ForgeThreadID  uuid.UUID
 	ResolvedAt     *time.Time
 	ResolvedByKind AuthorKind
 	// ForgeResolved is whether the forge said the thread was resolved as of the last sync.
 	ForgeResolved bool
 	// MessageID is nil on a thread whose forge comments have all been deleted.
-	MessageID      *string
-	ForgeCommentID *string
+	MessageID      *uuid.UUID
+	ForgeCommentID *uuid.UUID
 	ForgeEditedAt  *time.Time
 }
 
 // ListForgeMirrored is every forge comment already mirrored onto a task, by thread.
-func (s *ReviewStore) ListForgeMirrored(ctx context.Context, taskID string) ([]ForgeMirrored, error) {
-	if !store.IsID(taskID) {
-		return nil, nil
-	}
-
+func (s *ReviewStore) ListForgeMirrored(ctx context.Context, taskID uuid.UUID) ([]ForgeMirrored, error) {
 	rows, err := s.queries.ListForgeMirroredMessages(ctx, taskID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the forge comments mirrored onto task %q: %w", taskID, err)
@@ -112,20 +109,16 @@ func (s *ReviewStore) ListForgeMirrored(ctx context.Context, taskID string) ([]F
 
 // ForgeMirrorTarget is a task on a pull request that receives mirrored forge comments.
 type ForgeMirrorTarget struct {
-	TaskID string
+	TaskID uuid.UUID
 	// Cwd is the task's checkout, where comments are traced to its latest snapshot.
 	Cwd         string
-	SnapshotID  string
+	SnapshotID  uuid.UUID
 	BaseSHA     string
 	SnapshotSHA string
 }
 
 // ListForgeMirrorTargets is every task with a live agent on a pull request that has a snapshot to mirror onto.
-func (s *ReviewStore) ListForgeMirrorTargets(ctx context.Context, pullRequestID string) ([]ForgeMirrorTarget, error) {
-	if !store.IsID(pullRequestID) {
-		return nil, nil
-	}
-
+func (s *ReviewStore) ListForgeMirrorTargets(ctx context.Context, pullRequestID uuid.UUID) ([]ForgeMirrorTarget, error) {
 	rows, err := s.queries.ListForgeMirrorTasks(ctx, pullRequestID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the agents on pull request %q: %w", pullRequestID, err)

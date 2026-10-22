@@ -7,6 +7,8 @@ package models
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
 
 const clearAbandonedWorkflowsDeleting = `-- name: ClearAbandonedWorkflowsDeleting :exec
@@ -40,11 +42,11 @@ RETURNING
 `
 
 type DeleteWorkflowRow struct {
-	WorkflowConfigID    string
-	ProvisionerConfigID string
+	WorkflowConfigID    uuid.UUID
+	ProvisionerConfigID uuid.UUID
 }
 
-func (q *Queries) DeleteWorkflow(ctx context.Context, id string) (*DeleteWorkflowRow, error) {
+func (q *Queries) DeleteWorkflow(ctx context.Context, id uuid.UUID) (*DeleteWorkflowRow, error) {
 	row := q.db.QueryRow(ctx, deleteWorkflow, id)
 	var i DeleteWorkflowRow
 	err := row.Scan(&i.WorkflowConfigID, &i.ProvisionerConfigID)
@@ -56,7 +58,7 @@ DELETE FROM workflow_configs
 WHERE id = $1
 `
 
-func (q *Queries) DeleteWorkflowConfig(ctx context.Context, id string) error {
+func (q *Queries) DeleteWorkflowConfig(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteWorkflowConfig, id)
 	return err
 }
@@ -66,7 +68,7 @@ DELETE FROM workflow_event_prompts
 WHERE workflow_id = $1
 `
 
-func (q *Queries) DeleteWorkflowEventPrompts(ctx context.Context, workflowID string) error {
+func (q *Queries) DeleteWorkflowEventPrompts(ctx context.Context, workflowID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteWorkflowEventPrompts, workflowID)
 	return err
 }
@@ -76,7 +78,7 @@ DELETE FROM workflow_hooks
 WHERE workflow_id = $1
 `
 
-func (q *Queries) DeleteWorkflowHooks(ctx context.Context, workflowID string) error {
+func (q *Queries) DeleteWorkflowHooks(ctx context.Context, workflowID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteWorkflowHooks, workflowID)
 	return err
 }
@@ -86,7 +88,7 @@ DELETE FROM workflow_provisioner_configs
 WHERE id = $1
 `
 
-func (q *Queries) DeleteWorkflowProvisionerConfig(ctx context.Context, id string) error {
+func (q *Queries) DeleteWorkflowProvisionerConfig(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteWorkflowProvisionerConfig, id)
 	return err
 }
@@ -108,7 +110,7 @@ LIMIT 1
 `
 
 type GetWorkflowParams struct {
-	ID              string
+	ID              uuid.UUID
 	IncludeArchived bool
 }
 
@@ -174,8 +176,8 @@ RETURNING
 type InsertWorkflowParams struct {
 	Name                string
 	Context             string
-	WorkflowConfigID    string
-	ProvisionerConfigID string
+	WorkflowConfigID    uuid.UUID
+	ProvisionerConfigID uuid.UUID
 }
 
 func (q *Queries) InsertWorkflow(ctx context.Context, arg InsertWorkflowParams) (*Workflow, error) {
@@ -263,7 +265,7 @@ VALUES (
 `
 
 type InsertWorkflowHookParams struct {
-	WorkflowID string
+	WorkflowID uuid.UUID
 	Event      string
 	Script     string
 	Position   int32
@@ -295,7 +297,7 @@ VALUES (
 `
 
 type InsertWorkflowPromptParams struct {
-	WorkflowID string
+	WorkflowID uuid.UUID
 	Event      string
 	Prompt     string
 	Position   int32
@@ -390,7 +392,7 @@ type ListEventPromptsForWorkflowRow struct {
 	Muted  bool
 }
 
-func (q *Queries) ListEventPromptsForWorkflow(ctx context.Context, workflowID string) ([]*ListEventPromptsForWorkflowRow, error) {
+func (q *Queries) ListEventPromptsForWorkflow(ctx context.Context, workflowID uuid.UUID) ([]*ListEventPromptsForWorkflowRow, error) {
 	rows, err := q.db.Query(ctx, listEventPromptsForWorkflow, workflowID)
 	if err != nil {
 		return nil, err
@@ -426,13 +428,13 @@ ORDER BY
 `
 
 type ListEventPromptsForWorkflowsRow struct {
-	WorkflowID string
+	WorkflowID uuid.UUID
 	Event      string
 	Prompt     string
 	Muted      bool
 }
 
-func (q *Queries) ListEventPromptsForWorkflows(ctx context.Context, workflowIds []string) ([]*ListEventPromptsForWorkflowsRow, error) {
+func (q *Queries) ListEventPromptsForWorkflows(ctx context.Context, workflowIds []uuid.UUID) ([]*ListEventPromptsForWorkflowsRow, error) {
 	rows, err := q.db.Query(ctx, listEventPromptsForWorkflows, workflowIds)
 	if err != nil {
 		return nil, err
@@ -475,7 +477,7 @@ type ListHooksForWorkflowRow struct {
 	Script string
 }
 
-func (q *Queries) ListHooksForWorkflow(ctx context.Context, workflowID string) ([]*ListHooksForWorkflowRow, error) {
+func (q *Queries) ListHooksForWorkflow(ctx context.Context, workflowID uuid.UUID) ([]*ListHooksForWorkflowRow, error) {
 	rows, err := q.db.Query(ctx, listHooksForWorkflow, workflowID)
 	if err != nil {
 		return nil, err
@@ -511,12 +513,12 @@ ORDER BY
 `
 
 type ListHooksForWorkflowsRow struct {
-	WorkflowID string
+	WorkflowID uuid.UUID
 	Event      string
 	Script     string
 }
 
-func (q *Queries) ListHooksForWorkflows(ctx context.Context, workflowIds []string) ([]*ListHooksForWorkflowsRow, error) {
+func (q *Queries) ListHooksForWorkflows(ctx context.Context, workflowIds []uuid.UUID) ([]*ListHooksForWorkflowsRow, error) {
 	rows, err := q.db.Query(ctx, listHooksForWorkflows, workflowIds)
 	if err != nil {
 		return nil, err
@@ -547,7 +549,7 @@ FROM
     JOIN workflow_provisioner_configs pc ON pc.id = w.provisioner_config_id
 WHERE
     w.deleting_at IS NULL
-    AND ($1::text[] IS NULL
+    AND ($1::uuid[] IS NULL
         OR w.id = ANY ($1::uuid[]))
 ORDER BY
     LOWER(w.name)
@@ -561,7 +563,7 @@ type ListWatchedWorkflowsRow struct {
 	WorkflowProvisionerConfig WorkflowProvisionerConfig
 }
 
-func (q *Queries) ListWatchedWorkflows(ctx context.Context, keys []string) ([]*ListWatchedWorkflowsRow, error) {
+func (q *Queries) ListWatchedWorkflows(ctx context.Context, keys []uuid.UUID) ([]*ListWatchedWorkflowsRow, error) {
 	rows, err := q.db.Query(ctx, listWatchedWorkflows, keys)
 	if err != nil {
 		return nil, err
@@ -634,12 +636,12 @@ LIMIT $4
 
 type ListWorkflowPageIDsParams struct {
 	Archived   bool
-	CursorID   *string
+	CursorID   *uuid.UUID
 	CursorName *string
 	Lim        int32
 }
 
-func (q *Queries) ListWorkflowPageIDs(ctx context.Context, arg ListWorkflowPageIDsParams) ([]string, error) {
+func (q *Queries) ListWorkflowPageIDs(ctx context.Context, arg ListWorkflowPageIDsParams) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, listWorkflowPageIDs,
 		arg.Archived,
 		arg.CursorID,
@@ -650,9 +652,9 @@ func (q *Queries) ListWorkflowPageIDs(ctx context.Context, arg ListWorkflowPageI
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []uuid.UUID
 	for rows.Next() {
-		var id string
+		var id uuid.UUID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -714,7 +716,7 @@ WHERE
     w.id = prior.id
 `
 
-func (q *Queries) MarkWorkflowArchived(ctx context.Context, id string) error {
+func (q *Queries) MarkWorkflowArchived(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markWorkflowArchived, id)
 	return err
 }
@@ -728,7 +730,7 @@ WHERE
     id = $1
 `
 
-func (q *Queries) MarkWorkflowRestored(ctx context.Context, id string) error {
+func (q *Queries) MarkWorkflowRestored(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markWorkflowRestored, id)
 	return err
 }
@@ -744,7 +746,7 @@ WHERE
 
 type RenameWorkflowParams struct {
 	Name string
-	ID   string
+	ID   uuid.UUID
 }
 
 func (q *Queries) RenameWorkflow(ctx context.Context, arg RenameWorkflowParams) error {
@@ -763,7 +765,7 @@ WHERE
 
 type SetWorkflowContextParams struct {
 	Context string
-	ID      string
+	ID      uuid.UUID
 }
 
 func (q *Queries) SetWorkflowContext(ctx context.Context, arg SetWorkflowContextParams) error {
@@ -800,7 +802,7 @@ type SetWorkflowProvisionerParams struct {
 	WorktreeCopyPaths    []string
 	WorktreeSymlinkPaths []string
 	WorktreeDiffExclude  []string
-	WorkflowID           string
+	WorkflowID           uuid.UUID
 }
 
 func (q *Queries) SetWorkflowProvisioner(ctx context.Context, arg SetWorkflowProvisionerParams) error {
@@ -842,7 +844,7 @@ type UpdateWorkflowConfigParams struct {
 	Flags           string
 	ReviewerHarness string
 	ReviewerFlags   string
-	WorkflowID      string
+	WorkflowID      uuid.UUID
 }
 
 func (q *Queries) UpdateWorkflowConfig(ctx context.Context, arg UpdateWorkflowConfigParams) error {

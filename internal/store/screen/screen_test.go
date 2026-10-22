@@ -10,6 +10,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	screenstore "komrad/internal/store/screen"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -98,21 +99,17 @@ func TestUpsertRefusesAScreenWithNoSize(t *testing.T) {
 func TestGet(t *testing.T) {
 	tests := []struct {
 		name    string
-		agentID func(st *storetest.Stores) string
+		agentID func(st *storetest.Stores) uuid.UUID
 	}{
 		{
-			name:    "an id that is not an id",
-			agentID: func(*storetest.Stores) string { return "not-an-id" },
-		},
-		{
 			name: "an agent that never saved a screen",
-			agentID: func(st *storetest.Stores) string {
+			agentID: func(st *storetest.Stores) uuid.UUID {
 				return st.SeedAgent(t, agentstore.Agent{Name: "quiet"}).ID
 			},
 		},
 		{
 			name: "an agent deleted after it saved one",
-			agentID: func(st *storetest.Stores) string {
+			agentID: func(st *storetest.Stores) uuid.UUID {
 				agent := st.SeedAgent(t, agentstore.Agent{Name: "gone"})
 				require.NoError(t, st.Screens.Upsert(t.Context(), screenstore.UpsertParams{
 					AgentID: agent.ID,
@@ -120,7 +117,7 @@ func TestGet(t *testing.T) {
 					Width:   80,
 					Height:  24,
 				}))
-				_, err := st.Agents.Delete(t.Context(), []string{agent.ID})
+				_, err := st.Agents.Delete(t.Context(), []uuid.UUID{agent.ID})
 				require.NoError(t, err)
 
 				return agent.ID

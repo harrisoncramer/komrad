@@ -12,6 +12,7 @@ import (
 	documentstore "komrad/internal/store/document"
 	mailstore "komrad/internal/store/mail"
 
+	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 )
 
@@ -19,7 +20,7 @@ const personWroteTopic = "document_written_by_person"
 
 // personWrote is a person writing a document an agent owns.
 type personWrote struct {
-	DocumentID string `json:"document_id"`
+	DocumentID uuid.UUID `json:"document_id"`
 }
 
 // Topic names the handler that tells the document's owner.

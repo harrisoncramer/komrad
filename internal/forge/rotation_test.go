@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"komrad/internal/store"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -225,7 +227,7 @@ func TestConnectWithARotatingTokenRefusals(t *testing.T) {
 			require.NoError(t, err)
 			assert.Empty(t, listed)
 
-			files, err := os.ReadDir(f.credentials.Path(""))
+			files, err := os.ReadDir(filepath.Dir(f.credentials.Path(uuid.New())))
 			if !errors.Is(err, os.ErrNotExist) {
 				require.NoError(t, err)
 			}

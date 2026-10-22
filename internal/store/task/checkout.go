@@ -10,6 +10,8 @@ import (
 	"komrad/internal/store"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // Sequence is what git has part-way through a task's checkout.
@@ -124,17 +126,13 @@ func worktreeRemovalReasonParam(reason WorktreeRemovalReason) models.NullWorktre
 
 // ClaimCheckoutParams is how a launch is to make a task's checkout.
 type ClaimCheckoutParams struct {
-	ID            string
+	ID            uuid.UUID
 	AdoptedBranch string
 	RepositoryURL string
 }
 
 // ClaimCheckout records how a launch is to make a task's checkout, reporting false when the task already has one.
 func (s *TaskStore) ClaimCheckout(ctx context.Context, params ClaimCheckoutParams) (bool, error) {
-	if !store.IsID(params.ID) {
-		return false, fmt.Errorf("%w: task %q", store.ErrNotFound, params.ID)
-	}
-
 	claimed, err := s.queries.ClaimTaskCheckout(ctx, models.ClaimTaskCheckoutParams{
 		ID:            params.ID,
 		AdoptedBranch: xptr.NonEmpty(params.AdoptedBranch),
@@ -149,11 +147,7 @@ func (s *TaskStore) ClaimCheckout(ctx context.Context, params ClaimCheckoutParam
 
 // ClaimCheckoutAgain claims a task's checkout again on the terms its last claim made, reporting false
 // when the task already has one.
-func (s *TaskStore) ClaimCheckoutAgain(ctx context.Context, id string) (bool, error) {
-	if !store.IsID(id) {
-		return false, fmt.Errorf("%w: task %q", store.ErrNotFound, id)
-	}
-
+func (s *TaskStore) ClaimCheckoutAgain(ctx context.Context, id uuid.UUID) (bool, error) {
 	claimed, err := s.queries.ClaimTaskCheckoutAgain(ctx, id)
 	if err != nil {
 		return false, fmt.Errorf("failed to claim the checkout of task %q again: %w", id, err)
@@ -163,11 +157,7 @@ func (s *TaskStore) ClaimCheckoutAgain(ctx context.Context, id string) (bool, er
 }
 
 // ReleaseCheckout gives up the claim on a task's checkout, leaving it free for another launch.
-func (s *TaskStore) ReleaseCheckout(ctx context.Context, id string) error {
-	if !store.IsID(id) {
-		return fmt.Errorf("%w: task %q", store.ErrNotFound, id)
-	}
-
+func (s *TaskStore) ReleaseCheckout(ctx context.Context, id uuid.UUID) error {
 	if err := s.queries.ReleaseTaskCheckout(ctx, id); err != nil {
 		return fmt.Errorf("failed to release the checkout of task %q: %w", id, err)
 	}
@@ -176,11 +166,7 @@ func (s *TaskStore) ReleaseCheckout(ctx context.Context, id string) error {
 }
 
 // SetCheckoutDir records the directory a launch provisioned for a task.
-func (s *TaskStore) SetCheckoutDir(ctx context.Context, id, cwd string) error {
-	if !store.IsID(id) {
-		return fmt.Errorf("%w: task %q", store.ErrNotFound, id)
-	}
-
+func (s *TaskStore) SetCheckoutDir(ctx context.Context, id uuid.UUID, cwd string) error {
 	if err := s.queries.SetTaskCheckoutDir(ctx, models.SetTaskCheckoutDirParams{
 		ID:  id,
 		Cwd: xptr.NonEmpty(cwd),
@@ -205,11 +191,7 @@ type SetHeadParams struct {
 }
 
 // SetHead records what the cwd syncer read of a task's checkout.
-func (s *TaskStore) SetHead(ctx context.Context, id string, params SetHeadParams) error {
-	if !store.IsID(id) {
-		return fmt.Errorf("%w: task %q", store.ErrNotFound, id)
-	}
-
+func (s *TaskStore) SetHead(ctx context.Context, id uuid.UUID, params SetHeadParams) error {
 	if err := s.queries.SetTaskHead(ctx, models.SetTaskHeadParams{
 		ID:                    id,
 		Branch:                params.Branch,
@@ -226,11 +208,7 @@ func (s *TaskStore) SetHead(ctx context.Context, id string, params SetHeadParams
 }
 
 // SetSequence records what git has part-way through a task's checkout.
-func (s *TaskStore) SetSequence(ctx context.Context, id string, sequence Sequence) error {
-	if !store.IsID(id) {
-		return fmt.Errorf("%w: task %q", store.ErrNotFound, id)
-	}
-
+func (s *TaskStore) SetSequence(ctx context.Context, id uuid.UUID, sequence Sequence) error {
 	if err := s.queries.SetTaskSequence(ctx, models.SetTaskSequenceParams{
 		ID:       id,
 		Sequence: sequenceParam(sequence),
@@ -243,11 +221,7 @@ func (s *TaskStore) SetSequence(ctx context.Context, id string, sequence Sequenc
 
 // SetMovedSinceSnapshot records the newest snapshot's commit a task's checkout has moved away from,
 // or clears it with an empty one.
-func (s *TaskStore) SetMovedSinceSnapshot(ctx context.Context, id, snapshotSHA string) error {
-	if !store.IsID(id) {
-		return fmt.Errorf("%w: task %q", store.ErrNotFound, id)
-	}
-
+func (s *TaskStore) SetMovedSinceSnapshot(ctx context.Context, id uuid.UUID, snapshotSHA string) error {
 	if err := s.queries.SetTaskMovedSinceSnapshot(ctx, models.SetTaskMovedSinceSnapshotParams{
 		ID:                 id,
 		MovedSinceSnapshot: &snapshotSHA,
@@ -259,11 +233,7 @@ func (s *TaskStore) SetMovedSinceSnapshot(ctx context.Context, id, snapshotSHA s
 }
 
 // SetDiffStat records the lines a task's checkout adds and removes, or clears them with nil.
-func (s *TaskStore) SetDiffStat(ctx context.Context, id string, stat *DiffStat) error {
-	if !store.IsID(id) {
-		return fmt.Errorf("%w: task %q", store.ErrNotFound, id)
-	}
-
+func (s *TaskStore) SetDiffStat(ctx context.Context, id uuid.UUID, stat *DiffStat) error {
 	params := models.SetTaskDiffStatParams{ID: id}
 	if stat != nil {
 		params.LinesAdded, params.LinesRemoved = xptr.Ptr(int32(stat.Added)), xptr.Ptr(int32(stat.Removed))
@@ -277,11 +247,7 @@ func (s *TaskStore) SetDiffStat(ctx context.Context, id string, stat *DiffStat) 
 }
 
 // SetLastRebase records what the latest rebase of a task's checkout came to.
-func (s *TaskStore) SetLastRebase(ctx context.Context, id string, rebase json.RawMessage) error {
-	if !store.IsID(id) {
-		return fmt.Errorf("%w: task %q", store.ErrNotFound, id)
-	}
-
+func (s *TaskStore) SetLastRebase(ctx context.Context, id uuid.UUID, rebase json.RawMessage) error {
 	if err := s.queries.SetTaskLastRebase(ctx, models.SetTaskLastRebaseParams{ID: id, LastRebase: rebase}); err != nil {
 		return fmt.Errorf("failed to set the last rebase of task %q: %w", id, err)
 	}
@@ -290,11 +256,7 @@ func (s *TaskStore) SetLastRebase(ctx context.Context, id string, rebase json.Ra
 }
 
 // GetLastRebase reads what the latest rebase of a task's checkout came to, nil when it was never rebased.
-func (s *TaskStore) GetLastRebase(ctx context.Context, id string) (json.RawMessage, error) {
-	if !store.IsID(id) {
-		return nil, fmt.Errorf("%w: task %q", store.ErrNotFound, id)
-	}
-
+func (s *TaskStore) GetLastRebase(ctx context.Context, id uuid.UUID) (json.RawMessage, error) {
 	rebase, err := s.queries.GetTaskLastRebase(ctx, id)
 	if db.IsNoRows(err) {
 		return nil, fmt.Errorf("%w: task %q", store.ErrNotFound, id)
@@ -318,15 +280,14 @@ func (s *TaskStore) ListCheckouts(ctx context.Context) ([]Task, error) {
 }
 
 // ListByID returns the tasks among ids, archived or not.
-func (s *TaskStore) ListByID(ctx context.Context, ids []string) ([]Task, error) {
-	storable := store.KeepIDs(ids)
-	if len(storable) == 0 {
+func (s *TaskStore) ListByID(ctx context.Context, ids []uuid.UUID) ([]Task, error) {
+	if len(ids) == 0 {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListTasksByID(ctx, storable)
+	rows, err := s.queries.ListTasksByID(ctx, ids)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list %d tasks: %w", len(storable), err)
+		return nil, fmt.Errorf("failed to list %d tasks: %w", len(ids), err)
 	}
 
 	return xslice.Map(rows, func(row *models.ListTasksByIDRow) Task { return fromCountedRow(&row.Task, row.Snapshots) }), nil

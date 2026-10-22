@@ -9,7 +9,9 @@
 package store
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -17,7 +19,6 @@ import (
 	"komrad/db/migrator"
 	"komrad/db/models"
 	"komrad/internal/fail"
-	"komrad/lib/xslice"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -46,7 +47,7 @@ type Pool struct {
 
 // Engine is the engine a pool's login belongs to.
 type Engine struct {
-	ID   string
+	ID   uuid.UUID
 	Name string
 }
 
@@ -56,13 +57,13 @@ var ErrNotAnEngine = fail.Precondition(
 
 // IDCursor pages a listing that resumes from one row's id.
 type IDCursor struct {
-	ID string `json:"i"`
+	ID uuid.UUID `json:"i"`
 }
 
 // Validate refuses a cursor holding anything but an id.
 func (c IDCursor) Validate() error {
-	if !IsID(c.ID) {
-		return fmt.Errorf("cursor id %q is not an id", c.ID)
+	if c.ID == uuid.Nil {
+		return errors.New("cursor names no row")
 	}
 
 	return nil
@@ -182,7 +183,7 @@ func openOwner(ctx context.Context, url string) (*pgxpool.Pool, error) {
 }
 
 // OpenReadOnly opens a read-only pool as engineID's reader login, for the MCP endpoint and anything else that must never write.
-func OpenReadOnly(ctx context.Context, url, engineID string) (*pgxpool.Pool, error) {
+func OpenReadOnly(ctx context.Context, url string, engineID uuid.UUID) (*pgxpool.Pool, error) {
 	// It takes a url of its own because a read-only transaction stops writes and nothing
 	// else, so the role that url connects as decides everything a statement can read.
 	if url == "" {
@@ -234,7 +235,7 @@ func parseConfig(url string, maxConns int32) (*pgxpool.Config, error) {
 var ErrNotThisEnginesReader = fail.Precondition(
 	"the read-only database url must name this engine's reader login, which komrad engine ensure creates")
 
-func checkReader(ctx context.Context, pool *pgxpool.Pool, engineID string) error {
+func checkReader(ctx context.Context, pool *pgxpool.Pool, engineID uuid.UUID) error {
 	identity, err := models.New(pool).GetReaderIdentity(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to read who the read-only login is: %w", err)
@@ -247,7 +248,7 @@ func checkReader(ctx context.Context, pool *pgxpool.Pool, engineID string) error
 		return fmt.Errorf("%w: it bypasses row security, which would show it every engine's rows", ErrNotThisEnginesReader)
 	case !identity.Reader:
 		return fmt.Errorf("%w: it is not a reader login", ErrNotThisEnginesReader)
-	case identity.EngineID != engineID:
+	case identity.EngineID != engineID.String():
 		return fmt.Errorf("%w: it belongs to another engine", ErrNotThisEnginesReader)
 	}
 
@@ -301,25 +302,19 @@ func (p *Pool) InTx(ctx context.Context, fn func(DBTX) error) error {
 	return nil
 }
 
-// IsID reports whether a string could be one of the ids these stores hand out.
-func IsID(id string) bool {
-	_, err := uuid.Parse(id)
-	return err == nil
-}
-
-// KeepIDs drops every string that could not be one of the ids these stores hand out.
-func KeepIDs(ids []string) []string {
-	return xslice.Filter(ids, IsID)
-}
-
 // NewID mints a row id the same way the columns' own uuidv7() default does.
-func NewID() (string, error) {
+func NewID() (uuid.UUID, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
-		return "", fmt.Errorf("failed to mint an id: %w", err)
+		return uuid.Nil, fmt.Errorf("failed to mint an id: %w", err)
 	}
 
-	return id.String(), nil
+	return id, nil
+}
+
+// CompareIDs orders two ids by when they were minted, as uuidv7 holds its time in its leading bytes.
+func CompareIDs(a, b uuid.UUID) int {
+	return bytes.Compare(a[:], b[:])
 }
 
 const maxFailureReasonLen = 480

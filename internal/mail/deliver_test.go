@@ -35,7 +35,7 @@ func TestDeliver(t *testing.T) {
 		noMail    bool
 		refuse    bool
 		sendErr   error
-		arrange   func(t *testing.T, st *storetest.Stores, id string)
+		arrange   func(t *testing.T, st *storetest.Stores, id uuid.UUID)
 		want      Delivery
 		wantErr   bool
 		wantClaim bool
@@ -43,8 +43,8 @@ func TestDeliver(t *testing.T) {
 	}{
 		{
 			name: "an agent archived since the mail was sent",
-			arrange: func(t *testing.T, st *storetest.Stores, id string) {
-				_, err := st.Agents.Archive(t.Context(), []string{id})
+			arrange: func(t *testing.T, st *storetest.Stores, id uuid.UUID) {
+				_, err := st.Agents.Archive(t.Context(), []uuid.UUID{id})
 				require.NoError(t, err)
 			},
 			want: DeliveryDone,
@@ -66,7 +66,7 @@ func TestDeliver(t *testing.T) {
 		},
 		{
 			name: "an agent already told about the mail it holds",
-			arrange: func(t *testing.T, st *storetest.Stores, id string) {
+			arrange: func(t *testing.T, st *storetest.Stores, id uuid.UUID) {
 				claimed, err := st.Mail.ClaimNudge(t.Context(), id)
 				require.NoError(t, err)
 				require.True(t, claimed)
@@ -166,7 +166,7 @@ func TestDeliverReportsExpiredMail(t *testing.T) {
 	written := records()
 	require.Len(t, written, 1)
 	assert.Equal(t, "WARN", written[0]["severity_text"])
-	assert.Equal(t, expired.ID, written[0][logging.MailID])
+	assert.Equal(t, expired.ID.String(), written[0][logging.MailID])
 }
 
 // TestDeliverAll pins that a sweep tells every agent holding mail and no other.
@@ -214,7 +214,7 @@ func seedAgent(t *testing.T, st *storetest.Stores, cwd string) agentstore.Agent 
 	})
 }
 
-func sendTo(t *testing.T, st *storetest.Stores, agentID string) {
+func sendTo(t *testing.T, st *storetest.Stores, agentID uuid.UUID) {
 	t.Helper()
 
 	_, err := st.Mail.Send(t.Context(), mailstore.SendParams{
@@ -250,7 +250,7 @@ func newLoggedContext(t *testing.T) (context.Context, func() []map[string]any) {
 	}
 }
 
-func holdsClaim(t *testing.T, st *storetest.Stores, agentID string) bool {
+func holdsClaim(t *testing.T, st *storetest.Stores, agentID uuid.UUID) bool {
 	t.Helper()
 
 	var held bool

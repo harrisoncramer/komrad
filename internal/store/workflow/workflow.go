@@ -7,10 +7,12 @@ import (
 
 	"komrad/db/models"
 	"komrad/internal/store"
+
+	"github.com/google/uuid"
 )
 
 type Workflow struct {
-	ID              string
+	ID              uuid.UUID
 	Name            string
 	Context         string
 	Harness         string
@@ -56,7 +58,7 @@ func (w Workflow) Config() Config {
 }
 
 // Workflow is the config under an existing id, ready to be written back.
-func (c Config) Workflow(id string) Workflow {
+func (c Config) Workflow(id uuid.UUID) Workflow {
 	return Workflow{
 		ID:              id,
 		Name:            c.Name,

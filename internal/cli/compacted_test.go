@@ -19,6 +19,7 @@ import (
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	taskv1 "komrad/proto/gen/task/v1"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -163,7 +164,7 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 			state := &app{
 				env: &config.Environment{
 					Addr:    strings.TrimPrefix(server.URL, "http://"),
-					AgentID: tt.row.GetAgent().GetId(),
+					AgentID: uuid.New(),
 				},
 				harnesses: hookHarnesses(t),
 			}
@@ -196,7 +197,7 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 func TestCompactedHookPrintsNothingWithoutARecord(t *testing.T) {
 	tests := []struct {
 		name    string
-		agentID string
+		agentID uuid.UUID
 		addr    string
 	}{
 		{
@@ -205,7 +206,7 @@ func TestCompactedHookPrintsNothingWithoutARecord(t *testing.T) {
 		},
 		{
 			name:    "a panel that is not there",
-			agentID: "agent-a",
+			agentID: agentAID,
 			addr:    "127.0.0.1:1",
 		},
 	}
@@ -242,3 +243,7 @@ func hookHarnesses(t *testing.T) *harness.Registry {
 
 	return registry
 }
+
+var (
+	agentAID = uuid.New()
+)

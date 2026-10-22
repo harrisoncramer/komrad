@@ -260,7 +260,7 @@ func (s *Service) releaseOlderParks(ctx context.Context, task taskstore.Task, ke
 	prefix := fmt.Sprintf("refs/komrad/%s/%s/", parkRebase, task.ID)
 	if err := s.git.ReleaseRefsUnder(ctx, task.Checkout.Cwd, prefix, keep); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the older parks of a rebased task",
-			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.TaskID, task.ID.String())}, logging.Err(err)...)...)
 	}
 }
 
@@ -289,7 +289,7 @@ func (s *Service) moveRebase(ctx context.Context, dir string, result *RebaseResu
 func (s *Service) recordRebaseStopped(ctx context.Context, task taskstore.Task) {
 	if err := s.tasks.SetSequence(ctx, task.ID, taskstore.SequenceRebase); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record that a task's rebase stopped part-way",
-			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.TaskID, task.ID.String())}, logging.Err(err)...)...)
 	}
 }
 
@@ -297,7 +297,7 @@ func (s *Service) recordRebaseStopped(ctx context.Context, task taskstore.Task) 
 func (s *Service) tellRebased(ctx context.Context, target checkoutTarget, result RebaseResult) {
 	if err := s.recordRebase(ctx, target, rebaseOutcome{Result: result}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record that a task's worktree was rebased",
-			append([]slog.Attr{slog.String(logging.TaskID, target.task.ID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.TaskID, target.task.ID.String())}, logging.Err(err)...)...)
 	}
 }
 

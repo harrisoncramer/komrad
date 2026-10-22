@@ -17,6 +17,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -137,7 +138,7 @@ func payloadHookCmd(state *app, hook payloadHook) *cobra.Command {
 
 			return nil
 		}
-		if state.env.AgentID == "" {
+		if state.env.AgentID == uuid.Nil {
 			return nil
 		}
 
@@ -168,7 +169,7 @@ nobody has read. Anything but a completed turn is ignored.`,
 	}
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		if state.env.AgentID == "" {
+		if state.env.AgentID == uuid.Nil {
 			return nil
 		}
 		var payload []byte
@@ -193,7 +194,7 @@ func reportHookProblem(cmd *cobra.Command, state *app, what string, err error) {
 	line := fmt.Sprintf("%s: %v", what, err)
 	cmd.PrintErrln(line)
 
-	if state.env.AgentID == "" || isUnreachable(err) {
+	if state.env.AgentID == uuid.Nil || isUnreachable(err) {
 		return
 	}
 

@@ -15,6 +15,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -25,7 +26,7 @@ type fakeScreens struct {
 	err    error
 }
 
-func (f *fakeScreens) GetLastScreen(context.Context, string) (*screenstore.Screen, error) {
+func (f *fakeScreens) GetLastScreen(context.Context, uuid.UUID) (*screenstore.Screen, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -77,7 +78,7 @@ func TestGetLastScreen(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := newScreenHandler(tt.screens).GetLastScreen(t.Context(), connect.NewRequest(&agentv1.GetLastScreenRequest{AgentId: alphaID}))
+			got, err := newScreenHandler(tt.screens).GetLastScreen(t.Context(), connect.NewRequest(&agentv1.GetLastScreenRequest{AgentId: alphaID.String()}))
 
 			if tt.wantCode != 0 {
 				require.Equal(t, tt.wantCode, connect.CodeOf(err))

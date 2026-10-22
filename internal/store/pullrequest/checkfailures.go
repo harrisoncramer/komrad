@@ -9,6 +9,8 @@ import (
 	"komrad/db/models"
 	"komrad/internal/forge"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // CheckFailure is a failed check and when an agent was told of it.
@@ -20,9 +22,9 @@ type CheckFailure struct {
 
 // ListCheckFailuresParams is the failed checks on one head of a pull request, as one agent hears of them.
 type ListCheckFailuresParams struct {
-	PullRequestID string
+	PullRequestID uuid.UUID
 	HeadSHA       string
-	AgentID       string
+	AgentID       uuid.UUID
 	Failed        []forge.StatusCheck
 }
 
@@ -51,9 +53,9 @@ func (s *StatusCheckStore) ListCheckFailures(ctx context.Context, params ListChe
 
 // RecordCheckFailuresParams is the failed checks on one head of a pull request an agent was just told of.
 type RecordCheckFailuresParams struct {
-	PullRequestID string
+	PullRequestID uuid.UUID
 	HeadSHA       string
-	AgentID       string
+	AgentID       uuid.UUID
 	Told          []forge.StatusCheck
 }
 

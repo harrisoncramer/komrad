@@ -20,7 +20,7 @@ import (
 
 type fakeAgentArchiver struct {
 	err      error
-	archived [][]string
+	archived [][]uuid.UUID
 }
 
 func (f *fakeAgentArchiver) ArchiveAgents(_ context.Context, params agents.ArchiveAgentsParams) error {
@@ -83,7 +83,7 @@ func TestArchiveAgentWorker(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			stores := storetest.Open(t)
-			id := uuid.NewString()
+			id := uuid.New()
 			if !tt.deleted {
 				id = stores.SeedAgent(t, agentstore.Agent{
 					ID:    id,
@@ -108,7 +108,7 @@ func TestArchiveAgentWorker(t *testing.T) {
 				require.ErrorIs(t, err, tt.wantErr)
 			}
 			if tt.wantArchived {
-				assert.Equal(t, [][]string{{id}}, archiver.archived)
+				assert.Equal(t, [][]uuid.UUID{{id}}, archiver.archived)
 			} else {
 				assert.Empty(t, archiver.archived)
 			}

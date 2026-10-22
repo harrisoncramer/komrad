@@ -8,6 +8,8 @@ import (
 
 	githubapp "komrad/internal/github/app"
 	"komrad/lib/xhttp"
+
+	"github.com/google/uuid"
 )
 
 // MethodGitHubApp is the method for a credential minted from the engine's GitHub App.
@@ -63,14 +65,14 @@ func (a App) slug(ctx context.Context) (string, error) {
 // appCredential is an installation token minted on demand and held until it nears expiry.
 type appCredential struct {
 	app          App
-	connectionID string
+	connectionID uuid.UUID
 	connections  verifiedSetter
 }
 
 // newAppCredentialParams says which App to mint from and which row a refusal is recorded on.
 type newAppCredentialParams struct {
 	App          App
-	ConnectionID string
+	ConnectionID uuid.UUID
 	Connections  verifiedSetter
 }
 

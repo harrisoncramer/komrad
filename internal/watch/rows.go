@@ -8,11 +8,18 @@ import (
 
 	"komrad/lib/xslice"
 	watchv1 "komrad/proto/gen/watch/v1"
+
+	"github.com/google/uuid"
 )
 
 // watchedLister reads the rows a resource's watched set holds among the given keys, or every one of them when keys is nil.
-type watchedLister[R any] interface {
-	ListWatched(ctx context.Context, keys []string) ([]R, error)
+type watchedLister[K watchedKey, R any] interface {
+	ListWatched(ctx context.Context, keys []K) ([]R, error)
+}
+
+// watchedKey is how a resource keys its rows, an id or a text key such as a path.
+type watchedKey interface {
+	uuid.UUID | string
 }
 
 // Loader reads and renders the rows of one resource.
@@ -23,11 +30,11 @@ type Loader struct {
 }
 
 // NewLoader builds the loader of a resource over its lister and the renderer that keys and draws each row.
-func NewLoader[R any](resource watchv1.Resource, lister watchedLister[R], draw func(R) (string, *watchv1.Row)) Loader {
+func NewLoader[K watchedKey, R any](resource watchv1.Resource, lister watchedLister[K, R], draw func(R) (string, *watchv1.Row)) Loader {
 	return Loader{
 		Resource: resource,
 		read: func(ctx context.Context, keys []string) (map[string]*watchv1.Row, error) {
-			rows, err := lister.ListWatched(ctx, keys)
+			rows, err := lister.ListWatched(ctx, parseKeys[K](keys))
 			if err != nil {
 				return nil, fmt.Errorf("failed to read %d keys of %s: %w", len(keys), resource, err)
 			}
@@ -121,4 +128,24 @@ func (r *Rows) hasLoader(resource watchv1.Resource) bool {
 	_, ok := r.loaders[resource]
 
 	return ok
+}
+
+func parseKeys[K watchedKey](keys []string) []K {
+	parsed := make([]K, 0, len(keys))
+	for _, text := range keys {
+		var key K
+		switch target := any(&key).(type) {
+		case *uuid.UUID:
+			id, err := uuid.Parse(text)
+			if err != nil {
+				continue
+			}
+			*target = id
+		case *string:
+			*target = text
+		}
+		parsed = append(parsed, key)
+	}
+
+	return parsed
 }

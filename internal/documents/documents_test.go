@@ -113,7 +113,7 @@ func TestWrite(t *testing.T) {
 			params: documents.WriteDocumentParams{
 				Name:   "elsewhere",
 				Source: oneofs.Source{Body: xptr.Ptr("# Elsewhere")},
-				For:    uuid.NewString(),
+				For:    uuid.New(),
 			},
 			wantErr: documents.ErrAgentWritingForAnother,
 		},
@@ -134,7 +134,7 @@ func TestWrite(t *testing.T) {
 		{
 			name: "an agent that does not exist is not found",
 			params: documents.WriteDocumentParams{
-				AgentID: uuid.NewString(),
+				AgentID: uuid.New(),
 				Name:    "orphan",
 				Source:  oneofs.Source{Body: xptr.Ptr("# Orphan")},
 			},
@@ -145,7 +145,7 @@ func TestWrite(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			params := tt.params
-			if params.AgentID == "" {
+			if params.AgentID == uuid.Nil {
 				params.AgentID = author.ID
 			}
 			if params.Type == "" {
@@ -228,7 +228,7 @@ func TestListDocumentsByTask(t *testing.T) {
 		},
 		{
 			name: "a task named by its id",
-			task: uuid.MustParse(task.ID),
+			task: task.ID,
 		},
 	}
 
@@ -288,7 +288,7 @@ func TestReadAnEarlierWrite(t *testing.T) {
 
 	_, err = service.GetDocument(ctx, draft.ID, xptr.Ptr(int32(3)))
 	require.ErrorIs(t, err, store.ErrNotFound)
-	_, _, err = service.ListDocumentVersions(ctx, uuid.NewString())
+	_, _, err = service.ListDocumentVersions(ctx, uuid.New())
 	require.ErrorIs(t, err, store.ErrNotFound)
 }
 
@@ -315,7 +315,7 @@ func TestWriteByAPerson(t *testing.T) {
 		params    documents.WriteDocumentParams
 		wantErr   error
 		wantBody  string
-		wantOwner string
+		wantOwner uuid.UUID
 	}{
 		{
 			name: "an id rewrites that document",
@@ -383,7 +383,7 @@ func TestWriteByAPerson(t *testing.T) {
 		{
 			name: "an agent it is for that does not exist is not found",
 			params: documents.WriteDocumentParams{
-				For:    uuid.NewString(),
+				For:    uuid.New(),
 				Name:   "Stray",
 				Type:   "RFC",
 				Source: oneofs.Source{Body: xptr.Ptr("stray")},
@@ -393,7 +393,7 @@ func TestWriteByAPerson(t *testing.T) {
 		{
 			name: "an id no document holds is not found",
 			params: documents.WriteDocumentParams{
-				ID:      xptr.Ptr(uuid.NewString()),
+				ID:      xptr.Ptr(uuid.New()),
 				Version: xptr.Ptr(int32(1)),
 				Name:    "Lost",
 				Type:    "RFC",
@@ -417,7 +417,7 @@ func TestWriteByAPerson(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantBody, stored.Body)
 			wantOwner := author.ID
-			if tt.wantOwner != "" {
+			if tt.wantOwner != uuid.Nil {
 				wantOwner = tt.wantOwner
 			}
 			assert.Equal(t, wantOwner, stored.AgentID)
@@ -442,7 +442,7 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 		full     bool
 		byPerson bool
 		creates  bool
-		then     func(t *testing.T, author string, written *documentstore.Document) *documentstore.Document
+		then     func(t *testing.T, author uuid.UUID, written *documentstore.Document) *documentstore.Document
 		wantMail string
 	}{
 		{
@@ -472,7 +472,7 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 			name:     "a person's edit of their new document before the author reads still calls it new",
 			byPerson: true,
 			creates:  true,
-			then: func(t *testing.T, _ string, written *documentstore.Document) *documentstore.Document {
+			then: func(t *testing.T, _ uuid.UUID, written *documentstore.Document) *documentstore.Document {
 				return personEdits(t, service, written)
 			},
 			wantMail: "a person wrote a new document for you",
@@ -481,7 +481,7 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 			name:     "a person's edit of their new document after the author read it is an edit",
 			byPerson: true,
 			creates:  true,
-			then: func(t *testing.T, author string, written *documentstore.Document) *documentstore.Document {
+			then: func(t *testing.T, author uuid.UUID, written *documentstore.Document) *documentstore.Document {
 				_, err := stores.ClaimMail(t.Context(), author, 10)
 				require.NoError(t, err)
 
@@ -500,7 +500,7 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			author := stores.SeedAgent(t, agentstore.Agent{Name: uuid.NewString()})
 			if tt.archived {
-				_, err := stores.Agents.Archive(ctx, []string{author.ID})
+				_, err := stores.Agents.Archive(ctx, []uuid.UUID{author.ID})
 				require.NoError(t, err)
 			}
 			if tt.full {

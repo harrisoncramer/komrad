@@ -9,6 +9,8 @@ import (
 	"komrad/db"
 	"komrad/db/models"
 	"komrad/internal/store"
+
+	"github.com/google/uuid"
 )
 
 type ScreenStore struct {
@@ -22,7 +24,7 @@ func NewScreenStore(db store.DBTX) *ScreenStore {
 
 // Screen is one pane's visible grid as tmux captured it.
 type Screen struct {
-	AgentID    string
+	AgentID    uuid.UUID
 	Frame      string
 	Width      int
 	Height     int
@@ -30,7 +32,7 @@ type Screen struct {
 }
 
 type UpsertParams struct {
-	AgentID string
+	AgentID uuid.UUID
 	Frame   string
 	Width   int
 	Height  int
@@ -38,10 +40,6 @@ type UpsertParams struct {
 
 // Upsert replaces the screen kept for an agent.
 func (s *ScreenStore) Upsert(ctx context.Context, params UpsertParams) error {
-	if !store.IsID(params.AgentID) {
-		return fmt.Errorf("failed to save a screen: %q is not an agent id", params.AgentID)
-	}
-
 	if err := s.queries.UpsertAgentScreen(ctx, models.UpsertAgentScreenParams{
 		AgentID: params.AgentID,
 		Frame:   params.Frame,
@@ -55,11 +53,7 @@ func (s *ScreenStore) Upsert(ctx context.Context, params UpsertParams) error {
 }
 
 // Get returns the screen kept for an agent.
-func (s *ScreenStore) Get(ctx context.Context, agentID string) (*Screen, error) {
-	if !store.IsID(agentID) {
-		return nil, fmt.Errorf("%w: screen of agent %q", store.ErrNotFound, agentID)
-	}
-
+func (s *ScreenStore) Get(ctx context.Context, agentID uuid.UUID) (*Screen, error) {
 	row, err := s.queries.GetAgentScreen(ctx, agentID)
 	if db.IsNoRows(err) {
 		return nil, fmt.Errorf("%w: screen of agent %q", store.ErrNotFound, agentID)

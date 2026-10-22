@@ -7,6 +7,8 @@ import (
 	"komrad/config"
 	"komrad/db/models"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // The moments a workflow can hang a script on, each named for the event it hangs on and the
@@ -59,7 +61,7 @@ type Hook struct {
 
 // setHooks rewrites a workflow's hooks from the whole list, keeping the order they were sent
 // in.
-func (s *WorkflowStore) setHooks(ctx context.Context, workflowID string, hooks []Hook) error {
+func (s *WorkflowStore) setHooks(ctx context.Context, workflowID uuid.UUID, hooks []Hook) error {
 	if err := s.queries.DeleteWorkflowHooks(ctx, workflowID); err != nil {
 		return fmt.Errorf("failed to clear hooks for workflow %q: %w", workflowID, err)
 	}
@@ -78,7 +80,7 @@ func (s *WorkflowStore) setHooks(ctx context.Context, workflowID string, hooks [
 	return nil
 }
 
-func (s *WorkflowStore) hooksFor(ctx context.Context, workflowID string) ([]Hook, error) {
+func (s *WorkflowStore) hooksFor(ctx context.Context, workflowID uuid.UUID) ([]Hook, error) {
 	rows, err := s.queries.ListHooksForWorkflow(ctx, workflowID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the hooks of workflow %q: %w", workflowID, err)
@@ -90,9 +92,9 @@ func (s *WorkflowStore) hooksFor(ctx context.Context, workflowID string) ([]Hook
 }
 
 // hooksForWorkflows reads the hooks of the workflows named.
-func (s *WorkflowStore) hooksForWorkflows(ctx context.Context, ids []string) (map[string][]Hook, error) {
+func (s *WorkflowStore) hooksForWorkflows(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]Hook, error) {
 	if len(ids) == 0 {
-		return map[string][]Hook{}, nil
+		return map[uuid.UUID][]Hook{}, nil
 	}
 
 	rows, err := s.queries.ListHooksForWorkflows(ctx, ids)
@@ -100,7 +102,7 @@ func (s *WorkflowStore) hooksForWorkflows(ctx context.Context, ids []string) (ma
 		return nil, fmt.Errorf("failed to read the hooks of %d workflows: %w", len(ids), err)
 	}
 
-	hooks := make(map[string][]Hook)
+	hooks := make(map[uuid.UUID][]Hook)
 	for _, row := range rows {
 		hooks[row.WorkflowID] = append(hooks[row.WorkflowID], Hook{Event: row.Event, Script: row.Script})
 	}

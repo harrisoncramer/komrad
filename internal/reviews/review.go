@@ -17,6 +17,7 @@ import (
 	"komrad/lib/xslice"
 	"komrad/proto/gen/oneofs"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 )
@@ -52,7 +53,7 @@ type taskFinder interface {
 // acts as the person, and an agent names itself.
 type ReviewAuthor struct {
 	Kind    reviewstore.AuthorKind
-	AgentID *string
+	AgentID *uuid.UUID
 }
 
 // isHuman reports whether the call came from the person reviewing rather than from an agent.
@@ -141,7 +142,7 @@ func (s *ReviewService) ListReviewThreads(
 // listThreads is every thread on a task's diff with what the author may read of its messages.
 func (s *ReviewService) listThreads(
 	ctx context.Context,
-	taskID string,
+	taskID uuid.UUID,
 	author ReviewAuthor,
 ) ([]ReviewThreadWithMessages, error) {
 	threads, err := s.reviews.ListThreads(ctx, taskID)
@@ -152,7 +153,7 @@ func (s *ReviewService) listThreads(
 		return nil, nil
 	}
 
-	ids := xslice.Map(threads, func(thread reviewstore.Thread) string {
+	ids := xslice.Map(threads, func(thread reviewstore.Thread) uuid.UUID {
 		return thread.ID
 	})
 
@@ -161,7 +162,7 @@ func (s *ReviewService) listThreads(
 		return nil, err
 	}
 
-	byThread := map[string][]reviewstore.Message{}
+	byThread := map[uuid.UUID][]reviewstore.Message{}
 	for _, message := range messages {
 		byThread[message.ThreadID] = append(byThread[message.ThreadID], message)
 	}
@@ -221,7 +222,7 @@ type CreateReviewThreadParams struct {
 	Task oneofs.Task
 	// SnapshotID is the snapshot the anchor's line numbers were measured in, empty for a caller that
 	// leaves the snapshot to be worked out from the commit it names.
-	SnapshotID string
+	SnapshotID uuid.UUID
 	// Suggestion is replacement lines the reviewer proposes for the range, empty on an ordinary
 	// comment.
 	Suggestion []string
@@ -293,7 +294,7 @@ func (s *ReviewService) CreateReviewThread(
 		return nil, err
 	}
 
-	messages, err := s.reviews.ListMessages(ctx, []string{opened.ID})
+	messages, err := s.reviews.ListMessages(ctx, []uuid.UUID{opened.ID})
 	if err != nil {
 		return nil, err
 	}
@@ -304,8 +305,8 @@ func (s *ReviewService) CreateReviewThread(
 // threadPlace is the review, snapshot and base a new thread is filed under.
 type threadPlace struct {
 	// ReviewID is the agent's open review, nil for a person's thread.
-	ReviewID   *string
-	SnapshotID string
+	ReviewID   *uuid.UUID
+	SnapshotID uuid.UUID
 	BaseSHA    string
 }
 
@@ -364,7 +365,7 @@ type AddReviewMessageResult struct {
 
 // AddReviewMessageParams is what to say in an existing thread, and as whom.
 type AddReviewMessageParams struct {
-	ThreadID   string
+	ThreadID   uuid.UUID
 	Body       string
 	Suggestion []string
 	Author     ReviewAuthor
@@ -400,7 +401,7 @@ func (s *ReviewService) AddReviewMessage(
 		return nil, errReviewThreadHeld
 	}
 
-	var reviewID *string
+	var reviewID *uuid.UUID
 	if !answering && !params.Author.isHuman() {
 		open, err := s.openReviewFor(ctx, openReviewForParams{
 			TaskID: thread.TaskID,
@@ -413,7 +414,7 @@ func (s *ReviewService) AddReviewMessage(
 		reviewID = &open.ID
 	}
 
-	var snapshotID *string
+	var snapshotID *uuid.UUID
 	if params.Addressed {
 		answer, err := s.takeAnswerSnapshot(ctx, *thread)
 		if err != nil {
@@ -470,7 +471,7 @@ func (s *ReviewService) AddReviewMessage(
 
 // EditReviewMessageParams is the message to rewrite and what it should say instead.
 type EditReviewMessageParams struct {
-	ID         string
+	ID         uuid.UUID
 	Body       string
 	Suggestion []string
 	Author     ReviewAuthor
@@ -491,7 +492,7 @@ func (s *ReviewService) EditReviewMessage(
 
 // MarkReviewThreadReadParams names the thread to catch the person up on.
 type MarkReviewThreadReadParams struct {
-	ID     string
+	ID     uuid.UUID
 	Author ReviewAuthor
 }
 
@@ -513,7 +514,7 @@ func (s *ReviewService) MarkReviewThreadRead(
 
 // SetReviewThreadResolvedParams names the thread to settle or reopen.
 type SetReviewThreadResolvedParams struct {
-	ID       string
+	ID       uuid.UUID
 	Resolved bool
 	Author   ReviewAuthor
 }
@@ -604,7 +605,7 @@ func (s *ReviewService) ListReviewViewedFiles(
 
 // requireOwnThread refuses an id that names no thread, and refuses an agent reaching into a
 // review it neither writes the task of nor authored.
-func (s *ReviewService) requireOwnThread(ctx context.Context, id string, author ReviewAuthor) error {
+func (s *ReviewService) requireOwnThread(ctx context.Context, id uuid.UUID, author ReviewAuthor) error {
 	_, err := s.getOwnThread(ctx, id, author)
 
 	return err
@@ -612,7 +613,7 @@ func (s *ReviewService) requireOwnThread(ctx context.Context, id string, author 
 
 // getOwnThread reads a thread and says whether the caller has any business in it, which the
 // person, the task's writer and the reviewing agent that wrote it all do.
-func (s *ReviewService) getOwnThread(ctx context.Context, id string, author ReviewAuthor) (*reviewstore.Thread, error) {
+func (s *ReviewService) getOwnThread(ctx context.Context, id uuid.UUID, author ReviewAuthor) (*reviewstore.Thread, error) {
 	thread, err := s.reviews.GetThread(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("%w: %q", ErrReviewThreadNotFound, id)
@@ -636,7 +637,7 @@ func (s *ReviewService) getOwnThread(ctx context.Context, id string, author Revi
 }
 
 // getOwnMessage reads a message, refusing a caller rewriting or removing words it did not write.
-func (s *ReviewService) getOwnMessage(ctx context.Context, id string, author ReviewAuthor) (*reviewstore.Message, error) {
+func (s *ReviewService) getOwnMessage(ctx context.Context, id uuid.UUID, author ReviewAuthor) (*reviewstore.Message, error) {
 	message, err := s.reviews.GetMessage(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("%w: %q", ErrReviewMessageNotFound, id)
@@ -662,14 +663,14 @@ func (s *ReviewService) getOwnMessage(ctx context.Context, id string, author Rev
 	return message, nil
 }
 
-func doesOwnAgent(author ReviewAuthor, agentID string) bool {
+func doesOwnAgent(author ReviewAuthor, agentID uuid.UUID) bool {
 	return author.AgentID != nil && *author.AgentID == agentID
 }
 
 // isThreadHeld reports whether a thread opens with a held forge comment that no copy has
 // accepted.
-func (s *ReviewService) isThreadHeld(ctx context.Context, threadID string) (bool, error) {
-	messages, err := s.reviews.ListMessages(ctx, []string{threadID})
+func (s *ReviewService) isThreadHeld(ctx context.Context, threadID uuid.UUID) (bool, error) {
+	messages, err := s.reviews.ListMessages(ctx, []uuid.UUID{threadID})
 	if err != nil {
 		return false, err
 	}
@@ -677,12 +678,7 @@ func (s *ReviewService) isThreadHeld(ctx context.Context, threadID string) (bool
 		return false, nil
 	}
 
-	root := messages[0]
-	for _, message := range messages {
-		if message.ID < root.ID {
-			root = message
-		}
-	}
+	root := rootOf(messages[0], messages)
 	if !root.Held {
 		return false, nil
 	}

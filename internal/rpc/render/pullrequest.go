@@ -11,7 +11,7 @@ import (
 // PullRequest draws one stored pull request as the wire carries it.
 func PullRequest(stored pullrequeststore.PullRequest) *pullrequestv1.PullRequest {
 	return &pullrequestv1.PullRequest{
-		Id:                stored.ID,
+		Id:                stored.ID.String(),
 		Forge:             stored.Forge,
 		ProviderId:        stored.ProviderID,
 		Url:               stored.URL,

@@ -4,6 +4,7 @@ package transcript
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -13,17 +14,19 @@ import (
 	"komrad/internal/store"
 	textsearchstore "komrad/internal/store/textsearch"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // session is one conversation an agent has held.
 type session struct {
-	ID           string
+	ID           uuid.UUID
 	SyncedOffset int64
 	OpenedAt     time.Time
 }
 
 type SearchHit struct {
-	AgentID       string
+	AgentID       uuid.UUID
 	Name          string
 	Archived      bool
 	Seq           int32
@@ -53,11 +56,7 @@ func NewTranscriptStore(db store.DBTX) *TranscriptStore {
 }
 
 // Get assembles an agent's whole conversation from its indexed turns.
-func (s *TranscriptStore) Get(ctx context.Context, agentID string) (string, error) {
-	if !store.IsID(agentID) {
-		return "", nil
-	}
-
+func (s *TranscriptStore) Get(ctx context.Context, agentID uuid.UUID) (string, error) {
 	content, err := s.queries.GetTranscript(ctx, agentID)
 	if db.IsNoRows(err) {
 		return "", nil
@@ -76,7 +75,7 @@ type storedTurn struct {
 }
 
 type ListLastTurnsParams struct {
-	AgentID string
+	AgentID uuid.UUID
 	Role    string
 	Limit   int32
 }
@@ -84,10 +83,6 @@ type ListLastTurnsParams struct {
 // ListLastTurns returns the newest turns spoken in one role and every turn between them, oldest
 // first.
 func (s *TranscriptStore) ListLastTurns(ctx context.Context, params ListLastTurnsParams) ([]storedTurn, error) {
-	if !store.IsID(params.AgentID) {
-		return nil, nil
-	}
-
 	rows, err := s.queries.ListLastTranscriptTurns(ctx, models.ListLastTranscriptTurnsParams{
 		AgentID: params.AgentID,
 		Role:    params.Role,
@@ -107,7 +102,7 @@ func (s *TranscriptStore) ListLastTurns(ctx context.Context, params ListLastTurn
 }
 
 type OpenSessionParams struct {
-	AgentID   string
+	AgentID   uuid.UUID
 	SessionID string
 }
 
@@ -135,7 +130,7 @@ func (s *TranscriptStore) OpenSession(ctx context.Context, params OpenSessionPar
 }
 
 // Advance records how far a session's log has been read.
-func (s *TranscriptStore) Advance(ctx context.Context, sessionID string, offset int64) error {
+func (s *TranscriptStore) Advance(ctx context.Context, sessionID uuid.UUID, offset int64) error {
 	if err := s.queries.AdvanceTranscriptSession(ctx, models.AdvanceTranscriptSessionParams{
 		ID:           sessionID,
 		SyncedOffset: offset,
@@ -147,7 +142,7 @@ func (s *TranscriptStore) Advance(ctx context.Context, sessionID string, offset 
 }
 
 // MarkDrained stamps a session as read to the end as of readAt.
-func (s *TranscriptStore) MarkDrained(ctx context.Context, sessionID string, readAt time.Time) error {
+func (s *TranscriptStore) MarkDrained(ctx context.Context, sessionID uuid.UUID, readAt time.Time) error {
 	if err := s.queries.MarkTranscriptSessionDrained(ctx, models.MarkTranscriptSessionDrainedParams{
 		ID:       sessionID,
 		SyncedAt: readAt,
@@ -169,8 +164,8 @@ type Turn struct {
 const turnSeparator = "\n\n"
 
 type AppendTurnsParams struct {
-	AgentID   string
-	SessionID string
+	AgentID   uuid.UUID
+	SessionID uuid.UUID
 	Turns     []Turn
 }
 
@@ -219,7 +214,7 @@ func placeTurns(length int64, first bool, turns []Turn) []Turn {
 }
 
 // DeleteSessionTurns drops the turns indexed under one session.
-func (s *TranscriptStore) DeleteSessionTurns(ctx context.Context, sessionID string) error {
+func (s *TranscriptStore) DeleteSessionTurns(ctx context.Context, sessionID uuid.UUID) error {
 	if err := s.queries.DeleteTranscriptSessionChunks(ctx, sessionID); err != nil {
 		return fmt.Errorf("failed to delete transcript chunks for session %q: %w", sessionID, err)
 	}
@@ -228,7 +223,7 @@ func (s *TranscriptStore) DeleteSessionTurns(ctx context.Context, sessionID stri
 }
 
 // Delete removes the conversations belonging to agents.
-func (s *TranscriptStore) Delete(ctx context.Context, agentIDs []string) error {
+func (s *TranscriptStore) Delete(ctx context.Context, agentIDs []uuid.UUID) error {
 	if len(agentIDs) == 0 {
 		return nil
 	}
@@ -263,15 +258,15 @@ func (s sortOrder) Validate() error {
 
 // Position locates one hit within its own section.
 type Position struct {
-	Key     float64 `json:"k"`
-	AgentID string  `json:"i"`
-	Seq     int32   `json:"s"`
+	Key     float64   `json:"k"`
+	AgentID uuid.UUID `json:"i"`
+	Seq     int32     `json:"s"`
 }
 
 // Validate refuses a position holding anything but an agent id.
 func (p Position) Validate() error {
-	if !store.IsID(p.AgentID) {
-		return fmt.Errorf("cursor agent id %q is not an id", p.AgentID)
+	if p.AgentID == uuid.Nil {
+		return errors.New("cursor names no agent")
 	}
 
 	return nil
@@ -354,7 +349,7 @@ type SearchParams struct {
 	Query   string
 	Limit   int64
 	Cursor  *Cursor
-	AgentID *string
+	AgentID *uuid.UUID
 	Filter  Filter
 }
 
@@ -372,10 +367,6 @@ func (s *TranscriptStore) Search(ctx context.Context, params SearchParams) (Resu
 	}
 	if params.Cursor != nil && params.Cursor.Sort != sort {
 		return Results{}, errSortChanged.Saying("the cursor was handed out for sort %q, not %q; search again from the first page", params.Cursor.Sort, sort)
-	}
-
-	if params.AgentID != nil && !store.IsID(*params.AgentID) {
-		return Results{}, nil
 	}
 
 	limit := params.Limit
@@ -551,7 +542,7 @@ func orEmpty(values []string) []string {
 	return values
 }
 
-func agentOf(p *Position) *string {
+func agentOf(p *Position) *uuid.UUID {
 	if p == nil {
 		return nil
 	}

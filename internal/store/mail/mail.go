@@ -6,13 +6,14 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strings"
 	"time"
 
 	"komrad/db"
 	"komrad/db/models"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // Cursor pages this listing, which resumes from one row's id.
@@ -44,15 +45,15 @@ const (
 )
 
 type Mail struct {
-	ID          string
-	FromAgentID *string
+	ID          uuid.UUID
+	FromAgentID *uuid.UUID
 	FromName    string
-	ToAgentID   string
+	ToAgentID   uuid.UUID
 	Body        string
 	Kind        Kind
-	ReplyTo     *string
+	ReplyTo     *uuid.UUID
 	// SubjectID is the thing mail from komrad is about, unset on ordinary mail.
-	SubjectID *string
+	SubjectID *uuid.UUID
 	// Events are the events mail from komrad named, whose prompts its body carries.
 	Events    []string
 	ClaimedAt *time.Time
@@ -70,12 +71,12 @@ func NewMailStore(db store.DBTX) *MailStore {
 }
 
 type SendParams struct {
-	FromAgentID    *string
+	FromAgentID    *uuid.UUID
 	FromName       string
-	ToAgentID      string
+	ToAgentID      uuid.UUID
 	Body           string
 	Kind           Kind
-	ReplyTo        *string
+	ReplyTo        *uuid.UUID
 	IdempotencyKey *string
 	// Deadline is how long the mail stays deliverable, counted from the database's clock rather than
 	// the caller's.
@@ -110,10 +111,10 @@ func (s *MailStore) Send(ctx context.Context, params SendParams) (*Mail, error) 
 
 type UpsertFromKomradParams struct {
 	FromName  string
-	ToAgentID string
+	ToAgentID uuid.UUID
 	Body      string
 	Kind      Kind
-	SubjectID string
+	SubjectID uuid.UUID
 	Events    []string
 	Deadline  time.Duration
 }
@@ -141,11 +142,7 @@ func (s *MailStore) UpsertFromKomrad(ctx context.Context, params UpsertFromKomra
 
 // GetUnreadAbout is the unread mail of a kind about a subject that its recipient holds,
 // expired or not, ErrNotFound when it holds none.
-func (s *MailStore) GetUnreadAbout(ctx context.Context, toAgentID string, kind Kind, subjectID string) (*Mail, error) {
-	if !store.IsID(toAgentID) || !store.IsID(subjectID) {
-		return nil, noUnreadAbout(toAgentID, kind)
-	}
-
+func (s *MailStore) GetUnreadAbout(ctx context.Context, toAgentID uuid.UUID, kind Kind, subjectID uuid.UUID) (*Mail, error) {
 	row, err := s.queries.GetUnreadAbout(ctx, models.GetUnreadAboutParams{
 		ToAgentID: toAgentID,
 		Kind:      models.MailKind(kind),
@@ -164,11 +161,7 @@ func (s *MailStore) GetUnreadAbout(ctx context.Context, toAgentID string, kind K
 }
 
 // ExistsReadAbout says whether the recipient has read any mail of a kind about a subject.
-func (s *MailStore) ExistsReadAbout(ctx context.Context, toAgentID string, kind Kind, subjectID string) (bool, error) {
-	if !store.IsID(toAgentID) || !store.IsID(subjectID) {
-		return false, nil
-	}
-
+func (s *MailStore) ExistsReadAbout(ctx context.Context, toAgentID uuid.UUID, kind Kind, subjectID uuid.UUID) (bool, error) {
 	read, err := s.queries.ExistsReadAbout(ctx, models.ExistsReadAboutParams{
 		ToAgentID: toAgentID,
 		Kind:      models.MailKind(kind),
@@ -181,7 +174,7 @@ func (s *MailStore) ExistsReadAbout(ctx context.Context, toAgentID string, kind 
 	return read, nil
 }
 
-func noUnreadAbout(toAgentID string, kind Kind) error {
+func noUnreadAbout(toAgentID uuid.UUID, kind Kind) error {
 	return fmt.Errorf("%w: unread %q mail for agent %q", store.ErrNotFound, kind, toAgentID)
 }
 
@@ -201,11 +194,7 @@ func (s *MailStore) GetByIdempotencyKey(ctx context.Context, key string) (*Mail,
 }
 
 // GetByID returns one piece of mail, claimed or not.
-func (s *MailStore) GetByID(ctx context.Context, id string) (*Mail, error) {
-	if !store.IsID(id) {
-		return nil, fmt.Errorf("%w: mail %q", store.ErrNotFound, id)
-	}
-
+func (s *MailStore) GetByID(ctx context.Context, id uuid.UUID) (*Mail, error) {
 	row, err := s.queries.GetMail(ctx, id)
 	if db.IsNoRows(err) {
 		return nil, fmt.Errorf("%w: mail %q", store.ErrNotFound, id)
@@ -220,11 +209,7 @@ func (s *MailStore) GetByID(ctx context.Context, id string) (*Mail, error) {
 }
 
 // ListWaiting lists up to limit of an agent's waiting mail, oldest first, without claiming it.
-func (s *MailStore) ListWaiting(ctx context.Context, toAgentID string, limit int32) ([]Mail, error) {
-	if !store.IsID(toAgentID) {
-		return nil, nil
-	}
-
+func (s *MailStore) ListWaiting(ctx context.Context, toAgentID uuid.UUID, limit int32) ([]Mail, error) {
 	rows, err := s.queries.ListWaitingMail(ctx, models.ListWaitingMailParams{
 		ToAgentID: toAgentID,
 		Lim:       limit,
@@ -238,15 +223,14 @@ func (s *MailStore) ListWaiting(ctx context.Context, toAgentID string, limit int
 
 // ClaimByID marks the given mail waiting for an agent as read and returns it, oldest first,
 // leaving out any already claimed or expired.
-func (s *MailStore) ClaimByID(ctx context.Context, toAgentID string, ids []string) ([]Mail, error) {
-	storable := store.KeepIDs(ids)
-	if !store.IsID(toAgentID) || len(storable) == 0 {
+func (s *MailStore) ClaimByID(ctx context.Context, toAgentID uuid.UUID, ids []uuid.UUID) ([]Mail, error) {
+	if len(ids) == 0 {
 		return nil, nil
 	}
 
 	rows, err := s.queries.ClaimMailByID(ctx, models.ClaimMailByIDParams{
 		ToAgentID: toAgentID,
-		Ids:       storable,
+		Ids:       ids,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to claim the mail for agent %q: %w", toAgentID, err)
@@ -255,7 +239,7 @@ func (s *MailStore) ClaimByID(ctx context.Context, toAgentID string, ids []strin
 	claimed := xslice.Map(rows, fromRow)
 
 	slices.SortFunc(claimed, func(a, b Mail) int {
-		return strings.Compare(a.ID, b.ID)
+		return store.CompareIDs(a.ID, b.ID)
 	})
 
 	return claimed, nil
@@ -263,11 +247,7 @@ func (s *MailStore) ClaimByID(ctx context.Context, toAgentID string, ids []strin
 
 // ListPage returns one page of the mail addressed to an agent, newest first, and never marks
 // anything as read.
-func (s *MailStore) ListPage(ctx context.Context, toAgentID string, limit int32, cursor *Cursor) ([]Mail, error) {
-	if !store.IsID(toAgentID) {
-		return nil, nil
-	}
-
+func (s *MailStore) ListPage(ctx context.Context, toAgentID uuid.UUID, limit int32, cursor *Cursor) ([]Mail, error) {
 	params := models.ListMailPageParams{ToAgentID: toAgentID, Lim: limit}
 	if cursor != nil {
 		params.CursorID = &cursor.ID
@@ -282,11 +262,7 @@ func (s *MailStore) ListPage(ctx context.Context, toAgentID string, limit int32,
 }
 
 // ListSentPage returns one page of the mail an agent sent, newest first.
-func (s *MailStore) ListSentPage(ctx context.Context, fromAgentID string, limit int32, cursor *Cursor) ([]Mail, error) {
-	if !store.IsID(fromAgentID) {
-		return nil, nil
-	}
-
+func (s *MailStore) ListSentPage(ctx context.Context, fromAgentID uuid.UUID, limit int32, cursor *Cursor) ([]Mail, error) {
 	params := models.ListMailSentPageParams{FromAgentID: &fromAgentID, Lim: limit}
 	if cursor != nil {
 		params.CursorID = &cursor.ID
@@ -301,29 +277,27 @@ func (s *MailStore) ListSentPage(ctx context.Context, fromAgentID string, limit 
 }
 
 // ListByID returns whichever of the given ids hold mail.
-func (s *MailStore) ListByID(ctx context.Context, ids []string) ([]Mail, error) {
-	storable := store.KeepIDs(ids)
-	if len(storable) == 0 {
+func (s *MailStore) ListByID(ctx context.Context, ids []uuid.UUID) ([]Mail, error) {
+	if len(ids) == 0 {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListMailByID(ctx, storable)
+	rows, err := s.queries.ListMailByID(ctx, ids)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get %d mail: %w", len(storable), err)
+		return nil, fmt.Errorf("failed to get %d mail: %w", len(ids), err)
 	}
 
 	return xslice.Map(rows, fromRow), nil
 }
 
 // Delete permanently removes mail by id without checking that every id holds any.
-func (s *MailStore) Delete(ctx context.Context, ids []string) error {
-	storable := store.KeepIDs(ids)
-	if len(storable) == 0 {
+func (s *MailStore) Delete(ctx context.Context, ids []uuid.UUID) error {
+	if len(ids) == 0 {
 		return nil
 	}
 
-	if err := s.queries.DeleteMailByID(ctx, storable); err != nil {
-		return fmt.Errorf("failed to delete %d mail: %w", len(storable), err)
+	if err := s.queries.DeleteMailByID(ctx, ids); err != nil {
+		return fmt.Errorf("failed to delete %d mail: %w", len(ids), err)
 	}
 
 	return nil
@@ -331,11 +305,7 @@ func (s *MailStore) Delete(ctx context.Context, ids []string) error {
 
 // CountExchanged is how much plain mail two agents have written to each other, in either
 // direction, leaving out the mail komrad wrote itself.
-func (s *MailStore) CountExchanged(ctx context.Context, one, other string) (int64, error) {
-	if !store.IsID(one) || !store.IsID(other) {
-		return 0, nil
-	}
-
+func (s *MailStore) CountExchanged(ctx context.Context, one, other uuid.UUID) (int64, error) {
 	count, err := s.queries.CountMailExchangedBetweenAgents(ctx, models.CountMailExchangedBetweenAgentsParams{
 		One:   one,
 		Other: other,
@@ -348,11 +318,7 @@ func (s *MailStore) CountExchanged(ctx context.Context, one, other string) (int6
 }
 
 // CountPending returns how much unclaimed mail is waiting for an agent.
-func (s *MailStore) CountPending(ctx context.Context, toAgentID string) (int64, error) {
-	if !store.IsID(toAgentID) {
-		return 0, nil
-	}
-
+func (s *MailStore) CountPending(ctx context.Context, toAgentID uuid.UUID) (int64, error) {
 	count, err := s.queries.CountPendingMail(ctx, toAgentID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count the mail waiting for agent %q: %w", toAgentID, err)
@@ -363,11 +329,7 @@ func (s *MailStore) CountPending(ctx context.Context, toAgentID string) (int64, 
 
 // ClaimNudge takes the right to tell an agent about its unread mail, which only mail it has not
 // been told about gives.
-func (s *MailStore) ClaimNudge(ctx context.Context, toAgentID string) (bool, error) {
-	if !store.IsID(toAgentID) {
-		return false, nil
-	}
-
+func (s *MailStore) ClaimNudge(ctx context.Context, toAgentID uuid.UUID) (bool, error) {
 	claimed, err := s.queries.ClaimMailNudge(ctx, toAgentID)
 	if err != nil {
 		return false, fmt.Errorf("failed to claim the nudge for agent %q: %w", toAgentID, err)
@@ -377,11 +339,7 @@ func (s *MailStore) ClaimNudge(ctx context.Context, toAgentID string) (bool, err
 }
 
 // ClearNudge gives back a claim whose nudge reached nothing, so the next pass tries again.
-func (s *MailStore) ClearNudge(ctx context.Context, toAgentID string) error {
-	if !store.IsID(toAgentID) {
-		return nil
-	}
-
+func (s *MailStore) ClearNudge(ctx context.Context, toAgentID uuid.UUID) error {
 	if err := s.queries.ClearMailNudge(ctx, toAgentID); err != nil {
 		return fmt.Errorf("failed to clear the nudge claim for agent %q: %w", toAgentID, err)
 	}
@@ -391,7 +349,7 @@ func (s *MailStore) ClearNudge(ctx context.Context, toAgentID string) error {
 
 // ListPendingMailboxes is every unarchived agent holding unclaimed mail, whether that mail is
 // still live or has expired without being reported.
-func (s *MailStore) ListPendingMailboxes(ctx context.Context) ([]string, error) {
+func (s *MailStore) ListPendingMailboxes(ctx context.Context) ([]uuid.UUID, error) {
 	rows, err := s.queries.ListMailboxesWithPendingMail(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the mailboxes holding mail: %w", err)
@@ -402,11 +360,7 @@ func (s *MailStore) ListPendingMailboxes(ctx context.Context) ([]string, error) 
 
 // ListExpired reports the mail that ran out of time before the recipient claimed it, and marks
 // it reported so the next call does not hand back the same mail.
-func (s *MailStore) ListExpired(ctx context.Context, toAgentID string) ([]Mail, error) {
-	if !store.IsID(toAgentID) {
-		return nil, nil
-	}
-
+func (s *MailStore) ListExpired(ctx context.Context, toAgentID uuid.UUID) ([]Mail, error) {
 	rows, err := s.queries.ReportExpiredMail(ctx, toAgentID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to report the expired mail for agent %q: %w", toAgentID, err)

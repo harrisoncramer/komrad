@@ -14,6 +14,8 @@ import (
 	"komrad/internal/store"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // ErrBadSlug is a slug that is not lowercase kebab-case.
@@ -29,8 +31,8 @@ var slugPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 // Task is one outcome a person wants, which the agents linked to it work toward.
 type Task struct {
-	ID             string
-	WorkflowID     string
+	ID             uuid.UUID
+	WorkflowID     uuid.UUID
 	Slug           string
 	Title          string
 	Goal           string
@@ -64,7 +66,7 @@ func (t Task) GetBranch() string {
 		return t.Checkout.AdoptedBranch
 	}
 
-	return "task/" + t.ID
+	return "task/" + t.ID.String()
 }
 
 type TaskStore struct {
@@ -105,7 +107,7 @@ func fromRow(row *models.Task) Task {
 }
 
 type CreateParams struct {
-	WorkflowID string
+	WorkflowID uuid.UUID
 	Slug       string
 	Title      string
 	Goal       string
@@ -128,7 +130,7 @@ func (s *TaskStore) Create(ctx context.Context, params CreateParams) (*Task, err
 	if params.Parent != nil {
 		create.ParentTaskID = &params.Parent.TaskID
 		create.ForkPoint = xptr.NonEmpty(params.Parent.ForkPoint)
-		create.ParentPullRequestID = xptr.NonEmpty(params.Parent.PullRequestID)
+		create.ParentPullRequestID = params.Parent.PullRequestID
 	}
 
 	row, err := s.queries.CreateTask(ctx, create)
@@ -158,10 +160,7 @@ type UpdateParams struct {
 
 // Update rewrites the fields of a task that params sets, refusing a slug that is malformed or held
 // by another task and notes written since ReadNotesUpdatedAt.
-func (s *TaskStore) Update(ctx context.Context, id string, params UpdateParams) (*Task, error) {
-	if !store.IsID(id) {
-		return nil, fmt.Errorf("%w: task %q", store.ErrNotFound, id)
-	}
+func (s *TaskStore) Update(ctx context.Context, id uuid.UUID, params UpdateParams) (*Task, error) {
 	if params.Slug != nil && !slugPattern.MatchString(*params.Slug) {
 		return nil, fmt.Errorf("%w: %q", ErrBadSlug, *params.Slug)
 	}
@@ -190,7 +189,7 @@ func (s *TaskStore) Update(ctx context.Context, id string, params UpdateParams) 
 }
 
 // explainUnwritten says why an update wrote no row, a task gone or being deleted or notes written since they were read.
-func (s *TaskStore) explainUnwritten(ctx context.Context, id string, setsNotes bool) error {
+func (s *TaskStore) explainUnwritten(ctx context.Context, id uuid.UUID, setsNotes bool) error {
 	found, err := s.Get(ctx, id)
 	if err != nil {
 		return err
@@ -203,11 +202,7 @@ func (s *TaskStore) explainUnwritten(ctx context.Context, id string, setsNotes b
 }
 
 // Get returns one task by id, archived or not.
-func (s *TaskStore) Get(ctx context.Context, id string) (*Task, error) {
-	if !store.IsID(id) {
-		return nil, fmt.Errorf("%w: task %q", store.ErrNotFound, id)
-	}
-
+func (s *TaskStore) Get(ctx context.Context, id uuid.UUID) (*Task, error) {
 	row, err := s.queries.GetTaskByID(ctx, id)
 	if db.IsNoRows(err) {
 		return nil, fmt.Errorf("%w: task %q", store.ErrNotFound, id)
@@ -222,7 +217,7 @@ func (s *TaskStore) Get(ctx context.Context, id string) (*Task, error) {
 }
 
 // GetLinked returns the task an agent's task id names, refusing an agent on no task.
-func (s *TaskStore) GetLinked(ctx context.Context, taskID *string) (*Task, error) {
+func (s *TaskStore) GetLinked(ctx context.Context, taskID *uuid.UUID) (*Task, error) {
 	if taskID == nil {
 		return nil, ErrNoTask
 	}
@@ -239,7 +234,7 @@ func (s *TaskStore) GetLinked(ctx context.Context, taskID *string) (*Task, error
 }
 
 // GetLinkedBranch returns the branch of the checkout an agent's task id names, empty when there is none.
-func (s *TaskStore) GetLinkedBranch(ctx context.Context, taskID *string) (string, error) {
+func (s *TaskStore) GetLinkedBranch(ctx context.Context, taskID *uuid.UUID) (string, error) {
 	task, err := s.GetLinked(ctx, taskID)
 	if errors.Is(err, ErrNoTask) {
 		return "", nil
@@ -267,11 +262,7 @@ func (s *TaskStore) GetBySlug(ctx context.Context, slug string) (*Task, error) {
 }
 
 // List returns a workflow's live or archived tasks, the newest first.
-func (s *TaskStore) List(ctx context.Context, workflowID string, archived bool) ([]Task, error) {
-	if !store.IsID(workflowID) {
-		return nil, nil
-	}
-
+func (s *TaskStore) List(ctx context.Context, workflowID uuid.UUID, archived bool) ([]Task, error) {
 	rows, err := s.queries.ListTasks(ctx, models.ListTasksParams{WorkflowID: workflowID, Archived: archived})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the tasks of workflow %q: %w", workflowID, err)
@@ -281,11 +272,7 @@ func (s *TaskStore) List(ctx context.Context, workflowID string, archived bool) 
 }
 
 // Archive takes a task out of live listings, leaving one already archived as it was.
-func (s *TaskStore) Archive(ctx context.Context, id string) error {
-	if !store.IsID(id) {
-		return fmt.Errorf("%w: task %q", store.ErrNotFound, id)
-	}
-
+func (s *TaskStore) Archive(ctx context.Context, id uuid.UUID) error {
 	archived, err := s.queries.ArchiveTask(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to archive task %q: %w", id, err)
@@ -301,7 +288,7 @@ func (s *TaskStore) Archive(ctx context.Context, id string) error {
 }
 
 // ArchiveIdle archives each of the tasks no live agent works on any longer, returning those it archived.
-func (s *TaskStore) ArchiveIdle(ctx context.Context, ids []string) ([]Task, error) {
+func (s *TaskStore) ArchiveIdle(ctx context.Context, ids []uuid.UUID) ([]Task, error) {
 	if err := s.queries.LockTasks(ctx, ids); err != nil {
 		return nil, fmt.Errorf("failed to lock %d idle tasks: %w", len(ids), err)
 	}
@@ -314,7 +301,7 @@ func (s *TaskStore) ArchiveIdle(ctx context.Context, ids []string) ([]Task, erro
 }
 
 // Restore returns archived tasks to live listings, leaving live ones as they were.
-func (s *TaskStore) Restore(ctx context.Context, ids []string) error {
+func (s *TaskStore) Restore(ctx context.Context, ids []uuid.UUID) error {
 	if err := s.queries.RestoreTasks(ctx, ids); err != nil {
 		return fmt.Errorf("failed to restore %d tasks: %w", len(ids), err)
 	}
@@ -343,11 +330,7 @@ func (s *TaskStore) LockSlugs(ctx context.Context) error {
 
 // SetHidden hides a live task from the panel or shows it again, reporting whether a task took
 // the change.
-func (s *TaskStore) SetHidden(ctx context.Context, id string, hidden bool) (bool, error) {
-	if !store.IsID(id) {
-		return false, nil
-	}
-
+func (s *TaskStore) SetHidden(ctx context.Context, id uuid.UUID, hidden bool) (bool, error) {
 	changed, err := s.queries.SetTaskHidden(ctx, models.SetTaskHiddenParams{ID: id, Hidden: hidden})
 	if err != nil {
 		return false, fmt.Errorf("failed to hide task %q: %w", id, err)

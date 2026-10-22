@@ -1,11 +1,15 @@
 package reviews
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/google/uuid"
+)
 
 // taskLocks serialises the work done for one task at a time, leaving other tasks free.
 type taskLocks struct {
 	mu   sync.Mutex
-	held map[string]*taskLock
+	held map[uuid.UUID]*taskLock
 }
 
 // taskLock is one task's lock and how many callers are holding or waiting on it.
@@ -15,11 +19,11 @@ type taskLock struct {
 }
 
 func newTaskLocks() *taskLocks {
-	return &taskLocks{held: map[string]*taskLock{}}
+	return &taskLocks{held: map[uuid.UUID]*taskLock{}}
 }
 
 // lock waits for the task's lock and hands back what releases it.
-func (l *taskLocks) lock(taskID string) func() {
+func (l *taskLocks) lock(taskID uuid.UUID) func() {
 	l.mu.Lock()
 	held, ok := l.held[taskID]
 	if !ok {

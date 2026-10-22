@@ -12,6 +12,7 @@ import (
 	"komrad/internal/storetest"
 	"komrad/lib/xptr"
 
+	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
@@ -49,7 +50,7 @@ func (f fakeForgeFinder) ForHost(context.Context, string) (forge.Forge, error) {
 	return f.forge, f.err
 }
 
-func seedCheckForLog(t *testing.T, stores *storetest.Stores, check forge.StatusCheck) string {
+func seedCheckForLog(t *testing.T, stores *storetest.Stores, check forge.StatusCheck) uuid.UUID {
 	t.Helper()
 	ctx := t.Context()
 
@@ -84,7 +85,7 @@ func seedCheckForLog(t *testing.T, stores *storetest.Stores, check forge.StatusC
 		ReadAt:        checkFinishedAt,
 	}))
 
-	var checkID string
+	var checkID uuid.UUID
 	require.NoError(t, stores.Pool.GetDB().QueryRow(ctx, "SELECT id FROM pull_request_checks WHERE provider_id = '1'").Scan(&checkID))
 
 	return checkID
@@ -123,7 +124,7 @@ func finishedCheck() forge.StatusCheck {
 	}
 }
 
-func keptLog(t *testing.T, stores *storetest.Stores, checkID string) *pullrequeststore.CheckLog {
+func keptLog(t *testing.T, stores *storetest.Stores, checkID uuid.UUID) *pullrequeststore.CheckLog {
 	t.Helper()
 
 	var log pullrequeststore.CheckLog
@@ -139,7 +140,7 @@ func keptLog(t *testing.T, stores *storetest.Stores, checkID string) *pullreques
 	return &log
 }
 
-func fetchJob(checkID string, attempt int) *river.Job[FetchCheckLogArgs] {
+func fetchJob(checkID uuid.UUID, attempt int) *river.Job[FetchCheckLogArgs] {
 	return &river.Job[FetchCheckLogArgs]{
 		JobRow: &rivertype.JobRow{Attempt: attempt, MaxAttempts: fetchCheckLogMaxAttempts},
 		Args:   FetchCheckLogArgs{CheckID: checkID},

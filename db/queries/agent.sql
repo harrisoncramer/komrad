@@ -31,7 +31,7 @@ WITH watched AS (
                 agents a
             WHERE
                 a.deleting_at IS NULL
-                AND (sqlc.narg('keys')::text[] IS NULL
+                AND (sqlc.narg('keys')::uuid[] IS NULL
                     OR a.id = ANY (sqlc.narg('keys')::uuid[]))) AS ids
 ),
 failed AS (

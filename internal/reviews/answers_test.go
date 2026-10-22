@@ -147,7 +147,7 @@ func TestReplyingToAnAnswerReopensIt(t *testing.T) {
 
 	rung := fx.listMail(t, fx.writer.ID)
 	require.Len(t, rung, 2)
-	assert.Contains(t, rung[1].Body, "the person replied on snapshot 1 at greet.go:41, thread "+thread.ID)
+	assert.Contains(t, rung[1].Body, "the person replied on snapshot 1 at greet.go:41, thread "+thread.ID.String())
 	assert.Contains(t, rung[1].Body, "the empty list still panics")
 	assert.NotContains(t, rung[1].Body, "greet(nil)", "a reply carries no quoted lines")
 }

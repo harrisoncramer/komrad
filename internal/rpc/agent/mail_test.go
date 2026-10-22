@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"strings"
 	"testing"
@@ -24,16 +23,17 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
-const (
-	alphaID       = "01a0d1d7-0000-7000-8000-00000000000a"
-	betaID        = "01a0d1d7-0000-7000-8000-00000000000b"
-	gammaID       = "01a0d1d7-0000-7000-8000-00000000000c"
-	earlierMailID = "01a0d1d7-0000-7000-8000-0000000000c0"
+var (
+	alphaID       = uuid.MustParse("01a0d1d7-0000-7000-8000-00000000000a")
+	betaID        = uuid.MustParse("01a0d1d7-0000-7000-8000-00000000000b")
+	gammaID       = uuid.MustParse("01a0d1d7-0000-7000-8000-00000000000c")
+	earlierMailID = uuid.MustParse("01a0d1d7-0000-7000-8000-0000000000c0")
 )
 
 // fakeMailer answers from its fields and records what each call asked of it.
@@ -45,7 +45,7 @@ type fakeMailer struct {
 	found      []mail.FindRecipientParams
 	sent       []mail.SendMailParams
 	paged      []mail.ListMailParams
-	deleted    []string
+	deleted    []uuid.UUID
 	dormant    bool
 }
 
@@ -67,7 +67,7 @@ func (f *fakeMailer) SendMail(_ context.Context, params mail.SendMailParams) (*m
 	}
 
 	sent := mailstore.Mail{
-		ID:          "mail-1",
+		ID:          mailID,
 		FromAgentID: xptr.Ptr(params.From),
 		FromName:    "alpha",
 		ToAgentID:   params.ToAgentID,
@@ -93,7 +93,7 @@ func (f *fakeMailer) ListMail(_ context.Context, params mail.ListMailParams) ([]
 }
 
 // DeleteMail records the ids and answers err.
-func (f *fakeMailer) DeleteMail(_ context.Context, ids []string) error {
+func (f *fakeMailer) DeleteMail(_ context.Context, ids []uuid.UUID) error {
 	f.deleted = append(f.deleted, ids...)
 
 	return f.err
@@ -108,7 +108,7 @@ func (f *fakeMailer) IsDormant(agentstore.Agent) bool {
 func TestMailRefusalsMapToCodes(t *testing.T) {
 	send := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 		_, err := svc.SendMail(ctx, connect.NewRequest(&agentv1.SendMailRequest{
-			To:   &agentv1.SendMailRequest_ToAgentId{ToAgentId: betaID},
+			To:   &agentv1.SendMailRequest_ToAgentId{ToAgentId: betaID.String()},
 			Body: "hello",
 		}))
 
@@ -227,7 +227,7 @@ func TestMailRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "deleting mail nothing holds",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.DeleteMail(ctx, connect.NewRequest(&agentv1.DeleteMailRequest{Ids: []string{betaID}}))
+				_, err := svc.DeleteMail(ctx, connect.NewRequest(&agentv1.DeleteMailRequest{Ids: []string{betaID.String()}}))
 
 				return err
 			},
@@ -276,7 +276,7 @@ func TestSendMail(t *testing.T) {
 	sent, err := svc.SendMail(caller.With(t.Context(), caller.Caller{AgentID: alphaID}), connect.NewRequest(&agentv1.SendMailRequest{
 		To:      &agentv1.SendMailRequest_ToAgentName{ToAgentName: "beta"},
 		Body:    "which column holds the refund?",
-		ReplyTo: xptr.Ptr(earlierMailID),
+		ReplyTo: xptr.Ptr(earlierMailID.String()),
 	}))
 	require.NoError(t, err)
 
@@ -289,12 +289,12 @@ func TestSendMail(t *testing.T) {
 	}}, mailer.sent)
 	assert.Empty(t, cmp.Diff(&agentv1.SendMailResponse{
 		Mail: &agentv1.Mail{
-			Id:          "mail-1",
-			FromAgentId: xptr.Ptr(alphaID),
+			Id:          mailID.String(),
+			FromAgentId: xptr.Ptr(alphaID.String()),
 			FromName:    "alpha",
-			ToAgentId:   betaID,
+			ToAgentId:   betaID.String(),
 			Body:        "which column holds the refund?",
-			ReplyTo:     xptr.Ptr(earlierMailID),
+			ReplyTo:     xptr.Ptr(earlierMailID.String()),
 			CreatedAt:   "2026-09-24T09:00:00Z",
 			ExpiresAt:   "2026-09-24T12:00:00Z",
 			Kind:        agentv1.MailKind_MAIL_KIND_PLAIN,
@@ -352,10 +352,10 @@ func TestSendMailWarnsOfADormantRecipient(t *testing.T) {
 func TestReadMail(t *testing.T) {
 	tests := []struct {
 		name        string
-		callerIs    string
+		callerIs    uuid.UUID
 		id          *string
-		wantClaimed string
-		wantLogged  string
+		wantClaimed uuid.UUID
+		wantLogged  uuid.UUID
 	}{
 		{
 			name:        "an unset id falls back to the caller's own",
@@ -365,13 +365,13 @@ func TestReadMail(t *testing.T) {
 		{
 			name:        "an agent reading another's mailbox",
 			callerIs:    alphaID,
-			id:          xptr.Ptr(betaID),
+			id:          xptr.Ptr(betaID.String()),
 			wantClaimed: betaID,
 			wantLogged:  betaID,
 		},
 		{
 			name:        "the panel reading an agent's mailbox",
-			id:          xptr.Ptr(betaID),
+			id:          xptr.Ptr(betaID.String()),
 			wantClaimed: betaID,
 		},
 	}
@@ -379,7 +379,7 @@ func TestReadMail(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			reviewer := &fakeReviewer{mail: []mailstore.Mail{{
-				ID:        "mail-1",
+				ID:        mailID,
 				ToAgentID: betaID,
 				Body:      "refunded_cents",
 			}}}
@@ -388,7 +388,7 @@ func TestReadMail(t *testing.T) {
 
 			read, err := svc.ReadMail(ctx, connect.NewRequest(&agentv1.ReadMailRequest{Id: tt.id}))
 			require.NoError(t, err)
-			assert.Equal(t, []string{tt.wantClaimed}, reviewer.read)
+			assert.Equal(t, []uuid.UUID{tt.wantClaimed}, reviewer.read)
 			require.Len(t, read.Msg.GetMail(), 1)
 			assert.Empty(t, diffMail(reviewer.mail[0], read.Msg.GetMail()[0]))
 			assertCrossAgentRead(t, assertCrossAgentReadParams{
@@ -404,12 +404,12 @@ func TestReadMail(t *testing.T) {
 func TestListMail(t *testing.T) {
 	tests := []struct {
 		name       string
-		callerIs   string
+		callerIs   uuid.UUID
 		req        *agentv1.ListMailRequest
 		stored     int
 		wantListed mail.ListMailParams
 		wantNext   bool
-		wantLogged string
+		wantLogged uuid.UUID
 	}{
 		{
 			name:     "an unset direction reads the caller's own mailbox",
@@ -437,7 +437,7 @@ func TestListMail(t *testing.T) {
 			name:     "sent reads what another agent wrote, and is written to the log",
 			callerIs: alphaID,
 			req: &agentv1.ListMailRequest{
-				Id:        xptr.Ptr(betaID),
+				Id:        xptr.Ptr(betaID.String()),
 				Direction: agentv1.MailDirection_MAIL_DIRECTION_SENT,
 			},
 			stored: 1,
@@ -466,9 +466,9 @@ func TestListMail(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mailer := &fakeMailer{}
-			for at := range tt.stored {
+			for range tt.stored {
 				mailer.mail = append(mailer.mail, mailstore.Mail{
-					ID:        fmt.Sprintf("mail-%d", at),
+					ID:        uuid.New(),
 					ToAgentID: betaID,
 					Body:      "refunded_cents",
 				})
@@ -497,10 +497,10 @@ func TestDeleteMail(t *testing.T) {
 	svc := newMailHandler(mailer)
 
 	_, err := svc.DeleteMail(t.Context(), connect.NewRequest(&agentv1.DeleteMailRequest{
-		Ids: []string{alphaID, betaID},
+		Ids: []string{alphaID.String(), betaID.String()},
 	}))
 	require.NoError(t, err)
-	assert.Equal(t, []string{alphaID, betaID}, mailer.deleted)
+	assert.Equal(t, []uuid.UUID{alphaID, betaID}, mailer.deleted)
 }
 
 // newMailHandler is the handler over a fake mail service, whose reads of mail refuse as the mailer does.
@@ -509,12 +509,12 @@ func newMailHandler(mailer *fakeMailer) agentv1komrad.AgentServiceAdapter {
 }
 
 // newLoggedCaller is a context calling as the agent named, whose log lines land in the builder handed back.
-func newLoggedCaller(t *testing.T, agentID string) (context.Context, *strings.Builder) {
+func newLoggedCaller(t *testing.T, agentID uuid.UUID) (context.Context, *strings.Builder) {
 	t.Helper()
 
 	var written strings.Builder
 	ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelInfo))
-	if agentID != "" {
+	if agentID != uuid.Nil {
 		ctx = caller.With(ctx, caller.Caller{AgentID: agentID})
 	}
 
@@ -525,13 +525,13 @@ type assertCrossAgentReadParams struct {
 	Written string
 	Body    string
 	// Target is whose mailbox or conversation the call read, empty when the handler should record no read.
-	Target string
+	Target uuid.UUID
 }
 
 func assertCrossAgentRead(t *testing.T, params assertCrossAgentReadParams) {
 	t.Helper()
 
-	if params.Target == "" {
+	if params.Target == uuid.Nil {
 		assert.Empty(t, params.Written)
 
 		return
@@ -539,7 +539,7 @@ func assertCrossAgentRead(t *testing.T, params assertCrossAgentReadParams) {
 
 	record := logtest.Record(t, params.Written)
 	assert.Equal(t, params.Body, record["body"])
-	assert.Equal(t, params.Target, record[logging.TargetAgentID])
+	assert.Equal(t, params.Target.String(), record[logging.TargetAgentID])
 }
 
 func diffMail(stored mailstore.Mail, rendered *agentv1.Mail) string {

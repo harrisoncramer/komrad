@@ -13,6 +13,7 @@ import (
 	reviewstore "komrad/internal/store/review"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -456,7 +457,7 @@ func (fx *reviewFixture) readForgeMirrored(t *testing.T) forgeMirrored {
 	threads, err := fx.reviews.ListThreads(ctx, *fx.writer.TaskID)
 	require.NoError(t, err)
 
-	messages, err := fx.reviews.ListMessages(ctx, xslice.Map(threads, func(thread reviewstore.Thread) string { return thread.ID }))
+	messages, err := fx.reviews.ListMessages(ctx, xslice.Map(threads, func(thread reviewstore.Thread) uuid.UUID { return thread.ID }))
 	require.NoError(t, err)
 
 	reviews, err := fx.reviews.ListReviews(ctx, *fx.writer.TaskID)
@@ -503,7 +504,7 @@ func newEditedForgeComment(comment forge.ReviewComment) forge.ReviewComment {
 	return comment
 }
 
-func (fx *reviewFixture) acceptForge(t *testing.T, messageID string) error {
+func (fx *reviewFixture) acceptForge(t *testing.T, messageID uuid.UUID) error {
 	t.Helper()
 
 	_, err := fx.service.AcceptForgeMessage(t.Context(), AcceptForgeMessageParams{

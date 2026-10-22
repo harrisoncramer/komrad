@@ -19,7 +19,7 @@ func (s *ScriptService) runLogger(ctx context.Context, name, trigger string, age
 	return logging.From(ctx).With(logging.Attrs([]slog.Attr{
 		slog.String(logging.ScriptName, name),
 		slog.String(logging.RunTrigger, trigger),
-		slog.String(logging.ScriptAgentID, agent.ID),
+		slog.String(logging.ScriptAgentID, agent.ID.String()),
 		slog.String(logging.ScriptAgentCwd, agent.Cwd),
 	})...)
 }

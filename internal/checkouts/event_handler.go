@@ -13,6 +13,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 
+	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 )
 
@@ -20,7 +21,7 @@ const rebasedTopic = "worktree_rebased"
 
 // rebased is a task's worktree having been rebased.
 type rebased struct {
-	TaskID string `json:"task_id"`
+	TaskID uuid.UUID `json:"task_id"`
 }
 
 // Topic names the handler that tells the task's writer.
@@ -62,9 +63,9 @@ const pushedTopic = "worktree_pushed"
 
 // pushed is a task's branch having been force-pushed to origin from the panel.
 type pushed struct {
-	TaskID string `json:"task_id"`
-	Branch string `json:"branch"`
-	SHA    string `json:"sha"`
+	TaskID uuid.UUID `json:"task_id"`
+	Branch string    `json:"branch"`
+	SHA    string    `json:"sha"`
 }
 
 // Topic names the handler that tells the task's writer.
@@ -89,7 +90,7 @@ const abortedTopic = "worktree_aborted"
 
 // aborted is what a task's worktree had part-way through having been aborted from the panel.
 type aborted struct {
-	TaskID string       `json:"task_id"`
+	TaskID uuid.UUID    `json:"task_id"`
 	Result *AbortResult `json:"result,omitempty"`
 }
 
@@ -112,7 +113,7 @@ const cascadedTopic = "worktree_cascaded"
 
 // cascaded is the cascade having rebased a child onto its parent, or having stopped short of it.
 type cascaded struct {
-	TaskID     string                          `json:"task_id"`
+	TaskID     uuid.UUID                       `json:"task_id"`
 	Rebased    *eventprompts.CascadeRebased    `json:"rebased,omitempty"`
 	Conflicted *eventprompts.CascadeConflicted `json:"conflicted,omitempty"`
 	Closed     *eventprompts.ParentClosed      `json:"closed,omitempty"`
@@ -153,7 +154,7 @@ func handleCascaded(ctx context.Context, tx store.DBTX, mailer *mail.MailService
 
 // mailWriterParams is a piece of mail for whoever writes a task.
 type mailWriterParams struct {
-	TaskID string
+	TaskID uuid.UUID
 	Mail   eventprompts.Mail
 }
 

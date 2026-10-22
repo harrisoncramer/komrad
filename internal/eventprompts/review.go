@@ -6,11 +6,13 @@ import (
 
 	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
+
+	"github.com/google/uuid"
 )
 
 // ReviewReleased tells a task's writer that a reviewer released a review of its work.
 type ReviewReleased struct {
-	ReviewID string
+	ReviewID uuid.UUID
 	Ordinal  int32
 	Verdict  reviewstore.Verdict
 	Comments int
@@ -68,7 +70,7 @@ func (m ReviewReleased) Body() string {
 
 // ReviewComment carries one comment the person wrote on a task's work to its writer, whole.
 type ReviewComment struct {
-	ThreadID string
+	ThreadID uuid.UUID
 	// Ordinal is the snapshot the comment's lines were read in.
 	Ordinal int32
 	// Anchor is the file and lines the thread is pinned to, as the review file heads it, empty for

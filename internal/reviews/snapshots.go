@@ -21,6 +21,7 @@ import (
 	"komrad/lib/xptr"
 	"komrad/proto/gen/oneofs"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 )
@@ -150,12 +151,12 @@ func (s *ReviewService) releaseUnheldRef(ctx context.Context, task taskstore.Tas
 
 	if err := s.snapshots.ReleaseRef(ctx, task.Checkout.Cwd, reviewstore.SnapshotRef(task.ID, snapshotSHA)); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the ref of a snapshot that was never written",
-			append([]slog.Attr{slog.String(logging.TaskID, task.ID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.TaskID, task.ID.String())}, logging.Err(err)...)...)
 	}
 }
 
 // getLatestSnapshot is the newest snapshot of a task, ErrReviewNoSnapshot when none has been taken.
-func (s *ReviewService) getLatestSnapshot(ctx context.Context, taskID string) (*reviewstore.Snapshot, error) {
+func (s *ReviewService) getLatestSnapshot(ctx context.Context, taskID uuid.UUID) (*reviewstore.Snapshot, error) {
 	snapshot, err := s.reviews.GetLatestSnapshot(ctx, taskID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("%w: %q", ErrReviewNoSnapshot, taskID)
@@ -203,7 +204,7 @@ func (s *ReviewService) ListReviews(
 	return s.listReviews(ctx, task.ID, author)
 }
 
-func (s *ReviewService) listReviews(ctx context.Context, taskID string, author ReviewAuthor) ([]reviewstore.Review, error) {
+func (s *ReviewService) listReviews(ctx context.Context, taskID uuid.UUID, author ReviewAuthor) ([]reviewstore.Review, error) {
 	reviews, err := s.reviews.ListReviews(ctx, taskID)
 	if err != nil {
 		return nil, err
@@ -242,10 +243,10 @@ func doesOwnReviewBatch(author ReviewAuthor, review reviewstore.Review) bool {
 // one holding the commit it read, the snapshot an agent's own open review sits on, or the newest.
 func (s *ReviewService) snapshotFor(
 	ctx context.Context,
-	taskID string,
+	taskID uuid.UUID,
 	params CreateReviewThreadParams,
 ) (*reviewstore.Snapshot, error) {
-	if params.SnapshotID != "" {
+	if params.SnapshotID != uuid.Nil {
 		return s.reviews.GetSnapshot(ctx, params.SnapshotID)
 	}
 
@@ -280,7 +281,7 @@ func (s *ReviewService) snapshotFor(
 
 // openReviewForParams says whose work an author is writing about, and from where.
 type openReviewForParams struct {
-	TaskID string
+	TaskID uuid.UUID
 	Author ReviewAuthor
 	// Snapshot is the snapshot the author read their line numbers from, nil for a caller with nothing
 	// to say about which snapshot that was.
@@ -442,7 +443,7 @@ func (s *ReviewService) getTask(ctx context.Context, named oneofs.Task, author R
 }
 
 // isTaskWriter reports whether an author is the live writer of a task.
-func (s *ReviewService) isTaskWriter(ctx context.Context, author ReviewAuthor, taskID string) (bool, error) {
+func (s *ReviewService) isTaskWriter(ctx context.Context, author ReviewAuthor, taskID uuid.UUID) (bool, error) {
 	if author.isHuman() || author.AgentID == nil {
 		return false, nil
 	}
@@ -605,7 +606,7 @@ type batchTally struct {
 }
 
 // tallyBatch counts the threads a batch opened and the replies it carries into earlier ones.
-func tallyBatch(reviewID string, threads []ReviewThreadWithMessages) batchTally {
+func tallyBatch(reviewID uuid.UUID, threads []ReviewThreadWithMessages) batchTally {
 	var tally batchTally
 	for _, thread := range threads {
 		if thread.Thread.ReviewID != nil && *thread.Thread.ReviewID == reviewID {
@@ -622,7 +623,7 @@ func tallyBatch(reviewID string, threads []ReviewThreadWithMessages) batchTally 
 
 // listBatchThreads is what one review actually says, gathered by the messages written under it
 // rather than by the threads opened under it.
-func (s *ReviewService) listBatchThreads(ctx context.Context, reviewID string) ([]ReviewThreadWithMessages, error) {
+func (s *ReviewService) listBatchThreads(ctx context.Context, reviewID uuid.UUID) ([]ReviewThreadWithMessages, error) {
 	review, err := s.reviews.GetReview(ctx, reviewID)
 	if err != nil {
 		return nil, err
@@ -671,7 +672,7 @@ type ReviewInFull struct {
 
 // GetReview is one released review whole, which the agents on its task and the person may read,
 // and which its author alone may read before it is released.
-func (s *ReviewService) GetReview(ctx context.Context, reviewID string, author ReviewAuthor) (*ReviewInFull, error) {
+func (s *ReviewService) GetReview(ctx context.Context, reviewID uuid.UUID, author ReviewAuthor) (*ReviewInFull, error) {
 	review, err := s.reviews.GetReview(ctx, reviewID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("%w: %q", ErrReviewNotFound, reviewID)
@@ -740,7 +741,7 @@ type writeReviewParams struct {
 // writeReview puts the whole review under komrad's own state directory rather than in the
 // task's worktree, and leaves it there for good.
 func (s *ReviewService) writeReview(ctx context.Context, params writeReviewParams) (string, error) {
-	dir := filepath.Join(s.stateDir, reviewDirName, params.Task.ID)
+	dir := filepath.Join(s.stateDir, reviewDirName, params.Task.ID.String())
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("failed to make room for the review of %q: %w", params.Task.Slug, err)
 	}
@@ -770,7 +771,7 @@ func (s *ReviewService) getAuthorName(ctx context.Context, review reviewstore.Re
 
 	author, err := s.agents.GetByID(ctx, *review.AuthorAgentID)
 	if err != nil {
-		return *review.AuthorAgentID
+		return review.AuthorAgentID.String()
 	}
 
 	return author.Name
@@ -782,11 +783,11 @@ func (s *ReviewService) threadsInContext(
 	dir string,
 	threads []ReviewThreadWithMessages,
 ) []ReviewThreadInContext {
-	snapshots := map[string]string{}
-	held := map[[2]string][]string{}
+	snapshots := map[uuid.UUID]string{}
+	held := map[snapshotFile][]string{}
 	drawn := make([]ReviewThreadInContext, 0, len(threads))
 	for _, thread := range threads {
-		key := [2]string{thread.Thread.SnapshotID, thread.Thread.FilePath}
+		key := snapshotFile{SnapshotID: thread.Thread.SnapshotID, Path: thread.Thread.FilePath}
 		lines, done := held[key]
 		if !done && dir != "" && thread.Thread.FilePath != "" {
 			lines = s.readSnapshotFile(ctx, readSnapshotFileParams{
@@ -808,11 +809,16 @@ func (s *ReviewService) threadsInContext(
 	return drawn
 }
 
+type snapshotFile struct {
+	SnapshotID uuid.UUID
+	Path       string
+}
+
 type readSnapshotFileParams struct {
 	Dir        string
-	SnapshotID string
+	SnapshotID uuid.UUID
 	Path       string
-	Snapshots  map[string]string
+	Snapshots  map[uuid.UUID]string
 }
 
 // readSnapshotFile is a file as one snapshot froze it, nil when the snapshot or the file cannot be read.
@@ -840,7 +846,7 @@ func (s *ReviewService) readSnapshotFile(ctx context.Context, params readSnapsho
 }
 
 // getAgent reads an agent, archived or not, ErrAgentNotFound for an id that names none.
-func (s *ReviewService) getAgent(ctx context.Context, agentID string) (*agentstore.Agent, error) {
+func (s *ReviewService) getAgent(ctx context.Context, agentID uuid.UUID) (*agentstore.Agent, error) {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %q", agentID)

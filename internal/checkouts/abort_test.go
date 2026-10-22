@@ -154,7 +154,7 @@ func TestAbortUndoesTheSequence(t *testing.T) {
 			assert.Equal(t, tt.wantOurs, result.Ours)
 			assert.Equal(t, []string{"park", "abort " + string(sequence)}, tt.aborter.Calls)
 			assert.Equal(t, []string{result.ParkedRef}, tt.aborter.Parked)
-			assert.Contains(t, result.ParkedRef, "refs/komrad/aborted/"+*agent.TaskID+"/")
+			assert.Contains(t, result.ParkedRef, "refs/komrad/aborted/"+agent.TaskID.String()+"/")
 			assert.Equal(t, 1, fixture.checkoutSync.Wakes)
 
 			assert.Equal(t, taskstore.SequenceNone, fixture.readCheckout(t, agent).Sequence)

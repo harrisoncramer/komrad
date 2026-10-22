@@ -36,6 +36,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -86,7 +87,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 		Role:       agentstore.RoleReviewer,
 	})
 	gone := st.SeedAgent(t, agentstore.Agent{Name: "gone", WorkflowID: docs.ID})
-	_, err := st.Agents.Archive(ctx, []string{gone.ID})
+	_, err := st.Agents.Archive(ctx, []uuid.UUID{gone.ID})
 	require.NoError(t, err)
 
 	// Mail waiting for one agent, and mail another has already claimed.
@@ -106,7 +107,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 	require.NoError(t, err)
 	waiting, err := st.Mail.ListWaiting(ctx, quiet.ID, 10)
 	require.NoError(t, err)
-	_, err = st.Mail.ClaimByID(ctx, quiet.ID, xslice.Map(waiting, func(m mailstore.Mail) string { return m.ID }))
+	_, err = st.Mail.ClaimByID(ctx, quiet.ID, xslice.Map(waiting, func(m mailstore.Mail) uuid.UUID { return m.ID }))
 	require.NoError(t, err)
 
 	// The repository has been read, with two pull requests on api's branch, the older one
@@ -121,16 +122,16 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 
 	// The stores draw the fixture, so agreement below is over rows that hold something.
 	seeded := viewOf(worldFromStores(t, st), time.Now())
-	require.True(t, seeded.agents[api.ID].GetUnreadMail())
-	require.Len(t, seeded.agents[api.ID].GetPullRequests(), 2)
-	require.Equal(t, int32(2), seeded.agents[api.ID].GetPullRequest().GetNumber(), "the open pull request is current")
-	require.Empty(t, seeded.agents[base.ID].GetPullRequests(), "a pull request on the base branch is nobody's")
-	require.False(t, seeded.agents[quiet.ID].GetUnreadMail())
-	require.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE, seeded.agents[quiet.ID].GetPullRequest().GetState())
-	require.NotEmpty(t, seeded.agents[gone.ID].GetAgent().GetArchivedAt(), "the archived agent is watched as archived")
+	require.True(t, seeded.agents[api.ID.String()].GetUnreadMail())
+	require.Len(t, seeded.agents[api.ID.String()].GetPullRequests(), 2)
+	require.Equal(t, int32(2), seeded.agents[api.ID.String()].GetPullRequest().GetNumber(), "the open pull request is current")
+	require.Empty(t, seeded.agents[base.ID.String()].GetPullRequests(), "a pull request on the base branch is nobody's")
+	require.False(t, seeded.agents[quiet.ID.String()].GetUnreadMail())
+	require.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE, seeded.agents[quiet.ID.String()].GetPullRequest().GetState())
+	require.NotEmpty(t, seeded.agents[gone.ID.String()].GetAgent().GetArchivedAt(), "the archived agent is watched as archived")
 	require.Len(t, seeded.schedules, 1)
-	require.Contains(t, seeded.tasks, fixLogin.ID)
-	require.Equal(t, "fix-login", seeded.agents[working.ID].GetAgent().GetTaskSlug(), "the agent is watched with its task")
+	require.Contains(t, seeded.tasks, fixLogin.ID.String())
+	require.Equal(t, "fix-login", seeded.agents[working.ID.String()].GetAgent().GetTaskSlug(), "the agent is watched with its task")
 
 	// The stream opens with the snapshot, applied the way the panel applies it.
 	batches := openWatch(t, instance)
@@ -148,12 +149,12 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 			name: "a mail is claimed",
 			write: func(t *testing.T) {
 				req := connect.NewRequest(&agentv1.ReadMailRequest{})
-				callAs(req, api.ID)
+				callAs(req, api.ID.String())
 				_, err := instance.Agents.ReadMail(ctx, req)
 				require.NoError(t, err)
 			},
 			took: func(t *testing.T, stores view) {
-				assert.False(t, stores.agents[api.ID].GetUnreadMail())
+				assert.False(t, stores.agents[api.ID.String()].GetUnreadMail())
 			},
 		},
 		{
@@ -167,8 +168,8 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 				require.NoError(t, err)
 			},
 			took: func(t *testing.T, stores view) {
-				assert.Equal(t, "agent/nobody", stores.tasks[*quiet.TaskID].GetBranch())
-				assert.Equal(t, int32(3), stores.agents[quiet.ID].GetPullRequest().GetNumber())
+				assert.Equal(t, "agent/nobody", stores.tasks[quiet.TaskID.String()].GetBranch())
+				assert.Equal(t, int32(3), stores.agents[quiet.ID.String()].GetPullRequest().GetNumber())
 			},
 		},
 		{
@@ -178,8 +179,8 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 				require.NoError(t, err)
 			},
 			took: func(t *testing.T, stores view) {
-				assert.Len(t, stores.agents[api.ID].GetPullRequests(), 1)
-				assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED, stores.agents[api.ID].GetPullRequest().GetState())
+				assert.Len(t, stores.agents[api.ID.String()].GetPullRequests(), 1)
+				assert.Equal(t, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED, stores.agents[api.ID.String()].GetPullRequest().GetState())
 			},
 		},
 		{
@@ -206,7 +207,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 				require.NoError(t, err)
 			},
 			took: func(t *testing.T, stores view) {
-				assert.Equal(t, int32(1), stores.agents[api.ID].GetLocalReviewSnapshots())
+				assert.Equal(t, int32(1), stores.agents[api.ID.String()].GetLocalReviewSnapshots())
 			},
 		},
 		{
@@ -248,7 +249,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 				require.NoError(t, err)
 			},
 			took: func(t *testing.T, stores view) {
-				assert.Equal(t, int32(1), stores.agents[base.ID].GetReviewerComments().GetOpen())
+				assert.Equal(t, int32(1), stores.agents[base.ID.String()].GetReviewerComments().GetOpen())
 			},
 		},
 		{
@@ -257,7 +258,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 				_, err := instance.Tasks.CreateTask(ctx, connect.NewRequest(&taskv1.CreateTaskRequest{
 					Slug:       "write-docs",
 					Title:      "Write docs",
-					WorkflowId: docs.ID,
+					WorkflowId: docs.ID.String(),
 				}))
 				require.NoError(t, err)
 			},
@@ -268,21 +269,21 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 		{
 			name: "a task is archived",
 			write: func(t *testing.T) {
-				_, err := instance.Tasks.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{Task: &taskv1.ArchiveTaskRequest_TaskId{TaskId: fixLogin.ID}}))
+				_, err := instance.Tasks.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{Task: &taskv1.ArchiveTaskRequest_TaskId{TaskId: fixLogin.ID.String()}}))
 				require.NoError(t, err)
 			},
 			took: func(t *testing.T, stores view) {
-				assert.NotEmpty(t, stores.tasks[fixLogin.ID].GetArchivedAt())
+				assert.NotEmpty(t, stores.tasks[fixLogin.ID.String()].GetArchivedAt())
 			},
 		},
 		{
 			name: "an agent is archived",
 			write: func(t *testing.T) {
-				_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: []string{reviewer.ID}}))
+				_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: []string{reviewer.ID.String()}}))
 				require.NoError(t, err)
 			},
 			took: func(t *testing.T, stores view) {
-				assert.NotEmpty(t, stores.agents[reviewer.ID].GetAgent().GetArchivedAt())
+				assert.NotEmpty(t, stores.agents[reviewer.ID.String()].GetAgent().GetArchivedAt())
 			},
 		},
 	}
@@ -410,7 +411,7 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	require.NoError(t, err)
 
 	reviewStore := reviewstore.NewReviewStore(st.Pool.GetDB())
-	reviewIDs, err := reviewStore.ListIDsOfTasks(ctx, xslice.Map(tasks, func(task taskstore.Task) string { return task.ID }))
+	reviewIDs, err := reviewStore.ListIDsOfTasks(ctx, xslice.Map(tasks, func(task taskstore.Task) uuid.UUID { return task.ID }))
 	require.NoError(t, err)
 	reviews, err := reviewStore.ListWatched(ctx, reviewIDs)
 	require.NoError(t, err)
@@ -418,7 +419,7 @@ func worldFromStores(t *testing.T, st *storetest.Stores) assemble.World {
 	reviewThreads, err := reviewstore.NewThreadStore(st.Pool.GetDB()).ListWatched(ctx, nil)
 	require.NoError(t, err)
 
-	workflows, err := st.Workflows.ListWatched(ctx, xslice.Map(rows, func(row rowstore.Row) string { return row.WorkflowID }))
+	workflows, err := st.Workflows.ListWatched(ctx, xslice.Map(rows, func(row rowstore.Row) uuid.UUID { return row.WorkflowID }))
 	require.NoError(t, err)
 
 	schedules, err := st.Schedules.ListPage(ctx, 100, nil, false)
@@ -587,7 +588,7 @@ func applyBatch(world *assemble.World, batch client.WatchBatch) {
 }
 
 // agentOn is a live agent in a workflow whose task's checkout is on a branch of a repository.
-func agentOn(t *testing.T, st *storetest.Stores, workflowID, name, repositoryURL, branch string) *agentstore.Agent {
+func agentOn(t *testing.T, st *storetest.Stores, workflowID uuid.UUID, name, repositoryURL, branch string) *agentstore.Agent {
 	t.Helper()
 
 	agent := st.SeedAgent(t, agentstore.Agent{Name: name, WorkflowID: workflowID})
@@ -598,7 +599,7 @@ func agentOn(t *testing.T, st *storetest.Stores, workflowID, name, repositoryURL
 
 // upsertPullRequest writes one pull request on a branch of the watched repository, merged when
 // mergedAt is set, and answers its id.
-func upsertPullRequest(t *testing.T, st *storetest.Stores, number int, branch string, mergedAt *time.Time) string {
+func upsertPullRequest(t *testing.T, st *storetest.Stores, number int, branch string, mergedAt *time.Time) uuid.UUID {
 	t.Helper()
 
 	openedAt := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC).Add(time.Duration(number) * time.Hour)

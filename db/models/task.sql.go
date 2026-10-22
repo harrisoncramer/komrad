@@ -8,6 +8,8 @@ package models
 import (
 	"context"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const archiveIdleTasks = `-- name: ArchiveIdleTasks :many
@@ -30,7 +32,7 @@ RETURNING
     t.id, t.workflow_id, t.slug, t.title, t.goal, t.archived_at, t.created_at, t.updated_at, t.engine_id, t.cwd, t.branch, t.adopted_branch, t.provision_enabled, t.worktree_removed, t.repository_url, t.head_sha, t.last_rebase, t.sequence, t.lines_added, t.lines_removed, t.moved_since_snapshot, t.deleting_at, t.cleaning_at, t.failure_reason, t.notes, t.notes_updated_at, t.is_hidden, t.parent_task_id, t.fork_point, t.parent_pull_request_id, t.cascade_blocked, t.worktree_removal_reason, t.left_parent_branch
 `
 
-func (q *Queries) ArchiveIdleTasks(ctx context.Context, ids []string) ([]*Task, error) {
+func (q *Queries) ArchiveIdleTasks(ctx context.Context, ids []uuid.UUID) ([]*Task, error) {
 	rows, err := q.db.Query(ctx, archiveIdleTasks, ids)
 	if err != nil {
 		return nil, err
@@ -94,7 +96,7 @@ WHERE
     AND archived_at IS NULL
 `
 
-func (q *Queries) ArchiveTask(ctx context.Context, id string) (int64, error) {
+func (q *Queries) ArchiveTask(ctx context.Context, id uuid.UUID) (int64, error) {
 	result, err := q.db.Exec(ctx, archiveTask, id)
 	if err != nil {
 		return 0, err
@@ -120,7 +122,7 @@ WHERE
             a.task_id = t.id)
 `
 
-func (q *Queries) ClaimEmptyDeletingTask(ctx context.Context, id string) (int64, error) {
+func (q *Queries) ClaimEmptyDeletingTask(ctx context.Context, id uuid.UUID) (int64, error) {
 	result, err := q.db.Exec(ctx, claimEmptyDeletingTask, id)
 	if err != nil {
 		return 0, err
@@ -144,7 +146,7 @@ WHERE
 type ClaimTaskCheckoutParams struct {
 	AdoptedBranch *string
 	RepositoryUrl *string
-	ID            string
+	ID            uuid.UUID
 }
 
 func (q *Queries) ClaimTaskCheckout(ctx context.Context, arg ClaimTaskCheckoutParams) (int64, error) {
@@ -166,7 +168,7 @@ WHERE
     AND worktree_removed IS NULL
 `
 
-func (q *Queries) ClaimTaskCheckoutAgain(ctx context.Context, id string) (int64, error) {
+func (q *Queries) ClaimTaskCheckoutAgain(ctx context.Context, id uuid.UUID) (int64, error) {
 	result, err := q.db.Exec(ctx, claimTaskCheckoutAgain, id)
 	if err != nil {
 		return 0, err
@@ -186,7 +188,7 @@ WHERE
     AND deleting_at IS NULL
 `
 
-func (q *Queries) ClaimTaskCleanup(ctx context.Context, id string) (int64, error) {
+func (q *Queries) ClaimTaskCleanup(ctx context.Context, id uuid.UUID) (int64, error) {
 	result, err := q.db.Exec(ctx, claimTaskCleanup, id)
 	if err != nil {
 		return 0, err
@@ -227,7 +229,7 @@ WHERE
     id = $1
 `
 
-func (q *Queries) ClearTaskDeleting(ctx context.Context, id string) error {
+func (q *Queries) ClearTaskDeleting(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, clearTaskDeleting, id)
 	return err
 }
@@ -241,7 +243,7 @@ WHERE
     id = $1
 `
 
-func (q *Queries) ClearTaskLeftParentBranch(ctx context.Context, id string) error {
+func (q *Queries) ClearTaskLeftParentBranch(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, clearTaskLeftParentBranch, id)
 	return err
 }
@@ -261,7 +263,7 @@ WHERE
 
 type ClearTaskParentParams struct {
 	LeftParentBranch *string
-	ID               string
+	ID               uuid.UUID
 }
 
 func (q *Queries) ClearTaskParent(ctx context.Context, arg ClearTaskParentParams) error {
@@ -291,13 +293,13 @@ RETURNING
 `
 
 type CreateTaskParams struct {
-	WorkflowID          string
+	WorkflowID          uuid.UUID
 	Slug                string
 	Title               string
 	Goal                string
-	ParentTaskID        *string
+	ParentTaskID        *uuid.UUID
 	ForkPoint           *string
-	ParentPullRequestID *string
+	ParentPullRequestID *uuid.UUID
 }
 
 func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (*Task, error) {
@@ -354,7 +356,7 @@ DELETE FROM tasks
 WHERE id = $1
 `
 
-func (q *Queries) DeleteTask(ctx context.Context, id string) error {
+func (q *Queries) DeleteTask(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteTask, id)
 	return err
 }
@@ -372,7 +374,7 @@ WHERE
 
 type FailTaskCleanupParams struct {
 	FailureReason string
-	ID            string
+	ID            uuid.UUID
 }
 
 func (q *Queries) FailTaskCleanup(ctx context.Context, arg FailTaskCleanupParams) error {
@@ -401,7 +403,7 @@ type GetTaskByIDRow struct {
 	Snapshots int32
 }
 
-func (q *Queries) GetTaskByID(ctx context.Context, id string) (*GetTaskByIDRow, error) {
+func (q *Queries) GetTaskByID(ctx context.Context, id uuid.UUID) (*GetTaskByIDRow, error) {
 	row := q.db.QueryRow(ctx, getTaskByID, id)
 	var i GetTaskByIDRow
 	err := row.Scan(
@@ -515,7 +517,7 @@ WHERE
     id = $1
 `
 
-func (q *Queries) GetTaskLastRebase(ctx context.Context, id string) ([]byte, error) {
+func (q *Queries) GetTaskLastRebase(ctx context.Context, id uuid.UUID) ([]byte, error) {
 	row := q.db.QueryRow(ctx, getTaskLastRebase, id)
 	var last_rebase []byte
 	err := row.Scan(&last_rebase)
@@ -533,7 +535,7 @@ WHERE
 FOR UPDATE
 `
 
-func (q *Queries) GetUndeletedTaskForUpdate(ctx context.Context, id string) (*Task, error) {
+func (q *Queries) GetUndeletedTaskForUpdate(ctx context.Context, id uuid.UUID) (*Task, error) {
 	row := q.db.QueryRow(ctx, getUndeletedTaskForUpdate, id)
 	var i Task
 	err := row.Scan(
@@ -671,7 +673,7 @@ ORDER BY
     id
 `
 
-func (q *Queries) ListChildrenOfTasks(ctx context.Context, ids []string) ([]*Task, error) {
+func (q *Queries) ListChildrenOfTasks(ctx context.Context, ids []uuid.UUID) ([]*Task, error) {
 	rows, err := q.db.Query(ctx, listChildrenOfTasks, ids)
 	if err != nil {
 		return nil, err
@@ -814,8 +816,8 @@ FROM
 `
 
 type ListTaskSummariesRow struct {
-	ID            string
-	WorkflowID    string
+	ID            uuid.UUID
+	WorkflowID    uuid.UUID
 	Slug          string
 	AdoptedBranch *string
 	ArchivedAt    *time.Time
@@ -870,7 +872,7 @@ ORDER BY
 `
 
 type ListTasksParams struct {
-	WorkflowID string
+	WorkflowID uuid.UUID
 	Archived   bool
 }
 
@@ -957,7 +959,7 @@ type ListTasksByIDRow struct {
 	Snapshots int32
 }
 
-func (q *Queries) ListTasksByID(ctx context.Context, ids []string) ([]*ListTasksByIDRow, error) {
+func (q *Queries) ListTasksByID(ctx context.Context, ids []uuid.UUID) ([]*ListTasksByIDRow, error) {
 	rows, err := q.db.Query(ctx, listTasksByID, ids)
 	if err != nil {
 		return nil, err
@@ -1023,7 +1025,7 @@ WHERE
 `
 
 type ListUndeletedTaskSlugsRow struct {
-	ID   string
+	ID   uuid.UUID
 	Slug string
 }
 
@@ -1055,7 +1057,7 @@ WITH watched AS (
         tasks t
     WHERE
         t.deleting_at IS NULL
-        AND ($1::text[] IS NULL
+        AND ($1::uuid[] IS NULL
             OR t.id = ANY ($1::uuid[]))
 ),
 written AS (
@@ -1104,7 +1106,7 @@ type ListWatchedTasksRow struct {
 	Snapshots          int32
 }
 
-func (q *Queries) ListWatchedTasks(ctx context.Context, keys []string) ([]*ListWatchedTasksRow, error) {
+func (q *Queries) ListWatchedTasks(ctx context.Context, keys []uuid.UUID) ([]*ListWatchedTasksRow, error) {
 	rows, err := q.db.Query(ctx, listWatchedTasks, keys)
 	if err != nil {
 		return nil, err
@@ -1173,15 +1175,15 @@ ORDER BY
     id
 `
 
-func (q *Queries) ListWorkflowTaskIDs(ctx context.Context, workflowID string) ([]string, error) {
+func (q *Queries) ListWorkflowTaskIDs(ctx context.Context, workflowID uuid.UUID) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, listWorkflowTaskIDs, workflowID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []uuid.UUID
 	for rows.Next() {
-		var id string
+		var id uuid.UUID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -1215,7 +1217,7 @@ ORDER BY
 FOR UPDATE
 `
 
-func (q *Queries) LockTasks(ctx context.Context, ids []string) error {
+func (q *Queries) LockTasks(ctx context.Context, ids []uuid.UUID) error {
 	_, err := q.db.Exec(ctx, lockTasks, ids)
 	return err
 }
@@ -1231,7 +1233,7 @@ WHERE
 FOR NO KEY UPDATE
 `
 
-func (q *Queries) LockUndeletedTask(ctx context.Context, id string) (string, error) {
+func (q *Queries) LockUndeletedTask(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, lockUndeletedTask, id)
 	err := row.Scan(&id)
 	return id, err
@@ -1248,7 +1250,7 @@ WHERE
     AND deleting_at IS NULL
 `
 
-func (q *Queries) MarkTasksDeleting(ctx context.Context, ids []string) error {
+func (q *Queries) MarkTasksDeleting(ctx context.Context, ids []uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markTasksDeleting, ids)
 	return err
 }
@@ -1264,7 +1266,7 @@ WHERE
     AND deleting_at IS NULL
 `
 
-func (q *Queries) MarkWorkflowTasksDeleting(ctx context.Context, workflowID string) error {
+func (q *Queries) MarkWorkflowTasksDeleting(ctx context.Context, workflowID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markWorkflowTasksDeleting, workflowID)
 	return err
 }
@@ -1281,8 +1283,8 @@ WHERE
 `
 
 type RecordTaskParentPullRequestParams struct {
-	ParentPullRequestID *string
-	ID                  string
+	ParentPullRequestID *uuid.UUID
+	ID                  uuid.UUID
 }
 
 func (q *Queries) RecordTaskParentPullRequest(ctx context.Context, arg RecordTaskParentPullRequestParams) error {
@@ -1302,7 +1304,7 @@ WHERE
     id = $1
 `
 
-func (q *Queries) RecordTaskWorktreeRemoved(ctx context.Context, id string) error {
+func (q *Queries) RecordTaskWorktreeRemoved(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, recordTaskWorktreeRemoved, id)
 	return err
 }
@@ -1326,7 +1328,7 @@ SET
         id = $1
 `
 
-func (q *Queries) ReleaseTaskCheckout(ctx context.Context, id string) error {
+func (q *Queries) ReleaseTaskCheckout(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, releaseTaskCheckout, id)
 	return err
 }
@@ -1342,7 +1344,7 @@ WHERE
     AND archived_at IS NOT NULL
 `
 
-func (q *Queries) RestoreTasks(ctx context.Context, ids []string) error {
+func (q *Queries) RestoreTasks(ctx context.Context, ids []uuid.UUID) error {
 	_, err := q.db.Exec(ctx, restoreTasks, ids)
 	return err
 }
@@ -1358,7 +1360,7 @@ WHERE
 
 type SetTaskCascadeBlockedParams struct {
 	CascadeBlocked *string
-	ID             string
+	ID             uuid.UUID
 }
 
 func (q *Queries) SetTaskCascadeBlocked(ctx context.Context, arg SetTaskCascadeBlockedParams) error {
@@ -1377,7 +1379,7 @@ WHERE
 
 type SetTaskCheckoutDirParams struct {
 	Cwd *string
-	ID  string
+	ID  uuid.UUID
 }
 
 func (q *Queries) SetTaskCheckoutDir(ctx context.Context, arg SetTaskCheckoutDirParams) error {
@@ -1398,7 +1400,7 @@ WHERE
 type SetTaskDiffStatParams struct {
 	LinesAdded   *int32
 	LinesRemoved *int32
-	ID           string
+	ID           uuid.UUID
 }
 
 func (q *Queries) SetTaskDiffStat(ctx context.Context, arg SetTaskDiffStatParams) error {
@@ -1419,7 +1421,7 @@ WHERE
 
 type SetTaskForkPointParams struct {
 	ForkPoint *string
-	ID        string
+	ID        uuid.UUID
 }
 
 func (q *Queries) SetTaskForkPoint(ctx context.Context, arg SetTaskForkPointParams) error {
@@ -1449,7 +1451,7 @@ type SetTaskHeadParams struct {
 	WorktreeRemoved       *bool
 	WorktreeRemovalReason NullWorktreeRemovalReason
 	Sequence              NullAgentSequence
-	ID                    string
+	ID                    uuid.UUID
 }
 
 func (q *Queries) SetTaskHead(ctx context.Context, arg SetTaskHeadParams) error {
@@ -1478,7 +1480,7 @@ WHERE
 
 type SetTaskHiddenParams struct {
 	Hidden bool
-	ID     string
+	ID     uuid.UUID
 }
 
 func (q *Queries) SetTaskHidden(ctx context.Context, arg SetTaskHiddenParams) (int64, error) {
@@ -1500,7 +1502,7 @@ WHERE
 
 type SetTaskLastRebaseParams struct {
 	LastRebase []byte
-	ID         string
+	ID         uuid.UUID
 }
 
 func (q *Queries) SetTaskLastRebase(ctx context.Context, arg SetTaskLastRebaseParams) error {
@@ -1519,7 +1521,7 @@ WHERE
 
 type SetTaskMovedSinceSnapshotParams struct {
 	MovedSinceSnapshot *string
-	ID                 string
+	ID                 uuid.UUID
 }
 
 func (q *Queries) SetTaskMovedSinceSnapshot(ctx context.Context, arg SetTaskMovedSinceSnapshotParams) error {
@@ -1541,10 +1543,10 @@ WHERE
 `
 
 type SetTaskParentParams struct {
-	ParentTaskID        *string
+	ParentTaskID        *uuid.UUID
 	ForkPoint           *string
-	ParentPullRequestID *string
-	ID                  string
+	ParentPullRequestID *uuid.UUID
+	ID                  uuid.UUID
 }
 
 func (q *Queries) SetTaskParent(ctx context.Context, arg SetTaskParentParams) error {
@@ -1568,7 +1570,7 @@ WHERE
 
 type SetTaskSequenceParams struct {
 	Sequence NullAgentSequence
-	ID       string
+	ID       uuid.UUID
 }
 
 func (q *Queries) SetTaskSequence(ctx context.Context, arg SetTaskSequenceParams) error {
@@ -1603,7 +1605,7 @@ type UpdateTaskParams struct {
 	Title              *string
 	Goal               *string
 	Notes              *string
-	ID                 string
+	ID                 uuid.UUID
 	ReadNotesUpdatedAt *time.Time
 }
 

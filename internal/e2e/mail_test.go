@@ -16,6 +16,7 @@ import (
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -196,7 +197,7 @@ func createMailWorkflow(t *testing.T, instance *komradtest.Instance) string {
 }
 
 func callAs[T any](req *connect.Request[T], agentID string) {
-	caller.Caller{AgentID: agentID}.SetHeader(req.Header())
+	caller.Caller{AgentID: uuid.MustParse(agentID)}.SetHeader(req.Header())
 }
 
 func createAgent(t *testing.T, instance *komradtest.Instance, workflowID, name string) *agentv1.Agent {

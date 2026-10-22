@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // stampFormat names a frame so that sorting a listing by name sorts it by time, in UTC so a
@@ -29,8 +31,8 @@ type Settings struct {
 }
 
 // AgentDir is the directory that holds one agent's frames, which komrad removes once the agent is gone.
-func AgentDir(dir, agentID string) string {
-	return filepath.Join(dir, agentID)
+func AgentDir(dir string, agentID uuid.UUID) string {
+	return filepath.Join(dir, agentID.String())
 }
 
 // Recorder writes an agent's frames under a directory of its own.
@@ -41,7 +43,7 @@ type Recorder struct {
 
 	// mu guards the last frame seen for each agent and the count of what has been written.
 	mu      sync.Mutex
-	last    map[string]uint64
+	last    map[uuid.UUID]uint64
 	written int
 }
 
@@ -51,13 +53,13 @@ func NewRecorder(dir string, settings func() Settings) *Recorder {
 		dir:      dir,
 		settings: settings,
 		now:      time.Now,
-		last:     map[string]uint64{},
+		last:     map[uuid.UUID]uint64{},
 	}
 }
 
 // RecordParams is one reading of one agent.
 type RecordParams struct {
-	AgentID  string
+	AgentID  uuid.UUID
 	Frame    string
 	Activity string
 	Disputes bool
@@ -66,7 +68,7 @@ type RecordParams struct {
 // Record writes the frame an agent was read from when that reading says something new.
 func (r *Recorder) Record(params RecordParams) error {
 	settings := r.settings()
-	if !settings.On || params.AgentID == "" || params.Frame == "" {
+	if !settings.On || params.AgentID == uuid.Nil || params.Frame == "" {
 		return nil
 	}
 
@@ -113,7 +115,7 @@ func (r *Recorder) shouldRecord(params RecordParams, hash uint64) bool {
 
 // remember notes the frame an agent was last kept from once the frame is on disk, so komrad takes
 // again a frame whose write failed.
-func (r *Recorder) remember(agentID string, hash uint64) {
+func (r *Recorder) remember(agentID uuid.UUID, hash uint64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -129,7 +131,7 @@ func Hash(frame string) uint64 {
 }
 
 // Forget drops what the recorder holds about the agents a listing no longer carries.
-func (r *Recorder) Forget(listed map[string]struct{}) {
+func (r *Recorder) Forget(listed map[uuid.UUID]struct{}) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

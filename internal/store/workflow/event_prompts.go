@@ -6,6 +6,8 @@ import (
 
 	"komrad/db/models"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // EventPrompt is what a workflow asks of its agents when komrad sends them one event.
@@ -15,7 +17,7 @@ type EventPrompt struct {
 	Muted  bool
 }
 
-func (s *WorkflowStore) setEventPrompts(ctx context.Context, workflowID string, prompts []EventPrompt) error {
+func (s *WorkflowStore) setEventPrompts(ctx context.Context, workflowID uuid.UUID, prompts []EventPrompt) error {
 	if err := s.queries.DeleteWorkflowEventPrompts(ctx, workflowID); err != nil {
 		return fmt.Errorf("failed to clear prompts for workflow %q: %w", workflowID, err)
 	}
@@ -35,7 +37,7 @@ func (s *WorkflowStore) setEventPrompts(ctx context.Context, workflowID string, 
 	return nil
 }
 
-func (s *WorkflowStore) eventPromptsFor(ctx context.Context, workflowID string) ([]EventPrompt, error) {
+func (s *WorkflowStore) eventPromptsFor(ctx context.Context, workflowID uuid.UUID) ([]EventPrompt, error) {
 	rows, err := s.queries.ListEventPromptsForWorkflow(ctx, workflowID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the prompts of workflow %q: %w", workflowID, err)
@@ -50,9 +52,9 @@ func (s *WorkflowStore) eventPromptsFor(ctx context.Context, workflowID string) 
 	}), nil
 }
 
-func (s *WorkflowStore) eventPromptsForWorkflows(ctx context.Context, ids []string) (map[string][]EventPrompt, error) {
+func (s *WorkflowStore) eventPromptsForWorkflows(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]EventPrompt, error) {
 	if len(ids) == 0 {
-		return map[string][]EventPrompt{}, nil
+		return map[uuid.UUID][]EventPrompt{}, nil
 	}
 
 	rows, err := s.queries.ListEventPromptsForWorkflows(ctx, ids)
@@ -60,7 +62,7 @@ func (s *WorkflowStore) eventPromptsForWorkflows(ctx context.Context, ids []stri
 		return nil, fmt.Errorf("failed to read the prompts of %d workflows: %w", len(ids), err)
 	}
 
-	prompts := make(map[string][]EventPrompt)
+	prompts := make(map[uuid.UUID][]EventPrompt)
 	for _, row := range rows {
 		prompts[row.WorkflowID] = append(prompts[row.WorkflowID], EventPrompt{
 			Event:  row.Event,

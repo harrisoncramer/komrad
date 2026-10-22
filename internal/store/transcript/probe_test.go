@@ -10,6 +10,7 @@ import (
 	"komrad/internal/store"
 	textsearchstore "komrad/internal/store/textsearch"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,7 +29,7 @@ func TestProbeRanking(t *testing.T) {
 	}
 
 	ctx := t.Context()
-	pool, err := store.OpenReadOnly(ctx, *probeURL, *probeEngine)
+	pool, err := store.OpenReadOnly(ctx, *probeURL, uuid.MustParse(*probeEngine))
 	require.NoError(t, err)
 	t.Cleanup(pool.Close)
 

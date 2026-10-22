@@ -7,7 +7,9 @@ import (
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
+	"komrad/lib/xptr"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -61,15 +63,15 @@ func TestPlanParent(t *testing.T) {
 			}
 			repository := parentRepository
 			require.NoError(t, stores.Tasks.SetHead(ctx, parent.ID, taskstore.SetHeadParams{RepositoryURL: &repository, Branch: &tt.branch}))
-			var pullRequestID string
+			var pullRequestID *uuid.UUID
 			if tt.opened {
-				pullRequestID = stores.SeedPullRequest(t, storetest.SeedPullRequestParams{
+				pullRequestID = xptr.Ptr(stores.SeedPullRequest(t, storetest.SeedPullRequestParams{
 					RepositoryURL: parentRepository,
 					Number:        1,
 					HeadBranch:    tt.branch,
 					HeadSHA:       "newest",
 					BaseBranch:    "main",
-				}).ID
+				}).ID)
 			}
 			svc := NewTaskService(NewTaskServiceParams{
 				Tasks:        stores.Tasks,
@@ -103,21 +105,21 @@ func TestRefuseParentDelete(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		ids     []string
+		ids     []uuid.UUID
 		wantErr error
 	}{
 		{
 			name:    "a parent is refused",
-			ids:     []string{parent.ID},
+			ids:     []uuid.UUID{parent.ID},
 			wantErr: errHasChildren,
 		},
 		{
 			name: "a parent deleted with all its children goes ahead",
-			ids:  []string{parent.ID, child.ID},
+			ids:  []uuid.UUID{parent.ID, child.ID},
 		},
 		{
 			name: "a child goes ahead",
-			ids:  []string{child.ID},
+			ids:  []uuid.UUID{child.ID},
 		},
 	}
 

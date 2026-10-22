@@ -33,14 +33,14 @@ func (s *Handler) SearchTranscripts(ctx context.Context, req *agentv1komrad.Sear
 	}
 
 	if req.AgentId != nil {
-		logCrossAgentRead(ctx, req.AgentId.String(), "agent read another agent's transcript")
+		logCrossAgentRead(ctx, *req.AgentId, "agent read another agent's transcript")
 	}
 
 	results, err := s.transcripts.SearchTranscripts(ctx, transcripts.SearchTranscriptsParams{
 		Query:   req.Query,
 		Limit:   paginator.Limit(),
 		Cursor:  paginator.Cursor(),
-		AgentID: formatOptionalID(req.AgentId),
+		AgentID: req.AgentId,
 		Caller:  caller.From(ctx).AgentID,
 	})
 	if err != nil {
@@ -63,7 +63,7 @@ func (s *Handler) SearchTranscripts(ctx context.Context, req *agentv1komrad.Sear
 
 // GetTranscript returns one window of an agent's stored transcript by id.
 func (s *Handler) GetTranscript(ctx context.Context, req *agentv1komrad.GetTranscriptRequest) (*agentv1.GetTranscriptResponse, *fail.Error) {
-	logCrossAgentRead(ctx, req.AgentId.String(), "agent read another agent's transcript")
+	logCrossAgentRead(ctx, req.AgentId, "agent read another agent's transcript")
 
 	var cursor *transcriptstore.ContentCursor
 	if token := xptr.Deref(req.Cursor); token != "" {
@@ -76,7 +76,7 @@ func (s *Handler) GetTranscript(ctx context.Context, req *agentv1komrad.GetTrans
 	}
 
 	window, err := s.transcripts.ReadTranscriptWindow(ctx, transcripts.ReadTranscriptWindowParams{
-		AgentID:  req.AgentId.String(),
+		AgentID:  req.AgentId,
 		Cursor:   cursor,
 		MaxBytes: xptr.Deref(req.MaxBytes),
 	})
@@ -97,10 +97,10 @@ func (s *Handler) GetTranscript(ctx context.Context, req *agentv1komrad.GetTrans
 // GetLastTurns returns the newest turns an agent wrote and the prompts between them, oldest
 // first, each cut from the head to fit the window asked for.
 func (s *Handler) GetLastTurns(ctx context.Context, req *agentv1komrad.GetLastTurnsRequest) (*agentv1.GetLastTurnsResponse, *fail.Error) {
-	logCrossAgentRead(ctx, req.AgentId.String(), "agent read another agent's transcript")
+	logCrossAgentRead(ctx, req.AgentId, "agent read another agent's transcript")
 
 	turns, err := s.transcripts.ListLastTurns(ctx, transcripts.ListLastTurnsParams{
-		AgentID:  req.AgentId.String(),
+		AgentID:  req.AgentId,
 		Turns:    xptr.Deref(req.Turns),
 		MaxBytes: xptr.Deref(req.MaxBytes),
 	})

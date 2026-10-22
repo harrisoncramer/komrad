@@ -7,6 +7,8 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/git"
 	pullrequeststore "komrad/internal/store/pullrequest"
+
+	"github.com/google/uuid"
 )
 
 type NewListerParams struct {
@@ -54,7 +56,7 @@ func (l *Lister) ListPullRequests(ctx context.Context, params ListPullRequestsPa
 
 // ListStatusChecks is the reading of each head a pull request's checks were read on, oldest first, holding
 // the newest run of each check.
-func (l *Lister) ListStatusChecks(ctx context.Context, pullRequestID string) ([]pullrequeststore.StatusCheckReading, error) {
+func (l *Lister) ListStatusChecks(ctx context.Context, pullRequestID uuid.UUID) ([]pullrequeststore.StatusCheckReading, error) {
 	readings, err := l.statusChecks.ListOfPullRequest(ctx, pullRequestID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the status checks of pull request %s: %w", pullRequestID, err)
@@ -68,7 +70,7 @@ func (l *Lister) ListStatusChecks(ctx context.Context, pullRequestID string) ([]
 }
 
 // ReadCheckLog is up to count lines of a check's fetched log from firstLine, counting from one.
-func (l *Lister) ReadCheckLog(ctx context.Context, checkID string, firstLine, count int) (*pullrequeststore.CheckLogLines, error) {
+func (l *Lister) ReadCheckLog(ctx context.Context, checkID uuid.UUID, firstLine, count int) (*pullrequeststore.CheckLogLines, error) {
 	lines, err := l.statusChecks.GetCheckLogLines(ctx, checkID, firstLine, count)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the log of check %s: %w", checkID, err)
@@ -78,7 +80,7 @@ func (l *Lister) ReadCheckLog(ctx context.Context, checkID string, firstLine, co
 }
 
 // SearchCheckLogs is every line of the checks' fetched logs the RE2 pattern matches.
-func (l *Lister) SearchCheckLogs(ctx context.Context, checkIDs []string, pattern string) (*pullrequeststore.CheckLogSearch, error) {
+func (l *Lister) SearchCheckLogs(ctx context.Context, checkIDs []uuid.UUID, pattern string) (*pullrequeststore.CheckLogSearch, error) {
 	search, err := l.statusChecks.ListCheckLogHits(ctx, checkIDs, pattern)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search the logs of %d checks: %w", len(checkIDs), err)

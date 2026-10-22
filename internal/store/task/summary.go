@@ -7,12 +7,14 @@ import (
 
 	"komrad/db/models"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // Summary is what a worktree listing needs of a task to say how its checkout goes.
 type Summary struct {
-	ID         string
-	WorkflowID string
+	ID         uuid.UUID
+	WorkflowID uuid.UUID
 	Slug       string
 	// Adopted says the checkout was put on a branch komrad did not make.
 	Adopted    bool

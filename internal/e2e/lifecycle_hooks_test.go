@@ -18,6 +18,7 @@ import (
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -65,7 +66,7 @@ func TestIntegrationPreDeleteRunsWhileTheWorktreeIsStillThere(t *testing.T) {
 	instance.WorkQueue()
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		_, err := instance.Stores.Agents.GetByID(ctx, id)
+		_, err := instance.Stores.Agents.GetByID(ctx, uuid.MustParse(id))
 		assert.Error(c, err, "the row goes once the teardown and the deprovisioner have both finished")
 		assert.NoDirExists(c, tree)
 	}, 10*time.Second, 10*time.Millisecond)
@@ -102,7 +103,7 @@ func TestIntegrationAFailedPreDeleteHoldsTheDelete(t *testing.T) {
 	instance.WorkQueue()
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		agent, err := instance.Stores.Agents.GetByID(ctx, id)
+		agent, err := instance.Stores.Agents.GetByID(ctx, uuid.MustParse(id))
 		assert.NoError(c, err)
 		if !assert.NotNil(c, agent) {
 			return
@@ -142,7 +143,7 @@ func TestIntegrationPreDeleteIsSkippedOnceTheDirectoryHasGone(t *testing.T) {
 	instance.WorkQueue()
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		_, err := instance.Stores.Agents.GetByID(ctx, id)
+		_, err := instance.Stores.Agents.GetByID(ctx, uuid.MustParse(id))
 		assert.Error(c, err, "the row goes rather than sticking on a hook that can never run")
 	}, 10*time.Second, 10*time.Millisecond)
 
@@ -185,7 +186,7 @@ func TestIntegrationOverlappingDeletesRunThePreDeleteOnce(t *testing.T) {
 	require.NoError(t, err, "a second delete while the teardown runs is answered rather than refused")
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		_, err := instance.Stores.Agents.GetByID(ctx, id)
+		_, err := instance.Stores.Agents.GetByID(ctx, uuid.MustParse(id))
 		assert.Error(c, err)
 	}, 20*time.Second, 10*time.Millisecond)
 
@@ -235,7 +236,7 @@ func TestIntegrationPostArchiveRunsInTheWorktreeOnceTheAgentIsArchived(t *testin
 	_, err := instance.Tasks.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{Task: &taskv1.ArchiveTaskRequest_TaskId{TaskId: agent.GetTaskId()}}))
 	require.NoError(t, err)
 
-	archived, err := instance.Stores.Agents.GetByID(ctx, agent.GetId())
+	archived, err := instance.Stores.Agents.GetByID(ctx, uuid.MustParse(agent.GetId()))
 	require.NoError(t, err)
 	assert.NotNil(t, archived.ArchivedAt, "the archive does not wait for the hook")
 
@@ -272,7 +273,7 @@ func TestIntegrationPostDeleteRunsOnceTheWorktreeIsGone(t *testing.T) {
 			"the hook runs in the hooks directory, told where the worktree was")
 	}, 10*time.Second, 10*time.Millisecond)
 
-	_, err = instance.Stores.Agents.GetByID(ctx, agent.GetId())
+	_, err = instance.Stores.Agents.GetByID(ctx, uuid.MustParse(agent.GetId()))
 	assert.Error(t, err, "the row had gone before the hook ran")
 }
 

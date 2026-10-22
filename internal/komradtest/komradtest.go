@@ -60,6 +60,7 @@ import (
 	"komrad/proto/gen/worktree/v1/worktreev1connect"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -308,7 +309,7 @@ func (i *Instance) Fire(scheduleID string, scheduledFor time.Time) {
 	i.t.Helper()
 
 	_, err := i.server.Jobs.Insert(i.t.Context(), internaljobs.LaunchAgentArgs{
-		ScheduleID:   scheduleID,
+		ScheduleID:   uuid.MustParse(scheduleID),
 		ScheduledFor: scheduledFor,
 	}, nil)
 	require.NoError(i.t, err)
@@ -373,14 +374,14 @@ func (i *Instance) MeasureWorktrees() {
 func (i *Instance) Settle(agentID string, activity harness.Activity, want agentstore.State) {
 	i.t.Helper()
 
-	require.NoError(i.t, i.Harness.SetActivity(agentID, activity))
+	require.NoError(i.t, i.Harness.SetActivity(uuid.MustParse(agentID), activity))
 	i.WaitForActivity(agentID, activity)
 
 	deadline := time.Now().Add(settleTimeout)
 	for time.Now().Before(deadline) {
 		i.reconcile()
 
-		stored, err := i.Stores.Agents.GetByID(i.t.Context(), agentID)
+		stored, err := i.Stores.Agents.GetByID(i.t.Context(), uuid.MustParse(agentID))
 		require.NoError(i.t, err)
 		require.NotNil(i.t, stored)
 
@@ -424,7 +425,7 @@ func (i *Instance) WaitForActivity(agentID string, activity harness.Activity) {
 func (i *Instance) Deliver(agentID string) mail.Delivery {
 	i.t.Helper()
 
-	delivery, err := i.server.Delivery.Deliver(i.t.Context(), agentID)
+	delivery, err := i.server.Delivery.Deliver(i.t.Context(), uuid.MustParse(agentID))
 	require.NoError(i.t, err)
 
 	return delivery
@@ -470,7 +471,7 @@ func (i *Instance) GetOwnedPane(agentID string) string {
 	require.NoError(i.t, err)
 
 	for pane, status := range panes {
-		if status.Owner == agentID {
+		if status.Owner.String() == agentID {
 			return pane
 		}
 	}

@@ -8,6 +8,8 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type AgentRole string
@@ -454,7 +456,7 @@ func (ns NullWorktreeRemovalReason) Value() (driver.Value, error) {
 
 // One background agent, holding everything needed to start it again.
 type Agent struct {
-	ID     string
+	ID     uuid.UUID
 	Name   string
 	Cwd    string
 	Flags  string
@@ -465,10 +467,10 @@ type Agent struct {
 	StateChangedAt   time.Time
 	Harness          string
 	SessionID        string
-	WorkflowID       string
-	ScheduleID       *string
+	WorkflowID       uuid.UUID
+	ScheduleID       *uuid.UUID
 	IdempotencyKey   *string
-	SpawnedByAgentID *string
+	SpawnedByAgentID *uuid.UUID
 	ArchivedAt       *time.Time
 	IsHidden         bool
 	Branch           *string
@@ -491,7 +493,7 @@ type Agent struct {
 	// Whether the agent still owns the pane its row names.
 	Alive bool
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 	// The commit the agent's checkout has checked out, null when the checkout is gone or git cannot read it. The cwd syncer rewrites it on the same pass that rewrites branch.
 	HeadSha *string
 	// The commit of the agent's newest review snapshot when its worktree no longer hashes to it, empty while it still does or when there is no snapshot. The cwd syncer rewrites it every pass.
@@ -501,7 +503,7 @@ type Agent struct {
 	// What the latest rebase of the agent's checkout came to, as the result or the failure; null until its first rebase.
 	LastRebase []byte
 	// The archive this agent was taken out of live listings by, shared by every agent that archive took.
-	ArchiveBatchID *string
+	ArchiveBatchID *uuid.UUID
 	// When an API error last ended one of the agent's turns. The last turn failed while this is no older than turn_ended_at.
 	TurnFailedAt *time.Time
 	// What the agent's CLI printed when an API error last ended one of its turns.
@@ -512,28 +514,28 @@ type Agent struct {
 	LinesRemoved *int32
 	// What git has part-way through the agent's checkout and waiting on somebody: a rebase, an am, a merge, a cherry-pick or a revert, or none. Komrad reads the checkout every few seconds and writes what it found here, so settling the sequence by hand clears this on its own.
 	Sequence           AgentSequence
-	RequestedByAgentID *string
+	RequestedByAgentID *uuid.UUID
 	// The task the agent works on, null only for an orchestrator.
-	TaskID *string
+	TaskID *uuid.UUID
 	// The hooks the agent's latest launch installed, empty when that launch failed or never ran.
 	Hooks []string
 }
 
 // Which agents were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.
 type AgentPullRequest struct {
-	AgentID       string
-	PullRequestID string
+	AgentID       uuid.UUID
+	PullRequestID uuid.UUID
 	FirstSeenAt   time.Time
 	// When the pair was last seen together, moved at most once an hour.
 	LastSeenAt time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 }
 
 // One run of a script komrad fired for an agent. The output stays on disk and this row says where to find it.
 type AgentRun struct {
-	ID         string
-	AgentID    string
+	ID         uuid.UUID
+	AgentID    uuid.UUID
 	Trigger    string
 	Script     string
 	LogNumber  *int32
@@ -543,72 +545,72 @@ type AgentRun struct {
 	Failure    string
 	ViewedAt   *time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 	// The task the agent was on when the run started, null for an agent on no task.
-	TaskID *string
+	TaskID *uuid.UUID
 }
 
 // The last screen an agent's pane drew while it was at rest, kept so the panel can show it once the pane is gone.
 type AgentScreen struct {
-	AgentID string
+	AgentID uuid.UUID
 	// The pane's visible grid as tmux captured it, colour escapes included.
 	Frame      string
 	Width      int32
 	Height     int32
 	CapturedAt time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 }
 
 // One turn of an agent's conversation, indexed so it can be searched by word.
 type AgentTranscriptChunk struct {
-	AgentID       string
+	AgentID       uuid.UUID
 	Seq           int32
 	Role          string
 	Content       string
 	ContentOffset int64
-	SessionID     string
+	SessionID     uuid.UUID
 	Tsv           interface{}
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 	// When the turn was written, read from its line in the log, null for a turn whose log was gone before it was read with times.
 	SpokenAt *time.Time
 }
 
 // One conversation an agent has held, holding how far its log has been copied into the store.
 type AgentTranscriptSession struct {
-	ID           string
-	AgentID      string
+	ID           uuid.UUID
+	AgentID      uuid.UUID
 	SessionID    string
 	SyncedOffset int64
 	SyncedAt     time.Time
 	CreatedAt    time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 }
 
 // A markdown document an agent wrote for a person to read, kept after its worktree is gone.
 type Document struct {
-	ID      string
-	AgentID string
+	ID      uuid.UUID
+	AgentID uuid.UUID
 	// The title a person reads, unique among one agent's documents.
 	Name      string
 	Body      string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 	// How many times the document has been written, which a rewrite names to say what it replaces.
 	Version int32
 	// The name of the document type it was written as.
 	Type string
 	// The task its author worked on when it was first written, null for an orchestrator's document.
-	TaskID *string
+	TaskID *uuid.UUID
 }
 
 // A sort of document a person defines, with the instructions an agent follows when writing one.
 type DocumentType struct {
-	ID string
+	ID uuid.UUID
 	// What agents and people call the type, unique within an engine.
 	Name string
 	// The markdown an agent reads before writing a document of this type.
@@ -618,23 +620,23 @@ type DocumentType struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 }
 
 // Every write of a document type as it was written, so a person can step back through its context.
 type DocumentTypeVersion struct {
-	DocumentTypeID string
+	DocumentTypeID uuid.UUID
 	Version        int32
 	Name           string
 	Context        string
 	CreatedAt      time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 }
 
 // Every write of a document as it was written, so a person can step back through it.
 type DocumentVersion struct {
-	DocumentID string
+	DocumentID uuid.UUID
 	Version    int32
 	Name       string
 	Body       string
@@ -642,21 +644,21 @@ type DocumentVersion struct {
 	ByPerson  bool
 	CreatedAt time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 	// The name of the document type this version was written as.
 	Type string
 }
 
 // An engine, the owner of every row it writes.
 type Engine struct {
-	ID        string
+	ID        uuid.UUID
 	Name      string
 	CreatedAt time.Time
 }
 
 // The people the owner has let into an engine, granted by email and matched by the provider id their first sign-in recorded.
 type EngineAccess struct {
-	EngineID string
+	EngineID uuid.UUID
 	// The email the owner granted access to, in lower case.
 	Email string
 	// The identity provider that vouched for the person at their first sign-in, null until they sign in.
@@ -669,7 +671,7 @@ type EngineAccess struct {
 // The Postgres logins an engine connects as, which is the only way an engine's identity is known.
 type EngineLogin struct {
 	Role     string
-	EngineID string
+	EngineID uuid.UUID
 	// Whether this is the engine's read-only login rather than the one it writes with.
 	Reader    bool
 	CreatedAt time.Time
@@ -677,7 +679,7 @@ type EngineLogin struct {
 
 // A forge komrad has been connected to, one row per host, holding who the credential was verified as. The credential itself is a file under komrad's state directory rather than a column.
 type ForgeConnection struct {
-	ID string
+	ID uuid.UUID
 	// Which forge the host runs: github or gitlab.
 	Kind string
 	// The host agents' remotes name, such as github.com or ghe.example.com. It is unique because one machine acts as one identity on one forge.
@@ -694,13 +696,13 @@ type ForgeConnection struct {
 	// When the forge said this credential's rate limit resets, after a refusal or a response whose remaining budget was zero. The pull request sync makes no request through the connection until it passes.
 	ThrottledUntil *time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 }
 
 // One comment in a forge review thread, which the comment sync owns, overwrites and mirrors into the review tables. The reader role has no grant on it.
 type ForgeReviewComment struct {
-	ID       string
-	ThreadID string
+	ID       uuid.UUID
+	ThreadID uuid.UUID
 	// The forge's own identifier for the comment.
 	ProviderID string
 	// The forge login of whoever wrote the comment, empty when the forge no longer knows them.
@@ -717,7 +719,7 @@ type ForgeReviewComment struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 	// Whether the forge says the author may write to the repository, which releases their comments to the agent without the person sending them.
 	Trusted bool
 	// The forge's identifier for the review the comment was submitted in, empty when it names none.
@@ -726,8 +728,8 @@ type ForgeReviewComment struct {
 
 // A review thread as the forge holds it on a pull request a live agent is linked to, which the comment sync owns, overwrites and mirrors into the review tables. The reader role has no grant on it.
 type ForgeReviewThread struct {
-	ID            string
-	PullRequestID string
+	ID            uuid.UUID
+	PullRequestID uuid.UUID
 	// The forge's own identifier for the thread: a review thread's node id, or the comment's own id for a comment on the change as a whole.
 	ProviderID string
 	// The file the thread was written on, empty for a comment on the change as a whole.
@@ -742,7 +744,7 @@ type ForgeReviewThread struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 	// Whether the line is counted on the old side of the forge's diff rather than the new one.
 	OldSide bool
 	// The commit the forge counted the line in, empty when it names none.
@@ -753,12 +755,12 @@ type ForgeReviewThread struct {
 
 // One piece of mail from one agent to another, held until the recipient claims it.
 type Mail struct {
-	ID          string
-	FromAgentID *string
+	ID          uuid.UUID
+	FromAgentID *uuid.UUID
 	FromName    string
-	ToAgentID   string
+	ToAgentID   uuid.UUID
 	Body        string
-	ReplyTo     *string
+	ReplyTo     *uuid.UUID
 	ClaimedAt   *time.Time
 	ReportedAt  *time.Time
 	ExpiresAt   time.Time
@@ -767,11 +769,11 @@ type Mail struct {
 	// Who wrote the mail and why. Plain is mail an agent sent. The other values are mail komrad wrote itself, which the panel draws differently. Komrad also counts unread mail by this value. One unread mail of a kind is enough however much is waiting behind it.
 	Kind MailKind
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 	// The key a retried send is recognised by, null on mail sent once.
 	IdempotencyKey *string
 	// The thing mail from komrad is about, null on mail an agent sent. Its kind says what sort of thing it is: another agent, a document, a pull request or a worktree. A recipient holds at most one unread mail of a kind about one subject, and later mail rewrites it. There is no foreign key here on purpose. The mail has to keep naming its subject after the subject is gone.
-	SubjectID *string
+	SubjectID *uuid.UUID
 	// The events mail from komrad named, whose workflow prompts were appended to its body. A rewrite keeps those that still hold.
 	Events []string
 	// When komrad told the recipient this mail was waiting, null until then. A rewrite or the recipient's next launch clears it, so the recipient is told again.
@@ -780,7 +782,7 @@ type Mail struct {
 
 // A pull request komrad has read from a forge, one row per forge identity and none owned by an agent. Finished is derived: merged when merged_at is set, closed when closed_at is set and merged_at is not, open otherwise.
 type PullRequest struct {
-	ID string
+	ID uuid.UUID
 	// The forge host the repository lives on, such as github.com, taken from the repository URL. Two installations of one forge hand out overlapping identifiers, so the host is part of the identity.
 	Host string
 	// Which kind of forge the host runs: github or gitlab.
@@ -812,7 +814,7 @@ type PullRequest struct {
 	// When komrad first inserted the row.
 	FirstSeenAt time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 	// When the forge first answered a blank mergeability for latest_head_sha, which bounds how long a blank is read again quickly.
 	MergeabilityBlankSince *time.Time
 	// Whether the forge says the pull request will merge on its own once its checks and reviews pass, null until it has been read. Read with the checks.
@@ -841,9 +843,9 @@ type PullRequest struct {
 
 // One check the forge listed on a head commit of a pull request, as the latest listing for that head said it stands.
 type PullRequestCheck struct {
-	ID string
+	ID uuid.UUID
 	// The reading of the head commit the check was listed on.
-	ReadingID string
+	ReadingID uuid.UUID
 	// The forge's own identifier for the check run, commit status or pipeline, which a rerun replaces.
 	ProviderID string
 	// What the forge reported the check as: check_run for a check run, status for an old-style commit status, pipeline for a GitLab pipeline.
@@ -865,7 +867,7 @@ type PullRequestCheck struct {
 	// The web address of the check's details or logs, empty when the forge gave none.
 	Url string
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 	// The forge's own identifier for the run the check ran in, a check suite on GitHub, empty for a commit status.
 	RunID string
 	// What started the run, such as pull_request or push, empty when no workflow ran the check.
@@ -878,24 +880,24 @@ type PullRequestCheck struct {
 
 // A failed check komrad told an agent about, one row per agent, check and finish time, so a failure is mailed once.
 type PullRequestCheckFailureNote struct {
-	ID string
+	ID uuid.UUID
 	// The agent that was told.
-	AgentID string
+	AgentID uuid.UUID
 	// The check that failed.
-	CheckID string
+	CheckID uuid.UUID
 	// When the check finished in the failure the agent was told about, so a second failure of the same check is told again. Null when the forge gave no finish time.
 	FinishedAt *time.Time
 	// When the agent was told, on the same clock that stamps the mail it was told in.
 	NotedAt time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 }
 
 // The log of a check's Actions job as komrad last fetched it, one row per check, kept whole and cleaned.
 type PullRequestCheckLog struct {
-	ID string
+	ID uuid.UUID
 	// The check whose job the log is of.
-	CheckID string
+	CheckID uuid.UUID
 	// When komrad last asked the forge for the log.
 	FetchedAt time.Time
 	// What the forge answered: fetched when it gave the log, too_large when the log ran past the most komrad keeps, missing when it never had one ready, expired when it no longer keeps it, failed when asking went wrong.
@@ -903,7 +905,7 @@ type PullRequestCheckLog struct {
 	// How many lines the log holds, zero unless it was fetched.
 	LineCount int32
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 	// The whole log, cleaned of timestamps and escape codes, empty unless it was fetched.
 	Text string
 	// How many of the log's lines the job marked as errors.
@@ -912,9 +914,9 @@ type PullRequestCheckLog struct {
 
 // Where one step of a check run sits in the check's log, as the steps stood when the log was fetched.
 type PullRequestCheckLogStep struct {
-	ID string
+	ID uuid.UUID
 	// The log the step sits in.
-	LogID string
+	LogID uuid.UUID
 	// Where the step falls in its check run, counting from one.
 	Number int32
 	// The step's name when the log was fetched.
@@ -928,13 +930,13 @@ type PullRequestCheckLogStep struct {
 	// How many of the step's lines the job marked as errors.
 	ErrorCount int32
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 }
 
 // What the forge last said about the checks on one head commit of a pull request, kept for every head it was read on until the pull request goes.
 type PullRequestCheckReading struct {
-	ID            string
-	PullRequestID string
+	ID            uuid.UUID
+	PullRequestID uuid.UUID
 	// The head commit the checks were read on.
 	HeadSha string
 	// Whether the latest read for this head came back without a check list, which leaves the head's last listed checks in place.
@@ -944,16 +946,16 @@ type PullRequestCheckReading struct {
 	// When the checks on this head were last read, stamped by every read whether or not anything changed.
 	ReadAt time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 }
 
 // One step of a check run, as the latest listing of the check's head commit said it stands.
 type PullRequestCheckStep struct {
-	ID string
+	ID uuid.UUID
 	// The check run the step belongs to.
-	CheckID string
+	CheckID uuid.UUID
 	// The reading of the head commit the step's check was listed on.
-	ReadingID string
+	ReadingID uuid.UUID
 	// Where the step falls in its check run, counting from one.
 	Number int32
 	// The step's name.
@@ -967,24 +969,24 @@ type PullRequestCheckStep struct {
 	// When the step completed, null before it has.
 	FinishedAt *time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 }
 
 // A repository the pull request sync has read at least once, which is what turns its pull request state from unread to none when it has no pull requests.
 type PullRequestSync struct {
 	RepositoryUrl string
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 }
 
 // One reviewer's batch of comments on one snapshot. Nobody else sees it while it is being written, and it is released all at once.
 type Review struct {
-	ID         string
-	SnapshotID string
+	ID         uuid.UUID
+	SnapshotID uuid.UUID
 	// Whether a person or an agent is giving the review.
 	AuthorKind ReviewAuthorKind
 	// The agent giving the review, null when a person is giving it. Do not read null as meaning a person, because author_kind is what says that. Deleting the reviewing agent clears this column rather than deleting the review. Reviewer agents are deleted as a matter of course, and the agent they reviewed is still working from what they said.
-	AuthorAgentID *string
+	AuthorAgentID *uuid.UUID
 	// What the reviewer concluded, null while the review is still open. It is how the agent learns whether the work is done, and only an approval lets it open a pull request.
 	Verdict NullReviewVerdict
 	// When the review was released, null while it is still being written. None of it reaches the agent until this is set.
@@ -996,24 +998,24 @@ type Review struct {
 	// What the reviewer said about the change as a whole rather than about any one line, empty when they said nothing. It goes at the top of the released review file, above the line comments, because it is what the agent should read first.
 	Body string
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 	// The forge login of whoever wrote a review on the forge, empty when the forge no longer knew them. Null for a review written in komrad.
 	ExternalLogin *string
 	// The task being reviewed. The snapshot already says this, and it is repeated here so that one open review per reviewer can be a plain unique index with no join.
-	TaskID string
+	TaskID uuid.UUID
 }
 
 // A reply komrad posts to the forge on a mirrored thread, from the agent's proposal or the person's own words through to the forge comment it became.
 type ReviewForgeReply struct {
-	ID string
+	ID uuid.UUID
 	// The mirrored review thread the reply answers on the forge.
-	ThreadID string
+	ThreadID uuid.UUID
 	// Where the reply is on its way to the forge. A draft waits for the person, an approved reply waits to be posted, and a sending one may already be on the forge.
 	State ForgeReplyState
 	// Whether the person or the agent wrote the reply.
 	AuthorKind ReviewAuthorKind
 	// The agent that proposed the reply, null when the person wrote it or when that agent has since been deleted.
-	AuthorAgentID *string
+	AuthorAgentID *uuid.UUID
 	// The agent's text as it proposed it, kept so the agent can learn whether its draft went out as written. Null on a reply the person wrote.
 	ProposedBody *string
 	// The text to post, as markdown, which the person may have edited from the proposal. Once sent it is what the forge received.
@@ -1033,50 +1035,50 @@ type ReviewForgeReply struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 }
 
 // One message in a review thread, written either by the reviewer or by the agent answering them.
 type ReviewMessage struct {
-	ID       string
-	ThreadID string
+	ID       uuid.UUID
+	ThreadID uuid.UUID
 	// Whether a person or an agent wrote the message.
 	AuthorKind ReviewAuthorKind
 	// The agent that wrote this message, null when a person wrote it or when that agent has since been deleted.
-	AuthorAgentID *string
+	AuthorAgentID *uuid.UUID
 	// What was written, as markdown.
 	Body      string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	// The review this message was released with, null for an answer from the agent. An answer belongs to no batch and reaches the reviewer as soon as it is written.
-	ReviewID *string
+	ReviewID *uuid.UUID
 	// Replacement lines the reviewer is proposing for the range the thread is pinned to, empty on an ordinary comment. The agent applies them as written rather than treating them as a description of what to do.
 	Suggestion []string
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 	// The snapshot an agent's reply said answers the thread, taken of its worktree as it stood when it replied. Set only on a reply that resolves the thread; null on everything else.
-	SnapshotID *string
+	SnapshotID *uuid.UUID
 	// The forge login of whoever wrote this on the forge, for a comment that came from there, empty when the forge no longer knew them. Null for anything written in komrad.
 	ExternalLogin *string
 	// The forge comment this mirrors, null for anything written in komrad. It names no row once the forge deletes the comment, which is how the copy is known to be gone there.
-	ForgeCommentID *string
+	ForgeCommentID *uuid.UUID
 	// When the forge comment had last been edited as of the last sync, null when it never had been.
 	ForgeEditedAt *time.Time
 	// Whether the forge author could not write to the repository when the text was written or last edited, which keeps it from the agent. A held first message holds its whole thread until the person accepts it.
 	Held bool
 	// The held forge message the person accepted this copy of, which releases that message's thread to the agent. Null on everything else.
-	AcceptedFrom *string
+	AcceptedFrom *uuid.UUID
 	// The mail that carried a person's comment to the writer, null on an agent's or a forge user's comment. Deleting that mail clears this column and nothing else.
-	MailID *string
+	MailID *uuid.UUID
 	// When the writer read the mail carrying a person's comment, null until then and on every other comment.
 	ReadAt *time.Time
 	// The snapshot taken when the writer read a person's comment, which an addressed reply is compared against.
-	ReadSnapshotID *string
+	ReadSnapshotID *uuid.UUID
 }
 
 // One frozen copy of what an agent has written. A review is always given against a snapshot rather than against the working files.
 type ReviewSnapshot struct {
-	ID string
+	ID uuid.UUID
 	// Which snapshot this is for its task, counting from one. The panel names the snapshot by this number.
 	Ordinal int32
 	// The commit the agent's branch started from. It is resolved once, when the snapshot is taken, so later movement on the base branch cannot change what the snapshot says.
@@ -1085,16 +1087,16 @@ type ReviewSnapshot struct {
 	Sha       string
 	CreatedAt time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 	// When the base branch was first seen holding this snapshot whole, or a later snapshot whole, null until then. A landed snapshot's settled comments are history rather than work still under review.
 	LandedAt *time.Time
 	// The task whose checkout the snapshot froze.
-	TaskID string
+	TaskID uuid.UUID
 }
 
 // One conversation pinned to a file and a line range in the snapshot its review was given against.
 type ReviewThread struct {
-	ID string
+	ID uuid.UUID
 	// The file the thread is pinned to, named the way the diff names it. That is a path relative to the repository root, and where the change left the file if it moved it.
 	FilePath string
 	// First line of the range on the old side of the diff. Zero means the thread is pinned to lines that exist only on the new side.
@@ -1116,27 +1118,27 @@ type ReviewThread struct {
 	// When this thread was settled, null while it is still owed an answer.
 	ResolvedAt *time.Time
 	// The review the thread was opened in, null on a thread a person opened, which belongs to no review.
-	ReviewID *string
+	ReviewID *uuid.UUID
 	// The snapshot this thread's line numbers were measured against. It is not read through the review, because a review stays open across several snapshots and would name the wrong one.
-	SnapshotID string
+	SnapshotID uuid.UUID
 	// The commit the old side of this thread's line numbers was read against. For a thread written on the whole change that is the snapshot's own base. For a thread written while the diff was narrowed to one snapshot it is the earlier snapshot's commit.
 	BaseSha string
 	// Whether a person or an agent settled this thread, null while nobody has. Two parties can settle one: the agent that wrote the comment, saying the answer was good enough, and the person, who may settle anything including a thread whose author is gone.
 	ResolvedByKind NullReviewAuthorKind
 	// The agent that settled this thread, null when a person did or when nobody has. Do not read null as meaning a person, because resolved_by_kind is what says that. Deleting that agent clears this column rather than the settling.
-	ResolvedByAgentID *string
+	ResolvedByAgentID *uuid.UUID
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 	// The forge thread this thread mirrors, null for a thread written in komrad or once the forge has deleted it.
-	ForgeThreadID *string
+	ForgeThreadID *uuid.UUID
 	// Whether the forge said the thread was resolved as of the last sync, so only a change there resolves or reopens it here.
 	ForgeResolved bool
 	// The task being reviewed. The review already says this and neither value ever changes. It is repeated here because almost every read of threads is by task.
-	TaskID string
+	TaskID uuid.UUID
 	// Who opened the thread.
 	AuthorKind ReviewAuthorKind
 	// The agent that opened the thread, null when a person or a forge user did, or once the agent was deleted.
-	AuthorAgentID *string
+	AuthorAgentID *uuid.UUID
 }
 
 // One file of an agent's diff the person reviewing has read, and the shape that file had when they read it.
@@ -1147,35 +1149,35 @@ type ReviewViewedFile struct {
 	// A hash of the file's own slice of the patch as it stood when it was read. The panel hashes the file again on every load and shows it as unread once the two disagree, which is what makes an agent writing to the file undo the mark. It is the diff that is hashed rather than the file, since the hunks change when the base moves under a file nothing has touched.
 	Fingerprint string
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 	// The task whose diff the file is in.
-	TaskID string
+	TaskID uuid.UUID
 }
 
 // A recurring firing, holding when to fire and the prompt it starts a task with or mails an orchestrator.
 type Schedule struct {
-	ID         string
+	ID         uuid.UUID
 	Name       string
 	Cron       string
 	Timezone   string
 	Enabled    bool
 	HideAgents bool
 	Prompt     string
-	WorkflowID string
+	WorkflowID uuid.UUID
 	ArchivedAt *time.Time
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 	// Whether a firing starts a task in the workflow or mails the prompt to an orchestrator.
 	Kind ScheduleKind
 	// The orchestrator an orchestrator schedule mails.
-	OrchestratorAgentID *string
+	OrchestratorAgentID *uuid.UUID
 }
 
 type ScheduleRun struct {
 	ID           int64
-	ScheduleID   string
+	ScheduleID   uuid.UUID
 	ScheduledFor time.Time
 	State        string
 	Attempt      int32
@@ -1183,13 +1185,13 @@ type ScheduleRun struct {
 	Message      string
 	StartedAt    time.Time
 	FinalizedAt  *time.Time
-	EngineID     string
+	EngineID     uuid.UUID
 }
 
 // One outcome a person wants, which the agents linked to it work toward.
 type Task struct {
-	ID         string
-	WorkflowID string
+	ID         uuid.UUID
+	WorkflowID uuid.UUID
 	// The lowercase kebab-case name agents and people call the task by, unique within an engine and never reused.
 	Slug  string
 	Title string
@@ -1199,7 +1201,7 @@ type Task struct {
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 	// The directory of the task's checkout, which every agent on the task works in. Null while the task has none.
 	Cwd *string
 	// The git branch the task's checkout is on, null while it has no checkout or git cannot read it.
@@ -1237,11 +1239,11 @@ type Task struct {
 	// Whether a person hid the task from the sidebar.
 	IsHidden bool
 	// The task in the same workflow this task depends on, whose branch this task's branch starts from and is measured against; null for a task on the workflow's base branch.
-	ParentTaskID *string
+	ParentTaskID *uuid.UUID
 	// The fork point, the commit of the parent's branch this task's own commits sit on, which snapshots and line counts measure from; null while the task has no parent.
 	ForkPoint *string
 	// The parent's pull request, read for the parent's newest commit and its merge; null until the parent has one or while the task has no parent.
-	ParentPullRequestID *string
+	ParentPullRequestID *uuid.UUID
 	// Why the cascade cannot rebase this task onto its parent: conflicts when the rebase stopped on conflicts, orphaned when its branch holds neither its fork point nor the parent's newest commit, closed when the parent's pull request closed without merging; null while nothing blocks it.
 	CascadeBlocked *string
 	// Why the task's worktree is no longer on disk: deleted when a delete removed it, gone when komrad found the directory gone without one; null while it is on disk or the task has none.
@@ -1252,41 +1254,41 @@ type Task struct {
 
 // Which tasks were seen with which pull requests, one row per pair, never re-pointed. The watch carries every pull request with a row here.
 type TaskPullRequest struct {
-	TaskID        string
-	PullRequestID string
+	TaskID        uuid.UUID
+	PullRequestID uuid.UUID
 	FirstSeenAt   time.Time
 	// When the pair was last seen together, moved at most once an hour.
 	LastSeenAt time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 }
 
 // A named group of related agents. It is grouping only. Nothing here runs.
 type Workflow struct {
-	ID                  string
+	ID                  uuid.UUID
 	Name                string
 	Context             string
-	WorkflowConfigID    string
-	ProvisionerConfigID string
+	WorkflowConfigID    uuid.UUID
+	ProvisionerConfigID uuid.UUID
 	ArchivedAt          *time.Time
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 	// When a delete claimed the workflow, which happens when a delete claims the agents inside it. A claimed workflow is left out of the archive until the last of those agents goes and takes the row with it, and an agent whose delete fails gives the workflow back as it comes back itself.
 	DeletingAt *time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 }
 
 // The harness, working directory and flags a workflow gives each new agent it creates.
 type WorkflowConfig struct {
-	ID        string
+	ID        uuid.UUID
 	Harness   string
 	Cwd       string
 	Flags     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 	// The harness the workflow's reviewers run, blank meaning the one its other agents run.
 	ReviewerHarness string
 	// The flags the workflow's reviewers are launched with, blank meaning the other agents' flags when the harness is the same.
@@ -1295,32 +1297,32 @@ type WorkflowConfig struct {
 
 // What a workflow asks of its agents when komrad sends them an event, appended to that mail.
 type WorkflowEventPrompt struct {
-	WorkflowID string
+	WorkflowID uuid.UUID
 	// The event the prompt rides on, such as pull_request.checks_failing.
 	Event    string
 	Prompt   string
 	Position int32
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 	// Whether the event is kept from opening mail of its own.
 	Muted bool
 }
 
 // Scripts a workflow runs at one point in an agent's life, in position order.
 type WorkflowHook struct {
-	ID         string
-	WorkflowID string
+	ID         uuid.UUID
+	WorkflowID uuid.UUID
 	Event      string
 	Script     string
 	Position   int32
 	CreatedAt  time.Time
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 }
 
 // Whether a workflow gives each of its agents a git worktree of its own, and how that worktree is set up.
 type WorkflowProvisionerConfig struct {
-	ID              string
+	ID              uuid.UUID
 	WorktreeEnabled bool
 	// The branch worktrees are cut from and every agent's work is measured against, never blank.
 	WorktreeBaseBranch   string
@@ -1331,7 +1333,7 @@ type WorkflowProvisionerConfig struct {
 	WorktreeDiffExclude  []string
 	WorktreeDir          string
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 	// The shell command run in each worktree before an agent starts or resumes there, blank for none.
 	WorktreeSetupCommand string
 }
@@ -1346,7 +1348,7 @@ type Worktree struct {
 	// Why the last walk failed, null when it did not.
 	SizeError *string
 	// The engine that owns this row, stamped from the login that wrote it.
-	EngineID string
+	EngineID uuid.UUID
 	// The directory's basename, which is the id of the task it was cut for.
 	Name string
 	// The repository the directory was cut from, read off its .git file, empty when there is no such file.

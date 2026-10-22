@@ -14,6 +14,7 @@ import (
 	"komrad/lib/xslice"
 	"komrad/lib/xstr"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 )
@@ -28,7 +29,7 @@ func NewAgentDelete(queue *Enqueuer) *AgentDelete {
 }
 
 // DeleteAgents claims agents and the reviewers on a writer's task, and queues a delete for each claimed root.
-func (d *AgentDelete) DeleteAgents(ctx context.Context, ids []string) error {
+func (d *AgentDelete) DeleteAgents(ctx context.Context, ids []uuid.UUID) error {
 	return d.queue.InsertManyTx(ctx, func(tx pgx.Tx) ([]river.JobArgs, error) {
 		store := agentstore.NewAgentStore(tx)
 
@@ -37,14 +38,14 @@ func (d *AgentDelete) DeleteAgents(ctx context.Context, ids []string) error {
 			return nil, fmt.Errorf("failed to look up %d agents: %w", len(ids), err)
 		}
 		if len(found) != len(ids) {
-			held := xslice.KeyBy(found, func(agent agentstore.Agent) string { return agent.ID })
-			missing := xslice.Filter(ids, func(id string) bool {
+			held := xslice.KeyBy(found, func(agent agentstore.Agent) uuid.UUID { return agent.ID })
+			missing := xslice.Filter(ids, func(id uuid.UUID) bool {
 				_, ok := held[id]
 
 				return !ok
 			})
 
-			return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %s", xstr.JoinSome(missing, missingShown))
+			return nil, agenterr.ErrAgentNotFound.Saying("no agent with id %s", xstr.JoinSome(xslice.Map(missing, uuid.UUID.String), missingShown))
 		}
 
 		claims, err := store.MarkDeleting(ctx, ids)
@@ -96,8 +97,8 @@ func deleteAgentJobs(roots []agentstore.Claim) []river.JobArgs {
 	return xslice.Map(roots, func(root agentstore.Claim) river.JobArgs { return deleteAgentArgs(root) })
 }
 
-func claimKey(id string, claim time.Time) string {
-	return id + "@" + claim.UTC().Format(time.RFC3339Nano)
+func claimKey(id uuid.UUID, claim time.Time) string {
+	return id.String() + "@" + claim.UTC().Format(time.RFC3339Nano)
 }
 
 func deleteAgentArgs(root agentstore.Claim) internaljobs.DeleteAgentArgs {

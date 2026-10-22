@@ -6,6 +6,7 @@ import (
 
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -13,7 +14,7 @@ import (
 var nine = time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
 
 type firing struct {
-	scheduleID string
+	scheduleID uuid.UUID
 	hour       int
 	attempt    int
 	outcome    *RunOutcome
@@ -211,12 +212,12 @@ func TestFinishRunPrunesTheOldestRuns(t *testing.T) {
 func TestRunsRideOnTheSchedule(t *testing.T) {
 	tests := []struct {
 		name       string
-		read       func(t *testing.T, st *fixture, id string) []Schedule
+		read       func(t *testing.T, st *fixture, id uuid.UUID) []Schedule
 		wantRecent int
 	}{
 		{
 			name: "a read of one schedule carries only its newest run",
-			read: func(t *testing.T, st *fixture, id string) []Schedule {
+			read: func(t *testing.T, st *fixture, id uuid.UUID) []Schedule {
 				got, err := st.Get(t.Context(), id)
 				require.NoError(t, err)
 
@@ -225,7 +226,7 @@ func TestRunsRideOnTheSchedule(t *testing.T) {
 		},
 		{
 			name: "a page of schedules carries the newest run of each",
-			read: func(t *testing.T, st *fixture, _ string) []Schedule {
+			read: func(t *testing.T, st *fixture, _ uuid.UUID) []Schedule {
 				page, err := st.ListPage(t.Context(), 10, nil, false)
 				require.NoError(t, err)
 
@@ -234,7 +235,7 @@ func TestRunsRideOnTheSchedule(t *testing.T) {
 		},
 		{
 			name: "the watched set carries the recent runs too",
-			read: func(t *testing.T, st *fixture, _ string) []Schedule {
+			read: func(t *testing.T, st *fixture, _ uuid.UUID) []Schedule {
 				watched, err := st.ListWatched(t.Context(), nil)
 				require.NoError(t, err)
 
@@ -298,8 +299,8 @@ func startRun(t *testing.T, st *fixture, fire firing) {
 	}
 }
 
-func indexSchedulesByID(schedules []Schedule) map[string]Schedule {
-	byID := make(map[string]Schedule, len(schedules))
+func indexSchedulesByID(schedules []Schedule) map[uuid.UUID]Schedule {
+	byID := make(map[uuid.UUID]Schedule, len(schedules))
 	for _, schedule := range schedules {
 		byID[schedule.ID] = schedule
 	}

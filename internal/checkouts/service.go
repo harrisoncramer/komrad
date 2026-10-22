@@ -22,6 +22,7 @@ import (
 	"komrad/lib/xpath"
 	"komrad/proto/gen/oneofs"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 )
@@ -168,7 +169,7 @@ func NewService(params NewServiceParams) *Service {
 }
 
 // buildParkRef names where a checkout is held before it is moved, under the space for that kind of move.
-func buildParkRef(space parkSpace, taskID string) string {
+func buildParkRef(space parkSpace, taskID uuid.UUID) string {
 	return fmt.Sprintf("refs/komrad/%s/%s/%d", space, taskID, time.Now().UnixNano())
 }
 
@@ -256,7 +257,7 @@ func (s *Service) recheckWriter(ctx context.Context, target checkoutTarget) erro
 // reviewer shares with its task's writer.
 func (s *Service) refuseTheCaller(ctx context.Context, task taskstore.Task) error {
 	from := caller.From(ctx).AgentID
-	if from == "" {
+	if from == uuid.Nil {
 		return nil
 	}
 
@@ -275,7 +276,7 @@ func (s *Service) refuseTheCaller(ctx context.Context, task taskstore.Task) erro
 }
 
 // queueEvent queues one event about a task on its own, warning rather than failing when it cannot.
-func (s *Service) queueEvent(ctx context.Context, taskID string, payload events.Payload) {
+func (s *Service) queueEvent(ctx context.Context, taskID uuid.UUID, payload events.Payload) {
 	event, err := events.NewEvent(payload)
 	if err == nil {
 		err = s.events.InsertManyTx(ctx, func(pgx.Tx) ([]river.JobArgs, error) {
@@ -284,7 +285,7 @@ func (s *Service) queueEvent(ctx context.Context, taskID string, payload events.
 	}
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to queue an event for a task",
-			append([]slog.Attr{slog.String(logging.TaskID, taskID), slog.String(logging.EventTopic, payload.Topic())}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.TaskID, taskID.String()), slog.String(logging.EventTopic, payload.Topic())}, logging.Err(err)...)...)
 	}
 }
 

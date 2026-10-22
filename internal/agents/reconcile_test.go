@@ -16,6 +16,7 @@ import (
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xptr"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -155,7 +156,7 @@ func TestReconcileSinglePass(t *testing.T) {
 			agent := seed(t, st, "agent", recorded, tt.fromState)
 
 			tmux := tmuxtest.NewFake()
-			tmux.Owners["%1"] = ""
+			tmux.Owners["%1"] = uuid.Nil
 			if tt.owned {
 				tmux.Owners["%1"] = agent.ID
 			}
@@ -287,24 +288,25 @@ func TestReconcileWithoutARecorderRecordsNothing(t *testing.T) {
 // TestReconcileForgetsAnAbandonedPane pins that a dormant agent drops its pane id and that komrad
 // closes the shell its CLI left behind.
 func TestReconcileForgetsAnAbandonedPane(t *testing.T) {
+	other := uuid.New()
 	tests := []struct {
 		name       string
 		mine       bool
 		command    string
-		wantStamp  string
+		wantStamp  uuid.UUID
 		wantKilled []string
 	}{
 		{
 			name:       "a pane whose CLI exited is killed as well as forgotten",
 			mine:       true,
 			command:    "-zsh",
-			wantStamp:  "",
+			wantStamp:  uuid.Nil,
 			wantKilled: []string{"%1"},
 		},
 		{
 			name:       "a pane that belongs to another agent is left alone",
 			command:    "2.1.241",
-			wantStamp:  "other-agent",
+			wantStamp:  other,
 			wantKilled: nil,
 		},
 	}
@@ -316,7 +318,7 @@ func TestReconcileForgetsAnAbandonedPane(t *testing.T) {
 			agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
 
 			tmux := tmuxtest.NewFake()
-			tmux.Owners["%1"] = "other-agent"
+			tmux.Owners["%1"] = other
 			if tt.mine {
 				tmux.Owners["%1"] = agent.ID
 			}
@@ -1351,7 +1353,7 @@ type countingStates struct {
 	aliveWrites int
 }
 
-func (c *countingStates) SetAlive(ctx context.Context, ids []string, alive bool) error {
+func (c *countingStates) SetAlive(ctx context.Context, ids []uuid.UUID, alive bool) error {
 	c.aliveWrites++
 
 	return c.agentStateReadWriter.SetAlive(ctx, ids, alive)
@@ -1381,7 +1383,7 @@ func TestReconcileWritesLivenessAgainstTheRow(t *testing.T) {
 
 	// A row that says dormant while the pane is there is what a service restart or a restore
 	// leaves behind, and the first pass sets it right.
-	require.NoError(t, st.Agents.SetAlive(ctx, []string{agent.ID}, false))
+	require.NoError(t, st.Agents.SetAlive(ctx, []uuid.UUID{agent.ID}, false))
 	require.NoError(t, rec.Reconcile(ctx))
 	assert.Equal(t, 1, states.aliveWrites)
 	assert.True(t, aliveOf(t, st, agent.ID), "a pane found where the row says none is written alive")
@@ -1389,7 +1391,7 @@ func TestReconcileWritesLivenessAgainstTheRow(t *testing.T) {
 	require.NoError(t, rec.Reconcile(ctx))
 	assert.Equal(t, 1, states.aliveWrites, "and the next pass finds the row agreeing")
 
-	tmux.Owners["%1"] = ""
+	tmux.Owners["%1"] = uuid.Nil
 	require.NoError(t, rec.Reconcile(ctx))
 	assert.Equal(t, 2, states.aliveWrites)
 	assert.False(t, aliveOf(t, st, agent.ID), "a pane that went is written dormant")
@@ -1398,7 +1400,7 @@ func TestReconcileWritesLivenessAgainstTheRow(t *testing.T) {
 	assert.Equal(t, 2, states.aliveWrites, "a pane that stays gone is not written again")
 }
 
-func aliveOf(t *testing.T, st *testStore, id string) bool {
+func aliveOf(t *testing.T, st *testStore, id uuid.UUID) bool {
 	t.Helper()
 
 	agent, err := st.Agents.GetByID(t.Context(), id)
@@ -1454,7 +1456,7 @@ func TestReconcileFailedTurn(t *testing.T) {
 	tests := []struct {
 		name   string
 		state  agentstore.State
-		before func(t *testing.T, st *testStore, id string)
+		before func(t *testing.T, st *testStore, id uuid.UUID)
 		frame  string
 		passes int
 		want   agentstore.State
@@ -1462,7 +1464,7 @@ func TestReconcileFailedTurn(t *testing.T) {
 		{
 			name:  "a failure from a turn before the one the pane just finished",
 			state: agentstore.StateErrored,
-			before: func(t *testing.T, st *testStore, id string) {
+			before: func(t *testing.T, st *testStore, id uuid.UUID) {
 				require.NoError(t, st.Agents.SetStateByID(t.Context(), id, agentstore.StateThinking))
 			},
 			frame:  harnesstest.FrameIdle,
@@ -1472,7 +1474,7 @@ func TestReconcileFailedTurn(t *testing.T) {
 		{
 			name:  "a failure a later turn ending cleared",
 			state: agentstore.StateThinking,
-			before: func(t *testing.T, st *testStore, id string) {
+			before: func(t *testing.T, st *testStore, id uuid.UUID) {
 				require.NoError(t, st.Agents.SetTurnEnded(t.Context(), id))
 			},
 			frame:  harnesstest.FrameIdle,

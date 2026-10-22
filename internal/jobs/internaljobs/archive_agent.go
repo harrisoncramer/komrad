@@ -11,6 +11,7 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 
+	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 )
 
@@ -24,7 +25,7 @@ const (
 
 // ArchiveAgentArgs archives a reviewer whose approval was released.
 type ArchiveAgentArgs struct {
-	AgentID string `json:"agent_id"`
+	AgentID uuid.UUID `json:"agent_id"`
 }
 
 // Kind is the River job kind.
@@ -45,7 +46,7 @@ type AgentArchiver interface {
 }
 
 type AgentGetter interface {
-	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*agentstore.Agent, error)
 }
 
 type NewArchiveAgentWorkerParams struct {
@@ -79,7 +80,7 @@ func (w *ArchiveAgentWorker) Work(ctx context.Context, job *river.Job[ArchiveAge
 		return river.JobSnooze(archiveDelay)
 	}
 
-	err = w.archiver.ArchiveAgents(ctx, agents.ArchiveAgentsParams{IDs: []string{job.Args.AgentID}})
+	err = w.archiver.ArchiveAgents(ctx, agents.ArchiveAgentsParams{IDs: []uuid.UUID{job.Args.AgentID}})
 	if errors.Is(err, agenterr.ErrAgentNotFound) {
 		return nil
 	}

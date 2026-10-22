@@ -13,6 +13,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
 
+	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 )
 
@@ -23,11 +24,11 @@ const (
 
 // Released is a review released on a task's work.
 type Released struct {
-	ReviewID string `json:"review_id"`
-	TaskID   string `json:"task_id"`
-	Ordinal  int32  `json:"ordinal"`
+	ReviewID uuid.UUID `json:"review_id"`
+	TaskID   uuid.UUID `json:"task_id"`
+	Ordinal  int32     `json:"ordinal"`
 	// ReviewerID is the agent that wrote the review, blank for a forge reviewer.
-	ReviewerID string              `json:"reviewer_id"`
+	ReviewerID uuid.UUID           `json:"reviewer_id"`
 	Verdict    reviewstore.Verdict `json:"verdict"`
 	Comments   int                 `json:"comments"`
 	Replies    int                 `json:"replies"`
@@ -45,9 +46,9 @@ func (Released) Topic() string {
 
 // answered is a task's writer answering a thread a reviewer opened on its work.
 type answered struct {
-	TaskID     string `json:"task_id"`
-	WriterID   string `json:"writer_id"`
-	ReviewerID string `json:"reviewer_id"`
+	TaskID     uuid.UUID `json:"task_id"`
+	WriterID   uuid.UUID `json:"writer_id"`
+	ReviewerID uuid.UUID `json:"reviewer_id"`
 }
 
 // Topic names the handler that tells the reviewer.
@@ -68,7 +69,7 @@ func NewReleasedHandler(params NewReleasedHandlerParams) events.HandlerFor[Relea
 			return nil, err
 		}
 
-		if !params.ArchiveOnApproval || released.Verdict != reviewstore.VerdictApproved || released.ReviewerID == "" {
+		if !params.ArchiveOnApproval || released.Verdict != reviewstore.VerdictApproved || released.ReviewerID == uuid.Nil {
 			return nil, nil
 		}
 

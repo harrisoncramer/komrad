@@ -13,6 +13,8 @@ import (
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+
+	"github.com/google/uuid"
 )
 
 // restartPrompt is what a restarted writer is asked on the first turn of its new conversation.
@@ -39,12 +41,12 @@ type transcriptSyncer interface {
 // RestartAgentParams is the writer or orchestrator to restart, what it is told on top of its
 // briefing, and the CLI and flags it moves onto, blank for the ones it runs.
 type RestartAgentParams struct {
-	ID      string
+	ID      uuid.UUID
 	Note    string
 	Harness string
 	Flags   string
 	// ByAgentID is the agent asking, empty for the panel.
-	ByAgentID string
+	ByAgentID uuid.UUID
 }
 
 // RestartAgent relaunches a task's writer or a workflow's orchestrator on a new conversation, its
@@ -116,10 +118,10 @@ func (s *ResumeService) RestartAgent(ctx context.Context, params RestartAgentPar
 }
 
 // refuseRestart turns away an agent that has no restart, or a restart the caller may not make.
-func refuseRestart(agent agentstore.Agent, byAgentID string) error {
+func refuseRestart(agent agentstore.Agent, byAgentID uuid.UUID) error {
 	switch {
 	case agent.Role == agentstore.RoleOrchestrator:
-		if byAgentID != "" {
+		if byAgentID != uuid.Nil {
 			return errRestartOrchestratorByAgent.Saying("%q is a workflow's orchestrator", agent.Name)
 		}
 		if agent.ArchivedAt != nil {
@@ -141,7 +143,7 @@ func refuseRestart(agent agentstore.Agent, byAgentID string) error {
 func (s *ResumeService) syncTranscript(ctx context.Context, agent agentstore.Agent) {
 	if err := s.transcripts.SyncAgent(ctx, agent); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to copy the last of a restarted agent's conversation",
-			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID.String())}, logging.Err(err)...)...)
 	}
 }
 

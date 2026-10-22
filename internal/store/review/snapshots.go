@@ -9,6 +9,8 @@ import (
 	"komrad/db/models"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // Verdict is what a reviewer concluded about a snapshot.
@@ -24,15 +26,15 @@ const (
 )
 
 // SnapshotRef is the ref a snapshot's commit is held by.
-func SnapshotRef(taskID, snapshotSHA string) string {
-	return "refs/komrad/snapshots/" + taskID + "/" + snapshotSHA
+func SnapshotRef(taskID uuid.UUID, snapshotSHA string) string {
+	return "refs/komrad/snapshots/" + taskID.String() + "/" + snapshotSHA
 }
 
 // Snapshot is one frozen copy of a task's checkout, which every review and comment
 // is anchored to.
 type Snapshot struct {
-	ID        string
-	TaskID    string
+	ID        uuid.UUID
+	TaskID    uuid.UUID
 	Ordinal   int32
 	BaseSHA   string
 	SHA       string
@@ -44,12 +46,12 @@ type Snapshot struct {
 
 // Review is one reviewer's batch of comments on one snapshot, released all at once.
 type Review struct {
-	ID              string
-	TaskID          string
-	SnapshotID      string
+	ID              uuid.UUID
+	TaskID          uuid.UUID
+	SnapshotID      uuid.UUID
 	SnapshotOrdinal int32
 	AuthorKind      AuthorKind
-	AuthorAgentID   *string
+	AuthorAgentID   *uuid.UUID
 	// ExternalLogin is the forge login of whoever wrote a review on the forge, nil for one written in komrad.
 	ExternalLogin *string
 
@@ -83,7 +85,7 @@ func (r Review) isSettled() bool {
 }
 
 type CreateSnapshotParams struct {
-	TaskID  string
+	TaskID  uuid.UUID
 	BaseSHA string
 	SHA     string
 }
@@ -106,11 +108,7 @@ func (s *ReviewStore) CreateSnapshot(ctx context.Context, params CreateSnapshotP
 }
 
 // GetSnapshot is one snapshot, ErrNotFound for an id that names nothing.
-func (s *ReviewStore) GetSnapshot(ctx context.Context, id string) (*Snapshot, error) {
-	if !store.IsID(id) {
-		return nil, snapshotNotFound(id)
-	}
-
+func (s *ReviewStore) GetSnapshot(ctx context.Context, id uuid.UUID) (*Snapshot, error) {
 	row, err := s.queries.GetReviewSnapshot(ctx, id)
 	if db.IsNoRows(err) {
 		return nil, snapshotNotFound(id)
@@ -125,11 +123,7 @@ func (s *ReviewStore) GetSnapshot(ctx context.Context, id string) (*Snapshot, er
 }
 
 // GetLatestSnapshot is the newest snapshot taken of a task, ErrNotFound when none has been.
-func (s *ReviewStore) GetLatestSnapshot(ctx context.Context, taskID string) (*Snapshot, error) {
-	if !store.IsID(taskID) {
-		return nil, snapshotNotFound(taskID)
-	}
-
+func (s *ReviewStore) GetLatestSnapshot(ctx context.Context, taskID uuid.UUID) (*Snapshot, error) {
 	row, err := s.queries.GetLatestReviewSnapshot(ctx, taskID)
 	if db.IsNoRows(err) {
 		return nil, snapshotNotFound(taskID)
@@ -145,8 +139,8 @@ func (s *ReviewStore) GetLatestSnapshot(ctx context.Context, taskID string) (*Sn
 
 // GetSnapshotBySHA is the snapshot of a task saved as a commit, ErrNotFound when no snapshot
 // holds that commit.
-func (s *ReviewStore) GetSnapshotBySHA(ctx context.Context, taskID, snapshotSHA string) (*Snapshot, error) {
-	if !store.IsID(taskID) || snapshotSHA == "" {
+func (s *ReviewStore) GetSnapshotBySHA(ctx context.Context, taskID uuid.UUID, snapshotSHA string) (*Snapshot, error) {
+	if snapshotSHA == "" {
 		return nil, snapshotNotFound(taskID)
 	}
 
@@ -155,7 +149,7 @@ func (s *ReviewStore) GetSnapshotBySHA(ctx context.Context, taskID, snapshotSHA 
 		Sha:    snapshotSHA,
 	})
 	if db.IsNoRows(err) {
-		return nil, snapshotNotFound(snapshotSHA)
+		return nil, fmt.Errorf("%w: review snapshot %q", store.ErrNotFound, snapshotSHA)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the review snapshot of task %q holding %q: %w", taskID, snapshotSHA, err)
@@ -167,11 +161,7 @@ func (s *ReviewStore) GetSnapshotBySHA(ctx context.Context, taskID, snapshotSHA 
 }
 
 // ListSnapshots is every snapshot of a task, oldest first.
-func (s *ReviewStore) ListSnapshots(ctx context.Context, taskID string) ([]Snapshot, error) {
-	if !store.IsID(taskID) {
-		return nil, nil
-	}
-
+func (s *ReviewStore) ListSnapshots(ctx context.Context, taskID uuid.UUID) ([]Snapshot, error) {
 	rows, err := s.queries.ListReviewSnapshots(ctx, taskID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the review snapshots of task %q: %w", taskID, err)
@@ -185,10 +175,10 @@ func (s *ReviewStore) ListSnapshots(ctx context.Context, taskID string) ([]Snaps
 }
 
 type OpenReviewParams struct {
-	TaskID        string
-	SnapshotID    string
+	TaskID        uuid.UUID
+	SnapshotID    uuid.UUID
 	AuthorKind    AuthorKind
-	AuthorAgentID *string
+	AuthorAgentID *uuid.UUID
 }
 
 // OpenReview starts a reviewer's batch against a snapshot, which a unique index allows only one
@@ -210,11 +200,7 @@ func (s *ReviewStore) OpenReview(ctx context.Context, params OpenReviewParams) (
 }
 
 // GetReview is one review, ErrNotFound for an id that names nothing.
-func (s *ReviewStore) GetReview(ctx context.Context, id string) (*Review, error) {
-	if !store.IsID(id) {
-		return nil, reviewNotFound(id)
-	}
-
+func (s *ReviewStore) GetReview(ctx context.Context, id uuid.UUID) (*Review, error) {
 	row, err := s.queries.GetReview(ctx, id)
 	if db.IsNoRows(err) {
 		return nil, reviewNotFound(id)
@@ -229,18 +215,14 @@ func (s *ReviewStore) GetReview(ctx context.Context, id string) (*Review, error)
 }
 
 type OpenReviewOfParams struct {
-	TaskID        string
+	TaskID        uuid.UUID
 	AuthorKind    AuthorKind
-	AuthorAgentID *string
+	AuthorAgentID *uuid.UUID
 }
 
 // OpenReviewOf is the review a reviewer is still writing against a task, ErrNotFound when
 // they have none open.
 func (s *ReviewStore) OpenReviewOf(ctx context.Context, params OpenReviewOfParams) (*Review, error) {
-	if !store.IsID(params.TaskID) {
-		return nil, reviewNotFound(params.TaskID)
-	}
-
 	row, err := s.queries.GetOpenReview(ctx, models.GetOpenReviewParams{
 		TaskID:        params.TaskID,
 		AuthorKind:    models.ReviewAuthorKind(params.AuthorKind),
@@ -259,11 +241,7 @@ func (s *ReviewStore) OpenReviewOf(ctx context.Context, params OpenReviewOfParam
 }
 
 // ListReviews is every review of a task, in the order their snapshots were taken.
-func (s *ReviewStore) ListReviews(ctx context.Context, taskID string) ([]Review, error) {
-	if !store.IsID(taskID) {
-		return nil, nil
-	}
-
+func (s *ReviewStore) ListReviews(ctx context.Context, taskID uuid.UUID) ([]Review, error) {
 	rows, err := s.queries.ListReviews(ctx, taskID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the reviews of task %q: %w", taskID, err)
@@ -282,11 +260,7 @@ func (s *ReviewStore) ListReviews(ctx context.Context, taskID string) ([]Review,
 }
 
 // CountOpenComments is how many comments an open review is holding.
-func (s *ReviewStore) CountOpenComments(ctx context.Context, reviewID string) (int, error) {
-	if !store.IsID(reviewID) {
-		return 0, nil
-	}
-
+func (s *ReviewStore) CountOpenComments(ctx context.Context, reviewID uuid.UUID) (int, error) {
 	count, err := s.queries.CountOpenReviewComments(ctx, &reviewID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count the comments in the review %q: %w", reviewID, err)
@@ -296,7 +270,7 @@ func (s *ReviewStore) CountOpenComments(ctx context.Context, reviewID string) (i
 }
 
 type ReleaseReviewParams struct {
-	ID      string
+	ID      uuid.UUID
 	Verdict Verdict
 	// Body is what the reviewer said about the change as a whole, empty when they said nothing.
 	Body string
@@ -305,10 +279,6 @@ type ReleaseReviewParams struct {
 
 // ReleaseReview releases a review, stamping its verdict and the file it was written to.
 func (s *ReviewStore) ReleaseReview(ctx context.Context, params ReleaseReviewParams) (*Review, error) {
-	if !store.IsID(params.ID) {
-		return nil, reviewNotFound(params.ID)
-	}
-
 	row, err := s.queries.ReleaseReview(ctx, models.ReleaseReviewParams{
 		ID:      params.ID,
 		Body:    params.Body,
@@ -328,25 +298,20 @@ func (s *ReviewStore) ReleaseReview(ctx context.Context, params ReleaseReviewPar
 }
 
 // DeleteOpenReviewsBy removes the unreleased reviews these reviewers were still writing.
-func (s *ReviewStore) DeleteOpenReviewsBy(ctx context.Context, authorAgentIDs []string) error {
-	storable := xslice.Filter(authorAgentIDs, store.IsID)
-	if len(storable) == 0 {
+func (s *ReviewStore) DeleteOpenReviewsBy(ctx context.Context, authorAgentIDs []uuid.UUID) error {
+	if len(authorAgentIDs) == 0 {
 		return nil
 	}
 
-	if err := s.queries.DeleteOpenReviewsByAuthor(ctx, storable); err != nil {
-		return fmt.Errorf("failed to delete the open reviews of %d agent(s): %w", len(storable), err)
+	if err := s.queries.DeleteOpenReviewsByAuthor(ctx, authorAgentIDs); err != nil {
+		return fmt.Errorf("failed to delete the open reviews of %d agent(s): %w", len(authorAgentIDs), err)
 	}
 
 	return nil
 }
 
 // DeleteReview removes a review and everything pinned under it.
-func (s *ReviewStore) DeleteReview(ctx context.Context, id string) error {
-	if !store.IsID(id) {
-		return nil
-	}
-
+func (s *ReviewStore) DeleteReview(ctx context.Context, id uuid.UUID) error {
 	if err := s.queries.DeleteReview(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete the review %q: %w", id, err)
 	}
@@ -389,17 +354,17 @@ func reviewFromRow(row models.Review) Review {
 	return review
 }
 
-func snapshotNotFound(id string) error {
+func snapshotNotFound(id uuid.UUID) error {
 	return fmt.Errorf("%w: review snapshot %q", store.ErrNotFound, id)
 }
 
-func reviewNotFound(id string) error {
+func reviewNotFound(id uuid.UUID) error {
 	return fmt.Errorf("%w: review %q", store.ErrNotFound, id)
 }
 
 // tally is where one task's work stands with the reviews released of it.
 type tally struct {
-	TaskID    string
+	TaskID    uuid.UUID
 	Snapshots int32
 	// Verdict is the last conclusion released about the task's work, nil when every released
 	// review only commented.
@@ -431,7 +396,7 @@ func (s *ReviewStore) listTallies(ctx context.Context) ([]tally, error) {
 
 // newestSnapshot is the commit of the newest review snapshot of a task's agents.
 type newestSnapshot struct {
-	TaskID string
+	TaskID uuid.UUID
 	SHA    string
 }
 
@@ -459,13 +424,13 @@ type UnlandedSnapshot struct {
 
 // ListUnlandedSnapshots is the unlanded snapshots with a released review of every task with a live
 // agent, newest first, keyed by task.
-func (s *ReviewStore) ListUnlandedSnapshots(ctx context.Context) (map[string][]UnlandedSnapshot, error) {
+func (s *ReviewStore) ListUnlandedSnapshots(ctx context.Context) (map[uuid.UUID][]UnlandedSnapshot, error) {
 	rows, err := s.queries.ListUnlandedReviewSnapshots(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the unlanded review snapshots: %w", err)
 	}
 
-	byTask := map[string][]UnlandedSnapshot{}
+	byTask := map[uuid.UUID][]UnlandedSnapshot{}
 	for _, row := range rows {
 		byTask[row.TaskID] = append(byTask[row.TaskID], UnlandedSnapshot{
 			Ordinal:  row.Ordinal,
@@ -480,7 +445,7 @@ func (s *ReviewStore) ListUnlandedSnapshots(ctx context.Context) (map[string][]U
 
 // MarkSnapshotsLanded marks a task's snapshot and every earlier one as landed, leaving snapshots that already
 // landed alone, and returns how many it marked.
-func (s *ReviewStore) MarkSnapshotsLanded(ctx context.Context, taskID string, ordinal int32) (int64, error) {
+func (s *ReviewStore) MarkSnapshotsLanded(ctx context.Context, taskID uuid.UUID, ordinal int32) (int64, error) {
 	landed, err := s.queries.LandReviewSnapshots(ctx, models.LandReviewSnapshotsParams{
 		TaskID:  taskID,
 		Ordinal: ordinal,
@@ -494,7 +459,7 @@ func (s *ReviewStore) MarkSnapshotsLanded(ctx context.Context, taskID string, or
 
 // ListLiveReviewers is the ids of a task's reviewers still owed an answer, oldest first, leaving
 // out one whose last released verdict was an approval.
-func (s *ReviewStore) ListLiveReviewers(ctx context.Context, taskID string) ([]string, error) {
+func (s *ReviewStore) ListLiveReviewers(ctx context.Context, taskID uuid.UUID) ([]uuid.UUID, error) {
 	ids, err := s.queries.ListLiveReviewers(ctx, taskID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the reviewers still reading task %q: %w", taskID, err)

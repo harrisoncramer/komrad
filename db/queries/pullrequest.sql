@@ -317,7 +317,7 @@ WHERE
             task_pull_requests o
         WHERE
             o.pull_request_id = p.id)
-    AND (sqlc.narg('keys')::text[] IS NULL
+    AND (sqlc.narg('keys')::uuid[] IS NULL
         OR p.id = ANY (sqlc.narg('keys')::uuid[]))
 ORDER BY
     p.id;

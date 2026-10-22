@@ -175,14 +175,14 @@ func TestSplitProcedure(t *testing.T) {
 // the panel and every agent sharing one loopback address.
 func TestLoggingNamesTheCallingAgent(t *testing.T) {
 	req := unaryRequest("/agent.v1.AgentService/CreateAgent", "")
-	req.Header().Set(caller.AgentHeader, "agent-1")
+	req.Header().Set(caller.AgentHeader, firstAgentID.String())
 	req.Header().Set(caller.SessionHeader, "sess-1")
 
 	written, _, err := loggedCall(t, slog.LevelDebug, req, nil)
 	require.NoError(t, err)
 
 	record := logtest.Record(t, written)
-	assert.Equal(t, "agent-1", record[logging.AgentID])
+	assert.Equal(t, firstAgentID.String(), record[logging.AgentID])
 	assert.Equal(t, "sess-1", record[logging.SessionID])
 }
 
@@ -196,11 +196,32 @@ func TestLoggingLeavesThePanelUnattributed(t *testing.T) {
 	assert.NotContains(t, record, logging.SessionID)
 }
 
+// TestLoggingRefusesAnAgentIDThatIsNotAnID covers a header naming no agent being refused rather
+// than served as the person.
+func TestLoggingRefusesAnAgentIDThatIsNotAnID(t *testing.T) {
+	req := unaryRequest("/agent.v1.AgentService/DeleteTasks", "")
+	req.Header().Set(caller.AgentHeader, "not-an-id")
+
+	served := false
+	next := func(context.Context, connect.AnyRequest) (connect.AnyResponse, error) {
+		served = true
+
+		return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
+	}
+
+	var out bytes.Buffer
+	_, err := NewLogging(logging.New(&out, slog.LevelDebug)).WrapUnary(next)(t.Context(), req)
+
+	require.Error(t, err)
+	assert.Equal(t, connect.CodePermissionDenied, connect.CodeOf(err))
+	assert.False(t, served)
+}
+
 // TestLoggingHandsTheIdentityDown covers an RPC that calls back out still being able to say
 // which agent it is acting for.
 func TestLoggingHandsTheIdentityDown(t *testing.T) {
 	req := unaryRequest("/agent.v1.AgentService/CreateAgent", "")
-	req.Header().Set(caller.AgentHeader, "agent-1")
+	req.Header().Set(caller.AgentHeader, firstAgentID.String())
 
 	var seen caller.Caller
 	next := func(ctx context.Context, _ connect.AnyRequest) (connect.AnyResponse, error) {
@@ -213,5 +234,5 @@ func TestLoggingHandsTheIdentityDown(t *testing.T) {
 	_, err := NewLogging(logging.New(&out, slog.LevelDebug)).WrapUnary(next)(t.Context(), req)
 	require.NoError(t, err)
 
-	assert.Equal(t, caller.Caller{AgentID: "agent-1"}, seen)
+	assert.Equal(t, caller.Caller{AgentID: firstAgentID}, seen)
 }

@@ -6,13 +6,14 @@ func Ptr[T any](v T) *T {
 	return &v
 }
 
-// NonEmpty returns a pointer to s, or nil for an empty string.
-func NonEmpty(s string) *string {
-	if s == "" {
+// NonEmpty returns a pointer to v, or nil for the zero value.
+func NonEmpty[T comparable](v T) *T {
+	var zero T
+	if v == zero {
 		return nil
 	}
 
-	return &s
+	return &v
 }
 
 // Equal reports whether two pointers are both nil or point at equal values.

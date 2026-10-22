@@ -24,6 +24,7 @@ import (
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xptr"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -65,7 +66,9 @@ func TestResumeDir(t *testing.T) {
 
 				return filepath.Join(blocked, "worktree")
 			},
-			wantDir: func(_, fallbackResumeRoot string) string { return filepath.Join(fallbackResumeRoot, "agent-id") },
+			wantDir: func(_, fallbackResumeRoot string) string {
+				return filepath.Join(fallbackResumeRoot, resumedAgentID.String())
+			},
 		},
 	}
 
@@ -78,7 +81,7 @@ func TestResumeDir(t *testing.T) {
 
 			service := NewResumeService(NewResumeServiceParams{FallbackResumeRoot: fallbackResumeRoot})
 			got := service.getResumeDir(agentstore.Agent{
-				ID:        "agent-id",
+				ID:        resumedAgentID,
 				Cwd:       cwd,
 				SessionID: sessionID,
 			})
@@ -150,12 +153,12 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, sessionID))
 		service, fakeHarness := newManagerWithHarness(tmux, st, "")
 
-		require.NoError(t, archiveWriters(t.Context(), service.lifecycle, []string{agent.ID}))
+		require.NoError(t, archiveWriters(t.Context(), service.lifecycle, []uuid.UUID{agent.ID}))
 		archived := agentByID(t, st, agent.ID)
 		assert.Equal(t, agentstore.StateIdle, archived.State, "no reconcile pass visits an archived row, so the archive settles it")
 		require.NotNil(t, archived.InterruptedAt)
 
-		_, err := service.lifecycle.RestoreAgents(t.Context(), []string{agent.ID})
+		_, err := service.lifecycle.RestoreAgents(t.Context(), []uuid.UUID{agent.ID})
 		require.NoError(t, err)
 		assert.Equal(t, agentstore.StateIdle, agentByID(t, st, agent.ID).State, "the restore brings back a settled row")
 
@@ -424,7 +427,7 @@ func TestAnArchiveBeforeTheMarkStopsTheResume(t *testing.T) {
 	var once sync.Once
 	tmux.BeforeGetOwner = func() {
 		once.Do(func() {
-			require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{agent.ID}))
+			require.NoError(t, archiveWriters(ctx, manager.lifecycle, []uuid.UUID{agent.ID}))
 		})
 	}
 
@@ -470,7 +473,7 @@ func TestAnArchiveAfterTheMarkStopsTheResume(t *testing.T) {
 	<-lifecycle.entered
 
 	require.Equal(t, agentstore.StateSettingUp, agentByID(t, st, agent.ID).State)
-	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []string{agent.ID}))
+	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []uuid.UUID{agent.ID}))
 
 	close(lifecycle.release)
 	select {
@@ -521,7 +524,7 @@ func TestADeleteAfterTheMarkStopsTheResume(t *testing.T) {
 	<-lifecycle.entered
 
 	require.Equal(t, agentstore.StateSettingUp, agentByID(t, st, agent.ID).State)
-	require.NoError(t, manager.lifecycle.deleteNow(ctx, []string{agent.ID}))
+	require.NoError(t, manager.lifecycle.deleteNow(ctx, []uuid.UUID{agent.ID}))
 
 	close(lifecycle.release)
 	select {
@@ -919,7 +922,7 @@ func TestResumeAgentHoldsAnAgentToItsTaskAndOrchestrator(t *testing.T) {
 
 			orchestrator := seedOrchestrator(t, st, tmux)
 			writer := seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "writer", "%1")
-			seeded := map[string]string{
+			seeded := map[string]uuid.UUID{
 				"orchestrator":               orchestrator.ID,
 				"writer":                     writer.ID,
 				"reviewer":                   seedReviewer(t, st, tmux, writer).ID,
@@ -967,3 +970,7 @@ func TestResumeRefusesUnknownHarness(t *testing.T) {
 	require.ErrorContains(t, err, "gemini")
 	assert.Empty(t, tmux.NewWindows, "nothing is opened for an agent that cannot be run")
 }
+
+var (
+	resumedAgentID = uuid.New()
+)

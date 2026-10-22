@@ -18,6 +18,7 @@ import (
 	"komrad/internal/wake"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 )
@@ -446,13 +447,13 @@ func toUpsert(pullRequest forge.PullRequest) pullrequeststore.UpsertParams {
 }
 
 // logFetches is a fetch for the log of each finished check on the pull request's head that has none kept.
-func logFetches(ctx context.Context, tx pgx.Tx, pullRequestID string) ([]river.JobArgs, error) {
+func logFetches(ctx context.Context, tx pgx.Tx, pullRequestID uuid.UUID) ([]river.JobArgs, error) {
 	checkIDs, err := pullrequeststore.NewStatusCheckStore(tx).ListHeadChecksWantingLogs(ctx, pullRequestID)
 	if err != nil {
 		return nil, err
 	}
 
-	return xslice.Map(checkIDs, func(checkID string) river.JobArgs {
+	return xslice.Map(checkIDs, func(checkID uuid.UUID) river.JobArgs {
 		return internaljobs.FetchCheckLogArgs{CheckID: checkID}
 	}), nil
 }

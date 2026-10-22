@@ -28,7 +28,7 @@ FROM
     JOIN workflow_provisioner_configs pc ON pc.id = w.provisioner_config_id
 WHERE
     w.deleting_at IS NULL
-    AND (sqlc.narg('keys')::text[] IS NULL
+    AND (sqlc.narg('keys')::uuid[] IS NULL
         OR w.id = ANY (sqlc.narg('keys')::uuid[]))
 ORDER BY
     LOWER(w.name)

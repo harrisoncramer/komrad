@@ -3,6 +3,7 @@ package harness
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,13 +20,13 @@ func TestEnvPrefix(t *testing.T) {
 		},
 		{
 			name:   "the agent and its conversation",
-			launch: Launch{AgentID: "a1", SessionID: "s1"},
-			want:   "KOMRAD_AGENT_ID='a1' KOMRAD_SESSION_ID='s1' ",
+			launch: Launch{AgentID: firstAgentID, SessionID: "s1"},
+			want:   "KOMRAD_AGENT_ID='" + firstAgentID.String() + "' KOMRAD_SESSION_ID='s1' ",
 		},
 		{
 			name:   "the tools directory goes ahead of the pane's own PATH",
-			launch: Launch{ToolsDir: "/cache/komrad-agent-tools", AgentID: "a1"},
-			want:   `PATH='/cache/komrad-agent-tools':"$PATH" KOMRAD_AGENT_ID='a1' `,
+			launch: Launch{ToolsDir: "/cache/komrad-agent-tools", AgentID: firstAgentID},
+			want:   `PATH='/cache/komrad-agent-tools':"$PATH" KOMRAD_AGENT_ID='` + firstAgentID.String() + "' ",
 		},
 	}
 
@@ -35,3 +36,7 @@ func TestEnvPrefix(t *testing.T) {
 		})
 	}
 }
+
+var (
+	firstAgentID = uuid.New()
+)

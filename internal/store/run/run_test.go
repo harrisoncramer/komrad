@@ -25,7 +25,7 @@ type fixture struct {
 	rows   *rowstore.RowStore
 	// workflow is the one every seeded agent is filed under, a run hanging off an agent and an
 	// agent off a workflow.
-	workflow string
+	workflow uuid.UUID
 }
 
 func open(t *testing.T) *fixture {
@@ -50,7 +50,7 @@ func open(t *testing.T) *fixture {
 
 // failedRun is the mark an agent's row carries for a failed run nobody has looked at, nil when
 // it carries none.
-func (f *fixture) failedRun(t *testing.T, agentID string) *int32 {
+func (f *fixture) failedRun(t *testing.T, agentID uuid.UUID) *int32 {
 	t.Helper()
 
 	row, err := f.rows.Get(t.Context(), agentID)
@@ -63,7 +63,7 @@ func (f *fixture) failedRun(t *testing.T, agentID string) *int32 {
 	return row.FailedRunLog
 }
 
-func (f *fixture) seedAgent(t *testing.T) string {
+func (f *fixture) seedAgent(t *testing.T) uuid.UUID {
 	t.Helper()
 
 	taskID, err := tasktest.Seed(t.Context(), f.db, f.workflow)
@@ -72,14 +72,14 @@ func (f *fixture) seedAgent(t *testing.T) string {
 	return f.seedAgentOn(t, taskID)
 }
 
-func (f *fixture) seedAgentOn(t *testing.T, taskID *string) string {
+func (f *fixture) seedAgentOn(t *testing.T, taskID *uuid.UUID) uuid.UUID {
 	t.Helper()
 
-	id := uuid.NewString()
+	id := uuid.New()
 	require.NoError(t, f.agents.Create(t.Context(), agentstore.Agent{
 		TaskID:     taskID,
 		ID:         id,
-		Name:       "agent-" + id,
+		Name:       "agent-" + id.String(),
 		Cwd:        "/repo",
 		State:      agentstore.StateIdle,
 		WorkflowID: f.workflow,
@@ -94,7 +94,7 @@ func TestBeginRefusesAnIdNoAgentHolds(t *testing.T) {
 	f := open(t)
 
 	_, err := f.Begin(t.Context(), BeginParams{
-		AgentID: "not-an-id",
+		AgentID: uuid.New(),
 		Trigger: "agent.post-launch",
 		Script:  "setup",
 	})
@@ -210,7 +210,7 @@ func TestPruneKeepsTheNewest(t *testing.T) {
 	agentID := f.seedAgent(t)
 	other := f.seedAgent(t)
 
-	var ids []string
+	var ids []uuid.UUID
 	for range 5 {
 		id, err := f.Begin(t.Context(), BeginParams{
 			AgentID: agentID,
@@ -234,21 +234,21 @@ func TestPruneKeepsTheNewest(t *testing.T) {
 
 	remaining := f.runIDs(t, agentID)
 	assert.Equal(t, ids[3:], remaining, "the oldest three went and the newest two stayed")
-	assert.Equal(t, []string{kept}, f.runIDs(t, other), "another agent's runs are left alone")
+	assert.Equal(t, []uuid.UUID{kept}, f.runIDs(t, other), "another agent's runs are left alone")
 }
 
 // runIDs reads an agent's rows oldest first, which nothing in the store does because nothing
 // above it reads a run back yet.
-func (f *fixture) runIDs(t *testing.T, agentID string) []string {
+func (f *fixture) runIDs(t *testing.T, agentID uuid.UUID) []uuid.UUID {
 	t.Helper()
 
 	rows, err := f.db.Query(t.Context(), "SELECT id FROM agent_runs WHERE agent_id = $1 ORDER BY started_at, id", agentID)
 	require.NoError(t, err)
 	defer rows.Close()
 
-	found := make([]string, 0, 8)
+	found := make([]uuid.UUID, 0, 8)
 	for rows.Next() {
-		var id string
+		var id uuid.UUID
 		require.NoError(t, rows.Scan(&id))
 		found = append(found, id)
 	}
@@ -258,15 +258,15 @@ func (f *fixture) runIDs(t *testing.T, agentID string) []string {
 }
 
 type recordParams struct {
-	agentID string
-	taskID  *string
+	agentID uuid.UUID
+	taskID  *uuid.UUID
 	trigger string
 	failure string
 	number  int32
 }
 
 // record begins and finishes one run of an agent on a task, failing it when failure is set.
-func (f *fixture) record(t *testing.T, params recordParams) string {
+func (f *fixture) record(t *testing.T, params recordParams) uuid.UUID {
 	t.Helper()
 
 	id, err := f.Begin(t.Context(), BeginParams{
@@ -283,10 +283,10 @@ func (f *fixture) record(t *testing.T, params recordParams) string {
 }
 
 // taskFailedRun is whether a task's row carries the mark of a failed run nobody has looked at.
-func (f *fixture) taskFailedRun(t *testing.T, taskID string) bool {
+func (f *fixture) taskFailedRun(t *testing.T, taskID uuid.UUID) bool {
 	t.Helper()
 
-	tasks, err := taskstore.NewTaskStore(f.db).ListWatched(t.Context(), []string{taskID})
+	tasks, err := taskstore.NewTaskStore(f.db).ListWatched(t.Context(), []uuid.UUID{taskID})
 	require.NoError(t, err)
 	require.Len(t, tasks, 1)
 
@@ -397,7 +397,7 @@ func TestListByTask(t *testing.T) {
 	runs, err := f.ListByTask(t.Context(), *taskID)
 	require.NoError(t, err)
 
-	assert.Equal(t, []string{launched, opened}, xslice.Map(runs, func(run Run) string { return run.ID }))
+	assert.Equal(t, []uuid.UUID{launched, opened}, xslice.Map(runs, func(run Run) uuid.UUID { return run.ID }))
 	assert.Equal(t, reviewer, runs[0].AgentID)
 	assert.Equal(t, "it failed", runs[0].Failure)
 }

@@ -28,8 +28,8 @@ func EnvPrefix(launch Launch) string {
 	if launch.ToolsDir != "" {
 		assignments = append(assignments, "PATH="+QuoteArg(launch.ToolsDir)+`:"$PATH"`)
 	}
-	if launch.AgentID != "" {
-		assignments = append(assignments, fmt.Sprintf("%s=%s", AgentIDEnv, QuoteArg(launch.AgentID)))
+	if launch.AgentID != uuid.Nil {
+		assignments = append(assignments, fmt.Sprintf("%s=%s", AgentIDEnv, QuoteArg(launch.AgentID.String())))
 	}
 	if launch.SessionID != "" {
 		assignments = append(assignments, fmt.Sprintf("%s=%s", SessionIDEnv, QuoteArg(launch.SessionID)))
@@ -47,7 +47,7 @@ type Launch struct {
 	Prompt      string
 	Context     string
 	SessionID   string
-	AgentID     string
+	AgentID     uuid.UUID
 	MCPEndpoint string
 	CacheDir    string
 	Dir         string
@@ -192,7 +192,7 @@ const (
 )
 
 type SessionFinder interface {
-	FindSession(agentID string) (string, error)
+	FindSession(agentID uuid.UUID) (string, error)
 }
 
 type Turn struct {

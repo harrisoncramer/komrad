@@ -11,6 +11,8 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // ErrHostTaken says a host already has a connection.
@@ -18,7 +20,7 @@ var ErrHostTaken = fail.AlreadyExists("this host is already connected")
 
 // Connection is one forge a machine acts on, and who it acts as there.
 type Connection struct {
-	ID string
+	ID uuid.UUID
 	// Kind is which forge the host runs, github or gitlab.
 	Kind string
 	// Host is what agents' remotes name, such as github.com.
@@ -81,11 +83,7 @@ func (s *ForgeStore) Create(ctx context.Context, params CreateParams) (*Connecti
 }
 
 // Get is a connection by id, or ErrNotFound.
-func (s *ForgeStore) Get(ctx context.Context, id string) (*Connection, error) {
-	if !store.IsID(id) {
-		return nil, store.ErrNotFound.Saying("no connection with id %q", id)
-	}
-
+func (s *ForgeStore) Get(ctx context.Context, id uuid.UUID) (*Connection, error) {
 	row, err := s.queries.GetForgeConnection(ctx, id)
 	if db.IsNoRows(err) {
 		return nil, store.ErrNotFound.Saying("no connection with id %q", id)
@@ -127,11 +125,7 @@ func (s *ForgeStore) List(ctx context.Context) ([]Connection, error) {
 }
 
 // SetVerifiedAt records when the forge last confirmed the credential, or clears it.
-func (s *ForgeStore) SetVerifiedAt(ctx context.Context, id string, at *time.Time) error {
-	if !store.IsID(id) {
-		return store.ErrNotFound.Saying("no connection with id %q", id)
-	}
-
+func (s *ForgeStore) SetVerifiedAt(ctx context.Context, id uuid.UUID, at *time.Time) error {
 	updated, err := s.queries.SetForgeConnectionVerifiedAt(ctx, models.SetForgeConnectionVerifiedAtParams{ID: id, VerifiedAt: at})
 	if err != nil {
 		return fmt.Errorf("failed to set verified_at on connection %q: %w", id, err)
@@ -144,11 +138,7 @@ func (s *ForgeStore) SetVerifiedAt(ctx context.Context, id string, at *time.Time
 }
 
 // SetThrottledUntil records when the forge said the credential's rate limit resets, or clears it.
-func (s *ForgeStore) SetThrottledUntil(ctx context.Context, id string, until *time.Time) error {
-	if !store.IsID(id) {
-		return store.ErrNotFound.Saying("no connection with id %q", id)
-	}
-
+func (s *ForgeStore) SetThrottledUntil(ctx context.Context, id uuid.UUID, until *time.Time) error {
 	updated, err := s.queries.SetForgeConnectionThrottledUntil(ctx, models.SetForgeConnectionThrottledUntilParams{ID: id, ThrottledUntil: until})
 	if err != nil {
 		return fmt.Errorf("failed to set throttled_until on connection %q: %w", id, err)
@@ -161,11 +151,7 @@ func (s *ForgeStore) SetThrottledUntil(ctx context.Context, id string, until *ti
 }
 
 // Delete removes a connection, or ErrNotFound.
-func (s *ForgeStore) Delete(ctx context.Context, id string) error {
-	if !store.IsID(id) {
-		return store.ErrNotFound.Saying("no connection with id %q", id)
-	}
-
+func (s *ForgeStore) Delete(ctx context.Context, id uuid.UUID) error {
 	deleted, err := s.queries.DeleteForgeConnection(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete connection %q: %w", id, err)

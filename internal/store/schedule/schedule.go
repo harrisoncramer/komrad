@@ -11,19 +11,21 @@ import (
 	"komrad/db/models"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 type Schedule struct {
-	ID                  string
+	ID                  uuid.UUID
 	Name                string
 	Cron                string
 	Timezone            string
 	Enabled             bool
 	HideAgents          bool
 	Prompt              string
-	WorkflowID          string
+	WorkflowID          uuid.UUID
 	Kind                Kind
-	OrchestratorAgentID *string
+	OrchestratorAgentID *uuid.UUID
 	UpdatedAt           time.Time
 	ArchivedAt          *time.Time
 	LatestRun           *Run
@@ -69,9 +71,9 @@ type Config struct {
 	Enabled             bool
 	HideAgents          bool
 	Prompt              string
-	WorkflowID          string
+	WorkflowID          uuid.UUID
 	Kind                Kind
-	OrchestratorAgentID *string
+	OrchestratorAgentID *uuid.UUID
 }
 
 type ScheduleStore struct {
@@ -107,11 +109,7 @@ func (s *ScheduleStore) ListPage(ctx context.Context, limit int64, cursor *Curso
 }
 
 // Get returns a schedule by id, or ErrNotFound when none has that id.
-func (s *ScheduleStore) Get(ctx context.Context, id string) (*Schedule, error) {
-	if !store.IsID(id) {
-		return nil, store.ErrNotFound.Saying("no schedule with id %q", id)
-	}
-
+func (s *ScheduleStore) Get(ctx context.Context, id uuid.UUID) (*Schedule, error) {
 	row, err := s.queries.GetSchedule(ctx, id)
 	if db.IsNoRows(err) {
 		return nil, store.ErrNotFound.Saying("no schedule with id %q", id)
@@ -129,11 +127,7 @@ func (s *ScheduleStore) Get(ctx context.Context, id string) (*Schedule, error) {
 }
 
 // GetIncludingArchived returns a schedule by id whether or not it is archived.
-func (s *ScheduleStore) GetIncludingArchived(ctx context.Context, id string) (*Schedule, error) {
-	if !store.IsID(id) {
-		return nil, store.ErrNotFound.Saying("no schedule with id %q", id)
-	}
-
+func (s *ScheduleStore) GetIncludingArchived(ctx context.Context, id uuid.UUID) (*Schedule, error) {
 	row, err := s.queries.GetScheduleIncludingArchived(ctx, id)
 	if db.IsNoRows(err) {
 		return nil, store.ErrNotFound.Saying("no schedule with id %q", id)
@@ -173,11 +167,7 @@ func (s *ScheduleStore) Create(ctx context.Context, cfg Config) (*Schedule, erro
 }
 
 // Update replaces a schedule's editable fields, keyed by id.
-func (s *ScheduleStore) Update(ctx context.Context, id string, cfg Config) error {
-	if !store.IsID(id) {
-		return nil
-	}
-
+func (s *ScheduleStore) Update(ctx context.Context, id uuid.UUID, cfg Config) error {
 	err := s.queries.UpdateSchedule(ctx, models.UpdateScheduleParams{
 		ID:                  id,
 		Name:                cfg.Name,
@@ -201,11 +191,7 @@ func (s *ScheduleStore) Update(ctx context.Context, id string, cfg Config) error
 }
 
 // SetEnabled pauses or resumes a schedule without touching anything else.
-func (s *ScheduleStore) SetEnabled(ctx context.Context, id string, enabled bool) error {
-	if !store.IsID(id) {
-		return nil
-	}
-
+func (s *ScheduleStore) SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) error {
 	if err := s.queries.SetScheduleEnabled(ctx, models.SetScheduleEnabledParams{ID: id, Enabled: enabled}); err != nil {
 		return fmt.Errorf("failed to set schedule %q enabled to %t: %w", id, enabled, err)
 	}
@@ -215,11 +201,7 @@ func (s *ScheduleStore) SetEnabled(ctx context.Context, id string, enabled bool)
 
 // Archive hides a schedule from the panel without dropping the row, so the agents it launched
 // still point at the schedule that made them.
-func (s *ScheduleStore) Archive(ctx context.Context, id string) error {
-	if !store.IsID(id) {
-		return nil
-	}
-
+func (s *ScheduleStore) Archive(ctx context.Context, id uuid.UUID) error {
 	if err := s.queries.MarkScheduleArchived(ctx, id); err != nil {
 		return fmt.Errorf("failed to archive schedule %q: %w", id, err)
 	}
@@ -228,11 +210,7 @@ func (s *ScheduleStore) Archive(ctx context.Context, id string) error {
 }
 
 // Restore takes a schedule out of the archive.
-func (s *ScheduleStore) Restore(ctx context.Context, id string) error {
-	if !store.IsID(id) {
-		return nil
-	}
-
+func (s *ScheduleStore) Restore(ctx context.Context, id uuid.UUID) error {
 	err := s.queries.MarkScheduleRestored(ctx, id)
 	if db.IsUniqueViolation(err) {
 		return store.ErrNameTaken.Saying("a live schedule already holds its name")
@@ -245,11 +223,7 @@ func (s *ScheduleStore) Restore(ctx context.Context, id string) error {
 }
 
 // ListInWorkflow returns every schedule pointing at a workflow, archived ones included.
-func (s *ScheduleStore) ListInWorkflow(ctx context.Context, workflowID string) ([]Schedule, error) {
-	if !store.IsID(workflowID) {
-		return nil, nil
-	}
-
+func (s *ScheduleStore) ListInWorkflow(ctx context.Context, workflowID uuid.UUID) ([]Schedule, error) {
 	rows, err := s.queries.ListWorkflowSchedules(ctx, workflowID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the schedules of workflow %q: %w", workflowID, err)
@@ -263,11 +237,7 @@ func (s *ScheduleStore) ListInWorkflow(ctx context.Context, workflowID string) (
 }
 
 // Delete permanently removes a schedule, and the database clears it off the agents it launched.
-func (s *ScheduleStore) Delete(ctx context.Context, id string) error {
-	if !store.IsID(id) {
-		return nil
-	}
-
+func (s *ScheduleStore) Delete(ctx context.Context, id uuid.UUID) error {
 	if err := s.queries.DeleteSchedule(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete schedule %q: %w", id, err)
 	}
@@ -276,11 +246,7 @@ func (s *ScheduleStore) Delete(ctx context.Context, id string) error {
 }
 
 // CountLive reports how many live schedules launch into a workflow.
-func (s *ScheduleStore) CountLive(ctx context.Context, workflowID string) (int64, error) {
-	if !store.IsID(workflowID) {
-		return 0, nil
-	}
-
+func (s *ScheduleStore) CountLive(ctx context.Context, workflowID uuid.UUID) (int64, error) {
 	count, err := s.queries.CountLiveWorkflowSchedules(ctx, workflowID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count the schedules of workflow %q: %w", workflowID, err)

@@ -11,6 +11,8 @@ import (
 	"komrad/internal/logging"
 	agentstore "komrad/internal/store/agent"
 	"komrad/internal/tmux"
+
+	"github.com/google/uuid"
 )
 
 const reconcileMisses = 3
@@ -20,15 +22,15 @@ const stateSeenCoalesce = 30 * time.Second
 // frameRecorder keeps the pane capture behind a reading.
 type frameRecorder interface {
 	Record(params frames.RecordParams) error
-	Forget(listed map[string]struct{})
+	Forget(listed map[uuid.UUID]struct{})
 }
 
 type agentStateReadWriter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
-	SetStateByID(ctx context.Context, id string, state agentstore.State) error
-	SetTurnEnded(ctx context.Context, id string) error
+	SetStateByID(ctx context.Context, id uuid.UUID, state agentstore.State) error
+	SetTurnEnded(ctx context.Context, id uuid.UUID) error
 	ForgetPane(ctx context.Context, params agentstore.ForgetPaneParams) (bool, error)
-	SetAlive(ctx context.Context, ids []string, alive bool) error
+	SetAlive(ctx context.Context, ids []uuid.UUID, alive bool) error
 }
 
 // NewReconcilerParams is what a Reconciler is built over: a tmux probe for who owns a pane,
@@ -92,8 +94,8 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 		return fmt.Errorf("failed to read panes for reconcile: %w", err)
 	}
 
-	known := make(map[string]struct{}, len(agents))
-	var came, went []string
+	known := make(map[uuid.UUID]struct{}, len(agents))
+	var came, went []uuid.UUID
 	for _, agent := range agents {
 		known[agent.ID] = struct{}{}
 		pane, inListing := panes[agent.Pane]
@@ -121,7 +123,7 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 }
 
 // setAlive writes the liveness of the agents whose row the pane truth disagreed with.
-func (r *Reconciler) setAlive(ctx context.Context, ids []string, alive bool) {
+func (r *Reconciler) setAlive(ctx context.Context, ids []uuid.UUID, alive bool) {
 	if len(ids) == 0 {
 		return
 	}
@@ -226,7 +228,7 @@ func (r *Reconciler) recordFrame(ctx context.Context, agent agentstore.Agent, fr
 	})
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record the frame an agent was read from",
-			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID.String())}, logging.Err(err)...)...)
 	}
 }
 
@@ -301,7 +303,7 @@ func (r *Reconciler) settle(ctx context.Context, agent agentstore.Agent, state a
 func (r *Reconciler) stampTurnEnd(ctx context.Context, agent agentstore.Agent) {
 	if err := r.store.SetTurnEnded(ctx, agent.ID); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to stamp a turn the pane settled",
-			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID.String())}, logging.Err(err)...)...)
 	}
 }
 
@@ -310,7 +312,7 @@ func (r *Reconciler) stampTurnEnd(ctx context.Context, agent agentstore.Agent) {
 func (r *Reconciler) observeUnrecognized(ctx context.Context, agent agentstore.Agent, frame string) {
 	r.unrecognizedTotal++
 	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "a captured frame matched no known activity pattern",
-		slog.String(logging.AgentID, agent.ID),
+		slog.String(logging.AgentID, agent.ID.String()),
 		slog.Int(logging.UnrecognizedFrameCount, r.unrecognizedTotal))
 
 	if r.tally.isUnrecognizedHeld(agent.ID, frames.Hash(frame)) {
@@ -349,7 +351,7 @@ func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bo
 	})
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to forget a dormant agent's pane",
-			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID.String())}, logging.Err(err)...)...)
 
 		return false
 	}
@@ -367,7 +369,7 @@ func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state ag
 	if err := r.store.SetStateByID(ctx, agent.ID, state); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to write an agent's reconciled state",
 			append([]slog.Attr{
-				slog.String(logging.AgentID, agent.ID),
+				slog.String(logging.AgentID, agent.ID.String()),
 				slog.String(logging.AgentState, string(state)),
 			}, logging.Err(err)...)...)
 

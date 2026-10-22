@@ -4,12 +4,14 @@ import (
 	"fmt"
 
 	mailstore "komrad/internal/store/mail"
+
+	"github.com/google/uuid"
 )
 
 // ExchangeCapped tells an agent that mail written to it was refused because the pair reached the exchange limit.
 type ExchangeCapped struct {
 	SenderName string
-	SenderID   string
+	SenderID   uuid.UUID
 	Exchanged  int64
 }
 

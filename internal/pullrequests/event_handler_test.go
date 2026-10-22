@@ -336,7 +336,7 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 	}
 }
 
-func (f *syncFixture) listMail(t *testing.T, agentID string) []mailstore.Mail {
+func (f *syncFixture) listMail(t *testing.T, agentID uuid.UUID) []mailstore.Mail {
 	t.Helper()
 
 	listed, err := f.stores.Mail.ListPage(t.Context(), agentID, 200, nil)
@@ -386,7 +386,7 @@ func TestAPullRequestChangeRetriesAFullMailboxAlone(t *testing.T) {
 	require.True(t, ok)
 	var change Change
 	require.NoError(t, json.Unmarshal(retry.Payload, &change))
-	assert.Equal(t, full, change.Recipient)
+	assert.Equal(t, &full, change.Recipient)
 
 	_, err := f.stores.ClaimMail(t.Context(), full, 200)
 	require.NoError(t, err)
@@ -442,7 +442,7 @@ func (f *syncFixture) setEventPrompts(t *testing.T, prompts []workflowstore.Even
 	require.NoError(t, f.stores.Workflows.Update(t.Context(), workflow.ID, cfg))
 }
 
-func (f *syncFixture) fillMailbox(t *testing.T, agentID string) {
+func (f *syncFixture) fillMailbox(t *testing.T, agentID uuid.UUID) {
 	t.Helper()
 
 	mailer := mail.NewMailService(mail.NewMailServiceParams{
@@ -455,7 +455,7 @@ func (f *syncFixture) fillMailbox(t *testing.T, agentID string) {
 		_, err := mailer.SendFromKomrad(t.Context(), mail.SendFromKomradParams{
 			ToAgentID: agentID,
 			Mail:      eventprompts.ThreadAnswered{WriterName: "waiting"},
-			SubjectID: uuid.NewString(),
+			SubjectID: uuid.New(),
 		})
 		if errors.Is(err, mail.ErrMailboxFull) {
 			return

@@ -12,6 +12,8 @@ import (
 	"komrad/internal/store"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // AuthorKind is who wrote a message.
@@ -28,24 +30,24 @@ const (
 
 // Thread is one conversation pinned to a place in a task's diff.
 type Thread struct {
-	ID     string
-	TaskID string
+	ID     uuid.UUID
+	TaskID uuid.UUID
 
 	// ReviewID is the review the thread was opened in, nil on a thread a person opened, which
 	// belongs to no review.
-	ReviewID *string
+	ReviewID *uuid.UUID
 	// AuthorKind is who opened the thread.
 	AuthorKind AuthorKind
 	// AuthorAgentID is the agent that opened the thread, nil when a person or a forge user did.
-	AuthorAgentID *string
+	AuthorAgentID *uuid.UUID
 	// SnapshotID is the snapshot the thread's line numbers were measured against.
-	SnapshotID string
+	SnapshotID uuid.UUID
 	// BaseSHA is the commit the old side of the line numbers was read against.
 	BaseSHA string
 	// SnapshotOrdinal names that snapshot the way the panel does, zero when it was not read.
 	SnapshotOrdinal int32
 	// ForgeThreadID is the forge thread this one mirrors, nil for one opened in komrad.
-	ForgeThreadID       *string
+	ForgeThreadID       *uuid.UUID
 	FilePath            string
 	OldStart            int32
 	OldEnd              int32
@@ -58,7 +60,7 @@ type Thread struct {
 	// ResolvedByKind is whether a person or an agent settled the thread, empty while nobody has.
 	ResolvedByKind AuthorKind
 	// ResolvedByAgentID is the agent that settled it, nil for a person or an unsettled thread.
-	ResolvedByAgentID *string
+	ResolvedByAgentID *uuid.UUID
 	// ResolvedAt is when the thread was settled, nil while it is still owed an
 	// answer.
 	ResolvedAt    *time.Time
@@ -69,18 +71,18 @@ type Thread struct {
 
 // Message is one thing said in a thread.
 type Message struct {
-	ID            string
-	ThreadID      string
+	ID            uuid.UUID
+	ThreadID      uuid.UUID
 	AuthorKind    AuthorKind
-	AuthorAgentID *string
+	AuthorAgentID *uuid.UUID
 	Body          string
 
 	// ReviewID is the review this message went out with, nil for an answer from the agent.
-	ReviewID *string
+	ReviewID *uuid.UUID
 	// ReviewReleasedAt is when that review was released, nil until then and on an answer.
 	ReviewReleasedAt *time.Time
 	// SnapshotID is the snapshot an agent's reply said answers the thread, nil on any other message.
-	SnapshotID *string
+	SnapshotID *uuid.UUID
 	// Suggestion is the replacement lines the reviewer is proposing for the thread's range,
 	// empty on an ordinary comment.
 	Suggestion []string
@@ -91,15 +93,15 @@ type Message struct {
 	// the person accepts it.
 	Held bool
 	// AcceptedFrom is the held forge message this is the person's accepted copy of, nil otherwise.
-	AcceptedFrom *string
+	AcceptedFrom *uuid.UUID
 	// MailID is the mail that carried a person's comment to the writer, nil on every other message
 	// and once that mail was deleted.
-	MailID *string
+	MailID *uuid.UUID
 	// ReadAt is when the writer read the mail carrying a person's comment, nil until then.
 	ReadAt *time.Time
 	// ReadSnapshotID is the snapshot taken when the writer read a person's comment, which an
 	// addressed reply is compared against.
-	ReadSnapshotID *string
+	ReadSnapshotID *uuid.UUID
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
@@ -108,7 +110,7 @@ type Message struct {
 type External struct {
 	// Login is the forge login of whoever wrote it, empty when the forge no longer knew them.
 	Login     string
-	CommentID string
+	CommentID uuid.UUID
 	// EditedAt is when the forge comment had last been edited, nil when it never had been.
 	EditedAt *time.Time
 }
@@ -125,14 +127,14 @@ func NewReviewStore(db store.DBTX) *ReviewStore {
 // OpenedThread is a thread just opened and the id of its first message.
 type OpenedThread struct {
 	Thread
-	MessageID string
+	MessageID uuid.UUID
 }
 
 type CreateThreadParams struct {
-	TaskID string
+	TaskID uuid.UUID
 	// ReviewID is the review the thread is opened in, nil for a person's thread.
-	ReviewID      *string
-	SnapshotID    string
+	ReviewID      *uuid.UUID
+	SnapshotID    uuid.UUID
 	BaseSHA       string
 	Suggestion    []string
 	FilePath      string
@@ -143,11 +145,11 @@ type CreateThreadParams struct {
 	QuotedLines   []string
 	Body          string
 	AuthorKind    AuthorKind
-	AuthorAgentID *string
+	AuthorAgentID *uuid.UUID
 	// External is the forge comment the first message is copied from, nil for one written in komrad.
 	External *External
 	// ForgeThreadID is the forge thread this one mirrors, nil for one opened in komrad.
-	ForgeThreadID *string
+	ForgeThreadID *uuid.UUID
 	// Held is whether the forge author of the first message could not write to the repository.
 	Held bool
 }
@@ -209,11 +211,7 @@ func (s *ReviewStore) CreateThread(ctx context.Context, params CreateThreadParam
 }
 
 // ListThreads is every thread on a task, in the order they run down the diff.
-func (s *ReviewStore) ListThreads(ctx context.Context, taskID string) ([]Thread, error) {
-	if !store.IsID(taskID) {
-		return nil, nil
-	}
-
+func (s *ReviewStore) ListThreads(ctx context.Context, taskID uuid.UUID) ([]Thread, error) {
 	rows, err := s.queries.ListReviewThreads(ctx, taskID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the review threads on task %q: %w", taskID, err)
@@ -257,11 +255,7 @@ func (s *ReviewStore) ListThreads(ctx context.Context, taskID string) ([]Thread,
 
 // GetThread is one thread without the read stamps resolved into unread flags, ErrNotFound
 // for an id that names nothing.
-func (s *ReviewStore) GetThread(ctx context.Context, id string) (*Thread, error) {
-	if !store.IsID(id) {
-		return nil, threadNotFound(id)
-	}
-
+func (s *ReviewStore) GetThread(ctx context.Context, id uuid.UUID) (*Thread, error) {
 	row, err := s.queries.GetReviewThread(ctx, id)
 	if db.IsNoRows(err) {
 		return nil, threadNotFound(id)
@@ -276,11 +270,7 @@ func (s *ReviewStore) GetThread(ctx context.Context, id string) (*Thread, error)
 }
 
 // MarkThreadRead stamps the person's read column from the agent's activity column.
-func (s *ReviewStore) MarkThreadRead(ctx context.Context, id string) (*Thread, error) {
-	if !store.IsID(id) {
-		return nil, threadNotFound(id)
-	}
-
+func (s *ReviewStore) MarkThreadRead(ctx context.Context, id uuid.UUID) (*Thread, error) {
 	row, err := s.queries.MarkReviewThreadRead(ctx, id)
 	if db.IsNoRows(err) {
 		return nil, threadNotFound(id)
@@ -296,21 +286,17 @@ func (s *ReviewStore) MarkThreadRead(ctx context.Context, id string) (*Thread, e
 
 // SetThreadResolvedParams names the thread to settle or reopen, and who does it.
 type SetThreadResolvedParams struct {
-	ID       string
+	ID       uuid.UUID
 	Resolved bool
 	// ByKind is whether a person or an agent settled it, which reopening clears along with the
 	// rest.
 	ByKind AuthorKind
 	// ByAgentID is the agent that settled it, nil for a person.
-	ByAgentID *string
+	ByAgentID *uuid.UUID
 }
 
 // SetThreadResolved settles a thread or reopens it, recording who did.
 func (s *ReviewStore) SetThreadResolved(ctx context.Context, params SetThreadResolvedParams) (*Thread, error) {
-	if !store.IsID(params.ID) {
-		return nil, threadNotFound(params.ID)
-	}
-
 	row, err := s.queries.SetReviewThreadResolved(ctx, models.SetReviewThreadResolvedParams{
 		ID:                params.ID,
 		Resolved:          params.Resolved,
@@ -330,22 +316,22 @@ func (s *ReviewStore) SetThreadResolved(ctx context.Context, params SetThreadRes
 }
 
 type CreateMessageParams struct {
-	ThreadID string
+	ThreadID uuid.UUID
 	// ReviewID is the batch the message goes out with, nil for an answer.
-	ReviewID *string
+	ReviewID *uuid.UUID
 	// SnapshotID is the snapshot a reply says answers the thread.
-	SnapshotID *string
+	SnapshotID *uuid.UUID
 	Suggestion []string
 	AuthorKind AuthorKind
 	// AuthorAgentID links to the agent that wrote it, and is cleared when that agent is deleted.
-	AuthorAgentID *string
+	AuthorAgentID *uuid.UUID
 	Body          string
 	// External is the forge comment the message is copied from, nil for one written in komrad.
 	External *External
 	// Held is whether the forge author could not write to the repository.
 	Held bool
 	// AcceptedFrom is the held forge message this is the person's accepted copy of.
-	AcceptedFrom *string
+	AcceptedFrom *uuid.UUID
 }
 
 // CreateMessage writes a message into a thread and moves the writer's activity stamp in one
@@ -375,11 +361,7 @@ func (s *ReviewStore) CreateMessage(ctx context.Context, params CreateMessagePar
 }
 
 // UpdateMessage rewrites a message and moves its author's activity stamp with it.
-func (s *ReviewStore) UpdateMessage(ctx context.Context, id, body string, suggestion []string) (*Message, error) {
-	if !store.IsID(id) {
-		return nil, messageNotFound(id)
-	}
-
+func (s *ReviewStore) UpdateMessage(ctx context.Context, id uuid.UUID, body string, suggestion []string) (*Message, error) {
 	row, err := s.queries.UpdateReviewMessageBody(ctx, models.UpdateReviewMessageBodyParams{
 		ID:         id,
 		Body:       body,
@@ -398,11 +380,7 @@ func (s *ReviewStore) UpdateMessage(ctx context.Context, id, body string, sugges
 }
 
 // GetMessage is one message, ErrNotFound for an id that names nothing.
-func (s *ReviewStore) GetMessage(ctx context.Context, id string) (*Message, error) {
-	if !store.IsID(id) {
-		return nil, messageNotFound(id)
-	}
-
+func (s *ReviewStore) GetMessage(ctx context.Context, id uuid.UUID) (*Message, error) {
 	row, err := s.queries.GetReviewMessage(ctx, id)
 	if db.IsNoRows(err) {
 		return nil, messageNotFound(id)
@@ -417,7 +395,7 @@ func (s *ReviewStore) GetMessage(ctx context.Context, id string) (*Message, erro
 }
 
 // SetMessageMail records the mail that carried a person's comment to the writer.
-func (s *ReviewStore) SetMessageMail(ctx context.Context, id, mailID string) error {
+func (s *ReviewStore) SetMessageMail(ctx context.Context, id, mailID uuid.UUID) error {
 	if err := s.queries.SetReviewMessageMail(ctx, models.SetReviewMessageMailParams{ID: id, MailID: &mailID}); err != nil {
 		return fmt.Errorf("failed to record the mail that carried the review message %q: %w", id, err)
 	}
@@ -428,25 +406,24 @@ func (s *ReviewStore) SetMessageMail(ctx context.Context, id, mailID string) err
 // MarkMessagesRead stamps the comments the given mail carried as read now, against the snapshot
 // taken as the writer read them, nil when its task had no worktree, and returns the ones not
 // already stamped.
-func (s *ReviewStore) MarkMessagesRead(ctx context.Context, mailIDs []string, snapshotID *string) ([]Message, error) {
-	storable := store.KeepIDs(mailIDs)
-	if len(storable) == 0 {
+func (s *ReviewStore) MarkMessagesRead(ctx context.Context, mailIDs []uuid.UUID, snapshotID *uuid.UUID) ([]Message, error) {
+	if len(mailIDs) == 0 {
 		return nil, nil
 	}
 
 	rows, err := s.queries.MarkReviewMessagesRead(ctx, models.MarkReviewMessagesReadParams{
-		MailIds:        storable,
+		MailIds:        mailIDs,
 		ReadSnapshotID: snapshotID,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to mark the comments of %d mail read: %w", len(storable), err)
+		return nil, fmt.Errorf("failed to mark the comments of %d mail read: %w", len(mailIDs), err)
 	}
 
 	return xslice.Map(rows, func(row *models.ReviewMessage) Message { return messageFromRow(*row) }), nil
 }
 
 // ListMessages is every message in the given threads, oldest first within each.
-func (s *ReviewStore) ListMessages(ctx context.Context, threadIDs []string) ([]Message, error) {
+func (s *ReviewStore) ListMessages(ctx context.Context, threadIDs []uuid.UUID) ([]Message, error) {
 	if len(threadIDs) == 0 {
 		return nil, nil
 	}
@@ -464,10 +441,10 @@ func (s *ReviewStore) ListMessages(ctx context.Context, threadIDs []string) ([]M
 // holdThreads marks held everything but an agent's reply in a thread a held forge message opened,
 // until the person accepts a copy of that message.
 func holdThreads(messages []Message) []Message {
-	roots := map[string]Message{}
-	accepted := map[string]bool{}
+	roots := map[uuid.UUID]Message{}
+	accepted := map[uuid.UUID]bool{}
 	for _, message := range messages {
-		if root, ok := roots[message.ThreadID]; !ok || message.ID < root.ID {
+		if root, ok := roots[message.ThreadID]; !ok || store.CompareIDs(message.ID, root.ID) < 0 {
 			roots[message.ThreadID] = message
 		}
 		if message.AcceptedFrom != nil {
@@ -488,14 +465,14 @@ func holdThreads(messages []Message) []Message {
 
 // ViewedFile is one file of a task's diff that the person reviewing has read.
 type ViewedFile struct {
-	TaskID      string
+	TaskID      uuid.UUID
 	FilePath    string
 	Fingerprint string
 	ViewedAt    time.Time
 }
 
 type MarkFileViewedParams struct {
-	TaskID      string
+	TaskID      uuid.UUID
 	FilePath    string
 	Fingerprint string
 }
@@ -518,11 +495,7 @@ func (s *ReviewStore) MarkFileViewed(ctx context.Context, params MarkFileViewedP
 }
 
 // UnmarkFileViewed drops the mark on one file.
-func (s *ReviewStore) UnmarkFileViewed(ctx context.Context, taskID, filePath string) error {
-	if !store.IsID(taskID) {
-		return nil
-	}
-
+func (s *ReviewStore) UnmarkFileViewed(ctx context.Context, taskID uuid.UUID, filePath string) error {
 	err := s.queries.UnmarkReviewFileViewed(ctx, models.UnmarkReviewFileViewedParams{
 		TaskID:   taskID,
 		FilePath: filePath,
@@ -535,11 +508,7 @@ func (s *ReviewStore) UnmarkFileViewed(ctx context.Context, taskID, filePath str
 }
 
 // ListViewedFiles is every file of a task marked read.
-func (s *ReviewStore) ListViewedFiles(ctx context.Context, taskID string) ([]ViewedFile, error) {
-	if !store.IsID(taskID) {
-		return nil, nil
-	}
-
+func (s *ReviewStore) ListViewedFiles(ctx context.Context, taskID uuid.UUID) ([]ViewedFile, error) {
 	rows, err := s.queries.ListReviewViewedFiles(ctx, taskID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the viewed files of task %q: %w", taskID, err)
@@ -625,15 +594,15 @@ func lines(values []string) []string {
 	return values
 }
 
-func threadNotFound(id string) error {
+func threadNotFound(id uuid.UUID) error {
 	return fmt.Errorf("%w: review thread %q", store.ErrNotFound, id)
 }
 
-func messageNotFound(id string) error {
+func messageNotFound(id uuid.UUID) error {
 	return fmt.Errorf("%w: review message %q", store.ErrNotFound, id)
 }
 
-func externalOf(login, commentID *string, editedAt *time.Time) *External {
+func externalOf(login *string, commentID *uuid.UUID, editedAt *time.Time) *External {
 	if commentID == nil {
 		return nil
 	}
@@ -653,7 +622,7 @@ func externalLogin(external *External) *string {
 	return &external.Login
 }
 
-func externalCommentID(external *External) *string {
+func externalCommentID(external *External) *uuid.UUID {
 	if external == nil {
 		return nil
 	}

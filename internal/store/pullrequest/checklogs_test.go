@@ -10,6 +10,7 @@ import (
 	"komrad/internal/store"
 	"komrad/lib/xptr"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -17,9 +18,9 @@ import (
 type checkLogHarness struct {
 	*harness
 	checks        *StatusCheckStore
-	pullRequestID string
-	checkID       string
-	readingID     string
+	pullRequestID uuid.UUID
+	checkID       uuid.UUID
+	readingID     uuid.UUID
 }
 
 func openCheckLogs(t *testing.T, checks ...forge.StatusCheck) *checkLogHarness {
@@ -63,7 +64,7 @@ func (h *checkLogHarness) record(t *testing.T, log CheckLog) {
 func (h *checkLogHarness) list(t *testing.T) []CheckLog {
 	t.Helper()
 
-	listed, err := h.checks.ListCheckLogsOfReadings(t.Context(), []string{h.readingID})
+	listed, err := h.checks.ListCheckLogsOfReadings(t.Context(), []uuid.UUID{h.readingID})
 	require.NoError(t, err)
 	for i := range listed {
 		listed[i].FetchedAt = listed[i].FetchedAt.UTC()
@@ -281,7 +282,7 @@ func TestListCheckLogHits(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			search, err := h.checks.ListCheckLogHits(t.Context(), []string{h.checkID}, tt.pattern)
+			search, err := h.checks.ListCheckLogHits(t.Context(), []uuid.UUID{h.checkID}, tt.pattern)
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, search.Hits)
 			assert.False(t, search.Limited)
@@ -300,7 +301,7 @@ func TestListCheckLogHitsLimits(t *testing.T) {
 		LineCount: maxSearchHits + 1,
 	})
 
-	search, err := h.checks.ListCheckLogHits(t.Context(), []string{h.checkID}, `é`)
+	search, err := h.checks.ListCheckLogHits(t.Context(), []uuid.UUID{h.checkID}, `é`)
 	require.NoError(t, err)
 	assert.Equal(t, []CheckLogHit{{
 		CheckID: h.checkID,
@@ -309,7 +310,7 @@ func TestListCheckLogHitsLimits(t *testing.T) {
 		Cut:     true,
 	}}, search.Hits)
 
-	search, err = h.checks.ListCheckLogHits(t.Context(), []string{h.checkID}, `.`)
+	search, err = h.checks.ListCheckLogHits(t.Context(), []uuid.UUID{h.checkID}, `.`)
 	require.NoError(t, err)
 	assert.Len(t, search.Hits, maxSearchHits)
 	assert.True(t, search.Limited)
@@ -319,7 +320,7 @@ func TestListCheckLogHitsLimits(t *testing.T) {
 func TestListCheckLogHitsRefusesABadPattern(t *testing.T) {
 	h := openCheckLogs(t)
 
-	_, err := h.checks.ListCheckLogHits(t.Context(), []string{h.checkID}, `(`)
+	_, err := h.checks.ListCheckLogHits(t.Context(), []uuid.UUID{h.checkID}, `(`)
 	require.ErrorIs(t, err, ErrInvalidPattern)
 }
 
@@ -359,7 +360,7 @@ func TestGetCheckForLogFetch(t *testing.T) {
 		},
 	}, check)
 
-	_, err = h.checks.GetCheckForLogFetch(t.Context(), "01a10000-0000-7000-8000-000000000000")
+	_, err = h.checks.GetCheckForLogFetch(t.Context(), uuid.MustParse("01a10000-0000-7000-8000-000000000000"))
 	require.ErrorIs(t, err, store.ErrNotFound)
 }
 
@@ -374,7 +375,7 @@ func TestListHeadChecksWantingLogs(t *testing.T) {
 
 	wanting, err := h.checks.ListHeadChecksWantingLogs(t.Context(), h.pullRequestID)
 	require.NoError(t, err)
-	assert.Equal(t, []string{h.checkID}, wanting)
+	assert.Equal(t, []uuid.UUID{h.checkID}, wanting)
 
 	h.record(t, CheckLog{Outcome: CheckLogExpired})
 	wanting, err = h.checks.ListHeadChecksWantingLogs(t.Context(), h.pullRequestID)
@@ -395,15 +396,15 @@ func TestCheckLogsGoWithThePullRequest(t *testing.T) {
 	assert.Zero(t, steps)
 }
 
-// TestCheckLogIDsFromTheWire covers that an id that is no id finds no log rather than failing the read.
-func TestCheckLogIDsFromTheWire(t *testing.T) {
+// TestCheckLogIDsNamingNoCheck covers that an id naming no check finds no log rather than failing the read.
+func TestCheckLogIDsNamingNoCheck(t *testing.T) {
 	h := openCheckLogs(t)
 	h.record(t, fetchedLog())
 
-	_, err := h.checks.GetCheckLogLines(t.Context(), "check-1", 1, 10)
+	_, err := h.checks.GetCheckLogLines(t.Context(), uuid.New(), 1, 10)
 	require.ErrorIs(t, err, store.ErrNotFound)
 
-	search, err := h.checks.ListCheckLogHits(t.Context(), []string{"check-1", h.checkID}, `FAIL`)
+	search, err := h.checks.ListCheckLogHits(t.Context(), []uuid.UUID{uuid.New(), h.checkID}, `FAIL`)
 	require.NoError(t, err)
 	assert.Equal(t, []CheckLogHit{{
 		CheckID:    h.checkID,
@@ -434,12 +435,13 @@ func TestReadingsOfAPullRequestCarryTheirLogs(t *testing.T) {
 
 // TestLogOf covers where fetching a check's log stands for each check and log kept.
 func TestLogOf(t *testing.T) {
+	checkID := uuid.New()
 	finished := inJob(statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "failure"), 42)
 	running := inJob(statusCheckRun("1", "test", forge.StatusCheckStateRunning, ""), 42)
 	kept := func(outcome CheckLogOutcome) StatusCheckReading {
 		return StatusCheckReading{
-			CheckIDs: map[string]string{"1": "check-1"},
-			Logs:     map[string]CheckLog{"check-1": {CheckID: "check-1", Outcome: outcome}},
+			CheckIDs: map[string]uuid.UUID{"1": checkID},
+			Logs:     map[uuid.UUID]CheckLog{checkID: {CheckID: checkID, Outcome: outcome}},
 		}
 	}
 
@@ -464,7 +466,7 @@ func TestLogOf(t *testing.T) {
 		},
 		{
 			name:    "a finished check with no log kept is pending",
-			reading: StatusCheckReading{CheckIDs: map[string]string{"1": "check-1"}},
+			reading: StatusCheckReading{CheckIDs: map[string]uuid.UUID{"1": checkID}},
 			check:   finished,
 			want:    CheckLogPending,
 		},

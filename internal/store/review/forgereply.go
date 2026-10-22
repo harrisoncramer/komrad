@@ -10,6 +10,8 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -35,15 +37,15 @@ const (
 
 // ForgeReply is a reply komrad posts to the forge on a mirrored thread.
 type ForgeReply struct {
-	ID                     string
-	ThreadID               string
+	ID                     uuid.UUID
+	ThreadID               uuid.UUID
 	State                  ForgeReplyState
 	Body                   string
 	ApprovedAt             *time.Time
 	SendingStartedAt       *time.Time
 	SentAt                 *time.Time
 	ForgeCommentProviderID *string
-	MirroredCommentID      *string
+	MirroredCommentID      *uuid.UUID
 	Error                  *string
 	CreatedAt              time.Time
 }
@@ -57,11 +59,7 @@ type ForgeReplyTarget struct {
 }
 
 // CreateForgeReply records the person's reply, ready to post.
-func (s *ReviewStore) CreateForgeReply(ctx context.Context, threadID, body string) (*ForgeReply, error) {
-	if !store.IsID(threadID) {
-		return nil, notMirrored(threadID)
-	}
-
+func (s *ReviewStore) CreateForgeReply(ctx context.Context, threadID uuid.UUID, body string) (*ForgeReply, error) {
 	row, err := s.queries.InsertForgeReply(ctx, models.InsertForgeReplyParams{
 		ThreadID: threadID,
 		Body:     body,
@@ -77,22 +75,14 @@ func (s *ReviewStore) CreateForgeReply(ctx context.Context, threadID, body strin
 }
 
 // BeginForgeReplySend marks an approved or failed reply as sending.
-func (s *ReviewStore) BeginForgeReplySend(ctx context.Context, id string) (*ForgeReply, error) {
-	if !store.IsID(id) {
-		return nil, forgeReplyNotFound(id)
-	}
-
+func (s *ReviewStore) BeginForgeReplySend(ctx context.Context, id uuid.UUID) (*ForgeReply, error) {
 	row, err := s.queries.BeginForgeReplySend(ctx, id)
 
 	return s.finishForgeReplyMove(ctx, id, row, err)
 }
 
 // MarkForgeReplySent records the comment the forge made of a reply it received.
-func (s *ReviewStore) MarkForgeReplySent(ctx context.Context, id, forgeCommentProviderID string) (*ForgeReply, error) {
-	if !store.IsID(id) {
-		return nil, forgeReplyNotFound(id)
-	}
-
+func (s *ReviewStore) MarkForgeReplySent(ctx context.Context, id uuid.UUID, forgeCommentProviderID string) (*ForgeReply, error) {
 	row, err := s.queries.MarkForgeReplySent(ctx, models.MarkForgeReplySentParams{
 		ID:                     id,
 		ForgeCommentProviderID: forgeCommentProviderID,
@@ -102,11 +92,7 @@ func (s *ReviewStore) MarkForgeReplySent(ctx context.Context, id, forgeCommentPr
 }
 
 // MarkForgeReplyFailed records what the forge said when it refused a reply.
-func (s *ReviewStore) MarkForgeReplyFailed(ctx context.Context, id, forgeError string) (*ForgeReply, error) {
-	if !store.IsID(id) {
-		return nil, forgeReplyNotFound(id)
-	}
-
+func (s *ReviewStore) MarkForgeReplyFailed(ctx context.Context, id uuid.UUID, forgeError string) (*ForgeReply, error) {
 	row, err := s.queries.MarkForgeReplyFailed(ctx, models.MarkForgeReplyFailedParams{
 		ID:    id,
 		Error: forgeError,
@@ -116,11 +102,7 @@ func (s *ReviewStore) MarkForgeReplyFailed(ctx context.Context, id, forgeError s
 }
 
 // DeleteForgeReply deletes a failed reply.
-func (s *ReviewStore) DeleteForgeReply(ctx context.Context, id string) error {
-	if !store.IsID(id) {
-		return forgeReplyNotFound(id)
-	}
-
+func (s *ReviewStore) DeleteForgeReply(ctx context.Context, id uuid.UUID) error {
 	deleted, err := s.queries.DeleteForgeReply(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete the forge reply %q: %w", id, err)
@@ -133,11 +115,7 @@ func (s *ReviewStore) DeleteForgeReply(ctx context.Context, id string) error {
 }
 
 // GetForgeReply reads one forge reply.
-func (s *ReviewStore) GetForgeReply(ctx context.Context, id string) (*ForgeReply, error) {
-	if !store.IsID(id) {
-		return nil, forgeReplyNotFound(id)
-	}
-
+func (s *ReviewStore) GetForgeReply(ctx context.Context, id uuid.UUID) (*ForgeReply, error) {
 	row, err := s.queries.GetForgeReply(ctx, id)
 	if db.IsNoRows(err) {
 		return nil, forgeReplyNotFound(id)
@@ -150,7 +128,7 @@ func (s *ReviewStore) GetForgeReply(ctx context.Context, id string) (*ForgeReply
 }
 
 // ListForgeReplies is every forge reply on the given threads, oldest first within each.
-func (s *ReviewStore) ListForgeReplies(ctx context.Context, threadIDs []string) ([]ForgeReply, error) {
+func (s *ReviewStore) ListForgeReplies(ctx context.Context, threadIDs []uuid.UUID) ([]ForgeReply, error) {
 	if len(threadIDs) == 0 {
 		return nil, nil
 	}
@@ -176,11 +154,7 @@ func (s *ReviewStore) ListSendingForgeReplies(ctx context.Context) ([]ForgeReply
 }
 
 // GetForgeReplyTarget returns where a reply on a mirrored review thread goes on the forge.
-func (s *ReviewStore) GetForgeReplyTarget(ctx context.Context, threadID string) (*ForgeReplyTarget, error) {
-	if !store.IsID(threadID) {
-		return nil, notMirrored(threadID)
-	}
-
+func (s *ReviewStore) GetForgeReplyTarget(ctx context.Context, threadID uuid.UUID) (*ForgeReplyTarget, error) {
 	row, err := s.queries.GetForgeReplyTarget(ctx, threadID)
 	if db.IsNoRows(err) {
 		return nil, notMirrored(threadID)
@@ -197,7 +171,7 @@ func (s *ReviewStore) GetForgeReplyTarget(ctx context.Context, threadID string) 
 	}, nil
 }
 
-func (s *ReviewStore) finishForgeReplyMove(ctx context.Context, id string, row *models.ReviewForgeReply, err error) (*ForgeReply, error) {
+func (s *ReviewStore) finishForgeReplyMove(ctx context.Context, id uuid.UUID, row *models.ReviewForgeReply, err error) (*ForgeReply, error) {
 	if db.IsNoRows(err) {
 		return nil, s.explainForgeReplyRefusal(ctx, id)
 	}
@@ -208,7 +182,7 @@ func (s *ReviewStore) finishForgeReplyMove(ctx context.Context, id string, row *
 	return forgeReplyFromRow(row), nil
 }
 
-func (s *ReviewStore) explainForgeReplyRefusal(ctx context.Context, id string) error {
+func (s *ReviewStore) explainForgeReplyRefusal(ctx context.Context, id uuid.UUID) error {
 	reply, err := s.GetForgeReply(ctx, id)
 	if err != nil {
 		return err
@@ -232,11 +206,11 @@ func forgeReplyFromRow(row *models.ReviewForgeReply) *ForgeReply {
 	}
 }
 
-func notMirrored(threadID string) error {
+func notMirrored(threadID uuid.UUID) error {
 	return fmt.Errorf("%w: review thread %q", errNotMirrored, threadID)
 }
 
-func forgeReplyNotFound(id string) error {
+func forgeReplyNotFound(id uuid.UUID) error {
 	return fmt.Errorf("%w: forge reply %q", store.ErrNotFound, id)
 }
 

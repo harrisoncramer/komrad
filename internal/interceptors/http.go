@@ -30,13 +30,18 @@ func NewLoggingHandler(logger *slog.Logger, next http.Handler) http.Handler {
 
 		method, tool := mcpCall(r)
 
-		from := caller.FromRequest(r.Context(), r.Header)
-
 		attrs := []slog.Attr{
 			slog.String(logging.TraceID, trace),
 			slog.String(logging.HTTPMethod, r.Method),
 			slog.String(logging.URLPath, r.URL.Path),
 			slog.String(logging.ClientAddress, r.RemoteAddr),
+		}
+		from, err := caller.FromRequest(r.Context(), r.Header)
+		if err != nil {
+			logger.LogAttrs(r.Context(), slog.LevelWarn, "refused a caller", append(attrs, logging.Err(err)...)...)
+			http.Error(w, err.Error(), http.StatusForbidden)
+
+			return
 		}
 		attrs = append(attrs, callerAttrs(from)...)
 		if method != "" {

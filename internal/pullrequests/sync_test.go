@@ -28,6 +28,7 @@ import (
 	"komrad/internal/waketest"
 	"komrad/lib/xptr"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -124,7 +125,7 @@ type syncFixture struct {
 	events       *eventstest.Queue
 	loop         *waketest.Counter
 	stores       *storetest.Stores
-	workflow     string
+	workflow     uuid.UUID
 	now          time.Time
 }
 
@@ -186,14 +187,14 @@ func newSyncFixture(t *testing.T) *syncFixture {
 }
 
 // agentOn puts a live agent on a branch of the sync repository.
-func (f *syncFixture) agentOn(t *testing.T, name, branch string) string {
+func (f *syncFixture) agentOn(t *testing.T, name, branch string) uuid.UUID {
 	t.Helper()
 
 	return f.agentIn(t, name, syncRepository, branch)
 }
 
 // agentIn puts a live agent on a branch of a repository.
-func (f *syncFixture) agentIn(t *testing.T, name, repository, branch string) string {
+func (f *syncFixture) agentIn(t *testing.T, name, repository, branch string) uuid.UUID {
 	t.Helper()
 	ctx := t.Context()
 
@@ -420,7 +421,7 @@ func TestSyncReadsAHotRepositoryEveryFiveSeconds(t *testing.T) {
 		name      string
 		held      forge.PullRequest
 		rateLimit forge.RateLimit
-		after     func(t *testing.T, f *syncFixture, agentID string)
+		after     func(t *testing.T, f *syncFixture, agentID uuid.UUID)
 		wantRead  bool
 	}{
 		{
@@ -459,7 +460,7 @@ func TestSyncReadsAHotRepositoryEveryFiveSeconds(t *testing.T) {
 		{
 			name: "a moved head",
 			held: pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)),
-			after: func(t *testing.T, f *syncFixture, agentID string) {
+			after: func(t *testing.T, f *syncFixture, agentID uuid.UUID) {
 				t.Helper()
 				repository, branch, head := syncRepository, "agent/x", "def"
 				f.stores.SeedTaskHead(t, agentID, taskstore.SetHeadParams{
@@ -473,7 +474,7 @@ func TestSyncReadsAHotRepositoryEveryFiveSeconds(t *testing.T) {
 		{
 			name: "a write on the host",
 			held: pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)),
-			after: func(_ *testing.T, f *syncFixture, _ string) {
+			after: func(_ *testing.T, f *syncFixture, _ uuid.UUID) {
 				f.syncer.ReadOften("github.com")
 			},
 			wantRead: true,
@@ -481,7 +482,7 @@ func TestSyncReadsAHotRepositoryEveryFiveSeconds(t *testing.T) {
 		{
 			name: "a write on another host",
 			held: pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)),
-			after: func(_ *testing.T, f *syncFixture, _ string) {
+			after: func(_ *testing.T, f *syncFixture, _ uuid.UUID) {
 				f.syncer.ReadOften("gitlab.com")
 			},
 		},
@@ -954,7 +955,7 @@ func TestSyncMatchesARemoteSpelledWithCapitals(t *testing.T) {
 	assert.True(t, f.isRead(t, spelled.Canonical()))
 	observed, err := f.agents.GetByID(t.Context(), agent)
 	require.NoError(t, err)
-	seen, err := f.pullRequests.ListObservations(t.Context(), []string{*observed.TaskID})
+	seen, err := f.pullRequests.ListObservations(t.Context(), []uuid.UUID{*observed.TaskID})
 	require.NoError(t, err)
 	assert.Len(t, seen, 1, "the agent is observed beside its pull request")
 	assert.NotContains(t, logged.String(), "under another name")

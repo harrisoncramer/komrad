@@ -20,6 +20,7 @@ import (
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -120,7 +121,7 @@ func TestUpdateWorkflow(t *testing.T) {
 			st := newStore(t)
 			workflows := newWorkflowService(st, tmuxtest.NewFake())
 
-			id := "00000000-0000-0000-0000-000000000000"
+			id := uuid.New()
 			if tt.create {
 				created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{Name: "backend"})
 				require.NoError(t, err)
@@ -522,7 +523,7 @@ func TestArchiveWorkflow(t *testing.T) {
 			workflows := newWorkflowService(st, tmux)
 			ctx := t.Context()
 
-			id := "00000000-0000-0000-0000-000000000000"
+			id := uuid.New()
 			if tt.create {
 				created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
 				require.NoError(t, err)
@@ -616,7 +617,7 @@ func TestRestoreWorkflow(t *testing.T) {
 			workflows := newWorkflowService(st, tmux)
 			ctx := t.Context()
 
-			id := "00000000-0000-0000-0000-000000000000"
+			id := uuid.New()
 			if tt.name != "an id nobody holds" {
 				created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
 				require.NoError(t, err)
@@ -767,7 +768,7 @@ func TestRestoreAgentRestoresItsWorkflow(t *testing.T) {
 
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, created.ID))
 
-	restored, err := manager.lifecycle.RestoreAgents(ctx, []string{agent.ID})
+	restored, err := manager.lifecycle.RestoreAgents(ctx, []uuid.UUID{agent.ID})
 	require.NoError(t, err)
 	require.NotNil(t, restored)
 
@@ -860,7 +861,7 @@ func TestDeleteWorkflow(t *testing.T) {
 			workflows := newWorkflowService(st, tmux)
 			ctx := t.Context()
 
-			id := "00000000-0000-0000-0000-000000000000"
+			id := uuid.New()
 			if tt.create {
 				created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
 				require.NoError(t, err)
@@ -874,7 +875,7 @@ func TestDeleteWorkflow(t *testing.T) {
 				})
 				require.NoError(t, err)
 			}
-			var scheduleID string
+			var scheduleID uuid.UUID
 			if tt.addSchedule {
 				schedule, err := st.Schedules.Create(ctx, schedulestore.Config{
 					Name:       "nightly",
@@ -1011,7 +1012,7 @@ func TestDeleteWorkflowRefusesAnAgent(t *testing.T) {
 	err = workflows.DeleteWorkflow(ctx, DeleteWorkflowParams{
 		ID:        created.ID,
 		Records:   true,
-		ByAgentID: "01a0d228-0000-7000-8000-0000000000bb",
+		ByAgentID: uuid.MustParse("01a0d228-0000-7000-8000-0000000000bb"),
 	})
 	require.ErrorIs(t, err, agenterr.ErrDeleteByAgent)
 
@@ -1025,7 +1026,7 @@ type claimOnly struct {
 	agents *agentstore.AgentStore
 }
 
-func (c claimOnly) DeleteAgents(ctx context.Context, ids []string) error {
+func (c claimOnly) DeleteAgents(ctx context.Context, ids []uuid.UUID) error {
 	_, err := c.agents.MarkDeleting(ctx, ids)
 
 	return err

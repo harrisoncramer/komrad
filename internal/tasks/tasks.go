@@ -19,6 +19,8 @@ import (
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
+
+	"github.com/google/uuid"
 )
 
 const maxSlugBase = 60
@@ -108,7 +110,7 @@ func (s *TaskService) CreateTask(ctx context.Context, params taskstore.CreatePar
 }
 
 // GetTask returns one task by its id, archived or not.
-func (s *TaskService) GetTask(ctx context.Context, id string) (*taskstore.Task, error) {
+func (s *TaskService) GetTask(ctx context.Context, id uuid.UUID) (*taskstore.Task, error) {
 	return s.tasks.Get(ctx, id)
 }
 
@@ -116,7 +118,7 @@ func (s *TaskService) GetTask(ctx context.Context, id string) (*taskstore.Task, 
 func (s *TaskService) FindTask(ctx context.Context, task oneofs.Task) (*taskstore.Task, error) {
 	switch {
 	case task.TaskId != nil:
-		return s.tasks.Get(ctx, task.TaskId.String())
+		return s.tasks.Get(ctx, *task.TaskId)
 	case task.TaskSlug != nil:
 		return s.tasks.GetBySlug(ctx, *task.TaskSlug)
 	}
@@ -135,17 +137,17 @@ func (s *TaskService) GetAgentBranch(ctx context.Context, agent agentstore.Agent
 }
 
 // ListTasks returns a workflow's live or archived tasks, the newest first.
-func (s *TaskService) ListTasks(ctx context.Context, workflowID string, archived bool) ([]taskstore.Task, error) {
+func (s *TaskService) ListTasks(ctx context.Context, workflowID uuid.UUID, archived bool) ([]taskstore.Task, error) {
 	return s.tasks.List(ctx, workflowID, archived)
 }
 
 // ListRuns returns every script run recorded on a task, by any agent on it, newest first.
-func (s *TaskService) ListRuns(ctx context.Context, taskID string) ([]runstore.Run, error) {
+func (s *TaskService) ListRuns(ctx context.Context, taskID uuid.UUID) ([]runstore.Run, error) {
 	return s.runs.ListByTask(ctx, taskID)
 }
 
 // MarkTaskRunsRead claims the failed runs on a task.
-func (s *TaskService) MarkTaskRunsRead(ctx context.Context, taskID string) error {
+func (s *TaskService) MarkTaskRunsRead(ctx context.Context, taskID uuid.UUID) error {
 	return s.runs.MarkTaskRead(ctx, taskID)
 }
 
@@ -170,7 +172,7 @@ func (s *TaskService) SetTaskHidden(ctx context.Context, task oneofs.Task, hidde
 type UpdateTaskParams struct {
 	Task          oneofs.Task
 	Fields        taskstore.UpdateParams
-	CallerAgentID string
+	CallerAgentID uuid.UUID
 }
 
 // UpdateTask rewrites the fields params sets on a task, refusing notes from a caller that may
@@ -190,8 +192,8 @@ func (s *TaskService) UpdateTask(ctx context.Context, params UpdateTaskParams) (
 }
 
 // requireMayWriteNotes refuses a calling agent that neither works on the task nor orchestrates its workflow.
-func (s *TaskService) requireMayWriteNotes(ctx context.Context, callerAgentID string, target taskstore.Task) error {
-	if callerAgentID == "" {
+func (s *TaskService) requireMayWriteNotes(ctx context.Context, callerAgentID uuid.UUID, target taskstore.Task) error {
+	if callerAgentID == uuid.Nil {
 		return nil
 	}
 
@@ -217,12 +219,12 @@ func mayWriteNotes(caller agentstore.Agent, target taskstore.Task) bool {
 }
 
 // Archive archives a task, leaving one already archived as it was.
-func (s *TaskService) Archive(ctx context.Context, id string) error {
+func (s *TaskService) Archive(ctx context.Context, id uuid.UUID) error {
 	return s.tasks.Archive(ctx, id)
 }
 
 // GetTaskForWorkflow returns the task a caller named in a workflow, archived or not.
-func (s *TaskService) GetTaskForWorkflow(ctx context.Context, task oneofs.Task, workflowID string) (*taskstore.Task, error) {
+func (s *TaskService) GetTaskForWorkflow(ctx context.Context, task oneofs.Task, workflowID uuid.UUID) (*taskstore.Task, error) {
 	found, err := s.FindTask(ctx, task)
 	if err != nil {
 		return nil, err
@@ -235,22 +237,22 @@ func (s *TaskService) GetTaskForWorkflow(ctx context.Context, task oneofs.Task, 
 }
 
 // SetCheckoutDir records the directory a launch provisioned for a task.
-func (s *TaskService) SetCheckoutDir(ctx context.Context, id, cwd string) error {
+func (s *TaskService) SetCheckoutDir(ctx context.Context, id uuid.UUID, cwd string) error {
 	return s.tasks.SetCheckoutDir(ctx, id, cwd)
 }
 
 // ReleaseCheckout gives up the claim a failed launch made on a task's checkout.
-func (s *TaskService) ReleaseCheckout(ctx context.Context, id string) error {
+func (s *TaskService) ReleaseCheckout(ctx context.Context, id uuid.UUID) error {
 	return s.tasks.ReleaseCheckout(ctx, id)
 }
 
 // ListTasksByID returns the tasks among ids, archived or not.
-func (s *TaskService) ListTasksByID(ctx context.Context, ids []string) ([]taskstore.Task, error) {
+func (s *TaskService) ListTasksByID(ctx context.Context, ids []uuid.UUID) ([]taskstore.Task, error) {
 	return s.tasks.ListByID(ctx, ids)
 }
 
 type createForAgentParams struct {
-	WorkflowID string
+	WorkflowID uuid.UUID
 	Name       string
 	Title      string
 	Prompt     string

@@ -11,6 +11,8 @@ import (
 	taskstore "komrad/internal/store/task"
 	"komrad/lib/xslice"
 	"komrad/proto/gen/oneofs"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -148,7 +150,7 @@ func (s *ReviewService) findSnapshotDir(ctx context.Context, task taskstore.Task
 	return flow.Cwd, nil
 }
 
-func findStoreSnapshot(snapshots []reviewstore.Snapshot, id string) *reviewstore.Snapshot {
+func findStoreSnapshot(snapshots []reviewstore.Snapshot, id uuid.UUID) *reviewstore.Snapshot {
 	for i := range snapshots {
 		if snapshots[i].ID == id {
 			return &snapshots[i]
@@ -158,7 +160,7 @@ func findStoreSnapshot(snapshots []reviewstore.Snapshot, id string) *reviewstore
 	return nil
 }
 
-func (s *ReviewService) readDiffExclude(ctx context.Context, workflowID string) []string {
+func (s *ReviewService) readDiffExclude(ctx context.Context, workflowID uuid.UUID) []string {
 	flow, err := s.workflows.Get(ctx, workflowID)
 	if err != nil {
 		return nil

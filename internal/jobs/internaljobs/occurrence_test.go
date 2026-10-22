@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/schedules"
 
+	"github.com/google/uuid"
 	robfig "github.com/robfig/cron/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -114,7 +115,7 @@ func TestLaunchArgsForNeverOccurs(t *testing.T) {
 			schedule, err := robfig.ParseStandard(expression)
 			require.NoError(t, err)
 
-			args, _ := LaunchArgsFor("s1", schedule, time.Now())
+			args, _ := LaunchArgsFor(firstScheduleID, schedule, time.Now())
 			assert.Nil(t, args)
 		})
 	}
@@ -128,10 +129,14 @@ func TestLaunchArgsForOccurrence(t *testing.T) {
 	cron, err := schedules.ParseCron("0 9 * * *", "UTC")
 	require.NoError(t, err)
 
-	args, _ := LaunchArgsFor("s1", cron, nine.Add(30*time.Minute))
+	args, _ := LaunchArgsFor(firstScheduleID, cron, nine.Add(30*time.Minute))
 	launch, ok := args.(LaunchAgentArgs)
 	require.True(t, ok)
 
-	assert.Equal(t, "s1", launch.ScheduleID)
+	assert.Equal(t, firstScheduleID, launch.ScheduleID)
 	assert.Equal(t, nine, launch.ScheduledFor.UTC())
 }
+
+var (
+	firstScheduleID = uuid.New()
+)

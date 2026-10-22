@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"komrad/internal/store"
+	"github.com/google/uuid"
 )
 
 // CountLive returns the number of unarchived agents.
@@ -27,11 +27,7 @@ func (s *AgentStore) LockSlots(ctx context.Context) error {
 }
 
 // CountLiveForSchedule returns the number of non-idle agents launched by a schedule.
-func (s *AgentStore) CountLiveForSchedule(ctx context.Context, scheduleID string) (int64, error) {
-	if !store.IsID(scheduleID) {
-		return 0, nil
-	}
-
+func (s *AgentStore) CountLiveForSchedule(ctx context.Context, scheduleID uuid.UUID) (int64, error) {
 	count, err := s.queries.CountLiveScheduleAgents(ctx, &scheduleID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count the live agents of schedule %q: %w", scheduleID, err)

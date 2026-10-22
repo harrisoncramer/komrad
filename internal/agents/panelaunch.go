@@ -15,6 +15,8 @@ import (
 	taskstore "komrad/internal/store/task"
 	"komrad/internal/tmux"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 //go:embed briefing.md
@@ -173,8 +175,8 @@ func contextBriefing(params launchParams) string {
 	return orchestratorContextDoc
 }
 
-func delegateBriefing(spawnedByAgentID, spawnedByName string) string {
-	if spawnedByAgentID == "" {
+func delegateBriefing(spawnedByAgentID uuid.UUID, spawnedByName string) string {
+	if spawnedByAgentID == uuid.Nil {
 		return ""
 	}
 
@@ -233,8 +235,8 @@ type launchParams struct {
 	Prompt           string
 	WorkflowContext  string
 	SessionID        string
-	AgentID          string
-	SpawnedByAgentID string
+	AgentID          uuid.UUID
+	SpawnedByAgentID uuid.UUID
 	SpawnedByName    string
 	Role             agentstore.Role
 	Task             *taskstore.Task
@@ -299,7 +301,7 @@ func (l *Launcher) launch(ctx context.Context, h harness.Harness, params launchP
 
 	hooks := l.installedHooks(h)
 	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "launched an agent with its hooks",
-		slog.String(logging.TargetAgentID, params.AgentID),
+		slog.String(logging.TargetAgentID, params.AgentID.String()),
 		slog.Any(logging.HookInstalled, hooks))
 
 	return hooks, nil

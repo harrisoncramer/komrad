@@ -10,6 +10,7 @@ import (
 	"komrad/lib/clock"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -120,7 +121,7 @@ func TestArchiveAndReuse(t *testing.T) {
 func TestArchiveSettlesTheState(t *testing.T) {
 	writes := map[string]func(ctx context.Context, st *fixture, agent Agent) error{
 		"by id": func(ctx context.Context, st *fixture, agent Agent) error {
-			_, err := st.Archive(ctx, []string{agent.ID})
+			_, err := st.Archive(ctx, []uuid.UUID{agent.ID})
 
 			return err
 		},
@@ -265,10 +266,10 @@ func TestRestore(t *testing.T) {
 			original, err := st.GetInWorkflow(ctx, scope, "beta")
 			require.NoError(t, err)
 			require.NotNil(t, original)
-			_, archiveErr := st.Archive(ctx, []string{original.ID})
+			_, archiveErr := st.Archive(ctx, []uuid.UUID{original.ID})
 			require.NoError(t, archiveErr)
 
-			require.NoError(t, st.Restore(ctx, []string{original.ID}))
+			require.NoError(t, st.Restore(ctx, []uuid.UUID{original.ID}))
 			restored := *original
 			restored.State = StateIdle
 			restored.Pane = "%9"
@@ -297,7 +298,7 @@ func TestArchiveAndDeleteReturnThePaneTheRowHeld(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	seedPane := func(name, pane string) string {
+	seedPane := func(name, pane string) uuid.UUID {
 		t.Helper()
 		require.NoError(t, st.Create(ctx, Agent{
 			Name:  name,
@@ -315,11 +316,11 @@ func TestArchiveAndDeleteReturnThePaneTheRowHeld(t *testing.T) {
 	archiving := seedPane("archiving", "%4")
 	deleting := seedPane("deleting", "%5")
 
-	archived, err := st.Archive(ctx, []string{archiving})
+	archived, err := st.Archive(ctx, []uuid.UUID{archiving})
 	require.NoError(t, err)
 	assert.Equal(t, []AgentPane{{AgentID: archiving, Pane: "%4"}}, archived)
 
-	deleted, err := st.Delete(ctx, []string{deleting})
+	deleted, err := st.Delete(ctx, []uuid.UUID{deleting})
 	require.NoError(t, err)
 	assert.Equal(t, []AgentPane{{AgentID: deleting, Pane: "%5"}}, deleted)
 }
@@ -351,7 +352,7 @@ func TestArchiveReturnsThePaneAWriteItWaitedOnLeftBehind(t *testing.T) {
 
 	archived := make(chan outcome, 1)
 	go func() {
-		taken, archiveErr := st.Archive(context.WithoutCancel(ctx), []string{created.ID})
+		taken, archiveErr := st.Archive(context.WithoutCancel(ctx), []uuid.UUID{created.ID})
 		archived <- outcome{taken: taken, err: archiveErr}
 	}()
 
@@ -398,8 +399,8 @@ func TestArchiveAndRestoreInBatches(t *testing.T) {
 	other, err := st.workflows.Create(ctx, workflowstore.Config{Name: "frontend", Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
 	require.NoError(t, err)
 
-	names := map[string]string{"auth": st.defaultWorkflow, "api": st.defaultWorkflow, "ui": other.ID}
-	ids := make(map[string]string, len(names))
+	names := map[string]uuid.UUID{"auth": st.defaultWorkflow, "api": st.defaultWorkflow, "ui": other.ID}
+	ids := make(map[string]uuid.UUID, len(names))
 	for name, workflowID := range names {
 		require.NoError(t, st.Create(ctx, Agent{
 			Name:       name,
@@ -414,7 +415,7 @@ func TestArchiveAndRestoreInBatches(t *testing.T) {
 		ids[name] = created.ID
 	}
 
-	_, archiveErr := st.Archive(ctx, []string{ids["auth"], ids["ui"]})
+	_, archiveErr := st.Archive(ctx, []uuid.UUID{ids["auth"], ids["ui"]})
 
 	require.NoError(t, archiveErr)
 
@@ -423,7 +424,7 @@ func TestArchiveAndRestoreInBatches(t *testing.T) {
 	require.Len(t, live, 1, "the agent nobody named is untouched")
 	assert.Equal(t, "api", live[0].Name)
 
-	batches := make(map[string]*string, 2)
+	batches := make(map[string]*uuid.UUID, 2)
 	for _, name := range []string{"auth", "ui"} {
 		archived, err := st.GetByID(ctx, ids[name])
 		require.NoError(t, err)
@@ -435,14 +436,14 @@ func TestArchiveAndRestoreInBatches(t *testing.T) {
 	}
 	assert.Equal(t, *batches["auth"], *batches["ui"], "one archive stamps one batch")
 
-	_, archiveErr = st.Archive(ctx, []string{ids["api"]})
+	_, archiveErr = st.Archive(ctx, []uuid.UUID{ids["api"]})
 	require.NoError(t, archiveErr)
 	later, err := st.GetByID(ctx, ids["api"])
 	require.NoError(t, err)
 	require.NotNil(t, later.ArchiveBatchID)
 	assert.NotEqual(t, *batches["auth"], *later.ArchiveBatchID, "a second archive stamps its own")
 
-	require.NoError(t, st.Restore(ctx, []string{ids["auth"], ids["ui"], ids["api"]}))
+	require.NoError(t, st.Restore(ctx, []uuid.UUID{ids["auth"], ids["ui"], ids["api"]}))
 
 	live, err = st.List(ctx)
 	require.NoError(t, err)
@@ -512,7 +513,7 @@ func TestListForTranscriptSync(t *testing.T) {
 			listed, err := f.ListForTranscriptSync(ctx)
 			require.NoError(t, err)
 
-			ids := xslice.Map(listed, func(agent Agent) string {
+			ids := xslice.Map(listed, func(agent Agent) uuid.UUID {
 				return agent.ID
 			})
 
@@ -527,7 +528,7 @@ func TestListForTranscriptSync(t *testing.T) {
 }
 
 // seedSyncedSession records a conversation read after the agent holding it was archived.
-func seedSyncedSession(t *testing.T, f *fixture, agentID, sessionID string) {
+func seedSyncedSession(t *testing.T, f *fixture, agentID uuid.UUID, sessionID string) {
 	t.Helper()
 	id, err := store.NewID()
 	require.NoError(t, err)

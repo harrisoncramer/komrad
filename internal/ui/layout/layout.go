@@ -7,7 +7,11 @@
 // them are open, so the screens ask for a region rather than for a pane id.
 package layout
 
-import "komrad/internal/panes"
+import (
+	"komrad/internal/panes"
+
+	"github.com/google/uuid"
+)
 
 type region int
 
@@ -32,7 +36,7 @@ type Tmux interface {
 	GetSiblingPanes(pane string) []string
 	BreakPane(pane string)
 	KillPane(pane string)
-	GetPaneOwner(pane string) string
+	GetPaneOwner(pane string) uuid.UUID
 }
 
 type Target struct {

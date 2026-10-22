@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -74,7 +75,7 @@ func TestCreate(t *testing.T) {
 		{
 			name: "a workflow that does not exist is not found",
 			params: taskstore.CreateParams{
-				WorkflowID: "01a11e6f-af0b-7497-91fb-d3750f8cbef2",
+				WorkflowID: uuid.MustParse("01a11e6f-af0b-7497-91fb-d3750f8cbef2"),
 				Slug:       "orphan",
 				Title:      "Orphan",
 			},
@@ -130,17 +131,14 @@ func TestGet(t *testing.T) {
 	tests := []struct {
 		name    string
 		get     func() (*taskstore.Task, error)
-		wantID  string
+		wantID  uuid.UUID
 		wantErr error
 	}{
 		{
-			name:    "an id that is not an id is not found",
-			get:     func() (*taskstore.Task, error) { return stores.Tasks.Get(ctx, "not-an-id") },
-			wantErr: store.ErrNotFound,
-		},
-		{
-			name:    "an id no task holds is not found",
-			get:     func() (*taskstore.Task, error) { return stores.Tasks.Get(ctx, "01a11e6f-af0b-7497-91fb-d3750f8cbef2") },
+			name: "an id no task holds is not found",
+			get: func() (*taskstore.Task, error) {
+				return stores.Tasks.Get(ctx, uuid.MustParse("01a11e6f-af0b-7497-91fb-d3750f8cbef2"))
+			},
 			wantErr: store.ErrNotFound,
 		},
 		{
@@ -156,7 +154,7 @@ func TestGet(t *testing.T) {
 		{
 			name: "a task id no task holds has no task",
 			get: func() (*taskstore.Task, error) {
-				return stores.Tasks.GetLinked(ctx, xptr.Ptr("01a11e6f-af0b-7497-91fb-d3750f8cbef2"))
+				return stores.Tasks.GetLinked(ctx, xptr.Ptr(uuid.MustParse("01a11e6f-af0b-7497-91fb-d3750f8cbef2")))
 			},
 			wantErr: taskstore.ErrNoTask,
 		},
@@ -204,15 +202,10 @@ func TestList(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		workflowID string
+		workflowID uuid.UUID
 		archived   bool
 		want       []string
 	}{
-		{
-			name:       "an id that is not an id lists nothing",
-			workflowID: "not-an-id",
-			want:       []string{},
-		},
 		{
 			name:       "the live tasks list the newest first",
 			workflowID: workflow.ID,
@@ -241,7 +234,7 @@ func TestArchive(t *testing.T) {
 	ctx := t.Context()
 	task := stores.SeedTask(t, taskstore.CreateParams{Slug: "work"})
 
-	require.ErrorIs(t, stores.Tasks.Archive(ctx, "01a11e6f-af0b-7497-91fb-d3750f8cbef2"), store.ErrNotFound)
+	require.ErrorIs(t, stores.Tasks.Archive(ctx, uuid.MustParse("01a11e6f-af0b-7497-91fb-d3750f8cbef2")), store.ErrNotFound)
 
 	require.NoError(t, stores.Tasks.Archive(ctx, task.ID))
 	first, err := stores.Tasks.Get(ctx, task.ID)
@@ -270,18 +263,18 @@ func TestArchiveIdle(t *testing.T) {
 		WorkflowID: busy.WorkflowID,
 		TaskID:     &done.ID,
 	})
-	_, err := stores.Agents.Archive(ctx, []string{finished.ID})
+	_, err := stores.Agents.Archive(ctx, []uuid.UUID{finished.ID})
 	require.NoError(t, err)
 	empty := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: busy.WorkflowID, Slug: "empty"})
 	unnamed := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: busy.WorkflowID, Slug: "unnamed"})
 
-	archived, err := stores.Tasks.ArchiveIdle(ctx, []string{busy.ID, done.ID, empty.ID})
+	archived, err := stores.Tasks.ArchiveIdle(ctx, []uuid.UUID{busy.ID, done.ID, empty.ID})
 	require.NoError(t, err)
-	assert.ElementsMatch(t, []string{done.ID, empty.ID}, xslice.Map(archived, func(task taskstore.Task) string { return task.ID }))
+	assert.ElementsMatch(t, []uuid.UUID{done.ID, empty.ID}, xslice.Map(archived, func(task taskstore.Task) uuid.UUID { return task.ID }))
 
 	tests := []struct {
 		name         string
-		id           string
+		id           uuid.UUID
 		wantArchived bool
 	}{
 		{name: "a task a live agent works on stays live", id: busy.ID},
@@ -319,11 +312,11 @@ func TestRestore(t *testing.T) {
 	unnamed := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: archived.WorkflowID, Slug: "unnamed"})
 	require.NoError(t, stores.Tasks.Archive(ctx, unnamed.ID))
 
-	require.NoError(t, stores.Tasks.Restore(ctx, []string{archived.ID, live.ID}))
+	require.NoError(t, stores.Tasks.Restore(ctx, []uuid.UUID{archived.ID, live.ID}))
 
 	tests := []struct {
 		name         string
-		id           string
+		id           uuid.UUID
 		wantArchived bool
 		wantHidden   bool
 	}{
@@ -394,7 +387,7 @@ func TestListWatched(t *testing.T) {
 		{
 			name:      "keys naming no task list nothing",
 			seeds:     []string{"a"},
-			keys:      []string{"00000000-0000-0000-0000-000000000000"},
+			keys:      []string{"nobody"},
 			wantSlugs: []string{},
 		},
 		{
@@ -427,7 +420,7 @@ func TestListWatched(t *testing.T) {
 			stores := storetest.Open(t)
 			ctx := t.Context()
 
-			bySlug := make(map[string]string, len(tt.seeds))
+			bySlug := make(map[string]uuid.UUID, len(tt.seeds))
 			for _, slug := range tt.seeds {
 				bySlug[slug] = stores.SeedTask(t, taskstore.CreateParams{Slug: slug}).ID
 			}
@@ -435,14 +428,14 @@ func TestListWatched(t *testing.T) {
 				require.NoError(t, stores.Tasks.Archive(ctx, bySlug[tt.archive]))
 			}
 
-			keys := tt.keys
-			if keys != nil {
-				keys = xslice.Map(keys, func(key string) string {
+			var keys []uuid.UUID
+			if tt.keys != nil {
+				keys = xslice.Map(tt.keys, func(key string) uuid.UUID {
 					if id, ok := bySlug[key]; ok {
 						return id
 					}
 
-					return key
+					return uuid.New()
 				})
 			}
 
@@ -467,8 +460,8 @@ func TestListWatchedDocuments(t *testing.T) {
 	})
 	elsewhere := stores.SeedAgent(t, agentstore.Agent{Name: "elsewhere"})
 
-	watched := func(id string) taskstore.Task {
-		listed, err := stores.Tasks.ListWatched(ctx, []string{id})
+	watched := func(id uuid.UUID) taskstore.Task {
+		listed, err := stores.Tasks.ListWatched(ctx, []uuid.UUID{id})
 		require.NoError(t, err)
 		require.Len(t, listed, 1)
 
@@ -479,7 +472,7 @@ func TestListWatchedDocuments(t *testing.T) {
 	assert.Zero(t, task.Documents)
 	assert.Nil(t, task.DocumentsUpdatedAt, "a task with no documents has no newest write")
 
-	write := func(agentID, name string) *documentstore.Document {
+	write := func(agentID uuid.UUID, name string) *documentstore.Document {
 		created, err := stores.Documents.Create(ctx, documentstore.CreateParams{
 			AgentID: agentID,
 			Name:    name,
@@ -511,11 +504,11 @@ func TestUpdate(t *testing.T) {
 	})
 	other := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: task.WorkflowID, Slug: "other"})
 	deleting := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: task.WorkflowID, Slug: "deleting"})
-	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{deleting.ID}))
+	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []uuid.UUID{deleting.ID}))
 
 	tests := []struct {
 		name      string
-		id        string
+		id        uuid.UUID
 		params    taskstore.UpdateParams
 		wantErr   error
 		wantTitle string
@@ -535,8 +528,8 @@ func TestUpdate(t *testing.T) {
 			wantErr: store.ErrNameTaken,
 		},
 		{
-			name:    "a ref that is not an id is not found",
-			id:      "work",
+			name:    "an id no task holds is not found",
+			id:      uuid.New(),
 			params:  taskstore.UpdateParams{Title: xptr.Ptr("Renamed")},
 			wantErr: store.ErrNotFound,
 		},
@@ -602,14 +595,14 @@ func TestUpdateNotesVersion(t *testing.T) {
 func TestSetHidden(t *testing.T) {
 	tests := []struct {
 		name        string
-		id          func(t *testing.T, stores *storetest.Stores) string
+		id          func(t *testing.T, stores *storetest.Stores) uuid.UUID
 		hidden      bool
 		wantChanged bool
 		wantHidden  bool
 	}{
 		{
 			name: "an archived task is refused",
-			id: func(t *testing.T, stores *storetest.Stores) string {
+			id: func(t *testing.T, stores *storetest.Stores) uuid.UUID {
 				task := stores.SeedTask(t, taskstore.CreateParams{Slug: "archived"})
 				require.NoError(t, stores.Tasks.Archive(t.Context(), task.ID))
 
@@ -619,7 +612,7 @@ func TestSetHidden(t *testing.T) {
 		},
 		{
 			name: "a live task is hidden",
-			id: func(t *testing.T, stores *storetest.Stores) string {
+			id: func(t *testing.T, stores *storetest.Stores) uuid.UUID {
 				return stores.SeedTask(t, taskstore.CreateParams{Slug: "live"}).ID
 			},
 			hidden:      true,
@@ -628,7 +621,7 @@ func TestSetHidden(t *testing.T) {
 		},
 		{
 			name: "a hidden task is shown again",
-			id: func(t *testing.T, stores *storetest.Stores) string {
+			id: func(t *testing.T, stores *storetest.Stores) uuid.UUID {
 				task := stores.SeedTask(t, taskstore.CreateParams{Slug: "hidden"})
 				hide(t, stores, task.ID)
 
@@ -654,14 +647,7 @@ func TestSetHidden(t *testing.T) {
 	}
 }
 
-// TestSetHiddenIgnoresAnIDNoRowCouldHold pins the guard that keeps a malformed id from Postgres.
-func TestSetHiddenIgnoresAnIDNoRowCouldHold(t *testing.T) {
-	changed, err := storetest.Open(t).Tasks.SetHidden(t.Context(), "not-a-uuid", true)
-	require.NoError(t, err)
-	assert.False(t, changed, "nothing was hidden")
-}
-
-func hide(t *testing.T, stores *storetest.Stores, id string) {
+func hide(t *testing.T, stores *storetest.Stores, id uuid.UUID) {
 	t.Helper()
 
 	changed, err := stores.Tasks.SetHidden(t.Context(), id, true)
@@ -765,7 +751,7 @@ func TestRecordParentPullRequest(t *testing.T) {
 
 	got, err := stores.Tasks.Get(ctx, task.ID)
 	require.NoError(t, err)
-	assert.Equal(t, first, got.Parent.PullRequestID, "the first is kept")
+	assert.Equal(t, &first, got.Parent.PullRequestID, "the first is kept")
 
 	base, err := stores.Tasks.Get(ctx, parent.ID)
 	require.NoError(t, err)
@@ -786,19 +772,19 @@ func TestListChildren(t *testing.T) {
 	}
 	live, archived, deleting := seedChild("live"), seedChild("archived"), seedChild("deleting")
 	require.NoError(t, stores.Tasks.Archive(ctx, archived.ID))
-	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []string{deleting.ID}))
+	require.NoError(t, stores.Tasks.MarkDeleting(ctx, []uuid.UUID{deleting.ID}))
 	stores.SeedTask(t, taskstore.CreateParams{WorkflowID: parent.WorkflowID, Slug: "on-base"})
 
 	listed, err := stores.Tasks.ListChildren(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, []string{live.ID}, xslice.Map(listed, readTaskID))
+	assert.Equal(t, []uuid.UUID{live.ID}, xslice.Map(listed, readTaskID))
 
-	children, err := stores.Tasks.ListChildrenOf(ctx, []string{parent.ID, "not-a-uuid"})
+	children, err := stores.Tasks.ListChildrenOf(ctx, []uuid.UUID{parent.ID})
 	require.NoError(t, err)
-	assert.Equal(t, []string{live.ID, archived.ID}, xslice.Map(children, readTaskID))
+	assert.Equal(t, []uuid.UUID{live.ID, archived.ID}, xslice.Map(children, readTaskID))
 }
 
-func readTaskID(task taskstore.Task) string {
+func readTaskID(task taskstore.Task) uuid.UUID {
 	return task.ID
 }
 
@@ -818,7 +804,7 @@ func TestSnapshotsAreCounted(t *testing.T) {
 		})
 		require.NoError(t, err)
 	}
-	slug := func(id string) string {
+	slug := func(id uuid.UUID) string {
 		got, err := stores.Tasks.Get(ctx, id)
 		require.NoError(t, err)
 
@@ -827,11 +813,11 @@ func TestSnapshotsAreCounted(t *testing.T) {
 
 	tests := []struct {
 		name string
-		read func(t *testing.T, id string) taskstore.Task
+		read func(t *testing.T, id uuid.UUID) taskstore.Task
 	}{
 		{
 			name: "by id",
-			read: func(t *testing.T, id string) taskstore.Task {
+			read: func(t *testing.T, id uuid.UUID) taskstore.Task {
 				got, err := stores.Tasks.Get(ctx, id)
 				require.NoError(t, err)
 
@@ -840,7 +826,7 @@ func TestSnapshotsAreCounted(t *testing.T) {
 		},
 		{
 			name: "by slug",
-			read: func(t *testing.T, id string) taskstore.Task {
+			read: func(t *testing.T, id uuid.UUID) taskstore.Task {
 				got, err := stores.Tasks.GetBySlug(ctx, slug(id))
 				require.NoError(t, err)
 
@@ -849,8 +835,8 @@ func TestSnapshotsAreCounted(t *testing.T) {
 		},
 		{
 			name: "in a list of ids",
-			read: func(t *testing.T, id string) taskstore.Task {
-				listed, err := stores.Tasks.ListByID(ctx, []string{id})
+			read: func(t *testing.T, id uuid.UUID) taskstore.Task {
+				listed, err := stores.Tasks.ListByID(ctx, []uuid.UUID{id})
 				require.NoError(t, err)
 				require.Len(t, listed, 1)
 
@@ -859,7 +845,7 @@ func TestSnapshotsAreCounted(t *testing.T) {
 		},
 		{
 			name: "in its workflow's list",
-			read: func(t *testing.T, id string) taskstore.Task {
+			read: func(t *testing.T, id uuid.UUID) taskstore.Task {
 				listed, err := stores.Tasks.List(ctx, writer.WorkflowID, false)
 				require.NoError(t, err)
 				at := slices.IndexFunc(listed, func(task taskstore.Task) bool { return task.ID == id })
@@ -870,8 +856,8 @@ func TestSnapshotsAreCounted(t *testing.T) {
 		},
 		{
 			name: "by the watch",
-			read: func(t *testing.T, id string) taskstore.Task {
-				listed, err := stores.Tasks.ListWatched(ctx, []string{id})
+			read: func(t *testing.T, id uuid.UUID) taskstore.Task {
+				listed, err := stores.Tasks.ListWatched(ctx, []uuid.UUID{id})
 				require.NoError(t, err)
 				require.Len(t, listed, 1)
 

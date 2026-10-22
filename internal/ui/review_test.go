@@ -29,6 +29,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -2759,15 +2760,22 @@ func (s *reviewServer) openHistory(req connect.AnyRequest) (connect.AnyResponse,
 	}
 	answer.Widened = reviewWideningOf(built.Widened)
 	answer.ChangedSinceEarlier = int32(built.ChangedSinceEarlier)
+	names := map[uuid.UUID]string{}
+	for _, snapshot := range s.snapshots {
+		names[historyID(snapshot.GetId())] = snapshot.GetId()
+	}
+	for _, thread := range s.threads {
+		names[historyID(thread.GetId())] = thread.GetId()
+	}
 	answer.Traced = map[string]*agentv1.ReviewTracedPlace{}
 	if built.Earlier != nil {
-		answer.EarlierSnapshotId = built.Earlier.ID
+		answer.EarlierSnapshotId = names[built.Earlier.ID]
 	}
 	if built.EarlierReleasedAt != nil {
 		answer.EarlierReleasedAt = dates.Stamp(*built.EarlierReleasedAt)
 	}
 	for id, place := range built.Traced {
-		answer.Traced[id] = &agentv1.ReviewTracedPlace{
+		answer.Traced[names[id]] = &agentv1.ReviewTracedPlace{
 			FilePath: place.FilePath,
 			NewStart: place.NewStart,
 			FileOnly: place.FileOnly,
@@ -2794,17 +2802,17 @@ func historySpanOf(req *agentv1.OpenReviewHistoryRequest) history.Span {
 	switch {
 	case req.GetSnapshots() != nil:
 		return history.Span{Snapshots: &history.SnapshotSpan{
-			FromSnapshotID: req.GetSnapshots().GetFromSnapshotId(),
-			ToSnapshotID:   req.GetSnapshots().GetToSnapshotId(),
+			FromSnapshotID: historyID(req.GetSnapshots().GetFromSnapshotId()),
+			ToSnapshotID:   historyID(req.GetSnapshots().GetToSnapshotId()),
 		}}
 	case req.GetAnswer() != nil:
 		return history.Span{Answer: &history.AnswerSpan{
-			FromSnapshotID: req.GetAnswer().GetFromSnapshotId(),
-			ToSnapshotID:   req.GetAnswer().GetToSnapshotId(),
+			FromSnapshotID: historyID(req.GetAnswer().GetFromSnapshotId()),
+			ToSnapshotID:   historyID(req.GetAnswer().GetToSnapshotId()),
 		}}
 	case req.GetOrigin() != nil:
 		return history.Span{Origin: &history.OriginSpan{
-			SnapshotID: req.GetOrigin().GetSnapshotId(),
+			SnapshotID: historyID(req.GetOrigin().GetSnapshotId()),
 			BaseSHA:    req.GetOrigin().GetBaseSha(),
 		}}
 	}
@@ -2828,9 +2836,17 @@ func reviewWideningOf(widened *history.Widening) *agentv1.ReviewWidening {
 	return &agentv1.ReviewWidening{Reason: reasons[widened.Reason], Conflicts: widened.Conflicts}
 }
 
+func historyID(id string) uuid.UUID {
+	if id == "" {
+		return uuid.Nil
+	}
+
+	return uuid.NewSHA1(uuid.Nil, []byte(id))
+}
+
 func historySnapshotOf(snapshot *agentv1.ReviewSnapshot) history.Snapshot {
 	return history.Snapshot{
-		ID:      snapshot.GetId(),
+		ID:      historyID(snapshot.GetId()),
 		Ordinal: snapshot.GetOrdinal(),
 		BaseSHA: snapshot.GetBaseSha(),
 		SHA:     snapshot.GetSha(),
@@ -2853,7 +2869,7 @@ func historyCommentsOf(threads []*agentv1.ReviewThread, snapshots []*agentv1.Rev
 					continue
 				}
 				comments = append(comments, history.Comment{
-					SnapshotID:      snapshot.GetId(),
+					SnapshotID:      historyID(snapshot.GetId()),
 					SnapshotOrdinal: snapshot.GetOrdinal(),
 					ReleasedAt:      released,
 				})
@@ -2866,8 +2882,8 @@ func historyCommentsOf(threads []*agentv1.ReviewThread, snapshots []*agentv1.Rev
 
 func historyThreadOf(thread *agentv1.ReviewThread) history.Thread {
 	return history.Thread{
-		ID:         thread.GetId(),
-		SnapshotID: thread.GetSnapshotId(),
+		ID:         historyID(thread.GetId()),
+		SnapshotID: historyID(thread.GetSnapshotId()),
 		FilePath:   thread.GetFilePath(),
 		NewStart:   thread.GetNewStart(),
 		NewEnd:     thread.GetNewEnd(),

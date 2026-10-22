@@ -23,12 +23,13 @@ import (
 	terminalv1komrad "komrad/proto/gen/terminal/v1/terminalv1komrad"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-const agentID = "01a11e6f-0000-7000-8000-0000000000a1"
+var agentID = uuid.MustParse("01a11e6f-0000-7000-8000-0000000000a1")
 
 type fakeTerminal struct {
 	output  *io.PipeReader
@@ -363,7 +364,7 @@ func TestAttachCarriesATerminal(t *testing.T) {
 	client := serveAttaches(t, attacher)
 
 	stream := client.Attach(t.Context())
-	require.NoError(t, stream.Send(openAttachRequest(agentID)))
+	require.NoError(t, stream.Send(openAttachRequest(agentID.String())))
 
 	t.Run("it attaches to the agent asked for and says it is ready", func(t *testing.T) {
 		assert.Equal(t, attaches.OpenParams{

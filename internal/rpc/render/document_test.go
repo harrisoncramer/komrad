@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 
 	documentstore "komrad/internal/store/document"
@@ -14,7 +15,7 @@ func TestDocument(t *testing.T) {
 	t.Parallel()
 
 	rendered := Document(documentstore.Document{
-		ID:        "d1",
+		ID:        uuid.New(),
 		CreatedAt: time.Date(2026, time.September, 1, 9, 9, 0, 0, time.UTC),
 		UpdatedAt: time.Date(2026, time.September, 1, 9, 9, 0, 250_000_000, time.UTC),
 	})

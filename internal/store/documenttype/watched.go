@@ -7,6 +7,8 @@ import (
 	"komrad/internal/watch"
 	"komrad/lib/xslice"
 	watchv1 "komrad/proto/gen/watch/v1"
+
+	"github.com/google/uuid"
 )
 
 // WatchedDocumentTypes declares the document types to the watch.
@@ -17,7 +19,7 @@ var WatchedDocumentTypes = watch.Resource{
 }
 
 // ListWatched returns the document types among keys, or every one when keys is nil, by name.
-func (s *DocumentTypeStore) ListWatched(ctx context.Context, keys []string) ([]Type, error) {
+func (s *DocumentTypeStore) ListWatched(ctx context.Context, keys []uuid.UUID) ([]Type, error) {
 	rows, err := s.queries.ListWatchedDocumentTypes(ctx, keys)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the watched document types: %w", err)

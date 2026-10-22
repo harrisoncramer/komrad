@@ -5,19 +5,20 @@ import (
 	"fmt"
 
 	"komrad/db/models"
-	"komrad/internal/store"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // Parent is the task a child depends on, and the fork point where the child's own commits begin.
 type Parent struct {
 	// TaskID is the parent task.
-	TaskID string
+	TaskID uuid.UUID
 	// ForkPoint is the commit of the parent's branch the child's own commits sit on.
 	ForkPoint string
 	// PullRequestID is the parent's pull request, empty until the parent has one.
-	PullRequestID string
+	PullRequestID *uuid.UUID
 	// Blocked is why the cascade cannot rebase the child, empty while nothing blocks it.
 	Blocked CascadeBlock
 }
@@ -42,22 +43,18 @@ func parentFrom(row *models.Task) *Parent {
 	return &Parent{
 		TaskID:        *row.ParentTaskID,
 		ForkPoint:     xptr.Deref(row.ForkPoint),
-		PullRequestID: xptr.Deref(row.ParentPullRequestID),
+		PullRequestID: row.ParentPullRequestID,
 		Blocked:       CascadeBlock(xptr.Deref(row.CascadeBlocked)),
 	}
 }
 
 // SetParent replaces a task's parent, or clears it with nil.
-func (s *TaskStore) SetParent(ctx context.Context, id string, parent *Parent) error {
-	if !store.IsID(id) {
-		return fmt.Errorf("%w: task %q", store.ErrNotFound, id)
-	}
-
+func (s *TaskStore) SetParent(ctx context.Context, id uuid.UUID, parent *Parent) error {
 	params := models.SetTaskParentParams{ID: id}
 	if parent != nil {
 		params.ParentTaskID = &parent.TaskID
 		params.ForkPoint = xptr.NonEmpty(parent.ForkPoint)
-		params.ParentPullRequestID = xptr.NonEmpty(parent.PullRequestID)
+		params.ParentPullRequestID = parent.PullRequestID
 	}
 
 	if err := s.queries.SetTaskParent(ctx, params); err != nil {
@@ -68,11 +65,7 @@ func (s *TaskStore) SetParent(ctx context.Context, id string, parent *Parent) er
 }
 
 // ClearParent clears the child's parent and records the parent's branch its pull request moves off.
-func (s *TaskStore) ClearParent(ctx context.Context, id, branch string) error {
-	if !store.IsID(id) {
-		return fmt.Errorf("%w: task %q", store.ErrNotFound, id)
-	}
-
+func (s *TaskStore) ClearParent(ctx context.Context, id uuid.UUID, branch string) error {
 	if err := s.queries.ClearTaskParent(ctx, models.ClearTaskParentParams{ID: id, LeftParentBranch: xptr.NonEmpty(branch)}); err != nil {
 		return fmt.Errorf("failed to clear the parent of task %q: %w", id, err)
 	}
@@ -81,11 +74,7 @@ func (s *TaskStore) ClearParent(ctx context.Context, id, branch string) error {
 }
 
 // ClearLeftParentBranch records that the task's pull request no longer waits to move off its parent's branch.
-func (s *TaskStore) ClearLeftParentBranch(ctx context.Context, id string) error {
-	if !store.IsID(id) {
-		return fmt.Errorf("%w: task %q", store.ErrNotFound, id)
-	}
-
+func (s *TaskStore) ClearLeftParentBranch(ctx context.Context, id uuid.UUID) error {
 	if err := s.queries.ClearTaskLeftParentBranch(ctx, id); err != nil {
 		return fmt.Errorf("failed to clear the branch task %q left: %w", id, err)
 	}
@@ -94,11 +83,7 @@ func (s *TaskStore) ClearLeftParentBranch(ctx context.Context, id string) error 
 }
 
 // SetForkPoint records a child's new fork point and clears what blocked its cascade.
-func (s *TaskStore) SetForkPoint(ctx context.Context, id, forkPoint string) error {
-	if !store.IsID(id) {
-		return fmt.Errorf("%w: task %q", store.ErrNotFound, id)
-	}
-
+func (s *TaskStore) SetForkPoint(ctx context.Context, id uuid.UUID, forkPoint string) error {
 	if err := s.queries.SetTaskForkPoint(ctx, models.SetTaskForkPointParams{ID: id, ForkPoint: &forkPoint}); err != nil {
 		return fmt.Errorf("failed to set the fork point of task %q: %w", id, err)
 	}
@@ -107,14 +92,7 @@ func (s *TaskStore) SetForkPoint(ctx context.Context, id, forkPoint string) erro
 }
 
 // RecordParentPullRequest records a child's parent pull request, keeping one already recorded.
-func (s *TaskStore) RecordParentPullRequest(ctx context.Context, id, pullRequestID string) error {
-	if !store.IsID(id) {
-		return fmt.Errorf("%w: task %q", store.ErrNotFound, id)
-	}
-	if !store.IsID(pullRequestID) {
-		return fmt.Errorf("%w: pull request %q", store.ErrNotFound, pullRequestID)
-	}
-
+func (s *TaskStore) RecordParentPullRequest(ctx context.Context, id, pullRequestID uuid.UUID) error {
 	if err := s.queries.RecordTaskParentPullRequest(ctx, models.RecordTaskParentPullRequestParams{
 		ID:                  id,
 		ParentPullRequestID: &pullRequestID,
@@ -136,26 +114,21 @@ func (s *TaskStore) ListChildren(ctx context.Context) ([]Task, error) {
 }
 
 // ListChildrenOf returns the undeleted children of any of ids, archived or not.
-func (s *TaskStore) ListChildrenOf(ctx context.Context, ids []string) ([]Task, error) {
-	storable := store.KeepIDs(ids)
-	if len(storable) == 0 {
+func (s *TaskStore) ListChildrenOf(ctx context.Context, ids []uuid.UUID) ([]Task, error) {
+	if len(ids) == 0 {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListChildrenOfTasks(ctx, storable)
+	rows, err := s.queries.ListChildrenOfTasks(ctx, ids)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the children of %d tasks: %w", len(storable), err)
+		return nil, fmt.Errorf("failed to list the children of %d tasks: %w", len(ids), err)
 	}
 
 	return xslice.Map(rows, fromRow), nil
 }
 
 // SetCascadeBlocked records why the cascade cannot rebase a child, or clears it with an empty block.
-func (s *TaskStore) SetCascadeBlocked(ctx context.Context, id string, block CascadeBlock) error {
-	if !store.IsID(id) {
-		return fmt.Errorf("%w: task %q", store.ErrNotFound, id)
-	}
-
+func (s *TaskStore) SetCascadeBlocked(ctx context.Context, id uuid.UUID, block CascadeBlock) error {
 	if err := s.queries.SetTaskCascadeBlocked(ctx, models.SetTaskCascadeBlockedParams{
 		ID:             id,
 		CascadeBlocked: xptr.NonEmpty(string(block)),

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -43,7 +44,7 @@ type InsertCheckLogStepsBatchResults struct {
 }
 
 type InsertCheckLogStepsParams struct {
-	LogID      string
+	LogID      uuid.UUID
 	Number     int32
 	Name       string
 	Conclusion string
@@ -118,9 +119,9 @@ type NoteCheckFailureBatchResults struct {
 }
 
 type NoteCheckFailureParams struct {
-	AgentID       string
+	AgentID       uuid.UUID
 	FinishedAt    *time.Time
-	PullRequestID string
+	PullRequestID uuid.UUID
 	HeadSha       string
 	ProviderID    string
 }
@@ -217,7 +218,7 @@ type UpsertStatusCheckStepsParams struct {
 	Conclusion string
 	StartedAt  *time.Time
 	FinishedAt *time.Time
-	ReadingID  string
+	ReadingID  uuid.UUID
 	ProviderID string
 }
 
@@ -336,7 +337,7 @@ type UpsertStatusChecksBatchResults struct {
 }
 
 type UpsertStatusChecksParams struct {
-	ReadingID    string
+	ReadingID    uuid.UUID
 	ProviderID   string
 	Kind         string
 	Source       string

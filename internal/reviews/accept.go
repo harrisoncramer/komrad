@@ -9,6 +9,7 @@ import (
 	"komrad/internal/store"
 	reviewstore "komrad/internal/store/review"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 )
@@ -25,7 +26,7 @@ var errForgeRootHeld = fail.Precondition("this thread opens with a held forge co
 
 // AcceptForgeMessageParams is the held forge message the person is passing on to the agent.
 type AcceptForgeMessageParams struct {
-	MessageID string
+	MessageID uuid.UUID
 	Author    ReviewAuthor
 }
 
@@ -50,7 +51,7 @@ func (s *ReviewService) AcceptForgeMessage(
 		return nil, fmt.Errorf("%w: %q", errForgeMessageNotHeld, params.MessageID)
 	}
 
-	messages, err := s.reviews.ListMessages(ctx, []string{message.ThreadID})
+	messages, err := s.reviews.ListMessages(ctx, []uuid.UUID{message.ThreadID})
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +122,7 @@ func requireAcceptable(message reviewstore.Message, thread []reviewstore.Message
 func rootOf(message reviewstore.Message, thread []reviewstore.Message) reviewstore.Message {
 	root := message
 	for _, other := range thread {
-		if other.ID < root.ID {
+		if store.CompareIDs(other.ID, root.ID) < 0 {
 			root = other
 		}
 	}

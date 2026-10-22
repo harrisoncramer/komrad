@@ -9,6 +9,8 @@ import (
 	runstore "komrad/internal/store/run"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -18,7 +20,7 @@ const (
 )
 
 type tmuxReadWriter interface {
-	GetPaneOwner(pane string) string
+	GetPaneOwner(pane string) uuid.UUID
 	GetHostSocket() string
 	GetInfoPane() string
 	GetDefaultShell() string
@@ -80,6 +82,6 @@ func NewScriptService(params NewScriptServiceParams) *ScriptService {
 	}
 }
 
-func isPaneOwnedBy(owner, agentID string) bool {
-	return agentID != "" && owner == agentID
+func isPaneOwnedBy(owner, agentID uuid.UUID) bool {
+	return agentID != uuid.Nil && owner == agentID
 }

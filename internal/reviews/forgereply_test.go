@@ -11,6 +11,7 @@ import (
 	forgestore "komrad/internal/store/forge"
 	reviewstore "komrad/internal/store/review"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -60,7 +61,7 @@ type forgeReplyFixture struct {
 	replies  *ForgeReplyService
 	forge    *fakeReplyForge
 	hosts    *fakeForgeHosts
-	threadID string
+	threadID uuid.UUID
 }
 
 func newForgeReplyFixture(t *testing.T) *forgeReplyFixture {
@@ -99,7 +100,7 @@ func (fx *forgeReplyFixture) holdOnForge(comments ...forge.ReviewComment) {
 func (fx *forgeReplyFixture) latestReply(t *testing.T) reviewstore.ForgeReply {
 	t.Helper()
 
-	replies, err := fx.reviews.ListForgeReplies(t.Context(), []string{fx.threadID})
+	replies, err := fx.reviews.ListForgeReplies(t.Context(), []uuid.UUID{fx.threadID})
 	require.NoError(t, err)
 	require.NotEmpty(t, replies)
 
@@ -261,7 +262,7 @@ func TestDiscardingForgeReply(t *testing.T) {
 	require.ErrorIs(t, fx.replies.DiscardForgeReply(t.Context(), failed.ID, newAgentAuthor(fx.writer)), ErrReviewHumanOnly)
 	require.NoError(t, fx.replies.DiscardForgeReply(t.Context(), failed.ID, personAuthor))
 
-	replies, err := fx.reviews.ListForgeReplies(t.Context(), []string{fx.threadID})
+	replies, err := fx.reviews.ListForgeReplies(t.Context(), []uuid.UUID{fx.threadID})
 	require.NoError(t, err)
 	assert.Empty(t, replies)
 }

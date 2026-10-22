@@ -21,6 +21,8 @@ import (
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	"komrad/lib/xstr"
+
+	"github.com/google/uuid"
 )
 
 var ErrAdoptNeedsWorktree = fail.Precondition("adoption needs a workflow whose agents get a worktree of their own")
@@ -78,7 +80,7 @@ type AdoptParams struct {
 	Flags          string
 	Prompt         string
 	Harness        string
-	WorkflowID     string
+	WorkflowID     uuid.UUID
 	IdempotencyKey string
 }
 
@@ -176,7 +178,7 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*Adoption
 }
 
 // agentOnBranch returns the live agent already adopted onto a branch in this workflow.
-func (s *AdoptService) agentOnBranch(ctx context.Context, workflowID, branch string) (*agentstore.Agent, error) {
+func (s *AdoptService) agentOnBranch(ctx context.Context, workflowID uuid.UUID, branch string) (*agentstore.Agent, error) {
 	agents, err := s.agents.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents: %w", err)

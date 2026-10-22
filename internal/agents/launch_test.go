@@ -126,7 +126,7 @@ func TestNewAgent(t *testing.T) {
 				WorkflowID: seedWorkflow(t, st),
 			}
 			if tt.badWorkflow {
-				params.WorkflowID = "no-such-workflow"
+				params.WorkflowID = uuid.New()
 			}
 
 			created, err := manager.launch.NewAgent(t.Context(), params)
@@ -236,7 +236,7 @@ func TestNewAgentIdempotency(t *testing.T) {
 			dir := t.TempDir()
 			workflowID := seedWorkflow(t, st)
 
-			callerIDs := map[string]string{}
+			callerIDs := map[string]uuid.UUID{}
 			if tt.firstCaller != "" {
 				seedWithRole(t, st, workflowID, "orchestrator", agentstore.RoleOrchestrator)
 				for _, name := range []string{"writer", "other writer"} {
@@ -435,14 +435,14 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 				orchestrator = seedWithRole(t, st, workflowID, "orchestrator", agentstore.RoleOrchestrator)
 			}
 			if tt.orchestrator == archivedOrchestrator {
-				_, err := st.Agents.Archive(ctx, []string{orchestrator.ID})
+				_, err := st.Agents.Archive(ctx, []uuid.UUID{orchestrator.ID})
 				require.NoError(t, err)
 			}
 
 			var spawner *agentstore.Agent
 			switch {
 			case tt.unknownSpawner:
-				ctx = caller.With(ctx, caller.Caller{AgentID: "no-such-agent"})
+				ctx = caller.With(ctx, caller.Caller{AgentID: uuid.New()})
 			case tt.spawnerRole != "":
 				seeded := seedWithRole(t, st, workflowID, "spawner", tt.spawnerRole)
 				spawner = &seeded
@@ -1008,7 +1008,7 @@ func TestNewAgentClosesOutACreateTheCallerAbandoned(t *testing.T) {
 // archivingSetupLifecycle stands in for the agent being archived while its provisioner is running.
 type archivingSetupLifecycle struct {
 	*fakeLifecycle
-	archive func(id string) error
+	archive func(id uuid.UUID) error
 }
 
 func (a *archivingSetupLifecycle) RunProvision(ctx context.Context, agent agentstore.Agent, name string) (string, error) {
@@ -1025,8 +1025,8 @@ func TestNewAgentArchivedDuringSetupIsNotLaunched(t *testing.T) {
 	st := newStore(t)
 	lifecycle := &archivingSetupLifecycle{fakeLifecycle: &fakeLifecycle{dir: t.TempDir()}}
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
-	lifecycle.archive = func(id string) error {
-		return archiveWriters(t.Context(), manager.lifecycle, []string{id})
+	lifecycle.archive = func(id uuid.UUID) error {
+		return archiveWriters(t.Context(), manager.lifecycle, []uuid.UUID{id})
 	}
 
 	created, err := newWorkflowService(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
@@ -1292,7 +1292,7 @@ func TestConcurrentLaunchesGiveATaskOneWriter(t *testing.T) {
 			require.ErrorIs(t, err, tasks.ErrHasWriter)
 		}
 	}
-	onTask, err := st.Agents.ListOnTasks(ctx, []string{work.ID})
+	onTask, err := st.Agents.ListOnTasks(ctx, []uuid.UUID{work.ID})
 	require.NoError(t, err)
 	writers := 0
 	for _, agent := range onTask {
@@ -1369,7 +1369,7 @@ func TestNewReviewerRefusals(t *testing.T) {
 			name: "a schedule of its own",
 			params: func(writer agentstore.Agent) NewAgentParams {
 				params := reviewerOf(writer, "reviewer")
-				params.ScheduleID = xptr.Ptr("b9b1a1de-0000-7000-8000-000000000000")
+				params.ScheduleID = xptr.Ptr(uuid.MustParse("b9b1a1de-0000-7000-8000-000000000000"))
 
 				return params
 			},
@@ -1379,7 +1379,7 @@ func TestNewReviewerRefusals(t *testing.T) {
 			name: "a workflow other than its task's",
 			params: func(writer agentstore.Agent) NewAgentParams {
 				params := reviewerOf(writer, "reviewer")
-				params.WorkflowID = "b9b1a1de-0000-7000-8000-000000000000"
+				params.WorkflowID = uuid.MustParse("b9b1a1de-0000-7000-8000-000000000000")
 
 				return params
 			},
@@ -1399,7 +1399,7 @@ func TestNewReviewerRefusals(t *testing.T) {
 			name: "a task nothing answers to",
 			params: func(writer agentstore.Agent) NewAgentParams {
 				params := reviewerOf(writer, "reviewer")
-				params.Task = taskByID("b9b1a1de-0000-7000-8000-000000000000")
+				params.Task = taskByID(uuid.MustParse("b9b1a1de-0000-7000-8000-000000000000"))
 
 				return params
 			},
@@ -1419,7 +1419,7 @@ func TestNewReviewerRefusals(t *testing.T) {
 			name: "a task being deleted",
 			prepareWriter: func(t *testing.T, st *testStore, writer agentstore.Agent) agentstore.Agent {
 				t.Helper()
-				require.NoError(t, st.Tasks.MarkDeleting(t.Context(), []string{*writer.TaskID}))
+				require.NoError(t, st.Tasks.MarkDeleting(t.Context(), []uuid.UUID{*writer.TaskID}))
 
 				return writer
 			},
@@ -1482,14 +1482,14 @@ func TestNewReviewerRefusals(t *testing.T) {
 func TestNewAgentWorksOnATask(t *testing.T) {
 	tests := []struct {
 		name      string
-		params    func(workflowID string, work, elsewhere *taskstore.Task) NewAgentParams
+		params    func(workflowID uuid.UUID, work, elsewhere *taskstore.Task) NewAgentParams
 		wantErrIs error
 		wantTask  string
 		wantGoal  string
 	}{
 		{
 			name: "a task in another workflow is refused",
-			params: func(workflowID string, _, elsewhere *taskstore.Task) NewAgentParams {
+			params: func(workflowID uuid.UUID, _, elsewhere *taskstore.Task) NewAgentParams {
 				return NewAgentParams{
 					Title:      "fix-login",
 					Prompt:     "go",
@@ -1501,7 +1501,7 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 		},
 		{
 			name: "a task named by id is joined",
-			params: func(workflowID string, work, _ *taskstore.Task) NewAgentParams {
+			params: func(workflowID uuid.UUID, work, _ *taskstore.Task) NewAgentParams {
 				return NewAgentParams{
 					Title:      "fix-login",
 					Prompt:     "go",
@@ -1513,7 +1513,7 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 		},
 		{
 			name: "no task makes one of its own under an unused slug",
-			params: func(workflowID string, _, _ *taskstore.Task) NewAgentParams {
+			params: func(workflowID uuid.UUID, _, _ *taskstore.Task) NewAgentParams {
 				return NewAgentParams{
 					Title:      "work",
 					Prompt:     "Fix the login page.\nMore.",
@@ -1524,7 +1524,7 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 		},
 		{
 			name: "joining a task and describing one to make is refused",
-			params: func(workflowID string, work, _ *taskstore.Task) NewAgentParams {
+			params: func(workflowID uuid.UUID, work, _ *taskstore.Task) NewAgentParams {
 				return NewAgentParams{
 					Title:      "fix-login",
 					Prompt:     "go",
@@ -1537,7 +1537,7 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 		},
 		{
 			name: "a slug asked for that a task already has is refused",
-			params: func(workflowID string, work, _ *taskstore.Task) NewAgentParams {
+			params: func(workflowID uuid.UUID, work, _ *taskstore.Task) NewAgentParams {
 				return NewAgentParams{
 					Title:      "fix-login",
 					Prompt:     "go",
@@ -1549,7 +1549,7 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 		},
 		{
 			name: "a slug and a goal asked for make the task as given",
-			params: func(workflowID string, _, _ *taskstore.Task) NewAgentParams {
+			params: func(workflowID uuid.UUID, _, _ *taskstore.Task) NewAgentParams {
 				return NewAgentParams{
 					Title:      "Fix login",
 					Prompt:     "Look at it.",
@@ -1563,7 +1563,7 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 		},
 		{
 			name: "an orchestrator is put on no task",
-			params: func(workflowID string, _, _ *taskstore.Task) NewAgentParams {
+			params: func(workflowID uuid.UUID, _, _ *taskstore.Task) NewAgentParams {
 				return NewAgentParams{
 					Title:      "lead",
 					Prompt:     "go",
@@ -1860,10 +1860,10 @@ func TestRestoreUnderTheTaskCeiling(t *testing.T) {
 	}
 
 	first := spawn("first")
-	require.NoError(t, archiveWriters(t.Context(), manager.lifecycle, []string{first.ID}))
+	require.NoError(t, archiveWriters(t.Context(), manager.lifecycle, []uuid.UUID{first.ID}))
 	spawn("second")
 
-	_, err := manager.lifecycle.RestoreAgents(t.Context(), []string{first.ID})
+	_, err := manager.lifecycle.RestoreAgents(t.Context(), []uuid.UUID{first.ID})
 	require.ErrorIs(t, err, agenterr.ErrTooManyTasks)
 }
 

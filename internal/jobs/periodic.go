@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/jobs/internaljobs"
 
+	"github.com/google/uuid"
 	"github.com/riverqueue/river"
 )
 
@@ -19,7 +20,7 @@ func NewRiverPeriodic(bundle *river.PeriodicJobBundle) *RiverPeriodic {
 }
 
 // Add registers a periodic job on cron under an id it can later be removed by.
-func (r *RiverPeriodic) Add(id string, cron river.PeriodicSchedule) error {
+func (r *RiverPeriodic) Add(id uuid.UUID, cron river.PeriodicSchedule) error {
 	if _, err := r.bundle.AddSafely(periodicJobFor(id, cron)); err != nil {
 		return fmt.Errorf("failed to add a periodic job for %q: %w", id, err)
 	}
@@ -28,16 +29,16 @@ func (r *RiverPeriodic) Add(id string, cron river.PeriodicSchedule) error {
 }
 
 // Remove takes a registration back off, and is a no-op when nothing holds that id.
-func (r *RiverPeriodic) Remove(id string) {
-	r.bundle.RemoveByID(id)
+func (r *RiverPeriodic) Remove(id uuid.UUID) {
+	r.bundle.RemoveByID(id.String())
 }
 
-func periodicJobFor(scheduleID string, cron river.PeriodicSchedule) *river.PeriodicJob {
+func periodicJobFor(scheduleID uuid.UUID, cron river.PeriodicSchedule) *river.PeriodicJob {
 	return river.NewPeriodicJob(
 		cron,
 		func() (river.JobArgs, *river.InsertOpts) {
 			return internaljobs.LaunchArgsFor(scheduleID, cron, time.Now())
 		},
-		&river.PeriodicJobOpts{ID: scheduleID},
+		&river.PeriodicJobOpts{ID: scheduleID.String()},
 	)
 }

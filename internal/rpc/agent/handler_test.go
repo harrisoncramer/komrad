@@ -46,9 +46,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	missingID  = "00000000-0000-0000-0000-000000000000"
-	workflowID = "01a0d1d7-0000-7000-8000-0000000000f1"
+var (
+	missingID  = uuid.New()
+	workflowID = uuid.MustParse("01a0d1d7-0000-7000-8000-0000000000f1")
 )
 
 const komradRepository = "https://github.com/harrisoncramer/komrad"
@@ -63,8 +63,8 @@ type fakeRowReader struct {
 
 // seed adds an agent's row, giving it an id when it has none.
 func (f *fakeRowReader) seed(agent agentstore.Agent) agentstore.Agent {
-	if agent.ID == "" {
-		agent.ID = uuid.NewString()
+	if agent.ID == uuid.Nil {
+		agent.ID = uuid.New()
 	}
 	f.rows = append(f.rows, rowstore.Row{Agent: agent})
 
@@ -72,7 +72,7 @@ func (f *fakeRowReader) seed(agent agentstore.Agent) agentstore.Agent {
 }
 
 // GetAgent answers the seeded agent with the id, or not found.
-func (f *fakeRowReader) GetAgent(_ context.Context, id string) (*agentstore.Agent, error) {
+func (f *fakeRowReader) GetAgent(_ context.Context, id uuid.UUID) (*agentstore.Agent, error) {
 	row, err := f.find(id)
 	if err != nil {
 		return nil, err
@@ -92,14 +92,14 @@ func (f *fakeRowReader) ListRows(_ context.Context, page rowstore.Page) ([]rowst
 }
 
 // ListRowsByID answers the seeded rows among the ids.
-func (f *fakeRowReader) ListRowsByID(_ context.Context, ids []string) ([]rowstore.Row, error) {
+func (f *fakeRowReader) ListRowsByID(_ context.Context, ids []uuid.UUID) ([]rowstore.Row, error) {
 	return xslice.Filter(f.rows, func(row rowstore.Row) bool {
 		return slices.Contains(ids, row.ID)
 	}), nil
 }
 
 // GetRow answers the seeded row with the id, or not found.
-func (f *fakeRowReader) GetRow(_ context.Context, id string) (*rowstore.Row, error) {
+func (f *fakeRowReader) GetRow(_ context.Context, id uuid.UUID) (*rowstore.Row, error) {
 	return f.find(id)
 }
 
@@ -112,7 +112,7 @@ func (f *fakeRowReader) ListSurroundings(context.Context, []rowstore.Row) (*agen
 	return &f.surroundings, nil
 }
 
-func (f *fakeRowReader) find(id string) (*rowstore.Row, error) {
+func (f *fakeRowReader) find(id uuid.UUID) (*rowstore.Row, error) {
 	for _, row := range f.rows {
 		if row.ID == id {
 			return &row, nil
@@ -134,7 +134,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "a launch that cannot start",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: workflowID}))
+				_, err := svc.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: workflowID.String()}))
 
 				return err
 			},
@@ -167,7 +167,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.RequestReview(ctx, connect.NewRequest(&agentv1.RequestReviewRequest{
 					Prompt:  "read it",
-					AgentId: xptr.Ptr(alphaID),
+					AgentId: xptr.Ptr(alphaID.String()),
 				}))
 
 				return err
@@ -178,7 +178,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "a retry of an agent that did not fail",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.RetryAgent(ctx, connect.NewRequest(&agentv1.RetryAgentRequest{Id: alphaID}))
+				_, err := svc.RetryAgent(ctx, connect.NewRequest(&agentv1.RetryAgentRequest{Id: alphaID.String()}))
 
 				return err
 			},
@@ -188,7 +188,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "a resume of an archived agent",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: alphaID}))
+				_, err := svc.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: alphaID.String()}))
 
 				return err
 			},
@@ -198,7 +198,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "an archive naming an agent nobody holds",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: []string{alphaID}}))
+				_, err := svc.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: []string{alphaID.String()}}))
 
 				return err
 			},
@@ -226,7 +226,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "an orchestrator for a workflow that is not there",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.StartOrchestrator(ctx, connect.NewRequest(&agentv1.StartOrchestratorRequest{WorkflowId: missingID}))
+				_, err := svc.StartOrchestrator(ctx, connect.NewRequest(&agentv1.StartOrchestratorRequest{WorkflowId: missingID.String()}))
 
 				return err
 			},
@@ -236,7 +236,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "planning a rebase of a task with no worktree",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{Task: &agentv1.PlanRebaseRequest_TaskId{TaskId: alphaID}}))
+				_, err := svc.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{Task: &agentv1.PlanRebaseRequest_TaskId{TaskId: alphaID.String()}}))
 
 				return err
 			},
@@ -246,7 +246,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "a rebase of a dirty worktree",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{Task: &agentv1.RebaseWorktreeRequest_TaskId{TaskId: alphaID}}))
+				_, err := svc.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{Task: &agentv1.RebaseWorktreeRequest_TaskId{TaskId: alphaID.String()}}))
 
 				return err
 			},
@@ -256,7 +256,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "a push origin turned away because it moved on",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{Task: &agentv1.PushWorktreeRequest_TaskId{TaskId: alphaID}}))
+				_, err := svc.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{Task: &agentv1.PushWorktreeRequest_TaskId{TaskId: alphaID.String()}}))
 
 				return err
 			},
@@ -266,7 +266,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "an abort of a worktree with nothing in progress",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{Task: &agentv1.AbortSequenceRequest_TaskId{TaskId: alphaID}}))
+				_, err := svc.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{Task: &agentv1.AbortSequenceRequest_TaskId{TaskId: alphaID.String()}}))
 
 				return err
 			},
@@ -277,7 +277,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 			name: "a rename onto a name another agent holds",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 				_, err := svc.UpdateAgent(ctx, connect.NewRequest(&agentv1.UpdateAgentRequest{
-					Id:   alphaID,
+					Id:   alphaID.String(),
 					Name: "beta",
 				}))
 
@@ -320,7 +320,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "reading an agent nobody holds",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: missingID}))
+				_, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: missingID.String()}))
 
 				return err
 			},
@@ -348,17 +348,17 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 func TestLifecycleRequestsReachTheServices(t *testing.T) {
 	tests := []struct {
 		name       string
-		call       func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error)
+		call       func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []uuid.UUID) (string, error)
 		err        error
 		wantAnswer string
-		check      func(t *testing.T, services *recordingAgentServices, ids []string)
+		check      func(t *testing.T, services *recordingAgentServices, ids []uuid.UUID)
 	}{
 		{
 			name: "a spent idempotency key answers with the agent it launched",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, _ []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, _ []uuid.UUID) (string, error) {
 				created, err := svc.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
 					Prompt:         "go",
-					WorkflowId:     workflowID,
+					WorkflowId:     workflowID.String(),
 					IdempotencyKey: xptr.Ptr("triage:ENG-5260"),
 				}))
 				if err != nil {
@@ -369,19 +369,19 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			},
 			err:        agenterr.ErrAlreadyLaunched,
 			wantAnswer: "spawned",
-			check: func(t *testing.T, services *recordingAgentServices, _ []string) {
+			check: func(t *testing.T, services *recordingAgentServices, _ []uuid.UUID) {
 				assert.Equal(t, "triage:ENG-5260", services.created.IdempotencyKey)
 			},
 		},
 		{
 			name: "creating",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []uuid.UUID) (string, error) {
 				created, err := svc.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
 					Prompt:           "audit the migrations",
 					Title:            "audit",
 					Flags:            "--model opus",
 					ProvisionEnabled: xptr.Ptr(false),
-					WorkflowId:       workflowID,
+					WorkflowId:       workflowID.String(),
 					Harness:          "codex",
 					IdempotencyKey:   xptr.Ptr("triage:ENG-5260"),
 					Task:             &agentv1.CreateAgentRequest_TaskSlug{TaskSlug: "fix-login"},
@@ -395,7 +395,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return created.Msg.GetAgent().GetName(), nil
 			},
 			wantAnswer: "spawned",
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+			check: func(t *testing.T, services *recordingAgentServices, ids []uuid.UUID) {
 				assert.Equal(t, agents.NewAgentParams{
 					Title:            "audit",
 					Flags:            "--model opus",
@@ -412,7 +412,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "requesting a review for the calling agent",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []uuid.UUID) (string, error) {
 				ctx = caller.With(ctx, caller.Caller{AgentID: ids[0]})
 				requested, err := svc.RequestReview(ctx, connect.NewRequest(&agentv1.RequestReviewRequest{
 					Prompt:         "read the parser change",
@@ -428,7 +428,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return requested.Msg.GetReviewer().GetName(), nil
 			},
 			wantAnswer: "spawned",
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+			check: func(t *testing.T, services *recordingAgentServices, ids []uuid.UUID) {
 				assert.Equal(t, agents.RequestReviewParams{
 					AgentID:        ids[0],
 					Prompt:         "read the parser change",
@@ -441,14 +441,14 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "adopting",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, _ []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, _ []uuid.UUID) (string, error) {
 				adopted, err := svc.Adopt(ctx, connect.NewRequest(&agentv1.AdoptRequest{
 					Ref:            "https://github.com/o/r/pull/1069",
 					Prompt:         "pick it up",
 					Title:          "logo",
 					Flags:          "--model opus",
 					Harness:        "claude",
-					WorkflowId:     workflowID,
+					WorkflowId:     workflowID.String(),
 					IdempotencyKey: xptr.Ptr("adopt-1"),
 				}))
 				if err != nil {
@@ -458,7 +458,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return adopted.Msg.GetAgent().GetName(), nil
 			},
 			wantAnswer: "spawned",
-			check: func(t *testing.T, services *recordingAgentServices, _ []string) {
+			check: func(t *testing.T, services *recordingAgentServices, _ []uuid.UUID) {
 				assert.Equal(t, agents.AdoptParams{
 					Ref:            "https://github.com/o/r/pull/1069",
 					Title:          "logo",
@@ -472,9 +472,9 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "retrying",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []uuid.UUID) (string, error) {
 				retried, err := svc.RetryAgent(ctx, connect.NewRequest(&agentv1.RetryAgentRequest{
-					Id:      ids[0],
+					Id:      ids[0].String(),
 					Flags:   "--model opus",
 					Prompt:  "try again",
 					Harness: "codex",
@@ -486,7 +486,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return retried.Msg.GetAgent().GetName(), nil
 			},
 			wantAnswer: "spawned",
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+			check: func(t *testing.T, services *recordingAgentServices, ids []uuid.UUID) {
 				assert.Equal(t, agents.RetryCreateParams{
 					ID:      ids[0],
 					Flags:   "--model opus",
@@ -497,8 +497,8 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "resuming",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				resumed, err := svc.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: ids[0]}))
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []uuid.UUID) (string, error) {
+				resumed, err := svc.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: ids[0].String()}))
 				if err != nil {
 					return "", err
 				}
@@ -506,27 +506,27 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return resumed.Msg.GetAgent().GetName(), nil
 			},
 			wantAnswer: "spawned",
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+			check: func(t *testing.T, services *recordingAgentServices, ids []uuid.UUID) {
 				assert.Equal(t, []agents.ResumeAgentParams{{ID: ids[0]}}, services.resumed)
 			},
 		},
 		{
 			name: "resuming from an agent says who asked",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []uuid.UUID) (string, error) {
 				ctx = caller.With(ctx, caller.Caller{AgentID: betaID})
-				_, err := svc.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: ids[0]}))
+				_, err := svc.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: ids[0].String()}))
 
 				return "", err
 			},
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+			check: func(t *testing.T, services *recordingAgentServices, ids []uuid.UUID) {
 				assert.Equal(t, []agents.ResumeAgentParams{{ID: ids[0], ByAgentID: betaID}}, services.resumed)
 			},
 		},
 		{
 			name: "restarting",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []uuid.UUID) (string, error) {
 				restarted, err := svc.RestartAgent(ctx, connect.NewRequest(&agentv1.RestartAgentRequest{
-					Id:      ids[0],
+					Id:      ids[0].String(),
 					Note:    "pick up the review",
 					Harness: "codex",
 					Flags:   "--model o3",
@@ -538,7 +538,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return restarted.Msg.GetAgent().GetName(), nil
 			},
 			wantAnswer: "spawned",
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+			check: func(t *testing.T, services *recordingAgentServices, ids []uuid.UUID) {
 				assert.Equal(t, []agents.RestartAgentParams{{
 					ID:      ids[0],
 					Note:    "pick up the review",
@@ -549,20 +549,20 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		},
 		{
 			name: "restarting from an agent says who asked",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []uuid.UUID) (string, error) {
 				ctx = caller.With(ctx, caller.Caller{AgentID: betaID})
-				_, err := svc.RestartAgent(ctx, connect.NewRequest(&agentv1.RestartAgentRequest{Id: ids[0]}))
+				_, err := svc.RestartAgent(ctx, connect.NewRequest(&agentv1.RestartAgentRequest{Id: ids[0].String()}))
 
 				return "", err
 			},
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+			check: func(t *testing.T, services *recordingAgentServices, ids []uuid.UUID) {
 				assert.Equal(t, []agents.RestartAgentParams{{ID: ids[0], ByAgentID: betaID}}, services.restarted)
 			},
 		},
 		{
 			name: "starting a workflow's orchestrator",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, _ []string) (string, error) {
-				started, err := svc.StartOrchestrator(ctx, connect.NewRequest(&agentv1.StartOrchestratorRequest{WorkflowId: workflowID}))
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, _ []uuid.UUID) (string, error) {
+				started, err := svc.StartOrchestrator(ctx, connect.NewRequest(&agentv1.StartOrchestratorRequest{WorkflowId: workflowID.String()}))
 				if err != nil {
 					return "", err
 				}
@@ -570,14 +570,14 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return started.Msg.GetAgent().GetName(), nil
 			},
 			wantAnswer: "spawned",
-			check: func(t *testing.T, services *recordingAgentServices, _ []string) {
-				assert.Equal(t, []string{workflowID}, services.orchestrated)
+			check: func(t *testing.T, services *recordingAgentServices, _ []uuid.UUID) {
+				assert.Equal(t, []string{workflowID.String()}, services.orchestrated)
 			},
 		},
 		{
 			name: "planning a rebase",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				planned, err := svc.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{Task: &agentv1.PlanRebaseRequest_TaskId{TaskId: ids[0]}}))
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []uuid.UUID) (string, error) {
+				planned, err := svc.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{Task: &agentv1.PlanRebaseRequest_TaskId{TaskId: ids[0].String()}}))
 				if err != nil {
 					return "", err
 				}
@@ -585,14 +585,14 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return fmt.Sprintf("%s onto %s, %d of %d to replay", planned.Msg.GetBranch(), planned.Msg.GetBaseRef(), planned.Msg.GetReplayCommits(), planned.Msg.GetCommits()), nil
 			},
 			wantAnswer: "agent/alpha onto origin/main, 2 of 3 to replay",
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
-				assert.Equal(t, []oneofs.Task{{TaskId: xptr.Ptr(uuid.MustParse(ids[0]))}}, services.planned)
+			check: func(t *testing.T, services *recordingAgentServices, ids []uuid.UUID) {
+				assert.Equal(t, []oneofs.Task{{TaskId: xptr.Ptr(ids[0])}}, services.planned)
 			},
 		},
 		{
 			name: "rebasing",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				rebased, err := svc.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{Task: &agentv1.RebaseWorktreeRequest_TaskId{TaskId: ids[0]}}))
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []uuid.UUID) (string, error) {
+				rebased, err := svc.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{Task: &agentv1.RebaseWorktreeRequest_TaskId{TaskId: ids[0].String()}}))
 				if err != nil {
 					return "", err
 				}
@@ -600,14 +600,14 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return fmt.Sprintf("%s onto %s, conflicted %t", rebased.Msg.GetBranch(), rebased.Msg.GetBaseRef(), rebased.Msg.GetConflicted()), nil
 			},
 			wantAnswer: "agent/alpha onto origin/main, conflicted true",
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
-				assert.Equal(t, []oneofs.Task{{TaskId: xptr.Ptr(uuid.MustParse(ids[0]))}}, services.rebased)
+			check: func(t *testing.T, services *recordingAgentServices, ids []uuid.UUID) {
+				assert.Equal(t, []oneofs.Task{{TaskId: xptr.Ptr(ids[0])}}, services.rebased)
 			},
 		},
 		{
 			name: "planning a push",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				planned, err := svc.PlanPush(ctx, connect.NewRequest(&agentv1.PlanPushRequest{Task: &agentv1.PlanPushRequest_TaskId{TaskId: ids[0]}}))
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []uuid.UUID) (string, error) {
+				planned, err := svc.PlanPush(ctx, connect.NewRequest(&agentv1.PlanPushRequest{Task: &agentv1.PlanPushRequest_TaskId{TaskId: ids[0].String()}}))
 				if err != nil {
 					return "", err
 				}
@@ -615,14 +615,14 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return fmt.Sprintf("%s, %d up, forced %t, %d left behind", planned.Msg.GetBranch(), planned.Msg.GetCommits(), planned.Msg.GetForced(), planned.Msg.GetUncommittedFiles()), nil
 			},
 			wantAnswer: "agent/alpha, 2 up, forced true, 1 left behind",
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
-				assert.Equal(t, []oneofs.Task{{TaskId: xptr.Ptr(uuid.MustParse(ids[0]))}}, services.pushPlanned)
+			check: func(t *testing.T, services *recordingAgentServices, ids []uuid.UUID) {
+				assert.Equal(t, []oneofs.Task{{TaskId: xptr.Ptr(ids[0])}}, services.pushPlanned)
 			},
 		},
 		{
 			name: "pushing",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				pushed, err := svc.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{Task: &agentv1.PushWorktreeRequest_TaskId{TaskId: ids[0]}}))
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []uuid.UUID) (string, error) {
+				pushed, err := svc.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{Task: &agentv1.PushWorktreeRequest_TaskId{TaskId: ids[0].String()}}))
 				if err != nil {
 					return "", err
 				}
@@ -630,14 +630,14 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return fmt.Sprintf("%s at %s, forced %t", pushed.Msg.GetBranch(), pushed.Msg.GetSha(), pushed.Msg.GetForced()), nil
 			},
 			wantAnswer: "agent/alpha at pushedsha, forced true",
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
-				assert.Equal(t, []oneofs.Task{{TaskId: xptr.Ptr(uuid.MustParse(ids[0]))}}, services.pushed)
+			check: func(t *testing.T, services *recordingAgentServices, ids []uuid.UUID) {
+				assert.Equal(t, []oneofs.Task{{TaskId: xptr.Ptr(ids[0])}}, services.pushed)
 			},
 		},
 		{
 			name: "aborting",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				aborted, err := svc.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{Task: &agentv1.AbortSequenceRequest_TaskId{TaskId: ids[0]}}))
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []uuid.UUID) (string, error) {
+				aborted, err := svc.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{Task: &agentv1.AbortSequenceRequest_TaskId{TaskId: ids[0].String()}}))
 				if err != nil {
 					return "", err
 				}
@@ -645,37 +645,37 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return fmt.Sprintf("%s on %s, parked at %s", aborted.Msg.GetSequence(), aborted.Msg.GetBranch(), aborted.Msg.GetParkedRef()), nil
 			},
 			wantAnswer: "SEQUENCE_CHERRY_PICK on agent/alpha, parked at refs/komrad/aborted/alpha/1",
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
-				assert.Equal(t, []oneofs.Task{{TaskId: xptr.Ptr(uuid.MustParse(ids[0]))}}, services.aborted)
+			check: func(t *testing.T, services *recordingAgentServices, ids []uuid.UUID) {
+				assert.Equal(t, []oneofs.Task{{TaskId: xptr.Ptr(ids[0])}}, services.aborted)
 			},
 		},
 		{
 			name: "archiving from the panel takes the whole batch",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				_, err := svc.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: ids}))
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []uuid.UUID) (string, error) {
+				_, err := svc.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: xslice.Map(ids, uuid.UUID.String)}))
 
 				return "", err
 			},
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+			check: func(t *testing.T, services *recordingAgentServices, ids []uuid.UUID) {
 				assert.Equal(t, []agents.ArchiveAgentsParams{{IDs: ids}}, services.archived)
 			},
 		},
 		{
 			name: "archiving from an agent says who asked",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []uuid.UUID) (string, error) {
 				ctx = caller.With(ctx, caller.Caller{AgentID: betaID})
-				_, err := svc.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: ids}))
+				_, err := svc.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: xslice.Map(ids, uuid.UUID.String)}))
 
 				return "", err
 			},
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+			check: func(t *testing.T, services *recordingAgentServices, ids []uuid.UUID) {
 				assert.Equal(t, []agents.ArchiveAgentsParams{{IDs: ids, ByAgentID: betaID}}, services.archived)
 			},
 		},
 		{
 			name: "restoring answers with every agent restored",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				restored, err := svc.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: ids}))
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []uuid.UUID) (string, error) {
+				restored, err := svc.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: xslice.Map(ids, uuid.UUID.String)}))
 				if err != nil {
 					return "", err
 				}
@@ -688,38 +688,38 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 				return strings.Join(names, " "), nil
 			},
 			wantAnswer: "alpha beta",
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+			check: func(t *testing.T, services *recordingAgentServices, ids []uuid.UUID) {
 				assert.Equal(t, ids, services.restored)
 			},
 		},
 		{
 			name: "renaming",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []uuid.UUID) (string, error) {
 				_, err := svc.UpdateAgent(ctx, connect.NewRequest(&agentv1.UpdateAgentRequest{
-					Id:   ids[0],
+					Id:   ids[0].String(),
 					Name: "renamed",
 				}))
 
 				return "", err
 			},
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
-				assert.Equal(t, map[string]string{ids[0]: "renamed"}, services.renamed)
+			check: func(t *testing.T, services *recordingAgentServices, ids []uuid.UUID) {
+				assert.Equal(t, map[uuid.UUID]string{ids[0]: "renamed"}, services.renamed)
 			},
 		},
 		{
 			name: "claiming the failed runs",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				_, err := svc.MarkRunsRead(ctx, connect.NewRequest(&agentv1.MarkRunsReadRequest{Id: ids[0]}))
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []uuid.UUID) (string, error) {
+				_, err := svc.MarkRunsRead(ctx, connect.NewRequest(&agentv1.MarkRunsReadRequest{Id: ids[0].String()}))
 
 				return "", err
 			},
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+			check: func(t *testing.T, services *recordingAgentServices, ids []uuid.UUID) {
 				assert.Equal(t, ids[:1], services.runsRead)
 			},
 		},
 		{
 			name: "a report from the calling agent's own CLI",
-			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
+			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []uuid.UUID) (string, error) {
 				ctx = caller.With(ctx, caller.Caller{AgentID: ids[0]})
 				_, err := svc.RecordReport(ctx, connect.NewRequest(&agentv1.RecordReportRequest{
 					Event:     agentv1.ReportEvent_REPORT_EVENT_TURN_FAILED,
@@ -729,7 +729,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 
 				return "", err
 			},
-			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
+			check: func(t *testing.T, services *recordingAgentServices, ids []uuid.UUID) {
 				assert.Equal(t, agents.RecordReportParams{
 					AgentID: ids[0],
 					Report:  agents.Report{Event: agents.ReportTurnFailed, TurnError: "Overloaded"},
@@ -742,7 +742,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc, services := newRecordedService(t)
 			services.err = tt.err
-			ids := []string{
+			ids := []uuid.UUID{
 				services.rows.seed(agentstore.Agent{Name: "alpha"}).ID,
 				services.rows.seed(agentstore.Agent{Name: "beta"}).ID,
 			}
@@ -795,7 +795,7 @@ func TestRecordReportLogsTheHookCall(t *testing.T) {
 			require.NoError(t, err)
 
 			record := logtest.Record(t, written.String())
-			assert.Equal(t, id, record[logging.TargetAgentID])
+			assert.Equal(t, id.String(), record[logging.TargetAgentID])
 			assert.Equal(t, "PreToolUse", record[logging.HookName])
 			assert.Equal(t, "tool started", record[logging.HookEvent])
 			assert.Equal(t, "Bash", record[logging.HookTool])
@@ -810,7 +810,7 @@ func TestAdoptAnswersWithTheAgentAlreadyOnTheBranch(t *testing.T) {
 
 	adopted, err := svc.Adopt(t.Context(), connect.NewRequest(&agentv1.AdoptRequest{
 		Ref:        "someones/work",
-		WorkflowId: workflowID,
+		WorkflowId: workflowID.String(),
 	}))
 	require.NoError(t, err)
 
@@ -876,7 +876,7 @@ func TestListAgents(t *testing.T) {
 					},
 					{
 						Agent: agentstore.Agent{
-							ID:         uuid.NewString(),
+							ID:         uuid.New(),
 							Name:       "archived",
 							ArchivedAt: &archivedAt,
 						},
@@ -884,7 +884,7 @@ func TestListAgents(t *testing.T) {
 				},
 				surroundings: agents.Surroundings{Mail: []mailstore.Mail{
 					{
-						ID:        "mail-1",
+						ID:        mailID,
 						FromName:  "beta",
 						ToAgentID: alphaID,
 						Body:      "refunded_cents",
@@ -922,7 +922,7 @@ func TestListAgentsRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "an agent whose surroundings cannot be read",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: alphaID}))
+				_, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: alphaID.String()}))
 
 				return err
 			},
@@ -959,7 +959,7 @@ func TestGetAgent(t *testing.T) {
 					State:      agentstore.StateThinking,
 					CreatedAt:  created,
 					WorkflowID: workflowID,
-					TaskID:     xptr.Ptr("task-1"),
+					TaskID:     xptr.Ptr(taskID),
 				},
 				FailedRun:    true,
 				FailedRunLog: xptr.Ptr(int32(4)),
@@ -968,14 +968,14 @@ func TestGetAgent(t *testing.T) {
 		surroundings: agents.Surroundings{
 			Mail: []mailstore.Mail{
 				{
-					ID:        "mail-1",
+					ID:        mailID,
 					ToAgentID: alphaID,
 					ExpiresAt: time.Now().Add(time.Hour),
 				},
 			},
 			PullRequests: []pullrequeststore.PullRequest{
 				{
-					ID:                "pr-740",
+					ID:                uuid.New(),
 					Number:            740,
 					RepositoryURL:     komradRepository,
 					HeadRepositoryURL: komradRepository,
@@ -987,9 +987,9 @@ func TestGetAgent(t *testing.T) {
 			Repositories: []pullrequeststore.Sync{{RepositoryURL: komradRepository}},
 			Reviews: []reviewstore.Review{
 				{
-					ID:              "review-1",
-					TaskID:          "task-1",
-					SnapshotID:      "snapshot-1",
+					ID:              reviewID,
+					TaskID:          taskID,
+					SnapshotID:      uuid.New(),
 					SnapshotOrdinal: 1,
 					SnapshotSHA:     "snapshot-1-sha",
 					ReleasedAt:      xptr.Ptr(created),
@@ -997,7 +997,7 @@ func TestGetAgent(t *testing.T) {
 			},
 			Workflows: []workflowstore.Workflow{{ID: workflowID}},
 			Tasks: []taskstore.Task{{
-				ID: "task-1",
+				ID: taskID,
 				Checkout: taskstore.Checkout{
 					RepositoryURL: xptr.Ptr(komradRepository),
 					Branch:        xptr.Ptr("agent/x"),
@@ -1006,7 +1006,7 @@ func TestGetAgent(t *testing.T) {
 		},
 	}
 
-	got, err := newRowHandler(rows).GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: alphaID}))
+	got, err := newRowHandler(rows).GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: alphaID.String()}))
 	require.NoError(t, err)
 
 	assert.True(t, got.Msg.GetUnreadMail(), "the agent is drawn beside its surroundings")
@@ -1104,7 +1104,7 @@ func TestLog(t *testing.T) {
 			rows := &fakeRowReader{}
 			svc := newRowHandler(rows)
 
-			id := uuid.NewString()
+			id := uuid.New()
 			if tt.seed {
 				id = rows.seed(agentstore.Agent{
 					Name:  "alpha",
@@ -1126,7 +1126,7 @@ func TestLog(t *testing.T) {
 				req.Script = xptr.Ptr(tt.script)
 			}
 			if tt.explicit {
-				req.Id = &id
+				req.Id = xptr.Ptr(id.String())
 			}
 
 			_, err := svc.Log(ctx, connect.NewRequest(req))
@@ -1139,7 +1139,7 @@ func TestLog(t *testing.T) {
 
 			record := logtest.Record(t, written.String())
 			assert.Equal(t, "fetched origin/main", record["body"])
-			assert.Equal(t, id, record[logging.TargetAgentID])
+			assert.Equal(t, id.String(), record[logging.TargetAgentID])
 			assert.Equal(t, "/repo", record[logging.ScriptAgentCwd])
 			if tt.script == "" {
 				assert.NotContains(t, record, logging.ScriptName)
@@ -1172,9 +1172,9 @@ type recordingAgentServices struct {
 	pushed        []oneofs.Task
 	aborted       []oneofs.Task
 	archived      []agents.ArchiveAgentsParams
-	restored      []string
-	runsRead      []string
-	renamed       map[string]string
+	restored      []uuid.UUID
+	runsRead      []uuid.UUID
+	renamed       map[uuid.UUID]string
 }
 
 // spawn seeds the agent the fake answers with among the rows.
@@ -1241,8 +1241,8 @@ func (f *recordingAgentServices) RestartAgent(_ context.Context, params agents.R
 	return f.answer()
 }
 
-func (f *recordingAgentServices) Start(_ context.Context, workflowID, _ string) (*agentstore.Agent, error) {
-	f.orchestrated = append(f.orchestrated, workflowID)
+func (f *recordingAgentServices) Start(_ context.Context, workflowID uuid.UUID, _ string) (*agentstore.Agent, error) {
+	f.orchestrated = append(f.orchestrated, workflowID.String())
 
 	return f.answer()
 }
@@ -1313,27 +1313,27 @@ func (f *recordingAgentServices) ArchiveAgents(_ context.Context, params agents.
 }
 
 // RestoreAgents answers with an agent for every id.
-func (f *recordingAgentServices) RestoreAgents(_ context.Context, ids []string) ([]agentstore.Agent, error) {
+func (f *recordingAgentServices) RestoreAgents(_ context.Context, ids []uuid.UUID) ([]agentstore.Agent, error) {
 	f.restored = append(f.restored, ids...)
 	if f.err != nil {
 		return nil, f.err
 	}
 
-	return xslice.Map(ids, func(id string) agentstore.Agent {
+	return xslice.Map(ids, func(id uuid.UUID) agentstore.Agent {
 		return agentstore.Agent{ID: id}
 	}), nil
 }
 
-func (f *recordingAgentServices) Rename(_ context.Context, id, name string) error {
+func (f *recordingAgentServices) Rename(_ context.Context, id uuid.UUID, name string) error {
 	if f.renamed == nil {
-		f.renamed = map[string]string{}
+		f.renamed = map[uuid.UUID]string{}
 	}
 	f.renamed[id] = name
 
 	return f.err
 }
 
-func (f *recordingAgentServices) MarkRunsRead(_ context.Context, id string) error {
+func (f *recordingAgentServices) MarkRunsRead(_ context.Context, id uuid.UUID) error {
 	f.runsRead = append(f.runsRead, id)
 
 	return f.err
@@ -1348,14 +1348,14 @@ func (f *recordingAgentServices) RecordReport(_ context.Context, params agents.R
 func adoptMain(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 	_, err := svc.Adopt(ctx, connect.NewRequest(&agentv1.AdoptRequest{
 		Ref:        "main",
-		WorkflowId: workflowID,
+		WorkflowId: workflowID.String(),
 	}))
 
 	return err
 }
 
 func restoreAlpha(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-	_, err := svc.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: []string{alphaID}}))
+	_, err := svc.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: []string{alphaID.String()}}))
 
 	return err
 }
@@ -1401,11 +1401,11 @@ func TestCreateAgentValidation(t *testing.T) {
 	}{
 		{
 			name: "a prompt and a workflow are enough",
-			req:  &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: workflowID},
+			req:  &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: workflowID.String()},
 		},
 		{
 			name:    "no prompt",
-			req:     &agentv1.CreateAgentRequest{WorkflowId: workflowID},
+			req:     &agentv1.CreateAgentRequest{WorkflowId: workflowID.String()},
 			wantErr: true,
 		},
 		{
@@ -1417,7 +1417,7 @@ func TestCreateAgentValidation(t *testing.T) {
 			name: "flags carrying a shell metacharacter are refused rather than quoted and run",
 			req: &agentv1.CreateAgentRequest{
 				Prompt:     "go",
-				WorkflowId: workflowID,
+				WorkflowId: workflowID.String(),
 				Flags:      "--model opus; rm -rf /",
 			},
 			wantErr: true,
@@ -1578,3 +1578,7 @@ func (f *recordingAgentServices) PickForkPoint(_ context.Context, params checkou
 
 	return params.Commit, nil
 }
+
+var (
+	taskID = uuid.New()
+)

@@ -14,6 +14,7 @@ import (
 	paginationv1 "komrad/proto/gen/pagination/v1"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -235,7 +236,7 @@ func newConnection() forgestore.Connection {
 	at := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
 
 	return forgestore.Connection{
-		ID:         "conn-1",
+		ID:         uuid.New(),
 		Kind:       forge.KindGitHub,
 		Host:       "github.com",
 		Method:     forge.MethodToken,

@@ -8,6 +8,8 @@ package models
 import (
 	"context"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const getAgentScreen = `-- name: GetAgentScreen :one
@@ -24,14 +26,14 @@ WHERE
 `
 
 type GetAgentScreenRow struct {
-	AgentID    string
+	AgentID    uuid.UUID
 	Frame      string
 	Width      int32
 	Height     int32
 	CapturedAt time.Time
 }
 
-func (q *Queries) GetAgentScreen(ctx context.Context, agentID string) (*GetAgentScreenRow, error) {
+func (q *Queries) GetAgentScreen(ctx context.Context, agentID uuid.UUID) (*GetAgentScreenRow, error) {
 	row := q.db.QueryRow(ctx, getAgentScreen, agentID)
 	var i GetAgentScreenRow
 	err := row.Scan(
@@ -67,7 +69,7 @@ ON CONFLICT (
 `
 
 type UpsertAgentScreenParams struct {
-	AgentID string
+	AgentID uuid.UUID
 	Frame   string
 	Width   int32
 	Height  int32

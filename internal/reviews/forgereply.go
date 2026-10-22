@@ -12,6 +12,8 @@ import (
 	"komrad/internal/git"
 	forgestore "komrad/internal/store/forge"
 	reviewstore "komrad/internal/store/review"
+
+	"github.com/google/uuid"
 )
 
 // errForgeReplyLost fails a reply when komrad stopped while posting it and
@@ -51,7 +53,7 @@ func NewForgeReplyService(params NewForgeReplyServiceParams) *ForgeReplyService 
 
 // ReplyOnForgeParams is the person's own reply on a mirrored thread.
 type ReplyOnForgeParams struct {
-	ThreadID string
+	ThreadID uuid.UUID
 	Author   ReviewAuthor
 	Body     string
 }
@@ -71,7 +73,7 @@ func (s *ForgeReplyService) ReplyOnForge(ctx context.Context, params ReplyOnForg
 }
 
 // RetryForgeReply posts a failed reply again.
-func (s *ForgeReplyService) RetryForgeReply(ctx context.Context, id string, author ReviewAuthor) (*reviewstore.ForgeReply, error) {
+func (s *ForgeReplyService) RetryForgeReply(ctx context.Context, id uuid.UUID, author ReviewAuthor) (*reviewstore.ForgeReply, error) {
 	if !author.isHuman() {
 		return nil, ErrReviewHumanOnly
 	}
@@ -85,7 +87,7 @@ func (s *ForgeReplyService) RetryForgeReply(ctx context.Context, id string, auth
 }
 
 // DiscardForgeReply deletes a failed reply.
-func (s *ForgeReplyService) DiscardForgeReply(ctx context.Context, id string, author ReviewAuthor) error {
+func (s *ForgeReplyService) DiscardForgeReply(ctx context.Context, id uuid.UUID, author ReviewAuthor) error {
 	if !author.isHuman() {
 		return ErrReviewHumanOnly
 	}
@@ -133,7 +135,7 @@ type forgeReplyDestination struct {
 }
 
 // resolveForgeReply returns the forge thread, repository and client a reply on a review thread goes through.
-func (s *ForgeReplyService) resolveForgeReply(ctx context.Context, threadID string) (*forgeReplyDestination, error) {
+func (s *ForgeReplyService) resolveForgeReply(ctx context.Context, threadID uuid.UUID) (*forgeReplyDestination, error) {
 	target, err := s.reviews.GetForgeReplyTarget(ctx, threadID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve the forge for review thread %q: %w", threadID, err)

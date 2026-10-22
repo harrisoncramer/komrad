@@ -23,6 +23,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -108,7 +109,7 @@ func TestDeleteIfEmptyGivesCheckoutBackOnce(t *testing.T) {
 	fx := newDeleteFixture(t, scripts)
 	task := fx.stores.SeedTask(t, taskstore.CreateParams{WorkflowID: fx.workflow.ID, Slug: "work"})
 	require.NoError(t, fx.stores.Tasks.SetCheckoutDir(t.Context(), task.ID, t.TempDir()))
-	require.NoError(t, fx.stores.Tasks.MarkDeleting(t.Context(), []string{task.ID}))
+	require.NoError(t, fx.stores.Tasks.MarkDeleting(t.Context(), []uuid.UUID{task.ID}))
 
 	const cleanups = 8
 	var wg sync.WaitGroup
@@ -161,13 +162,13 @@ func TestDeleteIfEmptyForgetsItsWorktree(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fx := newDeleteFixture(t, &fakeScripts{deprovisionErr: tt.deprovisionErr})
 			task := fx.stores.SeedTask(t, taskstore.CreateParams{WorkflowID: fx.workflow.ID, Slug: "work"})
-			dir := filepath.Join(t.TempDir(), task.ID)
-			other := filepath.Join(filepath.Dir(dir), fx.stores.SeedTask(t, taskstore.CreateParams{WorkflowID: fx.workflow.ID, Slug: "other"}).ID)
+			dir := filepath.Join(t.TempDir(), task.ID.String())
+			other := filepath.Join(filepath.Dir(dir), fx.stores.SeedTask(t, taskstore.CreateParams{WorkflowID: fx.workflow.ID, Slug: "other"}).ID.String())
 			require.NoError(t, fx.stores.Tasks.SetCheckoutDir(t.Context(), task.ID, dir))
 			for _, tree := range []string{dir, other} {
 				require.NoError(t, fx.worktrees.Upsert(t.Context(), worktreestore.Worktree{Dir: tree}))
 			}
-			require.NoError(t, fx.stores.Tasks.MarkDeleting(t.Context(), []string{task.ID}))
+			require.NoError(t, fx.stores.Tasks.MarkDeleting(t.Context(), []uuid.UUID{task.ID}))
 
 			err := fx.svc.DeleteIfEmpty(t.Context(), task.ID)
 
@@ -218,7 +219,7 @@ func TestDeleteIfEmptyReleasesItsSnapshots(t *testing.T) {
 			other := fx.stores.SeedTask(t, taskstore.CreateParams{WorkflowID: fx.workflow.ID, Slug: "other"})
 			dir := t.TempDir()
 			require.NoError(t, fx.stores.Tasks.SetCheckoutDir(t.Context(), task.ID, dir))
-			for _, id := range []string{task.ID, other.ID} {
+			for _, id := range []uuid.UUID{task.ID, other.ID} {
 				_, err := fx.reviews.CreateSnapshot(t.Context(), reviewstore.CreateSnapshotParams{
 					TaskID:  id,
 					BaseSHA: "base",
@@ -229,7 +230,7 @@ func TestDeleteIfEmptyReleasesItsSnapshots(t *testing.T) {
 			if tt.checkoutGone {
 				require.NoError(t, os.RemoveAll(dir))
 			}
-			require.NoError(t, fx.stores.Tasks.MarkDeleting(t.Context(), []string{task.ID}))
+			require.NoError(t, fx.stores.Tasks.MarkDeleting(t.Context(), []uuid.UUID{task.ID}))
 
 			err := fx.svc.DeleteIfEmpty(t.Context(), task.ID)
 

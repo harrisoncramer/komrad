@@ -8,6 +8,8 @@ package models
 import (
 	"context"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const countLiveWorkflowSchedules = `-- name: CountLiveWorkflowSchedules :one
@@ -20,7 +22,7 @@ WHERE
     AND archived_at IS NULL
 `
 
-func (q *Queries) CountLiveWorkflowSchedules(ctx context.Context, workflowID string) (int64, error) {
+func (q *Queries) CountLiveWorkflowSchedules(ctx context.Context, workflowID uuid.UUID) (int64, error) {
 	row := q.db.QueryRow(ctx, countLiveWorkflowSchedules, workflowID)
 	var count int64
 	err := row.Scan(&count)
@@ -32,7 +34,7 @@ DELETE FROM schedules
 WHERE id = $1
 `
 
-func (q *Queries) DeleteSchedule(ctx context.Context, id string) error {
+func (q *Queries) DeleteSchedule(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteSchedule, id)
 	return err
 }
@@ -54,7 +56,7 @@ WHERE
 type FinishScheduleRunParams struct {
 	State        string
 	Message      string
-	ScheduleID   string
+	ScheduleID   uuid.UUID
 	ScheduledFor time.Time
 }
 
@@ -83,7 +85,7 @@ type GetScheduleRow struct {
 	Schedule Schedule
 }
 
-func (q *Queries) GetSchedule(ctx context.Context, id string) (*GetScheduleRow, error) {
+func (q *Queries) GetSchedule(ctx context.Context, id uuid.UUID) (*GetScheduleRow, error) {
 	row := q.db.QueryRow(ctx, getSchedule, id)
 	var i GetScheduleRow
 	err := row.Scan(
@@ -119,7 +121,7 @@ type GetScheduleIncludingArchivedRow struct {
 	Schedule Schedule
 }
 
-func (q *Queries) GetScheduleIncludingArchived(ctx context.Context, id string) (*GetScheduleIncludingArchivedRow, error) {
+func (q *Queries) GetScheduleIncludingArchived(ctx context.Context, id uuid.UUID) (*GetScheduleIncludingArchivedRow, error) {
 	row := q.db.QueryRow(ctx, getScheduleIncludingArchived, id)
 	var i GetScheduleIncludingArchivedRow
 	err := row.Scan(
@@ -173,9 +175,9 @@ type InsertScheduleParams struct {
 	Enabled             bool
 	HideAgents          bool
 	Prompt              string
-	WorkflowID          string
+	WorkflowID          uuid.UUID
 	Kind                ScheduleKind
-	OrchestratorAgentID *string
+	OrchestratorAgentID *uuid.UUID
 }
 
 func (q *Queries) InsertSchedule(ctx context.Context, arg InsertScheduleParams) (*Schedule, error) {
@@ -238,7 +240,7 @@ ORDER BY
 `
 
 type ListRecentScheduleRunsParams struct {
-	ScheduleIds []string
+	ScheduleIds []uuid.UUID
 	PerSchedule int32
 }
 
@@ -290,7 +292,7 @@ LIMIT $2
 `
 
 type ListScheduleRunsParams struct {
-	ScheduleID string
+	ScheduleID uuid.UUID
 	Lim        int32
 }
 
@@ -344,7 +346,7 @@ LIMIT $3
 
 type ListSchedulesPageParams struct {
 	Archived bool
-	CursorID *string
+	CursorID *uuid.UUID
 	Lim      int32
 }
 
@@ -392,7 +394,7 @@ SELECT
     s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.engine_id, s.kind, s.orchestrator_agent_id
 FROM
     schedules s
-WHERE ($1::text[] IS NULL
+WHERE ($1::uuid[] IS NULL
     OR s.id = ANY ($1::uuid[]))
 ORDER BY
     s.id DESC
@@ -402,7 +404,7 @@ type ListWatchedSchedulesRow struct {
 	Schedule Schedule
 }
 
-func (q *Queries) ListWatchedSchedules(ctx context.Context, keys []string) ([]*ListWatchedSchedulesRow, error) {
+func (q *Queries) ListWatchedSchedules(ctx context.Context, keys []uuid.UUID) ([]*ListWatchedSchedulesRow, error) {
 	rows, err := q.db.Query(ctx, listWatchedSchedules, keys)
 	if err != nil {
 		return nil, err
@@ -452,7 +454,7 @@ type ListWorkflowSchedulesRow struct {
 	Schedule Schedule
 }
 
-func (q *Queries) ListWorkflowSchedules(ctx context.Context, workflowID string) ([]*ListWorkflowSchedulesRow, error) {
+func (q *Queries) ListWorkflowSchedules(ctx context.Context, workflowID uuid.UUID) ([]*ListWorkflowSchedulesRow, error) {
 	rows, err := q.db.Query(ctx, listWorkflowSchedules, workflowID)
 	if err != nil {
 		return nil, err
@@ -497,7 +499,7 @@ WHERE
     AND archived_at IS NULL
 `
 
-func (q *Queries) MarkScheduleArchived(ctx context.Context, id string) error {
+func (q *Queries) MarkScheduleArchived(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markScheduleArchived, id)
 	return err
 }
@@ -512,7 +514,7 @@ WHERE
     AND archived_at IS NOT NULL
 `
 
-func (q *Queries) MarkScheduleRestored(ctx context.Context, id string) error {
+func (q *Queries) MarkScheduleRestored(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markScheduleRestored, id)
 	return err
 }
@@ -533,7 +535,7 @@ WHERE gone.schedule_id = $1
 `
 
 type PruneScheduleRunsParams struct {
-	ScheduleID string
+	ScheduleID uuid.UUID
 	Keep       int32
 }
 
@@ -554,7 +556,7 @@ WHERE
 
 type SetScheduleEnabledParams struct {
 	Enabled bool
-	ID      string
+	ID      uuid.UUID
 }
 
 func (q *Queries) SetScheduleEnabled(ctx context.Context, arg SetScheduleEnabledParams) error {
@@ -587,7 +589,7 @@ ON CONFLICT (
 `
 
 type StartScheduleRunParams struct {
-	ScheduleID   string
+	ScheduleID   uuid.UUID
 	ScheduledFor time.Time
 	Attempt      int32
 	MaxAttempts  int32
@@ -628,10 +630,10 @@ type UpdateScheduleParams struct {
 	Enabled             bool
 	HideAgents          bool
 	Prompt              string
-	WorkflowID          string
+	WorkflowID          uuid.UUID
 	Kind                ScheduleKind
-	OrchestratorAgentID *string
-	ID                  string
+	OrchestratorAgentID *uuid.UUID
+	ID                  uuid.UUID
 }
 
 func (q *Queries) UpdateSchedule(ctx context.Context, arg UpdateScheduleParams) error {

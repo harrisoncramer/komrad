@@ -18,6 +18,8 @@ import (
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+
+	"github.com/google/uuid"
 )
 
 const provisionTimeout = 10 * time.Minute
@@ -42,7 +44,7 @@ type scriptRunner interface {
 }
 
 type scriptKey struct {
-	agentID string
+	agentID uuid.UUID
 	name    string
 }
 
@@ -336,7 +338,7 @@ func (s *ScriptService) RunTaskDeprovision(ctx context.Context, task taskstore.T
 		return err
 	}
 
-	logger := s.runLogger(ctx, script.Name, triggerDeprovision, owner).With(slog.String(logging.TaskID, task.ID))
+	logger := s.runLogger(ctx, script.Name, triggerDeprovision, owner).With(slog.String(logging.TaskID, task.ID.String()))
 	logger.LogAttrs(ctx, slog.LevelInfo, "script started")
 	began := time.Now()
 

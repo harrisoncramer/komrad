@@ -13,6 +13,7 @@ import (
 	transcriptstore "komrad/internal/store/transcript"
 	"komrad/internal/storetest"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -165,7 +166,7 @@ func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 }
 
 // syncedOffset reads how far a session's log has been copied.
-func syncedOffset(t *testing.T, st *storetest.Stores, agentID, sessionID string) int64 {
+func syncedOffset(t *testing.T, st *storetest.Stores, agentID uuid.UUID, sessionID string) int64 {
 	t.Helper()
 	session, err := st.Transcripts.OpenSession(t.Context(), transcriptstore.OpenSessionParams{
 		AgentID:   agentID,
@@ -306,7 +307,7 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	rollout := filepath.Join(dir, "rollout-2026-07-30T12-41-39-"+sessionID+".jsonl")
 	require.NoError(t, os.WriteFile(rollout,
-		[]byte(`{"type":"session_meta","payload":{"id":"`+sessionID+`","originator":"komrad-`+created.ID+`"}}`+"\n"+
+		[]byte(`{"type":"session_meta","payload":{"id":"`+sessionID+`","originator":"komrad-`+created.ID.String()+`"}}`+"\n"+
 			`{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"how do I use trigram search"}]}}`+"\n"),
 		0o600))
 
@@ -461,7 +462,7 @@ func TestSyncStartsOverOnlyWithinOneConversation(t *testing.T) {
 
 // moveToSession puts an agent on a second conversation, which the store's own setter refuses
 // once one is recorded.
-func moveToSession(t *testing.T, st *storetest.Stores, agentID, sessionID string) {
+func moveToSession(t *testing.T, st *storetest.Stores, agentID uuid.UUID, sessionID string) {
 	t.Helper()
 	_, err := st.Pool.GetRawPool().Exec(t.Context(), "UPDATE agents SET session_id = $1 WHERE id = $2", sessionID, agentID)
 	require.NoError(t, err)
@@ -476,7 +477,7 @@ func TestArchivedAgentSyncsUntilItsLogDrains(t *testing.T) {
 	agent := seedWithSessionID(t, st, testSessionID, "archived")
 	path := writeLog(t, configDir, `{"type":"user","message":{"content":"said before the archive"}}`+"\n")
 
-	_, err := st.Agents.Archive(ctx, []string{agent.ID})
+	_, err := st.Agents.Archive(ctx, []uuid.UUID{agent.ID})
 	require.NoError(t, err)
 
 	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
@@ -521,7 +522,7 @@ func TestArchivedAgentWithNothingNewFallsOut(t *testing.T) {
 	})
 	require.NoError(t, syncer.Sync(ctx))
 
-	_, err := st.Agents.Archive(ctx, []string{agent.ID})
+	_, err := st.Agents.Archive(ctx, []uuid.UUID{agent.ID})
 	require.NoError(t, err)
 
 	// The pass that finds nothing new is the one that stamps the session read.
@@ -574,7 +575,7 @@ func TestArchiveDuringReadKeepsFinalTurns(t *testing.T) {
 			}
 			archived = true
 			appendToLog(t, path, `{"type":"user","message":{"content":"last words before the pane died"}}`+"\n")
-			_, err := st.Agents.Archive(ctx, []string{agent.ID})
+			_, err := st.Agents.Archive(ctx, []uuid.UUID{agent.ID})
 			require.NoError(t, err)
 		},
 	}

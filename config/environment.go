@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 const layerVariable = "KOMRAD_CONFIG"
@@ -30,7 +32,7 @@ type Environment struct {
 	URL                   string
 	Tmux                  string
 	TmuxPane              string
-	AgentID               string
+	AgentID               uuid.UUID
 	SessionID             string
 	Editor                string
 	Shell                 string
@@ -66,7 +68,13 @@ func LoadEnvironment(connection Environment) (*Environment, error) {
 
 	connection.Tmux = os.Getenv("TMUX")
 	connection.TmuxPane = os.Getenv("TMUX_PANE")
-	connection.AgentID = os.Getenv("KOMRAD_AGENT_ID")
+	if agentID := os.Getenv("KOMRAD_AGENT_ID"); agentID != "" {
+		parsed, err := uuid.Parse(agentID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read KOMRAD_AGENT_ID %q: %w", agentID, err)
+		}
+		connection.AgentID = parsed
+	}
 	connection.SessionID = os.Getenv("KOMRAD_SESSION_ID")
 	connection.Editor = editor
 	connection.Shell = shell
@@ -146,8 +154,8 @@ func runMoments() []string {
 const MaxRunLogs = 50
 
 // RunLogDir is where one agent's run logs live under dir.
-func RunLogDir(dir, agentID string) string {
-	return filepath.Join(dir, agentID)
+func RunLogDir(dir string, agentID uuid.UUID) string {
+	return filepath.Join(dir, agentID.String())
 }
 
 // RunLog is one run of a script, as the name of the file it wrote records it.
@@ -166,8 +174,8 @@ func RunLogName(number int, trigger, script string) string {
 
 // ListRunLogs reads the runs an agent has recorded, newest first, parsing the number rather than
 // sorting on it.
-func ListRunLogs(dir, agentID string) []RunLog {
-	if dir == "" || agentID == "" {
+func ListRunLogs(dir string, agentID uuid.UUID) []RunLog {
+	if dir == "" || agentID == uuid.Nil {
 		return nil
 	}
 

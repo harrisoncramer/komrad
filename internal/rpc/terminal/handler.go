@@ -128,7 +128,7 @@ func (h *Handler) Attach(ctx context.Context, stream *terminalv1komrad.AttachStr
 	}
 
 	terminal, err := h.attaches.Open(ctx, attaches.OpenParams{
-		AgentID: open.Open.AgentId.String(),
+		AgentID: open.Open.AgentId,
 		Size:    toSize(open.Open.Size),
 		Term:    open.Open.Term,
 	})

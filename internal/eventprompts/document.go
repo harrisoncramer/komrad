@@ -4,11 +4,13 @@ import (
 	"fmt"
 
 	mailstore "komrad/internal/store/mail"
+
+	"github.com/google/uuid"
 )
 
 // DocumentWritten tells an agent that a person wrote one of its documents in the panel.
 type DocumentWritten struct {
-	DocumentID string
+	DocumentID uuid.UUID
 	Name       string
 	Version    int32
 	// Created says the person wrote the document for the agent rather than editing one the agent wrote.

@@ -103,30 +103,30 @@ func TestFindLastComment(t *testing.T) {
 		{
 			name: "comments on the snapshot on screen are left out",
 			comments: []Comment{
-				{SnapshotID: "s1", SnapshotOrdinal: 1, ReleasedAt: at(9)},
-				{SnapshotID: "s2", SnapshotOrdinal: 2, ReleasedAt: at(10)},
+				{SnapshotID: firstSnapshotID, SnapshotOrdinal: 1, ReleasedAt: at(9)},
+				{SnapshotID: secondSnapshotID, SnapshotOrdinal: 2, ReleasedAt: at(10)},
 			},
 			ordinal: 2,
-			want:    &Comment{SnapshotID: "s1", SnapshotOrdinal: 1, ReleasedAt: at(9)},
+			want:    &Comment{SnapshotID: firstSnapshotID, SnapshotOrdinal: 1, ReleasedAt: at(9)},
 		},
 		{
 			name: "a late reply in an old thread does not pull the earlier snapshot back",
 			comments: []Comment{
-				{SnapshotID: "s1", SnapshotOrdinal: 1, ReleasedAt: at(9)},
-				{SnapshotID: "s3", SnapshotOrdinal: 3, ReleasedAt: at(10)},
-				{SnapshotID: "s1", SnapshotOrdinal: 1, ReleasedAt: at(11)},
+				{SnapshotID: firstSnapshotID, SnapshotOrdinal: 1, ReleasedAt: at(9)},
+				{SnapshotID: thirdSnapshotID, SnapshotOrdinal: 3, ReleasedAt: at(10)},
+				{SnapshotID: firstSnapshotID, SnapshotOrdinal: 1, ReleasedAt: at(11)},
 			},
 			ordinal: 6,
-			want:    &Comment{SnapshotID: "s3", SnapshotOrdinal: 3, ReleasedAt: at(10)},
+			want:    &Comment{SnapshotID: thirdSnapshotID, SnapshotOrdinal: 3, ReleasedAt: at(10)},
 		},
 		{
 			name: "the newest comment on the latest snapshot wins",
 			comments: []Comment{
-				{SnapshotID: "s3", SnapshotOrdinal: 3, ReleasedAt: at(12)},
-				{SnapshotID: "s3", SnapshotOrdinal: 3, ReleasedAt: at(10)},
+				{SnapshotID: thirdSnapshotID, SnapshotOrdinal: 3, ReleasedAt: at(12)},
+				{SnapshotID: thirdSnapshotID, SnapshotOrdinal: 3, ReleasedAt: at(10)},
 			},
 			ordinal: 4,
-			want:    &Comment{SnapshotID: "s3", SnapshotOrdinal: 3, ReleasedAt: at(12)},
+			want:    &Comment{SnapshotID: thirdSnapshotID, SnapshotOrdinal: 3, ReleasedAt: at(12)},
 		},
 	}
 

@@ -8,6 +8,8 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/position"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // traceTimeout caps tracing every thread of one history together.
@@ -42,7 +44,7 @@ type Git interface {
 }
 
 type Snapshot struct {
-	ID      string
+	ID      uuid.UUID
 	Ordinal int32
 	BaseSHA string
 	SHA     string
@@ -50,14 +52,14 @@ type Snapshot struct {
 
 // Comment is one comment the person released, on the snapshot its thread is pinned to.
 type Comment struct {
-	SnapshotID      string
+	SnapshotID      uuid.UUID
 	SnapshotOrdinal int32
 	ReleasedAt      time.Time
 }
 
 type Thread struct {
-	ID         string
-	SnapshotID string
+	ID         uuid.UUID
+	SnapshotID uuid.UUID
 	FilePath   string
 	NewStart   int32
 	NewEnd     int32
@@ -70,17 +72,17 @@ type Span struct {
 }
 
 type AnswerSpan struct {
-	FromSnapshotID string
-	ToSnapshotID   string
+	FromSnapshotID uuid.UUID
+	ToSnapshotID   uuid.UUID
 }
 
 type SnapshotSpan struct {
-	FromSnapshotID string
-	ToSnapshotID   string
+	FromSnapshotID uuid.UUID
+	ToSnapshotID   uuid.UUID
 }
 
 type OriginSpan struct {
-	SnapshotID string
+	SnapshotID uuid.UUID
 	BaseSHA    string
 }
 
@@ -102,7 +104,7 @@ type Record struct {
 	Earlier             *Snapshot
 	EarlierReleasedAt   *time.Time
 	ChangedSinceEarlier int
-	Traced              map[string]Place
+	Traced              map[uuid.UUID]Place
 }
 
 type BuildParams struct {
@@ -205,7 +207,7 @@ func resolveSpan(ctx context.Context, params BuildParams) (ResolvedSpan, *Wideni
 // replay onto the newer base conflicts.
 func resolveSnapshots(ctx context.Context, params BuildParams, snapshots SnapshotSpan) (ResolvedSpan, *Widening) {
 	to := &params.Snapshot
-	if snapshots.ToSnapshotID != "" {
+	if snapshots.ToSnapshotID != uuid.Nil {
 		to = findSnapshot(params.Snapshots, snapshots.ToSnapshotID)
 	}
 	if to == nil {
@@ -213,7 +215,7 @@ func resolveSnapshots(ctx context.Context, params BuildParams, snapshots Snapsho
 	}
 
 	span := wholeSpan(*to)
-	if snapshots.FromSnapshotID == "" {
+	if snapshots.FromSnapshotID == uuid.Nil {
 		return span, nil
 	}
 
@@ -255,7 +257,7 @@ func findAnswerBase(snapshots []Snapshot, comment, answer *Snapshot) *Snapshot {
 	return base
 }
 
-func findSnapshot(snapshots []Snapshot, id string) *Snapshot {
+func findSnapshot(snapshots []Snapshot, id uuid.UUID) *Snapshot {
 	for i := range snapshots {
 		if snapshots[i].ID == id {
 			return &snapshots[i]
@@ -397,7 +399,7 @@ type traceThreadsParams struct {
 
 // traceThreads asks git where each thread's lines went between the snapshot it was written
 // against and the one on screen, giving up on every pair when one cannot be read.
-func traceThreads(ctx context.Context, params traceThreadsParams) map[string]Place {
+func traceThreads(ctx context.Context, params traceThreadsParams) map[uuid.UUID]Place {
 	if params.ToSHA == "" {
 		return nil
 	}
@@ -431,15 +433,15 @@ func traceThreads(ctx context.Context, params traceThreadsParams) map[string]Pla
 }
 
 // placeOnScreen places each thread written against the snapshot on screen at its own lines.
-func placeOnScreen(params traceThreadsParams) map[string]Place {
-	onScreen := map[string]bool{}
+func placeOnScreen(params traceThreadsParams) map[uuid.UUID]Place {
+	onScreen := map[uuid.UUID]bool{}
 	for _, snapshot := range params.Snapshots {
 		if snapshot.SHA == params.ToSHA {
 			onScreen[snapshot.ID] = true
 		}
 	}
 
-	placed := map[string]Place{}
+	placed := map[uuid.UUID]Place{}
 	for _, thread := range params.Threads {
 		if !onScreen[thread.SnapshotID] || thread.NewStart <= 0 {
 			continue
@@ -458,8 +460,8 @@ func placeOnScreen(params traceThreadsParams) map[string]Place {
 // groupBySnapshot gathers the threads worth tracing under the snapshot each was written against,
 // leaving out the ones the screen will not render.
 func groupBySnapshot(params traceThreadsParams) map[string][]Thread {
-	snapshots := map[string]string{}
-	ordinals := map[string]int32{}
+	snapshots := map[uuid.UUID]string{}
+	ordinals := map[uuid.UUID]int32{}
 	ceiling := int32(0)
 
 	for _, snapshot := range params.Snapshots {

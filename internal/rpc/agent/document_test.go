@@ -25,9 +25,9 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-const documentID = "01a0d1d7-0000-7000-8000-0000000000d0"
+var documentID = uuid.MustParse("01a0d1d7-0000-7000-8000-0000000000d0")
 
-const documentTypeID = "01a0d1d7-0000-7000-8000-0000000000e0"
+var documentTypeID = uuid.MustParse("01a0d1d7-0000-7000-8000-0000000000e0")
 
 // fakeDocuments answers from its fields and records what each call asked of it.
 type fakeDocuments struct {
@@ -50,7 +50,7 @@ type fakeDocuments struct {
 }
 
 type fakeDocumentsList struct {
-	AgentID *string
+	AgentID *uuid.UUID
 	Task    oneofs.Task
 	Type    *string
 }
@@ -72,7 +72,7 @@ func (f *fakeDocuments) WriteDocument(_ context.Context, params documents.WriteD
 }
 
 // GetDocument records the version asked for and answers stored unless err refuses it.
-func (f *fakeDocuments) GetDocument(_ context.Context, _ string, version *int32) (*documentstore.Document, error) {
+func (f *fakeDocuments) GetDocument(_ context.Context, _ uuid.UUID, version *int32) (*documentstore.Document, error) {
 	f.read = append(f.read, version)
 	if f.err != nil {
 		return nil, f.err
@@ -110,9 +110,9 @@ func (f *fakeDocuments) SearchDocuments(_ context.Context, params documentstore.
 }
 
 // ListDocumentVersions answers versions as the writes of stored unless err refuses it.
-func (f *fakeDocuments) ListDocumentVersions(_ context.Context, _ string) (string, []documentstore.Version, error) {
+func (f *fakeDocuments) ListDocumentVersions(_ context.Context, _ uuid.UUID) (uuid.UUID, []documentstore.Version, error) {
 	if f.err != nil {
-		return "", nil, f.err
+		return uuid.Nil, nil, f.err
 	}
 
 	return f.stored.AgentID, f.versions, nil
@@ -135,7 +135,7 @@ func (f *fakeDocuments) GetDocumentType(_ context.Context, _ string, version *in
 }
 
 // ListDocumentTypeVersions answers typeVersions unless err refuses it.
-func (f *fakeDocuments) ListDocumentTypeVersions(_ context.Context, _ string) ([]documenttypestore.Version, error) {
+func (f *fakeDocuments) ListDocumentTypeVersions(_ context.Context, _ uuid.UUID) ([]documenttypestore.Version, error) {
 	return f.typeVersions, f.err
 }
 
@@ -184,17 +184,17 @@ func TestDocumentErrors(t *testing.T) {
 		return err
 	}
 	get := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-		_, err := svc.GetDocument(ctx, connect.NewRequest(&agentv1.GetDocumentRequest{Id: documentID}))
+		_, err := svc.GetDocument(ctx, connect.NewRequest(&agentv1.GetDocumentRequest{Id: documentID.String()}))
 
 		return err
 	}
 	versions := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-		_, err := svc.ListDocumentVersions(ctx, connect.NewRequest(&agentv1.ListDocumentVersionsRequest{Id: documentID}))
+		_, err := svc.ListDocumentVersions(ctx, connect.NewRequest(&agentv1.ListDocumentVersionsRequest{Id: documentID.String()}))
 
 		return err
 	}
 	typeVersions := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-		_, err := svc.ListDocumentTypeVersions(ctx, connect.NewRequest(&agentv1.ListDocumentTypeVersionsRequest{Id: documentTypeID}))
+		_, err := svc.ListDocumentTypeVersions(ctx, connect.NewRequest(&agentv1.ListDocumentTypeVersionsRequest{Id: documentTypeID.String()}))
 
 		return err
 	}
@@ -205,7 +205,7 @@ func TestDocumentErrors(t *testing.T) {
 	}
 	writeType := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 		_, err := svc.WriteDocumentType(ctx, connect.NewRequest(&agentv1.WriteDocumentTypeRequest{
-			Id:      xptr.Ptr(documentTypeID),
+			Id:      xptr.Ptr(documentTypeID.String()),
 			Version: xptr.Ptr(int32(1)),
 			Name:    "postmortem",
 			Context: "What broke and why.",
@@ -214,12 +214,12 @@ func TestDocumentErrors(t *testing.T) {
 		return err
 	}
 	deleteDocument := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-		_, err := svc.DeleteDocument(ctx, connect.NewRequest(&agentv1.DeleteDocumentRequest{Id: documentID}))
+		_, err := svc.DeleteDocument(ctx, connect.NewRequest(&agentv1.DeleteDocumentRequest{Id: documentID.String()}))
 
 		return err
 	}
 	deleteType := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-		_, err := svc.DeleteDocumentType(ctx, connect.NewRequest(&agentv1.DeleteDocumentTypeRequest{Id: documentTypeID}))
+		_, err := svc.DeleteDocumentType(ctx, connect.NewRequest(&agentv1.DeleteDocumentTypeRequest{Id: documentTypeID.String()}))
 
 		return err
 	}
@@ -414,7 +414,7 @@ func TestWriteDocument(t *testing.T) {
 		{
 			name: "a path with an id rewrites that document",
 			req: &agentv1.WriteDocumentRequest{
-				Id:      xptr.Ptr(documentID),
+				Id:      xptr.Ptr(documentID.String()),
 				Version: xptr.Ptr(int32(2)),
 				Name:    "Findings",
 				Type:    "report",
@@ -432,7 +432,7 @@ func TestWriteDocument(t *testing.T) {
 		{
 			name: "a caller that is not an agent rewrites the document the id names",
 			req: &agentv1.WriteDocumentRequest{
-				Id:     xptr.Ptr(documentID),
+				Id:     xptr.Ptr(documentID.String()),
 				Name:   "Findings",
 				Type:   "report",
 				Source: &agentv1.WriteDocumentRequest_Body{Body: "edited"},
@@ -448,7 +448,7 @@ func TestWriteDocument(t *testing.T) {
 		{
 			name: "a caller that is not an agent creates a document for the agent it names",
 			req: &agentv1.WriteDocumentRequest{
-				AgentId: xptr.Ptr(betaID),
+				AgentId: xptr.Ptr(betaID.String()),
 				Name:    "Findings",
 				Type:    "report",
 				Source:  &agentv1.WriteDocumentRequest_Body{Body: "Empty report."},
@@ -464,7 +464,7 @@ func TestWriteDocument(t *testing.T) {
 		{
 			name: "an agent naming itself writes its own",
 			req: &agentv1.WriteDocumentRequest{
-				AgentId: xptr.Ptr(alphaID),
+				AgentId: xptr.Ptr(alphaID.String()),
 				Name:    "Documents",
 				Type:    "RFC",
 				Source:  &agentv1.WriteDocumentRequest_Body{Body: "# Documents"},
@@ -493,7 +493,7 @@ func TestWriteDocument(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Equal(t, []documents.WriteDocumentParams{tt.want}, docs.written)
-			assert.Equal(t, documentID, written.Msg.GetDocument().GetId())
+			assert.Equal(t, documentID.String(), written.Msg.GetDocument().GetId())
 			assert.Empty(t, written.Msg.GetDocument().GetBody())
 		})
 	}
@@ -505,7 +505,7 @@ func TestListDocuments(t *testing.T) {
 		name       string
 		req        *agentv1.ListDocumentsRequest
 		wantListed fakeDocumentsList
-		wantTarget string
+		wantTarget uuid.UUID
 	}{
 		{
 			name:       "no id lists every agent's and is not a recorded read",
@@ -519,12 +519,12 @@ func TestListDocuments(t *testing.T) {
 		},
 		{
 			name:       "a task narrows the listing",
-			req:        &agentv1.ListDocumentsRequest{Task: &agentv1.ListDocumentsRequest_TaskId{TaskId: betaTaskID}},
-			wantListed: fakeDocumentsList{Task: oneofs.Task{TaskId: xptr.Ptr(uuid.MustParse(betaTaskID))}},
+			req:        &agentv1.ListDocumentsRequest{Task: &agentv1.ListDocumentsRequest_TaskId{TaskId: betaTaskID.String()}},
+			wantListed: fakeDocumentsList{Task: oneofs.Task{TaskId: xptr.Ptr(betaTaskID)}},
 		},
 		{
 			name:       "another agent's documents are a recorded read",
-			req:        &agentv1.ListDocumentsRequest{AgentId: xptr.Ptr(betaID)},
+			req:        &agentv1.ListDocumentsRequest{AgentId: xptr.Ptr(betaID.String())},
 			wantListed: fakeDocumentsList{AgentID: xptr.Ptr(betaID)},
 			wantTarget: betaID,
 		},
@@ -576,7 +576,7 @@ func TestSearchDocuments(t *testing.T) {
 		name         string
 		req          *agentv1.SearchDocumentsRequest
 		wantSearched documentstore.SearchParams
-		wantTarget   string
+		wantTarget   uuid.UUID
 	}{
 		{
 			name:         "no id searches every agent's and is not a recorded read",
@@ -590,7 +590,7 @@ func TestSearchDocuments(t *testing.T) {
 		},
 		{
 			name:         "another agent's documents are a recorded read",
-			req:          &agentv1.SearchDocumentsRequest{Query: "index", AgentId: xptr.Ptr(betaID)},
+			req:          &agentv1.SearchDocumentsRequest{Query: "index", AgentId: xptr.Ptr(betaID.String())},
 			wantSearched: documentstore.SearchParams{Query: "index", AgentID: xptr.Ptr(betaID)},
 			wantTarget:   betaID,
 		},
@@ -608,14 +608,14 @@ func TestSearchDocuments(t *testing.T) {
 			assert.Equal(t, []documentstore.SearchParams{tt.wantSearched}, docs.searched)
 			assert.Empty(t, cmp.Diff(&agentv1.SearchDocumentsResponse{
 				Matches: []*agentv1.DocumentHit{{
-					DocumentId: documentID,
-					AgentId:    betaID,
+					DocumentId: documentID.String(),
+					AgentId:    betaID.String(),
 					Name:       "Plan",
 					Snippet:    "the trigram index",
 				}},
 				Near: []*agentv1.DocumentHit{{
-					DocumentId: documentTypeID,
-					AgentId:    alphaID,
+					DocumentId: documentTypeID.String(),
+					AgentId:    alphaID.String(),
 					Name:       "Notes",
 					Snippet:    "reindexing",
 				}},
@@ -643,9 +643,9 @@ func TestGetDocument(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		from       string
+		from       uuid.UUID
 		version    *int32
-		wantTarget string
+		wantTarget uuid.UUID
 	}{
 		{name: "the author reads its own", from: betaID},
 		{
@@ -666,14 +666,14 @@ func TestGetDocument(t *testing.T) {
 			svc := newDocumentHandler(docs)
 			ctx, written := newLoggedCaller(t, tt.from)
 
-			got, err := svc.GetDocument(ctx, connect.NewRequest(&agentv1.GetDocumentRequest{Id: documentID, Version: tt.version}))
+			got, err := svc.GetDocument(ctx, connect.NewRequest(&agentv1.GetDocumentRequest{Id: documentID.String(), Version: tt.version}))
 			require.NoError(t, err)
 
 			assert.Equal(t, []*int32{tt.version}, docs.read)
 
 			assert.Empty(t, cmp.Diff(&agentv1.Document{
-				Id:        documentID,
-				AgentId:   betaID,
+				Id:        documentID.String(),
+				AgentId:   betaID.String(),
 				Name:      "Documents",
 				Type:      "explainer",
 				Body:      "# How documents work",
@@ -694,8 +694,8 @@ func TestGetDocument(t *testing.T) {
 func TestListDocumentVersions(t *testing.T) {
 	tests := []struct {
 		name       string
-		from       string
-		wantTarget string
+		from       uuid.UUID
+		wantTarget uuid.UUID
 	}{
 		{name: "the author lists its own", from: betaID},
 		{
@@ -727,7 +727,7 @@ func TestListDocumentVersions(t *testing.T) {
 			})
 			ctx, written := newLoggedCaller(t, tt.from)
 
-			listed, err := svc.ListDocumentVersions(ctx, connect.NewRequest(&agentv1.ListDocumentVersionsRequest{Id: documentID}))
+			listed, err := svc.ListDocumentVersions(ctx, connect.NewRequest(&agentv1.ListDocumentVersionsRequest{Id: documentID.String()}))
 			require.NoError(t, err)
 
 			assert.Empty(t, cmp.Diff([]*agentv1.DocumentVersion{
@@ -759,7 +759,7 @@ func TestWriteDocumentType(t *testing.T) {
 	tests := []struct {
 		name string
 		req  *agentv1.WriteDocumentTypeRequest
-		from string
+		from uuid.UUID
 		want documents.WriteDocumentTypeParams
 	}{
 		{
@@ -770,7 +770,7 @@ func TestWriteDocumentType(t *testing.T) {
 		{
 			name: "an id and version rewrite that type",
 			req: &agentv1.WriteDocumentTypeRequest{
-				Id:      xptr.Ptr(documentTypeID),
+				Id:      xptr.Ptr(documentTypeID.String()),
 				Version: xptr.Ptr(int32(3)),
 				Name:    "incident",
 				Context: "What broke and why.",
@@ -800,7 +800,7 @@ func TestWriteDocumentType(t *testing.T) {
 			svc := newDocumentHandler(docs)
 
 			ctx := t.Context()
-			if tt.from != "" {
+			if tt.from != uuid.Nil {
 				ctx = caller.With(ctx, caller.Caller{AgentID: tt.from})
 			}
 
@@ -808,7 +808,7 @@ func TestWriteDocumentType(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Equal(t, []documents.WriteDocumentTypeParams{tt.want}, docs.writtenTypes)
-			assert.Equal(t, documentTypeID, written.Msg.GetDocumentType().GetId())
+			assert.Equal(t, documentTypeID.String(), written.Msg.GetDocumentType().GetId())
 			assert.Equal(t, tt.want.Context, written.Msg.GetDocumentType().GetContext())
 		})
 	}
@@ -820,7 +820,7 @@ func TestDeleteDocument(t *testing.T) {
 	svc := newDocumentHandler(docs)
 
 	ctx := caller.With(t.Context(), caller.Caller{AgentID: alphaID})
-	_, err := svc.DeleteDocument(ctx, connect.NewRequest(&agentv1.DeleteDocumentRequest{Id: documentID}))
+	_, err := svc.DeleteDocument(ctx, connect.NewRequest(&agentv1.DeleteDocumentRequest{Id: documentID.String()}))
 	require.NoError(t, err)
 
 	assert.Equal(t, []documents.DeleteDocumentParams{{ID: documentID, ByAgentID: alphaID}}, docs.deleted)
@@ -832,7 +832,7 @@ func TestDeleteDocumentType(t *testing.T) {
 	svc := newDocumentHandler(docs)
 
 	ctx := caller.With(t.Context(), caller.Caller{AgentID: alphaID})
-	_, err := svc.DeleteDocumentType(ctx, connect.NewRequest(&agentv1.DeleteDocumentTypeRequest{Id: documentTypeID}))
+	_, err := svc.DeleteDocumentType(ctx, connect.NewRequest(&agentv1.DeleteDocumentTypeRequest{Id: documentTypeID.String()}))
 	require.NoError(t, err)
 
 	assert.Equal(t, []documents.DeleteDocumentTypeParams{{ID: documentTypeID, ByAgentID: alphaID}}, docs.deletedTypes)
@@ -856,7 +856,7 @@ func TestListDocumentTypes(t *testing.T) {
 	require.NoError(t, err)
 
 	want := []*agentv1.DocumentType{{
-		Id:        documentTypeID,
+		Id:        documentTypeID.String(),
 		Name:      "RFC",
 		Context:   "A proposal.",
 		Version:   2,
@@ -909,7 +909,7 @@ func TestListDocumentTypeVersions(t *testing.T) {
 		},
 	}})
 
-	listed, err := svc.ListDocumentTypeVersions(t.Context(), connect.NewRequest(&agentv1.ListDocumentTypeVersionsRequest{Id: documentTypeID}))
+	listed, err := svc.ListDocumentTypeVersions(t.Context(), connect.NewRequest(&agentv1.ListDocumentTypeVersionsRequest{Id: documentTypeID.String()}))
 	require.NoError(t, err)
 
 	assert.Empty(t, cmp.Diff([]*agentv1.DocumentTypeVersion{

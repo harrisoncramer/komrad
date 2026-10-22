@@ -7,11 +7,13 @@ import (
 	"komrad/internal/agenterr"
 	agentstore "komrad/internal/store/agent"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // room is one task or orchestrator and how many agents a call wants to put under it.
 type room struct {
-	id   string
+	id   uuid.UUID
 	name string
 	want int
 }
@@ -29,7 +31,7 @@ func claimRoomForAgents(ctx context.Context, agents *agentstore.AgentStore, maxA
 
 // claimRoomForReviewer holds one task to the reviewers it may run at once, a lower ceiling than the
 // panel's own.
-func claimRoomForReviewer(ctx context.Context, agents *agentstore.AgentStore, maxReviewers int, taskID string) error {
+func claimRoomForReviewer(ctx context.Context, agents *agentstore.AgentStore, maxReviewers int, taskID uuid.UUID) error {
 	if maxReviewers <= 0 {
 		return nil
 	}
@@ -52,7 +54,7 @@ func claimRoomForRestoredReviewers(ctx context.Context, agents *agentstore.Agent
 
 	// The whole batch is counted against each task at once, which reviewers checked one at a time
 	// would walk past together.
-	taskIDs, want := countWantedUnder(restoring, func(agent agentstore.Agent) *string {
+	taskIDs, want := countWantedUnder(restoring, func(agent agentstore.Agent) *uuid.UUID {
 		if agent.Role != agentstore.RoleReviewer {
 			return nil
 		}
@@ -67,7 +69,7 @@ func claimRoomForRestoredReviewers(ctx context.Context, agents *agentstore.Agent
 		return err
 	}
 
-	return requireRoomForReviewers(ctx, agents, maxReviewers, xslice.Map(taskIDs, func(id string) room {
+	return requireRoomForReviewers(ctx, agents, maxReviewers, xslice.Map(taskIDs, func(id uuid.UUID) room {
 		return room{
 			id:   id,
 			want: want[id],
@@ -95,7 +97,7 @@ func claimRoomForRestoredTasks(ctx context.Context, agents *agentstore.AgentStor
 		return nil
 	}
 
-	spawnerIDs, want := countWantedUnder(restoring, func(agent agentstore.Agent) *string {
+	spawnerIDs, want := countWantedUnder(restoring, func(agent agentstore.Agent) *uuid.UUID {
 		if agent.Role != agentstore.RoleWriter {
 			return nil
 		}
@@ -128,9 +130,9 @@ func claimRoomForRestoredTasks(ctx context.Context, agents *agentstore.AgentStor
 	}))
 }
 
-func countWantedUnder(restoring []agentstore.Agent, under func(agentstore.Agent) *string) ([]string, map[string]int) {
-	want := make(map[string]int, len(restoring))
-	var ids []string
+func countWantedUnder(restoring []agentstore.Agent, under func(agentstore.Agent) *uuid.UUID) ([]uuid.UUID, map[uuid.UUID]int) {
+	want := make(map[uuid.UUID]int, len(restoring))
+	var ids []uuid.UUID
 	for _, agent := range restoring {
 		id := under(agent)
 		if id == nil {

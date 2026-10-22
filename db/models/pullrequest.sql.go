@@ -8,6 +8,8 @@ package models
 import (
 	"context"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const ensurePullRequestSync = `-- name: EnsurePullRequestSync :exec
@@ -177,7 +179,7 @@ WHERE
     id = $1
 `
 
-func (q *Queries) GetPullRequest(ctx context.Context, id string) (*PullRequest, error) {
+func (q *Queries) GetPullRequest(ctx context.Context, id uuid.UUID) (*PullRequest, error) {
 	row := q.db.QueryRow(ctx, getPullRequest, id)
 	var i PullRequest
 	err := row.Scan(
@@ -284,7 +286,7 @@ WHERE
 FOR UPDATE
 `
 
-func (q *Queries) GetPullRequestForUpdate(ctx context.Context, id string) (*PullRequest, error) {
+func (q *Queries) GetPullRequestForUpdate(ctx context.Context, id uuid.UUID) (*PullRequest, error) {
 	row := q.db.QueryRow(ctx, getPullRequestForUpdate, id)
 	var i PullRequest
 	err := row.Scan(
@@ -464,15 +466,15 @@ ORDER BY
     writers.id
 `
 
-func (q *Queries) ListPullRequestRecipients(ctx context.Context, id string) ([]string, error) {
+func (q *Queries) ListPullRequestRecipients(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, listPullRequestRecipients, id)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []uuid.UUID
 	for rows.Next() {
-		var id string
+		var id uuid.UUID
 		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
@@ -512,7 +514,7 @@ LIMIT $6
 type ListPullRequestsPageParams struct {
 	RepositoryUrl  string
 	HeadBranch     string
-	CursorID       *string
+	CursorID       *uuid.UUID
 	CursorFinished bool
 	CursorOpenedAt time.Time
 	Lim            int32
@@ -594,7 +596,7 @@ ORDER BY
     o.first_seen_at
 `
 
-func (q *Queries) ListTaskPullRequests(ctx context.Context, taskIds []string) ([]*TaskPullRequest, error) {
+func (q *Queries) ListTaskPullRequests(ctx context.Context, taskIds []uuid.UUID) ([]*TaskPullRequest, error) {
 	rows, err := q.db.Query(ctx, listTaskPullRequests, taskIds)
 	if err != nil {
 		return nil, err
@@ -644,7 +646,7 @@ ORDER BY
 `
 
 type ListTasksLeftOnParentBranchesRow struct {
-	ID               string
+	ID               uuid.UUID
 	LeftParentBranch string
 }
 
@@ -681,13 +683,13 @@ WHERE
             task_pull_requests o
         WHERE
             o.pull_request_id = p.id)
-    AND ($1::text[] IS NULL
+    AND ($1::uuid[] IS NULL
         OR p.id = ANY ($1::uuid[]))
 ORDER BY
     p.id
 `
 
-func (q *Queries) ListWatchedPullRequests(ctx context.Context, keys []string) ([]*PullRequest, error) {
+func (q *Queries) ListWatchedPullRequests(ctx context.Context, keys []uuid.UUID) ([]*PullRequest, error) {
 	rows, err := q.db.Query(ctx, listWatchedPullRequests, keys)
 	if err != nil {
 		return nil, err
@@ -824,7 +826,7 @@ WHERE
 
 type RecordRetargetRefusedParams struct {
 	ChangedAt time.Time
-	ID        string
+	ID        uuid.UUID
 }
 
 func (q *Queries) RecordRetargetRefused(ctx context.Context, arg RecordRetargetRefusedParams) error {
@@ -995,7 +997,7 @@ type UpsertPullRequestParams struct {
 }
 
 type UpsertPullRequestRow struct {
-	ID       string
+	ID       uuid.UUID
 	Inserted bool
 	Changed  bool
 	OldState *string
@@ -1078,7 +1080,7 @@ type WriteMergeReadinessParams struct {
 	KnownDecision          *string
 	AutoMerge              *bool
 	AutoMergeable          bool
-	ID                     string
+	ID                     uuid.UUID
 }
 
 func (q *Queries) WriteMergeReadiness(ctx context.Context, arg WriteMergeReadinessParams) error {

@@ -4,8 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-
 	"komrad/internal/dbtest"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
@@ -13,11 +11,12 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-const missingID = "00000000-0000-0000-0000-000000000000"
+var missingID = uuid.New()
 
 // TestGet pins which lookups find a schedule, an archived one and an id nobody holds
 // included.
@@ -26,16 +25,12 @@ func TestGet(t *testing.T) {
 		name     string
 		create   bool
 		archive  bool
-		id       string
+		id       uuid.UUID
 		wantName string
 	}{
 		{
 			name: "an id nobody holds",
 			id:   missingID,
-		},
-		{
-			name: "a malformed id is not a schedule",
-			id:   "not-an-id",
 		},
 		{
 			name:    "an archived schedule is hidden",
@@ -260,7 +255,7 @@ func TestListWatched(t *testing.T) {
 		{
 			name:      "keys naming no schedule list nothing",
 			seeds:     []string{"a"},
-			keys:      []string{"00000000-0000-0000-0000-000000000000"},
+			keys:      []string{"nobody"},
 			wantNames: []string{},
 		},
 		{
@@ -276,7 +271,7 @@ func TestListWatched(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			byName := make(map[string]string, len(tt.seeds))
+			byName := make(map[string]uuid.UUID, len(tt.seeds))
 			for _, name := range tt.seeds {
 				created := seed(t, st, Config{
 					Name:   name,
@@ -364,7 +359,7 @@ func TestListPage(t *testing.T) {
 			}
 
 			var (
-				seen   []string
+				seen   []uuid.UUID
 				cursor *Cursor
 				pages  int
 			)
@@ -376,7 +371,7 @@ func TestListPage(t *testing.T) {
 				}
 
 				pages++
-				seen = append(seen, xslice.Map(page, func(s Schedule) string {
+				seen = append(seen, xslice.Map(page, func(s Schedule) uuid.UUID {
 					return s.ID
 				})...)
 
@@ -386,7 +381,7 @@ func TestListPage(t *testing.T) {
 
 			assert.Equal(t, tt.wantPages, pages)
 			assert.Len(t, seen, tt.wantSeen, "every schedule on the listed side is returned exactly once")
-			assert.IsDecreasing(t, seen, "the listing is newest first, which is descending id order")
+			assert.IsDecreasing(t, xslice.Map(seen, uuid.UUID.String), "the listing is newest first, which is descending id order")
 		})
 	}
 }
@@ -534,7 +529,7 @@ func TestDeletingAnOrchestratorTakesItsSchedules(t *testing.T) {
 		OrchestratorAgentID: &kept,
 	})
 
-	_, err := st.agents.Delete(ctx, []string{gone})
+	_, err := st.agents.Delete(ctx, []uuid.UUID{gone})
 	require.NoError(t, err)
 
 	_, err = st.GetIncludingArchived(ctx, mailingGone.ID)
@@ -562,7 +557,7 @@ func open(t *testing.T) *fixture {
 func seed(t *testing.T, st *fixture, cfg Config) *Schedule {
 	t.Helper()
 
-	if cfg.WorkflowID == "" {
+	if cfg.WorkflowID == uuid.Nil {
 		cfg.WorkflowID = seedWorkflow(t, st)
 	}
 
@@ -573,7 +568,7 @@ func seed(t *testing.T, st *fixture, cfg Config) *Schedule {
 	return created
 }
 
-func seedWorkflow(t *testing.T, st *fixture) string {
+func seedWorkflow(t *testing.T, st *fixture) uuid.UUID {
 	t.Helper()
 
 	created, err := st.workflows.Create(t.Context(), workflowstore.Config{Name: "backend-" + uuid.NewString(), Worktree: workflowstore.WorktreeConfig{BaseBranch: "main"}})
@@ -583,16 +578,16 @@ func seedWorkflow(t *testing.T, st *fixture) string {
 	return created.ID
 }
 
-func seedAgent(t *testing.T, st *fixture, workflowID string) string {
+func seedAgent(t *testing.T, st *fixture, workflowID uuid.UUID) uuid.UUID {
 	t.Helper()
 
-	id := uuid.NewString()
+	id := uuid.New()
 	taskID, err := tasktest.Seed(t.Context(), st.db, workflowID)
 	require.NoError(t, err)
 	require.NoError(t, st.agents.Create(t.Context(), agentstore.Agent{
 		TaskID:     taskID,
 		ID:         id,
-		Name:       "orchestrator-" + id,
+		Name:       "orchestrator-" + id.String(),
 		WorkflowID: workflowID,
 		State:      agentstore.StateIdle,
 	}))
@@ -600,16 +595,16 @@ func seedAgent(t *testing.T, st *fixture, workflowID string) string {
 	return id
 }
 
-func resolveSeedNames(keys []string, byName map[string]string) []string {
+func resolveSeedNames(keys []string, byName map[string]uuid.UUID) []uuid.UUID {
 	if keys == nil {
 		return nil
 	}
 
-	return xslice.Map(keys, func(key string) string {
+	return xslice.Map(keys, func(key string) uuid.UUID {
 		if id, ok := byName[key]; ok {
 			return id
 		}
 
-		return key
+		return uuid.New()
 	})
 }

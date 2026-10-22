@@ -10,6 +10,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -81,7 +82,7 @@ func TestRemoveRefuses(t *testing.T) {
 			name: "a directory whose task is being deleted",
 			lay: func(t *testing.T, fixture *worktreeFixture) string {
 				dir := fixture.cut(t)
-				require.NoError(t, fixture.stores.Tasks.MarkDeleting(t.Context(), []string{filepath.Base(dir)}))
+				require.NoError(t, fixture.stores.Tasks.MarkDeleting(t.Context(), []uuid.UUID{uuid.MustParse(filepath.Base(dir))}))
 
 				return dir
 			},

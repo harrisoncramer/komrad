@@ -8,6 +8,8 @@ package models
 import (
 	"context"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const deleteDocument = `-- name: DeleteDocument :execrows
@@ -15,7 +17,7 @@ DELETE FROM documents
 WHERE id = $1
 `
 
-func (q *Queries) DeleteDocument(ctx context.Context, id string) (int64, error) {
+func (q *Queries) DeleteDocument(ctx context.Context, id uuid.UUID) (int64, error) {
 	result, err := q.db.Exec(ctx, deleteDocument, id)
 	if err != nil {
 		return 0, err
@@ -32,7 +34,7 @@ WHERE
     id = $1
 `
 
-func (q *Queries) GetDocument(ctx context.Context, id string) (*Document, error) {
+func (q *Queries) GetDocument(ctx context.Context, id uuid.UUID) (*Document, error) {
 	row := q.db.QueryRow(ctx, getDocument, id)
 	var i Document
 	err := row.Scan(
@@ -61,13 +63,13 @@ WHERE
 `
 
 type GetDocumentIDByNameParams struct {
-	AgentID string
+	AgentID uuid.UUID
 	Name    string
 }
 
-func (q *Queries) GetDocumentIDByName(ctx context.Context, arg GetDocumentIDByNameParams) (string, error) {
+func (q *Queries) GetDocumentIDByName(ctx context.Context, arg GetDocumentIDByNameParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, getDocumentIDByName, arg.AgentID, arg.Name)
-	var id string
+	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
 }
@@ -83,7 +85,7 @@ WHERE
 `
 
 type GetDocumentVersionParams struct {
-	DocumentID string
+	DocumentID uuid.UUID
 	Version    int32
 }
 
@@ -154,21 +156,21 @@ type InsertDocumentParams struct {
 	Name     string
 	Type     string
 	Body     string
-	AgentID  string
+	AgentID  uuid.UUID
 	ByPerson bool
 }
 
 type InsertDocumentRow struct {
-	ID        string
-	AgentID   string
+	ID        uuid.UUID
+	AgentID   uuid.UUID
 	Name      string
 	Body      string
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	EngineID  string
+	EngineID  uuid.UUID
 	Version   int32
 	Type      string
-	TaskID    *string
+	TaskID    *uuid.UUID
 }
 
 func (q *Queries) InsertDocument(ctx context.Context, arg InsertDocumentParams) (*InsertDocumentRow, error) {
@@ -218,7 +220,7 @@ type ListDocumentVersionsRow struct {
 	CreatedAt time.Time
 }
 
-func (q *Queries) ListDocumentVersions(ctx context.Context, documentID string) ([]*ListDocumentVersionsRow, error) {
+func (q *Queries) ListDocumentVersions(ctx context.Context, documentID uuid.UUID) ([]*ListDocumentVersionsRow, error) {
 	rows, err := q.db.Query(ctx, listDocumentVersions, documentID)
 	if err != nil {
 		return nil, err
@@ -275,18 +277,18 @@ LIMIT $6
 `
 
 type ListDocumentsParams struct {
-	AgentID         *string
+	AgentID         *uuid.UUID
 	Type            *string
-	TaskID          *string
-	CursorID        *string
+	TaskID          *uuid.UUID
+	CursorID        *uuid.UUID
 	CursorUpdatedAt time.Time
 	Lim             int32
 }
 
 type ListDocumentsRow struct {
-	ID        string
-	AgentID   string
-	TaskID    *string
+	ID        uuid.UUID
+	AgentID   uuid.UUID
+	TaskID    *uuid.UUID
 	Name      string
 	Type      string
 	Version   int32
@@ -377,13 +379,13 @@ type SearchDocumentsParams struct {
 	Wanted   string
 	Excluded string
 	Phrase   *string
-	AgentID  *string
+	AgentID  *uuid.UUID
 	Type     *string
 }
 
 type SearchDocumentsRow struct {
-	ID      string
-	AgentID string
+	ID      uuid.UUID
+	AgentID uuid.UUID
 	Name    string
 	Snippet string
 	Rank    float64
@@ -483,13 +485,13 @@ type SearchDocumentsNearParams struct {
 	Patterns []string
 	Wanted   string
 	Excluded string
-	AgentID  *string
+	AgentID  *uuid.UUID
 	Type     *string
 }
 
 type SearchDocumentsNearRow struct {
-	ID      string
-	AgentID string
+	ID      uuid.UUID
+	AgentID uuid.UUID
 	Name    string
 	Snippet string
 	Rank    float64
@@ -577,23 +579,23 @@ type UpdateDocumentParams struct {
 	Name        string
 	Type        string
 	Body        string
-	ID          string
-	AgentID     string
+	ID          uuid.UUID
+	AgentID     uuid.UUID
 	ReadVersion int32
 	ByPerson    bool
 }
 
 type UpdateDocumentRow struct {
-	ID        string
-	AgentID   string
+	ID        uuid.UUID
+	AgentID   uuid.UUID
 	Name      string
 	Body      string
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	EngineID  string
+	EngineID  uuid.UUID
 	Version   int32
 	Type      string
-	TaskID    *string
+	TaskID    *uuid.UUID
 }
 
 func (q *Queries) UpdateDocument(ctx context.Context, arg UpdateDocumentParams) (*UpdateDocumentRow, error) {

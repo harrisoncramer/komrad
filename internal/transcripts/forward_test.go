@@ -167,7 +167,7 @@ func TestComposeForward(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			want := strings.ReplaceAll(tt.wantBody, "ALPHA", alpha.ID)
+			want := strings.ReplaceAll(tt.wantBody, "ALPHA", alpha.ID.String())
 			assert.Equal(t, &composition{
 				Body:       want,
 				Turns:      tt.wantTurns,

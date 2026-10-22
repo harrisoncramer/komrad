@@ -3,6 +3,7 @@ package workflow
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -10,6 +11,8 @@ import (
 	"komrad/db/models"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
+
+	"github.com/google/uuid"
 )
 
 // ListWorktreeDirs returns the directories the workflows cut their worktrees in.
@@ -38,19 +41,19 @@ func (s *WorkflowStore) List(ctx context.Context) ([]Workflow, error) {
 func byName(a, b Workflow) int {
 	return cmp.Or(
 		strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)),
-		strings.Compare(a.ID, b.ID),
+		store.CompareIDs(a.ID, b.ID),
 	)
 }
 
 type Cursor struct {
-	Name string `json:"n"`
-	ID   string `json:"i"`
+	Name string    `json:"n"`
+	ID   uuid.UUID `json:"i"`
 }
 
 // Validate refuses a cursor holding anything but an id.
 func (c Cursor) Validate() error {
-	if !store.IsID(c.ID) {
-		return fmt.Errorf("cursor id %q is not an id", c.ID)
+	if c.ID == uuid.Nil {
+		return errors.New("cursor names no row")
 	}
 
 	return nil
@@ -77,21 +80,17 @@ func (s *WorkflowStore) ListPage(ctx context.Context, limit int64, cursor *Curso
 }
 
 // Get returns a live workflow by id, or ErrNotFound when none has that id.
-func (s *WorkflowStore) Get(ctx context.Context, id string) (*Workflow, error) {
+func (s *WorkflowStore) Get(ctx context.Context, id uuid.UUID) (*Workflow, error) {
 	return s.get(ctx, id, false)
 }
 
 // GetIncludingArchived reads a workflow by id whether or not it is archived, returning
 // ErrNotFound when none has that id.
-func (s *WorkflowStore) GetIncludingArchived(ctx context.Context, id string) (*Workflow, error) {
+func (s *WorkflowStore) GetIncludingArchived(ctx context.Context, id uuid.UUID) (*Workflow, error) {
 	return s.get(ctx, id, true)
 }
 
-func (s *WorkflowStore) get(ctx context.Context, id string, includeArchived bool) (*Workflow, error) {
-	if !store.IsID(id) {
-		return nil, store.ErrNotFound.Saying("no workflow with id %q", id)
-	}
-
+func (s *WorkflowStore) get(ctx context.Context, id uuid.UUID, includeArchived bool) (*Workflow, error) {
 	row, err := s.queries.GetWorkflow(ctx, models.GetWorkflowParams{ID: id, IncludeArchived: includeArchived})
 	if db.IsNoRows(err) {
 		return nil, store.ErrNotFound.Saying("no workflow with id %q", id)

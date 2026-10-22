@@ -29,7 +29,7 @@ func statusCheckReading(reading pullrequeststore.StatusCheckReading) *pullreques
 
 func statusCheck(reading pullrequeststore.StatusCheckReading, stored forge.StatusCheck) *pullrequestv1.StatusCheck {
 	return &pullrequestv1.StatusCheck{
-		Id:           reading.CheckIDs[stored.ProviderID],
+		Id:           reading.CheckIDs[stored.ProviderID].String(),
 		ProviderId:   stored.ProviderID,
 		Kind:         statusCheckKindOf(stored.Kind),
 		Source:       stored.Source,
@@ -111,7 +111,7 @@ func CheckLogSearch(search *pullrequeststore.CheckLogSearch) *pullrequestv1.Sear
 	return &pullrequestv1.SearchCheckLogsResponse{
 		Hits: xslice.Map(search.Hits, func(hit pullrequeststore.CheckLogHit) *pullrequestv1.CheckLogHit {
 			return &pullrequestv1.CheckLogHit{
-				CheckId:    hit.CheckID,
+				CheckId:    hit.CheckID.String(),
 				Line:       int32(hit.Line),
 				StepNumber: int32(hit.StepNumber),
 				Text:       hit.Text,
