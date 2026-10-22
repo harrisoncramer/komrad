@@ -42,7 +42,7 @@ func Key(name Name, width, nth int, key string) string {
 	return "\x1b_kzr:" + string(name) + ":" + strconv.Itoa(width) + ":" + strconv.Itoa(nth) + ":" + hex.EncodeToString([]byte(key)) + "\x1b\\"
 }
 
-// StripKeys is a frame with its row marks taken out.
+// StripKeys takes the row marks out of a frame.
 func StripKeys(frame string) string {
 	return keyMark.ReplaceAllString(frame, "")
 }
