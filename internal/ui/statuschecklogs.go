@@ -29,6 +29,7 @@ const (
 
 // statusCheckLogsScreen is the logs of the checks the status checks screen lists, joined into one document.
 type statusCheckLogsScreen struct {
+	deps statusChecksDeps
 	list.Cursor
 	agentID string
 	// openedFrom is the screen the logs were opened from, which going back returns to.
@@ -92,6 +93,7 @@ func (c *statusCheckLogsScreen) enter(m *model, target screen.Target) screen.Req
 	generation := c.generation + 1
 	if target.AgentID != "" {
 		*c = statusCheckLogsScreen{
+			deps:       c.deps,
 			agentID:    target.AgentID,
 			openedFrom: target.OpenedFrom,
 		}
@@ -127,6 +129,8 @@ func (c *statusCheckLogsScreen) receive(m *model, msg tea.Msg) (screen.Request, 
 
 func (c *statusCheckLogsScreen) list() screenList[statusCheckLogRow] {
 	return screenList[statusCheckLogRow]{
+		keys:   c.deps.keys,
+		top:    c.deps.top,
 		cursor: func() *list.Cursor { return &c.Cursor },
 		rows:   c.rows,
 		name:   statusCheckLogRowName,
@@ -193,7 +197,7 @@ func (c *statusCheckLogsScreen) reanchor(m *model) screen.Request {
 
 func (c *statusCheckLogsScreen) listParams(m *model) screenListParams {
 	return screenListParams{
-		tally:    m.statusChecks.commit.tally(m.clock.Now()),
+		tally:    m.statusChecks.commit.tally(c.deps.clock.Now()),
 		help:     c.help,
 		empty:    m.statusChecks.emptyLine(m),
 		rows:     len(c.rows(m)),
@@ -352,15 +356,15 @@ func (c *statusCheckLogsScreen) readsCmd(m *model) tea.Cmd {
 		}
 
 		c.logs[item.checkID] = &statusCheckLogRead{reading: true}
-		cmds = append(cmds, c.readCmd(m, item.checkID, 1, item.log.GetLineCount()))
+		cmds = append(cmds, c.readCmd(item.checkID, 1, item.log.GetLineCount()))
 	}
 
 	return tea.Batch(cmds...)
 }
 
 // readCmd reads one chunk of a check's log, from its first line toward its last.
-func (c *statusCheckLogsScreen) readCmd(m *model, checkID string, first, last int32) tea.Cmd {
-	generation, clients := c.generation, m.api
+func (c *statusCheckLogsScreen) readCmd(checkID string, first, last int32) tea.Cmd {
+	generation, clients := c.generation, c.deps.clients
 	count := min(last-first+1, statusCheckLogChunk)
 
 	return func() tea.Msg {
@@ -393,7 +397,7 @@ func (c *statusCheckLogsScreen) applyRead(m *model, msg statusCheckLogReadMsg) s
 	if int32(len(read.lines)) >= total || len(msg.resp.GetLines()) == 0 {
 		read.reading = false
 	} else {
-		next = c.readCmd(m, msg.checkID, int32(len(read.lines))+1, total)
+		next = c.readCmd(msg.checkID, int32(len(read.lines))+1, total)
 	}
 
 	return screen.Batch{c.reanchor(m), screen.Cmd(next)}

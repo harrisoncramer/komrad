@@ -36,14 +36,14 @@ func (a *agentsScreen) update(m *model, msg tea.Msg) screen.Request {
 	switch msg := msg.(type) {
 	case tea.PasteMsg:
 		if a.isRenaming() {
-			return a.updateRename(m, msg)
+			return a.updateRename(a.deps.register, a.deps.clients, msg)
 		}
 	case reviewPausedMsg:
-		return a.applyPaused(m, msg)
+		return a.applyPaused(msg)
 	case tea.KeyPressMsg:
 		a.reconcileRename(m)
 		if a.isRenaming() {
-			return a.updateRename(m, msg)
+			return a.updateRename(a.deps.register, a.deps.clients, msg)
 		}
 
 		return a.list().update(m, msg, a.actions())
@@ -69,6 +69,8 @@ func (a *agentsScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) {
 
 func (a *agentsScreen) list() screenList[agentRow] {
 	return screenList[agentRow]{
+		keys:   a.deps.keys,
+		top:    a.deps.top,
 		cursor: func() *list.Cursor { return &a.Cursor },
 		rows:   a.rows,
 		name:   agentRowName,
@@ -85,12 +87,12 @@ func (a *agentsScreen) stage(*model) screen.Request {
 	return screen.Restage{}
 }
 
-func (m *model) archiveAgents(agents []panel.Agent) screen.Request {
+func (a *agentsScreen) archiveAgents(agents []panel.Agent) screen.Request {
 	if len(agents) == 0 {
 		return nil
 	}
 
-	return m.api.ArchivingWrite(api.ArchivingWriteParams{
+	return a.deps.clients.ArchivingWrite(api.ArchivingWriteParams{
 		Doing:   "archiving " + describeAgents(agents),
 		Summary: fmt.Sprintf("Could not archive %s", describeAgents(agents)),
 		Agents:  agents,
@@ -104,7 +106,7 @@ func (m *model) archiveAgents(agents []panel.Agent) screen.Request {
 // standing behind it and for a task its writer.
 func (a *agentsScreen) openHovered(m *model) screen.Request {
 	if workflow, ok := a.hoveredWorkflow(m); ok {
-		return startOrchestrator(m, workflow)
+		return a.startOrchestrator(workflow)
 	}
 
 	item, ok := a.hoveredPaneItem(m)
@@ -137,17 +139,17 @@ func (a *agentsScreen) openAgent(m *model, item panel.AgentRow) screen.Request {
 		return nil
 	}
 
-	return a.resume(m, item.Agent)
+	return a.resume(item.Agent)
 }
 
 // resume wakes a dormant agent in the background.
-func (a *agentsScreen) resume(m *model, agent panel.Agent) screen.Request {
+func (a *agentsScreen) resume(agent panel.Agent) screen.Request {
 	if a.resuming == nil {
 		a.resuming = map[string]struct{}{}
 	}
 	a.resuming[agent.ID] = struct{}{}
 
-	clients := m.api
+	clients := a.deps.clients
 
 	return screen.Write{
 		Doing:   "resuming " + agent.Name,
@@ -284,8 +286,8 @@ func (a *agentsScreen) help(m *model) keyMap {
 }
 
 // startOrchestrator brings the workflow's orchestrator back and puts the keyboard in its pane.
-func startOrchestrator(m *model, workflow panel.Workflow) screen.Request {
-	return rowWrite(m.api, 
+func (a *agentsScreen) startOrchestrator(workflow panel.Workflow) screen.Request {
+	return rowWrite(a.deps.clients,
 		"starting the orchestrator of "+workflow.Name,
 		fmt.Sprintf("Could not reach the orchestrator of workflow %q", workflow.Name),
 		func(a api.Clients) (*screen.Made, error) {

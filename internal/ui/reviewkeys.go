@@ -15,12 +15,12 @@ import (
 
 func (r *reviewScreen) updateKey(m *model, key tea.KeyPressMsg) screen.Request {
 	if request, ok := r.takeKey(m, key); ok {
-		m.dropTopPress()
+		r.deps.top.Drop()
 
 		return request
 	}
 
-	return m.dispatchTop(r.actions(m), key.String())
+	return r.actions(m).DispatchTop(r.deps.top, m, r.deps.keys, key.String())
 }
 
 // takeKey handles a key before the screen's actions see it, and false for one it leaves to them.
@@ -49,7 +49,7 @@ func (r *reviewScreen) takeKey(m *model, key tea.KeyPressMsg) (screen.Request, b
 		return nil, true
 	}
 
-	if keys.IsBound(k, slices.Concat(m.keys.Column.ScrollDown, m.keys.Column.ScrollUp)) && r.scrollPopup(m, keys.DirectionOf(k, m.keys.Column.ScrollUp)*diffWheelStep) {
+	if keys.IsBound(k, slices.Concat(r.deps.keys.Column.ScrollDown, r.deps.keys.Column.ScrollUp)) && r.scrollPopup(m, keys.DirectionOf(k, r.deps.keys.Column.ScrollUp)*diffWheelStep) {
 		return nil, true
 	}
 
@@ -60,9 +60,11 @@ func (r *reviewScreen) takeKey(m *model, key tea.KeyPressMsg) (screen.Request, b
 // landing on a conversation it has to answer for.
 func (r *reviewScreen) diffKeys() diffKeys {
 	return diffKeys{
-		pane:   &r.diff.Pane,
-		filter: &r.diff.filter,
-		window: r.diffWindow,
+		keys:     r.deps.keys,
+		register: r.deps.register,
+		pane:     &r.diff.Pane,
+		filter:   &r.diff.filter,
+		window:   r.diffWindow,
 		moved: func(m *model) screen.Request {
 			r.threads.scroll.reset()
 
@@ -79,7 +81,7 @@ func (r *reviewScreen) refuseExpand(m *model) string {
 		return ""
 	}
 
-	return "that file is folded away" + separated + m.menuChordLabel(m.keys.Review.ToggleViewed) + " to open it"
+	return "that file is folded away" + separated + m.menuChordLabel(r.deps.keys.Review.ToggleViewed) + " to open it"
 }
 
 // diffWindow is the window that renders the diff, zero-sized without a split.
@@ -178,9 +180,9 @@ func (r *reviewScreen) scrollList(m *model, rows int) screen.Request {
 		return nil
 	}
 
-	pressed := m.keys.Column.ScrollDown
+	pressed := r.deps.keys.Column.ScrollDown
 	if rows < 0 {
-		pressed = m.keys.Column.ScrollUp
+		pressed = r.deps.keys.Column.ScrollUp
 	}
 
 	if len(pressed) == 0 {
@@ -189,7 +191,7 @@ func (r *reviewScreen) scrollList(m *model, rows int) screen.Request {
 
 	var requests screen.Batch
 	for range max(rows, -rows) {
-		requests = append(requests, r.diffActions().Dispatch(m, m.keys, pressed[0]))
+		requests = append(requests, r.diffActions().Dispatch(m, r.deps.keys, pressed[0]))
 	}
 
 	return requests

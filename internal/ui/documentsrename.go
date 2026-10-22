@@ -57,8 +57,8 @@ func (d *documentsScreen) reconcileRename(m *model) {
 	}
 }
 
-func (d *documentsScreen) updateRename(m *model, msg tea.Msg) screen.Request {
-	switch d.renaming.Take(msg, m.register) {
+func (d *documentsScreen) updateRename(msg tea.Msg) screen.Request {
+	switch d.renaming.Take(msg, d.deps.register) {
 	case field.NameGone:
 		return screen.NewNote(screen.Warning, d.renaming.GoneWarning())
 	case field.NameHidden:
@@ -66,14 +66,14 @@ func (d *documentsScreen) updateRename(m *model, msg tea.Msg) screen.Request {
 	case field.NameCancelled:
 		d.renaming = nil
 	case field.NameSubmitted:
-		return d.saveRename(m)
+		return d.saveRename()
 	case field.NameTyping:
 	}
 
 	return nil
 }
 
-func (d *documentsScreen) saveRename(m *model) screen.Request {
+func (d *documentsScreen) saveRename() screen.Request {
 	rename := d.renaming
 	name, ok := rename.Submit()
 	if !ok {
@@ -91,7 +91,7 @@ func (d *documentsScreen) saveRename(m *model) screen.Request {
 	}
 	item.name = name
 
-	return m.api.RenameWrite(
+	return d.deps.clients.RenameWrite(
 		"renaming "+rename.Was(),
 		fmt.Sprintf("Could not rename document %q", rename.Was()),
 		rename.Key(),

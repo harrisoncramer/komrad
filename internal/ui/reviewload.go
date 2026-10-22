@@ -75,6 +75,7 @@ func (r *reviewScreen) open(m *model, agent panel.Agent) screen.Request {
 	workflow := m.listing.WorkflowFor(agent)
 
 	*r = reviewScreen{
+		deps:      r.deps,
 		agentID:   agent.ID,
 		loads:     r.loads,
 		taskID:    agent.TaskID,
@@ -85,7 +86,7 @@ func (r *reviewScreen) open(m *model, agent panel.Agent) screen.Request {
 		diff:      reviewDiff{spec: wholeChange()},
 	}
 
-	return screen.Batch{unnote, r.loadWhole(m)}
+	return screen.Batch{unnote, r.loadWhole()}
 }
 
 // refuse backs out to the listing, for a worktree that turned out to hold nothing.
@@ -119,7 +120,7 @@ func (r *reviewScreen) drop(m *model) screen.Request {
 
 	letGo := r.endHold(m, abandonedSaid)
 
-	*r = reviewScreen{loads: r.loads}
+	*r = reviewScreen{deps: r.deps, loads: r.loads}
 
 	return screen.Batch{unstaged, screen.Open{Screen: screen.Agents}, letGo}
 }
@@ -135,10 +136,10 @@ func describeRefusedReview(name string, err error) string {
 }
 
 // loadWhole reads the whole change of the agent on screen.
-func (r *reviewScreen) loadWhole(m *model) screen.Request {
+func (r *reviewScreen) loadWhole() screen.Request {
 	r.loads++
 
-	return screen.Cmd(loadReviewCmd(m, loadReviewCmdParams{
+	return screen.Cmd(r.loadReviewCmd(loadReviewCmdParams{
 		AgentID: r.agentID,
 		TaskID:  r.taskID,
 		Dir:     r.dir,
@@ -160,10 +161,10 @@ type loadReviewCmdParams struct {
 
 // loadReviewCmd takes a snapshot of the agent and reads that rather than the worktree, a tree that
 // has not moved giving back the snapshot already taken of it.
-func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
-	agents := m.api.Agents
+func (r *reviewScreen) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
+	agents := r.deps.clients.Agents
 	agentID := params.AgentID
-	patches := m.patches
+	patches := r.deps.patches
 
 	read := func(ctx context.Context) reviewLoadedMsg {
 		resp, err := agents.OpenReviewHistory(ctx, connect.NewRequest(historyRequestOf(params)))
@@ -341,7 +342,7 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) screen.Request
 
 		r.diff.widen()
 
-		return screen.Batch{widened, screen.NewNote(screen.Warning, said), r.loadWhole(m)}
+		return screen.Batch{widened, screen.NewNote(screen.Warning, said), r.loadWhole()}
 	}
 
 	// Both render nothing, so both back out rather than leaving the reader in an empty viewer.
@@ -352,7 +353,7 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) screen.Request
 	if msg.patch == nil && r.diff.spec.origin != nil {
 		r.diff.widen()
 
-		return screen.Batch{widened, screen.NewNote(screen.Warning, "could not render where this comment was written: "+msg.err.Error()), r.loadWhole(m)}
+		return screen.Batch{widened, screen.NewNote(screen.Warning, "could not render where this comment was written: "+msg.err.Error()), r.loadWhole()}
 	}
 
 	if msg.patch == nil {
@@ -366,7 +367,7 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) screen.Request
 
 	r.root = msg.patch.Root
 	r.snapshot = msg.snapshot
-	r.diff.load(msg, m.term.isDark, m.glyphs)
+	r.diff.load(msg, m.term.isDark, r.deps.glyphs)
 	r.threads.set(msg.threads)
 
 	r.scrollToCursor(m)
@@ -489,17 +490,17 @@ func (r *reviewScreen) toggleAgentThreads(m *model) screen.Request {
 }
 
 // catchUp takes a snapshot of the worktree as it stands and ends the range on it.
-func (r *reviewScreen) catchUp(m *model) screen.Request {
+func (r *reviewScreen) catchUp() screen.Request {
 	if r.diff.spec.isRange() {
 		r.diff.spec.to = ""
 	}
 
-	return r.reload(m)
+	return r.reload()
 }
 
 // reload reads the diff again, holding the place the cursor is standing so the diff comes back
 // under it.
-func (r *reviewScreen) reload(m *model) screen.Request {
+func (r *reviewScreen) reload() screen.Request {
 	if r.diff.View() == nil {
 		return nil
 	}
@@ -510,7 +511,7 @@ func (r *reviewScreen) reload(m *model) screen.Request {
 
 	r.loads++
 
-	return screen.Cmd(loadReviewCmd(m, loadReviewCmdParams{
+	return screen.Cmd(r.loadReviewCmd(loadReviewCmdParams{
 		AgentID: r.agentID,
 		TaskID:  r.taskID,
 		Dir:     r.dir,

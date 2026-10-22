@@ -34,7 +34,7 @@ func (r reviewScreen) sideView(m *model, lines int) string {
 			cursor = at
 		}
 
-		rows = append(rows, ansi.Truncate(r.sideRowView(m, row, current && focused), max(width, 0), "…"))
+		rows = append(rows, ansi.Truncate(r.sideRowView(row, current && focused), max(width, 0), "…"))
 		keys = append(keys, row.key())
 	}
 
@@ -54,7 +54,7 @@ func (r reviewScreen) sideView(m *model, lines int) string {
 }
 
 // sideRowView is one row over the file tree, lit while the cursor is on it.
-func (r reviewScreen) sideRowView(m *model, row sideRow, lit bool) string {
+func (r reviewScreen) sideRowView(row sideRow, lit bool) string {
 	text := row.text
 	switch row.kind {
 	case sideBlank:
@@ -75,7 +75,7 @@ func (r reviewScreen) sideRowView(m *model, row sideRow, lit bool) string {
 		if r.openDescription {
 			mark = glyph.FolderOpen
 		}
-		text = m.glyphs.Spell(mark) + " " + text
+		text = r.deps.glyphs.Spell(mark) + " " + text
 	case sideDescriptionLine:
 		text = dimStyle().Render(descriptionIndent + text)
 	case sideForge, sideNeed:

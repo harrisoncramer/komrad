@@ -76,6 +76,6 @@ func (r reviewScreen) movedNotice(m *model) screen.Note {
 		Kind:    screen.Warning,
 		Key:     "moved:" + r.agentID + ":" + moved,
 		Summary: "the worktree has moved",
-		Detail:  m.menuChordLabel(m.keys.Review.Reload) + " to catch up",
+		Detail:  m.menuChordLabel(r.deps.keys.Review.Reload) + " to catch up",
 	}
 }

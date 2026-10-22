@@ -21,15 +21,15 @@ type reviewAnswer struct {
 
 // toggleAnswer puts the answer to the comment under the cursor on screen, or goes back to the
 // range held before it.
-func (r *reviewScreen) toggleAnswer(m *model) screen.Request {
+func (r *reviewScreen) toggleAnswer() screen.Request {
 	if r.diff.spec.origin != nil {
-		return r.leaveOrigin(m)
+		return r.leaveOrigin()
 	}
 
 	if r.diff.spec.answer != nil {
 		answer := r.diff.spec.answer
 		r.diff.spec = answer.held
-		cmd := r.reload(m)
+		cmd := r.reload()
 		r.diff.restore = answer.place
 
 		return cmd
@@ -57,7 +57,7 @@ func (r *reviewScreen) toggleAnswer(m *model) screen.Request {
 
 	r.diff.spec = answerSpec(answer)
 
-	return r.reload(m)
+	return r.reload()
 }
 
 // doesOfferAnswer reports whether the answer key has anything to do where the cursor stands.

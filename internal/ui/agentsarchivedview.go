@@ -14,7 +14,7 @@ func (a *archivedAgents) details(m *model) details {
 	}
 
 	if r.isTask() {
-		return taskDetails(m, r)
+		return taskDetails(m, a.deps.glyphs, r)
 	}
 
 	if r.header {
@@ -24,7 +24,7 @@ func (a *archivedAgents) details(m *model) details {
 		}
 	}
 
-	return agentDetails(m, r)
+	return agentDetails(m, a.deps.glyphs, r)
 }
 
 // doc is the markdown rendered beside the list for the row the cursor is on.

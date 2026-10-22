@@ -218,24 +218,25 @@ func rowWrite(clients api.Clients, doing, summary string, write func(api.Clients
 // agentWrite is rowWrite for a write answering with an agent, whose row is shown in the
 // pane the agent is running in.
 func agentWrite(clients api.Clients, doing, summary string, write func(api.Clients) (*agentv1.Agent, error)) screen.Write {
-	return paneWrite(clients, doing, summary, false, write)
+	return rowWrite(clients, doing, summary, madeAgentOf(write, false))
 }
 
 // openingWrite is agentWrite for a write that puts a conversation back in a pane, which
 // ends with the keyboard in that pane the way the open key over a live agent does.
 func openingWrite(clients api.Clients, doing, summary string, write func(api.Clients) (*agentv1.Agent, error)) screen.Write {
-	return paneWrite(clients, doing, summary, true, write)
+	return rowWrite(clients, doing, summary, madeAgentOf(write, true))
 }
 
-func paneWrite(clients api.Clients, doing, summary string, focus bool, write func(api.Clients) (*agentv1.Agent, error)) screen.Write {
-	return rowWrite(clients, doing, summary, func(clients api.Clients) (*screen.Made, error) {
+// madeAgentOf turns a write answering with an agent into one answering with the agent's row.
+func madeAgentOf(write func(api.Clients) (*agentv1.Agent, error), focus bool) func(api.Clients) (*screen.Made, error) {
+	return func(clients api.Clients) (*screen.Made, error) {
 		agent, err := write(clients)
 		if err != nil {
 			return nil, err
 		}
 
 		return madeAgent(agent, focus), nil
-	})
+	}
 }
 
 // madeAgent is the row of an agent a write made, shown in the pane the agent is running in.

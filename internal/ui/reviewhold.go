@@ -4,6 +4,7 @@ import (
 	"context"
 	"slices"
 
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -93,13 +94,13 @@ func (r *reviewScreen) startHold(m *model) screen.Request {
 			Summary: "stopping the agent",
 			Detail:  "the editor opens once it stops",
 		},
-		holdAgent(m, r.agentID, r.agentName),
+		holdAgent(r.deps.clients, r.agentID, r.agentName),
 	}
 }
 
 // holdAgent asks for the agent to stop and reports what came back.
-func holdAgent(m *model, agentID, name string) screen.Request {
-	agents := m.api.Agents
+func holdAgent(clients api.Clients, agentID, name string) screen.Request {
+	agents := clients.Agents
 
 	return screen.Write{
 		Doing: "pausing " + name,
@@ -173,6 +174,5 @@ func (r *reviewScreen) endHold(m *model, said string) screen.Request {
 
 	agent, name := item.Agent, r.agentName
 
-	return m.api.ReleaseWrite("Could not let "+name+" go", agent, said, m.edited[agent.ID])
+	return r.deps.clients.ReleaseWrite("Could not let "+name+" go", agent, said, m.edited[agent.ID])
 }
-

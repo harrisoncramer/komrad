@@ -27,6 +27,7 @@ const (
 
 // archivedSchedules is the schedules view on its archived kind: the cursor in the archived schedules.
 type archivedSchedules struct {
+	deps schedulesDeps
 	list.Cursor
 	built derived[listingKey, []scheduleItem]
 }
@@ -99,6 +100,8 @@ func (a *archivedSchedules) stepKind(m *model, delta int) screen.Request {
 
 func (a *archivedSchedules) list() screenList[scheduleItem] {
 	return screenList[scheduleItem]{
+		keys:   a.deps.keys,
+		top:    a.deps.top,
 		cursor: func() *list.Cursor { return &a.Cursor },
 		rows:   a.listRows,
 		name:   func(item scheduleItem) string { return item.schedule.Name },
@@ -139,11 +142,11 @@ func (a *archivedSchedules) buildItemMenu(m *model) (menu.Menu, bool) {
 		return menu.Menu{}, false
 	}
 
-	return menu.WithNested(rowMenu(target.name()), "archive", m.keys.Menu.Archive, archiveMenu(m, target)), true
+	return menu.WithNested(rowMenu(target.name()), "archive", a.deps.keys.Menu.Archive, archiveMenu(m, a.deps.keys, a.deps.clients, target)), true
 }
 
 // confirmDeleteSchedule asks before it deletes an archived schedule for good.
-func confirmDeleteSchedule(m *model, schedule panel.Schedule) screen.Request {
+func confirmDeleteSchedule(clients api.Clients, schedule panel.Schedule) screen.Request {
 	built, confirmed := deleteScheduleForm(schedule.Name, fixedKeys())
 
 	return form.Open{Form: form.Form{
@@ -153,7 +156,7 @@ func confirmDeleteSchedule(m *model, schedule panel.Schedule) screen.Request {
 				return nil
 			}
 
-			return m.api.AwaitingWrite(
+			return clients.AwaitingWrite(
 				"deleting "+schedule.Name,
 				fmt.Sprintf("Could not delete schedule %q", schedule.Name),
 				screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedSchedules, schedule.ID)},

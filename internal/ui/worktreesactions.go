@@ -90,16 +90,16 @@ func deleteDesc(fate panel.WorktreeFate) string {
 }
 
 // deleteWorktree asks before a directory goes the way its fate decides.
-func deleteWorktree(m *model, item panel.Worktree) screen.Request {
+func (w *worktreesScreen) deleteWorktree(m *model, item panel.Worktree) screen.Request {
 	switch item.Fate {
 	case panel.FateLive:
 		tasks := []panel.Task{*item.Task}
 
-		return m.api.ArchiveTasksWrite(tasks, m.listing.AgentsOnTasks(tasks))
+		return w.deps.clients.ArchiveTasksWrite(tasks, m.listing.AgentsOnTasks(tasks))
 	case panel.FateArchived:
-		return confirmDeleteTasks(m, []panel.Task{*item.Task})
+		return confirmDeleteTasks(m, w.deps.clients, []panel.Task{*item.Task})
 	case panel.FateUnowned:
-		return confirmDeleteWorktrees(m, worktreeDeletion{unowned: []panel.Worktree{item}})
+		return w.confirmDeleteWorktrees(m, worktreeDeletion{unowned: []panel.Worktree{item}})
 	case panel.FateDeleting:
 	}
 
@@ -164,44 +164,44 @@ func (d worktreeDeletion) chosen() int {
 }
 
 // confirmDeleteChosen asks before the chosen directories go, with the confirm that fits the choice.
-func confirmDeleteChosen(m *model, deletion worktreeDeletion) screen.Request {
+func (w *worktreesScreen) confirmDeleteChosen(m *model, deletion worktreeDeletion) screen.Request {
 	switch {
 	case len(deletion.tasks) == 0:
-		return confirmDeleteWorktrees(m, deletion)
+		return w.confirmDeleteWorktrees(m, deletion)
 	case deletion.isEmpty():
-		return confirmDeleteTasks(m, deletion.tasks)
+		return confirmDeleteTasks(m, w.deps.clients, deletion.tasks)
 	default:
-		return confirmDeleteMixed(m, deletion)
+		return w.confirmDeleteMixed(m, deletion)
 	}
 }
 
 // confirmDeleteMixed asks once before task checkouts go with their tasks and the other directories
 // through the remover.
-func confirmDeleteMixed(m *model, deletion worktreeDeletion) screen.Request {
+func (w *worktreesScreen) confirmDeleteMixed(m *model, deletion worktreeDeletion) screen.Request {
 	confirm := deleteMixedConfirm(deletion, len(m.listing.AgentsOnTasks(deletion.tasks)))
 
 	return confirm.open(m, func() screen.Request {
-		return screen.Batch{m.api.DeleteTasksWrite(deletion.tasks, m.listing.AgentsOnTasks(deletion.tasks), confirm.values.deletesRecords()), deleteWorktreesWrite(m, deletion)}
+		return screen.Batch{w.deps.clients.DeleteTasksWrite(deletion.tasks, m.listing.AgentsOnTasks(deletion.tasks), confirm.values.deletesRecords()), w.deleteWorktreesWrite(deletion)}
 	})
 }
 
 // confirmDeleteWorktrees asks before a deletion.
-func confirmDeleteWorktrees(m *model, deletion worktreeDeletion) screen.Request {
+func (w *worktreesScreen) confirmDeleteWorktrees(m *model, deletion worktreeDeletion) screen.Request {
 	if deletion.isEmpty() {
 		return nil
 	}
 
 	return deleteWorktreesConfirm(deletion).open(m, func() screen.Request {
-		return deleteWorktreesWrite(m, deletion)
+		return w.deleteWorktreesWrite(deletion)
 	})
 }
 
 // deleteWorktreesWrite is the write that queues the deletion as one background job.
-func deleteWorktreesWrite(m *model, deletion worktreeDeletion) screen.Write {
+func (w *worktreesScreen) deleteWorktreesWrite(deletion worktreeDeletion) screen.Write {
 	dirs := deletion.dirs()
 	subject := label.Count(len(dirs), "worktree", "worktrees")
 
-	clients := m.api
+	clients := w.deps.clients
 
 	return screen.Write{
 		Doing:   "deleting " + subject,
@@ -226,8 +226,8 @@ func (w *worktreesScreen) buildItemMenu(m *model) (menu.Menu, bool) {
 			return menu.Menu{}, false
 		}
 
-		return menu.WithNested(rowMenu(label.Count(deletion.chosen(), "worktree", "worktrees")), "archive", m.keys.Menu.Archive, liveArchiveMenu(menu.Leaving("delete all", m.keys.ArchiveMenu.Delete, func() screen.Request {
-			return confirmDeleteChosen(m, deletion)
+		return menu.WithNested(rowMenu(label.Count(deletion.chosen(), "worktree", "worktrees")), "archive", w.deps.keys.Menu.Archive, liveArchiveMenu(menu.Leaving("delete all", w.deps.keys.ArchiveMenu.Delete, func() screen.Request {
+			return w.confirmDeleteChosen(m, deletion)
 		}))), true
 	}
 
@@ -241,8 +241,8 @@ func (w *worktreesScreen) buildItemMenu(m *model) (menu.Menu, bool) {
 	}
 
 	band := rowMenu(row.name())
-	if entry, ok := worktreeDeleteEntry(m, row.item); ok {
-		band = menu.WithNested(band, "archive", m.keys.Menu.Archive, liveArchiveMenu(entry))
+	if entry, ok := w.worktreeDeleteEntry(m, row.item); ok {
+		band = menu.WithNested(band, "archive", w.deps.keys.Menu.Archive, liveArchiveMenu(entry))
 	}
 
 	occupant, ok := row.item.FirstOccupant()
@@ -255,14 +255,14 @@ func (w *worktreesScreen) buildItemMenu(m *model) (menu.Menu, bool) {
 		to.TaskID = row.item.Task.ID
 	}
 
-	return menu.WithNested(band, "jump", m.keys.Menu.Jump, jumpMenu(m, screen.Worktrees, to)), true
+	return menu.WithNested(band, "jump", w.deps.keys.Menu.Jump, jumpMenu(m, w.deps.keys, screen.Worktrees, to)), true
 }
 
 // buildScreenMenu builds the worktrees screen's own band, for clearing every directory that can go.
 func (w *worktreesScreen) buildScreenMenu(m *model) (menu.Menu, bool) {
 	clearable := w.clearDeletion(m)
-	clearAll := menu.Leaving("delete unused worktrees", m.keys.ArchiveMenu.Clear, func() screen.Request {
-		return confirmDeleteWorktrees(m, clearable)
+	clearAll := menu.Leaving("delete unused worktrees", w.deps.keys.ArchiveMenu.Clear, func() screen.Request {
+		return w.confirmDeleteWorktrees(m, clearable)
 	})
 	clearAll.Off = clearable.isEmpty()
 
@@ -274,14 +274,14 @@ func (w *worktreesScreen) buildScreenMenu(m *model) (menu.Menu, bool) {
 
 // worktreeDeleteEntry is the entry that sends a directory the way its fate decides, false when
 // the fate offers none.
-func worktreeDeleteEntry(m *model, item panel.Worktree) (menu.Entry, bool) {
+func (w *worktreesScreen) worktreeDeleteEntry(m *model, item panel.Worktree) (menu.Entry, bool) {
 	desc := deleteDesc(item.Fate)
-	run := func() screen.Request { return deleteWorktree(m, item) }
+	run := func() screen.Request { return w.deleteWorktree(m, item) }
 	switch item.Fate {
 	case panel.FateLive:
-		return menu.Holding(desc, m.keys.ArchiveMenu.Archive, run), true
+		return menu.Holding(desc, w.deps.keys.ArchiveMenu.Archive, run), true
 	case panel.FateArchived, panel.FateUnowned:
-		return menu.Leaving(desc, m.keys.ArchiveMenu.Delete, run), true
+		return menu.Leaving(desc, w.deps.keys.ArchiveMenu.Delete, run), true
 	case panel.FateDeleting:
 	}
 

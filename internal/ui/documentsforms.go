@@ -25,7 +25,7 @@ type documentFormValues struct {
 }
 
 // newDocumentForm puts up the form for a document written for an agent.
-func newDocumentForm(m *model, agentID string) screen.Request {
+func (d *documentsScreen) newDocumentForm(m *model, agentID string) screen.Request {
 	owner, types := agentID, m.listing.DocumentTypeNames()
 	if item, ok := m.listing.AnyAgent(agentID); ok {
 		owner = item.Agent.Name
@@ -43,7 +43,7 @@ func newDocumentForm(m *model, agentID string) screen.Request {
 				doing = "writing " + name
 			}
 
-			return m.api.Write(
+			return d.deps.clients.Write(
 				doing,
 				fmt.Sprintf("Could not write a document for %s", owner),
 				func(a api.Clients) error {
@@ -101,5 +101,5 @@ func (d *documentsScreen) pressNew(m *model) screen.Request {
 		return nil
 	}
 
-	return newDocumentForm(m, agentID)
+	return d.newDocumentForm(m, agentID)
 }

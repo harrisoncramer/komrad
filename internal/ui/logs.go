@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	"komrad/config"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/api"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/field"
@@ -13,6 +15,7 @@ import (
 	"komrad/internal/ui/logview"
 	"komrad/internal/ui/screen"
 	"komrad/internal/view"
+	"komrad/internal/vim"
 	"komrad/lib/xslice"
 	logv1 "komrad/proto/gen/log/v1"
 
@@ -29,9 +32,20 @@ const (
 	logsFilterSettle = 300 * time.Millisecond
 )
 
+// logsDeps is what the logs screen is given at launch.
+type logsDeps struct {
+	keys     config.Keybindings
+	glyphs   glyph.Set
+	clock    screen.Clock
+	register *vim.Register
+	clients  api.Clients
+	top      *keys.Top
+}
+
 // logsScreen lists where one agent's logs, or every run on one task, can be read from and renders
 // the newest lines of the source under the cursor beside the list.
 type logsScreen struct {
+	deps logsDeps
 	list.Cursor
 	agentID string
 	// taskID is the task whose runs the screen lists, empty for an agent's logs.
@@ -109,6 +123,7 @@ type logsSettledMsg struct {
 // from and claiming a task's failed runs.
 func (l *logsScreen) enter(m *model, target screen.Target) screen.Request {
 	*l = logsScreen{
+		deps:       l.deps,
 		agentID:    target.AgentID,
 		taskID:     target.TaskID,
 		openedFrom: target.OpenedFrom,
@@ -117,12 +132,12 @@ func (l *logsScreen) enter(m *model, target screen.Target) screen.Request {
 		generation: l.generation + 1,
 	}
 	if l.taskID == "" {
-		return screen.Cmd(l.listCmd(m))
+		return screen.Cmd(l.listCmd())
 	}
 
 	taskID := l.taskID
 
-	return screen.Batch{screen.Cmd(l.listCmd(m)), m.api.Write("marking the task's runs read", "Could not mark the task's runs read", func(a api.Clients) error {
+	return screen.Batch{screen.Cmd(l.listCmd()), l.deps.clients.Write("marking the task's runs read", "Could not mark the task's runs read", func(a api.Clients) error {
 		return a.MarkTaskRunsRead(taskID)
 	})}
 }
@@ -134,12 +149,12 @@ func (l *logsScreen) leaveScreen(*model) screen.Request {
 	return nil
 }
 
-func (l *logsScreen) listCmd(m *model) tea.Cmd {
+func (l *logsScreen) listCmd() tea.Cmd {
 	if l.agentID == "" && l.taskID == "" {
 		return nil
 	}
 
-	agentID, taskID, generation, clients := l.agentID, l.taskID, l.generation, m.api
+	agentID, taskID, generation, clients := l.agentID, l.taskID, l.generation, l.deps.clients
 
 	return func() tea.Msg {
 		list := clients.ListAgentLogSources
@@ -157,7 +172,7 @@ func (l *logsScreen) listCmd(m *model) tea.Cmd {
 	}
 }
 
-func (l *logsScreen) readCmd(m *model) tea.Cmd {
+func (l *logsScreen) readCmd() tea.Cmd {
 	if l.reading == nil {
 		return nil
 	}
@@ -173,7 +188,7 @@ func (l *logsScreen) readCmd(m *model) tea.Cmd {
 		Source:   l.reading.GetId(),
 		Pattern:  l.pattern,
 	}
-	generation, clients := l.generation, m.api
+	generation, clients := l.generation, l.deps.clients
 
 	return func() tea.Msg {
 		resp, err := clients.ReadAgentLogs(req)
@@ -199,7 +214,7 @@ func (l *logsScreen) applySources(m *model, msg logsSourcesMsg) screen.Request {
 			return nil
 		}
 
-		return screen.Cmd(l.tickCmd(m.clock))
+		return screen.Cmd(l.tickCmd(l.deps.clock))
 	}
 
 	hovered := list.KeyAt(l.rows(m), l.Row)
@@ -217,14 +232,14 @@ func (l *logsScreen) applySources(m *model, msg logsSourcesMsg) screen.Request {
 	return l.switchSource(m)
 }
 
-func (l *logsScreen) applyRead(m *model, msg logsReadMsg) screen.Request {
+func (l *logsScreen) applyRead(msg logsReadMsg) screen.Request {
 	if msg.generation != l.generation {
 		return nil
 	}
 
 	l.err = msg.err
 	if msg.err != nil {
-		return screen.Cmd(l.tickCmd(m.clock))
+		return screen.Cmd(l.tickCmd(l.deps.clock))
 	}
 
 	if msg.resp.GetReset_() || l.replacing {
@@ -235,22 +250,22 @@ func (l *logsScreen) applyRead(m *model, msg logsReadMsg) screen.Request {
 	l.readCursor, l.read = msg.resp.GetCursor(), true
 
 	if msg.resp.GetMore() {
-		return screen.Cmd(l.readCmd(m))
+		return screen.Cmd(l.readCmd())
 	}
 
-	return screen.Cmd(l.tickCmd(m.clock))
+	return screen.Cmd(l.tickCmd(l.deps.clock))
 }
 
-func (l *logsScreen) applyTick(m *model, msg logsTickMsg) screen.Request {
+func (l *logsScreen) applyTick(msg logsTickMsg) screen.Request {
 	if msg.generation != l.generation {
 		return nil
 	}
 
 	if !l.listed {
-		return screen.Cmd(l.listCmd(m))
+		return screen.Cmd(l.listCmd())
 	}
 
-	return screen.Cmd(tea.Batch(l.listCmd(m), l.readCmd(m)))
+	return screen.Cmd(tea.Batch(l.listCmd(), l.readCmd()))
 }
 
 func (l *logsScreen) tickCmd(clock screen.Clock) tea.Cmd {
@@ -270,35 +285,35 @@ func (l *logsScreen) switchSource(m *model) screen.Request {
 	l.logFilter, l.pattern = filterState{}, ""
 	l.applyFormat(row)
 
-	return screen.Batch{screen.Cmd(l.restart(m)), l.markFailedRunRead(m, row)}
+	return screen.Batch{screen.Cmd(l.restart()), l.markFailedRunRead(row)}
 }
 
 // markFailedRunRead claims the agent's failed runs once the run that failed is opened, leaving a
 // task's to the screen opening.
-func (l *logsScreen) markFailedRunRead(m *model, row logSourceRow) screen.Request {
+func (l *logsScreen) markFailedRunRead(row logSourceRow) screen.Request {
 	if !row.failed || l.taskID != "" {
 		return nil
 	}
 
 	agentID := l.agentID
 
-	return m.api.Write("marking the failed run read", "Could not mark the failed run read", func(a api.Clients) error { return a.MarkRunsRead(agentID) })
+	return l.deps.clients.Write("marking the failed run read", "Could not mark the failed run read", func(a api.Clients) error { return a.MarkRunsRead(agentID) })
 }
 
 // restart drops the lines held and reads the source over again with the pattern the block is read with.
-func (l *logsScreen) restart(m *model) tea.Cmd {
+func (l *logsScreen) restart() tea.Cmd {
 	l.generation++
 	l.viewer.Reset()
 	l.readCursor, l.read, l.err, l.replacing = "", false, nil, false
 
-	return l.readCmd(m)
+	return l.readCmd()
 }
 
-func (l *logsScreen) reread(m *model) tea.Cmd {
+func (l *logsScreen) reread() tea.Cmd {
 	l.generation++
 	l.readCursor, l.err, l.replacing = "", nil, true
 
-	return l.readCmd(m)
+	return l.readCmd()
 }
 
 // openLogFilter hands the keys to the prompt at the foot of the log.
@@ -310,35 +325,35 @@ func (l *logsScreen) openLogFilter() {
 
 // updateLogFilter is the prompt at the foot of the log taking keys, reading the log over once the
 // pattern sits still or the prompt is left.
-func (l *logsScreen) updateLogFilter(m *model, key tea.KeyPressMsg) screen.Request {
+func (l *logsScreen) updateLogFilter(key tea.KeyPressMsg) screen.Request {
 	if key.String() == "ctrl+c" {
 		return screen.Hide{}
 	}
 
-	if !l.logFilter.takeKey(key, m.register) {
+	if !l.logFilter.takeKey(key, l.deps.register) {
 		return nil
 	}
 	l.logFilter.mode = filterModeFilter
 	if !l.logFilter.typing {
-		return l.narrow(m)
+		return l.narrow()
 	}
 
 	l.edits++
 	generation, edits := l.generation, l.edits
 
-	return screen.Cmd(m.clock.After(logsFilterSettle, func(time.Time) tea.Msg { return logsSettledMsg{generation: generation, edits: edits} }))
+	return screen.Cmd(l.deps.clock.After(logsFilterSettle, func(time.Time) tea.Msg { return logsSettledMsg{generation: generation, edits: edits} }))
 }
 
-func (l *logsScreen) applySettled(m *model, msg logsSettledMsg) screen.Request {
+func (l *logsScreen) applySettled(msg logsSettledMsg) screen.Request {
 	if msg.generation != l.generation || msg.edits != l.edits {
 		return nil
 	}
 
-	return l.narrow(m)
+	return l.narrow()
 }
 
 // narrow reads the log over with the pattern typed, unless it is broken or already the one read with.
-func (l *logsScreen) narrow(m *model) screen.Request {
+func (l *logsScreen) narrow() screen.Request {
 	if l.logFilter.broken {
 		return nil
 	}
@@ -353,15 +368,15 @@ func (l *logsScreen) narrow(m *model) screen.Request {
 
 	l.pattern = pattern
 
-	return screen.Cmd(l.reread(m))
+	return screen.Cmd(l.reread())
 }
 
 // clearLogFilter drops the pattern standing over the log and reads it whole again.
-func (l *logsScreen) clearLogFilter(m *model) screen.Request {
+func (l *logsScreen) clearLogFilter() screen.Request {
 	l.logFilter.abandon()
 	l.logFilter.mode = filterModeFilter
 
-	return l.narrow(m)
+	return l.narrow()
 }
 
 func (l *logsScreen) update(m *model, msg tea.Msg) screen.Request {
@@ -371,11 +386,11 @@ func (l *logsScreen) update(m *model, msg tea.Msg) screen.Request {
 	}
 
 	if l.logFilter.typing {
-		return l.updateLogFilter(m, key)
+		return l.updateLogFilter(key)
 	}
 
 	if l.isBlockFocused(m) {
-		return m.dispatchTop(l.actions(m), key.String())
+		return l.actions(m).DispatchTop(l.deps.top, m, l.deps.keys, key.String())
 	}
 
 	return l.list().update(m, key, l.actions(m))
@@ -386,11 +401,11 @@ func (l *logsScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) {
 	case logsSourcesMsg:
 		return l.applySources(m, msg), true
 	case logsReadMsg:
-		return l.applyRead(m, msg), true
+		return l.applyRead(msg), true
 	case logsTickMsg:
-		return l.applyTick(m, msg), true
+		return l.applyTick(msg), true
 	case logsSettledMsg:
-		return l.applySettled(m, msg), true
+		return l.applySettled(msg), true
 	}
 
 	return nil, false
@@ -398,6 +413,8 @@ func (l *logsScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) {
 
 func (l *logsScreen) list() screenList[logSourceRow] {
 	return screenList[logSourceRow]{
+		keys:   l.deps.keys,
+		top:    l.deps.top,
 		cursor: func() *list.Cursor { return &l.Cursor },
 		rows:   l.rows,
 		name:   logSourceRowName,

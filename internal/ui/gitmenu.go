@@ -308,5 +308,5 @@ func (m *model) openGitPickForkPoint(taskID string) screen.Request {
 		return screen.Batch{screen.Report{Summary: "Could not pick the fork point of " + task.Slug, Err: err}, form.Close{}}
 	}
 
-	return openPickForkPoint(m, task)
+	return m.agents.openPickForkPoint(m, task)
 }

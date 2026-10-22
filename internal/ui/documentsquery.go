@@ -13,14 +13,17 @@ import (
 	"connectrpc.com/connect"
 )
 
-var documentsQuery = queryGrammar{
-	syntax: searchsyntax.Documents,
-	check:  checkDocumentsClause,
-	search: searchDocumentsSaid,
-}
-
 func (d *documentsScreen) queryGrammar() (queryGrammar, bool) {
-	return documentsQuery, d.kind == documentKindDocuments
+	agents := d.deps.clients.Agents
+	grammar := queryGrammar{
+		syntax: searchsyntax.Documents,
+		check:  checkDocumentsClause,
+		search: func(ctx context.Context, text string) (map[string][]saidHit, error) {
+			return searchDocumentsSaid(ctx, agents, text)
+		},
+	}
+
+	return grammar, d.kind == documentKindDocuments
 }
 
 func checkDocumentsClause(clause searchsyntax.Clause, now time.Time) error {

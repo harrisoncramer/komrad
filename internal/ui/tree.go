@@ -4,15 +4,35 @@ import (
 	"slices"
 	"strings"
 
+	"komrad/config"
+	"komrad/internal/glyph"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/editor"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
+	"komrad/internal/vim"
 	"komrad/lib/xslice"
 )
+
+// agentsDeps is what the agents screens are given at launch.
+type agentsDeps struct {
+	keys           config.Keybindings
+	glyphs         glyph.Set
+	clock          screen.Clock
+	register       *vim.Register
+	clients        api.Clients
+	panes          screen.Panes
+	top            *keys.Top
+	editorSettings editor.Settings
+}
 
 // agentsScreen is the agents screen: the cursor in the tree of workflows and agents, how they
 // are ordered and whether the hidden ones are rendered.
 type agentsScreen struct {
+	deps agentsDeps
 	list.Cursor
 	placed     bool
 	showHidden bool

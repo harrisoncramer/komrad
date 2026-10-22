@@ -54,21 +54,21 @@ func (a *agentsScreen) pressEdit(m *model, item panel.AgentRow) screen.Request {
 		return refuse(stillPaused)
 	}
 
-	if reason, refused := m.isRemoteEditRefused(); refused {
+	if reason, refused := a.deps.editorSettings.IsRemoteEditRefused(); refused {
 		return refuse(reason)
 	}
 
 	a.editing = &agentEdit{agent: agent}
 	if !item.Alive {
-		return a.openEditor(m)
+		return a.openEditor()
 	}
 
 	a.editing.pausing = true
 
-	return holdAgent(m, agent.ID, agent.Name)
+	return holdAgent(a.deps.clients, agent.ID, agent.Name)
 }
 
-func (a *agentsScreen) applyPaused(m *model, msg reviewPausedMsg) screen.Request {
+func (a *agentsScreen) applyPaused(msg reviewPausedMsg) screen.Request {
 	if !a.isPausing(msg.agentID) {
 		return nil
 	}
@@ -84,7 +84,7 @@ func (a *agentsScreen) applyPaused(m *model, msg reviewPausedMsg) screen.Request
 
 	a.editing.ourPause = true
 
-	return a.openEditor(m)
+	return a.openEditor()
 }
 
 func (a *agentsScreen) isPausing(agentID string) bool {
@@ -97,9 +97,9 @@ type agentEditorStaged struct {
 	pane string
 }
 
-func (a *agentsScreen) openEditor(m *model) screen.Request {
+func (a *agentsScreen) openEditor() screen.Request {
 	return screen.Stage{
-		Content: m.agentDirEditorContent(a.editing.agent.Cwd),
+		Content: a.deps.editorSettings.DirContent(a.editing.agent.Cwd),
 		Staged:  func(pane string) tea.Msg { return agentEditorStaged{pane: pane} },
 	}
 }
@@ -130,7 +130,7 @@ func (a *agentsScreen) applyEditorStaged(m *model, staged agentEditorStaged) scr
 		return refused
 	}
 
-	return append(refused, m.api.ReleaseWrite("Could not let "+edit.agent.Name+" go", edit.agent, abandonedSaid, m.edited[edit.agent.ID]))
+	return append(refused, a.deps.clients.ReleaseWrite("Could not let "+edit.agent.Name+" go", edit.agent, abandonedSaid, m.edited[edit.agent.ID]))
 }
 
 func (a *agentsScreen) closeEdit(m *model) screen.Request {
@@ -149,11 +149,11 @@ func (a *agentsScreen) closeEdit(m *model) screen.Request {
 		return screen.Unstage{}
 	}
 
-	return screen.Batch{screen.Unstage{}, m.api.ReleaseWrite("Could not let "+edit.agent.Name+" go", edit.agent, editedSaid, m.edited[edit.agent.ID])}
+	return screen.Batch{screen.Unstage{}, a.deps.clients.ReleaseWrite("Could not let "+edit.agent.Name+" go", edit.agent, editedSaid, m.edited[edit.agent.ID])}
 }
 
 func (a *agentsScreen) reconcileEditor(m *model) screen.Request {
-	if !a.isEditorOpen() || m.isPaneAlive(a.editing.pane) {
+	if !a.isEditorOpen() || a.deps.panes.IsPaneAlive(a.editing.pane) {
 		return nil
 	}
 

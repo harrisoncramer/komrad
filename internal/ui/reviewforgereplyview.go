@@ -36,7 +36,7 @@ func (r reviewScreen) forgeReplyView(m *model, reply *agentv1.ForgeReply, width 
 	switch reply.GetState() {
 	case agentv1.ForgeReplyState_FORGE_REPLY_STATE_FAILED:
 		head := paint.Panel.Style(paint.ToneDanger).Bold(true).Render("your reply" + separated + "not posted")
-		refused := paint.Panel.Style(paint.ToneDanger).Render(m.glyphs.Spell(glyph.MessageError) + " " + name + " said: " + reply.GetError())
+		refused := paint.Panel.Style(paint.ToneDanger).Render(r.deps.glyphs.Spell(glyph.MessageError) + " " + name + " said: " + reply.GetError())
 
 		return renderForgeBox(width, head, reply.GetBody()+"\n"+refused)
 	case agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT:
@@ -46,7 +46,7 @@ func (r reviewScreen) forgeReplyView(m *model, reply *agentv1.ForgeReply, width 
 		posting = dimStyle().Render("  "+glyph.Right+" posting to "+name) + "\n"
 	}
 
-	return forgeMark(m.glyphs) + renderCommentHead(reviewHumanTone, "you", reply.GetCreatedAt()) + "\n" +
+	return forgeMark(r.deps.glyphs) + renderCommentHead(reviewHumanTone, "you", reply.GetCreatedAt()) + "\n" +
 		reviewWrap(width, reply.GetBody()) + "\n" + posting + "\n"
 }
 

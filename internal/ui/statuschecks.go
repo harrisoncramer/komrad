@@ -5,6 +5,9 @@ import (
 	"strings"
 	"time"
 
+	"komrad/config"
+	"komrad/internal/glyph"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint/label"
@@ -39,8 +42,18 @@ type statusCheckCommit struct {
 	items       []statusCheckItem
 }
 
+// statusChecksDeps is what the status checks screens are given at launch.
+type statusChecksDeps struct {
+	keys    config.Keybindings
+	glyphs  glyph.Set
+	clock   screen.Clock
+	clients api.Clients
+	top     *keys.Top
+}
+
 // statusChecksScreen lists the status checks on the newest head of the pull request opened from one agent's branch.
 type statusChecksScreen struct {
+	deps statusChecksDeps
 	list.Cursor
 	agentID           string
 	openedFrom        screen.ID
@@ -66,6 +79,7 @@ func (r statusCheckRow) Key() string {
 func (c *statusChecksScreen) enter(m *model, target screen.Target) screen.Request {
 	if target.AgentID != "" {
 		*c = statusChecksScreen{
+			deps:       c.deps,
 			agentID:    target.AgentID,
 			openedFrom: target.OpenedFrom,
 		}
@@ -94,6 +108,8 @@ func (c *statusChecksScreen) receive(m *model, msg tea.Msg) (screen.Request, boo
 
 func (c *statusChecksScreen) list() screenList[statusCheckRow] {
 	return screenList[statusCheckRow]{
+		keys:   c.deps.keys,
+		top:    c.deps.top,
 		cursor: func() *list.Cursor { return &c.Cursor },
 		rows:   c.rows,
 		name:   statusCheckRowName,
@@ -117,7 +133,7 @@ func statusCheckRowName(row statusCheckRow) string {
 
 func (c *statusChecksScreen) listParams(m *model) screenListParams {
 	return screenListParams{
-		tally:    c.commit.tally(m.clock.Now()),
+		tally:    c.commit.tally(c.deps.clock.Now()),
 		help:     c.help,
 		empty:    c.emptyLine(m),
 		rows:     len(c.rows(m)),
@@ -321,7 +337,7 @@ func (m *model) readStatusChecksCmd() tea.Cmd {
 	}
 
 	c.listing = true
-	agentID, clients := c.agentID, m.api
+	agentID, clients := c.agentID, c.deps.clients
 
 	return func() tea.Msg {
 		listed, err := clients.ListStatusChecks(pullRequestID)

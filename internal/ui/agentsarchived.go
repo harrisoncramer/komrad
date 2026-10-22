@@ -30,6 +30,7 @@ const (
 // archivedAgents is the agents view on its archived or deleted kind, holding the cursor in the agents
 // that kind lists and how they sort.
 type archivedAgents struct {
+	deps agentsDeps
 	kind agentsKind
 	list.Cursor
 	sort  tabsState
@@ -121,7 +122,7 @@ func (a *archivedAgents) enter(m *model, target screen.Target) screen.Request {
 
 func (a *archivedAgents) update(m *model, msg tea.Msg) screen.Request {
 	if _, ok := msg.(tea.PasteMsg); ok && a.isRenaming() {
-		return a.updateRename(m, msg)
+		return a.updateRename(a.deps.register, a.deps.clients, msg)
 	}
 
 	key, ok := msg.(tea.KeyPressMsg)
@@ -131,7 +132,7 @@ func (a *archivedAgents) update(m *model, msg tea.Msg) screen.Request {
 
 	a.reconcileRename(m)
 	if a.isRenaming() {
-		return a.updateRename(m, msg)
+		return a.updateRename(a.deps.register, a.deps.clients, msg)
 	}
 
 	return a.list().update(m, key, a.actions())
@@ -171,6 +172,8 @@ func (a *archivedAgents) stepKind(m *model, delta int) screen.Request {
 
 func (a *archivedAgents) list() screenList[agentRow] {
 	return screenList[agentRow]{
+		keys:   a.deps.keys,
+		top:    a.deps.top,
 		cursor: func() *list.Cursor { return &a.Cursor },
 		rows:   a.listRows,
 		name:   agentRowName,
@@ -351,7 +354,7 @@ func (a *archivedAgents) isLoading(m *model) bool {
 }
 
 func (a *archivedAgents) stageResting(m *model) screen.Request {
-	return screen.Batch{a.stage(m), screen.ReadLastScreen{}, m.inspectTaskWorktree(m.clock.Now())}
+	return screen.Batch{a.stage(m), screen.ReadLastScreen{}, m.inspectTaskWorktree(a.deps.clock.Now())}
 }
 
 // menuTarget is what the archive menu would act on, and none on the folder of a live workflow
@@ -423,21 +426,21 @@ func (a *archivedAgents) buildItemMenu(m *model) (menu.Menu, bool) {
 	band := rowMenu(target.name())
 	if row, ok := list.At(a.listRows(m), a.Row); ok && a.holdsAnAgent(m) {
 		item, _ := row.paneItem()
-		band = agentMenu(m, item)
+		band = agentMenu(m, a.deps.keys, item)
 	}
 
 	if a.kind == agentsDeleted {
-		band.Entries = append(band.Entries, deletedEntries(m, target)...)
+		band.Entries = append(band.Entries, deletedEntries(m, a.deps.keys, a.deps.clients, target)...)
 
 		return band, true
 	}
 
-	return menu.WithNested(band, "archive", m.keys.Menu.Archive, archiveMenu(m, target)), true
+	return menu.WithNested(band, "archive", a.deps.keys.Menu.Archive, archiveMenu(m, a.deps.keys, a.deps.clients, target)), true
 }
 
 // restoreAndResume takes the agents out of the archive and puts the resumed agent's conversation back in a pane.
-func restoreAndResume(m *model, agents []panel.Agent, resumed panel.Agent) screen.Request {
-	return openingWrite(m.api, "restoring "+resumed.Name, fmt.Sprintf("Could not restore and open agent %q", resumed.Name), func(a api.Clients) (*agentv1.Agent, error) {
+func restoreAndResume(clients api.Clients, agents []panel.Agent, resumed panel.Agent) screen.Request {
+	return openingWrite(clients, "restoring "+resumed.Name, fmt.Sprintf("Could not restore and open agent %q", resumed.Name), func(a api.Clients) (*agentv1.Agent, error) {
 		if err := a.RestoreAgents(panel.IDs(agents)); err != nil {
 			return nil, err
 		}
@@ -446,12 +449,12 @@ func restoreAndResume(m *model, agents []panel.Agent, resumed panel.Agent) scree
 	})
 }
 
-func restoreAgents(m *model, agents []panel.Agent) screen.Request {
+func restoreAgents(clients api.Clients, agents []panel.Agent) screen.Request {
 	if len(agents) == 0 {
 		return nil
 	}
 
-	return m.api.AwaitingWrite(
+	return clients.AwaitingWrite(
 		"restoring "+describeAgents(agents),
 		fmt.Sprintf("Could not restore %s", describeAgents(agents)),
 		screen.Awaits{Shown: screen.RowsIn(screen.ListAgents, panel.IDs(agents)...)},
@@ -460,11 +463,11 @@ func restoreAgents(m *model, agents []panel.Agent) screen.Request {
 }
 
 // confirmDeleteWorkflow asks what goes before it deletes an archived workflow.
-func confirmDeleteWorkflow(m *model, workflow panel.Workflow) screen.Request {
+func confirmDeleteWorkflow(m *model, clients api.Clients, workflow panel.Workflow) screen.Request {
 	confirm := deleteWorkflowConfirm(workflow, workflow.Worktree.Enabled && !isWorkflowOnDeletedList(m.listing, workflow.ID))
 
 	return confirm.open(m, func() screen.Request {
-		return m.api.AwaitingWrite(
+		return clients.AwaitingWrite(
 			"deleting "+workflow.Name,
 			fmt.Sprintf("Could not delete workflow %q", workflow.Name),
 			awaitDeleted(confirm.values.deletesRecords(), screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)),

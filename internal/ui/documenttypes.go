@@ -26,10 +26,10 @@ type documentTypeFormValues struct {
 }
 
 // newTypeForm is the form that defines a document type, asking its name and its context.
-func newTypeForm(m *model) form.Form {
+func (d *documentsScreen) newTypeForm() form.Form {
 	values := &documentTypeFormValues{}
 
-	return documentTypeFormOf(m, documentTypeFormOfParams{
+	return d.documentTypeFormOf(documentTypeFormOfParams{
 		values:  values,
 		title:   "New document type",
 		doing:   "defining",
@@ -41,10 +41,10 @@ func newTypeForm(m *model) form.Form {
 }
 
 // editTypeForm is the form that writes a document type's name and context over the ones it has.
-func editTypeForm(m *model, t *agentv1.DocumentType) form.Form {
+func (d *documentsScreen) editTypeForm(t *agentv1.DocumentType) form.Form {
 	values := &documentTypeFormValues{Name: t.GetName(), Context: t.GetContext()}
 
-	return documentTypeFormOf(m, documentTypeFormOfParams{
+	return d.documentTypeFormOf(documentTypeFormOfParams{
 		values:  values,
 		title:   "Edit document type",
 		doing:   "editing",
@@ -64,7 +64,7 @@ type documentTypeFormOfParams struct {
 	write   func(api.Clients) error
 }
 
-func documentTypeFormOf(m *model, params documentTypeFormOfParams) form.Form {
+func (d *documentsScreen) documentTypeFormOf(params documentTypeFormOfParams) form.Form {
 	values := params.values
 
 	return form.Form{
@@ -77,7 +77,7 @@ func documentTypeFormOf(m *model, params documentTypeFormOfParams) form.Form {
 				doing, summary = params.doing+" "+name, fmt.Sprintf("%s document type %q", params.refused, name)
 			}
 
-			return m.api.Write(
+			return d.deps.clients.Write(
 				doing,
 				summary,
 				func(a api.Clients) error {
@@ -102,7 +102,7 @@ func documentTypeForm(values *documentTypeFormValues, title string, fixed config
 }
 
 // deleteTypeForm asks before it deletes a document type.
-func deleteTypeForm(m *model, item documentItem) form.Form {
+func (d *documentsScreen) deleteTypeForm(item documentItem) form.Form {
 	built, confirmed := form.Confirm(
 		fmt.Sprintf("Delete document type %q?", item.name),
 		"Agents can no longer write documents of this type. Komrad refuses the delete while any document still uses it.",
@@ -117,7 +117,7 @@ func deleteTypeForm(m *model, item documentItem) form.Form {
 				return nil
 			}
 
-			return m.api.Write(
+			return d.deps.clients.Write(
 				"deleting "+item.name,
 				fmt.Sprintf("Could not delete document type %q", item.name),
 				func(a api.Clients) error { return a.DeleteDocumentType(item.id) },

@@ -12,28 +12,28 @@ import (
 	hookv1 "komrad/proto/gen/hook/v1"
 )
 
-func newWorkflowForm(m *model) screen.Request {
+func (a *agentsScreen) newWorkflowForm(m *model) screen.Request {
 	values := workflowFormValues{
 		EventPrompts: eventPromptsByEvent(xslice.Map(eventprompts.All(), func(event eventprompts.Event) panel.EventPrompt {
 			return panel.EventPrompt{Event: event.Name, Prompt: event.DefaultPrompt}
 		})),
 	}
 	if len(m.listing.Workflows) == 0 {
-		values.Cwd = m.getHostPath()
+		values.Cwd = a.deps.panes.GetHostPath()
 	}
 
-	return openWorkflowConfigForm(m, &values, nil)
+	return a.openWorkflowConfigForm(&values, nil)
 }
 
-func editWorkflowForm(m *model, workflow panel.Workflow) screen.Request {
+func (a *agentsScreen) editWorkflowForm(workflow panel.Workflow) screen.Request {
 	values := workflowFormValuesFrom(workflow.Config())
 
-	return openWorkflowConfigForm(m, &values, &workflow)
+	return a.openWorkflowConfigForm(&values, &workflow)
 }
 
 // openWorkflowConfigForm puts up the form for a workflow's whole configuration, creating one
 // when target is nil and saving over the workflow it names otherwise.
-func openWorkflowConfigForm(m *model, values *workflowFormValues, target *panel.Workflow) screen.Request {
+func (a *agentsScreen) openWorkflowConfigForm(values *workflowFormValues, target *panel.Workflow) screen.Request {
 	title := "New workflow name"
 	if target != nil {
 		title = "Workflow name"
@@ -43,15 +43,15 @@ func openWorkflowConfigForm(m *model, values *workflowFormValues, target *panel.
 		NameTitle: title,
 		Values:    values,
 		Editing:   target != nil,
-		Hooks:     m.getAvailableHooks,
+		Hooks:     a.getAvailableHooks,
 		Submit: func(form.Inputs) screen.Request {
 			if target == nil {
-				return createWorkflowWrite(m.api, values.toConfig())
+				return createWorkflowWrite(a.deps.clients, values.toConfig())
 			}
 
 			edited := values.toConfig().Workflow(target.ID)
 
-			return m.api.Write(
+			return a.deps.clients.Write(
 				"saving "+target.Name,
 				fmt.Sprintf("Could not save workflow %q", target.Name),
 				func(a api.Clients) error { return a.UpdateWorkflow(edited) },
@@ -62,8 +62,8 @@ func openWorkflowConfigForm(m *model, values *workflowFormValues, target *panel.
 
 // getAvailableHooks is the hooks directory as the form offers it, a directory that is not there
 // reading as an empty list rather than an error.
-func (m *model) getAvailableHooks() []string {
-	listed, err := m.api.ListHooks()
+func (a *agentsScreen) getAvailableHooks() []string {
+	listed, err := a.deps.clients.ListHooks()
 	if err != nil {
 		return nil
 	}
@@ -73,8 +73,8 @@ func (m *model) getAvailableHooks() []string {
 	})
 }
 
-func (m *model) archiveWorkflow(workflow panel.Workflow) screen.Request {
-	return m.api.ArchivingWrite(api.ArchivingWriteParams{
+func (a *agentsScreen) archiveWorkflow(m *model, workflow panel.Workflow) screen.Request {
+	return a.deps.clients.ArchivingWrite(api.ArchivingWriteParams{
 		Doing:   "archiving " + workflow.Name,
 		Summary: fmt.Sprintf("Could not archive workflow %q", workflow.Name),
 		Agents:  m.listing.AgentsOf(workflow.ID),

@@ -306,7 +306,7 @@ func (r reviewScreen) threadView(m *model, thread *agentv1.ReviewThread, width i
 			note = r.diff.addressedSaid(message)
 		}
 
-		out += r.messageView(m, thread, message, messageViewParams{
+		out += r.messageView(thread, message, messageViewParams{
 			note:  note,
 			width: width,
 		})
@@ -361,7 +361,7 @@ type messageViewParams struct {
 
 // messageView is one message: who wrote it and when, what it says, and where it stands with the
 // writer.
-func (r reviewScreen) messageView(m *model, thread *agentv1.ReviewThread, message *agentv1.ReviewMessage, params messageViewParams) string {
+func (r reviewScreen) messageView(thread *agentv1.ReviewThread, message *agentv1.ReviewMessage, params messageViewParams) string {
 	author, tone := r.authorOf(message)
 	head := renderCommentHead(tone, author, message.GetCreatedAt())
 	if params.note != "" {
@@ -370,11 +370,11 @@ func (r reviewScreen) messageView(m *model, thread *agentv1.ReviewThread, messag
 
 	body := message.GetBody()
 	if message.GetForge() != nil {
-		head = forgeMark(m.glyphs) + head
+		head = forgeMark(r.deps.glyphs) + head
 		body = plainForgeText(body)
 	}
 
-	return head + "\n" + reviewWrap(params.width, body) + "\n" + r.reviewDeliveryBadge(m, thread, message) + "\n"
+	return head + "\n" + reviewWrap(params.width, body) + "\n" + r.reviewDeliveryBadge(thread, message) + "\n"
 }
 
 func (r reviewScreen) authorOf(message *agentv1.ReviewMessage) (string, paint.Tone) {

@@ -1,4 +1,4 @@
-package ui
+package editor
 
 import (
 	"fmt"
@@ -6,32 +6,44 @@ import (
 	"path/filepath"
 	"strings"
 
+	"komrad/internal/glyph"
 	"komrad/internal/ui/layout"
 )
 
-const editorFailedSaid = "the editor on the engine failed, press enter to close"
+const (
+	editorFailedSaid = "the editor on the engine failed, press enter to close"
+	separated        = " " + glyph.Separator + " "
+)
 
-// fileEditorContent opens a file the agents work on, on the engine when it is another machine.
-func (m *model) fileEditorContent(dir, path string, line int) layout.Content {
-	if m.settings.SSHHost == "" {
-		return editorContent(m.settings.Editor, dir, path, line)
+// Settings is the editor the person set and the engine's ssh host it reaches another machine through.
+type Settings struct {
+	Command       string
+	SSHHost       string
+	SSHConfig     string
+	IsSSHIncluded bool
+}
+
+// FileContent opens a file the agents work on, on the engine when it is another machine.
+func (s Settings) FileContent(dir, path string, line int) layout.Content {
+	if s.SSHHost == "" {
+		return Content(s.Command, dir, path, line)
 	}
 
 	return layout.Content{
 		Key:    fmt.Sprintf("edit:%s:%d", path, line),
-		Render: renderShell(remoteEditorShell(m.settings, filepath.Join(dir, path), line)),
+		Render: renderShell(remoteEditorShell(s, filepath.Join(dir, path), line)),
 	}
 }
 
-// agentDirEditorContent opens an agent's directory, on the engine when it is another machine.
-func (m *model) agentDirEditorContent(dir string) layout.Content {
-	if m.settings.SSHHost == "" {
-		return dirEditorContent(m.settings.Editor, dir)
+// DirContent opens an agent's directory, on the engine when it is another machine.
+func (s Settings) DirContent(dir string) layout.Content {
+	if s.SSHHost == "" {
+		return dirEditorContent(s.Command, dir)
 	}
 
 	return layout.Content{
 		Key:    "edit:" + dir,
-		Render: renderShell(remoteDirEditorShell(m.settings, dir)),
+		Render: renderShell(remoteDirEditorShell(s, dir)),
 	}
 }
 
@@ -40,8 +52,8 @@ func renderShell(line string) func(layout.Target) ([]string, bool) {
 }
 
 // remoteEditorShell is the shell line that opens a file on the engine, on one line of it.
-func remoteEditorShell(settings PanelSettings, path string, line int) string {
-	command := editorCommand(settings.Editor)
+func remoteEditorShell(settings Settings, path string, line int) string {
+	command := editorCommand(settings.Command)
 	at := strings.Join(editorLineArgs(command, path, line), " ")
 
 	switch name := editorName(command); {
@@ -55,8 +67,8 @@ func remoteEditorShell(settings PanelSettings, path string, line int) string {
 }
 
 // remoteDirEditorShell is the shell line that opens a directory on the engine.
-func remoteDirEditorShell(settings PanelSettings, dir string) string {
-	command := editorCommand(settings.Editor)
+func remoteDirEditorShell(settings Settings, dir string) string {
+	command := editorCommand(settings.Command)
 
 	switch name := editorName(command); {
 	case isVSCodeEditor(name):
@@ -69,7 +81,7 @@ func remoteDirEditorShell(settings PanelSettings, dir string) string {
 }
 
 // sshEditorShell runs a terminal editor on the engine through its ssh host.
-func sshEditorShell(settings PanelSettings, remote string) string {
+func sshEditorShell(settings Settings, remote string) string {
 	return "ssh -F " + shellQuote(settings.SSHConfig) + " -t " + shellQuote(settings.SSHHost) + " " + shellQuote(remote) +
 		" || { printf '\\n%s\\n' " + shellQuote(editorFailedSaid) + "; read -r _; }"
 }
@@ -83,24 +95,24 @@ func engineEditorCommand(command string) string {
 	return strings.Join(fields, " ")
 }
 
-// isRemoteEditRefused returns why the edit keys cannot open the engine's files, before the panel
+// IsRemoteEditRefused returns why the edit keys cannot open the engine's files, before the panel
 // stops an agent for them.
-func (m *model) isRemoteEditRefused() (string, bool) {
-	if m.settings.SSHHost == "" {
+func (s Settings) IsRemoteEditRefused() (string, bool) {
+	if s.SSHHost == "" {
 		return "", false
 	}
 
-	name := editorName(editorCommand(m.settings.Editor))
+	name := editorName(editorCommand(s.Command))
 	if name == "subl" || name == "sublime_text" || isJetBrainsEditor(name) {
 		return name + " cannot open files on another machine" + separated +
 			"set EDITOR to one that can, such as nvim or code", true
 	}
 
-	if _, err := os.Stat(m.settings.SSHConfig); err != nil {
+	if _, err := os.Stat(s.SSHConfig); err != nil {
 		return "this machine has no ssh host for the engine" + separated + "run komrad login to write one", true
 	}
 
-	if (isVSCodeEditor(name) || name == "zed") && !m.settings.IsSSHIncluded {
+	if (isVSCodeEditor(name) || name == "zed") && !s.IsSSHIncluded {
 		return name + " cannot find the engine's ssh host" + separated +
 			"add Include ~/.ssh/komrad/*.conf to the top of ~/.ssh/config, then reopen the panel", true
 	}

@@ -461,7 +461,7 @@ func (r *reviewScreen) landOnThread(m *model, id string) screen.Request {
 	r.diff.hidesAgentThreads = false
 	r.diff.landOn = id
 
-	return r.reload(m)
+	return r.reload()
 }
 
 // openStackedReview leaves this review for the review of another task in the stack.
@@ -501,7 +501,7 @@ func (r *reviewScreen) sideMenu(m *model, side sideCursor) (menu.Menu, bool) {
 	}
 
 	task := m.listing.Tasks[side.id]
-	review := menu.Leaving("review", m.keys.Menu.Review, func() screen.Request {
+	review := menu.Leaving("review", r.deps.keys.Menu.Review, func() screen.Request {
 		return m.review.openStackedReview(m, task.ID)
 	})
 

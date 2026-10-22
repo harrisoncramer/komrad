@@ -97,7 +97,7 @@ func (l *logsScreen) stageResting(m *model) screen.Request {
 }
 
 func (a *agentsScreen) stageResting(m *model) screen.Request {
-	return screen.Batch{screen.Restage{}, screen.ReadLastScreen{}, m.inspectTaskWorktree(m.clock.Now())}
+	return screen.Batch{screen.Restage{}, screen.ReadLastScreen{}, m.inspectTaskWorktree(a.deps.clock.Now())}
 }
 
 func (r *reviewScreen) stageResting(m *model) screen.Request {

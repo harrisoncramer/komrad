@@ -23,6 +23,8 @@ import (
 	"komrad/internal/loader"
 	"komrad/internal/panes"
 	"komrad/internal/ui/api"
+	"komrad/internal/ui/editor"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/layout"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
@@ -241,7 +243,7 @@ type Deps struct {
 	Watcher         Watcher
 	Clock           screen.Clock
 	ClipboardWriter clipboardWriter
-	Editor          Editor
+	Editor          editor.Editor
 	Keys            config.Keybindings
 	Glyphs          glyph.Set
 	Loader          loader.Style
@@ -263,7 +265,6 @@ type model struct {
 	session         *Session
 	api             api.Clients
 	tmux            Tmux
-	patches         diff.Reader
 	browser         browser.Opener
 	harnessFrames   HarnessFrameReader
 	binary          BinaryWatcher
@@ -307,7 +308,6 @@ type model struct {
 	// unstaging is the panes taken off the stage for a write still in flight that kills them.
 	unstaging    map[string]struct{}
 	helpExpanded bool
-	topHeld      bool
 	viewsOpen    bool
 	keys         config.Keybindings
 	glyphs       glyph.Set
@@ -317,7 +317,7 @@ type model struct {
 	post    *postbox
 	clock   screen.Clock
 	watcher Watcher
-	editor  Editor
+	editor  editor.Editor
 
 	// staging counts the cursor moves waiting for the panes to move, so the panes follow the row the
 	// cursor came to rest on rather than every row it passed.
@@ -397,37 +397,75 @@ func (m *model) measuredAt(width int) *model {
 }
 
 func newModel(deps Deps, isDark bool, post *postbox) model {
+	clients := api.Clients{
+		Agents:       deps.Agents,
+		Workflows:    deps.Workflows,
+		Schedules:    deps.Schedules,
+		Hooks:        deps.Hooks,
+		Worktrees:    deps.Worktrees,
+		Logs:         deps.Logs,
+		Forges:       deps.Forges,
+		PullRequests: deps.PullRequests,
+		Loops:        deps.Loops,
+		Tasks:        deps.Tasks,
+	}
+	clock := deps.Clock
+	if clock == nil {
+		clock = wallClock{}
+	}
+	shell := deps.Editor
+	if shell == nil {
+		shell = editor.Shell{Command: deps.Settings.Editor}
+	}
+	register := newRegister(deps.Settings.VimMode)
+	top := &keys.Top{}
+	editorSettings := editor.Settings{
+		Command:       deps.Settings.Editor,
+		SSHHost:       deps.Settings.SSHHost,
+		SSHConfig:     deps.Settings.SSHConfig,
+		IsSSHIncluded: deps.Settings.IsSSHIncluded,
+	}
+	agents := agentsDeps{
+		keys:           deps.Keys,
+		glyphs:         deps.Glyphs,
+		clock:          clock,
+		register:       register,
+		clients:        clients,
+		panes:          deps.Tmux,
+		top:            top,
+		editorSettings: editorSettings,
+	}
+	schedules := schedulesDeps{keys: deps.Keys, register: register, clients: clients, top: top}
+	documents := documentsDeps{
+		keys:          deps.Keys,
+		register:      register,
+		clients:       clients,
+		panes:         deps.Tmux,
+		top:           top,
+		editorCommand: deps.Settings.Editor,
+		draftDir:      deps.Settings.DraftDir,
+	}
+	statusChecks := statusChecksDeps{keys: deps.Keys, glyphs: deps.Glyphs, clock: clock, clients: clients, top: top}
+
 	m := model{
 		term: terminalState{
 			isDark: isDark,
 		},
-		post: post,
-		api: api.Clients{
-			Agents:       deps.Agents,
-			Workflows:    deps.Workflows,
-			Schedules:    deps.Schedules,
-			Hooks:        deps.Hooks,
-			Worktrees:    deps.Worktrees,
-			Logs:         deps.Logs,
-			Forges:       deps.Forges,
-			PullRequests: deps.PullRequests,
-			Loops:        deps.Loops,
-			Tasks:        deps.Tasks,
-		},
+		post:            post,
+		api:             clients,
 		session:         deps.Session,
 		clip:            deps.ClipboardWriter,
-		clock:           deps.Clock,
+		clock:           clock,
 		watcher:         deps.Watcher,
-		editor:          deps.Editor,
+		editor:          shell,
 		tmux:            deps.Tmux,
-		patches:         deps.Patches,
 		browser:         deps.Browser,
 		harnessFrames:   deps.HarnessFrames,
 		binary:          deps.Binary,
 		frame:           layout.New(deps.Tmux, deps.Layout, layout.WithEngine(deps.Engine), layout.WithShellCommand(deps.ShellCommand), layout.WithTerminalCommand(deps.TerminalCommand)),
 		detailsHeight:   deps.Layout.DetailsHeight,
 		settings:        deps.Settings,
-		register:        newRegister(deps.Settings.VimMode),
+		register:        register,
 		diffWrap:        deps.Settings.DiffWrap,
 		keys:            deps.Keys,
 		glyphs:          deps.Glyphs,
@@ -438,24 +476,48 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		engineBuild:     deps.EngineStatus.Build,
 		screen:          screen.Agents,
 		agents: agentsScreen{
+			deps:     agents,
 			triage:   triageZone{capacity: deps.Layout.TriageRows},
-			archived: archivedAgents{kind: agentsArchived},
-			deleted:  archivedAgents{kind: agentsDeleted},
+			archived: archivedAgents{deps: agents, kind: agentsArchived},
+			deleted:  archivedAgents{deps: agents, kind: agentsDeleted},
 		},
-		worktrees: worktreesScreen{sort: tabsState{flat: true}},
-		warm:      newWarmupState(),
-		loading:   loadingState{style: cmp.Or(deps.Loader, loader.Braille)},
-		reactors:  newWorldReactors(),
+		schedules: schedulesScreen{
+			deps:     schedules,
+			archived: archivedSchedules{deps: schedules},
+		},
+		review: reviewScreen{deps: reviewDeps{
+			keys:           deps.Keys,
+			glyphs:         deps.Glyphs,
+			register:       register,
+			clients:        clients,
+			patches:        deps.Patches,
+			panes:          deps.Tmux,
+			top:            top,
+			editor:         shell,
+			editorSettings: editorSettings,
+		}},
+		worktrees: worktreesScreen{
+			deps: worktreesDeps{keys: deps.Keys, clients: clients, top: top},
+			sort: tabsState{flat: true},
+		},
+		documents: documentsScreen{deps: documents},
+		logs: logsScreen{deps: logsDeps{
+			keys:     deps.Keys,
+			glyphs:   deps.Glyphs,
+			clock:    clock,
+			register: register,
+			clients:  clients,
+			top:      top,
+		}},
+		statusChecks:    statusChecksScreen{deps: statusChecks},
+		statusCheckLogs: statusCheckLogsScreen{deps: statusChecks},
+		warm:            newWarmupState(),
+		loading:         loadingState{style: cmp.Or(deps.Loader, loader.Braille)},
+		reactors:        newWorldReactors(),
 	}
 
 	if m.clip == nil {
 		m.clip = systemClipboard{}
-	}
-	if m.clock == nil {
-		m.clock = wallClock{}
-	}
-	if m.editor == nil {
-		m.editor = shellEditor{command: deps.Settings.Editor}
 	}
 
 	if m.fatal() != nil {

@@ -31,7 +31,7 @@ func (w *schedulesScreen) actions() keys.Spec[*model] {
 				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
 				When: standing,
 				Nav: func(m *model, pressed string) screen.Request {
-					return screen.StepMatch{Delta: keys.DirectionOf(pressed, m.keys.Filter.PrevMatch)}
+					return screen.StepMatch{Delta: keys.DirectionOf(pressed, w.deps.keys.Filter.PrevMatch)}
 				},
 			},
 			{

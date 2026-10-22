@@ -43,6 +43,8 @@ func (w *worktreesScreen) receive(*model, tea.Msg) (screen.Request, bool) {
 
 func (w *worktreesScreen) list() screenList[worktreeRow] {
 	return screenList[worktreeRow]{
+		keys:   w.deps.keys,
+		top:    w.deps.top,
 		cursor: func() *list.Cursor { return &w.Cursor },
 		rows:   w.rows,
 		name:   worktreeRow.name,

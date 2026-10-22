@@ -8,6 +8,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
+	"komrad/internal/vim"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -44,7 +45,7 @@ func renameScheduleRow(item scheduleItem) *rowRename {
 }
 
 // save sends the typed name, or says there is nothing to send.
-func (r *rowRename) save(m *model) (screen.Request, bool) {
+func (r *rowRename) save(clients api.Clients) (screen.Request, bool) {
 	name, ok := r.Submit()
 	if !ok {
 		return nil, false
@@ -56,7 +57,7 @@ func (r *rowRename) save(m *model) (screen.Request, bool) {
 		renamed.Name = name
 		id := r.schedule.ID
 
-		return m.api.RenameWrite(
+		return clients.RenameWrite(
 			"renaming "+r.Was(),
 			fmt.Sprintf("Could not rename schedule %q", r.Was()),
 			r.Key(),
@@ -65,7 +66,7 @@ func (r *rowRename) save(m *model) (screen.Request, bool) {
 	case r.task != nil:
 		id := r.task.ID
 
-		return m.api.RenameWrite(
+		return clients.RenameWrite(
 			"renaming "+r.Was(),
 			fmt.Sprintf("Could not rename task %q", r.Was()),
 			r.Key(),
@@ -75,7 +76,7 @@ func (r *rowRename) save(m *model) (screen.Request, bool) {
 		renamed := *r.workflow
 		renamed.Name = name
 
-		return m.api.RenameWrite(
+		return clients.RenameWrite(
 			"renaming "+r.Was(),
 			fmt.Sprintf("Could not rename workflow %q", r.Was()),
 			r.Key(),
@@ -85,7 +86,7 @@ func (r *rowRename) save(m *model) (screen.Request, bool) {
 
 	agent := r.agent
 
-	return m.api.RenameWrite(
+	return clients.RenameWrite(
 		"renaming "+r.Was(),
 		fmt.Sprintf("Could not rename agent %q", r.Was()),
 		r.Key(),
@@ -117,8 +118,8 @@ func reconcileRename[T list.Keyed](r *renameSlot, rows []T, hovered string, name
 	}
 }
 
-func (r *renameSlot) updateRename(m *model, msg tea.Msg) screen.Request {
-	switch r.renaming.Take(msg, m.register) {
+func (r *renameSlot) updateRename(register *vim.Register, clients api.Clients, msg tea.Msg) screen.Request {
+	switch r.renaming.Take(msg, register) {
 	case field.NameGone:
 		return screen.NewNote(screen.Warning, r.renaming.GoneWarning())
 	case field.NameHidden:
@@ -126,7 +127,7 @@ func (r *renameSlot) updateRename(m *model, msg tea.Msg) screen.Request {
 	case field.NameCancelled:
 		r.renaming = nil
 	case field.NameSubmitted:
-		request, ok := r.renaming.save(m)
+		request, ok := r.renaming.save(clients)
 		if !ok {
 			r.renaming = nil
 		}

@@ -91,7 +91,7 @@ func (l *logsScreen) logActions() keys.Spec[*model] {
 				Keys: keys.FixedBack,
 				Nav: func(m *model, _ string) screen.Request {
 					if l.logFilter.isStanding() {
-						return l.clearLogFilter(m)
+						return l.clearLogFilter()
 					}
 
 					l.logFocus = false

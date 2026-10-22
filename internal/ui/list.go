@@ -23,6 +23,8 @@ import (
 // screenList is what the keys every list shares need of one screen: where its cursor and
 // rows live, and what follows the cursor onto a row.
 type screenList[T list.Keyed] struct {
+	keys   config.Keybindings
+	top    *keys.Top
 	cursor func() *list.Cursor
 	rows   func(*model) []T
 	// name is the text a search reads a row by, nil on a list that renders no filter.
@@ -142,7 +144,7 @@ func (l screenList[T]) click(m *model, key string, nth int) screen.Request {
 
 // update hands a key to the list's table.
 func (l screenList[T]) update(m *model, key tea.KeyPressMsg, actions keys.Spec[*model]) screen.Request {
-	return m.dispatchTop(actions, key.String())
+	return actions.DispatchTop(l.top, m, l.keys, key.String())
 }
 
 // actions are the keys every list answers, in dispatch order.
@@ -199,8 +201,8 @@ func (l screenList[T]) filterActions() []keys.Action[*model] {
 			ID:   keys.FilterMatch,
 			Keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
 			When: standing,
-			Nav: func(m *model, pressed string) screen.Request {
-				return screen.StepMatch{Delta: keys.DirectionOf(pressed, m.keys.Filter.PrevMatch)}
+			Nav: func(_ *model, pressed string) screen.Request {
+				return screen.StepMatch{Delta: keys.DirectionOf(pressed, l.keys.Filter.PrevMatch)}
 			},
 		},
 		{

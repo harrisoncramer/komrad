@@ -278,10 +278,6 @@ func (m *model) screenOf(s screen.ID) screenModel {
 	return nil
 }
 
-func (m *model) getHostPath() string {
-	return m.tmux.GetHostPath()
-}
-
 // stageEditor puts an editor on the stage with the keys in it, and answers the pane it was
 // given, empty where the split was refused.
 func (m *model) stageEditor(content layout.Content) string {
@@ -314,10 +310,6 @@ func (m *model) unstageEditor() {
 	}
 
 	m.tmux.SelectPane(m.frame.Pane(layout.RegionSidebar))
-}
-
-func (m *model) isPaneAlive(pane string) bool {
-	return m.tmux.IsPaneAlive(pane)
 }
 
 // selectGuest hands the keyboard to the pane on the stage when it is the one named.

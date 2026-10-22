@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"komrad/config"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint/label"
@@ -18,7 +19,7 @@ func (a *agentsScreen) details(m *model) details {
 	}
 
 	if r.isTask() {
-		return taskDetails(m, r)
+		return taskDetails(m, a.deps.glyphs, r)
 	}
 
 	if r.header {
@@ -28,11 +29,11 @@ func (a *agentsScreen) details(m *model) details {
 		}
 	}
 
-	return agentDetails(m, r)
+	return agentDetails(m, a.deps.glyphs, r)
 }
 
 // taskDetails is the record for a task's row, with the rule's tags too while the task is live.
-func taskDetails(m *model, r agentRow) details {
+func taskDetails(m *model, glyphs glyph.Set, r agentRow) details {
 	var tags []string
 	if r.task.ArchivedAt == nil {
 		tags = taskDetailsTags(m, *r.task)
@@ -45,7 +46,7 @@ func taskDetails(m *model, r agentRow) details {
 
 	return details{
 		id:      r.task.ID,
-		notices: agentNotices(m.glyphs, m.loading.frame(), m.listing.Tasks, r),
+		notices: agentNotices(glyphs, m.loading.frame(), m.listing.Tasks, r),
 		fields:  taskFields(m.buildCheckoutParams(*r.task), writerFields),
 		tags:    tags,
 	}
@@ -53,7 +54,7 @@ func taskDetails(m *model, r agentRow) details {
 
 // agentDetails is the record for an agent's row, carrying its task's checkout where no task
 // header stands over it and the rule's tags too while the agent is live.
-func agentDetails(m *model, r agentRow) details {
+func agentDetails(m *model, glyphs glyph.Set, r agentRow) details {
 	task := m.listing.Tasks.FindForAgent(r.item.Agent)
 	params := agentFieldsParams{
 		agent:    r.item.Agent,
@@ -72,7 +73,7 @@ func agentDetails(m *model, r agentRow) details {
 
 	return details{
 		id:      r.item.Agent.ID,
-		notices: agentNotices(m.glyphs, m.loading.frame(), m.listing.Tasks, r),
+		notices: agentNotices(glyphs, m.loading.frame(), m.listing.Tasks, r),
 		fields:  agentFields(params),
 		tags:    tags,
 	}
@@ -141,7 +142,7 @@ func failedPlaceholder(agent panel.Agent) string {
 
 func (a *agentsScreen) view(m *model) string {
 	if m.listing.IsEmpty() {
-		return m.welcomeView(a.listParams(m), welcomeText(m.keys))
+		return m.welcomeView(a.listParams(m), welcomeText(a.deps.keys))
 	}
 
 	return m.columnListView(a.listParams(m))

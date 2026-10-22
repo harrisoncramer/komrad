@@ -103,7 +103,7 @@ func (c *statusChecksScreen) docRows(m *model, width int) []string {
 		cell := statusCheckIcon(item, m.loading.frame())
 		text := cell.Text
 		if text == "" {
-			text = m.glyphs.Spell(cell.Glyph)
+			text = c.deps.glyphs.Spell(cell.Glyph)
 		}
 
 		return paint.Panel.Style(cell.Tone).Render(text)
