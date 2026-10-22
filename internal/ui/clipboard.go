@@ -7,7 +7,8 @@ import (
 	"github.com/atotto/clipboard"
 )
 
-type clipboardWriter interface {
+// Clipboard holds what the panel copies.
+type Clipboard interface {
 	WriteAll(text string) error
 }
 
@@ -35,8 +36,8 @@ func (m *model) applyCopy(result copyResult) {
 
 type flashRevertMsg struct{}
 
-func flashRevertTick() tea.Cmd {
-	return startTimer(flashDuration, func(time.Time) tea.Msg { return flashRevertMsg{} })
+func (m *model) flashRevertTick() tea.Cmd {
+	return m.clock.After(flashDuration, func(time.Time) tea.Msg { return flashRevertMsg{} })
 }
 
 func (m *model) restageScreen() {

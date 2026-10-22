@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/panes"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/pickfont"
 	"komrad/internal/ui/savedscreen"
 
 	"charm.land/lipgloss/v2"
@@ -46,7 +47,7 @@ func (w frozenWindow) renderPicker(targets []pickTarget) string {
 	}
 
 	for _, target := range targets {
-		glyph := renderLetter(target.letter, target.rect)
+		glyph := pickfont.Render(target.letter, target.rect)
 		glyphWidth, glyphHeight := lipgloss.Width(glyph), strings.Count(glyph, "\n")+1
 		clearWidth, clearHeight := glyphWidth+2*pickMarginX, glyphHeight+2*pickMarginY
 		if clearWidth > target.rect.Width || clearHeight > target.rect.Height {

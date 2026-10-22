@@ -125,7 +125,7 @@ func (m *model) buildCheckoutParams(task panel.Task) checkoutFieldsParams {
 		task:     task,
 		worktree: worktree,
 		read:     read,
-		now:      time.Now(),
+		now:      m.clock.Now(),
 	}
 }
 

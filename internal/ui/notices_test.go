@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 
-	"komrad/internal/ui"
+	"komrad/internal/ui/paneltest"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
@@ -20,7 +20,7 @@ import (
 // TestNotices covers the record spelling out the marks on the hovered row above its fields.
 func TestNotices(t *testing.T) {
 	t.Run("a row carrying no mark says nothing", func(t *testing.T) {
-		harness := openNoticed(t, panelHarnessParams{}, newNoticed())
+		harness := openNoticed(t, paneltest.Params{}, newNoticed())
 
 		assert.Empty(t, readNoticeBlock(harness))
 	})
@@ -76,21 +76,21 @@ func TestNoticesGolden(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openNoticed(t, panelHarnessParams{width: tt.width}, tt.rows...)
-			harness.press(tt.press...)
+			harness := openNoticed(t, paneltest.Params{Width: tt.width}, tt.rows...)
+			harness.Press(tt.press...)
 
-			ui.RequireGolden(t, "notices-"+tt.name, strings.Join(readNoticeBlock(harness), "\n"))
+			paneltest.RequireGolden(t, "notices-"+tt.name, strings.Join(readNoticeBlock(harness), "\n"))
 		})
 	}
 }
 
-func openNoticed(t *testing.T, params panelHarnessParams, rows ...proto.Message) *panelHarness {
+func openNoticed(t *testing.T, params paneltest.Params, rows ...proto.Message) *paneltest.Panel {
 	t.Helper()
 
-	harness := newPanelHarness(t, params)
+	harness := paneltest.Start(t, params)
 	answerWorktreeReads(harness)
-	harness.watch(buildSnapshot(append([]proto.Message{newLiveWorkflow("w1", "backend")}, rows...)...))
-	harness.press("g", "g", "j")
+	harness.Watch(paneltest.Snapshot(append([]proto.Message{newLiveWorkflow("w1", "backend")}, rows...)...))
+	harness.Press("g", "g", "j")
 
 	return harness
 }
@@ -156,20 +156,20 @@ func newFailedCreate() []proto.Message {
 }
 
 func findRule(frame string) int {
-	return slices.IndexFunc(splitLines(frame), func(line string) bool {
+	return slices.IndexFunc(paneltest.SplitLines(frame), func(line string) bool {
 		return strings.HasPrefix(line, "─")
 	})
 }
 
-func readNoticeBlock(harness *panelHarness) []string {
-	styled := splitLines(harness.readRawFrame())
+func readNoticeBlock(harness *paneltest.Panel) []string {
+	styled := paneltest.SplitLines(harness.RawFrame())
 
 	var block []string
 	width, rules := 0, 0
-	for i, line := range splitLines(harness.readFrame()) {
+	for i, line := range paneltest.SplitLines(harness.Frame()) {
 		if strings.HasPrefix(line, "─") {
 			rules++
-			width = ruleWidth(line)
+			width = paneltest.RuleWidth(line)
 
 			continue
 		}
@@ -181,7 +181,7 @@ func readNoticeBlock(harness *panelHarness) []string {
 		}
 
 		if strings.TrimSpace(ansi.Truncate(line, width, "")) != "" {
-			block = append(block, strings.TrimRight(cutStyled(styled[i], width), " "))
+			block = append(block, strings.TrimRight(paneltest.CutStyled(styled[i], width), " "))
 		}
 	}
 

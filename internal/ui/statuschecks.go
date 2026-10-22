@@ -108,7 +108,7 @@ func statusCheckRowName(row statusCheckRow) string {
 
 func (c *statusChecksScreen) listParams(m *model) screenListParams {
 	return screenListParams{
-		tally:    c.commit.tally(),
+		tally:    c.commit.tally(m.clock.Now()),
 		help:     c.help,
 		empty:    c.emptyLine(m),
 		rows:     len(c.rows(m)),
@@ -428,12 +428,12 @@ func newStatusCheckCommit(reading *pullrequestv1.StatusCheckReading) statusCheck
 }
 
 // tally is the commit's short hash and how long ago its checks were first read, empty when no commit was read.
-func (c statusCheckCommit) tally() string {
+func (c statusCheckCommit) tally(now time.Time) string {
 	var parts []string
 	if c.headSHA != "" {
 		parts = append(parts, xsha.Short(c.headSHA))
 	}
-	if age := label.Age(c.firstReadAt); age != "" {
+	if age := label.AgeAt(c.firstReadAt, now); age != "" {
 		parts = append(parts, age+" ago")
 	}
 

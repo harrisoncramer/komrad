@@ -1,12 +1,12 @@
 package ui_test
 
 import (
-	"os"
 	"slices"
 	"testing"
 
 	"komrad/internal/gittest"
 	"komrad/internal/ui"
+	"komrad/internal/ui/paneltest"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -22,27 +22,27 @@ func TestVimEditing(t *testing.T) {
 	t.Run("with vim off one esc closes the form", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"esc"})...)
+		harness.Press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"esc"})...)
 
-		assert.NotContains(t, harness.readFrame(), "Brief")
+		assert.NotContains(t, harness.Frame(), "Brief")
 	})
 
 	t.Run("with vim on the first esc goes to normal mode and the second closes the form", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"esc"})...)
-		assert.Contains(t, harness.readFrame(), "Brief")
+		harness.Press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"esc"})...)
+		assert.Contains(t, harness.Frame(), "Brief")
 
-		harness.press("esc")
-		assert.NotContains(t, harness.readFrame(), "Brief")
+		harness.Press("esc")
+		assert.NotContains(t, harness.Frame(), "Brief")
 	})
 
 	t.Run("with vim on the second esc in a subform goes back to the top form", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSubformKeys(0), spellKeys("codex"), []string{"esc", "esc"})...)
+		harness.Press(slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSubformKeys(0), spellKeys("codex"), []string{"esc", "esc"})...)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.NotContains(t, frame, "Default Agent")
 		assert.Contains(t, frame, "New workflow name")
 	})
@@ -50,32 +50,32 @@ func TestVimEditing(t *testing.T) {
 	t.Run("ctrl+[ counts as esc in a form", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"ctrl+["})...)
-		assert.Contains(t, harness.readFrame(), "Brief")
+		harness.Press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"ctrl+["})...)
+		assert.Contains(t, harness.Frame(), "Brief")
 
-		harness.press("ctrl+[")
-		assert.NotContains(t, harness.readFrame(), "Brief")
+		harness.Press("ctrl+[")
+		assert.NotContains(t, harness.Frame(), "Brief")
 	})
 
 	t.Run("ctrl+[ counts as esc in the review box", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{settings: ui.PanelSettings{VimMode: true}})
+		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
 
-		harness.press("space", "c")
+		harness.Press("space", "c")
 		typeText(harness, "gone")
-		harness.press("ctrl+[")
-		assert.Contains(t, harness.readFrame(), "  Comment")
+		harness.Press("ctrl+[")
+		assert.Contains(t, harness.Frame(), "  Comment")
 
-		harness.press("ctrl+[")
-		assert.NotContains(t, harness.readFrame(), "  Comment")
+		harness.Press("ctrl+[")
+		assert.NotContains(t, harness.Frame(), "  Comment")
 	})
 
 	t.Run("an edit made in normal mode is what the form sends", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("check CI"), []string{"esc", "c", "i", "w"}, spellKeys("it"),
+		harness.Press(slices.Concat([]string{"space", "c"}, spellKeys("check CI"), []string{"esc", "c", "i", "w"}, spellKeys("it"),
 			[]string{"esc", "0", "~", "enter"})...)
 
-		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
+		sent := harness.Sent(agentv1connect.AgentServiceCreateAgentProcedure)
 		require.Len(t, sent, 1)
 		create, ok := sent[0].(*agentv1.CreateAgentRequest)
 		require.True(t, ok)
@@ -85,9 +85,9 @@ func TestVimEditing(t *testing.T) {
 	t.Run("the field's own editing keys do nothing in normal mode", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go far"), []string{"esc", "ctrl+w", "ctrl+u", "enter"})...)
+		harness.Press(slices.Concat([]string{"space", "c"}, spellKeys("go far"), []string{"esc", "ctrl+w", "ctrl+u", "enter"})...)
 
-		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
+		sent := harness.Sent(agentv1connect.AgentServiceCreateAgentProcedure)
 		require.Len(t, sent, 1)
 		create, ok := sent[0].(*agentv1.CreateAgentRequest)
 		require.True(t, ok)
@@ -97,9 +97,9 @@ func TestVimEditing(t *testing.T) {
 	t.Run("k on the first field stays on it", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"esc", "k", "x", "enter"})...)
+		harness.Press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"esc", "k", "x", "enter"})...)
 
-		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
+		sent := harness.Sent(agentv1connect.AgentServiceCreateAgentProcedure)
 		require.Len(t, sent, 1)
 		create, ok := sent[0].(*agentv1.CreateAgentRequest)
 		require.True(t, ok)
@@ -107,18 +107,18 @@ func TestVimEditing(t *testing.T) {
 	})
 
 	t.Run("j above only fields that are not text stays on the field", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{settings: ui.PanelSettings{VimMode: true}})
+		harness := paneltest.Start(t, paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
 		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(newConfiguredWorkflow(), newFormAuthor()))
-		harness.press("g", "g")
+		harness.Watch(paneltest.Snapshot(newConfiguredWorkflow(), newFormAuthor()))
+		harness.Press("g", "g")
 
-		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), slices.Repeat([]string{"tab"}, 2), spellKeys("ab"), []string{"esc", "j"})...)
-		require.Empty(t, harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure))
-		assert.Contains(t, harness.readFrame(), "Worktree")
+		harness.Press(slices.Concat([]string{"space", "c"}, spellKeys("go"), slices.Repeat([]string{"tab"}, 2), spellKeys("ab"), []string{"esc", "j"})...)
+		require.Empty(t, harness.Sent(agentv1connect.AgentServiceCreateAgentProcedure))
+		assert.Contains(t, harness.Frame(), "Worktree")
 
-		harness.press("x", "enter")
+		harness.Press("x", "enter")
 
-		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
+		sent := harness.Sent(agentv1connect.AgentServiceCreateAgentProcedure)
 		require.Len(t, sent, 1)
 		create, ok := sent[0].(*agentv1.CreateAgentRequest)
 		require.True(t, ok)
@@ -126,17 +126,17 @@ func TestVimEditing(t *testing.T) {
 	})
 
 	t.Run("u takes back what the editor wrote into the field", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{settings: ui.PanelSettings{Editor: "true", VimMode: true}})
+		harness := paneltest.Start(t, paneltest.Params{Settings: ui.PanelSettings{Editor: "true", VimMode: true}})
 		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(newConfiguredWorkflow(), newFormAuthor()))
-		harness.press("g", "g")
-		t.Cleanup(func() { _ = os.Remove(ui.FormFieldDraftPath("context")) })
+		harness.Watch(paneltest.Snapshot(newConfiguredWorkflow(), newFormAuthor()))
+		harness.Press("g", "g")
+		t.Cleanup(func() { removeEdited(harness) })
 
-		harness.press("space", "E", "tab", "esc", "ctrl+e")
-		harness.send(harness.panel.NewFieldEdited("context", "what the editor wrote\n"))
-		harness.press("u", "enter")
+		harness.WriteInEditor("what the editor wrote\n")
+		harness.Press("space", "E", "tab", "esc", "ctrl+e")
+		harness.Press("u", "enter")
 
-		sent := harness.readSent(workflowv1connect.WorkflowServiceUpdateWorkflowProcedure)
+		sent := harness.Sent(workflowv1connect.WorkflowServiceUpdateWorkflowProcedure)
 		require.Len(t, sent, 1)
 		update, ok := sent[0].(*workflowv1.UpdateWorkflowRequest)
 		require.True(t, ok)
@@ -144,13 +144,13 @@ func TestVimEditing(t *testing.T) {
 	})
 
 	t.Run("a comment edited in normal mode is what the review posts", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{settings: ui.PanelSettings{VimMode: true}})
+		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
 
-		harness.press("space", "c")
+		harness.Press("space", "c")
 		typeText(harness, "still here")
-		harness.press("esc", "b", "d", "w", "enter")
+		harness.Press("esc", "b", "d", "w", "enter")
 
-		harness.assertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
+		harness.AssertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
 			Task:        xptr.Ptr("t1"),
 			FilePath:    gittest.File,
 			OldStart:    1,
@@ -165,13 +165,13 @@ func TestVimEditing(t *testing.T) {
 	})
 
 	t.Run("a normal-mode edit in the review box is rendered at once", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{settings: ui.PanelSettings{VimMode: true}})
+		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
 
-		harness.press("space", "c")
+		harness.Press("space", "c")
 		typeText(harness, "still here")
-		harness.press("esc", "b", "d", "w")
+		harness.Press("esc", "b", "d", "w")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "still")
 		assert.NotContains(t, frame, "still here")
 	})
@@ -179,21 +179,21 @@ func TestVimEditing(t *testing.T) {
 	t.Run("a normal-mode edit in a form is rendered at once", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("still here"), []string{"esc", "b", "d", "w"})...)
+		harness.Press(slices.Concat([]string{"space", "c"}, spellKeys("still here"), []string{"esc", "b", "d", "w"})...)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "still")
 		assert.NotContains(t, frame, "still here")
 	})
 
 	t.Run("a comment brought back from the editor still takes vim keys", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{settings: ui.PanelSettings{VimMode: true}})
+		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
 
-		harness.press("space", "c")
-		harness.send(ui.NewMessageEdited("a1", "still here\n"))
-		harness.press("esc", "b", "d", "w", "enter")
+		harness.WriteInEditor("still here\n")
+		harness.Press("space", "c", "ctrl+e")
+		harness.Press("esc", "b", "d", "w", "enter")
 
-		harness.assertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
+		harness.AssertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
 			Task:        xptr.Ptr("t1"),
 			FilePath:    gittest.File,
 			OldStart:    1,
@@ -261,26 +261,26 @@ func TestVimLineEditing(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openVimForms(t)
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			assert.Equal(t, tt.wantSearch, readSearch(harness.readTypedFrame()))
+			assert.Equal(t, tt.wantSearch, readSearch(harness.TypedFrame()))
 		})
 	}
 
 	t.Run("a name changed in normal mode is the name a rename sends", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.press("j", "r", "ctrl+f", "0", "~", "enter")
+		harness.Press("j", "r", "ctrl+f", "0", "~", "enter")
 
-		harness.assertSentTo(agentv1connect.AgentServiceUpdateAgentProcedure, &agentv1.UpdateAgentRequest{Id: "a1", Name: "Author"})
+		harness.AssertSentTo(agentv1connect.AgentServiceUpdateAgentProcedure, &agentv1.UpdateAgentRequest{Id: "a1", Name: "Author"})
 	})
 
 	t.Run("esc cancels a rename with vim on", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.press("j", "r", "x", "esc", "enter")
+		harness.Press("j", "r", "x", "esc", "enter")
 
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceUpdateAgentProcedure))
+		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceUpdateAgentProcedure))
 	})
 }
 
@@ -363,34 +363,34 @@ func TestVimEditingBadge(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := newPanelHarness(t, panelHarnessParams{settings: ui.PanelSettings{VimMode: tt.vim}})
+			harness := paneltest.Start(t, paneltest.Params{Settings: ui.PanelSettings{VimMode: tt.vim}})
 			answerWorktreeReads(harness)
-			harness.watch(buildSnapshot(newFormWorkflow(), newFormAuthor()))
-			harness.press("g", "g")
-			harness.press(tt.press...)
+			harness.Watch(paneltest.Snapshot(newFormWorkflow(), newFormAuthor()))
+			harness.Press("g", "g")
+			harness.Press(tt.press...)
 
-			assert.Contains(t, harness.readFrame(), tt.want)
+			assert.Contains(t, harness.Frame(), tt.want)
 		})
 	}
 
 	t.Run("the review comment box is in edit mode", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{settings: ui.PanelSettings{VimMode: true}})
+		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
 
-		harness.press("space", "c")
-		assert.Contains(t, harness.readFrame(), "  EDIT  ")
+		harness.Press("space", "c")
+		assert.Contains(t, harness.Frame(), "  EDIT  ")
 
-		harness.press("esc")
-		assert.Contains(t, harness.readFrame(), " NORMAL ")
+		harness.Press("esc")
+		assert.Contains(t, harness.Frame(), " NORMAL ")
 	})
 }
 
-func openVimForms(t *testing.T) *panelHarness {
+func openVimForms(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
-	harness := newPanelHarness(t, panelHarnessParams{settings: ui.PanelSettings{VimMode: true}})
+	harness := paneltest.Start(t, paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
 	answerWorktreeReads(harness)
-	harness.watch(buildSnapshot(newFormWorkflow(), newFormAuthor()))
-	harness.press("g", "g")
+	harness.Watch(paneltest.Snapshot(newFormWorkflow(), newFormAuthor()))
+	harness.Press("g", "g")
 
 	return harness
 }

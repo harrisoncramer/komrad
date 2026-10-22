@@ -3,8 +3,10 @@ package ui_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"komrad/internal/panes"
+	"komrad/internal/ui/paneltest"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -21,22 +23,22 @@ func TestLeader(t *testing.T) {
 	t.Run("the leader opens its table from every pane of the panel's window alone", func(t *testing.T) {
 		harness := openFocus(t)
 
-		command, bound := harness.panel.ReadRootBinding("C-Space")
+		command, bound := harness.Tmux().RootBinding("C-Space")
 		require.True(t, bound)
 		assert.Equal(t, []string{"if-shell", "-F", "#{==:#{window_id},@1}", "switch-client -T komrad-leader", "send-keys C-Space"}, command)
 
-		command, bound = harness.panel.ReadTableBinding("komrad-leader", "j")
+		command, bound = harness.Tmux().TableBinding("komrad-leader", "j")
 		require.True(t, bound)
 		assert.Equal(t, []string{"send-keys", "-t", sidebar, "C-Space", "j"}, command)
 
-		command, bound = harness.panel.ReadTableBinding("komrad-leader", "v")
+		command, bound = harness.Tmux().TableBinding("komrad-leader", "v")
 		require.True(t, bound)
 		assert.Equal(t, []string{"if-shell", "-F", "#{==:#{pane_id},%0}", "send-keys -t %0 C-Space v", "copy-mode"}, command,
 			"any pane but the sidebar goes straight into copy-mode")
 
 		leader := "C-Space"
 		for _, key := range []string{"C-Space", "Space"} {
-			command, bound := harness.panel.ReadTableBinding("komrad-leader", key)
+			command, bound := harness.Tmux().TableBinding("komrad-leader", key)
 			require.True(t, bound, key)
 			assert.Equal(t, []string{"if-shell", "-F", "#{window_zoomed_flag}", "send-keys -t " + sidebar + " " + leader + " " + leader, "last-pane"}, command)
 		}
@@ -45,27 +47,27 @@ func TestLeader(t *testing.T) {
 	t.Run("the leader twice with nowhere to go back to hands the keys to the next stop", func(t *testing.T) {
 		harness, _ := openDocuments(t)
 
-		harness.press("ctrl+space", "ctrl+space")
+		harness.Press("ctrl+space", "ctrl+space")
 
-		assert.Equal(t, "/", strings.TrimSpace(readStage(harness.readFrame())[0]), "the document holds the keys")
+		assert.Equal(t, "/", strings.TrimSpace(paneltest.Stage(harness.Frame())[0]), "the document holds the keys")
 	})
 
 	t.Run("the leader twice goes back to the stop the keys last left", func(t *testing.T) {
 		harness, _ := openDocuments(t)
 
-		harness.press("ctrl+space", "ctrl+space", "ctrl+space", "ctrl+space")
-		assert.NotEqual(t, "/", strings.TrimSpace(readStage(harness.readFrame())[0]), "the list holds the keys again")
+		harness.Press("ctrl+space", "ctrl+space", "ctrl+space", "ctrl+space")
+		assert.NotEqual(t, "/", strings.TrimSpace(paneltest.Stage(harness.Frame())[0]), "the list holds the keys again")
 
-		harness.press("ctrl+space", "ctrl+space")
-		assert.Equal(t, "/", strings.TrimSpace(readStage(harness.readFrame())[0]), "the document holds the keys again")
+		harness.Press("ctrl+space", "ctrl+space")
+		assert.Equal(t, "/", strings.TrimSpace(paneltest.Stage(harness.Frame())[0]), "the document holds the keys again")
 	})
 
 	t.Run("the leader twice returns to the record rather than moving on to the next stop", func(t *testing.T) {
 		harness := openArchivedAgents(t, buildOneArchivedAgent()...)
 
-		harness.press("j", "pick:record", "esc", "ctrl+space", "ctrl+space")
+		harness.Press("j", "pick:record", "esc", "ctrl+space", "ctrl+space")
 
-		assert.NotEmpty(t, readRecordCursor(harness.readFrame()), "the record holds the keys")
+		assert.NotEmpty(t, paneltest.RecordCursor(harness.Frame()), "the record holds the keys")
 	})
 
 	dormantOrchestrator := newOrchestrator()
@@ -76,43 +78,43 @@ func TestLeader(t *testing.T) {
 		name     string
 		agent    *agentv1.Agent
 		press    []string
-		wantSent request
+		wantSent paneltest.Request
 	}{
 		{
 			name:     "the leader twice over a dormant agent resumes it",
 			agent:    newDormant("login"),
 			press:    []string{"j"},
-			wantSent: request{procedure: agentv1connect.AgentServiceResumeAgentProcedure, msg: &agentv1.ResumeAgentRequest{Id: "a1"}},
+			wantSent: paneltest.Request{Procedure: agentv1connect.AgentServiceResumeAgentProcedure, Msg: &agentv1.ResumeAgentRequest{Id: "a1"}},
 		},
 		{
 			name:     "the leader twice over a dormant orchestrator's workflow starts it",
 			agent:    dormantOrchestrator,
-			wantSent: request{procedure: agentv1connect.AgentServiceStartOrchestratorProcedure, msg: &agentv1.StartOrchestratorRequest{WorkflowId: "w1"}},
+			wantSent: paneltest.Request{Procedure: agentv1connect.AgentServiceStartOrchestratorProcedure, Msg: &agentv1.StartOrchestratorRequest{WorkflowId: "w1"}},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := newPanelHarness(t, panelHarnessParams{})
+			harness := paneltest.Start(t, paneltest.Params{})
 			answerWorktreeReads(harness)
 			answerLastScreens(harness, map[string]string{tt.agent.GetId(): "⏺ the migration is written"})
 			answerResume(harness)
-			harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), tt.agent))
-			harness.press(tt.press...)
-			harness.fireTimers()
+			harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), tt.agent))
+			harness.Press(tt.press...)
+			harness.Advance(time.Second)
 
-			harness.press("ctrl+space", "ctrl+space")
+			harness.Press("ctrl+space", "ctrl+space")
 
-			harness.assertSentTo(tt.wantSent.procedure, tt.wantSent.msg)
-			assert.NotEqual(t, "/", strings.TrimSpace(readStage(harness.readFrame())[0]), "the saved screen never holds the keys")
+			harness.AssertSentTo(tt.wantSent.Procedure, tt.wantSent.Msg)
+			assert.NotEqual(t, "/", strings.TrimSpace(paneltest.Stage(harness.Frame())[0]), "the saved screen never holds the keys")
 		})
 	}
 
 	t.Run("an unknown key after the leader is dropped", func(t *testing.T) {
 		harness := openFocus(t)
-		selected := len(harness.panel.ReadSelectedPanes())
+		selected := len(harness.Tmux().SelectedPanes())
 
-		harness.press("ctrl+space", "enter")
+		harness.Press("ctrl+space", "enter")
 
-		assert.Empty(t, harness.panel.ReadSelectedPanes()[selected:], "the key went to the leader")
+		assert.Empty(t, harness.Tmux().SelectedPanes()[selected:], "the key went to the leader")
 	})
 }
 
@@ -192,32 +194,32 @@ func TestPanePicker(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openFocus(t)
-			harness.panel.SetScreens(window(tt.shown...))
+			harness.Tmux().SetScreens(window(tt.shown...))
 			if tt.from != "" {
-				harness.panel.SetActivePane(tt.from)
+				harness.Tmux().SetActivePane(tt.from)
 			}
 
-			harness.press("ctrl+space", "j")
-			require.Contains(t, harness.readRendered(), "JUMP")
-			selected := len(harness.panel.ReadSelectedPanes())
+			harness.Press("ctrl+space", "j")
+			require.Contains(t, harness.Rendered(), "JUMP")
+			selected := len(harness.Tmux().SelectedPanes())
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			assert.Equal(t, tt.wantSelected, harness.panel.ReadSelectedPanes()[selected:])
-			assert.Equal(t, tt.wantFrozen, harness.panel.IsZoomed())
+			assert.Equal(t, tt.wantSelected, harness.Tmux().SelectedPanes()[selected:])
+			assert.Equal(t, tt.wantFrozen, harness.Tmux().IsZoomed())
 			if !tt.wantFrozen {
-				assert.Equal(t, tt.wantRecord, readRecordCursor(harness.readFrame()) != "")
+				assert.Equal(t, tt.wantRecord, paneltest.RecordCursor(harness.Frame()) != "")
 			}
 		})
 	}
 
 	t.Run("each letter is rendered over its own target on blank cells", func(t *testing.T) {
 		harness := openFocus(t)
-		harness.panel.SetScreens(window(sidebarRect, agentRect, infoRect))
+		harness.Tmux().SetScreens(window(sidebarRect, agentRect, infoRect))
 
-		harness.press("ctrl+space", "j")
+		harness.Press("ctrl+space", "j")
 
-		lines := strings.Split(harness.readRendered(), "\n")
+		lines := strings.Split(harness.Rendered(), "\n")
 		rows := func(left, right int) []int {
 			var found []int
 			for row, line := range lines {

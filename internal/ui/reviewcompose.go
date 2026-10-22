@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -129,11 +128,7 @@ func (r reviewScreen) openMessageEditor(m *model) tea.Cmd {
 		return m.apply(screen.Report{Summary: "Your editor could not be opened on that message", Err: err})
 	}
 
-	// The message is one file with nothing above it, so the editor opens on its first line.
-	//nolint:noctx // the editor runs until the reviewer closes it, so it takes no deadline
-	open := exec.Command("sh", "-c", editorShell(m.settings.Editor, path, 1))
-
-	return tea.ExecProcess(open, func(err error) tea.Msg {
+	return m.editor.Edit(path, func(err error) tea.Msg {
 		if err != nil {
 			return messageEditedMsg{agentID: agentID, err: err}
 		}

@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/paneltest"
+	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
@@ -16,57 +19,57 @@ import (
 func TestClickRow(t *testing.T) {
 	t.Run("a click on a row puts the cursor on it", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
-		require.Equal(t, "└─ auth", readHoveredRow(harness.readFrame()))
+		require.Equal(t, "└─ auth", paneltest.HoveredRow(harness.Frame()))
 
-		harness.send(clickOn(t, harness, "backend"))
+		harness.Send(harness.ClickOn("backend"))
 
-		assert.Equal(t, "backend", readHoveredRow(harness.readFrame()))
+		assert.Equal(t, "backend", paneltest.HoveredRow(harness.Frame()))
 	})
 
 	t.Run("a click on the row under the cursor opens the menu", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
 
-		harness.send(clickOnLine(t, harness, "└─ auth", "auth"))
+		harness.Send(harness.ClickOnLine("└─ auth", "auth"))
 
-		assert.Contains(t, harness.readFrame(), "edit files")
+		assert.Contains(t, harness.Frame(), "edit files")
 	})
 
 	t.Run("a right click leaves the cursor where it was", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
-		click := clickOn(t, harness, "backend")
+		click := harness.ClickOn("backend")
 		click.Button = tea.MouseRight
 
-		harness.send(click)
+		harness.Send(click)
 
-		assert.Equal(t, "└─ auth", readHoveredRow(harness.readFrame()))
+		assert.Equal(t, "└─ auth", paneltest.HoveredRow(harness.Frame()))
 	})
 }
 
 // TestClickView covers a left click on the switcher opening the view under it.
 func TestClickView(t *testing.T) {
-	harness := openCrowded(t, panelHarnessParams{})
+	harness := openCrowded(t, paneltest.Params{})
 
-	harness.send(clickOnLine(t, harness, "agents  schedules", "documents"))
+	harness.Send(harness.ClickOnLine("agents  schedules", "documents"))
 
-	assert.Equal(t, documentsScreen, harness.readScreen())
+	assert.Equal(t, screen.Documents, paneltest.Screen(harness.Frame()))
 }
 
 // TestClickKind covers a left click on the row of kinds switching the list to the kind under it.
 func TestClickKind(t *testing.T) {
-	harness := openCrowded(t, panelHarnessParams{})
+	harness := openCrowded(t, paneltest.Params{})
 
-	harness.send(clickOnLine(t, harness, "F   live", "archived"))
+	harness.Send(harness.ClickOnLine("F   live", "archived"))
 
-	assert.Contains(t, harness.readRawFrame(), paint.Panel.Style(paint.TonePrimary).Render("archived"))
+	assert.Contains(t, harness.RawFrame(), paint.Panel.Style(paint.TonePrimary).Render("archived"))
 }
 
 // TestClickTab covers a left click on the sort strip choosing the column under it.
 func TestClickTab(t *testing.T) {
 	harness := openAgents(t, buildSortable()...)
 
-	harness.send(clickOnLine(t, harness, "f   ", "activity"))
+	harness.Send(harness.ClickOnLine("f   ", "activity"))
 
-	assert.Equal(t, []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ task-alpha", "│  ├─ " + reviewerMark + "bob", "│  └─ " + reviewerMark + "charlie", "└─ delta"}, readListRows(harness.readFrame()))
+	assert.Equal(t, []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ task-alpha", "│  ├─ " + reviewerMark + "bob", "│  └─ " + reviewerMark + "charlie", "└─ delta"}, paneltest.ListRows(harness.Frame()))
 }
 
 // TestClickBlock covers a left click that lands on no row handing the keys to the block under it.
@@ -82,46 +85,46 @@ func TestClickBlock(t *testing.T) {
 			newArchivedAgent("a2", "billing", "w1"),
 		)
 		answerLastScreens(harness, map[string]string{"a1": strings.Join(lines, "\n"), "a2": strings.Join(lines, "\n")})
-		harness.press("j")
-		harness.fireTimers()
+		harness.Press("j")
+		harness.Advance(time.Second)
 
-		harness.send(clickOn(t, harness, "line number 3"))
-		harness.press("G")
+		harness.Send(harness.ClickOn("line number 3"))
+		harness.Press("G")
 
-		assert.Contains(t, harness.readFrame(), "line number 39")
+		assert.Contains(t, harness.Frame(), "line number 39")
 	})
 
 	t.Run("a click behind an open menu closes it and lands", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
-		click := clickOn(t, harness, "backend")
-		harness.press("space")
+		click := harness.ClickOn("backend")
+		harness.Press("space")
 
-		harness.send(click)
+		harness.Send(click)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.NotContains(t, frame, "edit files")
-		assert.Equal(t, "backend", readHoveredRow(frame))
+		assert.Equal(t, "backend", paneltest.HoveredRow(frame))
 	})
 
 	t.Run("a click on the row under the cursor behind an open menu closes it", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
-		click := clickOnLine(t, harness, "└─ auth", "auth")
-		harness.press("space")
+		click := harness.ClickOnLine("└─ auth", "auth")
+		harness.Press("space")
 
-		harness.send(click)
+		harness.Send(click)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.NotContains(t, frame, "edit files")
-		assert.Equal(t, "└─ auth", readHoveredRow(frame))
+		assert.Equal(t, "└─ auth", paneltest.HoveredRow(frame))
 	})
 }
 
 // TestClickMenu covers a left click on an open menu picking the entry under it.
 func TestClickMenu(t *testing.T) {
 	harness := openAgents(t, buildRecorded()...)
-	harness.press("space")
+	harness.Press("space")
 
-	harness.send(clickOn(t, harness, "cancel"))
+	harness.Send(harness.ClickOn("cancel"))
 
-	assert.NotContains(t, harness.readFrame(), "edit files")
+	assert.NotContains(t, harness.Frame(), "edit files")
 }

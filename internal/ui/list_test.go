@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/internal/ui/paneltest"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -34,11 +36,11 @@ func TestListPageKeys(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openCrowded(t, panelHarnessParams{})
+			harness := openCrowded(t, paneltest.Params{})
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			assert.True(t, strings.HasPrefix(readHoveredRow(harness.readFrame()), tt.want))
+			assert.True(t, strings.HasPrefix(paneltest.HoveredRow(harness.Frame()), tt.want))
 		})
 	}
 }
@@ -72,33 +74,33 @@ func TestListScrollKeys(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openCrowded(t, panelHarnessParams{})
-			harness.press(tt.screen...)
-			harness.press("g", "g")
-			require.Contains(t, readHoveredRow(harness.readFrame()), tt.first)
+			harness := openCrowded(t, paneltest.Params{})
+			harness.Press(tt.screen...)
+			harness.Press("g", "g")
+			require.Contains(t, paneltest.HoveredRow(harness.Frame()), tt.first)
 
-			harness.press("ctrl+n")
-			assert.Contains(t, readHoveredRow(harness.readFrame()), tt.second, "one turn down is one row")
+			harness.Press("ctrl+n")
+			assert.Contains(t, paneltest.HoveredRow(harness.Frame()), tt.second, "one turn down is one row")
 
-			harness.press("ctrl+p")
-			assert.Contains(t, readHoveredRow(harness.readFrame()), tt.first, "and one turn up is back")
+			harness.Press("ctrl+p")
+			assert.Contains(t, paneltest.HoveredRow(harness.Frame()), tt.first, "and one turn up is back")
 
-			harness.press("ctrl+p")
-			assert.Contains(t, readHoveredRow(harness.readFrame()), tt.first, "the top stops it")
+			harness.Press("ctrl+p")
+			assert.Contains(t, paneltest.HoveredRow(harness.Frame()), tt.first, "the top stops it")
 		})
 	}
 
 	t.Run("a turn up on the record's first field keeps the record", func(t *testing.T) {
 		harness := openAgents(t, buildSelectable()...)
-		harness.press("pick:record")
+		harness.Press("pick:record")
 
-		harness.press("ctrl+n")
-		assert.Equal(t, "flags      —", readRecordCursor(harness.readFrame()), "a turn down is a field")
+		harness.Press("ctrl+n")
+		assert.Equal(t, "flags      —", paneltest.RecordCursor(harness.Frame()), "a turn down is a field")
 
-		harness.press("ctrl+p")
-		assert.Equal(t, "agent      —", readRecordCursor(harness.readFrame()))
+		harness.Press("ctrl+p")
+		assert.Equal(t, "agent      —", paneltest.RecordCursor(harness.Frame()))
 
-		harness.press("ctrl+p")
-		assert.Equal(t, "agent      —", readRecordCursor(harness.readFrame()), "and a turn up past it keeps the record too")
+		harness.Press("ctrl+p")
+		assert.Equal(t, "agent      —", paneltest.RecordCursor(harness.Frame()), "and a turn up past it keeps the record too")
 	})
 }

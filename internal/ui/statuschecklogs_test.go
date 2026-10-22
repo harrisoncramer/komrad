@@ -3,7 +3,10 @@ package ui_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
+	"komrad/internal/ui/paneltest"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
@@ -29,8 +32,8 @@ func TestStatusCheckLogsOpen(t *testing.T) {
 
 		harness := openStatusCheckLogs(t, checks, logs)
 
-		assert.Equal(t, statusCheckLogsScreen, harness.readScreen())
-		assert.Contains(t, harness.readFrame(), "status checks › logs")
+		assert.Equal(t, screen.StatusCheckLogs, paneltest.Screen(harness.Frame()))
+		assert.Contains(t, harness.Frame(), "status checks › logs")
 	})
 
 	t.Run("it reads the log of each check the scope shows", func(t *testing.T) {
@@ -38,7 +41,7 @@ func TestStatusCheckLogsOpen(t *testing.T) {
 
 		harness := openStatusCheckLogs(t, checks, logs)
 
-		harness.assertSentTo(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure, &pullrequestv1.ReadCheckLogRequest{
+		harness.AssertSentTo(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure, &pullrequestv1.ReadCheckLogRequest{
 			CheckId:   "check-1",
 			FirstLine: 1,
 			Count:     2,
@@ -50,7 +53,7 @@ func TestStatusCheckLogsOpen(t *testing.T) {
 
 		harness := openStatusCheckLogs(t, checks, logs)
 
-		assert.Equal(t, []string{"vet", "  └ run vet"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"vet", "  └ run vet"}, paneltest.ListRows(harness.Frame()))
 	})
 
 	t.Run("each check is rendered under its header with its steps marked", func(t *testing.T) {
@@ -58,7 +61,7 @@ func TestStatusCheckLogsOpen(t *testing.T) {
 
 		harness := openStatusCheckLogs(t, checks, logs)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "═ vet ═")
 		assert.Contains(t, frame, "▸ run vet")
 		assert.Contains(t, frame, "##[error]vet: unreachable code")
@@ -69,12 +72,12 @@ func TestStatusCheckLogsOpen(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusCheckLogs(t, checks, logs)
-		harness.press(everyStatusCheck...)
+		harness.Press(everyStatusCheck...)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "═ lint ═")
 		assert.Contains(t, frame, "lint ok")
-		harness.assertSentTo(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure,
+		harness.AssertSentTo(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure,
 			&pullrequestv1.ReadCheckLogRequest{
 				CheckId:   "check-1",
 				FirstLine: 1,
@@ -92,9 +95,9 @@ func TestStatusCheckLogsOpen(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusCheckLogs(t, checks, logs)
-		harness.press("esc")
+		harness.Press("esc")
 
-		assert.Equal(t, statusChecksScreen, harness.readScreen())
+		assert.Equal(t, screen.StatusChecks, paneltest.Screen(harness.Frame()))
 	})
 }
 
@@ -108,7 +111,7 @@ func TestStatusCheckLogsReading(t *testing.T) {
 		lines := numberedLines("line", 7000)
 		harness := openStatusCheckLogs(t, []*pullrequestv1.StatusCheck{newLoggedStatusCheck("1", "test", "FAILURE", lines)}, map[string][]string{"check-1": lines})
 
-		harness.assertSentTo(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure,
+		harness.AssertSentTo(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure,
 			&pullrequestv1.ReadCheckLogRequest{
 				CheckId:   "check-1",
 				FirstLine: 1,
@@ -131,11 +134,11 @@ func TestStatusCheckLogsReading(t *testing.T) {
 			newStatusCheckLogStep(2, "run tests", "failure", 250, 51),
 		)}, map[string][]string{"check-1": lines})
 
-		assert.NotContains(t, harness.readFrame(), "▸ run tests")
+		assert.NotContains(t, harness.Frame(), "▸ run tests")
 
-		harness.press("j", "j")
+		harness.Press("j", "j")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "▸ run tests")
 		assert.Contains(t, frame, "line 250")
 	})
@@ -149,7 +152,7 @@ func TestStatusCheckLogsReading(t *testing.T) {
 			newStatusCheckLogStep(2, "post job", "success", 3, 0),
 		)}, map[string][]string{"check-1": lines})
 
-		assert.Contains(t, harness.readFrame(), "▸ post job")
+		assert.Contains(t, harness.Frame(), "▸ post job")
 	})
 
 	t.Run("steps that start on the same line each keep a header", func(t *testing.T) {
@@ -161,7 +164,7 @@ func TestStatusCheckLogsReading(t *testing.T) {
 			newStatusCheckLogStep(2, "run tests", "failure", 1, 1),
 		)}, map[string][]string{"check-1": lines})
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "▸ set up")
 		assert.Contains(t, frame, "▸ run tests")
 	})
@@ -170,9 +173,9 @@ func TestStatusCheckLogsReading(t *testing.T) {
 		t.Parallel()
 
 		harness := hoverTestStepWhileBuildReads(t)
-		harness.release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
+		harness.Release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "▸ run tests")
 		assert.Contains(t, frame, "test 1")
 	})
@@ -181,14 +184,14 @@ func TestStatusCheckLogsReading(t *testing.T) {
 		t.Parallel()
 
 		harness := hoverTestStepWhileBuildReads(t)
-		harness.send(tea.MouseWheelMsg{
-			X:      defaultHarnessWidth - 1,
+		harness.Send(tea.MouseWheelMsg{
+			X:      paneltest.DefaultWidth - 1,
 			Y:      5,
 			Button: tea.MouseWheelUp,
 		})
-		harness.release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
+		harness.Release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.NotContains(t, frame, "▸ run tests")
 		assert.Contains(t, frame, "build 49")
 	})
@@ -198,9 +201,9 @@ func TestStatusCheckLogsReading(t *testing.T) {
 
 		lines := append(numberedLines("line", 200), "panic: nil map")
 		harness := openStatusCheckLogs(t, []*pullrequestv1.StatusCheck{newLoggedStatusCheck("1", "test", "FAILURE", lines)}, map[string][]string{"check-1": lines})
-		harness.press("pick:block", "/", "p", "a", "n", "i", "c", "enter")
+		harness.Press("pick:block", "/", "p", "a", "n", "i", "c", "enter")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "panic: nil map")
 		assert.Contains(t, frame, "1 of 1")
 	})
@@ -210,13 +213,13 @@ func TestStatusCheckLogsReading(t *testing.T) {
 
 		lines := append(numberedLines("line", 200), "panic: nil map")
 		harness := openStatusCheckLogs(t, []*pullrequestv1.StatusCheck{newLoggedStatusCheck("1", "test", "FAILURE", lines)}, map[string][]string{"check-1": lines})
-		harness.press("pick:block", "/", "p", "a", "n", "i", "c")
+		harness.Press("pick:block", "/", "p", "a", "n", "i", "c")
 
-		assert.NotContains(t, harness.readFrame(), "panic: nil map")
+		assert.NotContains(t, harness.Frame(), "panic: nil map")
 
-		harness.fireTimers()
+		harness.Advance(time.Second)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "panic: nil map")
 		assert.Contains(t, frame, "1 of 1")
 	})
@@ -226,15 +229,15 @@ func TestStatusCheckLogsReading(t *testing.T) {
 
 		lines := append(numberedLines("line", 200), "panic: nil map")
 		harness := openStatusCheckLogs(t, []*pullrequestv1.StatusCheck{newLoggedStatusCheck("1", "test", "FAILURE", lines)}, map[string][]string{"check-1": lines})
-		harness.press("pick:block", "/", "p", "a", "n", "i", "c", "enter")
+		harness.Press("pick:block", "/", "p", "a", "n", "i", "c", "enter")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "panic: nil map")
 		assert.Contains(t, frame, "1 of 1")
 
-		harness.fireTimers()
+		harness.Advance(time.Second)
 
-		assert.Equal(t, frame, harness.readFrame())
+		assert.Equal(t, frame, harness.Frame())
 	})
 
 	t.Run("searching the logs for fewer than three characters finds nothing", func(t *testing.T) {
@@ -242,11 +245,11 @@ func TestStatusCheckLogsReading(t *testing.T) {
 
 		lines := append(numberedLines("line", 200), "panic: nil map")
 		harness := openStatusCheckLogs(t, []*pullrequestv1.StatusCheck{newLoggedStatusCheck("1", "test", "FAILURE", lines)}, map[string][]string{"check-1": lines})
-		harness.press("pick:block", "/", "p", "a")
-		harness.fireTimers()
-		harness.press("enter", "n")
+		harness.Press("pick:block", "/", "p", "a")
+		harness.Advance(time.Second)
+		harness.Press("enter", "n")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.NotContains(t, frame, "panic: nil map")
 		assert.NotContains(t, frame, "0 matches")
 		assert.Contains(t, frame, "nothing to search for yet")
@@ -255,13 +258,13 @@ func TestStatusCheckLogsReading(t *testing.T) {
 	t.Run("a refused read says why", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openStatusChecks(t, func(harness *panelHarness) {
+		harness := openStatusChecks(t, func(harness *paneltest.Panel) {
 			answerStatusChecks(newLoggedStatusCheck("1", "test", "FAILURE", []string{"ok"}))(harness)
-			harness.refuse(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure, connect.NewError(connect.CodeUnavailable, nil))
+			harness.Refuse(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure, connect.NewError(connect.CodeUnavailable, nil))
 		})
-		harness.press("enter")
+		harness.Press("enter")
 
-		assert.Contains(t, harness.readFrame(), "could not read")
+		assert.Contains(t, harness.Frame(), "could not read")
 	})
 }
 
@@ -319,13 +322,11 @@ func TestStatusCheckLogsNotices(t *testing.T) {
 			check.Log.State = tt.state
 			harness := openStatusCheckLogs(t, []*pullrequestv1.StatusCheck{check}, nil)
 
-			assert.Contains(t, harness.readFrame(), tt.want)
-			assert.Empty(t, harness.readSent(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure))
+			assert.Contains(t, harness.Frame(), tt.want)
+			assert.Empty(t, harness.Sent(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure))
 		})
 	}
 }
-
-const statusCheckLogsScreen = "the status check logs"
 
 func newLoggedStatusCheck(id, name, conclusion string, lines []string, steps ...*pullrequestv1.CheckLogStep) *pullrequestv1.StatusCheck {
 	check := newStatusCheck(id, name, pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, conclusion)
@@ -360,9 +361,9 @@ func numberedLines(prefix string, count int) []string {
 }
 
 // answerStatusCheckLogs answers each read of a check's log with the lines it asks for.
-func answerStatusCheckLogs(logs map[string][]string) func(*panelHarness) {
-	return func(harness *panelHarness) {
-		harness.answer(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+func answerStatusCheckLogs(logs map[string][]string) func(*paneltest.Panel) {
+	return func(harness *paneltest.Panel) {
+		harness.Answer(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
 			read := req.Any().(*pullrequestv1.ReadCheckLogRequest)
 			lines := logs[read.GetCheckId()]
 			first := min(int(read.GetFirstLine())-1, len(lines))
@@ -378,34 +379,34 @@ func answerStatusCheckLogs(logs map[string][]string) func(*panelHarness) {
 	}
 }
 
-func openStatusCheckLogs(t *testing.T, checks []*pullrequestv1.StatusCheck, logs map[string][]string) *panelHarness {
+func openStatusCheckLogs(t *testing.T, checks []*pullrequestv1.StatusCheck, logs map[string][]string) *paneltest.Panel {
 	t.Helper()
 
-	harness := openStatusChecks(t, func(harness *panelHarness) {
+	harness := openStatusChecks(t, func(harness *paneltest.Panel) {
 		answerStatusChecks(checks...)(harness)
 		answerStatusCheckLogs(logs)(harness)
 	})
-	harness.press("enter")
+	harness.Press("enter")
 
 	return harness
 }
 
-func hoverTestStepWhileBuildReads(t *testing.T) *panelHarness {
+func hoverTestStepWhileBuildReads(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
 	build, test := numberedLines("build", 6000), numberedLines("test", 10)
-	harness := openStatusChecks(t, func(harness *panelHarness) {
+	harness := openStatusChecks(t, func(harness *paneltest.Panel) {
 		answerStatusChecks(
 			newLoggedStatusCheck("1", "build", "FAILURE", build),
 			newLoggedStatusCheck("2", "test", "FAILURE", test, newStatusCheckLogStep(1, "run tests", "failure", 1, 10)),
 		)(harness)
 		answerStatusCheckLogs(map[string][]string{"check-1": build, "check-2": test})(harness)
 	})
-	harness.hold(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
-	harness.press("enter")
-	harness.release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
-	harness.release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
-	harness.press("j", "j")
+	harness.Hold(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
+	harness.Press("enter")
+	harness.Release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
+	harness.Release(pullrequestv1connect.PullRequestServiceReadCheckLogProcedure)
+	harness.Press("j", "j")
 
 	return harness
 }

@@ -7,9 +7,11 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"komrad/internal/komradtest"
 	"komrad/internal/ui"
+	"komrad/internal/ui/paneltest"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	schedulev1 "komrad/proto/gen/schedule/v1"
@@ -28,12 +30,12 @@ import (
 func TestIntegrationPanel(t *testing.T) {
 	t.Run("the archive key takes a task's agents all the way to the database", func(t *testing.T) {
 		instance, agentID := startServedAgent(t)
-		harness := newPanelHarness(t, panelHarnessParams{remote: newPanelRemote(instance)})
+		harness := paneltest.Start(t, paneltest.Params{Remote: newPanelRemote(instance)})
 		relist(t, instance, harness)
-		require.Equal(t, []string{"backend", "└─ login"}, readListRows(harness.readFrame()))
+		require.Equal(t, []string{"backend", "└─ login"}, paneltest.ListRows(harness.Frame()))
 
-		require.Equal(t, "└─ login", readHoveredRow(harness.readFrame()))
-		harness.press("space", "a", "enter")
+		require.Equal(t, "└─ login", paneltest.HoveredRow(harness.Frame()))
+		harness.Press("space", "a", "enter")
 
 		listed, err := instance.Agents.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{Archived: true}))
 		require.NoError(t, err)
@@ -42,39 +44,39 @@ func TestIntegrationPanel(t *testing.T) {
 		assert.Empty(t, instance.GetOwnedPane(agentID), "archiving from the panel stops what was running")
 
 		relist(t, instance, harness)
-		assert.Equal(t, []string{"backend"}, readListRows(harness.readFrame()), "and the row goes off the list, leaving the folder it was in")
+		assert.Equal(t, []string{"backend"}, paneltest.ListRows(harness.Frame()), "and the row goes off the list, leaving the folder it was in")
 	})
 
 	t.Run("a staged agent's pane dying leaves the panel a nav pane and a stage pane", func(t *testing.T) {
 		served := openServedPanel(t, 0)
-		stagePane := served.harness.panel.ReadStagePane()
+		stagePane := served.harness.Tmux().StagePane()
 
 		served.instance.Tmux.Run("kill-pane", "-t", served.agentPane)
 		relist(t, served.instance, served.harness)
 
 		assert.False(t, served.instance.Tmux.Client().IsPaneAlive(stagePane), "the pane left in the agent's window is not left running")
 		assert.Equal(t,
-			[]string{served.navPane, served.harness.panel.ReadStagePane()},
+			[]string{served.navPane, served.harness.Tmux().StagePane()},
 			readPanelPanes(served.instance),
 			"the now-dormant agent's record is in the stage")
 	})
 
 	t.Run("archiving a workflow sends its panes back and leaves the divider where it was dragged", func(t *testing.T) {
 		served := openServedPanel(t, 0)
-		stagePane := served.harness.panel.ReadStagePane()
+		stagePane := served.harness.Tmux().StagePane()
 		configured := readPaneWidth(t, served.instance, served.agentPane)
 		served.instance.Tmux.Run("resize-pane", "-t", served.navPane, "-x", "60")
 		dragged := readPaneWidth(t, served.instance, served.agentPane)
 		require.NotEqual(t, configured, dragged, "the drag moved the divider off the configured width")
 
-		served.harness.press("k", "space", "a")
-		require.Contains(t, served.harness.readFrame(), "backend › archive")
-		served.harness.press("a")
+		served.harness.Press("k", "space", "a")
+		require.Contains(t, served.harness.Frame(), "backend › archive")
+		served.harness.Press("a")
 		relist(t, served.instance, served.harness)
 
-		assert.Empty(t, served.harness.panel.ReadGuestPane(), "the archived agent's pane is not left standing in the panel")
+		assert.Empty(t, served.harness.Tmux().GuestPane(), "the archived agent's pane is not left standing in the panel")
 		require.True(t, served.instance.Tmux.Client().IsPaneAlive(stagePane), "the panel's own stage pane outlives the archive")
-		assert.Equal(t, stagePane, served.harness.panel.ReadStagePane(), "so the panel is not left splitting another")
+		assert.Equal(t, stagePane, served.harness.Tmux().StagePane(), "so the panel is not left splitting another")
 		assert.Equal(t, dragged, readPaneWidth(t, served.instance, stagePane))
 	})
 
@@ -85,8 +87,8 @@ func TestIntegrationPanel(t *testing.T) {
 		}
 		require.Equal(t, "0", readZoomedFlag(), "the agent's own pane has the stage to itself")
 
-		served.harness.press("k")
-		served.harness.fireTimers()
+		served.harness.Press("k")
+		served.harness.Advance(time.Second)
 
 		assert.Equal(t, "1", readZoomedFlag())
 	})
@@ -96,23 +98,17 @@ func TestIntegrationPanel(t *testing.T) {
 		share := readPaneWidth(t, served.instance, served.navPane)
 		require.Less(t, share, 341, "the panel starts on its share of the window")
 
-		served.harness.press("k")
-		held := served.harness.readRawFrame()
-		unsettled := served.harness.fireTimersUnsettled()
+		served.harness.Press("k")
+		served.harness.Advance(time.Second)
 
 		require.Equal(t, 341, readPaneWidth(t, served.instance, served.navPane), "the folder row takes the window")
-		assert.Equal(t, held, served.harness.readRawFrame(), "the panel keeps its last frame until it is told the size")
+		assert.Equal(t, 341, lipgloss.Width(served.harness.Rendered()), "the frame covers it")
 
-		for _, cmd := range unsettled {
-			served.harness.settle(cmd)
-		}
-		assert.Equal(t, 341, lipgloss.Width(served.harness.readRendered()), "and once told, the frame covers it")
-
-		served.harness.press("j")
-		served.harness.fireTimers()
+		served.harness.Press("j")
+		served.harness.Advance(time.Second)
 
 		require.Equal(t, share, readPaneWidth(t, served.instance, served.navPane), "the agent's own pane takes it back")
-		assert.LessOrEqual(t, lipgloss.Width(served.harness.readRendered()), share, "so nothing rendered runs past the pane and wraps")
+		assert.LessOrEqual(t, lipgloss.Width(served.harness.Rendered()), share, "so nothing rendered runs past the pane and wraps")
 	})
 }
 
@@ -120,7 +116,7 @@ const panelSession = "shown"
 
 type servedPanel struct {
 	instance  *komradtest.Instance
-	harness   *panelHarness
+	harness   *paneltest.Panel
 	agentID   string
 	agentPane string
 	navPane   string
@@ -161,19 +157,19 @@ func openServedPanel(t *testing.T, windowWidth int) *servedPanel {
 	}
 
 	client := instance.Tmux.Client()
-	harness := newPanelHarness(t, panelHarnessParams{
-		width:    client.GetPaneWidth(navPane),
-		height:   client.GetPaneHeight(navPane),
-		settings: ui.PanelSettings{Pane: navPane},
-		tmux:     client,
-		remote:   newPanelRemote(instance),
+	harness := paneltest.Start(t, paneltest.Params{
+		Width:    client.GetPaneWidth(navPane),
+		Height:   client.GetPaneHeight(navPane),
+		Settings: ui.PanelSettings{Pane: navPane},
+		Tmux:     client,
+		Remote:   newPanelRemote(instance),
 	})
 	relist(t, instance, harness)
-	require.Equal(t, []string{"backend", "└─ login"}, readListRows(harness.readFrame()))
+	require.Equal(t, []string{"backend", "└─ login"}, paneltest.ListRows(harness.Frame()))
 
-	harness.fireTimers()
+	harness.Advance(time.Second)
 	agentPane := instance.GetOwnedPane(agentID)
-	require.Equal(t, agentPane, harness.panel.ReadGuestPane(), "the agent's own pane is swapped into the stage")
+	require.Equal(t, agentPane, harness.Tmux().GuestPane(), "the agent's own pane is swapped into the stage")
 	require.Contains(t, readPanelPanes(instance), agentPane)
 
 	return &servedPanel{
@@ -185,22 +181,22 @@ func openServedPanel(t *testing.T, windowWidth int) *servedPanel {
 	}
 }
 
-func newPanelRemote(instance *komradtest.Instance) *panelRemote {
-	return &panelRemote{
-		agents:       instance.Agents,
-		workflows:    instance.Workflows,
-		schedules:    instance.Schedules,
-		hooks:        instance.Hooks,
-		worktrees:    instance.Worktrees,
-		forges:       instance.Forges,
-		pullRequests: instance.PullRequests,
-		loops:        instance.Loops,
-		tasks:        instance.Tasks,
-		logs:         instance.Logs,
+func newPanelRemote(instance *komradtest.Instance) *paneltest.Remote {
+	return &paneltest.Remote{
+		Agents:       instance.Agents,
+		Workflows:    instance.Workflows,
+		Schedules:    instance.Schedules,
+		Hooks:        instance.Hooks,
+		Worktrees:    instance.Worktrees,
+		Forges:       instance.Forges,
+		PullRequests: instance.PullRequests,
+		Loops:        instance.Loops,
+		Tasks:        instance.Tasks,
+		Logs:         instance.Logs,
 	}
 }
 
-func relist(t *testing.T, instance *komradtest.Instance, harness *panelHarness) {
+func relist(t *testing.T, instance *komradtest.Instance, harness *paneltest.Panel) {
 	t.Helper()
 
 	agents, err := instance.Agents.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{View: viewv1.View_VIEW_FULL}))
@@ -232,7 +228,7 @@ func relist(t *testing.T, instance *komradtest.Instance, harness *panelHarness) 
 		}),
 	)
 
-	harness.watch(buildSnapshot(rows...))
+	harness.Watch(paneltest.Snapshot(rows...))
 }
 
 func readPanelPanes(instance *komradtest.Instance) []string {

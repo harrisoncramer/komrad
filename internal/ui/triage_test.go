@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/paneltest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -113,9 +114,9 @@ func TestTriageRows(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openTriage(t, tt.capacity, tt.rows...)
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			assert.Equal(t, tt.want, readTriageList(harness.readFrame()))
+			assert.Equal(t, tt.want, readTriageList(harness.Frame()))
 		})
 	}
 }
@@ -130,12 +131,12 @@ func TestTriageHeight(t *testing.T) {
 		{name: "part full", rows: buildTriage()[:3]},
 	}
 
-	want := findTreeLine(openTriage(t, 4, buildTriage()[:2]...).readFrame())
+	want := findTreeLine(openTriage(t, 4, buildTriage()[:2]...).Frame())
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openTriage(t, 4, tt.rows...)
 
-			assert.Equal(t, want, findTreeLine(harness.readFrame()))
+			assert.Equal(t, want, findTreeLine(harness.Frame()))
 		})
 	}
 }
@@ -174,10 +175,10 @@ func TestTriageJump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openTriage(t, 2, tt.rows...)
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			frame := harness.readFrame()
-			assert.Equal(t, tt.want, strings.TrimSpace(readHoveredRow(frame)))
+			frame := harness.Frame()
+			assert.Equal(t, tt.want, strings.TrimSpace(paneltest.HoveredRow(frame)))
 			assert.Contains(t, frame, tt.note)
 		})
 	}
@@ -314,16 +315,16 @@ func TestTriageSnooze(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openTriage(t, tt.capacity, tt.rows...)
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 			if tt.relisted != nil {
-				harness.watch(buildSnapshot(tt.relisted...))
+				harness.Watch(paneltest.Snapshot(tt.relisted...))
 			}
 			if tt.then != nil {
-				harness.watch(buildSnapshot(tt.then...))
+				harness.Watch(paneltest.Snapshot(tt.then...))
 			}
-			harness.press("G")
+			harness.Press("G")
 
-			assert.Equal(t, tt.want, readTriageList(harness.readFrame()))
+			assert.Equal(t, tt.want, readTriageList(harness.Frame()))
 		})
 	}
 }
@@ -504,23 +505,23 @@ func TestTriageFreeze(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openTriage(t, tt.capacity, tt.rows...)
 
-			harness.press("t")
+			harness.Press("t")
 			if tt.blur {
-				harness.send(tea.BlurMsg{})
+				harness.Send(tea.BlurMsg{})
 			}
 			if tt.relisted != nil {
-				harness.watch(buildSnapshot(tt.relisted...))
+				harness.Watch(paneltest.Snapshot(tt.relisted...))
 			}
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 			if tt.then != nil {
-				harness.watch(buildSnapshot(tt.then...))
+				harness.Watch(paneltest.Snapshot(tt.then...))
 			}
 
-			frame := harness.readFrame()
+			frame := harness.Frame()
 			if tt.want != nil {
 				assert.Equal(t, tt.want, readTriageList(frame))
 			}
-			assert.Equal(t, tt.hovered, strings.TrimSpace(readHoveredRow(frame)))
+			assert.Equal(t, tt.hovered, strings.TrimSpace(paneltest.HoveredRow(frame)))
 			assert.Contains(t, frame, tt.note)
 		})
 	}
@@ -533,7 +534,7 @@ func TestTriageCopies(t *testing.T) {
 	t.Run("marking the zone's copy marks the tree's too", func(t *testing.T) {
 		harness := openTriage(t, 3, buildTriage()...)
 
-		harness.press("t", "v")
+		harness.Press("t", "v")
 
 		marked := xslice.Filter(findRenderedRows(t, harness, "asker"), func(line string) bool {
 			return strings.Contains(line, bar)
@@ -544,9 +545,9 @@ func TestTriageCopies(t *testing.T) {
 	t.Run("an action over both copies takes the agent once", func(t *testing.T) {
 		harness := openTriage(t, 3, withTasks(buildTriage())...)
 
-		harness.press("t", "v", "space", "a")
+		harness.Press("t", "v", "space", "a")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, `agent "asker"`)
 		assert.NotContains(t, frame, "2 agents")
 	})
@@ -561,18 +562,18 @@ func TestTriageCopies(t *testing.T) {
 		sweeper.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
 		harness := openTriage(t, 3, newLiveWorkflow("w1", "backend"), writer, task, sweeper)
 
-		harness.press("t", "space", "x")
+		harness.Press("t", "space", "x")
 
-		assert.Contains(t, harness.readFrame(), "agents › writer › status checks")
+		assert.Contains(t, harness.Frame(), "agents › writer › status checks")
 	})
 }
 
-func openTriage(t *testing.T, capacity int, rows ...proto.Message) *panelHarness {
+func openTriage(t *testing.T, capacity int, rows ...proto.Message) *paneltest.Panel {
 	t.Helper()
 
-	harness := newPanelHarness(t, panelHarnessParams{triageRows: capacity})
+	harness := paneltest.Start(t, paneltest.Params{TriageRows: capacity})
 	answerWorktreeReads(harness)
-	harness.watch(buildSnapshot(rows...))
+	harness.Watch(paneltest.Snapshot(rows...))
 
 	return harness
 }
@@ -601,8 +602,8 @@ func newTriageAgent(name string, state agentv1.AgentState, minute int) *agentv1.
 // readTriageList is the list's rows down to the record under it, with every run of spaces cut
 // to one.
 func readTriageList(frame string) []string {
-	return xslice.Map(readListLines(frame), func(line listLine) string {
-		return strings.Join(strings.Fields(line.row), " ")
+	return xslice.Map(paneltest.ListLines(frame), func(line paneltest.ListLine) string {
+		return strings.Join(strings.Fields(line.Row), " ")
 	})
 }
 
@@ -655,5 +656,5 @@ func buildAnswered() []proto.Message {
 
 // findTreeLine is the line of the frame the tree's workflow is rendered on.
 func findTreeLine(frame string) int {
-	return slices.IndexFunc(splitLines(frame), func(line string) bool { return strings.Contains(line, "│ backend") })
+	return slices.IndexFunc(paneltest.SplitLines(frame), func(line string) bool { return strings.Contains(line, "│ backend") })
 }

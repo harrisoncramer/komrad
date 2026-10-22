@@ -187,7 +187,7 @@ func (c *statusCheckLogsScreen) reanchor(m *model) {
 
 func (c *statusCheckLogsScreen) listParams(m *model) screenListParams {
 	return screenListParams{
-		tally:    m.statusChecks.commit.tally(),
+		tally:    m.statusChecks.commit.tally(m.clock.Now()),
 		help:     c.help,
 		empty:    m.statusChecks.emptyLine(m),
 		rows:     len(c.rows(m)),

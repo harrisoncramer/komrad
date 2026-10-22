@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"komrad/internal/engine"
-	"komrad/internal/ui"
+	"komrad/internal/ui/paneltest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -55,8 +55,8 @@ func (f *fakeSignIn) count() (int, int) {
 	return f.checks, f.logins
 }
 
-func readProse(h *panelHarness) string {
-	return joinProse(splitLines(h.readFrame()))
+func readProse(h *paneltest.Panel) string {
+	return paneltest.JoinProse(paneltest.SplitLines(h.Frame()))
 }
 
 // TestSignInStartup pins what a panel on an engine at a url shows before the engine says the
@@ -102,20 +102,18 @@ func TestSignInStartup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			signIn := &fakeSignIn{access: tt.access}
-			harness := newPanelHarness(t, panelHarnessParams{signIn: signIn})
-
-			harness.watch(buildSnapshot(newLiveWorkflow("w1", "should-not-render")))
+			harness := paneltest.Start(t, paneltest.Params{SignIn: signIn})
 
 			frame := readProse(harness)
 			for _, want := range tt.wantContain {
 				assert.Contains(t, frame, want)
 			}
-			for _, absent := range append(tt.wantAbsent, "should-not-render") {
+			for _, absent := range tt.wantAbsent {
 				assert.NotContains(t, frame, absent)
 			}
-			assert.False(t, harness.panel.IsWatching(), "the watch waits for access")
-			assert.Empty(t, harness.readRequests(), "nothing is asked of the engine before access")
-			assert.True(t, doesQuit(harness.panel.Update(ui.NewKeyPress("ctrl+c"))))
+			assert.False(t, harness.IsWatching(), "the watch waits for access")
+			assert.Empty(t, harness.Requests(), "nothing is asked of the engine before access")
+			assert.True(t, harness.Quits("ctrl+c"))
 		})
 	}
 }
@@ -124,73 +122,73 @@ func TestSignInStartup(t *testing.T) {
 func TestSignIn(t *testing.T) {
 	t.Run("logging in checks access again before it shows the engine", func(t *testing.T) {
 		signIn := &fakeSignIn{access: engine.ErrSignInNeeded}
-		harness := newPanelHarness(t, panelHarnessParams{signIn: signIn})
+		harness := paneltest.Start(t, paneltest.Params{SignIn: signIn})
 
 		signIn.answer(nil, nil)
-		harness.press("enter")
+		harness.Press("enter")
 
 		checks, logins := signIn.count()
 		assert.Equal(t, 1, logins)
 		assert.Equal(t, 2, checks, "the login is checked against the engine before the panel trusts it")
-		assert.True(t, harness.panel.IsWatching())
+		assert.True(t, harness.IsWatching())
 
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend")))
-		assert.Contains(t, harness.readFrame(), "backend")
+		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend")))
+		assert.Contains(t, harness.Frame(), "backend")
 	})
 
 	t.Run("a login that fails says why and offers it again", func(t *testing.T) {
 		signIn := &fakeSignIn{access: engine.ErrSignInNeeded}
-		harness := newPanelHarness(t, panelHarnessParams{signIn: signIn})
+		harness := paneltest.Start(t, paneltest.Params{SignIn: signIn})
 
 		signIn.answer(engine.ErrSignInNeeded, errors.New("the browser came back from some other sign-in"))
-		harness.press("enter")
+		harness.Press("enter")
 
 		frame := readProse(harness)
 		assert.Contains(t, frame, "the browser came back from some other sign-in")
 		assert.Contains(t, frame, "Press enter to sign in")
-		assert.False(t, harness.panel.IsWatching())
+		assert.False(t, harness.IsWatching())
 
 		signIn.answer(nil, nil)
-		harness.press("enter")
+		harness.Press("enter")
 
 		_, logins := signIn.count()
 		assert.Equal(t, 2, logins)
-		assert.True(t, harness.panel.IsWatching())
+		assert.True(t, harness.IsWatching())
 	})
 
 	t.Run("a login the engine does not take leaves the panel at the gate", func(t *testing.T) {
 		signIn := &fakeSignIn{access: engine.ErrSignInNeeded}
-		harness := newPanelHarness(t, panelHarnessParams{signIn: signIn})
+		harness := paneltest.Start(t, paneltest.Params{SignIn: signIn})
 
 		signIn.answer(engine.ErrAccessDenied, nil)
-		harness.press("enter")
+		harness.Press("enter")
 
 		assert.Contains(t, readProse(harness), "You do not have access to this engine")
-		assert.False(t, harness.panel.IsWatching())
+		assert.False(t, harness.IsWatching())
 	})
 
 	t.Run("a failed check is tried again", func(t *testing.T) {
 		signIn := &fakeSignIn{access: errors.New("failed to reach the engine")}
-		harness := newPanelHarness(t, panelHarnessParams{signIn: signIn})
+		harness := paneltest.Start(t, paneltest.Params{SignIn: signIn})
 
 		signIn.answer(nil, nil)
-		harness.press("enter")
+		harness.Press("enter")
 
 		_, logins := signIn.count()
 		assert.Zero(t, logins, "a failure that is not about the sign-in does not ask for one")
-		assert.True(t, harness.panel.IsWatching())
+		assert.True(t, harness.IsWatching())
 	})
 
 	t.Run("a grant the owner gives later is picked up by checking again", func(t *testing.T) {
 		signIn := &fakeSignIn{access: engine.ErrAccessDenied}
-		harness := newPanelHarness(t, panelHarnessParams{signIn: signIn})
+		harness := paneltest.Start(t, paneltest.Params{SignIn: signIn})
 
 		signIn.answer(nil, nil)
-		harness.press("enter")
+		harness.Press("enter")
 
 		_, logins := signIn.count()
 		assert.Zero(t, logins)
-		assert.True(t, harness.panel.IsWatching())
+		assert.True(t, harness.IsWatching())
 	})
 }
 
@@ -233,27 +231,27 @@ func TestSignInLost(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			signIn := &fakeSignIn{}
-			harness := newPanelHarness(t, panelHarnessParams{signIn: signIn})
-			harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend")))
-			require.Contains(t, harness.readFrame(), "backend")
+			harness := paneltest.Start(t, paneltest.Params{SignIn: signIn})
+			harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend")))
+			require.Contains(t, harness.Frame(), "backend")
 
 			signIn.answer(tt.access, nil)
-			harness.send(ui.NewWatchLost(errors.New("the stream ended")))
+			harness.LoseWatch(errors.New("the stream ended"))
 
 			frame := readProse(harness)
 			assert.Contains(t, frame, tt.wantContain)
-			assert.Equal(t, !tt.wantGated, harness.panel.IsWatching())
+			assert.Equal(t, !tt.wantGated, harness.IsWatching())
 			if !tt.wantGated {
 				return
 			}
 
-			harness.watch(buildSnapshot(newLiveWorkflow("w2", "should-not-render")))
+			harness.Watch(paneltest.Snapshot(newLiveWorkflow("w2", "should-not-render")))
 			assert.NotContains(t, readProse(harness), "should-not-render", "a batch already on its way is dropped")
 
 			signIn.answer(nil, nil)
-			harness.press("enter")
-			require.True(t, harness.panel.IsWatching())
-			assert.NotContains(t, harness.readFrame(), "backend", "the panel comes back empty and waits for the engine")
+			harness.Press("enter")
+			require.True(t, harness.IsWatching())
+			assert.NotContains(t, harness.Frame(), "backend", "the panel comes back empty and waits for the engine")
 		})
 	}
 }

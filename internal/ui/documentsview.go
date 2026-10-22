@@ -39,7 +39,7 @@ func documentColumns() view.Columns {
 func (d *documentsScreen) snapshot(m *model, pane list.Pane) view.Snapshot {
 	rows := d.rows(m)
 	picked := pickedRows(m.filter, rows, m.documentRowFits)
-	now := time.Now()
+	now := m.clock.Now()
 	caret := pane.Caret
 	if d.isDiffFocused(m) {
 		caret = view.CaretRendered
@@ -81,7 +81,7 @@ func (d *documentsScreen) details(m *model) details {
 
 func (d *documentsScreen) documentTypeSnapshot(m *model, pane list.Pane) view.Snapshot {
 	rows := d.documentTypeRows(m)
-	now := time.Now()
+	now := m.clock.Now()
 
 	return view.Snapshot{
 		Rows: xslice.Map(rows, func(r documentTypeRow) view.Row {
@@ -109,7 +109,7 @@ func (d *documentsScreen) doc(m *model) string {
 	}
 
 	read, asked := d.bodies[item.id]
-	notice := fmt.Sprintf("_%s, written %s ago_", item.typeName, label.Age(item.updatedAt))
+	notice := fmt.Sprintf("_%s, written %s ago_", item.typeName, label.AgeAt(item.updatedAt, m.clock.Now()))
 	switch {
 	case !asked || (read.pending && read.body == ""):
 		return renderDocument(item.name, notice, "_reading…_", "")
@@ -137,7 +137,7 @@ func documentProse(name, body string) string {
 // changed, or the document as it stands.
 func (d *documentsScreen) docRows(m *model, width int) []string {
 	if d.kind == documentKindTypes {
-		return paint.DocStyledRows(documentTypeFrom(d.hoveredDocumentType(m)), max(width, 1), columnStyle())
+		return paint.DocStyledRows(documentTypeFrom(d.hoveredDocumentType(m), m.clock.Now()), max(width, 1), columnStyle())
 	}
 
 	item, ok := d.hovered(m)
@@ -176,7 +176,7 @@ func (h *documentHistory) head(m *model, item documentItem, width int) []string 
 	case h.err != nil:
 		notice = "could not list its versions: " + errui.GetReason(h.err)
 	case h.versions != nil:
-		notice = h.notice()
+		notice = h.notice(m.clock.Now())
 	}
 
 	rows := paint.DocStyledRows(renderDocument(item.name, notice, "", ""), width, columnStyle())
@@ -190,7 +190,7 @@ func (h *documentHistory) head(m *model, item documentItem, width int) []string 
 }
 
 // notice names the write stepped to, who made it and how long ago.
-func (h *documentHistory) notice() string {
+func (h *documentHistory) notice(now time.Time) string {
 	current := h.versions[h.at]
 	written := "written"
 	if current.by != "" {
@@ -198,7 +198,7 @@ func (h *documentHistory) notice() string {
 	}
 
 	notice := fmt.Sprintf("version %d of %d, %s %s ago",
-		current.version, h.versions[0].version, written, label.Age(dates.Parse(current.createdAt)))
+		current.version, h.versions[0].version, written, label.AgeAt(dates.Parse(current.createdAt), now))
 	if renamed := h.renamedFrom(); renamed != "" {
 		notice += fmt.Sprintf(", renamed from %q", renamed)
 	}
@@ -244,12 +244,12 @@ func (h *documentHistory) changeRows(width int) []string {
 }
 
 // documentTypeFrom is a type's context as the panel renders it beside the list.
-func documentTypeFrom(documentType *agentv1.DocumentType) string {
+func documentTypeFrom(documentType *agentv1.DocumentType, now time.Time) string {
 	if documentType == nil {
 		return renderDocument("Document types", "_no document types yet_", "", "")
 	}
 
-	notice := fmt.Sprintf("_version %d, written %s ago_", documentType.GetVersion(), label.Age(dates.Parse(documentType.GetUpdatedAt())))
+	notice := fmt.Sprintf("_version %d, written %s ago_", documentType.GetVersion(), label.AgeAt(dates.Parse(documentType.GetUpdatedAt()), now))
 
 	return renderDocument(documentType.GetName(), notice, documentProse(documentType.GetName(), documentType.GetContext()), "")
 }

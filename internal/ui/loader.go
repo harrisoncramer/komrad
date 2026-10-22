@@ -16,8 +16,8 @@ import (
 
 type loaderTickMsg struct{}
 
-func loaderTick() tea.Cmd {
-	return startTimer(loader.Interval, func(time.Time) tea.Msg { return loaderTickMsg{} })
+func (m *model) loaderTick() tea.Cmd {
+	return m.clock.After(loader.Interval, func(time.Time) tea.Msg { return loaderTickMsg{} })
 }
 
 type loadingState struct {
@@ -89,7 +89,7 @@ func (m *model) spinLoader() tea.Cmd {
 
 	m.loading.ticking = true
 
-	return loaderTick()
+	return m.loaderTick()
 }
 
 func (m *model) advanceLoader() tea.Cmd {
@@ -101,7 +101,7 @@ func (m *model) advanceLoader() tea.Cmd {
 	m.loading.step++
 	m.loading.ticking = true
 
-	return loaderTick()
+	return m.loaderTick()
 }
 
 // heldWrite is the write the form on screen is held for.
@@ -133,7 +133,7 @@ func (m *model) submittingParams(width int) submitting.Params {
 	return submitting.Params{
 		Palette: paint.Panel,
 		Frame:   m.loading.frame(),
-		Now:     time.Now(),
+		Now:     m.clock.Now(),
 		Width:   width,
 	}
 }

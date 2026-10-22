@@ -3,8 +3,10 @@ package ui_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"komrad/internal/panes"
+	"komrad/internal/ui/paneltest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,9 +20,9 @@ func TestMenu(t *testing.T) {
 		t.Parallel()
 
 		harness := openSchedules(t, newLiveWorkflow("w1", "api"))
-		harness.press("space")
+		harness.Press("space")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "› new schedule")
 		assert.NotContains(t, frame, "logs")
 	})
@@ -30,9 +32,9 @@ func TestMenu(t *testing.T) {
 
 		harness := openAgents(t, buildSubpagesAgents()...)
 		moveToAgentRow(t, harness, "reviewer")
-		harness.press("space")
+		harness.Press("space")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "› logs")
 		assert.Contains(t, frame, "edit files")
 		assert.NotContains(t, frame, "new task")
@@ -43,9 +45,9 @@ func TestMenu(t *testing.T) {
 		t.Parallel()
 
 		harness := openAgents(t, buildSubpagesAgents()...)
-		harness.press("g", "g", "space")
+		harness.Press("g", "g", "space")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		require.Contains(t, frame, "new task")
 		require.Contains(t, frame, "───")
 		assert.Less(t, strings.Index(frame, "new task"), strings.Index(frame, "───"))
@@ -57,11 +59,11 @@ func TestMenu(t *testing.T) {
 		t.Parallel()
 
 		harness := openLogs(t, tailOfTwo())
-		before := harness.readFrame()
+		before := harness.Frame()
 
-		harness.press("space")
+		harness.Press("space")
 
-		assert.Equal(t, before, harness.readFrame())
+		assert.Equal(t, before, harness.Frame())
 	})
 
 	t.Run("the legend offers it only where it opens", func(t *testing.T) {
@@ -69,14 +71,14 @@ func TestMenu(t *testing.T) {
 
 		tests := []struct {
 			name  string
-			open  func(*testing.T) *panelHarness
+			open  func(*testing.T) *paneltest.Panel
 			wants bool
 		}{
 			{
 				name: "off an agent",
-				open: func(t *testing.T) *panelHarness {
+				open: func(t *testing.T) *paneltest.Panel {
 					harness := openSchedules(t, buildSchedules()...)
-					harness.press(widenListPresses...)
+					harness.Press(widenListPresses...)
 
 					return harness
 				},
@@ -84,7 +86,7 @@ func TestMenu(t *testing.T) {
 			},
 			{
 				name:  "on the logs",
-				open:  func(t *testing.T) *panelHarness { return openLogs(t, tailOfTwo()) },
+				open:  func(t *testing.T) *paneltest.Panel { return openLogs(t, tailOfTwo()) },
 				wants: false,
 			},
 		}
@@ -94,12 +96,12 @@ func TestMenu(t *testing.T) {
 				t.Parallel()
 
 				harness := tt.open(t)
-				harness.press("?")
+				harness.Press("?")
 
 				if tt.wants {
-					assert.Regexp(t, `space +menu`, readLegend(harness.readFrame()))
+					assert.Regexp(t, `space +menu`, paneltest.Legend(harness.Frame()))
 				} else {
-					assert.NotRegexp(t, `space +menu`, readLegend(harness.readFrame()))
+					assert.NotRegexp(t, `space +menu`, paneltest.Legend(harness.Frame()))
 				}
 			})
 		}
@@ -109,14 +111,14 @@ func TestMenu(t *testing.T) {
 		t.Parallel()
 
 		harness := openTriage(t, 3, buildTriage()...)
-		harness.press("t")
-		harness.fireTimers()
-		harness.press("space")
-		sent := len(harness.panel.ReadMoveBatches())
+		harness.Press("t")
+		harness.Advance(time.Second)
+		harness.Press("space")
+		sent := len(harness.Tmux().MoveBatches())
 
-		harness.press("z")
+		harness.Press("z")
 
-		batches := harness.panel.ReadMoveBatches()[sent:]
+		batches := harness.Tmux().MoveBatches()[sent:]
 		require.Len(t, batches, 1)
 		assert.Contains(t, batches[0], panes.KindZoom)
 		assert.Contains(t, batches[0], panes.KindRespawn)

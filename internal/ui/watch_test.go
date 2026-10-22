@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/ui/paneltest"
 	"komrad/lib/xslice"
 	watchv1 "komrad/proto/gen/watch/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
@@ -25,15 +26,15 @@ func TestWatch(t *testing.T) {
 			newLiveWorkflow("w2", "web"),
 			newAgentAt("older", "w1", 1),
 		)
-		require.Equal(t, []string{"api", "└─ older", "web"}, readListRows(harness.readFrame()))
+		require.Equal(t, []string{"api", "└─ older", "web"}, paneltest.ListRows(harness.Frame()))
 
-		harness.watch(buildSnapshot(
+		harness.Watch(paneltest.Snapshot(
 			newLiveWorkflow("w1", "api"),
 			newAgentAt("two", "w1", 3),
 			newAgentAt("older", "w1", 1),
 		))
 
-		assert.Equal(t, []string{"api", "├─ two", "└─ older"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"api", "├─ two", "└─ older"}, paneltest.ListRows(harness.Frame()))
 	})
 
 	t.Run("a task's tombstones take its writer and reviewer with them", func(t *testing.T) {
@@ -47,15 +48,15 @@ func TestWatch(t *testing.T) {
 			newReviewer("a2", "reviewer", "a1"),
 			newAgent("a3", "other", "w1"),
 		)
-		require.Len(t, readListRows(harness.readFrame()), 4)
+		require.Len(t, paneltest.ListRows(harness.Frame()), 4)
 
-		harness.watch(
-			buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a1"),
-			buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a2"),
-			buildDeleted(watchv1.Resource_RESOURCE_TASK, "task-a1"),
+		harness.Watch(
+			paneltest.Deleted(watchv1.Resource_RESOURCE_AGENT, "a1"),
+			paneltest.Deleted(watchv1.Resource_RESOURCE_AGENT, "a2"),
+			paneltest.Deleted(watchv1.Resource_RESOURCE_TASK, "task-a1"),
 		)
 
-		assert.Equal(t, []string{"api", "└─ other"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"api", "└─ other"}, paneltest.ListRows(harness.Frame()))
 	})
 
 	t.Run("a put lands over the row it names and the cursor stays on it", func(t *testing.T) {
@@ -66,19 +67,19 @@ func TestWatch(t *testing.T) {
 			newAgentAt("one", "w1", 1),
 			newAgentAt("two", "w1", 2),
 		)
-		harness.press("j")
-		require.Equal(t, "└─ one", readHoveredRow(harness.readFrame()))
+		harness.Press("j")
+		require.Equal(t, "└─ one", paneltest.HoveredRow(harness.Frame()))
 
 		renamed := newAgentAt("one", "w1", 1)
 		renamed.Name = "renamed"
-		harness.watch(
-			buildPuts(renamed, newAgentAt("three", "w1", 3), newLiveWorkflow("w0", "aaa")),
-			buildDeleted(watchv1.Resource_RESOURCE_AGENT, "two"),
+		harness.Watch(
+			paneltest.Puts(renamed, newAgentAt("three", "w1", 3), newLiveWorkflow("w0", "aaa")),
+			paneltest.Deleted(watchv1.Resource_RESOURCE_AGENT, "two"),
 		)
 
-		frame := harness.readFrame()
-		assert.Equal(t, []string{"aaa", "api", "├─ three", "└─ renamed"}, readListRows(frame))
-		assert.Equal(t, "└─ renamed", readHoveredRow(frame))
+		frame := harness.Frame()
+		assert.Equal(t, []string{"aaa", "api", "├─ three", "└─ renamed"}, paneltest.ListRows(frame))
+		assert.Equal(t, "└─ renamed", paneltest.HoveredRow(frame))
 	})
 
 	t.Run("a workflow renamed out of its place is filed again", func(t *testing.T) {
@@ -86,9 +87,9 @@ func TestWatch(t *testing.T) {
 
 		harness := openAgents(t, newLiveWorkflow("w1", "api"), newLiveWorkflow("w2", "web"))
 
-		harness.watch(buildPuts(newLiveWorkflow("w1", "zzz")))
+		harness.Watch(paneltest.Puts(newLiveWorkflow("w1", "zzz")))
 
-		assert.Equal(t, []string{"web", "zzz"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"web", "zzz"}, paneltest.ListRows(harness.Frame()))
 	})
 
 	t.Run("a workflow's tombstone takes it off the list", func(t *testing.T) {
@@ -96,20 +97,20 @@ func TestWatch(t *testing.T) {
 
 		harness := openAgents(t, newLiveWorkflow("w0", "aaa"), newLiveWorkflow("w1", "api"))
 
-		harness.watch(buildDeleted(watchv1.Resource_RESOURCE_WORKFLOW, "w0"))
+		harness.Watch(paneltest.Deleted(watchv1.Resource_RESOURCE_WORKFLOW, "w0"))
 
-		assert.Equal(t, []string{"api"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"api"}, paneltest.ListRows(harness.Frame()))
 	})
 
 	t.Run("a schedule's tombstone takes it off the schedules screen", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openSchedules(t, buildSchedules()...)
-		require.Len(t, readScheduleRows(harness.readFrame()), 1)
+		require.Len(t, readScheduleRows(harness.Frame()), 1)
 
-		harness.watch(buildDeleted(watchv1.Resource_RESOURCE_SCHEDULE, "s1"))
+		harness.Watch(paneltest.Deleted(watchv1.Resource_RESOURCE_SCHEDULE, "s1"))
 
-		assert.Empty(t, readScheduleRows(harness.readFrame()))
+		assert.Empty(t, readScheduleRows(harness.Frame()))
 	})
 
 	t.Run("unclaimed mail is marked until it expires by the panel's clock or is claimed", func(t *testing.T) {
@@ -126,35 +127,28 @@ func TestWatch(t *testing.T) {
 			expired,
 		)
 
-		frame := harness.readFrame()
-		assert.Contains(t, findRow(readListRows(frame), "waiting"), mailGlyph)
-		assert.NotContains(t, findRow(readListRows(frame), "expired"), mailGlyph)
+		frame := harness.Frame()
+		assert.Contains(t, findRow(paneltest.ListRows(frame), "waiting"), mailGlyph)
+		assert.NotContains(t, findRow(paneltest.ListRows(frame), "expired"), mailGlyph)
 
-		harness.watch(buildDeleted(watchv1.Resource_RESOURCE_MAIL, "m1"))
+		harness.Watch(paneltest.Deleted(watchv1.Resource_RESOURCE_MAIL, "m1"))
 
-		assert.NotContains(t, findRow(readListRows(harness.readFrame()), "waiting"), mailGlyph)
+		assert.NotContains(t, findRow(paneltest.ListRows(harness.Frame()), "waiting"), mailGlyph)
 	})
 
 	t.Run("a worktree's tombstone takes it off the worktrees screen", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openWorktrees(t)
-		require.Contains(t, harness.readFrame(), "task/orphan")
+		require.Contains(t, harness.Frame(), "task/orphan")
 
-		harness.watch(buildDeleted(watchv1.Resource_RESOURCE_WORKTREE, findOrphanDir(t)))
+		harness.Watch(paneltest.Deleted(watchv1.Resource_RESOURCE_WORKTREE, findOrphanDir(t)))
 
-		assert.NotContains(t, harness.readFrame(), "task/orphan")
+		assert.NotContains(t, harness.Frame(), "task/orphan")
 	})
 }
 
 const mailGlyph = ""
-
-func buildDeleted(resource watchv1.Resource, key string) *watchv1.WatchEvent {
-	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Changes{Changes: &watchv1.Changes{Deleted: []*watchv1.Deleted{{
-		Resource: resource,
-		Key:      key,
-	}}}}}
-}
 
 func buildDeletedWorktrees(dirs ...string) *watchv1.WatchEvent {
 	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Changes{Changes: &watchv1.Changes{Deleted: xslice.Map(dirs, func(dir string) *watchv1.Deleted {

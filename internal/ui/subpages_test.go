@@ -4,8 +4,11 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/paneltest"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -63,7 +66,7 @@ func TestSubpages(t *testing.T) {
 
 			harness := openSubpages(t, tt.row)
 
-			frame := harness.readFrame()
+			frame := harness.Frame()
 			assert.Contains(t, frame, tt.wantTitle)
 			assert.Contains(t, frame, tt.wantCrumb)
 			assert.Contains(t, frame, tt.wantCursor)
@@ -75,7 +78,7 @@ func TestSubpages(t *testing.T) {
 
 		harness := openSubpages(t, "task-quiet")
 
-		frame := harness.readRawFrame()
+		frame := harness.RawFrame()
 		assert.Regexp(t, readOffEntry("review", "r"), frame)
 		assert.NotRegexp(t, readOffEntry("logs", "l"), frame)
 	})
@@ -85,7 +88,7 @@ func TestSubpages(t *testing.T) {
 
 		harness := openSubpages(t, "komrad")
 
-		frame := readStageText(harness.readFrame())
+		frame := readStageText(harness.Frame())
 		assert.NotContains(t, frame, "review")
 		assert.Contains(t, frame, "terminal")
 	})
@@ -94,26 +97,26 @@ func TestSubpages(t *testing.T) {
 		t.Parallel()
 
 		server := newReviewServer(t)
-		harness := newPanelHarness(t, panelHarnessParams{git: server.repo})
+		harness := paneltest.Start(t, paneltest.Params{Git: server.repo})
 		server.serve(harness)
-		harness.watch(server.buildSnapshot())
-		harness.press("space")
-		menuUp := len(harness.panel.ReadZooms())
-		require.True(t, harness.panel.IsZoomed())
+		harness.Watch(server.buildSnapshot())
+		harness.Press("space")
+		menuUp := len(harness.Tmux().Zooms())
+		require.True(t, harness.Tmux().IsZoomed())
 
-		harness.press("r")
+		harness.Press("r")
 
-		assert.Equal(t, reviewScreen, harness.readScreen())
-		assert.NotContains(t, harness.panel.ReadZooms()[menuUp:], false, "the list is not rendered again on the way")
+		assert.Equal(t, screen.Review, paneltest.Screen(harness.Frame()))
+		assert.NotContains(t, harness.Tmux().Zooms()[menuUp:], false, "the list is not rendered again on the way")
 	})
 
 	t.Run("review on a task with no checkout says why", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openSubpages(t, "task-quiet")
-		harness.press("r")
+		harness.Press("r")
 
-		assert.Equal(t, agentsScreen, harness.readScreen())
+		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
 		assert.Contains(t, readOpenMessages(harness), "this agent has no checkout of its own to read")
 	})
 
@@ -121,22 +124,22 @@ func TestSubpages(t *testing.T) {
 		t.Parallel()
 
 		harness := openSubpages(t, "task-author")
-		harness.press("esc")
+		harness.Press("esc")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.NotContains(t, frame, "› review")
-		assert.Equal(t, "agents › task-author", readTrail(frame))
+		assert.Equal(t, "agents › task-author", paneltest.Trail(frame))
 	})
 
 	t.Run("the legend offers it", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openAgents(t, buildSubpagesAgents()...)
-		harness.press(widenListPresses...)
+		harness.Press(widenListPresses...)
 		moveToAgentRow(t, harness, "task-quiet")
-		harness.press("?")
+		harness.Press("?")
 
-		assert.Regexp(t, `space +menu`, readLegend(harness.readFrame()))
+		assert.Regexp(t, `space +menu`, paneltest.Legend(harness.Frame()))
 	})
 }
 
@@ -149,15 +152,15 @@ func TestSubpagesInArchive(t *testing.T) {
 
 		harness := openArchivedSubpages(t)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "agents › author")
 		assert.Contains(t, frame, "› logs")
 		assert.NotContains(t, readStageText(frame), "review")
-		assert.Regexp(t, readOffEntry("terminal", "t"), harness.readRawFrame())
+		assert.Regexp(t, readOffEntry("terminal", "t"), harness.RawFrame())
 
-		harness.press("r")
+		harness.Press("r")
 
-		assert.Contains(t, harness.readFrame(), "› logs")
+		assert.Contains(t, harness.Frame(), "› logs")
 		assert.NotContains(t, readOpenMessages(harness), "Could not open")
 	})
 
@@ -165,11 +168,11 @@ func TestSubpagesInArchive(t *testing.T) {
 		t.Parallel()
 
 		harness := openArchivedSubpages(t)
-		harness.press("g")
+		harness.Press("g")
 
-		assert.Regexp(t, readOffEntry("rebase with base", "r"), harness.readRawFrame())
+		assert.Regexp(t, readOffEntry("rebase with base", "r"), harness.RawFrame())
 
-		harness.press("r")
+		harness.Press("r")
 
 		assert.Contains(t, readOpenMessages(harness), "komrad leaves an archived task's worktree alone")
 	})
@@ -179,10 +182,10 @@ func TestSubpagesInArchive(t *testing.T) {
 
 		author := newArchivedAgent("author", "author", "w1")
 		harness := openArchivedAgents(t, newLiveWorkflow("w1", "komrad"), author, newTaskOf(author))
-		harness.press("j", "j", "space")
-		require.Contains(t, harness.readFrame(), "  author")
+		harness.Press("j", "j", "space")
+		require.Contains(t, harness.Frame(), "  author")
 
-		stage := readStageText(harness.readFrame())
+		stage := readStageText(harness.Frame())
 		require.Contains(t, stage, "jump")
 		assert.NotContains(t, stage, "git")
 	})
@@ -191,32 +194,30 @@ func TestSubpagesInArchive(t *testing.T) {
 		t.Parallel()
 
 		harness := openArchivedSubpages(t)
-		harness.press("J", "d")
-		harness.fireTimers()
+		harness.Press("J", "d")
+		harness.Advance(time.Second)
 
-		require.Equal(t, documentsScreen, harness.readScreen())
-		assert.Equal(t, "▽ agent:author", readSearch(harness.readFrame()))
-		harness.assertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{
+		require.Equal(t, screen.Documents, paneltest.Screen(harness.Frame()))
+		assert.Equal(t, "▽ agent:author", readSearch(harness.Frame()))
+		harness.AssertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{
 			Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](100)},
 		})
 	})
 }
 
-const reviewScreen = "the review"
-
 // openSubpages opens the subpages menu from the agents list on the row named.
-func openSubpages(t *testing.T, row string) *panelHarness {
+func openSubpages(t *testing.T, row string) *paneltest.Panel {
 	t.Helper()
 
 	harness := openAgents(t, buildSubpagesAgents()...)
 	moveToAgentRow(t, harness, row)
-	harness.press("space")
+	harness.Press("space")
 
 	return harness
 }
 
 // openArchivedSubpages opens the subpages menu on an archived agent that has written documents.
-func openArchivedSubpages(t *testing.T) *panelHarness {
+func openArchivedSubpages(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
 	author := newArchivedAgent("author", "author", "w1")
@@ -227,8 +228,8 @@ func openArchivedSubpages(t *testing.T) *panelHarness {
 
 	harness := openArchivedAgents(t, newLiveWorkflow("w1", "komrad"), author, task)
 	newDocumentShelf().answer(harness)
-	harness.press("j", "j", "space")
-	require.Contains(t, harness.readFrame(), "  author")
+	harness.Press("j", "j", "space")
+	require.Contains(t, harness.Frame(), "  author")
 
 	return harness
 }

@@ -45,7 +45,7 @@ func (m *model) settleUnstaged(agents []panel.Agent, killed bool) {
 			}
 		}
 
-		m.listing.Assemble(time.Now())
+		m.listing.Assemble(m.clock.Now())
 	}
 
 	if stager, ok := m.active().(rowStager); ok {
@@ -67,7 +67,7 @@ func (m *model) waitToStage() tea.Cmd {
 	m.staging++
 	move := m.staging
 
-	return startTimer(stageDelay, func(time.Time) tea.Msg { return stageTickMsg{move: move} })
+	return m.clock.After(stageDelay, func(time.Time) tea.Msg { return stageTickMsg{move: move} })
 }
 
 // applyStageTick stages what the cursor came to rest on and asks for what the screen reads of it.
@@ -104,7 +104,7 @@ func (l *logsScreen) stageResting(m *model) tea.Cmd {
 func (a *agentsScreen) stageResting(m *model) tea.Cmd {
 	m.stageSelection()
 
-	return tea.Batch(m.readLastScreenCmd(), m.inspectTaskWorktreeCmd(time.Now()))
+	return tea.Batch(m.readLastScreenCmd(), m.inspectTaskWorktreeCmd(m.clock.Now()))
 }
 
 func (r *reviewScreen) stageResting(m *model) tea.Cmd {

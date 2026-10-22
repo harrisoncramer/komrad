@@ -5,8 +5,9 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
-	"komrad/internal/ui"
+	"komrad/internal/ui/paneltest"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -145,11 +146,11 @@ func TestFilterSearch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openFilterable(t, tt.from)
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			frame := harness.readTypedFrame()
-			assert.Equal(t, filterableRows, readListRows(frame), "a search never takes a row off the screen")
-			assert.Equal(t, tt.wantHovered, readHoveredRow(frame))
+			frame := harness.TypedFrame()
+			assert.Equal(t, filterableRows, paneltest.ListRows(frame), "a search never takes a row off the screen")
+			assert.Equal(t, tt.wantHovered, paneltest.HoveredRow(frame))
 			assert.Equal(t, tt.wantSearch, readSearch(frame))
 		})
 	}
@@ -157,37 +158,37 @@ func TestFilterSearch(t *testing.T) {
 	t.Run("a selection survives a search", func(t *testing.T) {
 		harness := openAgents(t, withTasks(buildSelectable())...)
 
-		harness.press("v", "j", "j", "v", "/", "d", "b", "enter", "space", "a")
+		harness.Press("v", "j", "j", "v", "/", "d", "b", "enter", "space", "a")
 
-		assert.Contains(t, harness.readFrame(), "2 agents › archive")
+		assert.Contains(t, harness.Frame(), "2 agents › archive")
 	})
 
 	t.Run("the search stays on the screen it was typed on", func(t *testing.T) {
 		harness := openFilterable(t, "backend")
 
-		harness.press("/", "d", "b", "enter", "tab", "tab")
+		harness.Press("/", "d", "b", "enter", "tab", "tab")
 
-		assert.Equal(t, "/", readSearch(harness.readFrame()))
+		assert.Equal(t, "/", readSearch(harness.Frame()))
 	})
 
 	t.Run("a click on a row while typing keeps the search and hands the keys to the list", func(t *testing.T) {
 		harness := openFilterable(t, "backend")
-		harness.press("/", "d", "b")
+		harness.Press("/", "d", "b")
 
-		harness.send(clickOn(t, harness, "frontend"))
-		harness.press("j")
+		harness.Send(harness.ClickOn("frontend"))
+		harness.Press("j")
 
-		assert.Equal(t, "/ db", readSearch(harness.readFrame()))
+		assert.Equal(t, "/ db", readSearch(harness.Frame()))
 	})
 
 	t.Run("a click on the search line while typing in it types nothing", func(t *testing.T) {
 		harness := openFilterable(t, "backend")
-		harness.press("/", "d")
+		harness.Press("/", "d")
 
-		harness.send(clickOnLineStart(t, harness, "/"))
-		harness.press("b", "enter")
+		harness.Send(harness.ClickOnLineStart("/"))
+		harness.Press("b", "enter")
 
-		assert.Equal(t, "/ db", readSearch(harness.readFrame()))
+		assert.Equal(t, "/ db", readSearch(harness.Frame()))
 	})
 }
 
@@ -351,11 +352,11 @@ func TestFilterNarrow(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openFilterable(t, tt.from)
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			frame := harness.readFrame()
-			assert.Equal(t, tt.wantRows, readListRows(frame))
-			assert.Equal(t, tt.wantHovered, readHoveredRow(frame))
+			frame := harness.Frame()
+			assert.Equal(t, tt.wantRows, paneltest.ListRows(frame))
+			assert.Equal(t, tt.wantHovered, paneltest.HoveredRow(frame))
 			assert.Equal(t, tt.wantSearch, readSearch(frame))
 		})
 	}
@@ -365,34 +366,34 @@ func TestFilterNarrow(t *testing.T) {
 func TestFilterSays(t *testing.T) {
 	t.Run("a says: search the server refuses stays a problem while its text stands", func(t *testing.T) {
 		harness := openFilterable(t, "backend")
-		harness.refuse(agentv1connect.AgentServiceSearchTranscriptsProcedure, connect.NewError(connect.CodeInvalidArgument, errors.New("no search")))
+		harness.Refuse(agentv1connect.AgentServiceSearchTranscriptsProcedure, connect.NewError(connect.CodeInvalidArgument, errors.New("no search")))
 
-		harness.press(slices.Concat([]string{"/", "tab"}, spellKeys("says:x"))...)
-		harness.fireMatching(ui.IsSaysSettled)
-		harness.press(slices.Concat(spellKeys(" d"), []string{"enter"})...)
+		harness.Press(slices.Concat([]string{"/", "tab"}, spellKeys("says:x"))...)
+		harness.Advance(time.Second)
+		harness.Press(slices.Concat(spellKeys(" d"), []string{"enter"})...)
 
-		frame := harness.readFrame()
-		assert.Equal(t, filterableRows, readListRows(frame))
-		assert.Equal(t, "backend", readHoveredRow(frame))
+		frame := harness.Frame()
+		assert.Equal(t, filterableRows, paneltest.ListRows(frame))
+		assert.Equal(t, "backend", paneltest.HoveredRow(frame))
 		assert.Equal(t, "▽ says:x d  no search", readSearch(frame))
 	})
 
 	t.Run("a says: answer opens the hovered agent's conversation beside the list on its first match", func(t *testing.T) {
 		tests := []struct {
 			name        string
-			open        func(*testing.T) *panelHarness
+			open        func(*testing.T) *paneltest.Panel
 			found       string
 			wantHovered string
 		}{
 			{
 				name:        "on the live agents",
-				open:        func(t *testing.T) *panelHarness { return openFilterable(t, "backend") },
+				open:        func(t *testing.T) *paneltest.Panel { return openFilterable(t, "backend") },
 				found:       "db",
 				wantHovered: "└─ db",
 			},
 			{
 				name: "on the archived agents",
-				open: func(t *testing.T) *panelHarness {
+				open: func(t *testing.T) *paneltest.Panel {
 					return openArchivedAgents(t,
 						newLiveWorkflow("w1", "backend"),
 						newArchivedAgent("a1", "api-refactor", "w1"),
@@ -408,7 +409,7 @@ func TestFilterSays(t *testing.T) {
 				harness := tt.open(t)
 				turn := "the xylophone broke"
 				content := "opening words\n\n" + strings.Repeat("filler\n\n", 80) + turn + "\n\n" + strings.Repeat("after\n\n", 80)
-				harness.answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+				harness.Answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 					return connect.NewResponse(&agentv1.SearchTranscriptsResponse{Matches: []*agentv1.SearchHit{
 						{
 							AgentId:       tt.found,
@@ -418,16 +419,16 @@ func TestFilterSays(t *testing.T) {
 						},
 					}}), nil
 				})
-				harness.answer(agentv1connect.AgentServiceGetTranscriptProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+				harness.Answer(agentv1connect.AgentServiceGetTranscriptProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 					return connect.NewResponse(&agentv1.GetTranscriptResponse{Content: content}), nil
 				})
 
-				harness.press(slices.Concat([]string{"/"}, spellKeys("says:xylophone"), []string{"enter"})...)
-				harness.fireMatching(ui.IsSaysSettled)
+				harness.Press(slices.Concat([]string{"/"}, spellKeys("says:xylophone"), []string{"enter"})...)
+				harness.Advance(time.Second)
 
-				frame := harness.readFrame()
-				require.Equal(t, tt.wantHovered, readHoveredRow(frame))
-				stage := joinProse(readStage(frame))
+				frame := harness.Frame()
+				require.Equal(t, tt.wantHovered, paneltest.HoveredRow(frame))
+				stage := paneltest.JoinProse(paneltest.Stage(frame))
 				assert.Contains(t, stage, turn)
 				assert.NotContains(t, stage, "opening words")
 			})
@@ -438,7 +439,7 @@ func TestFilterSays(t *testing.T) {
 		harness := openFilterable(t, "└─ db")
 		first, second := "the xylophone broke", "the zither snapped"
 		content := "opening words\n\n" + first + "\n\n" + strings.Repeat("filler\n\n", 80) + second + "\n\n" + strings.Repeat("after\n\n", 80)
-		harness.answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+		harness.Answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
 			turn, word := first, "xylophone"
 			if strings.Contains(req.Any().(*agentv1.SearchTranscriptsRequest).GetQuery(), "zither") {
 				turn, word = second, "zither"
@@ -453,20 +454,20 @@ func TestFilterSays(t *testing.T) {
 				},
 			}}), nil
 		})
-		harness.answer(agentv1connect.AgentServiceGetTranscriptProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		harness.Answer(agentv1connect.AgentServiceGetTranscriptProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 			return connect.NewResponse(&agentv1.GetTranscriptResponse{Content: content}), nil
 		})
 
-		harness.press(slices.Concat([]string{"/"}, spellKeys("says:xylophone"))...)
-		harness.fireMatching(ui.IsSaysSettled)
-		require.Contains(t, joinProse(readStage(harness.readFrame())), first)
+		harness.Press(slices.Concat([]string{"/"}, spellKeys("says:xylophone"))...)
+		harness.Advance(time.Second)
+		require.Contains(t, paneltest.JoinProse(paneltest.Stage(harness.Frame())), first)
 
-		harness.press(slices.Concat(slices.Repeat([]string{"backspace"}, len("xylophone")), spellKeys("zither"), []string{"enter"})...)
-		harness.fireMatching(ui.IsSaysSettled)
+		harness.Press(slices.Concat(slices.Repeat([]string{"backspace"}, len("xylophone")), spellKeys("zither"), []string{"enter"})...)
+		harness.Advance(time.Second)
 
-		frame := harness.readFrame()
-		require.Equal(t, "└─ db", readHoveredRow(frame))
-		stage := joinProse(readStage(frame))
+		frame := harness.Frame()
+		require.Equal(t, "└─ db", paneltest.HoveredRow(frame))
+		stage := paneltest.JoinProse(paneltest.Stage(frame))
 		assert.Contains(t, stage, second)
 		assert.NotContains(t, stage, first)
 	})
@@ -485,18 +486,18 @@ func TestFilterSays(t *testing.T) {
 				live.PaneId = "%9"
 				live.Alive = xptr.Ptr(true)
 				harness := openAgents(t, newLiveWorkflow("w1", "backend"), live)
-				harness.answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+				harness.Answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 					return connect.NewResponse(&agentv1.SearchTranscriptsResponse{Matches: []*agentv1.SearchHit{{AgentId: "db", Snippet: "\x02xylophone\x03"}}}), nil
 				})
-				harness.press("j")
-				harness.press(slices.Concat([]string{"/"}, spellKeys("says:xylophone"))...)
-				harness.fireMatching(ui.IsSaysSettled)
-				require.Equal(t, "└─ db", readHoveredRow(harness.readFrame()))
-				require.True(t, harness.panel.IsZoomed(), "the turns it said hold the window")
+				harness.Press("j")
+				harness.Press(slices.Concat([]string{"/"}, spellKeys("says:xylophone"))...)
+				harness.Advance(time.Second)
+				require.Equal(t, "└─ db", paneltest.HoveredRow(harness.Frame()))
+				require.True(t, harness.Tmux().IsZoomed(), "the turns it said hold the window")
 
-				harness.press(tt.press...)
+				harness.Press(tt.press...)
 
-				assert.False(t, harness.panel.IsZoomed(), "the live pane has its window back")
+				assert.False(t, harness.Tmux().IsZoomed(), "the live pane has its window back")
 			})
 		}
 	})
@@ -521,14 +522,14 @@ func TestFilterSays(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openFilterable(t, "backend")
-			harness.answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			harness.Answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 				return connect.NewResponse(&agentv1.SearchTranscriptsResponse{Matches: []*agentv1.SearchHit{{AgentId: "db"}}}), nil
 			})
 
-			harness.press(tt.press...)
-			harness.fireMatching(ui.IsSaysSettled)
+			harness.Press(tt.press...)
+			harness.Advance(time.Second)
 
-			assert.Equal(t, tt.wantHovered, readHoveredRow(harness.readFrame()))
+			assert.Equal(t, tt.wantHovered, paneltest.HoveredRow(harness.Frame()))
 		})
 	}
 }
@@ -541,24 +542,24 @@ func TestFilterScreens(t *testing.T) {
 			newArchivedAgentAt("api-refactor", "2026-07-30T09:00:00Z"),
 			newArchivedAgentAt("auth-fix", "2026-07-30T08:00:00Z"),
 		)
-		require.Equal(t, "backend", readHoveredRow(harness.readFrame()))
+		require.Equal(t, "backend", paneltest.HoveredRow(harness.Frame()))
 
-		harness.press("/", "^", "a", "enter")
-		assert.Equal(t, "├─ api-refactor", readHoveredRow(harness.readFrame()))
+		harness.Press("/", "^", "a", "enter")
+		assert.Equal(t, "├─ api-refactor", paneltest.HoveredRow(harness.Frame()))
 
-		harness.press("n")
-		assert.Equal(t, "└─ auth-fix", readHoveredRow(harness.readFrame()))
+		harness.Press("n")
+		assert.Equal(t, "└─ auth-fix", paneltest.HoveredRow(harness.Frame()))
 
-		harness.press("N")
-		assert.Equal(t, "├─ api-refactor", readHoveredRow(harness.readFrame()))
+		harness.Press("N")
+		assert.Equal(t, "├─ api-refactor", paneltest.HoveredRow(harness.Frame()))
 
-		harness.press("esc")
-		assert.Equal(t, "backend", readHoveredRow(harness.readFrame()))
+		harness.Press("esc")
+		assert.Equal(t, "backend", paneltest.HoveredRow(harness.Frame()))
 	})
 
 	t.Run("the schedules walk their matches and narrow to them", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{})
-		harness.watch(buildSnapshot(
+		harness := paneltest.Start(t, paneltest.Params{})
+		harness.Watch(paneltest.Snapshot(
 			newLiveWorkflow("w1", "backend"),
 			newNamedSchedule("s1", "nightly"),
 			newNamedSchedule("s2", "morning"),
@@ -567,7 +568,7 @@ func TestFilterScreens(t *testing.T) {
 		readSchedules := func() ([]string, string) {
 			var names []string
 			var hovered string
-			for _, line := range readSidebar(harness.readFrame()) {
+			for _, line := range paneltest.Sidebar(harness.Frame()) {
 				if _, row, isRow := strings.Cut(line, "◇ "); isRow {
 					names = append(names, strings.Fields(row)[0])
 					if strings.HasPrefix(line, "›") {
@@ -578,22 +579,22 @@ func TestFilterScreens(t *testing.T) {
 
 			return names, hovered
 		}
-		harness.press("tab")
+		harness.Press("tab")
 
-		harness.press("/", "l", "y", "enter")
+		harness.Press("/", "l", "y", "enter")
 		names, hovered := readSchedules()
 		assert.Equal(t, []string{"weekly", "morning", "nightly"}, names, "a search leaves the list whole")
 		assert.Equal(t, "weekly", hovered)
 
-		harness.press("n")
+		harness.Press("n")
 		_, hovered = readSchedules()
 		assert.Equal(t, "nightly", hovered, "n walks to the next match")
 
-		harness.press("N")
+		harness.Press("N")
 		_, hovered = readSchedules()
 		assert.Equal(t, "weekly", hovered, "and N walks back")
 
-		harness.press("esc", "/", "tab", "l", "y", "enter")
+		harness.Press("esc", "/", "tab", "l", "y", "enter")
 		names, _ = readSchedules()
 		assert.Equal(t, []string{"weekly", "nightly"}, names)
 	})
@@ -601,15 +602,15 @@ func TestFilterScreens(t *testing.T) {
 	t.Run("the documents walk their matches and narrow to them", func(t *testing.T) {
 		harness, _ := openDocuments(t)
 
-		harness.press("esc", "/", "r", "o", "l", "l", "enter")
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "Rollout report")
-		harness.fireTimers()
-		assert.Contains(t, readStageText(harness.readFrame()), "It went out on Tuesday.")
+		harness.Press("esc", "/", "r", "o", "l", "l", "enter")
+		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "Rollout report")
+		harness.Advance(time.Second)
+		assert.Contains(t, readStageText(harness.Frame()), "It went out on Tuesday.")
 
-		harness.press("esc", "/", "tab", "r", "o", "l", "l", "enter")
-		harness.fireTimers()
-		frame := harness.readFrame()
-		assert.NotContains(t, readSidebarProse(frame), "Design the cache")
+		harness.Press("esc", "/", "tab", "r", "o", "l", "l", "enter")
+		harness.Advance(time.Second)
+		frame := harness.Frame()
+		assert.NotContains(t, paneltest.SidebarProse(frame), "Design the cache")
 		assert.Contains(t, readStageText(frame), "It went out on Tuesday.")
 	})
 
@@ -645,14 +646,14 @@ func TestFilterScreens(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := newPanelHarness(t, panelHarnessParams{})
+			harness := paneltest.Start(t, paneltest.Params{})
 			answerWorktreeReads(harness)
-			harness.watch(buildSnapshot(
+			harness.Watch(paneltest.Snapshot(
 				newLiveWorkflow("w1", "backend"),
 				newAgent("a1", "auth", "w1"),
 				newArchivedAgent("a2", "old", "w1"),
 				newNamedSchedule("s1", "nightly"),
-				newArchivedSchedule("s2", "monthly-gone"),
+				newArchivedSchedule("monthly-gone"),
 				&worktreev1.WatchedWorktree{
 					Dir:      "/trees/auth",
 					RepoDir:  "/home/h/komrad",
@@ -661,9 +662,9 @@ func TestFilterScreens(t *testing.T) {
 				},
 			))
 
-			harness.press(append(tt.press, "/", "tab", "z", "z", "z", "enter")...)
+			harness.Press(append(tt.press, "/", "tab", "z", "z", "z", "enter")...)
 
-			sidebar := readSidebarProse(harness.readFrame())
+			sidebar := paneltest.SidebarProse(harness.Frame())
 			assert.Contains(t, sidebar, "nothing matches")
 			if tt.idle != "" {
 				assert.NotContains(t, sidebar, tt.idle)
@@ -674,8 +675,8 @@ func TestFilterScreens(t *testing.T) {
 
 // TestFilterWorktreeHeader covers a repository's header counting every worktree under it while a filter narrows them.
 func TestFilterWorktreeHeader(t *testing.T) {
-	harness := newPanelHarness(t, panelHarnessParams{})
-	harness.watch(buildSnapshot(
+	harness := paneltest.Start(t, paneltest.Params{})
+	harness.Watch(paneltest.Snapshot(
 		newLiveWorkflow("w1", "backend"),
 		&worktreev1.WatchedWorktree{
 			Dir:        "/trees/worktree-view",
@@ -696,21 +697,21 @@ func TestFilterWorktreeHeader(t *testing.T) {
 			MeasuredAt: xptr.Ptr(archivedAt),
 		},
 	))
-	harness.press("shift+tab", "esc", "f", "shift+tab", "j", "esc", "k")
-	header := readBelowViews(harness.readFrame())[5]
+	harness.Press("shift+tab", "esc", "f", "shift+tab", "j", "esc", "k")
+	header := paneltest.BelowViews(harness.Frame())[5]
 	require.Contains(t, header, "2.0M")
 
-	harness.press(slices.Concat([]string{"/", "tab"}, spellKeys("worktree-view"), []string{"enter", "k"})...)
+	harness.Press(slices.Concat([]string{"/", "tab"}, spellKeys("worktree-view"), []string{"enter", "k"})...)
 
-	frame := harness.readFrame()
+	frame := harness.Frame()
 	assert.NotContains(t, frame, "agent/other", "the filter took the other worktree away")
-	assert.Equal(t, header, readBelowViews(frame)[5], "and the header's size still reads the whole listing")
+	assert.Equal(t, header, paneltest.BelowViews(frame)[5], "and the header's size still reads the whole listing")
 	assert.Contains(t, frame, "2 worktrees", "as does its count")
 }
 
 var filterableRows = []string{"backend", "├─ task-auth", "│  └─ " + reviewerMark + "api", "└─ db", "frontend", "└─ ui"}
 
-func openFilterable(t *testing.T, from string) *panelHarness {
+func openFilterable(t *testing.T, from string) *paneltest.Panel {
 	t.Helper()
 
 	auth := newAgentAt("auth", "w1", 5)
@@ -724,14 +725,14 @@ func openFilterable(t *testing.T, from string) *panelHarness {
 		newAgentAt("ui", "w2", 1),
 	)
 
-	harness.press("g", "g")
+	harness.Press("g", "g")
 	for range filterableRows {
-		if readHoveredRow(harness.readFrame()) == from {
+		if paneltest.HoveredRow(harness.Frame()) == from {
 			return harness
 		}
-		harness.press("j")
+		harness.Press("j")
 	}
-	require.Equal(t, from, readHoveredRow(harness.readFrame()))
+	require.Equal(t, from, paneltest.HoveredRow(harness.Frame()))
 
 	return harness
 }

@@ -6,6 +6,8 @@ import (
 
 	"komrad/internal/forge"
 	"komrad/internal/glyph"
+	"komrad/internal/ui/paneltest"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xptr"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
@@ -24,10 +26,10 @@ func TestStatusChecksOpen(t *testing.T) {
 
 		harness := openAgents(t, buildSubpagesAgents()...)
 		moveToAgentRow(t, harness, "task-author")
-		harness.press("space", "x")
+		harness.Press("space", "x")
 
-		frame := harness.readFrame()
-		assert.Equal(t, statusChecksScreen, harness.readScreen())
+		frame := harness.Frame()
+		assert.Equal(t, screen.StatusChecks, paneltest.Screen(harness.Frame()))
 		assert.Contains(t, frame, "agents › author › status checks")
 		assert.Contains(t, frame, "no pull request")
 	})
@@ -37,10 +39,10 @@ func TestStatusChecksOpen(t *testing.T) {
 
 		harness := openAgents(t, buildSubpagesAgents()...)
 		moveToAgentRow(t, harness, "task-author")
-		harness.press("space", "x", "esc")
+		harness.Press("space", "x", "esc")
 
-		assert.Equal(t, agentsScreen, harness.readScreen())
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "author")
+		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
+		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "author")
 	})
 }
 
@@ -59,17 +61,17 @@ func TestStatusChecksList(t *testing.T) {
 
 		harness := openStatusChecks(t, listed)
 
-		harness.assertSentTo(pullrequestv1connect.PullRequestServiceListStatusChecksProcedure, &pullrequestv1.ListStatusChecksRequest{PullRequestId: "pr-1"})
+		harness.AssertSentTo(pullrequestv1connect.PullRequestServiceListStatusChecksProcedure, &pullrequestv1.ListStatusChecksRequest{PullRequestId: "pr-1"})
 	})
 
 	t.Run("each status check is a row", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecks(t, listed)
-		harness.press(everyStatusCheck...)
+		harness.Press(everyStatusCheck...)
 
-		frame := harness.readFrame()
-		assert.Equal(t, []string{"lint", "test", "build"}, readListRows(frame))
+		frame := harness.Frame()
+		assert.Equal(t, []string{"lint", "test", "build"}, paneltest.ListRows(frame))
 	})
 
 	t.Run("each status check is rendered with the icon the sidebar renders its pull request with", func(t *testing.T) {
@@ -83,9 +85,9 @@ func TestStatusChecksList(t *testing.T) {
 			newStatusCheck("5", "deploy", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "NEUTRAL"),
 			newStatusCheck("6", "e2e", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_UNKNOWN, ""),
 		))
-		harness.press(everyStatusCheck...)
+		harness.Press(everyStatusCheck...)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckPassing)+" lint")
 		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckSkipped)+" docs")
 		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckFailing)+" vet")
@@ -100,7 +102,7 @@ func TestStatusChecksList(t *testing.T) {
 
 		harness := openStatusChecks(t, listed)
 
-		assert.True(t, harness.fireLoader())
+		assert.True(t, spins(harness))
 	})
 
 	t.Run("the spinner rests once every status check has finished", func(t *testing.T) {
@@ -110,25 +112,25 @@ func TestStatusChecksList(t *testing.T) {
 			newStatusCheck("1", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SUCCESS"),
 		))
 
-		assert.False(t, harness.fireLoader())
+		assert.False(t, spins(harness))
 	})
 
 	t.Run("the cursor moves through the status checks", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecks(t, listed)
-		harness.press("j")
+		harness.Press("j")
 
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "build")
+		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "build")
 	})
 
 	t.Run("searching lands on the status check it found", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecks(t, listed)
-		harness.press("/", "b", "u", "i", "enter")
+		harness.Press("/", "b", "u", "i", "enter")
 
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "build")
+		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "build")
 	})
 
 	t.Run("a pull request with no status checks says so", func(t *testing.T) {
@@ -136,17 +138,17 @@ func TestStatusChecksList(t *testing.T) {
 
 		harness := openStatusChecks(t, answerStatusChecks())
 
-		assert.Contains(t, harness.readFrame(), "no status checks yet")
+		assert.Contains(t, harness.Frame(), "no status checks yet")
 	})
 
 	t.Run("a refused listing says why", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openStatusChecks(t, func(harness *panelHarness) {
-			harness.refuse(pullrequestv1connect.PullRequestServiceListStatusChecksProcedure, connect.NewError(connect.CodeUnavailable, nil))
+		harness := openStatusChecks(t, func(harness *paneltest.Panel) {
+			harness.Refuse(pullrequestv1connect.PullRequestServiceListStatusChecksProcedure, connect.NewError(connect.CodeUnavailable, nil))
 		})
 
-		assert.Contains(t, harness.readFrame(), "could not list")
+		assert.Contains(t, harness.Frame(), "could not list")
 	})
 }
 
@@ -199,9 +201,9 @@ func TestStatusChecksScope(t *testing.T) {
 			t.Parallel()
 
 			harness := openStatusChecks(t, listed)
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			assert.Equal(t, tt.want, readListRows(harness.readFrame()))
+			assert.Equal(t, tt.want, paneltest.ListRows(harness.Frame()))
 		})
 	}
 
@@ -209,9 +211,9 @@ func TestStatusChecksScope(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecks(t, listed)
-		harness.press("j", "j", "F", "tab", "esc")
+		harness.Press("j", "j", "F", "tab", "esc")
 
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "build")
+		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "build")
 	})
 
 	t.Run("the listing opens on every status check once all pass", func(t *testing.T) {
@@ -222,7 +224,7 @@ func TestStatusChecksScope(t *testing.T) {
 			newStatusCheck("2", "docs", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SKIPPED"),
 		))
 
-		assert.Equal(t, []string{"lint", "docs"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"lint", "docs"}, paneltest.ListRows(harness.Frame()))
 	})
 
 	t.Run("a scope holding none of the status checks says why", func(t *testing.T) {
@@ -252,9 +254,9 @@ func TestStatusChecksScope(t *testing.T) {
 				harness := openStatusChecks(t, answerStatusChecks(
 					newStatusCheck("1", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SUCCESS"),
 				))
-				harness.press(tt.press...)
+				harness.Press(tt.press...)
 
-				assert.Contains(t, harness.readFrame(), tt.want)
+				assert.Contains(t, harness.Frame(), tt.want)
 			})
 		}
 	})
@@ -286,9 +288,9 @@ func TestStatusChecksSteps(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecks(t, listed)
-		harness.press(append(everyStatusCheck, "k")...)
+		harness.Press(append(everyStatusCheck, "k")...)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "1m 12s · 1 step")
 		assert.Regexp(t, glyph.Defaults().Spell(glyph.StatusCheckPassing)+` golangci-lint +1m 12s`, frame)
 	})
@@ -297,9 +299,9 @@ func TestStatusChecksSteps(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecks(t, listed)
-		harness.press(append(everyStatusCheck, "k", "j")...)
+		harness.Press(append(everyStatusCheck, "k", "j")...)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.NotContains(t, frame, "golangci-lint")
 		assert.Regexp(t, glyph.Defaults().Spell(glyph.StatusCheckPassing)+` Checkout +5s`, frame)
 		assert.Regexp(t, glyph.Defaults().Spell(glyph.StatusCheckFailing)+` Run tests +3m 08s`, frame)
@@ -309,9 +311,9 @@ func TestStatusChecksSteps(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecks(t, listed)
-		harness.press(append(everyStatusCheck, "j")...)
+		harness.Press(append(everyStatusCheck, "j")...)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "no steps reported")
 		assert.NotContains(t, frame, "0 steps")
 	})
@@ -325,9 +327,9 @@ func TestStatusChecksSteps(t *testing.T) {
 		}
 
 		harness := openStatusChecks(t, answerStatusChecks(long))
-		harness.send(tea.WindowSizeMsg{Width: 80, Height: 40})
+		harness.Send(tea.WindowSizeMsg{Width: 80, Height: 40})
 
-		assert.Regexp(t, glyph.Defaults().Spell(glyph.StatusCheckPassing)+` Run integration[^│]*… +3m 08s`, harness.readFrame())
+		assert.Regexp(t, glyph.Defaults().Spell(glyph.StatusCheckPassing)+` Run integration[^│]*… +3m 08s`, harness.Frame())
 	})
 
 	t.Run("a status check komrad stopped reading in flight says unknown without a clock", func(t *testing.T) {
@@ -338,10 +340,10 @@ func TestStatusChecksSteps(t *testing.T) {
 
 		harness := openStatusChecks(t, answerStatusChecks(stale))
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckUnknown)+" e2e")
 		assert.Contains(t, frame, "unknown")
-		assert.False(t, harness.fireLoader())
+		assert.False(t, spins(harness))
 	})
 }
 
@@ -391,22 +393,22 @@ func TestStatusChecksNewestHead(t *testing.T) {
 			t.Parallel()
 
 			harness := openStatusChecksOn(t, "2222222222222222", listed)
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			frame := harness.readFrame()
-			assert.Equal(t, tt.want, readListRows(frame))
+			frame := harness.Frame()
+			assert.Equal(t, tt.want, paneltest.ListRows(frame))
 			assert.Contains(t, frame, "222222222222")
 			assert.NotContains(t, frame, "111111111111")
 		})
 	}
 
-	moveHead := func(harness *panelHarness, head string) {
+	moveHead := func(harness *paneltest.Panel, head string) {
 		pullRequest := newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN)[2].(*pullrequestv1.PullRequest)
 		pullRequest.HeadSha = head
-		harness.watch(buildPuts(pullRequest))
+		harness.Watch(paneltest.Puts(pullRequest))
 	}
 
-	pushed := func(harness *panelHarness) {
+	pushed := func(harness *paneltest.Panel) {
 		answerStatusCheckReadings(first, second, &pullrequestv1.StatusCheckReading{
 			HeadSha:      "3333333333333333",
 			StatusChecks: []*pullrequestv1.StatusCheck{inStatusCheckRun(newStatusCheck("8", "build", done, "SUCCESS"), "ci", "2026-09-20T13:00:00Z")},
@@ -420,8 +422,8 @@ func TestStatusChecksNewestHead(t *testing.T) {
 		harness := openStatusChecksOn(t, "2222222222222222", listed)
 		pushed(harness)
 
-		frame := harness.readFrame()
-		assert.Equal(t, []string{"build"}, readListRows(frame))
+		frame := harness.Frame()
+		assert.Equal(t, []string{"build"}, paneltest.ListRows(frame))
 		assert.Contains(t, frame, "333333333333")
 	})
 
@@ -429,10 +431,10 @@ func TestStatusChecksNewestHead(t *testing.T) {
 		t.Parallel()
 
 		harness := openStatusChecksOn(t, "2222222222222222", listed)
-		harness.press("F", "tab", "tab", "esc")
+		harness.Press("F", "tab", "tab", "esc")
 		pushed(harness)
 
-		assert.Contains(t, harness.readFrame(), "no failing status checks")
+		assert.Contains(t, harness.Frame(), "no failing status checks")
 	})
 
 	t.Run("a push whose head is not read yet shows no status checks until it is", func(t *testing.T) {
@@ -441,45 +443,43 @@ func TestStatusChecksNewestHead(t *testing.T) {
 		harness := openStatusChecksOn(t, "2222222222222222", listed)
 		moveHead(harness, "3333333333333333")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "no status checks yet")
 		assert.NotContains(t, frame, "222222222222")
 
 		pushed(harness)
 
-		assert.Equal(t, []string{"build"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"build"}, paneltest.ListRows(harness.Frame()))
 	})
 }
 
-const statusChecksScreen = "the status checks"
-
 var everyStatusCheck = []string{"F", "shift+tab", "esc"}
 
-func openStatusChecks(t *testing.T, answer func(*panelHarness)) *panelHarness {
+func openStatusChecks(t *testing.T, answer func(*paneltest.Panel)) *paneltest.Panel {
 	t.Helper()
 
 	return openStatusChecksOn(t, "c1", answer)
 }
 
-func openStatusChecksOn(t *testing.T, head string, answer func(*panelHarness)) *panelHarness {
+func openStatusChecksOn(t *testing.T, head string, answer func(*paneltest.Panel)) *paneltest.Panel {
 	t.Helper()
 
 	rows := newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN)
 	rows[2].(*pullrequestv1.PullRequest).HeadSha = head
-	harness := openNoticed(t, panelHarnessParams{}, rows...)
+	harness := openNoticed(t, paneltest.Params{}, rows...)
 	answer(harness)
-	harness.press("space", "x")
+	harness.Press("space", "x")
 
 	return harness
 }
 
-func answerStatusChecks(checks ...*pullrequestv1.StatusCheck) func(*panelHarness) {
+func answerStatusChecks(checks ...*pullrequestv1.StatusCheck) func(*paneltest.Panel) {
 	return answerStatusCheckReadings(&pullrequestv1.StatusCheckReading{HeadSha: "c1", StatusChecks: checks})
 }
 
-func answerStatusCheckReadings(readings ...*pullrequestv1.StatusCheckReading) func(*panelHarness) {
-	return func(harness *panelHarness) {
-		harness.answer(pullrequestv1connect.PullRequestServiceListStatusChecksProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+func answerStatusCheckReadings(readings ...*pullrequestv1.StatusCheckReading) func(*paneltest.Panel) {
+	return func(harness *paneltest.Panel) {
+		harness.Answer(pullrequestv1connect.PullRequestServiceListStatusChecksProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 			return connect.NewResponse(&pullrequestv1.ListStatusChecksResponse{Readings: readings}), nil
 		})
 	}

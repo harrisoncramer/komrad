@@ -4,6 +4,8 @@ import (
 	"slices"
 	"testing"
 
+	"komrad/internal/ui/paneltest"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -47,18 +49,18 @@ func TestDocumentsRename(t *testing.T) {
 			t.Parallel()
 
 			harness, _ := openDocuments(t)
-			harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			harness.Answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 				return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
 			})
-			harness.press(tt.presses...)
+			harness.Press(tt.presses...)
 
-			assert.NotContains(t, harness.readFrame(), "▏", "the field has closed")
+			assert.NotContains(t, harness.Frame(), "▏", "the field has closed")
 			if tt.want == nil {
-				assert.Empty(t, harness.readSent(agentv1connect.AgentServiceWriteDocumentProcedure))
+				assert.Empty(t, harness.Sent(agentv1connect.AgentServiceWriteDocumentProcedure))
 
 				return
 			}
-			harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, tt.want)
+			harness.AssertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, tt.want)
 		})
 	}
 }
@@ -71,40 +73,40 @@ func TestDocumentsRenameField(t *testing.T) {
 		t.Parallel()
 
 		harness, _ := openDocuments(t)
-		harness.press(slices.Concat([]string{"space", "r"}, spellKeys("jec"))...)
+		harness.Press(slices.Concat([]string{"space", "r"}, spellKeys("jec"))...)
 
-		frame := harness.readFrame()
-		assert.Contains(t, readHoveredRow(frame), "Design the cachejec▏")
-		assert.Contains(t, readLegend(frame), "enter save")
-		assert.Equal(t, documentsScreen, harness.readScreen())
+		frame := harness.Frame()
+		assert.Contains(t, paneltest.HoveredRow(frame), "Design the cachejec▏")
+		assert.Contains(t, paneltest.Legend(frame), "enter save")
+		assert.Equal(t, screen.Documents, paneltest.Screen(harness.Frame()))
 	})
 
 	t.Run("esc hands the keys back to the list", func(t *testing.T) {
 		t.Parallel()
 
 		harness, _ := openDocuments(t)
-		harness.press("space", "r", "esc", "j")
+		harness.Press("space", "r", "esc", "j")
 
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "Rollout report")
+		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "Rollout report")
 	})
 
 	t.Run("the field opens while an agent's write is being read again", func(t *testing.T) {
 		t.Parallel()
 
 		harness, docs := openDocuments(t)
-		harness.hold(agentv1connect.AgentServiceGetDocumentProcedure)
+		harness.Hold(agentv1connect.AgentServiceGetDocumentProcedure)
 		rewriteAsTheAgent(harness, docs)
 
-		harness.press(slices.Concat([]string{"space", "r"}, spellKeys(" now"))...)
+		harness.Press(slices.Concat([]string{"space", "r"}, spellKeys(" now"))...)
 
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "Design the cache now▏")
+		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "Design the cache now▏")
 	})
 
 	t.Run("a document not read yet says so instead of opening the field", func(t *testing.T) {
 		t.Parallel()
 
 		harness, docs := openDocuments(t)
-		harness.hold(agentv1connect.AgentServiceGetDocumentProcedure)
+		harness.Hold(agentv1connect.AgentServiceGetDocumentProcedure)
 		docs.add(&agentv1.Document{
 			Id:        "d3",
 			AgentId:   "author",
@@ -116,11 +118,11 @@ func TestDocumentsRenameField(t *testing.T) {
 		})
 		author := buildDocumentAuthors()[2].(*agentv1.Agent)
 		author.DocumentsUpdatedAt = xptr.Ptr("2026-09-26T12:00:00Z")
-		harness.watch(buildPuts(author))
+		harness.Watch(paneltest.Puts(author))
 
-		harness.press("G", "space", "r", "x")
+		harness.Press("G", "space", "r", "x")
 
-		assert.NotContains(t, readHoveredRow(harness.readFrame()), "▏")
+		assert.NotContains(t, paneltest.HoveredRow(harness.Frame()), "▏")
 		assert.Contains(t, readOpenMessages(harness), `"Notes" has not been read yet`)
 	})
 
@@ -128,32 +130,32 @@ func TestDocumentsRenameField(t *testing.T) {
 		t.Parallel()
 
 		harness, docs := openDocuments(t)
-		harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		harness.Answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 			return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
 		})
-		harness.press(slices.Concat([]string{"space", "r"}, spellKeys(" now"), []string{"enter"})...)
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "Design the cache now", "not the old name before the list is read again")
+		harness.Press(slices.Concat([]string{"space", "r"}, spellKeys(" now"), []string{"enter"})...)
+		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "Design the cache now", "not the old name before the list is read again")
 
 		docs.rename("d1", "Design the cache now", "2026-09-26T12:00:00Z")
 		listAgain(harness, "2026-09-26T12:00:00Z")
 		docs.rename("d1", "Design the cache later", "2026-09-27T12:00:00Z")
 		listAgain(harness, "2026-09-27T12:00:00Z")
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "Design the cache later", "the list renders the name once it has caught up")
+		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "Design the cache later", "the list renders the name once it has caught up")
 	})
 
 	t.Run("a document the agent rewrote while its name was typed is renamed at that write", func(t *testing.T) {
 		t.Parallel()
 
 		harness, docs := openDocuments(t)
-		harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		harness.Answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 			return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
 		})
-		harness.press(slices.Concat([]string{"space", "r"}, spellKeys(" now"))...)
+		harness.Press(slices.Concat([]string{"space", "r"}, spellKeys(" now"))...)
 
 		rewriteAsTheAgent(harness, docs)
-		harness.press("enter")
+		harness.Press("enter")
 
-		harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, &agentv1.WriteDocumentRequest{
+		harness.AssertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, &agentv1.WriteDocumentRequest{
 			Id:      xptr.Ptr("d1"),
 			Version: xptr.Ptr[int32](4),
 			Name:    "Design the cache now",
@@ -164,14 +166,14 @@ func TestDocumentsRenameField(t *testing.T) {
 }
 
 // listAgain is the watch saying the author wrote at the time given.
-func listAgain(harness *panelHarness, at string) {
+func listAgain(harness *paneltest.Panel, at string) {
 	author := buildDocumentAuthors()[2].(*agentv1.Agent)
 	author.DocumentsUpdatedAt = xptr.Ptr(at)
-	harness.watch(buildPuts(author))
+	harness.Watch(paneltest.Puts(author))
 }
 
 // rewriteAsTheAgent is the author rewriting the first document and the watch saying so.
-func rewriteAsTheAgent(harness *panelHarness, docs *documentShelf) {
+func rewriteAsTheAgent(harness *paneltest.Panel, docs *documentShelf) {
 	docs.rewrite("d1", "The cache is cold now.", "2026-09-26T12:00:00Z")
 	listAgain(harness, "2026-09-26T12:00:00Z")
 }

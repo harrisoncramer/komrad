@@ -137,7 +137,7 @@ func (m *model) updateDocFilter(key tea.KeyPressMsg) tea.Cmd {
 	}
 
 	if !r.filter.isSettled() {
-		return r.filter.settleCmd(func(query string) tea.Msg { return docFilterSettledMsg{query: query} })
+		return r.filter.settleCmd(m.clock, func(query string) tea.Msg { return docFilterSettledMsg{query: query} })
 	}
 
 	m.findDocMatch()

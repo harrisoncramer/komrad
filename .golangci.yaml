@@ -146,6 +146,7 @@ linters:
             - "**/internal/ui/screen/**"
             - "**/internal/ui/menu/**"
             - "**/internal/ui/form/**"
+            - "**/internal/ui/pickfont/**"
           deny:
             - pkg: komrad/internal/ui$
               desc: a shared package sits under the panel's screens, so it never reaches back up into the root
@@ -428,9 +429,10 @@ linters:
               - komrad/internal/ui.model
             # Unanchored regexps over the path lint was run from.
             exclude:
-              # This file hands the model to the harness. Something has to reach inside the
-              # package to do that, and keeping it to one file means no other test can.
-              - ^internal/ui/export_test\.go$
+              # Table tests over the screens' key tables, which are typed over the model. They read
+              # the tables and never drive the model.
+              - ^internal/ui/list_internal_test\.go$
+              - ^internal/ui/help_internal_test\.go$
           fake_store:
             skip: false
             # Unanchored regexps over the path lint was run from.
@@ -445,12 +447,6 @@ linters:
               # Scenario files are named for the feature a user meets, such as mail or reviews,
               # and a feature spans many source files.
               - ^internal/e2e/
-              # The harness every screen test drives the panel through. It is shared by all of
-              # them, so no single source file owns it.
-              - ^internal/ui/harness_test\.go$
-              # The one file that opens the model up to the harness. Go's convention names it for
-              # what it does rather than for a source file.
-              - ^internal/ui/export_test\.go$
               # Drives the whole panel against a real service and tmux. It is a scenario for the
               # panel as a whole, and there is no panel.go for it to sit beside.
               - ^internal/ui/panel_integration_test\.go$

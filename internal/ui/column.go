@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"time"
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
@@ -228,7 +227,7 @@ func (m *model) reconcileSolo() {
 	}
 
 	m.frame.Solo(want)
-	m.term.awaitingSince = time.Now()
+	m.term.awaitingSince = m.clock.Now()
 	m.syncBeside()
 }
 

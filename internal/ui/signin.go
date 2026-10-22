@@ -36,8 +36,7 @@ type accessState struct {
 	stage     accessStage
 	err       error
 	authURL   string
-	watch     func() context.CancelFunc
-	stopWatch context.CancelFunc
+	stopWatch func()
 }
 
 type accessCheckedMsg struct {
@@ -165,15 +164,7 @@ func (m *model) grantAccess() tea.Cmd {
 	m.startWatch()
 	m.holdLeader()
 
-	return tea.Batch(tick(), tea.RequestBackgroundColor)
-}
-
-func (m *model) startWatch() {
-	if m.access.watch == nil {
-		return
-	}
-
-	m.access.stopWatch = m.access.watch()
+	return tea.Batch(m.tick(), tea.RequestBackgroundColor)
 }
 
 func (m *model) applyAccessRechecked(err error) {
@@ -192,7 +183,6 @@ func (m *model) loseAccess(err error) {
 	m.frame.Vacate()
 
 	gated := newModel(m.access.deps, m.term.isDark, m.post)
-	gated.access.watch = m.access.watch
 	gated.term.width, gated.term.height, gated.term.paneCols = m.term.width, m.term.height, m.term.paneCols
 	gated.applyAccessChecked(err)
 

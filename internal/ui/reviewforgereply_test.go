@@ -3,6 +3,7 @@ package ui_test
 import (
 	"testing"
 
+	"komrad/internal/ui/paneltest"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -62,9 +63,9 @@ func TestReviewForgeReply(t *testing.T) {
 			server.threads = []*agentv1.ReviewThread{newForgeThread(tt.replies...)}
 			harness := openReview(t, server)
 
-			harness.press(tt.keys...)
+			harness.Press(tt.keys...)
 
-			harness.assertSentTo(tt.procedure, tt.sent...)
+			harness.AssertSentTo(tt.procedure, tt.sent...)
 		})
 	}
 }
@@ -99,13 +100,13 @@ func TestReviewForgeReplyRefused(t *testing.T) {
 			server := newReviewServer(t)
 			server.threads = []*agentv1.ReviewThread{newForgeThread(tt.replies...)}
 			harness := openReview(t, server)
-			harness.answer(tt.procedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			harness.Answer(tt.procedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 				return tt.answer, nil
 			})
 
-			harness.press(tt.keys...)
+			harness.Press(tt.keys...)
 
-			assert.NotContains(t, readPopupProse(harness.readFrame()), "reply on the forge")
+			assert.NotContains(t, paneltest.PopupProse(harness.Frame()), "reply on the forge")
 			messages := readOpenMessages(harness)
 			assert.Contains(t, messages, "rate limited")
 			assert.NotContains(t, messages, "reply posting")
@@ -166,9 +167,9 @@ func TestReviewForgeReplyView(t *testing.T) {
 			server.threads = []*agentv1.ReviewThread{thread}
 			harness := openReview(t, server)
 
-			harness.press(tt.keys...)
+			harness.Press(tt.keys...)
 
-			prose := readPopupProse(harness.readFrame())
+			prose := paneltest.PopupProse(harness.Frame())
 			for _, want := range tt.shows {
 				assert.Contains(t, prose, want)
 			}
@@ -185,14 +186,14 @@ func TestReviewForgeReplyLocal(t *testing.T) {
 	server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newAgentMessage("m1", "renamed it"))}
 	harness := openReview(t, server)
 
-	harness.press("space", "p", "esc", "space", "x", "esc")
+	harness.Press("space", "p", "esc", "space", "x", "esc")
 
-	assert.NotContains(t, readPopupProse(harness.readFrame()), "public")
+	assert.NotContains(t, paneltest.PopupProse(harness.Frame()), "public")
 	for _, procedure := range []string{
 		agentv1connect.AgentServiceRetryForgeReplyProcedure,
 		agentv1connect.AgentServiceDiscardForgeReplyProcedure,
 	} {
-		assert.Empty(t, harness.readSent(procedure))
+		assert.Empty(t, harness.Sent(procedure))
 	}
 }
 

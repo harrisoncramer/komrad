@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"log/slog"
-	"time"
 
 	"komrad/internal/assemble"
 	"komrad/internal/client"
@@ -20,29 +19,48 @@ type watchLostMsg struct {
 	err error
 }
 
-// startWatch opens the watch on a goroutine of its own and hands back what stops it.
-func startWatch(ctx context.Context, watches watchv1connect.WatchServiceClient, post *postbox) context.CancelFunc {
-	if watches == nil {
-		return func() {}
-	}
+// Watcher holds the watch stream open, handing over each batch and each loss, until stop.
+type Watcher interface {
+	Watch(onBatch func(client.WatchBatch), onLost func(error)) (stop func())
+}
 
-	watching, stop := context.WithCancel(ctx)
-	go watchRows(watching, watches, post)
+// NewWatcher is the Watcher over the server's watch stream, closed when ctx ends.
+func NewWatcher(ctx context.Context, watches watchv1connect.WatchServiceClient) Watcher {
+	return streamWatcher{ctx: ctx, watches: watches}
+}
+
+type streamWatcher struct {
+	ctx     context.Context //nolint:containedctx // the stream closes with the program's context
+	watches watchv1connect.WatchServiceClient
+}
+
+func (w streamWatcher) Watch(onBatch func(client.WatchBatch), onLost func(error)) func() {
+	watching, stop := context.WithCancel(w.ctx)
+
+	go client.Watch(watching, client.WatchParams{
+		Open:    client.OpenWatch(w.watches),
+		OnBatch: onBatch,
+		OnLost: func(err error) {
+			logging.From(watching).LogAttrs(watching, slog.LevelDebug, "the watch stream ended", logging.Err(err)...)
+
+			onLost(err)
+		},
+	})
 
 	return stop
 }
 
-// watchRows holds the watch open for the life of ctx, posting each batch it delivers.
-func watchRows(ctx context.Context, watches watchv1connect.WatchServiceClient, post *postbox) {
-	client.Watch(ctx, client.WatchParams{
-		Open:    client.OpenWatch(watches),
-		OnBatch: func(batch client.WatchBatch) { post.send(batch) },
-		OnLost: func(err error) {
-			logging.From(ctx).LogAttrs(ctx, slog.LevelDebug, "the watch stream ended", logging.Err(err)...)
+// startWatch opens the watch, posting what it hands over to the panel.
+func (m *model) startWatch() {
+	if m.watcher == nil {
+		return
+	}
 
-			post.send(watchLostMsg{err: err})
-		},
-	})
+	post := m.post
+	m.access.stopWatch = m.watcher.Watch(
+		func(batch client.WatchBatch) { post.send(batch) },
+		func(err error) { post.send(watchLostMsg{err: err}) },
+	)
 }
 
 // applyWatch takes a batch off the stream into the world, a snapshot replacing it whole, and
@@ -74,7 +92,7 @@ func (m *model) takeWatch(batch client.WatchBatch) tea.Cmd {
 			changed.Merge(l.World.Apply(event))
 		}
 
-		l.Assemble(time.Now())
+		l.Assemble(m.clock.Now())
 	})
 
 	return tea.Batch(listed, m.react(changed), reread)

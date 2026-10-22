@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -43,11 +42,7 @@ func (m *model) openFormFieldEditor() (tea.Cmd, bool) {
 		return nil, true
 	}
 
-	// The field is a file with nothing above it, so the editor opens on line one.
-	//nolint:noctx // the editor runs until the field is closed, so it takes no deadline
-	open := exec.Command("sh", "-c", editorShell(m.settings.Editor, path, 1))
-
-	return tea.ExecProcess(open, func(err error) tea.Msg {
+	return m.editor.Edit(path, func(err error) tea.Msg {
 		if err != nil {
 			return formFieldEditedMsg{
 				value: value,

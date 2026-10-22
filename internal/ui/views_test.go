@@ -4,6 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/internal/ui/paneltest"
+	"komrad/internal/ui/screen"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -13,96 +16,96 @@ func TestViews(t *testing.T) {
 	t.Run("a page opened from a view renders the trail back to it beside the logo", func(t *testing.T) {
 		harness := openLogs(t, tailOfTwo())
 
-		assert.True(t, strings.HasPrefix(readTrail(harness.readFrame()), "agents › reviewer › logs"))
+		assert.True(t, strings.HasPrefix(paneltest.Trail(harness.Frame()), "agents › reviewer › logs"))
 	})
 
 	tests := []struct {
 		name       string
 		press      []string
-		wantScreen string
+		wantScreen screen.ID
 	}{
 		{
 			name:       "tab opens the next view",
 			press:      []string{"tab"},
-			wantScreen: schedulesScreen,
+			wantScreen: screen.Schedules,
 		},
 		{
 			name:       "shift-tab opens the previous view, wrapping to the last",
 			press:      []string{"shift+tab"},
-			wantScreen: worktreesScreen,
+			wantScreen: screen.Worktrees,
 		},
 		{
 			name:       "the switcher keeps tab through each view it opens",
 			press:      []string{"tab", "tab"},
-			wantScreen: documentsScreen,
+			wantScreen: screen.Documents,
 		},
 		{
 			name:       "the switcher keeps shift-tab through each view it opens",
 			press:      []string{"shift+tab", "shift+tab"},
-			wantScreen: documentsScreen,
+			wantScreen: screen.Documents,
 		},
 		{
 			name:       "escape hands the keys back to the view it stands on",
 			press:      []string{"tab", "esc", "x"},
-			wantScreen: schedulesScreen,
+			wantScreen: screen.Schedules,
 		},
 		{
 			name:       "escape on the agents opens the switcher without moving",
 			press:      []string{"esc"},
-			wantScreen: agentsScreen,
+			wantScreen: screen.Agents,
 		},
 		{
 			name:       "escape on the agents hands tab to the switcher",
 			press:      []string{"esc", "tab", "tab"},
-			wantScreen: documentsScreen,
+			wantScreen: screen.Documents,
 		},
 		{
 			name:       "escape on the schedules opens the switcher",
 			press:      []string{"tab", "esc", "esc", "tab"},
-			wantScreen: documentsScreen,
+			wantScreen: screen.Documents,
 		},
 		{
 			name:       "escape on the documents opens the switcher",
 			press:      []string{"tab", "tab", "esc", "esc", "tab"},
-			wantScreen: worktreesScreen,
+			wantScreen: screen.Worktrees,
 		},
 		{
 			name:       "escape on the worktrees opens the switcher",
 			press:      []string{"shift+tab", "esc", "esc", "tab"},
-			wantScreen: agentsScreen,
+			wantScreen: screen.Agents,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openCrowded(t, panelHarnessParams{})
+			harness := openCrowded(t, paneltest.Params{})
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			assert.Equal(t, tt.wantScreen, harness.readScreen())
+			assert.Equal(t, tt.wantScreen, paneltest.Screen(harness.Frame()))
 		})
 	}
 
 	t.Run("the list keeps its arrow while the switcher is open", func(t *testing.T) {
-		harness := openCrowded(t, panelHarnessParams{})
-		harness.press(widenListPresses...)
-		hovered := readHoveredRow(harness.readFrame())
+		harness := openCrowded(t, paneltest.Params{})
+		harness.Press(widenListPresses...)
+		hovered := paneltest.HoveredRow(harness.Frame())
 		require.NotEmpty(t, hovered)
 
-		harness.press("esc")
-		require.Contains(t, harness.readFrame(), "tab/S-tab switch")
-		assert.Equal(t, hovered, readHoveredRow(harness.readFrame()))
+		harness.Press("esc")
+		require.Contains(t, harness.Frame(), "tab/S-tab switch")
+		assert.Equal(t, hovered, paneltest.HoveredRow(harness.Frame()))
 	})
 
 	t.Run("a key the switcher has no use for closes it and reaches the view", func(t *testing.T) {
-		harness := openCrowded(t, panelHarnessParams{})
+		harness := openCrowded(t, paneltest.Params{})
 
-		harness.press(append(widenListPresses, "tab", "G")...)
+		harness.Press(append(widenListPresses, "tab", "G")...)
 
-		frame := harness.readFrame()
-		assert.Equal(t, schedulesScreen, harness.readScreen())
-		assert.NotEmpty(t, readHoveredRow(frame), "the switcher let the list have the keys")
-		assert.Equal(t, "schedules › agent00", readTrail(frame), "and the list took the key")
+		frame := harness.Frame()
+		assert.Equal(t, screen.Schedules, paneltest.Screen(harness.Frame()))
+		assert.NotEmpty(t, paneltest.HoveredRow(frame), "the switcher let the list have the keys")
+		assert.Equal(t, "schedules › agent00", paneltest.Trail(frame), "and the list took the key")
 	})
 }
 
@@ -138,27 +141,27 @@ func TestTrail(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openCrowded(t, panelHarnessParams{})
+			harness := openCrowded(t, paneltest.Params{})
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			assert.Equal(t, tt.wantTrail, readTrail(harness.readFrame()))
+			assert.Equal(t, tt.wantTrail, paneltest.Trail(harness.Frame()))
 		})
 	}
 
 	t.Run("an empty view's trail is the view alone", func(t *testing.T) {
 		harness := openAgents(t)
 
-		assert.Equal(t, "agents", readTrail(harness.readFrame()))
+		assert.Equal(t, "agents", paneltest.Trail(harness.Frame()))
 	})
 
 	t.Run("the trail follows the cursor", func(t *testing.T) {
-		harness := openCrowded(t, panelHarnessParams{})
+		harness := openCrowded(t, paneltest.Params{})
 
-		harness.press("G")
-		require.Equal(t, "agents › agent39", readTrail(harness.readFrame()))
+		harness.Press("G")
+		require.Equal(t, "agents › agent39", paneltest.Trail(harness.Frame()))
 
-		harness.press("k")
-		assert.Equal(t, "agents › agent38", readTrail(harness.readFrame()))
+		harness.Press("k")
+		assert.Equal(t, "agents › agent38", paneltest.Trail(harness.Frame()))
 	})
 }

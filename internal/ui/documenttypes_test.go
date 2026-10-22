@@ -2,7 +2,10 @@ package ui_test
 
 import (
 	"testing"
+	"time"
 
+	"komrad/internal/ui/paneltest"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -64,9 +67,9 @@ func TestDocumentTypesList(t *testing.T) {
 			t.Parallel()
 
 			harness := openDocumentTypes(t)
-			harness.press(tt.presses...)
+			harness.Press(tt.presses...)
 
-			frame := harness.readFrame()
+			frame := harness.Frame()
 			for _, want := range tt.want {
 				assert.Contains(t, frame, want)
 			}
@@ -81,11 +84,11 @@ func TestDocumentTypesList(t *testing.T) {
 
 		harness := openAgents(t)
 		pressToDocumentTypes(harness)
-		assert.Contains(t, harness.readFrame(), "no document types")
+		assert.Contains(t, harness.Frame(), "no document types")
 
-		harness.press("space")
+		harness.Press("space")
 
-		raw := harness.readRawFrame()
+		raw := harness.RawFrame()
 		assert.NotContains(t, raw, "edit")
 		assert.NotContains(t, raw, "delete")
 		assert.NotRegexp(t, readOffEntry("new type", "c"), raw)
@@ -143,17 +146,17 @@ func TestDocumentTypesWrite(t *testing.T) {
 			t.Parallel()
 
 			harness := openDocumentTypes(t)
-			harness.press(tt.presses...)
-			harness.fireTimers()
+			harness.Press(tt.presses...)
+			harness.Advance(time.Second)
 
-			assert.Equal(t, documentsScreen, harness.readScreen())
-			assert.NotContains(t, harness.readFrame(), "document type", "the form is down")
+			assert.Equal(t, screen.Documents, paneltest.Screen(harness.Frame()))
+			assert.NotContains(t, harness.Frame(), "document type", "the form is down")
 			if tt.want == nil {
-				assert.Empty(t, harness.readSent(tt.procedure))
+				assert.Empty(t, harness.Sent(tt.procedure))
 
 				return
 			}
-			harness.assertSentTo(tt.procedure, tt.want)
+			harness.AssertSentTo(tt.procedure, tt.want)
 		})
 	}
 }
@@ -184,23 +187,23 @@ func TestDocumentTypesRefused(t *testing.T) {
 			t.Parallel()
 
 			harness := openDocumentTypes(t)
-			harness.press(tt.presses...)
-			harness.fireTimers()
+			harness.Press(tt.presses...)
+			harness.Advance(time.Second)
 
-			assert.Contains(t, harness.readFrame(), "New document type", "the form stays up")
+			assert.Contains(t, harness.Frame(), "New document type", "the form stays up")
 
-			harness.press("ctrl+g")
-			frame := harness.readFrame()
+			harness.Press("ctrl+g")
+			frame := harness.Frame()
 			for _, want := range append(tt.want, "fix and submit again") {
 				assert.Contains(t, frame, want)
 			}
-			assert.Empty(t, harness.readSent(agentv1connect.AgentServiceWriteDocumentTypeProcedure))
+			assert.Empty(t, harness.Sent(agentv1connect.AgentServiceWriteDocumentTypeProcedure))
 		})
 	}
 }
 
 // openDocumentTypes lists the document types on the documents view.
-func openDocumentTypes(t *testing.T) *panelHarness {
+func openDocumentTypes(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
 	harness := openAgents(t, buildDocumentAuthors()...)
@@ -211,8 +214,8 @@ func openDocumentTypes(t *testing.T) *panelHarness {
 }
 
 // pressToDocumentTypes switches from the agents list to the types kind of the documents view.
-func pressToDocumentTypes(harness *panelHarness) {
-	harness.press("tab", "tab", "F", "tab", "esc")
+func pressToDocumentTypes(harness *paneltest.Panel) {
+	harness.Press("tab", "tab", "F", "tab", "esc")
 }
 
 func newDocumentType(id, name string) *agentv1.DocumentType {
@@ -231,11 +234,11 @@ func newDocumentType(id, name string) *agentv1.DocumentType {
 }
 
 // answerDocumentTypes answers the writes to the types.
-func answerDocumentTypes(harness *panelHarness) {
-	harness.answer(agentv1connect.AgentServiceWriteDocumentTypeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+func answerDocumentTypes(harness *paneltest.Panel) {
+	harness.Answer(agentv1connect.AgentServiceWriteDocumentTypeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&agentv1.WriteDocumentTypeResponse{}), nil
 	})
-	harness.answer(agentv1connect.AgentServiceDeleteDocumentTypeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+	harness.Answer(agentv1connect.AgentServiceDeleteDocumentTypeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&emptypb.Empty{}), nil
 	})
 }

@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/ui/paneltest"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -41,45 +43,45 @@ func TestArchivedAgentsMenu(t *testing.T) {
 		rows       []proto.Message
 		press      []string
 		watch      []*watchv1.WatchEvent
-		wantScreen string
+		wantScreen screen.ID
 		wantFrame  string
-		wantSent   []request
+		wantSent   []paneltest.Request
 	}{
 		{
 			name:       "restore with no archived agents asks for no write",
 			rows:       []proto.Message{newLiveWorkflow("w1", "backend")},
 			press:      []string{"space", "a", "r"},
-			wantScreen: agentsScreen,
+			wantScreen: screen.Agents,
 		},
 		{
 			name:       "delete with no archived agents opens no prompt",
 			rows:       []proto.Message{newLiveWorkflow("w1", "backend")},
 			press:      []string{"space", "a", "d"},
-			wantScreen: agentsScreen,
+			wantScreen: screen.Agents,
 		},
 		{
 			name:       "restore on a live folder's header asks for no write",
 			rows:       buildOneArchivedAgent(),
 			press:      []string{"space", "a", "r"},
-			wantScreen: agentsScreen,
+			wantScreen: screen.Agents,
 		},
 		{
 			name:       "delete on a live folder's header opens no prompt",
 			rows:       buildOneArchivedAgent(),
 			press:      []string{"space", "a", "d"},
-			wantScreen: agentsScreen,
+			wantScreen: screen.Agents,
 		},
 		{
 			name:       "restore and open passes over a folder",
 			rows:       buildOneArchivedAgent(),
 			press:      []string{"space", "a", "o"},
-			wantScreen: agentsScreen,
+			wantScreen: screen.Agents,
 		},
 		{
 			name:       "restore and open passes over an agent that never started",
 			rows:       []proto.Message{newLiveWorkflow("w1", "backend"), neverStarted},
 			press:      []string{"j", "space", "a", "o", "ctrl+g"},
-			wantScreen: agentsScreen,
+			wantScreen: screen.Agents,
 			wantFrame:  "no conversation to open",
 		},
 		{
@@ -90,39 +92,39 @@ func TestArchivedAgentsMenu(t *testing.T) {
 				newArchivedAgent("a2", "db-tune", "w1"),
 			},
 			press:      []string{"j", "v", "j", "v", "space", "a", "o", "ctrl+g"},
-			wantScreen: agentsScreen,
+			wantScreen: screen.Agents,
 			wantFrame:  "restore and open works on one agent at a time",
 		},
 		{
 			name:       "back opens the view switcher",
 			rows:       buildOneArchivedAgent(),
 			press:      []string{"j", "esc", "tab"},
-			wantScreen: schedulesScreen,
+			wantScreen: screen.Schedules,
 		},
 		{
 			name:       "restore puts the hovered agent back and stays on the archived agents",
 			rows:       buildOneArchivedAgent(),
 			press:      []string{"j", "space", "a", "r"},
-			wantScreen: agentsScreen,
-			wantSent: []request{{
-				procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
-				msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a1"}},
+			wantScreen: screen.Agents,
+			wantSent: []paneltest.Request{{
+				Procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
+				Msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a1"}},
 			}},
 		},
 		{
 			name:       "restore and open puts the agent back and opens it",
 			rows:       buildOneArchivedAgent(),
 			press:      []string{"j", "space", "a", "o"},
-			watch:      []*watchv1.WatchEvent{buildPuts(newRestoredAgent())},
-			wantScreen: agentsScreen,
-			wantSent: []request{
+			watch:      []*watchv1.WatchEvent{paneltest.Puts(newRestoredAgent())},
+			wantScreen: screen.Agents,
+			wantSent: []paneltest.Request{
 				{
-					procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
-					msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a1"}},
+					Procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
+					Msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a1"}},
 				},
 				{
-					procedure: agentv1connect.AgentServiceResumeAgentProcedure,
-					msg:       &agentv1.ResumeAgentRequest{Id: "a1"},
+					Procedure: agentv1connect.AgentServiceResumeAgentProcedure,
+					Msg:       &agentv1.ResumeAgentRequest{Id: "a1"},
 				},
 			},
 		},
@@ -130,34 +132,34 @@ func TestArchivedAgentsMenu(t *testing.T) {
 			name:       "restore on an archived folder restores the workflow",
 			rows:       []proto.Message{newArchivedWorkflow("w1", "backend")},
 			press:      []string{"space", "a", "r"},
-			wantScreen: agentsScreen,
-			wantSent: []request{{
-				procedure: workflowv1connect.WorkflowServiceRestoreWorkflowProcedure,
-				msg:       &workflowv1.RestoreWorkflowRequest{Id: "w1"},
+			wantScreen: screen.Agents,
+			wantSent: []paneltest.Request{{
+				Procedure: workflowv1connect.WorkflowServiceRestoreWorkflowProcedure,
+				Msg:       &workflowv1.RestoreWorkflowRequest{Id: "w1"},
 			}},
 		},
 		{
 			name:       "restore on a folder of the deleted list restores the workflow",
 			rows:       []proto.Message{newArchivedWorkflow("w1", "backend"), deletedAgent, newDeletedTaskOf(deletedAgent)},
 			press:      []string{"F", "tab", "esc", "space", "u"},
-			wantScreen: agentsScreen,
-			wantSent: []request{{
-				procedure: workflowv1connect.WorkflowServiceRestoreWorkflowProcedure,
-				msg:       &workflowv1.RestoreWorkflowRequest{Id: "w1"},
+			wantScreen: screen.Agents,
+			wantSent: []paneltest.Request{{
+				Procedure: workflowv1connect.WorkflowServiceRestoreWorkflowProcedure,
+				Msg:       &workflowv1.RestoreWorkflowRequest{Id: "w1"},
 			}},
 		},
 		{
 			name:       "delete on a task opens the confirm prompt rather than destroying",
 			rows:       buildArchivedTasks(),
 			press:      []string{"j", "j", "j", "space", "a", "d"},
-			wantScreen: agentsScreen,
+			wantScreen: screen.Agents,
 			wantFrame:  `Delete task "db-work"?`,
 		},
 		{
 			name:       "delete on an archived folder opens the confirm prompt",
 			rows:       []proto.Message{newArchivedWorkflow("w1", "backend")},
 			press:      []string{"space", "a", "d"},
-			wantScreen: agentsScreen,
+			wantScreen: screen.Agents,
 			wantFrame:  `Delete workflow "backend"?`,
 		},
 	}
@@ -167,19 +169,19 @@ func TestArchivedAgentsMenu(t *testing.T) {
 			harness := openArchivedAgents(t, tt.rows...)
 			answerResume(harness)
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 			if len(tt.watch) > 0 {
-				harness.watch(tt.watch...)
+				harness.Watch(tt.watch...)
 			}
 
-			frame := harness.readFrame()
-			assert.Equal(t, tt.wantScreen, harness.readScreen())
+			frame := harness.Frame()
+			assert.Equal(t, tt.wantScreen, paneltest.Screen(harness.Frame()))
 			if tt.wantFrame == "" {
 				assert.NotContains(t, readFormProse(frame), deleteTitle)
 			} else {
 				assert.Contains(t, readFormProse(frame), tt.wantFrame)
 			}
-			harness.assertSent(tt.wantSent...)
+			harness.AssertSent(tt.wantSent...)
 		})
 	}
 }
@@ -195,7 +197,7 @@ func TestArchivedAgentsPrompts(t *testing.T) {
 		rows     []proto.Message
 		press    []string
 		gone     *watchv1.WatchEvent
-		wantSent []request
+		wantSent []paneltest.Request
 	}{
 		{
 			name:  "declining the delete destroys nothing",
@@ -211,15 +213,15 @@ func TestArchivedAgentsPrompts(t *testing.T) {
 			name:  "the delete on a task waits for its agents to leave the archive",
 			rows:  buildArchivedTasks(),
 			press: []string{"j", "j", "j", "space", "a", "d", "enter"},
-			gone:  buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a3"),
-			wantSent: []request{
+			gone:  paneltest.Deleted(watchv1.Resource_RESOURCE_AGENT, "a3"),
+			wantSent: []paneltest.Request{
 				{
-					procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-					msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"t2"}, Records: true},
+					Procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
+					Msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"t2"}, Records: true},
 				},
 				{
-					procedure: agentv1connect.AgentServiceGetLastScreenProcedure,
-					msg:       &agentv1.GetLastScreenRequest{AgentId: "a1"},
+					Procedure: agentv1connect.AgentServiceGetLastScreenProcedure,
+					Msg:       &agentv1.GetLastScreenRequest{AgentId: "a1"},
 				},
 			},
 		},
@@ -227,29 +229,29 @@ func TestArchivedAgentsPrompts(t *testing.T) {
 			name:  "confirming the workflow delete destroys the workflow it was opened on",
 			rows:  []proto.Message{newArchivedWorkflow("w1", "backend")},
 			press: []string{"space", "a", "d", "enter"},
-			gone:  buildDeleted(watchv1.Resource_RESOURCE_WORKFLOW, "w1"),
-			wantSent: []request{{
-				procedure: workflowv1connect.WorkflowServiceDeleteWorkflowProcedure,
-				msg:       &workflowv1.DeleteWorkflowRequest{Id: "w1", Records: true},
+			gone:  paneltest.Deleted(watchv1.Resource_RESOURCE_WORKFLOW, "w1"),
+			wantSent: []paneltest.Request{{
+				Procedure: workflowv1connect.WorkflowServiceDeleteWorkflowProcedure,
+				Msg:       &workflowv1.DeleteWorkflowRequest{Id: "w1", Records: true},
 			}},
 		},
 		{
 			name:  "a workflow delete of the worktree alone closes without waiting, since the workflow stays archived",
 			rows:  []proto.Message{archivedWithWorktree},
 			press: []string{"space", "a", "d", "enter"},
-			wantSent: []request{{
-				procedure: workflowv1connect.WorkflowServiceDeleteWorkflowProcedure,
-				msg:       &workflowv1.DeleteWorkflowRequest{Id: "w1"},
+			wantSent: []paneltest.Request{{
+				Procedure: workflowv1connect.WorkflowServiceDeleteWorkflowProcedure,
+				Msg:       &workflowv1.DeleteWorkflowRequest{Id: "w1"},
 			}},
 		},
 		{
 			name:  "a workflow delete on the deleted list takes the records, since every worktree is already gone",
 			rows:  []proto.Message{archivedWithWorktree, deleted, newDeletedTaskOf(deleted)},
 			press: []string{"F", "tab", "esc", "space", "d", "enter"},
-			gone:  buildDeleted(watchv1.Resource_RESOURCE_WORKFLOW, "w1"),
-			wantSent: []request{{
-				procedure: workflowv1connect.WorkflowServiceDeleteWorkflowProcedure,
-				msg:       &workflowv1.DeleteWorkflowRequest{Id: "w1", Records: true},
+			gone:  paneltest.Deleted(watchv1.Resource_RESOURCE_WORKFLOW, "w1"),
+			wantSent: []paneltest.Request{{
+				Procedure: workflowv1connect.WorkflowServiceDeleteWorkflowProcedure,
+				Msg:       &workflowv1.DeleteWorkflowRequest{Id: "w1", Records: true},
 			}},
 		},
 	}
@@ -258,16 +260,16 @@ func TestArchivedAgentsPrompts(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openArchivedAgents(t, tt.rows...)
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 			if tt.gone != nil {
-				require.Contains(t, readFormProse(harness.readFrame()), deleteTitle, "the prompt waits for the row to leave")
-				harness.watch(tt.gone)
+				require.Contains(t, readFormProse(harness.Frame()), deleteTitle, "the prompt waits for the row to leave")
+				harness.Watch(tt.gone)
 			}
 
-			frame := harness.readFrame()
-			assert.Equal(t, agentsScreen, harness.readScreen(), "the prompt returns to the archived agents it was opened from")
+			frame := harness.Frame()
+			assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()), "the prompt returns to the archived agents it was opened from")
 			assert.NotContains(t, readFormProse(frame), deleteTitle, "the prompt is down")
-			harness.assertSent(tt.wantSent...)
+			harness.AssertSent(tt.wantSent...)
 		})
 	}
 }
@@ -314,11 +316,11 @@ func TestArchivedAgentsReportsRefusedWrites(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openArchivedAgents(t, tt.rows...)
-			harness.refuse(tt.refused, connect.NewError(connect.CodeNotFound, errors.New("no such agent")))
+			harness.Refuse(tt.refused, connect.NewError(connect.CodeNotFound, errors.New("no such agent")))
 
-			harness.press(append(tt.press, widenListPresses...)...)
+			harness.Press(append(tt.press, widenListPresses...)...)
 
-			assert.Contains(t, readEngineLine(harness.readFrame()), tt.wantSummary)
+			assert.Contains(t, readEngineLine(harness.Frame()), tt.wantSummary)
 			assert.Contains(t, readOpenMessages(harness), "no such agent")
 		})
 	}
@@ -422,10 +424,10 @@ func TestArchivedAgentsRows(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openArchivedAgents(t, tt.rows...)
 			if tt.deleted {
-				harness.press("F", "tab", "esc")
+				harness.Press("F", "tab", "esc")
 			}
 
-			assert.Equal(t, tt.wantRows, readListRows(harness.readFrame()))
+			assert.Equal(t, tt.wantRows, paneltest.ListRows(harness.Frame()))
 		})
 	}
 }
@@ -482,23 +484,23 @@ func TestArchivedAgentsMenuEntries(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openArchivedAgents(t, tt.rows...)
 
-			harness.press(append(tt.press, "space")...)
+			harness.Press(append(tt.press, "space")...)
 			if tt.wantNone {
-				assert.NotRegexp(t, archiveEntry, harness.readFrame())
+				assert.NotRegexp(t, archiveEntry, harness.Frame())
 
 				return
 			}
-			require.Regexp(t, archiveEntry, harness.readFrame())
+			require.Regexp(t, archiveEntry, harness.Frame())
 
-			harness.press("a")
-			frame := harness.readFrame()
+			harness.Press("a")
+			frame := harness.Frame()
 			for _, want := range tt.want {
 				assert.Contains(t, frame, want)
 			}
 			if tt.wantOff {
-				assert.Regexp(t, openOff, harness.readRawFrame())
+				assert.Regexp(t, openOff, harness.RawFrame())
 			} else {
-				assert.NotRegexp(t, openOff, harness.readRawFrame())
+				assert.NotRegexp(t, openOff, harness.RawFrame())
 			}
 		})
 	}
@@ -508,9 +510,9 @@ func TestArchivedAgentsMenuEntries(t *testing.T) {
 		orchestrator.Role = agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR
 		harness := openArchivedAgents(t, newArchivedWorkflow("w1", "backend"), orchestrator)
 
-		harness.press("space")
+		harness.Press("space")
 
-		menu := strings.Join(readStage(harness.readFrame()), "\n")
+		menu := strings.Join(paneltest.Stage(harness.Frame()), "\n")
 		require.Regexp(t, archiveEntry, menu)
 		for _, entry := range []string{"logs", "terminal", "jump ›"} {
 			assert.NotContains(t, menu, entry)
@@ -540,9 +542,9 @@ func TestArchivedAgentsMenuEntries(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openArchivedAgents(t, onDeleted...)
 
-			harness.press(append(append([]string{"F", "tab", "esc"}, tt.press...), "space")...)
+			harness.Press(append(append([]string{"F", "tab", "esc"}, tt.press...), "space")...)
 
-			menu := strings.Join(readStage(harness.readFrame()), "\n")
+			menu := strings.Join(paneltest.Stage(harness.Frame()), "\n")
 			assert.NotRegexp(t, archiveEntry, menu)
 			for _, want := range tt.want {
 				assert.Regexp(t, want, menu)
@@ -559,7 +561,7 @@ func TestArchivedAgentsRename(t *testing.T) {
 	archived := []proto.Message{
 		newArchivedWorkflow("w1", "backend"),
 		newArchivedAgent("a1", "api-refactor", "w1"),
-		newArchivedSchedule("s2", "weekly-gone"),
+		newArchivedSchedule("weekly-gone"),
 	}
 	live := []proto.Message{
 		newLiveWorkflow("w1", "backend"),
@@ -612,16 +614,16 @@ func TestArchivedAgentsRename(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openArchivedAgents(t, tt.rows...)
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			assert.Equal(t, agentsScreen, harness.readScreen())
+			assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
 			if tt.want == nil {
-				assert.NotContains(t, harness.readFrame(), "▏")
-				harness.assertSent()
+				assert.NotContains(t, harness.Frame(), "▏")
+				harness.AssertSent()
 
 				return
 			}
-			harness.assertSentTo(tt.procedure, tt.want)
+			harness.AssertSentTo(tt.procedure, tt.want)
 		})
 	}
 }
@@ -685,9 +687,9 @@ func TestArchivedAgentsDocument(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openArchivedAgents(t, tt.rows...)
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			frame := harness.readFrame()
+			frame := harness.Frame()
 			for _, want := range tt.want {
 				assert.Contains(t, frame, want)
 			}
@@ -722,12 +724,12 @@ func TestArchivedAgentsDocument(t *testing.T) {
 			},
 		)
 
-		harness.press(append([]string{"j", "pick:record"}, widenListPresses...)...)
+		harness.Press(append([]string{"j", "pick:record"}, widenListPresses...)...)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "agent/a1", "the task's record carries its checkout")
 		assert.Contains(t, frame, "its pull request is merged")
-		created, archived := findRecordLine(frame, "created"), findRecordLine(frame, "archived")
+		created, archived := paneltest.RecordLine(frame, "created"), paneltest.RecordLine(frame, "archived")
 		require.Positive(t, created)
 		assert.Less(t, created, archived, "when it was put away comes after when it was made")
 	})
@@ -772,9 +774,9 @@ func TestArchivedAgentsSort(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openArchivedAgents(t, unsorted...)
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			assert.Equal(t, tt.want, readListRows(harness.readFrame()))
+			assert.Equal(t, tt.want, paneltest.ListRows(harness.Frame()))
 		})
 	}
 }
@@ -784,8 +786,8 @@ func TestArchivedAgentsWindow(t *testing.T) {
 	t.Run("entering the archived agents asks for nothing", func(t *testing.T) {
 		harness := openArchivedAgents(t, buildOneArchivedAgent()...)
 
-		assert.Contains(t, harness.readFrame(), "api-refactor")
-		harness.assertSent()
+		assert.Contains(t, harness.Frame(), "api-refactor")
+		harness.AssertSent()
 	})
 
 	t.Run("the archived agents take the window and gives it back for a running agent", func(t *testing.T) {
@@ -801,24 +803,24 @@ func TestArchivedAgentsWindow(t *testing.T) {
 			},
 			newArchivedAgent("a1", "api-refactor", "w1"),
 		)
-		require.True(t, harness.panel.IsZoomed(), "the archived agents render both columns themselves")
+		require.True(t, harness.Tmux().IsZoomed(), "the archived agents render both columns themselves")
 
-		harness.press("F", "shift+tab", "esc", "j")
-		harness.fireTimers()
+		harness.Press("F", "shift+tab", "esc", "j")
+		harness.Advance(time.Second)
 
-		assert.False(t, harness.panel.IsZoomed(), "leaving the archived agents for a running agent gives the other panes their share back")
+		assert.False(t, harness.Tmux().IsZoomed(), "leaving the archived agents for a running agent gives the other panes their share back")
 	})
 
 	t.Run("restoring and opening an agent hands the window to the pane it opens", func(t *testing.T) {
 		harness := openArchivedAgents(t, buildOneArchivedAgent()...)
-		require.True(t, harness.panel.IsZoomed())
+		require.True(t, harness.Tmux().IsZoomed())
 		answerResume(harness)
 
-		harness.press("j", "space", "a", "o")
-		harness.watch(buildPuts(newRestoredAgent()))
+		harness.Press("j", "space", "a", "o")
+		harness.Watch(paneltest.Puts(newRestoredAgent()))
 
-		assert.False(t, harness.panel.IsZoomed(), "the pane it made is not left under the archived agents' own zoom")
-		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
+		assert.False(t, harness.Tmux().IsZoomed(), "the pane it made is not left under the archived agents' own zoom")
+		assert.Equal(t, "%9", harness.Tmux().GuestPane())
 	})
 }
 
@@ -834,14 +836,14 @@ func TestArchivedAgentsSelection(t *testing.T) {
 	tests := []struct {
 		name     string
 		press    []string
-		wantSent []request
+		wantSent []paneltest.Request
 	}{
 		{
 			name:  "restore takes the whole selection rather than the hovered row",
 			press: []string{"j", "v", "j", "v", "j", "space", "a", "r"},
-			wantSent: []request{{
-				procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
-				msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"auth", "api"}},
+			wantSent: []paneltest.Request{{
+				Procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
+				Msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"auth", "api"}},
 			}},
 		},
 		{
@@ -854,62 +856,62 @@ func TestArchivedAgentsSelection(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openArchivedAgents(t, rows...)
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			assert.Equal(t, agentsScreen, harness.readScreen())
-			harness.assertSent(tt.wantSent...)
+			assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
+			harness.AssertSent(tt.wantSent...)
 		})
 	}
 
 	t.Run("a folder restore stands down while a selection is up", func(t *testing.T) {
 		harness := openArchivedAgents(t, newArchivedWorkflow("w1", "backend"), newArchivedAgent("a1", "auth", "w1"))
 
-		harness.press("j", "v", "g", "g", "space", "a", "r")
+		harness.Press("j", "v", "g", "g", "space", "a", "r")
 
-		harness.assertSent(request{
-			procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
-			msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a1"}},
+		harness.AssertSent(paneltest.Request{
+			Procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
+			Msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a1"}},
 		})
 	})
 
 	t.Run("the selection outlives a refused restore", func(t *testing.T) {
 		harness := openArchivedAgents(t, rows...)
-		harness.refuse(agentv1connect.AgentServiceRestoreAgentsProcedure, connect.NewError(connect.CodeUnavailable, errors.New("down")))
+		harness.Refuse(agentv1connect.AgentServiceRestoreAgentsProcedure, connect.NewError(connect.CodeUnavailable, errors.New("down")))
 
-		harness.press("j", "v", "space", "a", "r")
+		harness.Press("j", "v", "space", "a", "r")
 
-		assert.Contains(t, readLegend(harness.readFrame()), "1 selected")
+		assert.Contains(t, paneltest.Legend(harness.Frame()), "1 selected")
 	})
 
 	t.Run("escape clears the selection before it leaves the archived agents", func(t *testing.T) {
 		harness := openArchivedAgents(t, rows...)
-		harness.press("j", "v")
+		harness.Press("j", "v")
 
-		harness.press("esc")
+		harness.Press("esc")
 
-		frame := harness.readFrame()
-		assert.Equal(t, agentsScreen, harness.readScreen())
-		assert.NotContains(t, readLegend(frame), "selected")
+		frame := harness.Frame()
+		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
+		assert.NotContains(t, paneltest.Legend(frame), "selected")
 
-		harness.press("F", "tab", "esc")
-		assert.Equal(t, agentsScreen, harness.readScreen())
+		harness.Press("F", "tab", "esc")
+		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
 	})
 
 	t.Run("an agent gone from the archived agents drops out of the selection", func(t *testing.T) {
 		harness := openArchivedAgents(t, rows...)
-		harness.press("j", "v", "G", "v")
+		harness.Press("j", "v", "G", "v")
 
-		harness.watch(buildSnapshot(rows[0], rows[3]))
-		harness.press("space", "a", "r")
+		harness.Watch(paneltest.Snapshot(rows[0], rows[3]))
+		harness.Press("space", "a", "r")
 
-		harness.assertSentTo(agentv1connect.AgentServiceRestoreAgentsProcedure, &agentv1.RestoreAgentsRequest{Ids: []string{"db"}})
+		harness.AssertSentTo(agentv1connect.AgentServiceRestoreAgentsProcedure, &agentv1.RestoreAgentsRequest{Ids: []string{"db"}})
 	})
 
 	t.Run("selecting among the archived agents leaves the agents tree alone", func(t *testing.T) {
 		harness := openArchivedAgents(t, append(slices.Clone(rows), newAgent("a9", "live", "w1"))...)
-		harness.press("j", "v", "esc", "F", "tab", "esc")
+		harness.Press("j", "v", "esc", "F", "tab", "esc")
 
-		assert.NotContains(t, readLegend(harness.readFrame()), "selected")
+		assert.NotContains(t, paneltest.Legend(harness.Frame()), "selected")
 	})
 }
 
@@ -966,11 +968,11 @@ func TestArchivedAgentsKinds(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openAgents(t, rows...)
 
-			harness.press(tt.press...)
-			harness.press(widenListPresses...)
+			harness.Press(tt.press...)
+			harness.Press(widenListPresses...)
 
-			frame := ansi.Strip(harness.readFrame())
-			assert.Equal(t, agentsScreen, harness.readScreen())
+			frame := ansi.Strip(harness.Frame())
+			assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
 			assert.Contains(t, frame, tt.want)
 			assert.NotContains(t, frame, tt.wantAbsent)
 		})
@@ -979,24 +981,24 @@ func TestArchivedAgentsKinds(t *testing.T) {
 	t.Run("the row of kinds refuses the keys while agents are selected", func(t *testing.T) {
 		harness := openAgents(t, rows...)
 
-		harness.press(append(widenListPresses, "j", "v", "F", "?")...)
-		frame := harness.readFrame()
-		assert.NotEmpty(t, readHoveredRow(frame), "the list keeps the keys")
-		assert.NotContains(t, readLegend(frame), "F kind")
+		harness.Press(append(widenListPresses, "j", "v", "F", "?")...)
+		frame := harness.Frame()
+		assert.NotEmpty(t, paneltest.HoveredRow(frame), "the list keeps the keys")
+		assert.NotContains(t, paneltest.Legend(frame), "F kind")
 	})
 
 	t.Run("the row of kinds holds the keys until escape", func(t *testing.T) {
 		harness := openAgents(t, rows...)
 
-		harness.press(append(widenListPresses, "F")...)
-		frame := harness.readFrame()
-		legend := readLegend(frame)
+		harness.Press(append(widenListPresses, "F")...)
+		frame := harness.Frame()
+		legend := paneltest.Legend(frame)
 		assert.Contains(t, legend, "tab/S-tab switch")
 		assert.Contains(t, legend, "esc back to the list")
-		assert.Empty(t, readHoveredRow(frame), "the row's arrow stands down")
+		assert.Empty(t, paneltest.HoveredRow(frame), "the row's arrow stands down")
 
-		harness.press("esc")
-		assert.NotEmpty(t, readHoveredRow(harness.readFrame()), "and the list has the keys again")
+		harness.Press("esc")
+		assert.NotEmpty(t, paneltest.HoveredRow(harness.Frame()), "and the list has the keys again")
 	})
 
 	t.Run("each kind comes back on the row it was left on", func(t *testing.T) {
@@ -1007,16 +1009,16 @@ func TestArchivedAgentsKinds(t *testing.T) {
 			newArchivedAgent("a1", "api-refactor", "w1"),
 			newArchivedAgent("a2", "billing", "w1"),
 		)
-		harness.press(append(widenListPresses, "j")...)
-		live := readHoveredRow(harness.readFrame())
-		harness.press("F", "tab", "esc", "j")
-		archived := readHoveredRow(harness.readFrame())
+		harness.Press(append(widenListPresses, "j")...)
+		live := paneltest.HoveredRow(harness.Frame())
+		harness.Press("F", "tab", "esc", "j")
+		archived := paneltest.HoveredRow(harness.Frame())
 
-		harness.press("F", "shift+tab", "esc")
-		assert.Equal(t, live, readHoveredRow(harness.readFrame()))
+		harness.Press("F", "shift+tab", "esc")
+		assert.Equal(t, live, paneltest.HoveredRow(harness.Frame()))
 
-		harness.press("F", "tab", "esc")
-		assert.Equal(t, archived, readHoveredRow(harness.readFrame()))
+		harness.Press("F", "tab", "esc")
+		assert.Equal(t, archived, paneltest.HoveredRow(harness.Frame()))
 	})
 }
 
@@ -1026,13 +1028,13 @@ func TestArchivedAgentsLastScreen(t *testing.T) {
 		harness := openArchivedAgents(t, buildOneArchivedAgent()...)
 		answerLastScreens(harness, map[string]string{"a1": "❯ ship the refactor\n⏺ the refactor is merged"})
 
-		harness.press("j")
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceGetLastScreenProcedure), "nothing is asked while the cursor moves")
+		harness.Press("j")
+		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceGetLastScreenProcedure), "nothing is asked while the cursor moves")
 
-		harness.fireTimers()
+		harness.Advance(time.Second)
 
 		requireLastScreenFor(t, harness, "a1")
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		for _, want := range []string{"archived · press space a o to restore", "Restore brings it back", "saved screen", "80x24", "❯ ship the refactor", "⏺ the refactor is merged"} {
 			assert.Contains(t, frame, want)
 		}
@@ -1040,7 +1042,7 @@ func TestArchivedAgentsLastScreen(t *testing.T) {
 
 	t.Run("a saved screen taller than the room left is fitted under the document and its banner", func(t *testing.T) {
 		harness := openArchivedAgents(t, buildOneArchivedAgent()...)
-		harness.answer(agentv1connect.AgentServiceGetLastScreenProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		harness.Answer(agentv1connect.AgentServiceGetLastScreenProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 			return connect.NewResponse(&agentv1.GetLastScreenResponse{
 				Frame:      "❯ the first ask\n" + strings.Repeat("working through it\n", 60) + "⏺ the refactor is merged",
 				Width:      80,
@@ -1049,10 +1051,10 @@ func TestArchivedAgentsLastScreen(t *testing.T) {
 			}), nil
 		})
 
-		harness.press("j")
-		harness.fireTimers()
+		harness.Press("j")
+		harness.Advance(time.Second)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		for _, want := range []string{"Restore brings it back", "saved screen", "⏺ the refactor is merged"} {
 			assert.Contains(t, frame, want)
 		}
@@ -1063,30 +1065,30 @@ func TestArchivedAgentsLastScreen(t *testing.T) {
 		harness := openArchivedAgents(t, buildOneArchivedAgent()...)
 		answerLastScreens(harness, nil)
 
-		harness.press("j")
-		harness.fireTimers()
+		harness.Press("j")
+		harness.Advance(time.Second)
 
-		assert.Contains(t, harness.readFrame(), "no saved screen")
+		assert.Contains(t, harness.Frame(), "no saved screen")
 	})
 
 	t.Run("a refused read says why", func(t *testing.T) {
 		harness := openArchivedAgents(t, buildOneArchivedAgent()...)
-		harness.answer(agentv1connect.AgentServiceGetLastScreenProcedure, refuseWith(connect.CodeInternal, "screens exploded"))
+		harness.Answer(agentv1connect.AgentServiceGetLastScreenProcedure, refuseWith(connect.CodeInternal, "screens exploded"))
 
-		harness.press("j")
-		harness.fireTimers()
+		harness.Press("j")
+		harness.Advance(time.Second)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "could not read the saved screen: screens exploded")
 		assert.Contains(t, frame, "Restore brings it back")
 	})
 
 	t.Run("a folder has no saved screen", func(t *testing.T) {
 		harness := openArchivedAgents(t, buildOneArchivedAgent()...)
-		harness.fireTimers()
+		harness.Advance(time.Second)
 
-		assert.NotContains(t, harness.readFrame(), "saved screen")
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceGetLastScreenProcedure))
+		assert.NotContains(t, harness.Frame(), "saved screen")
+		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceGetLastScreenProcedure))
 	})
 
 	t.Run("an answer for an agent the cursor has left is not rendered", func(t *testing.T) {
@@ -1099,14 +1101,14 @@ func TestArchivedAgentsLastScreen(t *testing.T) {
 			"a1": "words from api-refactor",
 			"a2": "words from billing",
 		})
-		harness.hold(agentv1connect.AgentServiceGetLastScreenProcedure)
+		harness.Hold(agentv1connect.AgentServiceGetLastScreenProcedure)
 
-		harness.press("j")
-		harness.fireTimers()
-		harness.press("j")
-		harness.release(agentv1connect.AgentServiceGetLastScreenProcedure)
+		harness.Press("j")
+		harness.Advance(time.Second)
+		harness.Press("j")
+		harness.Release(agentv1connect.AgentServiceGetLastScreenProcedure)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.NotContains(t, frame, "words from api-refactor")
 		assert.NotContains(t, frame, "words from billing")
 		assert.Contains(t, frame, "reading the saved screen")
@@ -1122,17 +1124,17 @@ func TestArchivedAgentsLastScreen(t *testing.T) {
 			"a1": "words from api-refactor",
 			"a2": "words from billing",
 		})
-		harness.press("j")
-		harness.fireTimers()
+		harness.Press("j")
+		harness.Advance(time.Second)
 
-		harness.press("/", "a", "p", "i", "enter")
-		harness.fireTimers()
-		require.Contains(t, harness.readFrame(), "words from api-refactor")
+		harness.Press("/", "a", "p", "i", "enter")
+		harness.Advance(time.Second)
+		require.Contains(t, harness.Frame(), "words from api-refactor")
 
-		harness.press("esc")
-		harness.fireTimers()
+		harness.Press("esc")
+		harness.Advance(time.Second)
 
-		assert.Contains(t, harness.readFrame(), "words from billing")
+		assert.Contains(t, harness.Frame(), "words from billing")
 	})
 
 	t.Run("a listing that moves the cursor onto another agent asks for it", func(t *testing.T) {
@@ -1142,14 +1144,14 @@ func TestArchivedAgentsLastScreen(t *testing.T) {
 			newArchivedAgent("a2", "billing", "w1"),
 		)
 		answerLastScreens(harness, nil)
-		harness.press("j")
-		harness.fireTimers()
+		harness.Press("j")
+		harness.Advance(time.Second)
 
 		requireLastScreenFor(t, harness, "a2")
 
 		restored := newArchivedAgent("a2", "billing", "w1")
 		restored.ArchivedAt = nil
-		harness.watch(buildPuts(restored))
+		harness.Watch(paneltest.Puts(restored))
 
 		requireLastScreenFor(t, harness, "a2", "a1")
 	})
@@ -1196,12 +1198,12 @@ func TestArchivedAgentsReading(t *testing.T) {
 				newArchivedAgent("a2", "billing", "w1"),
 			)
 			answerLastScreens(harness, map[string]string{"a1": screen, "a2": screen})
-			harness.press("j")
-			harness.fireTimers()
+			harness.Press("j")
+			harness.Advance(time.Second)
 
-			harness.press(tt.presses...)
+			harness.Press(tt.presses...)
 
-			frame := harness.readFrame()
+			frame := harness.Frame()
 			for _, want := range tt.want {
 				assert.Contains(t, frame, want)
 			}
@@ -1214,29 +1216,29 @@ func TestArchivedAgentsReading(t *testing.T) {
 	t.Run("the saved screen takes the keys while the live list stands on a stopped agent", func(t *testing.T) {
 		stopped := newDormant("sleepy")
 		stopped.Id = "d1"
-		harness := newPanelHarness(t, panelHarnessParams{})
+		harness := paneltest.Start(t, paneltest.Params{})
 		answerLastScreens(harness, map[string]string{"a1": screen, "a2": screen})
-		harness.watch(buildSnapshot(
+		harness.Watch(paneltest.Snapshot(
 			newLiveWorkflow("w1", "backend"),
 			stopped,
 			newArchivedAgent("a1", "api-refactor", "w1"),
 			newArchivedAgent("a2", "billing", "w1"),
 		))
-		harness.press("F", "tab", "esc", "j")
-		harness.fireTimers()
+		harness.Press("F", "tab", "esc", "j")
+		harness.Advance(time.Second)
 
-		harness.press("pick:block", "G")
+		harness.Press("pick:block", "G")
 
-		assert.Contains(t, harness.readFrame(), "line number 39")
+		assert.Contains(t, harness.Frame(), "line number 39")
 	})
 }
 
-func openArchivedAgents(t *testing.T, rows ...proto.Message) *panelHarness {
+func openArchivedAgents(t *testing.T, rows ...proto.Message) *paneltest.Panel {
 	t.Helper()
 
-	harness := newPanelHarness(t, panelHarnessParams{})
-	harness.press("F", "tab", "esc")
-	harness.watch(buildSnapshot(rows...))
+	harness := paneltest.Start(t, paneltest.Params{})
+	harness.Press("F", "tab", "esc")
+	harness.Watch(paneltest.Snapshot(rows...))
 
 	return harness
 }
@@ -1290,8 +1292,8 @@ func newArchivedAgentAt(name, at string) *agentv1.Agent {
 }
 
 // answerLastScreens answers each agent's saved screen at 80x24, and not found for any other.
-func answerLastScreens(harness *panelHarness, screens map[string]string) {
-	harness.answer(agentv1connect.AgentServiceGetLastScreenProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+func answerLastScreens(harness *paneltest.Panel, screens map[string]string) {
+	harness.Answer(agentv1connect.AgentServiceGetLastScreenProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
 		read, _ := req.Any().(*agentv1.GetLastScreenRequest)
 
 		frame, ok := screens[read.GetAgentId()]
@@ -1308,10 +1310,10 @@ func answerLastScreens(harness *panelHarness, screens map[string]string) {
 	})
 }
 
-func requireLastScreenFor(t *testing.T, harness *panelHarness, agentIDs ...string) {
+func requireLastScreenFor(t *testing.T, harness *paneltest.Panel, agentIDs ...string) {
 	t.Helper()
 
-	sent := xslice.Map(harness.readSent(agentv1connect.AgentServiceGetLastScreenProcedure), func(msg proto.Message) string {
+	sent := xslice.Map(harness.Sent(agentv1connect.AgentServiceGetLastScreenProcedure), func(msg proto.Message) string {
 		read, _ := msg.(*agentv1.GetLastScreenRequest)
 
 		return read.GetAgentId()
@@ -1358,29 +1360,29 @@ func TestArchivedTasks(t *testing.T) {
 		rows      []proto.Message
 		press     []string
 		wantFrame string
-		wantSent  []request
+		wantSent  []paneltest.Request
 	}{
 		{
 			name:  "restore on a task restores its writer alone",
 			rows:  buildArchivedTasks(),
 			press: append(onAPIWork, "space", "a", "r"),
-			wantSent: []request{{
-				procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
-				msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a1"}},
+			wantSent: []paneltest.Request{{
+				Procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
+				Msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a1"}},
 			}},
 		},
 		{
 			name:  "restore and open on a task restores its writer and opens it",
 			rows:  buildArchivedTasks(),
 			press: append(onAPIWork, "space", "a", "o"),
-			wantSent: []request{
+			wantSent: []paneltest.Request{
 				{
-					procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
-					msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a1"}},
+					Procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
+					Msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a1"}},
 				},
 				{
-					procedure: agentv1connect.AgentServiceResumeAgentProcedure,
-					msg:       &agentv1.ResumeAgentRequest{Id: "a1"},
+					Procedure: agentv1connect.AgentServiceResumeAgentProcedure,
+					Msg:       &agentv1.ResumeAgentRequest{Id: "a1"},
 				},
 			},
 		},
@@ -1400,23 +1402,23 @@ func TestArchivedTasks(t *testing.T) {
 			name:  "delete on a task deletes the task",
 			rows:  buildArchivedTasks(),
 			press: append(onAPIWork, "space", "a", "d", "enter"),
-			wantSent: []request{{
-				procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-				msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"t1"}, Records: true},
+			wantSent: []paneltest.Request{{
+				Procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
+				Msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"t1"}, Records: true},
 			}},
 		},
 		{
 			name:  "delete on a task under an archived workflow deletes its worktree alone by default",
 			rows:  []proto.Message{archivedWorkflow, inArchivedWorkflow, inArchivedWorkflowTask},
 			press: []string{"j", "space", "a", "d", "enter"},
-			wantSent: []request{
+			wantSent: []paneltest.Request{
 				{
-					procedure: worktreev1connect.WorktreeServiceGetWorktreeProcedure,
-					msg:       &worktreev1.GetWorktreeRequest{Dir: "/trees/api"},
+					Procedure: worktreev1connect.WorktreeServiceGetWorktreeProcedure,
+					Msg:       &worktreev1.GetWorktreeRequest{Dir: "/trees/api"},
 				},
 				{
-					procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-					msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-a1"}},
+					Procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
+					Msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-a1"}},
 				},
 			},
 		},
@@ -1424,18 +1426,18 @@ func TestArchivedTasks(t *testing.T) {
 			name:  "delete on a task gone without a delete still offers its worktree, which records it as deleted",
 			rows:  []proto.Message{archivedWorkflow, goneAgent, goneTask},
 			press: []string{"j", "space", "a", "d", "enter"},
-			wantSent: []request{{
-				procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-				msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-a1"}},
+			wantSent: []paneltest.Request{{
+				Procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
+				Msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-a1"}},
 			}},
 		},
 		{
 			name:  "delete on a task whose worktree was deleted takes its records",
 			rows:  []proto.Message{archivedWorkflow, deletedAgent, deletedTask},
 			press: []string{"F", "tab", "esc", "j", "space", "d", "enter"},
-			wantSent: []request{{
-				procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-				msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-a1"}, Records: true},
+			wantSent: []paneltest.Request{{
+				Procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
+				Msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-a1"}, Records: true},
 			}},
 		},
 		{
@@ -1448,9 +1450,9 @@ func TestArchivedTasks(t *testing.T) {
 			name:  "restore on a live task's header restores only its archived agents",
 			rows:  buildArchivedTasks(),
 			press: []string{"j", "space", "a", "r"},
-			wantSent: []request{{
-				procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
-				msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a4"}},
+			wantSent: []paneltest.Request{{
+				Procedure: agentv1connect.AgentServiceRestoreAgentsProcedure,
+				Msg:       &agentv1.RestoreAgentsRequest{Ids: []string{"a4"}},
 			}},
 		},
 		{
@@ -1468,9 +1470,9 @@ func TestArchivedTasks(t *testing.T) {
 			name:  "the range key takes the tasks between",
 			rows:  buildArchivedTasks(),
 			press: []string{"j", "j", "j", "v", "j", "V", "space", "a", "d", "enter"},
-			wantSent: []request{{
-				procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-				msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"t2", "t1"}, Records: true},
+			wantSent: []paneltest.Request{{
+				Procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
+				Msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"t2", "t1"}, Records: true},
 			}},
 		},
 	}
@@ -1481,21 +1483,21 @@ func TestArchivedTasks(t *testing.T) {
 			answerWorktreeReads(harness)
 			answerResume(harness)
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
 			if tt.wantFrame != "" {
-				assert.Contains(t, harness.readFrame(), tt.wantFrame)
+				assert.Contains(t, harness.Frame(), tt.wantFrame)
 			}
-			harness.assertSent(tt.wantSent...)
+			harness.AssertSent(tt.wantSent...)
 		})
 	}
 
 	t.Run("a task's menu leaves out what only a live task takes", func(t *testing.T) {
 		harness := openArchivedAgents(t, buildArchivedTasks()...)
 
-		harness.press(append(onAPIWork, "space")...)
+		harness.Press(append(onAPIWork, "space")...)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		require.Regexp(t, `archive ›\s+a`, frame)
 		assert.NotContains(t, frame, "hide")
 		assert.NotContains(t, frame, "edit task")

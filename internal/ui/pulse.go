@@ -17,8 +17,8 @@ type pulse struct {
 
 type pulseMsg struct{}
 
-func pulseTick() tea.Cmd {
-	return startTimer(pulseInterval, func(time.Time) tea.Msg { return pulseMsg{} })
+func (m *model) pulseTick() tea.Cmd {
+	return m.clock.After(pulseInterval, func(time.Time) tea.Msg { return pulseMsg{} })
 }
 
 // start blinks the given number of times, lit from the frame it receives.
@@ -57,7 +57,7 @@ func (m *model) startPulse(blinking *pulse, blinks int) tea.Cmd {
 		return nil
 	}
 
-	return pulseTick()
+	return m.pulseTick()
 }
 
 // advancePulses takes every blink the panel is rendering to its next half.
@@ -68,5 +68,5 @@ func (m *model) advancePulses() tea.Cmd {
 		return nil
 	}
 
-	return pulseTick()
+	return m.pulseTick()
 }

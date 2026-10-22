@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"komrad/internal/ui"
+	"komrad/internal/ui/paneltest"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/task/v1/taskv1connect"
 
@@ -21,18 +22,18 @@ func TestRebuilt(t *testing.T) {
 
 		binary := &fakeBinary{}
 		harness := openRebuilt(t, binary)
-		require.Equal(t, "%9", harness.panel.ReadGuestPane())
-		require.NotContains(t, harness.readFrame(), rebuiltNotice)
+		require.Equal(t, "%9", harness.Tmux().GuestPane())
+		require.NotContains(t, harness.Frame(), rebuiltNotice)
 		require.Equal(t, 1, binary.asked, "the file is looked at once per refresh")
 
 		binary.isReplaced = true
-		harness.fireTimers()
+		harness.Advance(time.Second)
 
-		assert.Contains(t, harness.readFrame(), rebuiltNotice)
-		assert.Empty(t, harness.panel.ReadGuestPane(), "the agent's pane goes back to its own window")
-		assert.True(t, doesQuit(harness.panel.Update(ui.NewKeyPress("x"))), "any key closes it")
+		assert.Contains(t, harness.Frame(), rebuiltNotice)
+		assert.Empty(t, harness.Tmux().GuestPane(), "the agent's pane goes back to its own window")
+		assert.True(t, harness.Quits("x"), "any key closes it")
 
-		harness.fireTimers()
+		harness.Advance(time.Second)
 		assert.Equal(t, 2, binary.asked, "the refresh loop stops")
 	})
 
@@ -40,10 +41,10 @@ func TestRebuilt(t *testing.T) {
 		t.Parallel()
 
 		harness := openRebuilt(t, nil)
-		harness.send(ui.NewTick(time.Now()))
+		harness.Advance(time.Second)
 
-		assert.NotContains(t, harness.readFrame(), rebuiltNotice)
-		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
+		assert.NotContains(t, harness.Frame(), rebuiltNotice)
+		assert.Equal(t, "%9", harness.Tmux().GuestPane())
 	})
 
 	t.Run("a panel that is busy is not taken over", func(t *testing.T) {
@@ -51,19 +52,19 @@ func TestRebuilt(t *testing.T) {
 
 		tests := []struct {
 			name string
-			busy func(harness *panelHarness)
+			busy func(harness *paneltest.Panel)
 		}{
 			{
 				name: "a write in flight",
-				busy: func(harness *panelHarness) {
-					harness.hold(taskv1connect.TaskServiceSetTaskHiddenProcedure)
-					harness.press("space", "h", "h")
+				busy: func(harness *paneltest.Panel) {
+					harness.Hold(taskv1connect.TaskServiceSetTaskHiddenProcedure)
+					harness.Press("space", "h", "h")
 				},
 			},
 			{
 				name: "an open form",
-				busy: func(harness *panelHarness) {
-					harness.press("space", "c")
+				busy: func(harness *paneltest.Panel) {
+					harness.Press("space", "c")
 				},
 			},
 		}
@@ -78,10 +79,10 @@ func TestRebuilt(t *testing.T) {
 				binary.asked = 0
 				tt.busy(harness)
 
-				harness.send(ui.NewTick(time.Now()))
+				harness.Advance(time.Second)
 
-				assert.NotContains(t, harness.readFrame(), rebuiltNotice)
-				assert.Equal(t, "%9", harness.panel.ReadGuestPane(), "the window is kept")
+				assert.NotContains(t, harness.Frame(), rebuiltNotice)
+				assert.Equal(t, "%9", harness.Tmux().GuestPane(), "the window is kept")
 				assert.Zero(t, binary.asked, "the file is not looked at while the panel is busy")
 			})
 		}
@@ -111,13 +112,13 @@ func TestRebuilt(t *testing.T) {
 				server := newReviewServer(t)
 				server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
 				binary := &fakeBinary{isReplaced: true}
-				harness := openReviewAt(t, server, panelHarnessParams{binary: binary})
-				harness.press(tt.press...)
+				harness := openReviewAt(t, server, paneltest.Params{Binary: binary})
+				harness.Press(tt.press...)
 				binary.asked = 0
 
-				harness.send(ui.NewTick(time.Now()))
+				harness.Advance(time.Second)
 
-				assert.NotContains(t, harness.readFrame(), rebuiltNotice)
+				assert.NotContains(t, harness.Frame(), rebuiltNotice)
 				assert.Zero(t, binary.asked)
 			})
 		}
@@ -137,15 +138,15 @@ func (b *fakeBinary) IsReplaced() bool {
 	return b.isReplaced
 }
 
-func openRebuilt(t *testing.T, binary ui.BinaryWatcher) *panelHarness {
+func openRebuilt(t *testing.T, binary ui.BinaryWatcher) *paneltest.Panel {
 	t.Helper()
 
-	harness := newPanelHarness(t, panelHarnessParams{binary: binary})
+	harness := paneltest.Start(t, paneltest.Params{Binary: binary})
 	answerWorktreeReads(harness)
 	running := newRunning()
-	harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), running, newTaskOf(running)))
-	harness.press("j")
-	harness.fireTimers()
+	harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "api"), running, newTaskOf(running)))
+	harness.Press("j")
+	harness.Advance(time.Second)
 
 	return harness
 }

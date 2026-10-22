@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"time"
 
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
@@ -86,18 +85,18 @@ func (m *model) readWorktreeCmd(dir string) tea.Cmd {
 	pending := last
 	pending.Pending = true
 	m.applyWorktreeInspection(worktreeInspectedMsg{dir: dir, inspection: pending})
-	clients := m.api
+	clients, clock := m.api, m.clock
 
 	return func() tea.Msg {
 		read, err := clients.getWorktree(dir)
 		if err != nil {
 			// The last answer stays on the row with the refusal beside it.
-			last.Answered, last.ReadAt, last.Err = true, time.Now(), err
+			last.Answered, last.ReadAt, last.Err = true, clock.Now(), err
 
 			return worktreeInspectedMsg{dir: dir, inspection: last}
 		}
 
-		return worktreeInspectedMsg{dir: dir, inspection: worktreeInspectionFrom(read, time.Now())}
+		return worktreeInspectedMsg{dir: dir, inspection: worktreeInspectionFrom(read, clock.Now())}
 	}
 }
 

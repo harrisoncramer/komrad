@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/panes"
 	"komrad/internal/ui"
+	"komrad/internal/ui/paneltest"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -101,12 +102,12 @@ func (b *bindRecorder) UnbindTable(table string) {
 	}
 }
 
-func openFocus(t *testing.T) *panelHarness {
+func openFocus(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
-	harness := newPanelHarness(t, panelHarnessParams{})
+	harness := paneltest.Start(t, paneltest.Params{})
 	answerWorktreeReads(harness)
-	harness.watch(buildSnapshot(buildFocusRows()...))
+	harness.Watch(paneltest.Snapshot(buildFocusRows()...))
 
 	return harness
 }
