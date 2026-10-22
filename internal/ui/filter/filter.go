@@ -56,6 +56,29 @@ func (m Mode) String() string {
 	return "search"
 }
 
+// OpenDesc names the key that opens the search by the query standing.
+func (m Mode) OpenDesc(query string) string {
+	if query != "" {
+		return m.String() + ": " + query
+	}
+
+	return "search"
+}
+
+// ClearDesc names the key that clears a search in this mode.
+func (m Mode) ClearDesc() string {
+	return "clear " + m.String()
+}
+
+// PatternMode is the mode a pattern was compiled under, read while the search is not being typed.
+func PatternMode(p list.Pattern) Mode {
+	if p.Filtering {
+		return ModeFilter
+	}
+
+	return ModeSearch
+}
+
 // State is a screen's search line, what was typed into it and the pattern compiled from it.
 type State struct {
 	Typing  bool
@@ -97,11 +120,6 @@ type said struct {
 
 // Option sets how a search compiles what is typed into it.
 type Option func(*State)
-
-// fail marks the search broken for the reason given.
-func (f *State) fail(reason string) {
-	f.Broken, f.problem = true, reason
-}
 
 // WithDebounce holds compiling the pattern until typing rests for wait.
 func WithDebounce(wait time.Duration) Option {
@@ -163,29 +181,6 @@ func (f State) ClearDesc() string {
 	return f.Mode.ClearDesc()
 }
 
-// OpenDesc names the key that opens the search by the query standing.
-func (m Mode) OpenDesc(query string) string {
-	if query != "" {
-		return m.String() + ": " + query
-	}
-
-	return "search"
-}
-
-// ClearDesc names the key that clears a search in this mode.
-func (m Mode) ClearDesc() string {
-	return "clear " + m.String()
-}
-
-// PatternMode is the mode a pattern was compiled under, read while the search is not being typed.
-func PatternMode(p list.Pattern) Mode {
-	if p.Filtering {
-		return ModeFilter
-	}
-
-	return ModeSearch
-}
-
 // SetQuery replaces what the user typed and compiles it.
 func (f *State) SetQuery(query string) {
 	f.Input.Set(query)
@@ -204,12 +199,6 @@ func (f *State) Open(opts ...Option) {
 		opt(f)
 	}
 	f.SetQuery(query)
-}
-
-func (f State) isTooShort() bool {
-	query := f.Query()
-
-	return strings.TrimSpace(query) == "" || utf8.RuneCountInString(query) < f.minLength
 }
 
 // IsSearched reports whether the search has a pattern or a broken one.
@@ -283,29 +272,6 @@ func (f *State) Compile() {
 	f.Matcher = pattern
 }
 
-// askSaid notes a says: qualifier whose text changed, for the model to send to the server.
-func (f *State) askSaid() {
-	text := ""
-	for _, clause := range f.qualifiers.clauses {
-		if clause.Key == searchsyntax.KeySays {
-			text = clause.Value
-		}
-	}
-	if text == f.qualifiers.said.text {
-		if f.qualifiers.said.problem != "" {
-			f.fail(f.qualifiers.said.problem)
-		}
-
-		return
-	}
-
-	f.qualifiers.said = said{
-		text:    text,
-		waiting: text != "",
-		queued:  text != "",
-	}
-}
-
 // TakeKey applies one keypress to a search being typed at, with vim reading it first when
 // register is set, and reports whether it was one of the search's.
 func (f *State) TakeKey(key tea.KeyPressMsg, register *vim.Register) bool {
@@ -370,4 +336,38 @@ func (f State) Grammar() (list.Grammar, bool) {
 	}
 
 	return *f.qualifiers.grammar, true
+}
+
+// fail marks the search broken for the reason given.
+func (f *State) fail(reason string) {
+	f.Broken, f.problem = true, reason
+}
+
+func (f State) isTooShort() bool {
+	query := f.Query()
+
+	return strings.TrimSpace(query) == "" || utf8.RuneCountInString(query) < f.minLength
+}
+
+// askSaid notes a says: qualifier whose text changed, for the model to send to the server.
+func (f *State) askSaid() {
+	text := ""
+	for _, clause := range f.qualifiers.clauses {
+		if clause.Key == searchsyntax.KeySays {
+			text = clause.Value
+		}
+	}
+	if text == f.qualifiers.said.text {
+		if f.qualifiers.said.problem != "" {
+			f.fail(f.qualifiers.said.problem)
+		}
+
+		return
+	}
+
+	f.qualifiers.said = said{
+		text:    text,
+		waiting: text != "",
+		queued:  text != "",
+	}
 }
