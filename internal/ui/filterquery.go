@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"komrad/internal/errui"
 	"komrad/internal/ui/api"
 	"komrad/internal/ui/list"
 
@@ -40,20 +39,18 @@ type saysFoundMsg struct {
 
 // saysCmd waits out the typing before a changed says: qualifier is sent.
 func (m *model) saysCmd() tea.Cmd {
-	said := &m.filter.Qualifiers.Said
-	if !said.Queued {
+	text, queued := m.filter.TakeQueuedSaid()
+	if !queued {
 		return nil
 	}
-	said.Queued = false
-	text := said.Text
 
 	return m.clock.After(saysWait, func(time.Time) tea.Msg { return saysSettledMsg{text: text} })
 }
 
 func (m *model) applySaysSettled(msg saysSettledMsg) tea.Cmd {
-	said := m.filter.Qualifiers.Said
-	grammar := m.filter.Qualifiers.Grammar
-	if msg.text != said.Text || !said.Waiting || grammar == nil {
+	said := m.filter.Pattern().Said
+	grammar, reads := m.filter.Grammar()
+	if msg.text != said.Text || !said.Waiting || !reads {
 		return nil
 	}
 
@@ -74,17 +71,10 @@ func (m *model) applySaysSettled(msg saysSettledMsg) tea.Cmd {
 
 func (m *model) applySaysFound(msg saysFoundMsg) {
 	filter := &m.filter
-	if msg.text != filter.Qualifiers.Said.Text {
+	if !filter.FindSaid(msg.text, msg.hits, msg.err) {
 		return
 	}
 
-	filter.Qualifiers.Said.Waiting = false
-	if msg.err != nil {
-		filter.Qualifiers.Said.Problem = errui.GetReason(msg.err)
-		filter.Fail(filter.Qualifiers.Said.Problem)
-	} else {
-		filter.Qualifiers.Said.Hits = msg.hits
-	}
 	m.reconcileSolo()
 	if filter.Typing {
 		return

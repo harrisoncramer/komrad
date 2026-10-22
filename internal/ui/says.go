@@ -55,7 +55,7 @@ func (s saidTranscript) isSaidRead(agentID, text string) bool {
 
 func (m *model) readSaidCmd() tea.Cmd {
 	agentID, ok := m.saidAgentID()
-	text := m.filter.Qualifiers.Said.Text
+	text := m.filter.Pattern().Said.Text
 	if !ok || m.said.isSaidRead(agentID, text) {
 		return nil
 	}
@@ -106,7 +106,7 @@ func (m *model) openSaid() {
 // layoutSaid renders the conversation for the column when it has not been rendered at the column's width, and reports whether it is rendered.
 func (m *model) layoutSaid() bool {
 	agentID, ok := m.saidAgentID()
-	if !ok || !m.said.answered || !m.said.isSaidRead(agentID, m.filter.Qualifiers.Said.Text) {
+	if !ok || !m.said.answered || !m.said.isSaidRead(agentID, m.filter.Pattern().Said.Text) {
 		return false
 	}
 

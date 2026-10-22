@@ -73,33 +73,33 @@ type State struct {
 	minLength     int
 	compiledQuery string
 	problem       string
-	Qualifiers    qualifiers
+	qualifiers    qualifiers
 }
 
 // qualifiers is the qualifiers a search reads and what the server found for its says: one.
 type qualifiers struct {
-	Grammar *list.Grammar
+	grammar *list.Grammar
 	// clock is what the grammar reads relative dates against.
 	clock      screen.Clock
 	clauses    []searchsyntax.Clause
 	compiledAt time.Time
-	Said       said
+	said       said
 }
 
 // said is the rows the server found saying the text of a says: qualifier.
 type said struct {
-	Text    string
-	Hits    map[string][]list.SaidHit
-	Problem string
-	Waiting bool
-	Queued  bool
+	text    string
+	hits    map[string][]list.SaidHit
+	problem string
+	waiting bool
+	queued  bool
 }
 
 // Option sets how a search compiles what is typed into it.
 type Option func(*State)
 
-// Fail marks the search broken for the reason given.
-func (f *State) Fail(reason string) {
+// fail marks the search broken for the reason given.
+func (f *State) fail(reason string) {
 	f.Broken, f.problem = true, reason
 }
 
@@ -113,7 +113,7 @@ func WithDebounce(wait time.Duration) Option {
 // WithGrammar reads qualifiers out of the pattern, with relative dates read against clock.
 func WithGrammar(grammar list.Grammar, clock screen.Clock) Option {
 	return func(f *State) {
-		f.Qualifiers.Grammar, f.Qualifiers.clock = &grammar, clock
+		f.qualifiers.grammar, f.qualifiers.clock = &grammar, clock
 	}
 }
 
@@ -141,14 +141,14 @@ func (f State) Pattern() list.Pattern {
 		Query:      f.compiledQuery,
 		Regexp:     f.Matcher,
 		Broken:     f.Broken,
-		Clauses:    f.Qualifiers.clauses,
-		CompiledAt: f.Qualifiers.compiledAt,
+		Clauses:    f.qualifiers.clauses,
+		CompiledAt: f.qualifiers.compiledAt,
 		Filtering:  f.Mode == ModeFilter && !f.Typing,
 		OpenedIn:   f.OpenedIn,
 		Said: list.Said{
-			Text:    f.Qualifiers.Said.Text,
-			Hits:    f.Qualifiers.Said.Hits,
-			Waiting: f.Qualifiers.Said.Waiting,
+			Text:    f.qualifiers.said.text,
+			Hits:    f.qualifiers.said.hits,
+			Waiting: f.qualifiers.said.waiting,
 		},
 	}
 }
@@ -199,7 +199,7 @@ func (f *State) Open(opts ...Option) {
 	if query == "" {
 		f.Mode = ModeSearch
 	}
-	f.debounce, f.minLength, f.Qualifiers.Grammar = 0, 0, nil
+	f.debounce, f.minLength, f.qualifiers.grammar = 0, 0, nil
 	for _, opt := range opts {
 		opt(f)
 	}
@@ -246,7 +246,7 @@ func (f *State) Settle(query string) bool {
 func (f *State) Compile() {
 	query := f.Query()
 	f.Matcher, f.Broken, f.compiledQuery = nil, false, query
-	f.problem, f.Qualifiers.clauses = "", nil
+	f.problem, f.qualifiers.clauses = "", nil
 	defer f.askSaid()
 
 	if f.isTooShort() {
@@ -254,16 +254,16 @@ func (f *State) Compile() {
 	}
 
 	expr := query
-	if f.Qualifiers.Grammar != nil {
-		f.Qualifiers.compiledAt = f.Qualifiers.clock.Now()
-		parsed, err := f.Qualifiers.Grammar.Parse(query, f.Qualifiers.compiledAt)
+	if f.qualifiers.grammar != nil {
+		f.qualifiers.compiledAt = f.qualifiers.clock.Now()
+		parsed, err := f.qualifiers.grammar.Parse(query, f.qualifiers.compiledAt)
 		if err != nil {
-			f.Fail(errui.GetReason(err))
+			f.fail(errui.GetReason(err))
 
 			return
 		}
 
-		f.Qualifiers.clauses, expr = parsed.Clauses, parsed.Text()
+		f.qualifiers.clauses, expr = parsed.Clauses, parsed.Text()
 		if expr == "" {
 			return
 		}
@@ -286,23 +286,23 @@ func (f *State) Compile() {
 // askSaid notes a says: qualifier whose text changed, for the model to send to the server.
 func (f *State) askSaid() {
 	text := ""
-	for _, clause := range f.Qualifiers.clauses {
+	for _, clause := range f.qualifiers.clauses {
 		if clause.Key == searchsyntax.KeySays {
 			text = clause.Value
 		}
 	}
-	if text == f.Qualifiers.Said.Text {
-		if f.Qualifiers.Said.Problem != "" {
-			f.Fail(f.Qualifiers.Said.Problem)
+	if text == f.qualifiers.said.text {
+		if f.qualifiers.said.problem != "" {
+			f.fail(f.qualifiers.said.problem)
 		}
 
 		return
 	}
 
-	f.Qualifiers.Said = said{
-		Text:    text,
-		Waiting: text != "",
-		Queued:  text != "",
+	f.qualifiers.said = said{
+		text:    text,
+		waiting: text != "",
+		queued:  text != "",
 	}
 }
 
@@ -332,4 +332,42 @@ func (f *State) Abandon() {
 	f.Typing = false
 	f.Mode = ModeSearch
 	f.SetQuery("")
+}
+
+// TakeQueuedSaid hands back a says: text waiting to go to the server, once.
+func (f *State) TakeQueuedSaid() (string, bool) {
+	said := &f.qualifiers.said
+	if !said.queued {
+		return "", false
+	}
+	said.queued = false
+
+	return said.text, true
+}
+
+// FindSaid records what the server found for a says: text, and reports whether the search still asks for it.
+func (f *State) FindSaid(text string, hits map[string][]list.SaidHit, err error) bool {
+	said := &f.qualifiers.said
+	if text != said.text {
+		return false
+	}
+
+	said.waiting = false
+	if err != nil {
+		said.problem = errui.GetReason(err)
+		f.fail(said.problem)
+	} else {
+		said.hits = hits
+	}
+
+	return true
+}
+
+// Grammar is the grammar the search reads qualifiers by, and reports whether it reads any.
+func (f State) Grammar() (list.Grammar, bool) {
+	if f.qualifiers.grammar == nil {
+		return list.Grammar{}, false
+	}
+
+	return *f.qualifiers.grammar, true
 }
