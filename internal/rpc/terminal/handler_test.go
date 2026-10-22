@@ -28,6 +28,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+const agentID = "01a11e6f-0000-7000-8000-0000000000a1"
+
 type fakeTerminal struct {
 	output  *io.PipeReader
 	draw    *io.PipeWriter
@@ -361,11 +363,11 @@ func TestAttachCarriesATerminal(t *testing.T) {
 	client := serveAttaches(t, attacher)
 
 	stream := client.Attach(t.Context())
-	require.NoError(t, stream.Send(openAttachRequest("a1")))
+	require.NoError(t, stream.Send(openAttachRequest(agentID)))
 
 	t.Run("it attaches to the agent asked for and says it is ready", func(t *testing.T) {
 		assert.Equal(t, attaches.OpenParams{
-			AgentID: "a1",
+			AgentID: agentID,
 			Size:    pty.Size{Rows: 24, Cols: 80},
 			Term:    "screen-256color",
 		}, <-attacher.opened)

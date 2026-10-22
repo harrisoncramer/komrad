@@ -8,16 +8,18 @@ import (
 	"komrad/internal/rpc/render"
 	"komrad/internal/rpcerr"
 	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1komrad"
+	"komrad/proto/gen/oneofs"
 )
 
 // sequenceAborter undoes what a task's worktree has part-way through.
 type sequenceAborter interface {
-	Abort(ctx context.Context, task string) (*checkouts.AbortResult, error)
+	Abort(ctx context.Context, task oneofs.Task) (*checkouts.AbortResult, error)
 }
 
 // AbortSequence undoes the sequence part-way through the task's worktree.
-func (s *Handler) AbortSequence(ctx context.Context, req *agentv1.AbortSequenceRequest) (*agentv1.AbortSequenceResponse, *fail.Error) {
-	result, err := s.aborter.Abort(ctx, req.GetTask())
+func (s *Handler) AbortSequence(ctx context.Context, req *agentv1komrad.AbortSequenceRequest) (*agentv1.AbortSequenceResponse, *fail.Error) {
+	result, err := s.aborter.Abort(ctx, req.Task)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to abort what the worktree had in progress")
 	}

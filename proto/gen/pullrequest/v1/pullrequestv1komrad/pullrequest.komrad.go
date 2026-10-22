@@ -18,9 +18,9 @@ import (
 // of failure they are rather than leaving it to be decided later.
 type PullRequestServiceImpl interface {
 	ListPullRequests(context.Context, *v1.ListPullRequestsRequest) (*v1.ListPullRequestsResponse, *fail.Error)
-	ListStatusChecks(context.Context, *v1.ListStatusChecksRequest) (*v1.ListStatusChecksResponse, *fail.Error)
-	ReadCheckLog(context.Context, *v1.ReadCheckLogRequest) (*v1.ReadCheckLogResponse, *fail.Error)
-	SearchCheckLogs(context.Context, *v1.SearchCheckLogsRequest) (*v1.SearchCheckLogsResponse, *fail.Error)
+	ListStatusChecks(context.Context, *ListStatusChecksRequest) (*v1.ListStatusChecksResponse, *fail.Error)
+	ReadCheckLog(context.Context, *ReadCheckLogRequest) (*v1.ReadCheckLogResponse, *fail.Error)
+	SearchCheckLogs(context.Context, *SearchCheckLogsRequest) (*v1.SearchCheckLogsResponse, *fail.Error)
 }
 
 // PullRequestServiceAdapter carries what the implementation returned across to the signature
@@ -36,17 +36,32 @@ func (a PullRequestServiceAdapter) ListPullRequests(ctx context.Context, req *co
 
 // ListStatusChecks answers the request as connect serves it.
 func (a PullRequestServiceAdapter) ListStatusChecks(ctx context.Context, req *connect.Request[v1.ListStatusChecksRequest]) (*connect.Response[v1.ListStatusChecksResponse], error) {
-	return rpcerr.Answer(a.Impl.ListStatusChecks(ctx, req.Msg))
+	parsed, err := ParseListStatusChecksRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.ListStatusChecksResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ListStatusChecks(ctx, parsed))
 }
 
 // ReadCheckLog answers the request as connect serves it.
 func (a PullRequestServiceAdapter) ReadCheckLog(ctx context.Context, req *connect.Request[v1.ReadCheckLogRequest]) (*connect.Response[v1.ReadCheckLogResponse], error) {
-	return rpcerr.Answer(a.Impl.ReadCheckLog(ctx, req.Msg))
+	parsed, err := ParseReadCheckLogRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.ReadCheckLogResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ReadCheckLog(ctx, parsed))
 }
 
 // SearchCheckLogs answers the request as connect serves it.
 func (a PullRequestServiceAdapter) SearchCheckLogs(ctx context.Context, req *connect.Request[v1.SearchCheckLogsRequest]) (*connect.Response[v1.SearchCheckLogsResponse], error) {
-	return rpcerr.Answer(a.Impl.SearchCheckLogs(ctx, req.Msg))
+	parsed, err := ParseSearchCheckLogsRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.SearchCheckLogsResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.SearchCheckLogs(ctx, parsed))
 }
 
 // RegisterPullRequestService mounts the implementation on the mux behind its adapter.

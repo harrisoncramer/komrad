@@ -3,6 +3,7 @@ package bufcheck
 
 import (
 	"context"
+	"regexp"
 	"strings"
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
@@ -245,10 +246,38 @@ func namesAnID(field protoreflect.FieldDescriptor) bool {
 }
 
 func refusesEmpty(field protoreflect.FieldDescriptor) bool {
+	if isNamedByMessageRule(field) {
+		return true
+	}
+
 	rules := fieldRules(field)
 
 	return rules != nil &&
-		(rules.GetRequired() || rules.GetString().GetMinLen() > 0 || rules.GetRepeated().GetMinItems() > 0)
+		(rules.GetRequired() ||
+			rules.GetString().GetMinLen() > 0 ||
+			rules.GetString().GetUuid() ||
+			rules.GetRepeated().GetMinItems() > 0)
+}
+
+func isNamedByMessageRule(field protoreflect.FieldDescriptor) bool {
+	opts, ok := field.ContainingMessage().Options().(*descriptorpb.MessageOptions)
+	if !ok || !proto.HasExtension(opts, validate.E_Message) {
+		return false
+	}
+
+	rules, ok := proto.GetExtension(opts, validate.E_Message).(*validate.MessageRules)
+	if !ok {
+		return false
+	}
+
+	named := regexp.MustCompile(`\bthis\.` + regexp.QuoteMeta(string(field.Name())) + `\b`)
+	for _, rule := range rules.GetCel() {
+		if named.MatchString(rule.GetExpression()) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func fieldRules(field protoreflect.FieldDescriptor) *validate.FieldRules {

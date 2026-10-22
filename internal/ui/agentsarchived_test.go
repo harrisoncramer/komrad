@@ -217,7 +217,7 @@ func TestArchivedAgentsPrompts(t *testing.T) {
 			wantSent: []paneltest.Request{
 				{
 					Procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-					Msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"t2"}, Records: true},
+					Msg:       &taskv1.DeleteTasksRequest{TaskIds: []string{"t2"}, Records: true},
 				},
 				{
 					Procedure: agentv1connect.AgentServiceGetLastScreenProcedure,
@@ -1404,7 +1404,7 @@ func TestArchivedTasks(t *testing.T) {
 			press: append(onAPIWork, "space", "a", "d", "enter"),
 			wantSent: []paneltest.Request{{
 				Procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-				Msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"t1"}, Records: true},
+				Msg:       &taskv1.DeleteTasksRequest{TaskIds: []string{"t1"}, Records: true},
 			}},
 		},
 		{
@@ -1418,7 +1418,7 @@ func TestArchivedTasks(t *testing.T) {
 				},
 				{
 					Procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-					Msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-a1"}},
+					Msg:       &taskv1.DeleteTasksRequest{TaskIds: []string{"task-a1"}},
 				},
 			},
 		},
@@ -1428,7 +1428,7 @@ func TestArchivedTasks(t *testing.T) {
 			press: []string{"j", "space", "a", "d", "enter"},
 			wantSent: []paneltest.Request{{
 				Procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-				Msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-a1"}},
+				Msg:       &taskv1.DeleteTasksRequest{TaskIds: []string{"task-a1"}},
 			}},
 		},
 		{
@@ -1437,7 +1437,7 @@ func TestArchivedTasks(t *testing.T) {
 			press: []string{"F", "tab", "esc", "j", "space", "d", "enter"},
 			wantSent: []paneltest.Request{{
 				Procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-				Msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-a1"}, Records: true},
+				Msg:       &taskv1.DeleteTasksRequest{TaskIds: []string{"task-a1"}, Records: true},
 			}},
 		},
 		{
@@ -1472,7 +1472,7 @@ func TestArchivedTasks(t *testing.T) {
 			press: []string{"j", "j", "j", "v", "j", "V", "space", "a", "d", "enter"},
 			wantSent: []paneltest.Request{{
 				Procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-				Msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"t2", "t1"}, Records: true},
+				Msg:       &taskv1.DeleteTasksRequest{TaskIds: []string{"t2", "t1"}, Records: true},
 			}},
 		},
 	}

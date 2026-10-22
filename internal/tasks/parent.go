@@ -12,6 +12,7 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 	taskstore "komrad/internal/store/task"
 	"komrad/lib/xptr"
+	"komrad/proto/gen/oneofs"
 )
 
 var (
@@ -33,8 +34,8 @@ type branchTipFetcher interface {
 // PlanParentParams names the workflow a new task is made in and the task it depends on.
 type PlanParentParams struct {
 	WorkflowID string
-	// Parent is the task the new task depends on, by id or slug.
-	Parent string
+	// Parent names the task the new task depends on.
+	Parent oneofs.Task
 }
 
 // PlanParent reads the parent a new task would record: the parent task, the newest commit of its

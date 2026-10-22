@@ -118,7 +118,7 @@ message ListSchedulesResponse {
 
 message GetScheduleRequest {
   // The schedule to get, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message GetScheduleResponse {
@@ -128,7 +128,7 @@ message GetScheduleResponse {
 
 message ListScheduleRunsRequest {
   // The schedule whose runs to list, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
   // How many of the newest runs to return. Zero returns twenty.
   int32 limit = 2 [(buf.validate.field).int32 = {
     gte: 0
@@ -169,9 +169,9 @@ message CreateScheduleRequest {
     option (buf.validate.oneof).required = true;
     // The workflow to create a task in, by id. The writer takes the workflow's directory and
     // flags.
-    string workflow_id = 7 [(buf.validate.field).string.min_len = 1];
+    string workflow_id = 7 [(buf.validate.field).string.uuid = true];
     // The orchestrator to mail the prompt to, by id.
-    string orchestrator_agent_id = 8 [(buf.validate.field).string.min_len = 1];
+    string orchestrator_agent_id = 8 [(buf.validate.field).string.uuid = true];
   }
 }
 
@@ -182,7 +182,7 @@ message CreateScheduleResponse {
 
 message UpdateScheduleRequest {
   // The schedule to update, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
   // The schedule's name.
   string name = 2 [(buf.validate.field).string = {
     min_len: 1
@@ -207,9 +207,9 @@ message UpdateScheduleRequest {
   oneof target {
     option (buf.validate.oneof).required = true;
     // The workflow to create a task in, by id.
-    string workflow_id = 7 [(buf.validate.field).string.min_len = 1];
+    string workflow_id = 7 [(buf.validate.field).string.uuid = true];
     // The orchestrator to mail the prompt to, by id.
-    string orchestrator_agent_id = 8 [(buf.validate.field).string.min_len = 1];
+    string orchestrator_agent_id = 8 [(buf.validate.field).string.uuid = true];
   }
   // Whether tasks from later runs start hidden. Existing tasks keep theirs.
   bool hide_agents = 9;
@@ -217,24 +217,24 @@ message UpdateScheduleRequest {
 
 message SetScheduleEnabledRequest {
   // The schedule to enable or disable, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
   // Whether the schedule is enabled. False keeps the schedule's record and runs.
   bool enabled = 2;
 }
 
 message ArchiveScheduleRequest {
   // The schedule to archive, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message RestoreScheduleRequest {
   // The archived schedule to restore, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message DeleteScheduleRequest {
   // The archived schedule to delete, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 // ScheduleService creates and manages schedules.

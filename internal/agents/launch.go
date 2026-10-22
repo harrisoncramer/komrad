@@ -26,6 +26,7 @@ import (
 	"komrad/lib/clock"
 	"komrad/lib/xptr"
 	"komrad/lib/xstr"
+	"komrad/proto/gen/oneofs"
 )
 
 // errTaskMadeAndJoined is a launch naming a task to join and describing one to make.
@@ -101,11 +102,11 @@ type NewAgentParams struct {
 	AdoptedBranch    string
 	RepositoryURL    string
 	Role             agentstore.Role
-	Task             string
+	Task             oneofs.Task
 	TaskSlug         string
 	TaskGoal         string
-	// DependsOn is the task in the workflow the new task depends on, by id or slug, empty for none.
-	DependsOn string
+	// DependsOn names the task in the workflow the new task depends on, left empty for none.
+	DependsOn oneofs.DependsOn
 }
 
 // NewAgent creates and launches a background agent, answering a key already spent on a launch
@@ -147,12 +148,15 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 	}
 
 	var parent *taskstore.Parent
-	if params.DependsOn != "" {
-		if params.Task != "" {
+	if params.DependsOn != (oneofs.DependsOn{}) {
+		if params.Task != (oneofs.Task{}) {
 			return nil, tasks.ErrDependsOnJoined
 		}
 
-		planned, err := s.tasks.PlanParent(ctx, tasks.PlanParentParams{WorkflowID: params.WorkflowID, Parent: params.DependsOn})
+		planned, err := s.tasks.PlanParent(ctx, tasks.PlanParentParams{
+			WorkflowID: params.WorkflowID,
+			Parent:     oneofs.Task{TaskId: params.DependsOn.DependsOnId, TaskSlug: params.DependsOn.DependsOnSlug},
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -160,7 +164,7 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 	}
 
 	var joined *taskstore.Task
-	if params.Task != "" {
+	if params.Task != (oneofs.Task{}) {
 		found, err := s.findJoinedTask(ctx, params)
 		if err != nil {
 			return nil, err
@@ -215,7 +219,7 @@ func requireOwnWorkflow(spawner agentstore.Agent, params NewAgentParams) error {
 // findSpawnedBy picks the agent a new one answers to, the workflow's orchestrator for a writer
 // starting a task of its own.
 func (s *LaunchService) findSpawnedBy(ctx context.Context, spawner agentstore.Agent, params NewAgentParams) (*agentstore.Agent, error) {
-	if spawner.Role != agentstore.RoleWriter || params.Task != "" {
+	if spawner.Role != agentstore.RoleWriter || params.Task != (oneofs.Task{}) {
 		return &spawner, nil
 	}
 

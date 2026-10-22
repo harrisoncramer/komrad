@@ -10,67 +10,14 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 	"komrad/lib/xptr"
+	"komrad/proto/gen/oneofs"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TestGetTask pins which task an id or a slug names.
-func TestGetTask(t *testing.T) {
-	stores := storetest.Open(t)
-	svc := NewTaskService(NewTaskServiceParams{Tasks: stores.Tasks})
-	work := stores.SeedTask(t, taskstore.CreateParams{Slug: "work"})
-	archived := stores.SeedTask(t, taskstore.CreateParams{Slug: "old-work"})
-	require.NoError(t, stores.Tasks.Archive(t.Context(), archived.ID))
-
-	tests := []struct {
-		name     string
-		ref      string
-		wantErr  error
-		wantSlug string
-	}{
-		{
-			name:    "an unknown slug is not found",
-			ref:     "missing",
-			wantErr: store.ErrNotFound,
-		},
-		{
-			name:    "an unknown id is not found",
-			ref:     "01a11e6f-af0b-7497-91fb-d3750f8cbef2",
-			wantErr: store.ErrNotFound,
-		},
-		{
-			name:     "an id names its task",
-			ref:      work.ID,
-			wantSlug: "work",
-		},
-		{
-			name:     "a slug names its task",
-			ref:      "work",
-			wantSlug: "work",
-		},
-		{
-			name:     "an archived task is still found",
-			ref:      "old-work",
-			wantSlug: "old-work",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := svc.GetTask(t.Context(), tt.ref)
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-
-				return
-			}
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantSlug, got.Slug)
-		})
-	}
-}
-
-// TestSetTaskHidden pins which tasks a slug may hide.
+// TestSetTaskHidden pins which tasks may be hidden.
 func TestSetTaskHidden(t *testing.T) {
 	stores := storetest.Open(t)
 	svc := NewTaskService(NewTaskServiceParams{Tasks: stores.Tasks})
@@ -80,30 +27,30 @@ func TestSetTaskHidden(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		ref     string
+		id      string
 		wantErr error
 	}{
 		{
 			name:    "an archived task is refused",
-			ref:     "old-work",
+			id:      archived.ID,
 			wantErr: ErrTaskNotLive,
 		},
 		{
-			name: "a live task is hidden by its slug",
-			ref:  "work",
+			name: "a live task is hidden",
+			id:   work.ID,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := svc.SetTaskHidden(t.Context(), tt.ref, true)
+			err := svc.SetTaskHidden(t.Context(), taskByID(tt.id), true)
 			if tt.wantErr != nil {
 				assert.ErrorIs(t, err, tt.wantErr)
 
 				return
 			}
 			require.NoError(t, err)
-			got, err := svc.GetTask(t.Context(), tt.ref)
+			got, err := svc.GetTask(t.Context(), tt.id)
 			require.NoError(t, err)
 			assert.True(t, got.Hidden)
 		})
@@ -116,46 +63,102 @@ func TestGetTaskForWorkflow(t *testing.T) {
 	svc := NewTaskService(NewTaskServiceParams{Tasks: stores.Tasks})
 	workflow := stores.SeedWorkflow(t, workflowstore.Config{Name: "komrad"})
 	other := stores.SeedWorkflow(t, workflowstore.Config{Name: "other"})
-	stores.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
-	stores.SeedTask(t, taskstore.CreateParams{WorkflowID: other.ID, Slug: "elsewhere"})
+	work := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
+	elsewhere := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: other.ID, Slug: "elsewhere"})
 	archived := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "old-work"})
 	require.NoError(t, stores.Tasks.Archive(t.Context(), archived.ID))
 
 	tests := []struct {
 		name    string
-		ref     string
+		id      string
 		wantErr error
 	}{
 		{
 			name:    "an unknown task is not found",
-			ref:     "missing",
+			id:      uuid.NewString(),
 			wantErr: store.ErrNotFound,
 		},
 		{
 			name:    "a task in another workflow is refused",
-			ref:     "elsewhere",
+			id:      elsewhere.ID,
 			wantErr: ErrOtherWorkflow,
 		},
 		{
 			name: "an archived task in the workflow is found",
-			ref:  "old-work",
+			id:   archived.ID,
 		},
 		{
 			name: "a live task in the workflow is found",
-			ref:  "work",
+			id:   work.ID,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := svc.GetTaskForWorkflow(t.Context(), tt.ref, workflow.ID)
+			got, err := svc.GetTaskForWorkflow(t.Context(), taskByID(tt.id), workflow.ID)
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, tt.ref, got.Slug)
+			assert.Equal(t, tt.id, got.ID)
+		})
+	}
+}
+
+// TestFindTask pins which task an id or a slug names.
+func TestFindTask(t *testing.T) {
+	stores := storetest.Open(t)
+	svc := NewTaskService(NewTaskServiceParams{Tasks: stores.Tasks})
+	work := stores.SeedTask(t, taskstore.CreateParams{Slug: "work"})
+	archived := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: work.WorkflowID, Slug: "old-work"})
+	require.NoError(t, stores.Tasks.Archive(t.Context(), archived.ID))
+
+	tests := []struct {
+		name    string
+		task    oneofs.Task
+		want    string
+		wantErr error
+	}{
+		{
+			name:    "neither an id nor a slug is refused",
+			task:    oneofs.Task{},
+			wantErr: errUnnamedTask,
+		},
+		{
+			name:    "an unknown id is not found",
+			task:    taskByID(uuid.NewString()),
+			wantErr: store.ErrNotFound,
+		},
+		{
+			name:    "an unknown slug is not found",
+			task:    oneofs.Task{TaskSlug: xptr.Ptr("nothing")},
+			wantErr: store.ErrNotFound,
+		},
+		{
+			name: "an archived task is found by its slug",
+			task: oneofs.Task{TaskSlug: xptr.Ptr("old-work")},
+			want: archived.ID,
+		},
+		{
+			name: "a task is found by its id",
+			task: taskByID(work.ID),
+			want: work.ID,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := svc.FindTask(t.Context(), tt.task)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				assert.Nil(t, got)
+
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got.ID)
 		})
 	}
 }
@@ -318,7 +321,7 @@ func TestUpdateTaskNotes(t *testing.T) {
 			}
 
 			got, err := svc.UpdateTask(t.Context(), UpdateTaskParams{
-				Ref:           "work",
+				Task:          taskByID(work.ID),
 				Fields:        taskstore.UpdateParams{Notes: &tt.name, ReadNotesUpdatedAt: read},
 				CallerAgentID: tt.callerID,
 			})
@@ -331,4 +334,11 @@ func TestUpdateTaskNotes(t *testing.T) {
 			assert.Equal(t, tt.name, got.Notes)
 		})
 	}
+}
+
+// taskByID names a task by the id the store gave it.
+func taskByID(id string) oneofs.Task {
+	parsed := uuid.MustParse(id)
+
+	return oneofs.Task{TaskId: &parsed}
 }

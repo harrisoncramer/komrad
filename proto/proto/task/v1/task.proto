@@ -152,7 +152,7 @@ message CreateTaskRequest {
   // What the task is meant to achieve, in markdown.
   string goal = 3 [(buf.validate.field).string.max_len = 50000];
   // The workflow to create the task in, by id.
-  string workflow_id = 4 [(buf.validate.field).string.min_len = 1];
+  string workflow_id = 4 [(buf.validate.field).string.uuid = true];
 }
 
 message CreateTaskResponse {
@@ -161,8 +161,14 @@ message CreateTaskResponse {
 }
 
 message GetTaskRequest {
-  // The task to get, by id or slug.
-  string task = 1 [(buf.validate.field).string.min_len = 1];
+  // The task to get.
+  oneof task {
+    option (buf.validate.oneof).required = true;
+    // The task, by id.
+    string task_id = 1 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string task_slug = 2 [(buf.validate.field).string.min_len = 1];
+  }
 }
 
 message GetTaskResponse {
@@ -172,7 +178,7 @@ message GetTaskResponse {
 
 message ListTasksRequest {
   // The workflow whose tasks to list, by id.
-  string workflow_id = 1 [(buf.validate.field).string.min_len = 1];
+  string workflow_id = 1 [(buf.validate.field).string.uuid = true];
   // Whether to list only archived tasks instead of live ones.
   bool archived = 2;
 }
@@ -183,8 +189,14 @@ message ListTasksResponse {
 }
 
 message UpdateTaskRequest {
-  // The task to update, by id or slug.
-  string task = 1 [(buf.validate.field).string.min_len = 1];
+  // The task to update.
+  oneof task {
+    option (buf.validate.oneof).required = true;
+    // The task, by id.
+    string task_id = 1 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string task_slug = 7 [(buf.validate.field).string.min_len = 1];
+  }
   // The new slug. No other task may have used it. Unchanged when unset.
   optional string slug = 2 [(buf.validate.field).string = {
     min_len: 1
@@ -211,8 +223,14 @@ message UpdateTaskResponse {
 }
 
 message SetTaskNotesRequest {
-  // The task whose notes to write, by id or slug.
-  string task = 1 [(buf.validate.field).string.min_len = 1];
+  // The task whose notes to write.
+  oneof task {
+    option (buf.validate.oneof).required = true;
+    // The task, by id.
+    string task_id = 1 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string task_slug = 4 [(buf.validate.field).string.min_len = 1];
+  }
   // The task's new notes in full, in markdown.
   string notes = 2 [(buf.validate.field).string.max_len = 100000];
   // The `notes_updated_at` that `get_task` returned with the notes. Unset when the notes were
@@ -226,34 +244,58 @@ message SetTaskNotesResponse {
 }
 
 message ArchiveTaskRequest {
-  // The task to archive, by id or slug.
-  string task = 1 [(buf.validate.field).string.min_len = 1];
+  // The task to archive.
+  oneof task {
+    option (buf.validate.oneof).required = true;
+    // The task, by id.
+    string task_id = 1 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string task_slug = 2 [(buf.validate.field).string.min_len = 1];
+  }
 }
 
 message SetTaskHiddenRequest {
-  // The task to hide or show, by id or slug.
-  string task = 1 [(buf.validate.field).string.min_len = 1];
+  // The task to hide or show.
+  oneof task {
+    option (buf.validate.oneof).required = true;
+    // The task, by id.
+    string task_id = 1 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string task_slug = 3 [(buf.validate.field).string.min_len = 1];
+  }
   // Whether to hide the task. False shows the task again.
   bool hidden = 2;
 }
 
 message MarkTaskRunsReadRequest {
   // The task whose failed hook runs the person has seen, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message DeleteTasksRequest {
-  // The tasks to delete, by id or slug.
-  repeated string tasks = 1 [(buf.validate.field).repeated = {
-    min_items: 1
+  option (buf.validate.message).cel = {
+    id: "tasks.named"
+    message: "name at least one task, by id or by slug"
+    expression: "this.task_ids.size() + this.task_slugs.size() > 0"
+  };
+
+  // The tasks to delete, by id.
+  repeated string task_ids = 1 [(buf.validate.field).repeated = {
     unique: true
     items: {
-      string: {min_len: 1}
+      string: {uuid: true}
     }
   }];
   // Whether to delete the tasks' agents, transcripts, documents, mail, notes and reviews too.
   // False deletes only the tasks' worktrees and keeps the tasks archived.
   bool records = 2;
+  // The tasks to delete, by slug.
+  repeated string task_slugs = 3 [(buf.validate.field).repeated = {
+    unique: true
+    items: {
+      string: {min_len: 1}
+    }
+  }];
 }
 
 // TaskService creates, reads and changes tasks.
@@ -263,7 +305,7 @@ service TaskService {
       cli: true
       mcp: true
       name: "create_task"
-      description: "Create a task in a workflow. To put an agent on the task, pass its id or slug as `task` to `create_agent`."
+      description: "Create a task in a workflow. To put an agent on the task, pass its id as `task_id` or its slug as `task_slug` to `create_agent`."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -274,7 +316,7 @@ service TaskService {
       cli: true
       mcp: true
       name: "get_task"
-      description: "Get one task by id or slug, with its goal and notes in full."
+      description: "Get one task by `task_id` or `task_slug`, with its goal and notes in full."
       roles: [
         ROLE_WRITER,
         ROLE_REVIEWER,
@@ -302,7 +344,7 @@ service TaskService {
       cli: true
       mcp: true
       name: "update_task"
-      description: "Change a task's slug, title, goal or notes, by id or slug. Fields left unset keep their values. Changing the notes needs the `notes_updated_at` they were read with, and fails with `failed_precondition` when they changed since. Agents see the change the next time they read the task."
+      description: "Change a task's slug, title, goal or notes, by `task_id` or `task_slug`. Fields left unset keep their values. Changing the notes needs the `notes_updated_at` they were read with, and fails with `failed_precondition` when they changed since. Agents see the change the next time they read the task."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -329,7 +371,7 @@ service TaskService {
       cli: true
       mcp: true
       name: "archive_task"
-      description: "Archive a task by id or slug, with the live agents on it. The task keeps its record, and its slug is never reused."
+      description: "Archive a task by `task_id` or `task_slug`, with the live agents on it. The task keeps its record, and its slug is never reused."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]
     };
@@ -340,7 +382,7 @@ service TaskService {
       cli: true
       mcp: false
       name: "delete_tasks"
-      description: "Delete tasks' worktrees, by id or slug, archiving the tasks first. With records set, delete the tasks for good too, with every agent on them and their transcripts, documents, mail, notes and reviews."
+      description: "Delete tasks' worktrees, by `task_ids` or `task_slugs`, archiving the tasks first. With records set, delete the tasks for good too, with every agent on them and their transcripts, documents, mail, notes and reviews."
       reason: "Only the person deletes tasks."
       destructive: true
     };
@@ -351,7 +393,7 @@ service TaskService {
       cli: true
       mcp: true
       name: "set_task_hidden"
-      description: "Hide a task by id or slug, or show it again. A hidden task stays live with its agents running, and clients leave it out of their lists."
+      description: "Hide a task by `task_id` or `task_slug`, or show it again. A hidden task stays live with its agents running, and clients leave it out of their lists."
       mcp_guidance: "Hide a task only when asked."
       destructive: false
       roles: [ROLE_ORCHESTRATOR]

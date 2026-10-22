@@ -17,6 +17,7 @@ import (
 	taskstore "komrad/internal/store/task"
 	"komrad/lib/xptr"
 	"komrad/lib/xsha"
+	"komrad/proto/gen/oneofs"
 )
 
 var (
@@ -758,8 +759,8 @@ func logPushCascadeFailed(ctx context.Context, task taskstore.Task, err error) {
 
 // PickForkPointParams names a child and its new fork point.
 type PickForkPointParams struct {
-	// Task is the child, by id or slug.
-	Task   string
+	// Task names the child.
+	Task   oneofs.Task
 	Commit string
 }
 

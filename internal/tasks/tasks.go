@@ -3,7 +3,6 @@ package tasks
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -11,6 +10,7 @@ import (
 	"komrad/internal/scriptrun"
 	"komrad/internal/store"
 	"komrad/lib/xstr"
+	"komrad/proto/gen/oneofs"
 
 	agentstore "komrad/internal/store/agent"
 	pullrequeststore "komrad/internal/store/pullrequest"
@@ -38,6 +38,8 @@ var (
 	ErrHasWriter = fail.Precondition("a task has one writer, so launch onto it again to review it")
 	// ErrTaskNotLive is a task hidden or unhidden once it is archived or being deleted.
 	ErrTaskNotLive = fail.Precondition("only a live task is hidden or unhidden")
+	// errUnnamedTask is a task named by neither its id nor its slug.
+	errUnnamedTask = fail.InvalidArgument("a task is named by its id or its slug")
 )
 
 type txRunner interface {
@@ -105,16 +107,21 @@ func (s *TaskService) CreateTask(ctx context.Context, params taskstore.CreatePar
 	return s.tasks.Create(ctx, params)
 }
 
-// GetTask returns the task an id or a slug names, archived or not.
-func (s *TaskService) GetTask(ctx context.Context, ref string) (*taskstore.Task, error) {
-	if store.IsID(ref) {
-		found, err := s.tasks.Get(ctx, ref)
-		if !errors.Is(err, store.ErrNotFound) {
-			return found, err
-		}
+// GetTask returns one task by its id, archived or not.
+func (s *TaskService) GetTask(ctx context.Context, id string) (*taskstore.Task, error) {
+	return s.tasks.Get(ctx, id)
+}
+
+// FindTask returns the one task a caller named by its id or by its slug, archived or not.
+func (s *TaskService) FindTask(ctx context.Context, task oneofs.Task) (*taskstore.Task, error) {
+	switch {
+	case task.TaskId != nil:
+		return s.tasks.Get(ctx, task.TaskId.String())
+	case task.TaskSlug != nil:
+		return s.tasks.GetBySlug(ctx, *task.TaskSlug)
 	}
 
-	return s.tasks.GetBySlug(ctx, ref)
+	return nil, errUnnamedTask
 }
 
 // GetAgentTask returns the task an agent is on, refusing an agent on no task.
@@ -142,9 +149,9 @@ func (s *TaskService) MarkTaskRunsRead(ctx context.Context, taskID string) error
 	return s.runs.MarkTaskRead(ctx, taskID)
 }
 
-// SetTaskHidden hides the task an id or a slug names, or shows it again.
-func (s *TaskService) SetTaskHidden(ctx context.Context, ref string, hidden bool) error {
-	found, err := s.GetTask(ctx, ref)
+// SetTaskHidden hides a task, or shows it again.
+func (s *TaskService) SetTaskHidden(ctx context.Context, task oneofs.Task, hidden bool) error {
+	found, err := s.FindTask(ctx, task)
 	if err != nil {
 		return err
 	}
@@ -161,15 +168,15 @@ func (s *TaskService) SetTaskHidden(ctx context.Context, ref string, hidden bool
 }
 
 type UpdateTaskParams struct {
-	Ref           string
+	Task          oneofs.Task
 	Fields        taskstore.UpdateParams
 	CallerAgentID string
 }
 
-// UpdateTask rewrites the fields params sets on the task an id or a slug names, refusing notes
-// from a caller that may not write them.
+// UpdateTask rewrites the fields params sets on a task, refusing notes from a caller that may
+// not write them.
 func (s *TaskService) UpdateTask(ctx context.Context, params UpdateTaskParams) (*taskstore.Task, error) {
-	found, err := s.GetTask(ctx, params.Ref)
+	found, err := s.FindTask(ctx, params.Task)
 	if err != nil {
 		return nil, err
 	}
@@ -214,9 +221,9 @@ func (s *TaskService) Archive(ctx context.Context, id string) error {
 	return s.tasks.Archive(ctx, id)
 }
 
-// GetTaskForWorkflow returns the task an id or a slug names in a workflow, archived or not.
-func (s *TaskService) GetTaskForWorkflow(ctx context.Context, ref, workflowID string) (*taskstore.Task, error) {
-	found, err := s.GetTask(ctx, ref)
+// GetTaskForWorkflow returns the task a caller named in a workflow, archived or not.
+func (s *TaskService) GetTaskForWorkflow(ctx context.Context, task oneofs.Task, workflowID string) (*taskstore.Task, error) {
+	found, err := s.FindTask(ctx, task)
 	if err != nil {
 		return nil, err
 	}

@@ -17,6 +17,7 @@ import (
 	"komrad/internal/rpcerr"
 	"komrad/internal/shells"
 	terminalv1 "komrad/proto/gen/terminal/v1"
+	"komrad/proto/gen/terminal/v1/terminalv1komrad"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -112,7 +113,7 @@ func (h *Handler) Shell(ctx context.Context, stream *connect.BidiStream[terminal
 
 // Attach attaches to an agent's terminal from the stream's first message, carries input and
 // resizes to it and its output back, and ends with the attach's exit status.
-func (h *Handler) Attach(ctx context.Context, stream *connect.BidiStream[terminalv1.AttachRequest, terminalv1.AttachResponse]) *fail.Error {
+func (h *Handler) Attach(ctx context.Context, stream *terminalv1komrad.AttachStream) *fail.Error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -121,15 +122,15 @@ func (h *Handler) Attach(ctx context.Context, stream *connect.BidiStream[termina
 		return rpcerr.From(err, "failed to read the opening message")
 	}
 
-	open := first.GetOpen()
-	if open == nil {
+	open, ok := first.Message.(*terminalv1komrad.AttachRequest_Open)
+	if !ok {
 		return errAttachNotOpened
 	}
 
 	terminal, err := h.attaches.Open(ctx, attaches.OpenParams{
-		AgentID: open.GetAgentId(),
-		Size:    toSize(open.GetSize()),
-		Term:    open.GetTerm(),
+		AgentID: open.Open.AgentId.String(),
+		Size:    toSize(open.Open.Size),
+		Term:    open.Open.Term,
 	})
 	if err != nil {
 		return rpcerr.From(err, "failed to attach to the agent")
@@ -144,7 +145,7 @@ func (h *Handler) Attach(ctx context.Context, stream *connect.BidiStream[termina
 
 // SSH carries one SSH connection between the stream and the engine's SSH server until either side
 // closes it.
-func (h *Handler) SSH(ctx context.Context, stream *connect.BidiStream[terminalv1.SSHRequest, terminalv1.SSHResponse]) *fail.Error {
+func (h *Handler) SSH(ctx context.Context, stream *terminalv1komrad.SSHStream) *fail.Error {
 	h.ssh.Serve(ctx, newSSHConn(ctx, stream))
 
 	return nil

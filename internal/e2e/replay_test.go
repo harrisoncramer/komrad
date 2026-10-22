@@ -71,12 +71,12 @@ func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) sna
 	runGitIn(t, tree, "commit", "--quiet", "-m", "snapshot one")
 
 	first, err := instance.Agents.TakeReviewSnapshot(ctx, connect.NewRequest(&agentv1.TakeReviewSnapshotRequest{
-		Task: &taskID,
+		Task: &agentv1.TakeReviewSnapshotRequest_TaskId{TaskId: taskID},
 	}))
 	require.NoError(t, err)
 
 	_, err = instance.Agents.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
-		Task:        &taskID,
+		Task:        &agentv1.CreateReviewThreadRequest_TaskId{TaskId: taskID},
 		FilePath:    "greet.go",
 		NewStart:    5,
 		NewEnd:      5,
@@ -93,7 +93,7 @@ func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) sna
 	runGitIn(t, repo, "push", "--quiet")
 
 	rebased, err := instance.Agents.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{
-		Task: taskID,
+		Task: &agentv1.RebaseWorktreeRequest_TaskId{TaskId: taskID},
 	}))
 	require.NoError(t, err)
 
@@ -113,7 +113,7 @@ func reviewAcrossARebase(t *testing.T, mainsGreet string, wantConflict bool) sna
 	writeIn(t, tree, "greet.go", strings.Replace(rebasedGreet, "func Agent() {}", "func Agent() {}\n\nfunc Again() {}", 1))
 
 	second, err := instance.Agents.TakeReviewSnapshot(ctx, connect.NewRequest(&agentv1.TakeReviewSnapshotRequest{
-		Task: &taskID,
+		Task: &agentv1.TakeReviewSnapshotRequest_TaskId{TaskId: taskID},
 	}))
 	require.NoError(t, err)
 	require.NotEqual(t, first.Msg.GetSnapshot().GetBaseSha(), second.Msg.GetSnapshot().GetBaseSha(),

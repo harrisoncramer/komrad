@@ -801,10 +801,9 @@ const file_log_v1_log_proto_rawDesc = "" +
 	"\x05limit\x18\x01 \x01(\x05B\n" +
 	"\xbaH\a\x1a\x05\x18\xc8\x01(\x00R\x05limit\"H\n" +
 	"\x18ListRecentTracesResponse\x12,\n" +
-	"\x06traces\x18\x01 \x03(\v2\x14.log.v1.TraceSummaryR\x06traces\"\xc5\x01\n" +
-	"\x14ReadAgentLogsRequest\x12-\n" +
-	"\tagent_ids\x18\x01 \x03(\tB\x10\xbaH\r\x92\x01\n" +
-	"\b\x01\x10d\"\x04r\x02\x10\x01R\bagentIds\x12\x16\n" +
+	"\x06traces\x18\x01 \x03(\v2\x14.log.v1.TraceSummaryR\x06traces\"\xc6\x01\n" +
+	"\x14ReadAgentLogsRequest\x12.\n" +
+	"\tagent_ids\x18\x01 \x03(\tB\x11\xbaH\x0e\x92\x01\v\b\x01\x10d\"\x05r\x03\xb0\x01\x01R\bagentIds\x12\x16\n" +
 	"\x06cursor\x18\x02 \x01(\tR\x06cursor\x12 \n" +
 	"\x05limit\x18\x03 \x01(\x05B\n" +
 	"\xbaH\a\x1a\x05\x18\xe8\a(\x00R\x05limit\x12 \n" +
@@ -822,13 +821,13 @@ const file_log_v1_log_proto_rawDesc = "" +
 	"\x06script\x18\a \x01(\tR\x06script\x12\x19\n" +
 	"\bagent_id\x18\x04 \x01(\tR\aagentId\x12\x16\n" +
 	"\x06failed\x18\x05 \x01(\bR\x06failedB\x06\n" +
-	"\x04_run\"@\n" +
-	"\x1aListAgentLogSourcesRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"J\n" +
+	"\x04_run\"A\n" +
+	"\x1aListAgentLogSourcesRequest\x12#\n" +
+	"\bagent_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\aagentId\"J\n" +
 	"\x1bListAgentLogSourcesResponse\x12+\n" +
-	"\asources\x18\x01 \x03(\v2\x11.log.v1.LogSourceR\asources\"=\n" +
-	"\x19ListTaskLogSourcesRequest\x12 \n" +
-	"\atask_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x06taskId\"I\n" +
+	"\asources\x18\x01 \x03(\v2\x11.log.v1.LogSourceR\asources\">\n" +
+	"\x19ListTaskLogSourcesRequest\x12!\n" +
+	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x06taskId\"I\n" +
 	"\x1aListTaskLogSourcesResponse\x12+\n" +
 	"\asources\x18\x01 \x03(\v2\x11.log.v1.LogSourceR\asources2\x97\n" +
 	"\n" +

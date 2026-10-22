@@ -92,7 +92,7 @@ func TestGitMenu(t *testing.T) {
 		harness.Press("r")
 
 		assert.NotContains(t, harness.Frame(), gitMenuEntry)
-		harness.AssertSentTo(agentv1connect.AgentServicePlanRebaseProcedure, &agentv1.PlanRebaseRequest{Task: "task-a1"})
+		harness.AssertSentTo(agentv1connect.AgentServicePlanRebaseProcedure, &agentv1.PlanRebaseRequest{Task: &agentv1.PlanRebaseRequest_TaskId{TaskId: "task-a1"}})
 	})
 
 	t.Run("abort sits with the worktree entries, ahead of push", func(t *testing.T) {
@@ -172,7 +172,7 @@ func TestGitMenuOnTheReview(t *testing.T) {
 
 		harness.Press("y")
 
-		harness.AssertSentTo(agentv1connect.AgentServicePushWorktreeProcedure, &agentv1.PushWorktreeRequest{Task: "t1"})
+		harness.AssertSentTo(agentv1connect.AgentServicePushWorktreeProcedure, &agentv1.PushWorktreeRequest{Task: &agentv1.PushWorktreeRequest_TaskId{TaskId: "t1"}})
 		assert.Contains(t, readOpenMessages(harness), "auth: pushed agent/auth")
 	})
 }
@@ -336,7 +336,7 @@ func TestGitMenuMerges(t *testing.T) {
 			name:        "merge and archive archives the task once the forge has merged",
 			press:       []string{"a", "enter"},
 			wantMerges:  []proto.Message{merge},
-			wantArchive: []proto.Message{&taskv1.ArchiveTaskRequest{Task: "task-a1"}},
+			wantArchive: []proto.Message{&taskv1.ArchiveTaskRequest{Task: &taskv1.ArchiveTaskRequest_TaskId{TaskId: "task-a1"}}},
 			wantMessage: "task-a1: merged #740",
 		},
 		{
@@ -392,7 +392,7 @@ func TestGitMenuMergesThenRebases(t *testing.T) {
 	}{
 		{
 			name:         "a merged pull request has its worktree moved onto the base",
-			wantRebases:  []proto.Message{&agentv1.RebaseWorktreeRequest{Task: "task-a1"}},
+			wantRebases:  []proto.Message{&agentv1.RebaseWorktreeRequest{Task: &agentv1.RebaseWorktreeRequest_TaskId{TaskId: "task-a1"}}},
 			wantMessages: []string{"task-a1: merged #740", "task-a1: moved onto main"},
 		},
 		{
@@ -621,8 +621,8 @@ func TestGitMenuMergeForm(t *testing.T) {
 func TestGitMenuPushes(t *testing.T) {
 	t.Parallel()
 
-	plan := &agentv1.PlanPushRequest{Task: "task-a1"}
-	push := &agentv1.PushWorktreeRequest{Task: "task-a1"}
+	plan := &agentv1.PlanPushRequest{Task: &agentv1.PlanPushRequest_TaskId{TaskId: "task-a1"}}
+	push := &agentv1.PushWorktreeRequest{Task: &agentv1.PushWorktreeRequest_TaskId{TaskId: "task-a1"}}
 
 	tests := []struct {
 		name        string
@@ -772,7 +772,7 @@ func TestGitMenuPushes(t *testing.T) {
 func TestGitMenuAborts(t *testing.T) {
 	t.Parallel()
 
-	abort := &agentv1.AbortSequenceRequest{Task: "task-a1"}
+	abort := &agentv1.AbortSequenceRequest{Task: &agentv1.AbortSequenceRequest_TaskId{TaskId: "task-a1"}}
 
 	tests := []struct {
 		name        string

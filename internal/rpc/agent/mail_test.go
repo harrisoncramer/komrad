@@ -16,6 +16,7 @@ import (
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1komrad"
+	"komrad/proto/gen/oneofs"
 	paginationv1 "komrad/proto/gen/pagination/v1"
 
 	agentstore "komrad/internal/store/agent"
@@ -29,9 +30,10 @@ import (
 )
 
 const (
-	alphaID = "01a0d1d7-0000-7000-8000-00000000000a"
-	betaID  = "01a0d1d7-0000-7000-8000-00000000000b"
-	gammaID = "01a0d1d7-0000-7000-8000-00000000000c"
+	alphaID       = "01a0d1d7-0000-7000-8000-00000000000a"
+	betaID        = "01a0d1d7-0000-7000-8000-00000000000b"
+	gammaID       = "01a0d1d7-0000-7000-8000-00000000000c"
+	earlierMailID = "01a0d1d7-0000-7000-8000-0000000000c0"
 )
 
 // fakeMailer answers from its fields and records what each call asked of it.
@@ -40,16 +42,16 @@ type fakeMailer struct {
 	resolveErr error
 	err        error
 	mail       []mailstore.Mail
-	resolved   []mail.ResolveRecipientParams
+	found      []mail.FindRecipientParams
 	sent       []mail.SendMailParams
 	paged      []mail.ListMailParams
 	deleted    []string
 	dormant    bool
 }
 
-// ResolveRecipient records the address and answers recipient unless resolveErr refuses it.
-func (f *fakeMailer) ResolveRecipient(_ context.Context, params mail.ResolveRecipientParams) (*agentstore.Agent, error) {
-	f.resolved = append(f.resolved, params)
+// FindRecipient records the address and answers recipient unless resolveErr refuses it.
+func (f *fakeMailer) FindRecipient(_ context.Context, params mail.FindRecipientParams) (*agentstore.Agent, error) {
+	f.found = append(f.found, params)
 	if f.resolveErr != nil {
 		return nil, f.resolveErr
 	}
@@ -106,7 +108,7 @@ func (f *fakeMailer) IsDormant(agentstore.Agent) bool {
 func TestMailRefusalsMapToCodes(t *testing.T) {
 	send := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 		_, err := svc.SendMail(ctx, connect.NewRequest(&agentv1.SendMailRequest{
-			To:   betaID,
+			To:   &agentv1.SendMailRequest_ToAgentId{ToAgentId: betaID},
 			Body: "hello",
 		}))
 
@@ -272,18 +274,18 @@ func TestSendMail(t *testing.T) {
 	svc := newMailHandler(mailer)
 
 	sent, err := svc.SendMail(caller.With(t.Context(), caller.Caller{AgentID: alphaID}), connect.NewRequest(&agentv1.SendMailRequest{
-		To:      "beta",
+		To:      &agentv1.SendMailRequest_ToAgentName{ToAgentName: "beta"},
 		Body:    "which column holds the refund?",
-		ReplyTo: xptr.Ptr("mail-0"),
+		ReplyTo: xptr.Ptr(earlierMailID),
 	}))
 	require.NoError(t, err)
 
-	assert.Equal(t, []mail.ResolveRecipientParams{{From: alphaID, To: "beta"}}, mailer.resolved)
+	assert.Equal(t, []mail.FindRecipientParams{{From: alphaID, To: oneofs.To{ToAgentName: xptr.Ptr("beta")}}}, mailer.found)
 	assert.Equal(t, []mail.SendMailParams{{
 		From:      alphaID,
 		ToAgentID: betaID,
 		Body:      "which column holds the refund?",
-		ReplyTo:   xptr.Ptr("mail-0"),
+		ReplyTo:   xptr.Ptr(earlierMailID),
 	}}, mailer.sent)
 	assert.Empty(t, cmp.Diff(&agentv1.SendMailResponse{
 		Mail: &agentv1.Mail{
@@ -292,7 +294,7 @@ func TestSendMail(t *testing.T) {
 			FromName:    "alpha",
 			ToAgentId:   betaID,
 			Body:        "which column holds the refund?",
-			ReplyTo:     xptr.Ptr("mail-0"),
+			ReplyTo:     xptr.Ptr(earlierMailID),
 			CreatedAt:   "2026-09-24T09:00:00Z",
 			ExpiresAt:   "2026-09-24T12:00:00Z",
 			Kind:        agentv1.MailKind_MAIL_KIND_PLAIN,
@@ -329,7 +331,7 @@ func TestSendMailWarnsOfADormantRecipient(t *testing.T) {
 			svc := newMailHandler(mailer)
 
 			sent, err := svc.SendMail(caller.With(t.Context(), caller.Caller{AgentID: alphaID}), connect.NewRequest(&agentv1.SendMailRequest{
-				To:   "beta",
+				To:   &agentv1.SendMailRequest_ToAgentName{ToAgentName: "beta"},
 				Body: "which column holds the refund?",
 			}))
 			require.NoError(t, err)

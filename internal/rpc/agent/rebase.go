@@ -7,6 +7,7 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/rpcerr"
 	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1komrad"
 )
 
 // worktreeRebaser brings a task's existing worktree up to date in place.
@@ -17,8 +18,8 @@ type worktreeRebaser interface {
 }
 
 // PlanRebase reads what a rebase would do without doing it.
-func (s *Handler) PlanRebase(ctx context.Context, req *agentv1.PlanRebaseRequest) (*agentv1.PlanRebaseResponse, *fail.Error) {
-	plan, err := s.rebaser.PlanRebase(ctx, checkouts.RebaseParams{Task: req.GetTask(), OntoBase: req.GetOntoBase()})
+func (s *Handler) PlanRebase(ctx context.Context, req *agentv1komrad.PlanRebaseRequest) (*agentv1.PlanRebaseResponse, *fail.Error) {
+	plan, err := s.rebaser.PlanRebase(ctx, checkouts.RebaseParams{Task: req.Task, OntoBase: req.OntoBase})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to work out what a rebase would do")
 	}
@@ -36,8 +37,8 @@ func (s *Handler) PlanRebase(ctx context.Context, req *agentv1.PlanRebaseRequest
 }
 
 // RebaseWorktree moves the task's branch onto the latest base in place.
-func (s *Handler) RebaseWorktree(ctx context.Context, req *agentv1.RebaseWorktreeRequest) (*agentv1.RebaseWorktreeResponse, *fail.Error) {
-	result, err := s.rebaser.Rebase(ctx, checkouts.RebaseParams{Task: req.GetTask(), OntoBase: req.GetOntoBase()})
+func (s *Handler) RebaseWorktree(ctx context.Context, req *agentv1komrad.RebaseWorktreeRequest) (*agentv1.RebaseWorktreeResponse, *fail.Error) {
+	result, err := s.rebaser.Rebase(ctx, checkouts.RebaseParams{Task: req.Task, OntoBase: req.OntoBase})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to rebase the worktree")
 	}
@@ -55,8 +56,8 @@ func (s *Handler) RebaseWorktree(ctx context.Context, req *agentv1.RebaseWorktre
 }
 
 // PickForkPoint records the fork point of an orphaned child.
-func (s *Handler) PickForkPoint(ctx context.Context, req *agentv1.PickForkPointRequest) (*agentv1.PickForkPointResponse, *fail.Error) {
-	forkPoint, err := s.rebaser.PickForkPoint(ctx, checkouts.PickForkPointParams{Task: req.GetTask(), Commit: req.GetCommit()})
+func (s *Handler) PickForkPoint(ctx context.Context, req *agentv1komrad.PickForkPointRequest) (*agentv1.PickForkPointResponse, *fail.Error) {
+	forkPoint, err := s.rebaser.PickForkPoint(ctx, checkouts.PickForkPointParams{Task: req.Task, Commit: req.Commit})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to record the fork point")
 	}

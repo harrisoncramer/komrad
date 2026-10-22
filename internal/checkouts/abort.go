@@ -11,6 +11,7 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/logging"
 	taskstore "komrad/internal/store/task"
+	"komrad/proto/gen/oneofs"
 )
 
 // ErrAbortNothing says nothing is part-way through the checkout.
@@ -31,8 +32,8 @@ type AbortResult struct {
 
 // Abort undoes whatever rebase, am, merge or pick is part-way through the task's worktree,
 // parking the checkout first so nothing its writer had resolved is lost.
-func (s *Service) Abort(ctx context.Context, ref string) (*AbortResult, error) {
-	target, err := s.eligible(ctx, ref)
+func (s *Service) Abort(ctx context.Context, task oneofs.Task) (*AbortResult, error) {
+	target, err := s.eligible(ctx, task)
 	if err != nil {
 		return nil, err
 	}

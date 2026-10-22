@@ -19,9 +19,9 @@ import (
 type LogServiceImpl interface {
 	GetLogLines(context.Context, *v1.GetLogLinesRequest) (*v1.GetLogLinesResponse, *fail.Error)
 	ListRecentTraces(context.Context, *v1.ListRecentTracesRequest) (*v1.ListRecentTracesResponse, *fail.Error)
-	ReadAgentLogs(context.Context, *v1.ReadAgentLogsRequest) (*v1.ReadAgentLogsResponse, *fail.Error)
-	ListAgentLogSources(context.Context, *v1.ListAgentLogSourcesRequest) (*v1.ListAgentLogSourcesResponse, *fail.Error)
-	ListTaskLogSources(context.Context, *v1.ListTaskLogSourcesRequest) (*v1.ListTaskLogSourcesResponse, *fail.Error)
+	ReadAgentLogs(context.Context, *ReadAgentLogsRequest) (*v1.ReadAgentLogsResponse, *fail.Error)
+	ListAgentLogSources(context.Context, *ListAgentLogSourcesRequest) (*v1.ListAgentLogSourcesResponse, *fail.Error)
+	ListTaskLogSources(context.Context, *ListTaskLogSourcesRequest) (*v1.ListTaskLogSourcesResponse, *fail.Error)
 }
 
 // LogServiceAdapter carries what the implementation returned across to the signature
@@ -42,17 +42,32 @@ func (a LogServiceAdapter) ListRecentTraces(ctx context.Context, req *connect.Re
 
 // ReadAgentLogs answers the request as connect serves it.
 func (a LogServiceAdapter) ReadAgentLogs(ctx context.Context, req *connect.Request[v1.ReadAgentLogsRequest]) (*connect.Response[v1.ReadAgentLogsResponse], error) {
-	return rpcerr.Answer(a.Impl.ReadAgentLogs(ctx, req.Msg))
+	parsed, err := ParseReadAgentLogsRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.ReadAgentLogsResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ReadAgentLogs(ctx, parsed))
 }
 
 // ListAgentLogSources answers the request as connect serves it.
 func (a LogServiceAdapter) ListAgentLogSources(ctx context.Context, req *connect.Request[v1.ListAgentLogSourcesRequest]) (*connect.Response[v1.ListAgentLogSourcesResponse], error) {
-	return rpcerr.Answer(a.Impl.ListAgentLogSources(ctx, req.Msg))
+	parsed, err := ParseListAgentLogSourcesRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.ListAgentLogSourcesResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ListAgentLogSources(ctx, parsed))
 }
 
 // ListTaskLogSources answers the request as connect serves it.
 func (a LogServiceAdapter) ListTaskLogSources(ctx context.Context, req *connect.Request[v1.ListTaskLogSourcesRequest]) (*connect.Response[v1.ListTaskLogSourcesResponse], error) {
-	return rpcerr.Answer(a.Impl.ListTaskLogSources(ctx, req.Msg))
+	parsed, err := ParseListTaskLogSourcesRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.ListTaskLogSourcesResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ListTaskLogSources(ctx, parsed))
 }
 
 // RegisterLogService mounts the implementation on the mux behind its adapter.

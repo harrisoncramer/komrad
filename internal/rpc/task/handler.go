@@ -14,24 +14,27 @@ import (
 	"komrad/lib/dates"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	"komrad/proto/gen/oneofs"
 	taskv1 "komrad/proto/gen/task/v1"
+	"komrad/proto/gen/task/v1/taskv1komrad"
 
 	taskstore "komrad/internal/store/task"
 
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type taskReadWriter interface {
 	CreateTask(ctx context.Context, params taskstore.CreateParams) (*taskstore.Task, error)
-	GetTask(ctx context.Context, ref string) (*taskstore.Task, error)
+	FindTask(ctx context.Context, task oneofs.Task) (*taskstore.Task, error)
 	ListTasks(ctx context.Context, workflowID string, archived bool) ([]taskstore.Task, error)
 	UpdateTask(ctx context.Context, params tasks.UpdateTaskParams) (*taskstore.Task, error)
 	MarkTaskRunsRead(ctx context.Context, taskID string) error
-	SetTaskHidden(ctx context.Context, ref string, hidden bool) error
+	SetTaskHidden(ctx context.Context, task oneofs.Task, hidden bool) error
 }
 
 type taskArchiver interface {
-	ArchiveTask(ctx context.Context, ref string) error
+	ArchiveTask(ctx context.Context, task oneofs.Task) error
 }
 
 type taskDeleter interface {
@@ -60,12 +63,12 @@ func NewHandler(params NewHandlerParams) *Handler {
 }
 
 // CreateTask records a task and returns it as stored.
-func (s *Handler) CreateTask(ctx context.Context, req *taskv1.CreateTaskRequest) (*taskv1.CreateTaskResponse, *fail.Error) {
+func (s *Handler) CreateTask(ctx context.Context, req *taskv1komrad.CreateTaskRequest) (*taskv1.CreateTaskResponse, *fail.Error) {
 	created, err := s.tasks.CreateTask(ctx, taskstore.CreateParams{
-		WorkflowID: req.GetWorkflowId(),
-		Slug:       req.GetSlug(),
-		Title:      req.GetTitle(),
-		Goal:       req.GetGoal(),
+		WorkflowID: req.WorkflowId.String(),
+		Slug:       req.Slug,
+		Title:      req.Title,
+		Goal:       req.Goal,
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to create task")
@@ -74,9 +77,9 @@ func (s *Handler) CreateTask(ctx context.Context, req *taskv1.CreateTaskRequest)
 	return &taskv1.CreateTaskResponse{Task: render.Task(*created)}, nil
 }
 
-// GetTask returns one task by id or slug.
-func (s *Handler) GetTask(ctx context.Context, req *taskv1.GetTaskRequest) (*taskv1.GetTaskResponse, *fail.Error) {
-	found, err := s.tasks.GetTask(ctx, req.GetTask())
+// GetTask returns one task by id or by slug.
+func (s *Handler) GetTask(ctx context.Context, req *taskv1komrad.GetTaskRequest) (*taskv1.GetTaskResponse, *fail.Error) {
+	found, err := s.tasks.FindTask(ctx, req.Task)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get task")
 	}
@@ -85,8 +88,8 @@ func (s *Handler) GetTask(ctx context.Context, req *taskv1.GetTaskRequest) (*tas
 }
 
 // ListTasks returns a workflow's live or archived tasks, newest first.
-func (s *Handler) ListTasks(ctx context.Context, req *taskv1.ListTasksRequest) (*taskv1.ListTasksResponse, *fail.Error) {
-	listed, err := s.tasks.ListTasks(ctx, req.GetWorkflowId(), req.GetArchived())
+func (s *Handler) ListTasks(ctx context.Context, req *taskv1komrad.ListTasksRequest) (*taskv1.ListTasksResponse, *fail.Error) {
+	listed, err := s.tasks.ListTasks(ctx, req.WorkflowId.String(), req.Archived)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list tasks")
 	}
@@ -95,15 +98,15 @@ func (s *Handler) ListTasks(ctx context.Context, req *taskv1.ListTasksRequest) (
 }
 
 // UpdateTask rewrites the slug, title, goal or notes of a task and returns it as stored.
-func (s *Handler) UpdateTask(ctx context.Context, req *taskv1.UpdateTaskRequest) (*taskv1.UpdateTaskResponse, *fail.Error) {
+func (s *Handler) UpdateTask(ctx context.Context, req *taskv1komrad.UpdateTaskRequest) (*taskv1.UpdateTaskResponse, *fail.Error) {
 	updated, err := s.tasks.UpdateTask(ctx, tasks.UpdateTaskParams{
-		Ref: req.GetTask(),
+		Task: req.Task,
 		Fields: taskstore.UpdateParams{
 			Slug:               req.Slug,
 			Title:              req.Title,
 			Goal:               req.Goal,
 			Notes:              req.Notes,
-			ReadNotesUpdatedAt: dates.ParsePtr(req.GetNotesUpdatedAt()),
+			ReadNotesUpdatedAt: dates.ParsePtr(xptr.Deref(req.NotesUpdatedAt)),
 		},
 		CallerAgentID: caller.From(ctx).AgentID,
 	})
@@ -115,12 +118,12 @@ func (s *Handler) UpdateTask(ctx context.Context, req *taskv1.UpdateTaskRequest)
 }
 
 // SetTaskNotes replaces a task's notes for the person or an agent that may write them.
-func (s *Handler) SetTaskNotes(ctx context.Context, req *taskv1.SetTaskNotesRequest) (*taskv1.SetTaskNotesResponse, *fail.Error) {
+func (s *Handler) SetTaskNotes(ctx context.Context, req *taskv1komrad.SetTaskNotesRequest) (*taskv1.SetTaskNotesResponse, *fail.Error) {
 	written, err := s.tasks.UpdateTask(ctx, tasks.UpdateTaskParams{
-		Ref: req.GetTask(),
+		Task: req.Task,
 		Fields: taskstore.UpdateParams{
-			Notes:              xptr.Ptr(req.GetNotes()),
-			ReadNotesUpdatedAt: dates.ParsePtr(req.GetNotesUpdatedAt()),
+			Notes:              xptr.Ptr(req.Notes),
+			ReadNotesUpdatedAt: dates.ParsePtr(xptr.Deref(req.NotesUpdatedAt)),
 		},
 		CallerAgentID: caller.From(ctx).AgentID,
 	})
@@ -132,8 +135,8 @@ func (s *Handler) SetTaskNotes(ctx context.Context, req *taskv1.SetTaskNotesRequ
 }
 
 // ArchiveTask takes a task and the live agents on it out of the live listings.
-func (s *Handler) ArchiveTask(ctx context.Context, req *taskv1.ArchiveTaskRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.archiver.ArchiveTask(ctx, req.GetTask()); err != nil {
+func (s *Handler) ArchiveTask(ctx context.Context, req *taskv1komrad.ArchiveTaskRequest) (*emptypb.Empty, *fail.Error) {
+	if err := s.archiver.ArchiveTask(ctx, req.Task); err != nil {
 		return nil, rpcerr.From(err, "failed to archive task")
 	}
 
@@ -141,10 +144,15 @@ func (s *Handler) ArchiveTask(ctx context.Context, req *taskv1.ArchiveTaskReques
 }
 
 // DeleteTasks removes tasks' worktrees, and with records set the tasks for good along with every agent on them.
-func (s *Handler) DeleteTasks(ctx context.Context, req *taskv1.DeleteTasksRequest) (*emptypb.Empty, *fail.Error) {
+func (s *Handler) DeleteTasks(ctx context.Context, req *taskv1komrad.DeleteTasksRequest) (*emptypb.Empty, *fail.Error) {
+	named := append(
+		xslice.Map(req.TaskIds, func(id uuid.UUID) oneofs.Task { return oneofs.Task{TaskId: &id} }),
+		xslice.Map(req.TaskSlugs, func(slug string) oneofs.Task { return oneofs.Task{TaskSlug: &slug} })...,
+	)
+
 	if err := s.deleter.DeleteTasks(ctx, agents.DeleteTasksParams{
-		Refs:      req.GetTasks(),
-		Records:   req.GetRecords(),
+		Tasks:     named,
+		Records:   req.Records,
 		ByAgentID: caller.From(ctx).AgentID,
 	}); err != nil {
 		return nil, rpcerr.From(err, "failed to delete tasks")
@@ -154,8 +162,8 @@ func (s *Handler) DeleteTasks(ctx context.Context, req *taskv1.DeleteTasksReques
 }
 
 // SetTaskHidden hides a task from the panel's sidebar or shows it again.
-func (s *Handler) SetTaskHidden(ctx context.Context, req *taskv1.SetTaskHiddenRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.tasks.SetTaskHidden(ctx, req.GetTask(), req.GetHidden()); err != nil {
+func (s *Handler) SetTaskHidden(ctx context.Context, req *taskv1komrad.SetTaskHiddenRequest) (*emptypb.Empty, *fail.Error) {
+	if err := s.tasks.SetTaskHidden(ctx, req.Task, req.Hidden); err != nil {
 		return nil, rpcerr.From(err, "failed to hide the task")
 	}
 
@@ -163,8 +171,8 @@ func (s *Handler) SetTaskHidden(ctx context.Context, req *taskv1.SetTaskHiddenRe
 }
 
 // MarkTaskRunsRead claims the failed runs on a task.
-func (s *Handler) MarkTaskRunsRead(ctx context.Context, req *taskv1.MarkTaskRunsReadRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.tasks.MarkTaskRunsRead(ctx, req.GetId()); err != nil {
+func (s *Handler) MarkTaskRunsRead(ctx context.Context, req *taskv1komrad.MarkTaskRunsReadRequest) (*emptypb.Empty, *fail.Error) {
+	if err := s.tasks.MarkTaskRunsRead(ctx, req.Id.String()); err != nil {
 		return nil, rpcerr.From(err, "failed to mark the task's runs read")
 	}
 

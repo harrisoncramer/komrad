@@ -19,8 +19,8 @@ import (
 // of failure they are rather than leaving it to be decided later.
 type TerminalServiceImpl interface {
 	Shell(context.Context, *connect.BidiStream[v1.ShellRequest, v1.ShellResponse]) *fail.Error
-	Attach(context.Context, *connect.BidiStream[v1.AttachRequest, v1.AttachResponse]) *fail.Error
-	SSH(context.Context, *connect.BidiStream[v1.SSHRequest, v1.SSHResponse]) *fail.Error
+	Attach(context.Context, *AttachStream) *fail.Error
+	SSH(context.Context, *SSHStream) *fail.Error
 	GetSSHHostKey(context.Context, *emptypb.Empty) (*v1.GetSSHHostKeyResponse, *fail.Error)
 }
 
@@ -37,12 +37,62 @@ func (a TerminalServiceAdapter) Shell(ctx context.Context, stream *connect.BidiS
 
 // Attach serves the stream as connect opens it.
 func (a TerminalServiceAdapter) Attach(ctx context.Context, stream *connect.BidiStream[v1.AttachRequest, v1.AttachResponse]) error {
-	return rpcerr.AnswerStream(a.Impl.Attach(ctx, stream))
+	return rpcerr.AnswerStream(a.Impl.Attach(ctx, &AttachStream{stream: stream}))
+}
+
+// AttachStream is the stream Attach serves, handing over each message it receives parsed.
+type AttachStream struct {
+	stream *connect.BidiStream[v1.AttachRequest, v1.AttachResponse]
+}
+
+// Receive reads the next message, refusing one holding a value that would not convert.
+func (s *AttachStream) Receive() (*AttachRequest, error) {
+	message, err := s.stream.Receive()
+	if err != nil {
+		return nil, err
+	}
+
+	parsed, err := ParseAttachRequest(message)
+	if err != nil {
+		return nil, rpcerr.New(fail.KindInvalidArgument, err)
+	}
+
+	return parsed, nil
+}
+
+// Send writes a message to the caller.
+func (s *AttachStream) Send(message *v1.AttachResponse) error {
+	return s.stream.Send(message)
 }
 
 // SSH serves the stream as connect opens it.
 func (a TerminalServiceAdapter) SSH(ctx context.Context, stream *connect.BidiStream[v1.SSHRequest, v1.SSHResponse]) error {
-	return rpcerr.AnswerStream(a.Impl.SSH(ctx, stream))
+	return rpcerr.AnswerStream(a.Impl.SSH(ctx, &SSHStream{stream: stream}))
+}
+
+// SSHStream is the stream SSH serves, handing over each message it receives parsed.
+type SSHStream struct {
+	stream *connect.BidiStream[v1.SSHRequest, v1.SSHResponse]
+}
+
+// Receive reads the next message, refusing one holding a value that would not convert.
+func (s *SSHStream) Receive() (*SSHRequest, error) {
+	message, err := s.stream.Receive()
+	if err != nil {
+		return nil, err
+	}
+
+	parsed, err := ParseSSHRequest(message)
+	if err != nil {
+		return nil, rpcerr.New(fail.KindInvalidArgument, err)
+	}
+
+	return parsed, nil
+}
+
+// Send writes a message to the caller.
+func (s *SSHStream) Send(message *v1.SSHResponse) error {
+	return s.stream.Send(message)
 }
 
 // GetSSHHostKey answers the request as connect serves it.

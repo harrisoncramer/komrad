@@ -10,6 +10,9 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	"komrad/proto/gen/oneofs"
+
+	"github.com/google/uuid"
 )
 
 // reviewerNameSuffix is what a reviewer is called after the agent it reads, so the sidebar says
@@ -60,13 +63,18 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 		return nil, "", fmt.Errorf("failed to read the task of agent %q: %w", author.Name, err)
 	}
 
+	taskID, err := uuid.Parse(*author.TaskID)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to read the task of agent %q: %w", author.Name, err)
+	}
+
 	reviewer, err := s.NewAgent(ctx, NewAgentParams{
 		Title:          reviewerTitle(params.Title, author.Name),
 		Prompt:         reviewerPrompt(*author, branch, params.Prompt),
 		Harness:        params.Harness,
 		Flags:          params.Flags,
 		WorkflowID:     author.WorkflowID,
-		Task:           *author.TaskID,
+		Task:           oneofs.Task{TaskId: &taskID},
 		Role:           agentstore.RoleReviewer,
 		IdempotencyKey: params.IdempotencyKey,
 	})

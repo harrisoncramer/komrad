@@ -138,7 +138,7 @@ func TestCompactedHookRemindsTheAgent(t *testing.T) {
 					out, err = protojson.Marshal(tt.row)
 				case agentv1connect.AgentServiceListReviewThreadsProcedure:
 					var req struct {
-						Task string `json:"task"`
+						Task string `json:"task_id"`
 					}
 					assert.NoError(t, json.Unmarshal(body, &req))
 					threadsTask = req.Task

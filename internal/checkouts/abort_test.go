@@ -63,7 +63,7 @@ func TestAbortRefusals(t *testing.T) {
 			require.True(t, taken)
 			t.Cleanup(release)
 
-			_, err := fixture.newService(NewServiceParams{Git: &tt.aborter, Locks: locks}).Abort(t.Context(), *agent.TaskID)
+			_, err := fixture.newService(NewServiceParams{Git: &tt.aborter, Locks: locks}).Abort(t.Context(), taskByID(*agent.TaskID))
 
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Equal(t, tt.wantCalls, tt.aborter.Calls)
@@ -146,7 +146,7 @@ func TestAbortUndoesTheSequence(t *testing.T) {
 			}
 			sequence := tt.aborter.Sequence
 
-			result, err := fixture.newService(NewServiceParams{Git: &tt.aborter}).Abort(t.Context(), *agent.TaskID)
+			result, err := fixture.newService(NewServiceParams{Git: &tt.aborter}).Abort(t.Context(), taskByID(*agent.TaskID))
 			require.NoError(t, err)
 
 			assert.Equal(t, sequenceOf(sequence), result.Sequence)

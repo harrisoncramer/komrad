@@ -67,7 +67,7 @@ func TestGetHistoryPicksTheSnapshot(t *testing.T) {
 			fx.snapshots.SHA = secondSnapshot
 
 			got, err := fx.service.GetHistory(t.Context(), GetHistoryParams{
-				Task:   *fx.writer.TaskID,
+				Task:   taskByID(*fx.writer.TaskID),
 				Author: personAuthor,
 			})
 			require.NoError(t, err)
@@ -87,7 +87,7 @@ func TestGetHistoryMeasuresFromTheLastReview(t *testing.T) {
 	fx.advanceTree(t)
 
 	got, err := fx.service.GetHistory(t.Context(), GetHistoryParams{
-		Task:   *fx.writer.TaskID,
+		Task:   taskByID(*fx.writer.TaskID),
 		Author: personAuthor,
 	})
 	require.NoError(t, err)

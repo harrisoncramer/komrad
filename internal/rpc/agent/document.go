@@ -11,8 +11,10 @@ import (
 	"komrad/internal/rpcpage"
 	documentstore "komrad/internal/store/document"
 	documenttypestore "komrad/internal/store/documenttype"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1komrad"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -36,17 +38,18 @@ type documentTypeKeeper interface {
 
 // WriteDocument creates or rewrites one of the calling agent's documents, or lets a caller that
 // is not an agent rewrite any one or create one for the agent it names.
-func (s *Handler) WriteDocument(ctx context.Context, req *agentv1.WriteDocumentRequest) (*agentv1.WriteDocumentResponse, *fail.Error) {
-	written, err := s.documents.WriteDocument(ctx, documents.WriteDocumentParams{
+func (s *Handler) WriteDocument(ctx context.Context, req *agentv1komrad.WriteDocumentRequest) (*agentv1.WriteDocumentResponse, *fail.Error) {
+	params := documents.WriteDocumentParams{
 		AgentID: caller.From(ctx).AgentID,
-		For:     req.GetAgentId(),
-		ID:      req.Id,
+		For:     xptr.Deref(optionalID(req.AgentId)),
+		ID:      optionalID(req.Id),
 		Version: req.Version,
-		Name:    req.GetName(),
-		Type:    req.GetType(),
-		Body:    req.GetBody(),
-		Path:    req.GetPath(),
-	})
+		Name:    req.Name,
+		Type:    req.Type,
+		Source:  req.Source,
+	}
+
+	written, err := s.documents.WriteDocument(ctx, params)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to write the document")
 	}
@@ -58,14 +61,14 @@ func (s *Handler) WriteDocument(ctx context.Context, req *agentv1.WriteDocumentR
 
 // ListDocuments returns a page of documents without their bodies, narrowed to an agent or task
 // when one is named.
-func (s *Handler) ListDocuments(ctx context.Context, req *agentv1.ListDocumentsRequest) (*agentv1.ListDocumentsResponse, *fail.Error) {
+func (s *Handler) ListDocuments(ctx context.Context, req *agentv1komrad.ListDocumentsRequest) (*agentv1.ListDocumentsResponse, *fail.Error) {
 	if req.AgentId != nil {
-		logCrossAgentRead(ctx, req.GetAgentId(), "agent listed another agent's documents")
+		logCrossAgentRead(ctx, req.AgentId.String(), "agent listed another agent's documents")
 	}
 
-	page, failure := rpcpage.List(req.GetPagination(), func(limit int64, cursor *documentstore.Cursor) ([]documentPage, *fail.Error) {
+	page, failure := rpcpage.List(req.Pagination, func(limit int64, cursor *documentstore.Cursor) ([]documentPage, *fail.Error) {
 		listed, err := s.documents.ListDocuments(ctx, documents.ListDocumentsParams{
-			AgentID: req.AgentId,
+			AgentID: optionalID(req.AgentId),
 			Task:    req.Task,
 			Type:    req.Type,
 			Limit:   int32(limit),
@@ -89,16 +92,16 @@ func (s *Handler) ListDocuments(ctx context.Context, req *agentv1.ListDocumentsR
 
 // SearchDocuments finds the documents whose current body holds the words of a query, every
 // agent's unless one is named.
-func (s *Handler) SearchDocuments(ctx context.Context, req *agentv1.SearchDocumentsRequest) (*agentv1.SearchDocumentsResponse, *fail.Error) {
+func (s *Handler) SearchDocuments(ctx context.Context, req *agentv1komrad.SearchDocumentsRequest) (*agentv1.SearchDocumentsResponse, *fail.Error) {
 	if req.AgentId != nil {
-		logCrossAgentRead(ctx, req.GetAgentId(), "agent searched another agent's documents")
+		logCrossAgentRead(ctx, req.AgentId.String(), "agent searched another agent's documents")
 	}
 
 	results, err := s.documents.SearchDocuments(ctx, documentstore.SearchParams{
-		Query:   req.GetQuery(),
-		AgentID: req.AgentId,
+		Query:   req.Query,
+		AgentID: optionalID(req.AgentId),
 		Type:    req.Type,
-		Limit:   req.GetLimit(),
+		Limit:   req.Limit,
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to search documents")
@@ -111,8 +114,8 @@ func (s *Handler) SearchDocuments(ctx context.Context, req *agentv1.SearchDocume
 }
 
 // GetDocument returns one document whole.
-func (s *Handler) GetDocument(ctx context.Context, req *agentv1.GetDocumentRequest) (*agentv1.GetDocumentResponse, *fail.Error) {
-	got, err := s.documents.GetDocument(ctx, req.GetId(), req.Version)
+func (s *Handler) GetDocument(ctx context.Context, req *agentv1komrad.GetDocumentRequest) (*agentv1.GetDocumentResponse, *fail.Error) {
+	got, err := s.documents.GetDocument(ctx, req.Id.String(), req.Version)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get the document")
 	}
@@ -123,8 +126,8 @@ func (s *Handler) GetDocument(ctx context.Context, req *agentv1.GetDocumentReque
 }
 
 // ListDocumentVersions returns every write of one document without their bodies.
-func (s *Handler) ListDocumentVersions(ctx context.Context, req *agentv1.ListDocumentVersionsRequest) (*agentv1.ListDocumentVersionsResponse, *fail.Error) {
-	agentID, versions, err := s.documents.ListDocumentVersions(ctx, req.GetId())
+func (s *Handler) ListDocumentVersions(ctx context.Context, req *agentv1komrad.ListDocumentVersionsRequest) (*agentv1.ListDocumentVersionsResponse, *fail.Error) {
+	agentID, versions, err := s.documents.ListDocumentVersions(ctx, req.Id.String())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the document's versions")
 	}
@@ -155,8 +158,8 @@ func (s *Handler) GetDocumentType(ctx context.Context, req *agentv1.GetDocumentT
 }
 
 // ListDocumentTypeVersions returns every write of a document type, the newest first.
-func (s *Handler) ListDocumentTypeVersions(ctx context.Context, req *agentv1.ListDocumentTypeVersionsRequest) (*agentv1.ListDocumentTypeVersionsResponse, *fail.Error) {
-	versions, err := s.documentTypes.ListDocumentTypeVersions(ctx, req.GetId())
+func (s *Handler) ListDocumentTypeVersions(ctx context.Context, req *agentv1komrad.ListDocumentTypeVersionsRequest) (*agentv1.ListDocumentTypeVersionsResponse, *fail.Error) {
+	versions, err := s.documentTypes.ListDocumentTypeVersions(ctx, req.Id.String())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the document type's versions")
 	}
@@ -165,12 +168,12 @@ func (s *Handler) ListDocumentTypeVersions(ctx context.Context, req *agentv1.Lis
 }
 
 // WriteDocumentType creates a document type, or renames or rewrites one.
-func (s *Handler) WriteDocumentType(ctx context.Context, req *agentv1.WriteDocumentTypeRequest) (*agentv1.WriteDocumentTypeResponse, *fail.Error) {
+func (s *Handler) WriteDocumentType(ctx context.Context, req *agentv1komrad.WriteDocumentTypeRequest) (*agentv1.WriteDocumentTypeResponse, *fail.Error) {
 	written, err := s.documentTypes.WriteDocumentType(ctx, documents.WriteDocumentTypeParams{
-		ID:        req.Id,
+		ID:        optionalID(req.Id),
 		Version:   req.Version,
-		Name:      req.GetName(),
-		Context:   req.GetContext(),
+		Name:      req.Name,
+		Context:   req.Context,
 		ByAgentID: caller.From(ctx).AgentID,
 	})
 	if err != nil {
@@ -181,9 +184,9 @@ func (s *Handler) WriteDocumentType(ctx context.Context, req *agentv1.WriteDocum
 }
 
 // DeleteDocument removes a document and every write of it.
-func (s *Handler) DeleteDocument(ctx context.Context, req *agentv1.DeleteDocumentRequest) (*emptypb.Empty, *fail.Error) {
+func (s *Handler) DeleteDocument(ctx context.Context, req *agentv1komrad.DeleteDocumentRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.documents.DeleteDocument(ctx, documents.DeleteDocumentParams{
-		ID:        req.GetId(),
+		ID:        req.Id.String(),
 		ByAgentID: caller.From(ctx).AgentID,
 	}); err != nil {
 		return nil, rpcerr.From(err, "failed to delete the document")
@@ -193,9 +196,9 @@ func (s *Handler) DeleteDocument(ctx context.Context, req *agentv1.DeleteDocumen
 }
 
 // DeleteDocumentType removes a document type that no document uses.
-func (s *Handler) DeleteDocumentType(ctx context.Context, req *agentv1.DeleteDocumentTypeRequest) (*emptypb.Empty, *fail.Error) {
+func (s *Handler) DeleteDocumentType(ctx context.Context, req *agentv1komrad.DeleteDocumentTypeRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.documentTypes.DeleteDocumentType(ctx, documents.DeleteDocumentTypeParams{
-		ID:        req.GetId(),
+		ID:        req.Id.String(),
 		ByAgentID: caller.From(ctx).AgentID,
 	}); err != nil {
 		return nil, rpcerr.From(err, "failed to delete the document type")

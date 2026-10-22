@@ -9,7 +9,7 @@ set -euo pipefail
 workflow="$(komrad rpc create-workflow --name neovim --cwd "$HOME/neovim" --worktree.enabled --compact | jq -r '.workflow.id')"
 
 task() {
-	komrad rpc create-agent --workflow-id "$workflow" --title "$1" --task-slug "$1" --prompt "$2" --flags "--model haiku" >/dev/null
+	komrad rpc create-agent --workflow-id "$workflow" --title "$1" --new-task-slug "$1" --prompt "$2" --flags "--model haiku" >/dev/null
 }
 
 task find-checkhealth "Run sleep 5 in the shell, then say in one sentence where :checkhealth is implemented."

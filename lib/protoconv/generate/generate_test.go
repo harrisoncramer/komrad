@@ -94,6 +94,30 @@ message Thing {
 			wantErr: generate.ErrUnrepresentable,
 		},
 		{
+			name: "oneofs sharing a type with different members are refused",
+			sources: map[string]string{
+				"differ.proto": `syntax = "proto3";
+package differ;
+import "buf/validate/validate.proto";
+option go_package = "example.com/differ";
+message Pick { oneof ref { string ref_id = 1 [(buf.validate.field).string.uuid = true]; string ref_name = 2; } }
+message Point { oneof ref { string ref_id = 1 [(buf.validate.field).string.uuid = true]; string ref_slug = 2; } }`,
+			},
+			wantErr: generate.ErrSharedShape,
+		},
+		{
+			name: "oneofs sharing a type whose members convert differently are refused",
+			sources: map[string]string{
+				"convert.proto": `syntax = "proto3";
+package convert;
+import "buf/validate/validate.proto";
+option go_package = "example.com/convert";
+message Pick { oneof ref { string ref_id = 1 [(buf.validate.field).string.uuid = true]; string ref_name = 2; } }
+message Point { oneof ref { string ref_id = 1; string ref_name = 2; } }`,
+			},
+			wantErr: generate.ErrSharedShape,
+		},
+		{
 			name: "only messages with something to convert are written",
 			sources: map[string]string{
 				"plain.proto": `syntax = "proto3";
@@ -106,6 +130,16 @@ message Skipped { google.protobuf.Timestamp at = 1 [(buf.validate.field).ignore 
 message Timed { google.protobuf.Timestamp at = 1; }`,
 			},
 			want: []bool{false, false, true},
+		},
+		{
+			name: "a message whose only conversion is a shared oneof is written",
+			sources: map[string]string{
+				"named.proto": `syntax = "proto3";
+package named;
+option go_package = "example.com/named";
+message Pick { oneof ref { string ref_slug = 1; string ref_name = 2; } }`,
+			},
+			want: []bool{true},
 		},
 	}
 
@@ -127,9 +161,11 @@ message Timed { google.protobuf.Timestamp at = 1; }`,
 	}
 }
 
-// writeAll writes every message of the files plugin generates, reporting which had something to write.
+// writeAll writes every message of the files plugin generates, oneofs sharing a name as one type,
+// reporting which had something to write.
 func writeAll(plugin *protogen.Plugin) ([]bool, error) {
-	generator := generate.New(plugin.NewGeneratedFile("parsed.go", outputPath), outputPath)
+	shared := generate.NewShared(outputPath)
+	generator := generate.New(plugin.NewGeneratedFile("parsed.go", outputPath), outputPath, shared)
 	var written []bool
 	for _, file := range plugin.Files {
 		if !file.Generate {

@@ -9,17 +9,22 @@ import (
 	"komrad/internal/caller"
 	"komrad/internal/tasks"
 	"komrad/lib/xptr"
+	"komrad/proto/gen/oneofs"
 	taskv1 "komrad/proto/gen/task/v1"
 	"komrad/proto/gen/task/v1/taskv1komrad"
 
 	taskstore "komrad/internal/store/task"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-const taskID = "01a11e6f-0000-7000-8000-00000000000a"
+const (
+	taskID      = "01a11e6f-0000-7000-8000-00000000000a"
+	otherTaskID = "01a11e6f-0000-7000-8000-00000000000b"
+)
 
 // fakeTasks answers from its fields and records what each call asked of it.
 type fakeTasks struct {
@@ -39,8 +44,8 @@ func (f *fakeTasks) CreateTask(_ context.Context, params taskstore.CreateParams)
 	}, nil
 }
 
-// GetTask answers the stored task.
-func (f *fakeTasks) GetTask(context.Context, string) (*taskstore.Task, error) {
+// FindTask answers the stored task.
+func (f *fakeTasks) FindTask(context.Context, oneofs.Task) (*taskstore.Task, error) {
 	return &f.stored, nil
 }
 
@@ -57,7 +62,7 @@ func (f *fakeTasks) UpdateTask(_ context.Context, params tasks.UpdateTaskParams)
 }
 
 // ArchiveTask answers nil.
-func (f *fakeTasks) ArchiveTask(context.Context, string) error {
+func (f *fakeTasks) ArchiveTask(context.Context, oneofs.Task) error {
 	return nil
 }
 
@@ -74,7 +79,7 @@ func (f *fakeTasks) MarkTaskRunsRead(context.Context, string) error {
 }
 
 // SetTaskHidden answers nil.
-func (f *fakeTasks) SetTaskHidden(context.Context, string, bool) error {
+func (f *fakeTasks) SetTaskHidden(context.Context, oneofs.Task, bool) error {
 	return nil
 }
 
@@ -100,14 +105,14 @@ func TestSetTaskNotesPassesDown(t *testing.T) {
 	ctx := caller.With(t.Context(), caller.Caller{AgentID: "agent-1"})
 
 	written, err := newTaskHandler(fake).SetTaskNotes(ctx, connect.NewRequest(&taskv1.SetTaskNotesRequest{
-		Task:           "fix-login",
+		Task:           &taskv1.SetTaskNotesRequest_TaskSlug{TaskSlug: "fix-login"},
 		Notes:          "Found it.",
 		NotesUpdatedAt: xptr.Ptr(readAt.Format(time.RFC3339Nano)),
 	}))
 	require.NoError(t, err)
 
 	require.Len(t, fake.updated, 1)
-	assert.Equal(t, "fix-login", fake.updated[0].Ref)
+	assert.Equal(t, oneofs.Task{TaskSlug: xptr.Ptr("fix-login")}, fake.updated[0].Task)
 	assert.Equal(t, xptr.Ptr("Found it."), fake.updated[0].Fields.Notes)
 	assert.Equal(t, "agent-1", fake.updated[0].CallerAgentID)
 	require.NotNil(t, fake.updated[0].Fields.ReadNotesUpdatedAt)
@@ -116,23 +121,36 @@ func TestSetTaskNotesPassesDown(t *testing.T) {
 	assert.Equal(t, writtenAt.Format(time.RFC3339Nano), written.Msg.GetTask().GetNotesUpdatedAt())
 }
 
-// TestDeleteTasksPassesDown pins that a delete hands down the tasks, the records choice and the
-// agent asking.
+// TestDeleteTasksPassesDown pins that a delete hands down the tasks by id, those named by slug
+// after those named by id, the records choice and the agent asking.
 func TestDeleteTasksPassesDown(t *testing.T) {
-	fake := &fakeTasks{}
+	fake := &fakeTasks{stored: taskstore.Task{ID: taskID, Slug: "fix-login"}}
 	ctx := caller.With(t.Context(), caller.Caller{AgentID: "agent-1"})
 
 	_, err := newTaskHandler(fake).DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{
-		Tasks:   []string{"fix-login"},
-		Records: true,
+		TaskIds:   []string{otherTaskID},
+		TaskSlugs: []string{"fix-login"},
+		Records:   true,
 	}))
 	require.NoError(t, err)
 
 	assert.Equal(t, []agents.DeleteTasksParams{
 		{
-			Refs:      []string{"fix-login"},
+			Tasks: []oneofs.Task{
+				{TaskId: xptr.Ptr(uuid.MustParse(otherTaskID))},
+				{TaskSlug: xptr.Ptr("fix-login")},
+			},
 			Records:   true,
 			ByAgentID: "agent-1",
 		},
 	}, fake.deleted)
+}
+
+// TestGetTaskRefusesAMalformedID pins that an id that is not a uuid is answered as an invalid
+// argument before the handler runs.
+func TestGetTaskRefusesAMalformedID(t *testing.T) {
+	_, err := newTaskHandler(&fakeTasks{}).GetTask(t.Context(), connect.NewRequest(&taskv1.GetTaskRequest{
+		Task: &taskv1.GetTaskRequest_TaskId{TaskId: "fix-login"},
+	}))
+	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 }

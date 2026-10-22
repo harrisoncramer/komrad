@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	agentv1 "komrad/proto/gen/agent/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"komrad/lib/xptr"
 
@@ -30,6 +31,13 @@ func TestRefusesEmpty(t *testing.T) {
 	}{
 		{
 			name:    "a string with a minimum length",
+			file:    taskv1.File_task_v1_task_proto,
+			message: "GetTaskRequest",
+			field:   "task_slug",
+			want:    true,
+		},
+		{
+			name:    "a string holding a uuid",
 			file:    agentv1.File_agent_v1_agent_proto,
 			message: "GetAgentRequest",
 			field:   "id",
@@ -43,10 +51,17 @@ func TestRefusesEmpty(t *testing.T) {
 			want:    true,
 		},
 		{
-			name:    "an optional string with a minimum length",
+			name:    "an optional string holding a uuid",
 			file:    agentv1.File_agent_v1_mail_proto,
 			message: "ListMailRequest",
 			field:   "id",
+			want:    true,
+		},
+		{
+			name:    "a list a rule on its message names",
+			file:    taskv1.File_task_v1_task_proto,
+			message: "DeleteTasksRequest",
+			field:   "task_ids",
 			want:    true,
 		},
 		{

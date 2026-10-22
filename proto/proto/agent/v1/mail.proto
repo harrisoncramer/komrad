@@ -66,15 +66,21 @@ message Mail {
 }
 
 message SendMailRequest {
-  // The agent to send to, by id or by the name of a live agent.
-  string to = 1 [(buf.validate.field).string.min_len = 1];
+  // The agent to send to.
+  oneof to {
+    option (buf.validate.oneof).required = true;
+    // The agent, by id.
+    string to_agent_id = 1 [(buf.validate.field).string.uuid = true];
+    // The agent, by the name of a live agent.
+    string to_agent_name = 4 [(buf.validate.field).string.min_len = 1];
+  }
   // The mail's text.
   string body = 2 [(buf.validate.field).string = {
     min_len: 1
     max_len: 10000
   }];
   // The id of the mail this one answers, so the two read as a thread.
-  optional string reply_to = 3 [(buf.validate.field).string.min_len = 1];
+  optional string reply_to = 3 [(buf.validate.field).string.uuid = true];
 }
 
 message SendMailResponse {
@@ -86,9 +92,9 @@ message SendMailResponse {
 
 message ForwardLastTurnsRequest {
   // The agent whose newest turns to forward, by id.
-  string from_agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  string from_agent_id = 1 [(buf.validate.field).string.uuid = true];
   // The agent to forward them to, by id.
-  string to_agent_id = 2 [(buf.validate.field).string.min_len = 1];
+  string to_agent_id = 2 [(buf.validate.field).string.uuid = true];
   // How many of the newest agent turns to forward, with the prompts between them. Unset forwards
   // the last turn only.
   optional int32 turns = 3 [(buf.validate.field).int32 = {
@@ -127,7 +133,7 @@ message ClaimMailNudgeResponse {
 
 message ReadMailRequest {
   // The agent whose unread mail to read, by id. Unset reads the caller's own.
-  optional string id = 1 [(buf.validate.field).string.min_len = 1];
+  optional string id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message ReadMailResponse {
@@ -137,7 +143,7 @@ message ReadMailResponse {
 
 message ListMailRequest {
   // The agent whose mail to list, by id. Unset lists the caller's own.
-  optional string id = 1 [(buf.validate.field).string.min_len = 1];
+  optional string id = 1 [(buf.validate.field).string.uuid = true];
   // The page to read.
   optional pagination.v1.Pagination pagination = 2;
   // Whether to list the mail the agent received or sent.
@@ -153,5 +159,10 @@ message ListMailResponse {
 
 message DeleteMailRequest {
   // The mail to delete, by id, read or not. The recipient never sees unread mail once deleted.
-  repeated string ids = 1 [(buf.validate.field).repeated.min_items = 1];
+  repeated string ids = 1 [(buf.validate.field).repeated = {
+    min_items: 1
+    items: {
+      string: {uuid: true}
+    }
+  }];
 }

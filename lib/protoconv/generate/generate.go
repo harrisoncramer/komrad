@@ -78,28 +78,31 @@ type body struct {
 	usesErr bool
 }
 
-// generator writes parsed types and their conversion functions into one generated Go file.
-type generator struct {
+// Generator writes parsed types and their conversion functions into one generated Go file.
+type Generator struct {
 	out     *protogen.GeneratedFile
 	path    protogen.GoImportPath
 	parsed  map[protoreflect.FullName]bool
 	written map[protoreflect.FullName]bool
 	names   map[string]string
+	shared  *Shared
 }
 
-// New returns a generator writing into out, a file of the Go package at path.
-func New(out *protogen.GeneratedFile, path protogen.GoImportPath) *generator {
-	return &generator{
+// New returns a generator writing into out, a file of the Go package at path, writing each oneof
+// that holds no message as the type shared has for its name.
+func New(out *protogen.GeneratedFile, path protogen.GoImportPath, shared *Shared) *Generator {
+	return &Generator{
 		out:     out,
 		path:    path,
 		parsed:  map[protoreflect.FullName]bool{},
 		written: map[protoreflect.FullName]bool{},
 		names:   map[string]string{},
+		shared:  shared,
 	}
 }
 
 // Write writes the parsed form of message and of every parsed message it reaches, reporting false when nothing in message converts.
-func (g *generator) Write(message *protogen.Message) (bool, error) {
+func (g *Generator) Write(message *protogen.Message) (bool, error) {
 	g.decide(message)
 	if !g.parsed[message.Desc.FullName()] {
 		return false, nil
@@ -125,7 +128,7 @@ func (g *generator) Write(message *protogen.Message) (bool, error) {
 }
 
 // decide settles which messages reachable from root have a parsed form.
-func (g *generator) decide(root *protogen.Message) {
+func (g *Generator) decide(root *protogen.Message) {
 	var reached []*protogen.Message
 	g.reach(root, map[protoreflect.FullName]bool{}, &reached)
 
@@ -149,7 +152,7 @@ func (g *generator) decide(root *protogen.Message) {
 	}
 }
 
-func (g *generator) reach(message *protogen.Message, seen map[protoreflect.FullName]bool, reached *[]*protogen.Message) {
+func (g *Generator) reach(message *protogen.Message, seen map[protoreflect.FullName]bool, reached *[]*protogen.Message) {
 	name := message.Desc.FullName()
 	if _, decided := g.parsed[name]; decided || seen[name] {
 		return
@@ -166,7 +169,7 @@ func (g *generator) reach(message *protogen.Message, seen map[protoreflect.FullN
 	}
 }
 
-func (g *generator) hasConversion(message *protogen.Message) bool {
+func (g *Generator) hasConversion(message *protogen.Message) bool {
 	for _, field := range message.Fields {
 		fieldPlan := planOf(field, false)
 		if g.leafOf(fieldPlan.value) != leafRaw || g.leafOf(fieldPlan.key) != leafRaw {
@@ -174,10 +177,16 @@ func (g *generator) hasConversion(message *protogen.Message) bool {
 		}
 	}
 
+	for _, oneof := range message.Oneofs {
+		if _, ok := g.sharedIdent(oneof); ok {
+			return true
+		}
+	}
+
 	return false
 }
 
-func (g *generator) leafOf(value slot) leaf {
+func (g *Generator) leafOf(value slot) leaf {
 	if value.field == nil || value.ignored {
 		return leafRaw
 	}
@@ -206,7 +215,7 @@ func (g *generator) leafOf(value slot) leaf {
 }
 
 // writeMessage writes one message's parsed type, its oneofs and its conversion function, returning the parsed messages it reaches.
-func (g *generator) writeMessage(message *protogen.Message) ([]*protogen.Message, error) {
+func (g *Generator) writeMessage(message *protogen.Message) ([]*protogen.Message, error) {
 	if message.GoIdent.GoImportPath == g.path {
 		return nil, fmt.Errorf("%w: %s", ErrSamePackage, message.Desc.FullName())
 	}
@@ -236,6 +245,12 @@ func (g *generator) writeMessage(message *protogen.Message) ([]*protogen.Message
 		plans = append(plans, fieldPlan)
 	}
 
+	for _, oneof := range message.Oneofs {
+		if err := g.shared.add(g, oneof); err != nil {
+			return nil, err
+		}
+	}
+
 	if err := g.writeType(message, plans); err != nil {
 		return nil, err
 	}
@@ -244,7 +259,7 @@ func (g *generator) writeMessage(message *protogen.Message) ([]*protogen.Message
 	return reached, nil
 }
 
-func (g *generator) requireRepresentable(fieldPlan plan) error {
+func (g *Generator) requireRepresentable(fieldPlan plan) error {
 	if !fieldPlan.field.Desc.IsList() && !fieldPlan.field.Desc.IsMap() {
 		return nil
 	}
@@ -258,7 +273,7 @@ func (g *generator) requireRepresentable(fieldPlan plan) error {
 	return nil
 }
 
-func (g *generator) claim(name, owner string) error {
+func (g *Generator) claim(name, owner string) error {
 	if existing, ok := g.names[name]; ok && existing != owner {
 		return fmt.Errorf("%w: %s and %s both want %s", ErrNameTaken, existing, owner, name)
 	}
@@ -267,7 +282,7 @@ func (g *generator) claim(name, owner string) error {
 	return nil
 }
 
-func (g *generator) writeType(message *protogen.Message, plans []plan) error {
+func (g *Generator) writeType(message *protogen.Message, plans []plan) error {
 	name := message.GoIdent.GoName
 	g.out.P("// ", name, " is ", message.GoIdent, " with the values its rules describe converted.")
 	g.out.P("type ", name, " struct {")
@@ -278,7 +293,12 @@ func (g *generator) writeType(message *protogen.Message, plans []plan) error {
 
 			continue
 		}
-		if oneof.Fields[0] == fieldPlan.field {
+		if oneof.Fields[0] != fieldPlan.field {
+			continue
+		}
+		if ident, ok := g.sharedIdent(oneof); ok {
+			g.out.P(oneof.GoName, " ", ident)
+		} else {
 			g.out.P(oneof.GoName, " ", oneofInterface(oneof))
 		}
 	}
@@ -286,7 +306,7 @@ func (g *generator) writeType(message *protogen.Message, plans []plan) error {
 	g.out.P()
 
 	for _, oneof := range message.Oneofs {
-		if oneof.Desc.IsSynthetic() {
+		if _, ok := g.sharedIdent(oneof); ok || oneof.Desc.IsSynthetic() {
 			continue
 		}
 		if err := g.writeOneof(oneof); err != nil {
@@ -297,7 +317,7 @@ func (g *generator) writeType(message *protogen.Message, plans []plan) error {
 	return nil
 }
 
-func (g *generator) writeOneof(oneof *protogen.Oneof) error {
+func (g *Generator) writeOneof(oneof *protogen.Oneof) error {
 	marker := oneofInterface(oneof)
 	if err := g.claim(marker, string(oneof.Desc.FullName())); err != nil {
 		return err
@@ -326,7 +346,7 @@ func (g *generator) writeOneof(oneof *protogen.Oneof) error {
 	return nil
 }
 
-func (g *generator) fieldType(fieldPlan plan) []any {
+func (g *Generator) fieldType(fieldPlan plan) []any {
 	if fieldPlan.field.Desc.IsMap() {
 		return slices.Concat([]any{"map["}, g.memberType(fieldPlan.key), []any{"]"}, g.memberType(fieldPlan.value))
 	}
@@ -361,7 +381,7 @@ func (g *generator) fieldType(fieldPlan plan) []any {
 }
 
 // memberType is the Go type of a value with no presence of its own, as a list element, a map key or value, or a oneof member holds.
-func (g *generator) memberType(value slot) []any {
+func (g *Generator) memberType(value slot) []any {
 	switch g.leafOf(value) {
 	case leafUUID, leafTrimmedUUID, leafBytesUUID:
 		return []any{uuidPackage.Ident("UUID")}
@@ -376,7 +396,7 @@ func (g *generator) memberType(value slot) []any {
 	return nil
 }
 
-func (g *generator) writeParse(message *protogen.Message, plans []plan) {
+func (g *Generator) writeParse(message *protogen.Message, plans []plan) {
 	name := message.GoIdent.GoName
 	statements := &body{}
 	for _, fieldPlan := range plans {
@@ -386,7 +406,12 @@ func (g *generator) writeParse(message *protogen.Message, plans []plan) {
 
 			continue
 		}
-		if oneof.Fields[0] == fieldPlan.field {
+		if oneof.Fields[0] != fieldPlan.field {
+			continue
+		}
+		if _, ok := g.sharedIdent(oneof); ok {
+			g.parseSharedOneof(statements, oneof)
+		} else {
 			g.parseOneof(statements, oneof)
 		}
 	}
@@ -410,7 +435,7 @@ func (g *generator) writeParse(message *protogen.Message, plans []plan) {
 	g.out.P()
 }
 
-func (g *generator) parseField(statements *body, fieldPlan plan) {
+func (g *Generator) parseField(statements *body, fieldPlan plan) {
 	switch {
 	case fieldPlan.field.Desc.IsMap():
 		g.parseMap(statements, fieldPlan)
@@ -421,7 +446,7 @@ func (g *generator) parseField(statements *body, fieldPlan plan) {
 	}
 }
 
-func (g *generator) parseSingular(statements *body, fieldPlan plan) {
+func (g *Generator) parseSingular(statements *body, fieldPlan plan) {
 	conversion := g.leafOf(fieldPlan.value)
 
 	switch conversion {
@@ -446,7 +471,7 @@ func (g *generator) parseSingular(statements *body, fieldPlan plan) {
 	}
 }
 
-func (g *generator) parseUUID(statements *body, fieldPlan plan) {
+func (g *Generator) parseUUID(statements *body, fieldPlan plan) {
 	source := fieldPlan.source()
 	target := fieldPlan.target()
 	path := fieldPlan.path()
@@ -481,7 +506,7 @@ func (g *generator) parseUUID(statements *body, fieldPlan plan) {
 	}
 }
 
-func (g *generator) parseList(statements *body, fieldPlan plan) {
+func (g *Generator) parseList(statements *body, fieldPlan plan) {
 	source := fieldPlan.source()
 	target := fieldPlan.target()
 	if g.leafOf(fieldPlan.value) == leafRaw {
@@ -501,7 +526,7 @@ func (g *generator) parseList(statements *body, fieldPlan plan) {
 	statements.line("}")
 }
 
-func (g *generator) parseMap(statements *body, fieldPlan plan) {
+func (g *Generator) parseMap(statements *body, fieldPlan plan) {
 	source := fieldPlan.source()
 	target := fieldPlan.target()
 	path := fieldPlan.path()
@@ -544,7 +569,7 @@ func (g *generator) parseMap(statements *body, fieldPlan plan) {
 	statements.line("}")
 }
 
-func (g *generator) parseOneof(statements *body, oneof *protogen.Oneof) {
+func (g *Generator) parseOneof(statements *body, oneof *protogen.Oneof) {
 	statements.line("switch member := m.", oneof.GoName, ".(type) {")
 	for _, field := range oneof.Fields {
 		wrapper := field.GoIdent.GoName
@@ -565,8 +590,26 @@ func (g *generator) parseOneof(statements *body, oneof *protogen.Oneof) {
 	statements.line("}")
 }
 
+func (g *Generator) parseSharedOneof(statements *body, oneof *protogen.Oneof) {
+	statements.line("switch member := m.", oneof.GoName, ".(type) {")
+	for _, field := range oneof.Fields {
+		value := planOf(field, false).value
+		target := "parsed." + oneof.GoName + "." + field.GoName
+		statements.line("case *", field.GoIdent, ":")
+		if g.leafOf(value) == leafRaw {
+			statements.line("value := member.", field.GoName)
+			statements.line(target, " = &value")
+
+			continue
+		}
+
+		statements.point(target, g.convert(value, "member."+field.GoName), string(field.Desc.Name()))
+	}
+	statements.line("}")
+}
+
 // convert is the call converting the value source holds.
-func (g *generator) convert(value slot, source string) []any {
+func (g *Generator) convert(value slot, source string) []any {
 	conversion := g.leafOf(value)
 	if conversion.isUUID() && isWrapper(value.field) {
 		source += ".GetValue()"

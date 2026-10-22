@@ -168,7 +168,7 @@ func TestIntegrationWorktrees(t *testing.T) {
 	})
 
 	t.Run("deleting a task takes its worktree out of the listing", func(t *testing.T) {
-		_, err := instance.Tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{Tasks: []string{leaver.GetTaskId()}, Records: true}))
+		_, err := instance.Tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{TaskIds: []string{leaver.GetTaskId()}, Records: true}))
 		require.NoError(t, err)
 
 		assert.NotContains(t, listWorktrees(t, instance), leaver.GetCwd(), "the directory leaves the listing as soon as the delete claims it")
@@ -218,7 +218,7 @@ func TestIntegrationRebase(t *testing.T) {
 	before := readGitOutput(t, tree, "rev-parse", "HEAD")
 
 	rebased, err := instance.Agents.RebaseWorktree(t.Context(), connect.NewRequest(&agentv1.RebaseWorktreeRequest{
-		Task: taskID,
+		Task: &agentv1.RebaseWorktreeRequest_TaskId{TaskId: taskID},
 	}))
 	require.NoError(t, err)
 
@@ -253,7 +253,7 @@ func TestIntegrationPushAndAbort(t *testing.T) {
 	head := readGitOutput(t, tree, "rev-parse", "HEAD")
 
 	t.Run("the plan counts the branch's own commits against the base", func(t *testing.T) {
-		plan, err := instance.Agents.PlanPush(ctx, connect.NewRequest(&agentv1.PlanPushRequest{Task: taskID}))
+		plan, err := instance.Agents.PlanPush(ctx, connect.NewRequest(&agentv1.PlanPushRequest{Task: &agentv1.PlanPushRequest_TaskId{TaskId: taskID}}))
 		require.NoError(t, err)
 		assert.Equal(t, branch, plan.Msg.GetBranch())
 		assert.Equal(t, int32(2), plan.Msg.GetCommits())
@@ -261,7 +261,7 @@ func TestIntegrationPushAndAbort(t *testing.T) {
 	})
 
 	t.Run("a push puts the branch on origin", func(t *testing.T) {
-		pushed, err := instance.Agents.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{Task: taskID}))
+		pushed, err := instance.Agents.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{Task: &agentv1.PushWorktreeRequest_TaskId{TaskId: taskID}}))
 		require.NoError(t, err)
 		assert.Equal(t, head, pushed.Msg.GetSha())
 
@@ -275,7 +275,7 @@ func TestIntegrationPushAndAbort(t *testing.T) {
 	require.Errorf(t, err, "the rebase stops on the conflict in own.txt: %s", output)
 
 	t.Run("an abort puts the branch back and keeps the conflicted tree", func(t *testing.T) {
-		aborted, err := instance.Agents.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{Task: taskID}))
+		aborted, err := instance.Agents.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{Task: &agentv1.AbortSequenceRequest_TaskId{TaskId: taskID}}))
 		require.NoError(t, err)
 		assert.Equal(t, taskv1.Sequence_SEQUENCE_REBASE, aborted.Msg.GetSequence())
 		assert.Equal(t, branch, aborted.Msg.GetBranch())
@@ -300,11 +300,11 @@ func TestIntegrationPushAndAbort(t *testing.T) {
 	rebased := readGitOutput(t, tree, "rev-parse", "HEAD")
 
 	t.Run("a rebased branch overwrites origin's copy", func(t *testing.T) {
-		plan, err := instance.Agents.PlanPush(ctx, connect.NewRequest(&agentv1.PlanPushRequest{Task: taskID}))
+		plan, err := instance.Agents.PlanPush(ctx, connect.NewRequest(&agentv1.PlanPushRequest{Task: &agentv1.PlanPushRequest_TaskId{TaskId: taskID}}))
 		require.NoError(t, err)
 		assert.True(t, plan.Msg.GetForced())
 
-		pushed, err := instance.Agents.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{Task: taskID}))
+		pushed, err := instance.Agents.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{Task: &agentv1.PushWorktreeRequest_TaskId{TaskId: taskID}}))
 		require.NoError(t, err)
 		assert.True(t, pushed.Msg.GetForced())
 

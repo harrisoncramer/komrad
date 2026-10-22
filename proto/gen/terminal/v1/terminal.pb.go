@@ -909,10 +909,10 @@ const file_terminal_v1_terminal_proto_rawDesc = "" +
 	"\x05ready\x18\x01 \x01(\v2\x16.google.protobuf.EmptyH\x00R\x05ready\x12\x18\n" +
 	"\x06output\x18\x02 \x01(\fH\x00R\x06output\x12'\n" +
 	"\x04exit\x18\x03 \x01(\v2\x11.terminal.v1.ExitH\x00R\x04exitB\t\n" +
-	"\amessage\"s\n" +
+	"\amessage\"t\n" +
 	"\n" +
-	"OpenAttach\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12-\n" +
+	"OpenAttach\x12#\n" +
+	"\bagent_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\aagentId\x12-\n" +
 	"\x04size\x18\x02 \x01(\v2\x11.terminal.v1.SizeB\x06\xbaH\x03\xc8\x01\x01R\x04size\x12\x12\n" +
 	"\x04term\x18\x03 \x01(\tR\x04term\"\xa6\x01\n" +
 	"\rAttachRequest\x12-\n" +

@@ -733,8 +733,13 @@ func (x *CreateTaskResponse) GetTask() *Task {
 
 type GetTaskRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task to get, by id or slug.
-	Task          string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
+	// The task to get.
+	//
+	// Types that are valid to be assigned to Task:
+	//
+	//	*GetTaskRequest_TaskId
+	//	*GetTaskRequest_TaskSlug
+	Task          isGetTaskRequest_Task `protobuf_oneof:"task"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -769,12 +774,48 @@ func (*GetTaskRequest) Descriptor() ([]byte, []int) {
 	return file_task_v1_task_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *GetTaskRequest) GetTask() string {
+func (x *GetTaskRequest) GetTask() isGetTaskRequest_Task {
 	if x != nil {
 		return x.Task
 	}
+	return nil
+}
+
+func (x *GetTaskRequest) GetTaskId() string {
+	if x != nil {
+		if x, ok := x.Task.(*GetTaskRequest_TaskId); ok {
+			return x.TaskId
+		}
+	}
 	return ""
 }
+
+func (x *GetTaskRequest) GetTaskSlug() string {
+	if x != nil {
+		if x, ok := x.Task.(*GetTaskRequest_TaskSlug); ok {
+			return x.TaskSlug
+		}
+	}
+	return ""
+}
+
+type isGetTaskRequest_Task interface {
+	isGetTaskRequest_Task()
+}
+
+type GetTaskRequest_TaskId struct {
+	// The task, by id.
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3,oneof"`
+}
+
+type GetTaskRequest_TaskSlug struct {
+	// The task, by slug.
+	TaskSlug string `protobuf:"bytes,2,opt,name=task_slug,json=taskSlug,proto3,oneof"`
+}
+
+func (*GetTaskRequest_TaskId) isGetTaskRequest_Task() {}
+
+func (*GetTaskRequest_TaskSlug) isGetTaskRequest_Task() {}
 
 type GetTaskResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -922,8 +963,13 @@ func (x *ListTasksResponse) GetTasks() []*Task {
 
 type UpdateTaskRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task to update, by id or slug.
-	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
+	// The task to update.
+	//
+	// Types that are valid to be assigned to Task:
+	//
+	//	*UpdateTaskRequest_TaskId
+	//	*UpdateTaskRequest_TaskSlug
+	Task isUpdateTaskRequest_Task `protobuf_oneof:"task"`
 	// The new slug. No other task may have used it. Unchanged when unset.
 	Slug *string `protobuf:"bytes,2,opt,name=slug,proto3,oneof" json:"slug,omitempty"`
 	// The new title. Unchanged when unset.
@@ -968,9 +1014,27 @@ func (*UpdateTaskRequest) Descriptor() ([]byte, []int) {
 	return file_task_v1_task_proto_rawDescGZIP(), []int{9}
 }
 
-func (x *UpdateTaskRequest) GetTask() string {
+func (x *UpdateTaskRequest) GetTask() isUpdateTaskRequest_Task {
 	if x != nil {
 		return x.Task
+	}
+	return nil
+}
+
+func (x *UpdateTaskRequest) GetTaskId() string {
+	if x != nil {
+		if x, ok := x.Task.(*UpdateTaskRequest_TaskId); ok {
+			return x.TaskId
+		}
+	}
+	return ""
+}
+
+func (x *UpdateTaskRequest) GetTaskSlug() string {
+	if x != nil {
+		if x, ok := x.Task.(*UpdateTaskRequest_TaskSlug); ok {
+			return x.TaskSlug
+		}
 	}
 	return ""
 }
@@ -1009,6 +1073,24 @@ func (x *UpdateTaskRequest) GetNotesUpdatedAt() string {
 	}
 	return ""
 }
+
+type isUpdateTaskRequest_Task interface {
+	isUpdateTaskRequest_Task()
+}
+
+type UpdateTaskRequest_TaskId struct {
+	// The task, by id.
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3,oneof"`
+}
+
+type UpdateTaskRequest_TaskSlug struct {
+	// The task, by slug.
+	TaskSlug string `protobuf:"bytes,7,opt,name=task_slug,json=taskSlug,proto3,oneof"`
+}
+
+func (*UpdateTaskRequest_TaskId) isUpdateTaskRequest_Task() {}
+
+func (*UpdateTaskRequest_TaskSlug) isUpdateTaskRequest_Task() {}
 
 type UpdateTaskResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1057,8 +1139,13 @@ func (x *UpdateTaskResponse) GetTask() *Task {
 
 type SetTaskNotesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task whose notes to write, by id or slug.
-	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
+	// The task whose notes to write.
+	//
+	// Types that are valid to be assigned to Task:
+	//
+	//	*SetTaskNotesRequest_TaskId
+	//	*SetTaskNotesRequest_TaskSlug
+	Task isSetTaskNotesRequest_Task `protobuf_oneof:"task"`
 	// The task's new notes in full, in markdown.
 	Notes string `protobuf:"bytes,2,opt,name=notes,proto3" json:"notes,omitempty"`
 	// The `notes_updated_at` that `get_task` returned with the notes. Unset when the notes were
@@ -1098,9 +1185,27 @@ func (*SetTaskNotesRequest) Descriptor() ([]byte, []int) {
 	return file_task_v1_task_proto_rawDescGZIP(), []int{11}
 }
 
-func (x *SetTaskNotesRequest) GetTask() string {
+func (x *SetTaskNotesRequest) GetTask() isSetTaskNotesRequest_Task {
 	if x != nil {
 		return x.Task
+	}
+	return nil
+}
+
+func (x *SetTaskNotesRequest) GetTaskId() string {
+	if x != nil {
+		if x, ok := x.Task.(*SetTaskNotesRequest_TaskId); ok {
+			return x.TaskId
+		}
+	}
+	return ""
+}
+
+func (x *SetTaskNotesRequest) GetTaskSlug() string {
+	if x != nil {
+		if x, ok := x.Task.(*SetTaskNotesRequest_TaskSlug); ok {
+			return x.TaskSlug
+		}
 	}
 	return ""
 }
@@ -1118,6 +1223,24 @@ func (x *SetTaskNotesRequest) GetNotesUpdatedAt() string {
 	}
 	return ""
 }
+
+type isSetTaskNotesRequest_Task interface {
+	isSetTaskNotesRequest_Task()
+}
+
+type SetTaskNotesRequest_TaskId struct {
+	// The task, by id.
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3,oneof"`
+}
+
+type SetTaskNotesRequest_TaskSlug struct {
+	// The task, by slug.
+	TaskSlug string `protobuf:"bytes,4,opt,name=task_slug,json=taskSlug,proto3,oneof"`
+}
+
+func (*SetTaskNotesRequest_TaskId) isSetTaskNotesRequest_Task() {}
+
+func (*SetTaskNotesRequest_TaskSlug) isSetTaskNotesRequest_Task() {}
 
 type SetTaskNotesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1166,8 +1289,13 @@ func (x *SetTaskNotesResponse) GetTask() *Task {
 
 type ArchiveTaskRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task to archive, by id or slug.
-	Task          string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
+	// The task to archive.
+	//
+	// Types that are valid to be assigned to Task:
+	//
+	//	*ArchiveTaskRequest_TaskId
+	//	*ArchiveTaskRequest_TaskSlug
+	Task          isArchiveTaskRequest_Task `protobuf_oneof:"task"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1202,17 +1330,58 @@ func (*ArchiveTaskRequest) Descriptor() ([]byte, []int) {
 	return file_task_v1_task_proto_rawDescGZIP(), []int{13}
 }
 
-func (x *ArchiveTaskRequest) GetTask() string {
+func (x *ArchiveTaskRequest) GetTask() isArchiveTaskRequest_Task {
 	if x != nil {
 		return x.Task
+	}
+	return nil
+}
+
+func (x *ArchiveTaskRequest) GetTaskId() string {
+	if x != nil {
+		if x, ok := x.Task.(*ArchiveTaskRequest_TaskId); ok {
+			return x.TaskId
+		}
 	}
 	return ""
 }
 
+func (x *ArchiveTaskRequest) GetTaskSlug() string {
+	if x != nil {
+		if x, ok := x.Task.(*ArchiveTaskRequest_TaskSlug); ok {
+			return x.TaskSlug
+		}
+	}
+	return ""
+}
+
+type isArchiveTaskRequest_Task interface {
+	isArchiveTaskRequest_Task()
+}
+
+type ArchiveTaskRequest_TaskId struct {
+	// The task, by id.
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3,oneof"`
+}
+
+type ArchiveTaskRequest_TaskSlug struct {
+	// The task, by slug.
+	TaskSlug string `protobuf:"bytes,2,opt,name=task_slug,json=taskSlug,proto3,oneof"`
+}
+
+func (*ArchiveTaskRequest_TaskId) isArchiveTaskRequest_Task() {}
+
+func (*ArchiveTaskRequest_TaskSlug) isArchiveTaskRequest_Task() {}
+
 type SetTaskHiddenRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task to hide or show, by id or slug.
-	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
+	// The task to hide or show.
+	//
+	// Types that are valid to be assigned to Task:
+	//
+	//	*SetTaskHiddenRequest_TaskId
+	//	*SetTaskHiddenRequest_TaskSlug
+	Task isSetTaskHiddenRequest_Task `protobuf_oneof:"task"`
 	// Whether to hide the task. False shows the task again.
 	Hidden        bool `protobuf:"varint,2,opt,name=hidden,proto3" json:"hidden,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1249,9 +1418,27 @@ func (*SetTaskHiddenRequest) Descriptor() ([]byte, []int) {
 	return file_task_v1_task_proto_rawDescGZIP(), []int{14}
 }
 
-func (x *SetTaskHiddenRequest) GetTask() string {
+func (x *SetTaskHiddenRequest) GetTask() isSetTaskHiddenRequest_Task {
 	if x != nil {
 		return x.Task
+	}
+	return nil
+}
+
+func (x *SetTaskHiddenRequest) GetTaskId() string {
+	if x != nil {
+		if x, ok := x.Task.(*SetTaskHiddenRequest_TaskId); ok {
+			return x.TaskId
+		}
+	}
+	return ""
+}
+
+func (x *SetTaskHiddenRequest) GetTaskSlug() string {
+	if x != nil {
+		if x, ok := x.Task.(*SetTaskHiddenRequest_TaskSlug); ok {
+			return x.TaskSlug
+		}
 	}
 	return ""
 }
@@ -1262,6 +1449,24 @@ func (x *SetTaskHiddenRequest) GetHidden() bool {
 	}
 	return false
 }
+
+type isSetTaskHiddenRequest_Task interface {
+	isSetTaskHiddenRequest_Task()
+}
+
+type SetTaskHiddenRequest_TaskId struct {
+	// The task, by id.
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3,oneof"`
+}
+
+type SetTaskHiddenRequest_TaskSlug struct {
+	// The task, by slug.
+	TaskSlug string `protobuf:"bytes,3,opt,name=task_slug,json=taskSlug,proto3,oneof"`
+}
+
+func (*SetTaskHiddenRequest_TaskId) isSetTaskHiddenRequest_Task() {}
+
+func (*SetTaskHiddenRequest_TaskSlug) isSetTaskHiddenRequest_Task() {}
 
 type MarkTaskRunsReadRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1310,11 +1515,13 @@ func (x *MarkTaskRunsReadRequest) GetId() string {
 
 type DeleteTasksRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The tasks to delete, by id or slug.
-	Tasks []string `protobuf:"bytes,1,rep,name=tasks,proto3" json:"tasks,omitempty"`
+	// The tasks to delete, by id.
+	TaskIds []string `protobuf:"bytes,1,rep,name=task_ids,json=taskIds,proto3" json:"task_ids,omitempty"`
 	// Whether to delete the tasks' agents, transcripts, documents, mail, notes and reviews too.
 	// False deletes only the tasks' worktrees and keeps the tasks archived.
-	Records       bool `protobuf:"varint,2,opt,name=records,proto3" json:"records,omitempty"`
+	Records bool `protobuf:"varint,2,opt,name=records,proto3" json:"records,omitempty"`
+	// The tasks to delete, by slug.
+	TaskSlugs     []string `protobuf:"bytes,3,rep,name=task_slugs,json=taskSlugs,proto3" json:"task_slugs,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1349,9 +1556,9 @@ func (*DeleteTasksRequest) Descriptor() ([]byte, []int) {
 	return file_task_v1_task_proto_rawDescGZIP(), []int{16}
 }
 
-func (x *DeleteTasksRequest) GetTasks() []string {
+func (x *DeleteTasksRequest) GetTaskIds() []string {
 	if x != nil {
-		return x.Tasks
+		return x.TaskIds
 	}
 	return nil
 }
@@ -1361,6 +1568,13 @@ func (x *DeleteTasksRequest) GetRecords() bool {
 		return x.Records
 	}
 	return false
+}
+
+func (x *DeleteTasksRequest) GetTaskSlugs() []string {
+	if x != nil {
+		return x.TaskSlugs
+	}
+	return nil
 }
 
 var File_task_v1_task_proto protoreflect.FileDescriptor
@@ -1420,57 +1634,69 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\n" +
 	"fork_point\x18\x02 \x01(\tR\tforkPoint\x12&\n" +
 	"\x0fpull_request_id\x18\x03 \x01(\tR\rpullRequestId\x12/\n" +
-	"\ablocked\x18\x04 \x01(\x0e2\x15.task.v1.CascadeBlockR\ablocked\"\xbb\x01\n" +
+	"\ablocked\x18\x04 \x01(\x0e2\x15.task.v1.CascadeBlockR\ablocked\"\xbc\x01\n" +
 	"\x11CreateTaskRequest\x127\n" +
 	"\x04slug\x18\x01 \x01(\tB#\xbaH r\x1e\x10\x01\x18P2\x18^[a-z0-9]+(-[a-z0-9]+)*$R\x04slug\x12$\n" +
 	"\x05title\x18\x02 \x01(\tB\x0e\xbaH\vr\tػ\x18\x01\x10\x01\x18\xc8\x01R\x05title\x12\x1d\n" +
-	"\x04goal\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\x04goal\x12(\n" +
-	"\vworkflow_id\x18\x04 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
+	"\x04goal\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\x04goal\x12)\n" +
+	"\vworkflow_id\x18\x04 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\n" +
 	"workflowId\"7\n" +
 	"\x12CreateTaskResponse\x12!\n" +
-	"\x04task\x18\x01 \x01(\v2\r.task.v1.TaskR\x04task\"-\n" +
-	"\x0eGetTaskRequest\x12\x1b\n" +
-	"\x04task\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04task\"4\n" +
+	"\x04task\x18\x01 \x01(\v2\r.task.v1.TaskR\x04task\"l\n" +
+	"\x0eGetTaskRequest\x12#\n" +
+	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
+	"\ttask_slug\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlugB\r\n" +
+	"\x04task\x12\x05\xbaH\x02\b\x01\"4\n" +
 	"\x0fGetTaskResponse\x12!\n" +
-	"\x04task\x18\x01 \x01(\v2\r.task.v1.TaskR\x04task\"X\n" +
-	"\x10ListTasksRequest\x12(\n" +
-	"\vworkflow_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
+	"\x04task\x18\x01 \x01(\v2\r.task.v1.TaskR\x04task\"Y\n" +
+	"\x10ListTasksRequest\x12)\n" +
+	"\vworkflow_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\n" +
 	"workflowId\x12\x1a\n" +
 	"\barchived\x18\x02 \x01(\bR\barchived\"8\n" +
 	"\x11ListTasksResponse\x12#\n" +
-	"\x05tasks\x18\x01 \x03(\v2\r.task.v1.TaskR\x05tasks\"\xb2\x03\n" +
-	"\x11UpdateTaskRequest\x12\x1b\n" +
-	"\x04task\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04task\x12<\n" +
-	"\x04slug\x18\x02 \x01(\tB#\xbaH r\x1e\x10\x01\x18P2\x18^[a-z0-9]+(-[a-z0-9]+)*$H\x00R\x04slug\x88\x01\x01\x12)\n" +
-	"\x05title\x18\x03 \x01(\tB\x0e\xbaH\vr\tػ\x18\x01\x10\x01\x18\xc8\x01H\x01R\x05title\x88\x01\x01\x12\"\n" +
-	"\x04goal\x18\x04 \x01(\tB\t\xbaH\x06r\x04\x18І\x03H\x02R\x04goal\x88\x01\x01\x12$\n" +
-	"\x05notes\x18\x05 \x01(\tB\t\xbaH\x06r\x04\x18\xa0\x8d\x06H\x03R\x05notes\x88\x01\x01\x12\x91\x01\n" +
-	"\x10notes_updated_at\x18\x06 \x01(\tBb\xbaH_r]2[^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$H\x04R\x0enotesUpdatedAt\x88\x01\x01B\a\n" +
+	"\x05tasks\x18\x01 \x03(\v2\r.task.v1.TaskR\x05tasks\"\xf1\x03\n" +
+	"\x11UpdateTaskRequest\x12#\n" +
+	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
+	"\ttask_slug\x18\a \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlug\x12<\n" +
+	"\x04slug\x18\x02 \x01(\tB#\xbaH r\x1e\x10\x01\x18P2\x18^[a-z0-9]+(-[a-z0-9]+)*$H\x01R\x04slug\x88\x01\x01\x12)\n" +
+	"\x05title\x18\x03 \x01(\tB\x0e\xbaH\vr\tػ\x18\x01\x10\x01\x18\xc8\x01H\x02R\x05title\x88\x01\x01\x12\"\n" +
+	"\x04goal\x18\x04 \x01(\tB\t\xbaH\x06r\x04\x18І\x03H\x03R\x04goal\x88\x01\x01\x12$\n" +
+	"\x05notes\x18\x05 \x01(\tB\t\xbaH\x06r\x04\x18\xa0\x8d\x06H\x04R\x05notes\x88\x01\x01\x12\x91\x01\n" +
+	"\x10notes_updated_at\x18\x06 \x01(\tBb\xbaH_r]2[^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$H\x05R\x0enotesUpdatedAt\x88\x01\x01B\r\n" +
+	"\x04task\x12\x05\xbaH\x02\b\x01B\a\n" +
 	"\x05_slugB\b\n" +
 	"\x06_titleB\a\n" +
 	"\x05_goalB\b\n" +
 	"\x06_notesB\x13\n" +
 	"\x11_notes_updated_at\"7\n" +
 	"\x12UpdateTaskResponse\x12!\n" +
-	"\x04task\x18\x01 \x01(\v2\r.task.v1.TaskR\x04task\"\xfc\x01\n" +
-	"\x13SetTaskNotesRequest\x12\x1b\n" +
-	"\x04task\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04task\x12\x1f\n" +
+	"\x04task\x18\x01 \x01(\v2\r.task.v1.TaskR\x04task\"\xbb\x02\n" +
+	"\x13SetTaskNotesRequest\x12#\n" +
+	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
+	"\ttask_slug\x18\x04 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlug\x12\x1f\n" +
 	"\x05notes\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x18\xa0\x8d\x06R\x05notes\x12\x91\x01\n" +
-	"\x10notes_updated_at\x18\x03 \x01(\tBb\xbaH_r]2[^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$H\x00R\x0enotesUpdatedAt\x88\x01\x01B\x13\n" +
+	"\x10notes_updated_at\x18\x03 \x01(\tBb\xbaH_r]2[^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$H\x01R\x0enotesUpdatedAt\x88\x01\x01B\r\n" +
+	"\x04task\x12\x05\xbaH\x02\b\x01B\x13\n" +
 	"\x11_notes_updated_at\"9\n" +
 	"\x14SetTaskNotesResponse\x12!\n" +
-	"\x04task\x18\x01 \x01(\v2\r.task.v1.TaskR\x04task\"1\n" +
-	"\x12ArchiveTaskRequest\x12\x1b\n" +
-	"\x04task\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04task\"K\n" +
-	"\x14SetTaskHiddenRequest\x12\x1b\n" +
-	"\x04task\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04task\x12\x16\n" +
-	"\x06hidden\x18\x02 \x01(\bR\x06hidden\"2\n" +
-	"\x17MarkTaskRunsReadRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"V\n" +
-	"\x12DeleteTasksRequest\x12&\n" +
-	"\x05tasks\x18\x01 \x03(\tB\x10\xbaH\r\x92\x01\n" +
-	"\b\x01\x18\x01\"\x04r\x02\x10\x01R\x05tasks\x12\x18\n" +
-	"\arecords\x18\x02 \x01(\bR\arecords*\xa0\x01\n" +
+	"\x04task\x18\x01 \x01(\v2\r.task.v1.TaskR\x04task\"p\n" +
+	"\x12ArchiveTaskRequest\x12#\n" +
+	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
+	"\ttask_slug\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlugB\r\n" +
+	"\x04task\x12\x05\xbaH\x02\b\x01\"\x8a\x01\n" +
+	"\x14SetTaskHiddenRequest\x12#\n" +
+	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
+	"\ttask_slug\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlug\x12\x16\n" +
+	"\x06hidden\x18\x02 \x01(\bR\x06hiddenB\r\n" +
+	"\x04task\x12\x05\xbaH\x02\b\x01\"3\n" +
+	"\x17MarkTaskRunsReadRequest\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"\xfa\x01\n" +
+	"\x12DeleteTasksRequest\x12*\n" +
+	"\btask_ids\x18\x01 \x03(\tB\x0f\xbaH\f\x92\x01\t\x18\x01\"\x05r\x03\xb0\x01\x01R\ataskIds\x12\x18\n" +
+	"\arecords\x18\x02 \x01(\bR\arecords\x12-\n" +
+	"\n" +
+	"task_slugs\x18\x03 \x03(\tB\x0e\xbaH\v\x92\x01\b\x18\x01\"\x04r\x02\x10\x01R\ttaskSlugs:o\xbaHl\x1aj\n" +
+	"\vtasks.named\x12(name at least one task, by id or by slug\x1a1this.task_ids.size() + this.task_slugs.size() > 0*\xa0\x01\n" +
 	"\bSequence\x12\x18\n" +
 	"\x14SEQUENCE_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rSEQUENCE_NONE\x10\x01\x12\x13\n" +
@@ -1487,19 +1713,19 @@ const file_task_v1_task_proto_rawDesc = "" +
 	"\x15WorktreeRemovalReason\x12'\n" +
 	"#WORKTREE_REMOVAL_REASON_UNSPECIFIED\x10\x00\x12#\n" +
 	"\x1fWORKTREE_REMOVAL_REASON_DELETED\x10\x01\x12 \n" +
-	"\x1cWORKTREE_REMOVAL_REASON_GONE\x10\x022\x82\x12\n" +
-	"\vTaskService\x12\xcf\x01\n" +
+	"\x1cWORKTREE_REMOVAL_REASON_GONE\x10\x022\xe2\x12\n" +
+	"\vTaskService\x12\xe6\x01\n" +
 	"\n" +
-	"CreateTask\x12\x1a.task.v1.CreateTaskRequest\x1a\x1b.task.v1.CreateTaskResponse\"\x87\x01\x9a\xb5\x18\x82\x01\b\x01\x10\x01\x1a\vcreate_task\"jCreate a task in a workflow. To put an agent on the task, pass its id or slug as `task` to `create_agent`.(\x00:\x01\x02\x12\x96\x01\n" +
-	"\aGetTask\x12\x17.task.v1.GetTaskRequest\x1a\x18.task.v1.GetTaskResponse\"X\x9a\xb5\x18Q\b\x01\x10\x01\x1a\bget_task\"<Get one task by id or slug, with its goal and notes in full.:\x03\x03\x01\x02\x90\x02\x01\x12\xbe\x01\n" +
+	"CreateTask\x12\x1a.task.v1.CreateTaskRequest\x1a\x1b.task.v1.CreateTaskResponse\"\x9e\x01\x9a\xb5\x18\x99\x01\b\x01\x10\x01\x1a\vcreate_task\"\x80\x01Create a task in a workflow. To put an agent on the task, pass its id as `task_id` or its slug as `task_slug` to `create_agent`.(\x00:\x01\x02\x12\xa4\x01\n" +
+	"\aGetTask\x12\x17.task.v1.GetTaskRequest\x1a\x18.task.v1.GetTaskResponse\"f\x9a\xb5\x18_\b\x01\x10\x01\x1a\bget_task\"JGet one task by `task_id` or `task_slug`, with its goal and notes in full.:\x03\x03\x01\x02\x90\x02\x01\x12\xbe\x01\n" +
 	"\tListTasks\x12\x19.task.v1.ListTasksRequest\x1a\x1a.task.v1.ListTasksResponse\"z\x9a\xb5\x18s\b\x01\x10\x01\x1a\n" +
-	"list_tasks\"\\List a workflow's tasks, newest first. Archived tasks are left out unless `archived` is set.:\x03\x03\x01\x02\x90\x02\x01\x12\x83\x03\n" +
+	"list_tasks\"\\List a workflow's tasks, newest first. Archived tasks are left out unless `archived` is set.:\x03\x03\x01\x02\x90\x02\x01\x12\x91\x03\n" +
 	"\n" +
-	"UpdateTask\x12\x1a.task.v1.UpdateTaskRequest\x1a\x1b.task.v1.UpdateTaskResponse\"\xbb\x02\x9a\xb5\x18\xb3\x02\b\x01\x10\x01\x1a\vupdate_task\"\x9a\x02Change a task's slug, title, goal or notes, by id or slug. Fields left unset keep their values. Changing the notes needs the `notes_updated_at` they were read with, and fails with `failed_precondition` when they changed since. Agents see the change the next time they read the task.(\x00:\x01\x02\x90\x02\x02\x12\xe8\x02\n" +
-	"\fSetTaskNotes\x12\x1c.task.v1.SetTaskNotesRequest\x1a\x1d.task.v1.SetTaskNotesResponse\"\x9a\x02\x9a\xb5\x18\x92\x02\b\x01\x10\x01\x1a\x0eset_task_notes\"\xa6\x01Replace a task's notes, which every agent that joins the task starts from. The write fails with `failed_precondition` when the notes changed since `notes_updated_at`.(\x00:\x03\x03\x01\x02JLOn failed_precondition, read the task again and keep what was written since.\x90\x02\x02\x12\xd8\x01\n" +
-	"\vArchiveTask\x12\x1b.task.v1.ArchiveTaskRequest\x1a\x16.google.protobuf.Empty\"\x93\x01\x9a\xb5\x18\x8b\x01\b\x01\x10\x01\x1a\farchive_task\"rArchive a task by id or slug, with the live agents on it. The task keeps its record, and its slug is never reused.(\x00:\x01\x02\x90\x02\x02\x12\xc9\x02\n" +
-	"\vDeleteTasks\x12\x1b.task.v1.DeleteTasksRequest\x1a\x16.google.protobuf.Empty\"\x84\x02\x9a\xb5\x18\xfc\x01\b\x01\x1a\fdelete_tasks\"\xc7\x01Delete tasks' worktrees, by id or slug, archiving the tasks first. With records set, delete the tasks for good too, with every agent on them and their transcripts, documents, mail, notes and reviews.(\x01B\x1eOnly the person deletes tasks.\x90\x02\x02\x12\x93\x02\n" +
-	"\rSetTaskHidden\x12\x1d.task.v1.SetTaskHiddenRequest\x1a\x16.google.protobuf.Empty\"\xca\x01\x9a\xb5\x18\xc2\x01\b\x01\x10\x01\x1a\x0fset_task_hidden\"\x87\x01Hide a task by id or slug, or show it again. A hidden task stays live with its agents running, and clients leave it out of their lists.(\x00:\x01\x02J\x1cHide a task only when asked.\x90\x02\x02\x12\x98\x01\n" +
+	"UpdateTask\x12\x1a.task.v1.UpdateTaskRequest\x1a\x1b.task.v1.UpdateTaskResponse\"\xc9\x02\x9a\xb5\x18\xc1\x02\b\x01\x10\x01\x1a\vupdate_task\"\xa8\x02Change a task's slug, title, goal or notes, by `task_id` or `task_slug`. Fields left unset keep their values. Changing the notes needs the `notes_updated_at` they were read with, and fails with `failed_precondition` when they changed since. Agents see the change the next time they read the task.(\x00:\x01\x02\x90\x02\x02\x12\xe8\x02\n" +
+	"\fSetTaskNotes\x12\x1c.task.v1.SetTaskNotesRequest\x1a\x1d.task.v1.SetTaskNotesResponse\"\x9a\x02\x9a\xb5\x18\x92\x02\b\x01\x10\x01\x1a\x0eset_task_notes\"\xa6\x01Replace a task's notes, which every agent that joins the task starts from. The write fails with `failed_precondition` when the notes changed since `notes_updated_at`.(\x00:\x03\x03\x01\x02JLOn failed_precondition, read the task again and keep what was written since.\x90\x02\x02\x12\xe7\x01\n" +
+	"\vArchiveTask\x12\x1b.task.v1.ArchiveTaskRequest\x1a\x16.google.protobuf.Empty\"\xa2\x01\x9a\xb5\x18\x9a\x01\b\x01\x10\x01\x1a\farchive_task\"\x80\x01Archive a task by `task_id` or `task_slug`, with the live agents on it. The task keeps its record, and its slug is never reused.(\x00:\x01\x02\x90\x02\x02\x12\xd9\x02\n" +
+	"\vDeleteTasks\x12\x1b.task.v1.DeleteTasksRequest\x1a\x16.google.protobuf.Empty\"\x94\x02\x9a\xb5\x18\x8c\x02\b\x01\x1a\fdelete_tasks\"\xd7\x01Delete tasks' worktrees, by `task_ids` or `task_slugs`, archiving the tasks first. With records set, delete the tasks for good too, with every agent on them and their transcripts, documents, mail, notes and reviews.(\x01B\x1eOnly the person deletes tasks.\x90\x02\x02\x12\xa1\x02\n" +
+	"\rSetTaskHidden\x12\x1d.task.v1.SetTaskHiddenRequest\x1a\x16.google.protobuf.Empty\"\xd8\x01\x9a\xb5\x18\xd0\x01\b\x01\x10\x01\x1a\x0fset_task_hidden\"\x95\x01Hide a task by `task_id` or `task_slug`, or show it again. A hidden task stays live with its agents running, and clients leave it out of their lists.(\x00:\x01\x02J\x1cHide a task only when asked.\x90\x02\x02\x12\x98\x01\n" +
 	"\x10MarkTaskRunsRead\x12 .task.v1.MarkTaskRunsReadRequest\x1a\x16.google.protobuf.Empty\"J\x9a\xb5\x18CBAOnly the person can say they have seen a task's failed hook runs.\x90\x02\x02B!Z\x1fkomrad/proto/gen/task/v1;taskv1b\x06proto3"
 
 var (
@@ -1581,8 +1807,26 @@ func file_task_v1_task_proto_init() {
 		return
 	}
 	file_task_v1_task_proto_msgTypes[1].OneofWrappers = []any{}
-	file_task_v1_task_proto_msgTypes[9].OneofWrappers = []any{}
-	file_task_v1_task_proto_msgTypes[11].OneofWrappers = []any{}
+	file_task_v1_task_proto_msgTypes[5].OneofWrappers = []any{
+		(*GetTaskRequest_TaskId)(nil),
+		(*GetTaskRequest_TaskSlug)(nil),
+	}
+	file_task_v1_task_proto_msgTypes[9].OneofWrappers = []any{
+		(*UpdateTaskRequest_TaskId)(nil),
+		(*UpdateTaskRequest_TaskSlug)(nil),
+	}
+	file_task_v1_task_proto_msgTypes[11].OneofWrappers = []any{
+		(*SetTaskNotesRequest_TaskId)(nil),
+		(*SetTaskNotesRequest_TaskSlug)(nil),
+	}
+	file_task_v1_task_proto_msgTypes[13].OneofWrappers = []any{
+		(*ArchiveTaskRequest_TaskId)(nil),
+		(*ArchiveTaskRequest_TaskSlug)(nil),
+	}
+	file_task_v1_task_proto_msgTypes[14].OneofWrappers = []any{
+		(*SetTaskHiddenRequest_TaskId)(nil),
+		(*SetTaskHiddenRequest_TaskSlug)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

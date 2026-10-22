@@ -107,7 +107,7 @@ func TestIntegrationAgentLifecycle(t *testing.T) {
 
 	t.Run("archiving its task takes the pane with it", func(t *testing.T) {
 		_, err := instance.Tasks.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{
-			Task: agent.GetTaskId(),
+			Task: &taskv1.ArchiveTaskRequest_TaskId{TaskId: agent.GetTaskId()},
 		}))
 		require.NoError(t, err)
 
@@ -172,7 +172,7 @@ func TestIntegrationAgentLifecycle(t *testing.T) {
 
 	t.Run("deleting its task leaves nothing behind", func(t *testing.T) {
 		_, err := instance.Tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{
-			Tasks:   []string{agent.GetTaskId()},
+			TaskIds: []string{agent.GetTaskId()},
 			Records: true,
 		}))
 		require.NoError(t, err)
@@ -226,7 +226,7 @@ func TestIntegrationAgentsSpawnAgents(t *testing.T) {
 			Prompt:     "read the change",
 			Title:      "reviewer",
 			WorkflowId: workflowID,
-			Task:       writer.TaskId,
+			Task:       &agentv1.CreateAgentRequest_TaskId{TaskId: writer.GetTaskId()},
 		})
 		callAs(req, writer.GetId())
 
@@ -241,7 +241,7 @@ func TestIntegrationAgentsSpawnAgents(t *testing.T) {
 
 	t.Run("archiving the task takes its reviewer", func(t *testing.T) {
 		_, err := instance.Tasks.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{
-			Task: writer.GetTaskId(),
+			Task: &taskv1.ArchiveTaskRequest_TaskId{TaskId: writer.GetTaskId()},
 		}))
 		require.NoError(t, err)
 

@@ -15,10 +15,12 @@ import (
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	logv1 "komrad/proto/gen/log/v1"
+	"komrad/proto/gen/log/v1/logv1komrad"
 
 	runstore "komrad/internal/store/run"
 	workflowstore "komrad/internal/store/workflow"
 
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -112,32 +114,33 @@ func (s *Handler) ListRecentTraces(_ context.Context, req *logv1.ListRecentTrace
 
 // ReadAgentLogs is the lines of one of the agents' log sources, the newest without a cursor and
 // those written since it with one.
-func (s *Handler) ReadAgentLogs(ctx context.Context, req *logv1.ReadAgentLogsRequest) (*logv1.ReadAgentLogsResponse, *fail.Error) {
-	query := logread.Query{Limit: int(req.GetLimit())}
+func (s *Handler) ReadAgentLogs(ctx context.Context, req *logv1komrad.ReadAgentLogsRequest) (*logv1.ReadAgentLogsResponse, *fail.Error) {
+	agentIDs := xslice.Map(req.AgentIds, uuid.UUID.String)
+	query := logread.Query{Limit: int(req.Limit)}
 	if query.Limit == 0 {
 		query.Limit = defaultAgentLogLimit
 	}
 
 	offset := int64(-1)
-	if req.GetCursor() != "" {
-		parsed, err := strconv.ParseInt(req.GetCursor(), 10, 64)
+	if req.Cursor != "" {
+		parsed, err := strconv.ParseInt(req.Cursor, 10, 64)
 		if err != nil || parsed < 0 {
-			return nil, errBadCursor.Saying("cursor %q is not one this server answered", req.GetCursor())
+			return nil, errBadCursor.Saying("cursor %q is not one this server answered", req.Cursor)
 		}
 		offset = parsed
 	}
 
-	if req.GetPattern() != "" {
-		pattern, err := regexp.Compile(req.GetPattern())
+	if req.Pattern != "" {
+		pattern, err := regexp.Compile(req.Pattern)
 		if err != nil {
-			return nil, errBadPattern.Saying("pattern %q does not compile: %v", req.GetPattern(), err)
+			return nil, errBadPattern.Saying("pattern %q does not compile: %v", req.Pattern, err)
 		}
 		query.Pattern = pattern
 	}
 
-	isRun := req.GetSource() != "" && req.GetSource() != serverSource
-	if isRun && len(req.GetAgentIds()) != 1 {
-		return nil, errOneAgentPerRun.Saying("source %q was asked of %d agents", req.GetSource(), len(req.GetAgentIds()))
+	isRun := req.Source != "" && req.Source != serverSource
+	if isRun && len(agentIDs) != 1 {
+		return nil, errOneAgentPerRun.Saying("source %q was asked of %d agents", req.Source, len(agentIDs))
 	}
 
 	var (
@@ -146,13 +149,13 @@ func (s *Handler) ReadAgentLogs(ctx context.Context, req *logv1.ReadAgentLogsReq
 	)
 	switch {
 	case isRun && offset < 0:
-		window, err = s.runs.Newest(ctx, logread.Run{AgentID: req.GetAgentIds()[0], Name: req.GetSource()}, query)
+		window, err = s.runs.Newest(ctx, logread.Run{AgentID: agentIDs[0], Name: req.Source}, query)
 	case isRun:
-		window, err = s.runs.Since(ctx, logread.Run{AgentID: req.GetAgentIds()[0], Name: req.GetSource()}, offset, query)
+		window, err = s.runs.Since(ctx, logread.Run{AgentID: agentIDs[0], Name: req.Source}, offset, query)
 	case offset < 0:
-		window, err = s.log.NewestAboutAgents(ctx, req.GetAgentIds(), query)
+		window, err = s.log.NewestAboutAgents(ctx, agentIDs, query)
 	default:
-		window, err = s.log.AboutAgentsSince(ctx, req.GetAgentIds(), offset, query)
+		window, err = s.log.AboutAgentsSince(ctx, agentIDs, offset, query)
 	}
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the agents' logs")
@@ -167,13 +170,14 @@ func (s *Handler) ReadAgentLogs(ctx context.Context, req *logv1.ReadAgentLogsReq
 }
 
 // ListAgentLogSources is the server log and then each script run of the agent's own moments it recorded, newest first.
-func (s *Handler) ListAgentLogSources(_ context.Context, req *logv1.ListAgentLogSourcesRequest) (*logv1.ListAgentLogSourcesResponse, *fail.Error) {
-	owned := xslice.Filter(s.runs.List(req.GetAgentId()), func(run config.RunLog) bool {
+func (s *Handler) ListAgentLogSources(_ context.Context, req *logv1komrad.ListAgentLogSourcesRequest) (*logv1.ListAgentLogSourcesResponse, *fail.Error) {
+	agentID := req.AgentId.String()
+	owned := xslice.Filter(s.runs.List(agentID), func(run config.RunLog) bool {
 		return !workflowstore.IsTaskEvent(run.Trigger)
 	})
 	runs := xslice.Map(owned, func(run config.RunLog) *logv1.LogSource {
 		return renderRunSource(renderRunSourceParams{
-			agentID: req.GetAgentId(),
+			agentID: agentID,
 			number:  run.Number,
 			trigger: run.Trigger,
 			script:  run.Script,
@@ -186,8 +190,8 @@ func (s *Handler) ListAgentLogSources(_ context.Context, req *logv1.ListAgentLog
 }
 
 // ListTaskLogSources is each script run recorded on the task, by any agent on it, newest first.
-func (s *Handler) ListTaskLogSources(ctx context.Context, req *logv1.ListTaskLogSourcesRequest) (*logv1.ListTaskLogSourcesResponse, *fail.Error) {
-	runs, err := s.taskRuns.ListRuns(ctx, req.GetTaskId())
+func (s *Handler) ListTaskLogSources(ctx context.Context, req *logv1komrad.ListTaskLogSourcesRequest) (*logv1.ListTaskLogSourcesResponse, *fail.Error) {
+	runs, err := s.taskRuns.ListRuns(ctx, req.TaskId.String())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the task's runs")
 	}

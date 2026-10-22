@@ -20,6 +20,7 @@ import (
 	"komrad/internal/tasks"
 	"komrad/lib/xslice"
 	"komrad/lib/xstr"
+	"komrad/proto/gen/oneofs"
 
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
@@ -335,14 +336,18 @@ func (s *LifecycleService) archiveAgents(ctx context.Context, agents []agentstor
 	return nil
 }
 
-// ArchiveTask archives the task an id or a slug names along with the live agents working on it.
-func (s *LifecycleService) ArchiveTask(ctx context.Context, ref string) error {
-	found, err := s.tasks.GetTask(ctx, ref)
+// ArchiveTask archives a task along with the live agents working on it.
+func (s *LifecycleService) ArchiveTask(ctx context.Context, task oneofs.Task) error {
+	found, err := s.tasks.FindTask(ctx, task)
 	if err != nil {
 		return err
 	}
 
-	live, err := s.agents.ListLiveOnTask(ctx, found.ID)
+	return s.archiveTask(ctx, found.ID)
+}
+
+func (s *LifecycleService) archiveTask(ctx context.Context, id string) error {
+	live, err := s.agents.ListLiveOnTask(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -352,12 +357,12 @@ func (s *LifecycleService) ArchiveTask(ctx context.Context, ref string) error {
 		}
 	}
 
-	return s.tasks.Archive(context.WithoutCancel(ctx), found.ID)
+	return s.tasks.Archive(context.WithoutCancel(ctx), id)
 }
 
 // DeleteTasksParams is the tasks to delete, whether their records go too, and the agent asking.
 type DeleteTasksParams struct {
-	Refs []string
+	Tasks []oneofs.Task
 	// Records deletes the tasks for good, with every agent on them, rather than only their worktrees.
 	Records bool
 	// ByAgentID is the agent asking, empty for the panel.
@@ -371,9 +376,9 @@ func (s *LifecycleService) DeleteTasks(ctx context.Context, params DeleteTasksPa
 		return agenterr.ErrDeleteByAgent
 	}
 
-	ids := make([]string, 0, len(params.Refs))
-	for _, ref := range params.Refs {
-		found, err := s.tasks.GetTask(ctx, ref)
+	ids := make([]string, 0, len(params.Tasks))
+	for _, task := range params.Tasks {
+		found, err := s.tasks.FindTask(ctx, task)
 		if err != nil {
 			return err
 		}
@@ -386,7 +391,7 @@ func (s *LifecycleService) DeleteTasks(ctx context.Context, params DeleteTasksPa
 	}
 
 	for _, id := range ids {
-		if err := s.ArchiveTask(ctx, id); err != nil {
+		if err := s.archiveTask(ctx, id); err != nil {
 			return err
 		}
 	}

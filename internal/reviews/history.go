@@ -10,6 +10,7 @@ import (
 	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
 	"komrad/lib/xslice"
+	"komrad/proto/gen/oneofs"
 )
 
 const (
@@ -26,7 +27,7 @@ type ReviewHistory struct {
 }
 
 type GetHistoryParams struct {
-	Task   string
+	Task   oneofs.Task
 	Span   history.Span
 	Author ReviewAuthor
 }

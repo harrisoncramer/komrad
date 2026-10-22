@@ -203,6 +203,9 @@ linters:
             - "**/internal/tasks/**"
             - "**/internal/transcripts/**"
             - "**/internal/worktrees/**"
+          list-mode: lax
+          allow:
+            - komrad/proto/gen/oneofs
           deny:
             - pkg: komrad/proto/gen
               desc: the service decides in its own types, and rendering them onto the wire is the handler's job

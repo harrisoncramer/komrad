@@ -186,7 +186,7 @@ func TestAgentsShowHidden(t *testing.T) {
 
 		harness.Press("space", "h", "h")
 
-		harness.AssertSentTo(taskv1connect.TaskServiceSetTaskHiddenProcedure, &taskv1.SetTaskHiddenRequest{Task: "task-a1", Hidden: true})
+		harness.AssertSentTo(taskv1connect.TaskServiceSetTaskHiddenProcedure, &taskv1.SetTaskHiddenRequest{Task: &taskv1.SetTaskHiddenRequest_TaskId{TaskId: "task-a1"}, Hidden: true})
 	})
 
 	t.Run("the hide entry unhides a revealed task", func(t *testing.T) {
@@ -194,7 +194,7 @@ func TestAgentsShowHidden(t *testing.T) {
 
 		harness.Press("space", "h", "H", "k", "space", "h", "h")
 
-		harness.AssertSentTo(taskv1connect.TaskServiceSetTaskHiddenProcedure, &taskv1.SetTaskHiddenRequest{Task: "task-a2", Hidden: false})
+		harness.AssertSentTo(taskv1connect.TaskServiceSetTaskHiddenProcedure, &taskv1.SetTaskHiddenRequest{Task: &taskv1.SetTaskHiddenRequest_TaskId{TaskId: "task-a2"}, Hidden: false})
 	})
 
 	t.Run("a selection covering a whole task hides it", func(t *testing.T) {
@@ -202,7 +202,7 @@ func TestAgentsShowHidden(t *testing.T) {
 
 		harness.Press("v", "space", "h", "h")
 
-		harness.AssertSentTo(taskv1connect.TaskServiceSetTaskHiddenProcedure, &taskv1.SetTaskHiddenRequest{Task: "task-fix-gutter", Hidden: true})
+		harness.AssertSentTo(taskv1connect.TaskServiceSetTaskHiddenProcedure, &taskv1.SetTaskHiddenRequest{Task: &taskv1.SetTaskHiddenRequest_TaskId{TaskId: "task-fix-gutter"}, Hidden: true})
 	})
 
 	t.Run("a selection reaching part of a task holds hide gray", func(t *testing.T) {
@@ -1734,7 +1734,7 @@ func TestAgentsEdit(t *testing.T) {
 				tt.close(harness)
 
 				require.Len(t, *said, 1)
-				assert.Equal(t, "a1", (*said)[0].GetTo())
+				assert.Equal(t, "a1", (*said)[0].GetToAgentId())
 				assert.Contains(t, (*said)[0].GetBody(), "had your worktree open in my editor")
 			})
 		}
@@ -2235,7 +2235,9 @@ func TestAgentsSelection(t *testing.T) {
 }
 
 func readArchiveTaskRequests(ids []string) []proto.Message {
-	return xslice.Map(ids, func(id string) proto.Message { return &taskv1.ArchiveTaskRequest{Task: id} })
+	return xslice.Map(ids, func(id string) proto.Message {
+		return &taskv1.ArchiveTaskRequest{Task: &taskv1.ArchiveTaskRequest_TaskId{TaskId: id}}
+	})
 }
 
 const (

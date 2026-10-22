@@ -20,6 +20,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/wake"
 	"komrad/lib/xpath"
+	"komrad/proto/gen/oneofs"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -62,9 +63,9 @@ func (t checkoutTarget) dir() string {
 	return t.task.Checkout.Cwd
 }
 
-// taskFinder reads the task an id or a slug names.
+// taskFinder reads the task a caller named by its id or by its slug.
 type taskFinder interface {
-	GetTask(ctx context.Context, ref string) (*taskstore.Task, error)
+	FindTask(ctx context.Context, task oneofs.Task) (*taskstore.Task, error)
 }
 
 // txRunner runs a function inside one transaction.
@@ -172,8 +173,8 @@ func buildParkRef(space parkSpace, taskID string) string {
 }
 
 // eligible answers the task and its workflow when its worktree is komrad's to act on, or the reason it is not.
-func (s *Service) eligible(ctx context.Context, ref string) (*checkoutTarget, error) {
-	task, err := s.taskFinder.GetTask(ctx, ref)
+func (s *Service) eligible(ctx context.Context, named oneofs.Task) (*checkoutTarget, error) {
+	task, err := s.taskFinder.FindTask(ctx, named)
 	if err != nil {
 		return nil, err
 	}

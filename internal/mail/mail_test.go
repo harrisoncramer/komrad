@@ -14,6 +14,7 @@ import (
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	"komrad/proto/gen/oneofs"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -896,8 +897,55 @@ func TestDeleteMail(t *testing.T) {
 	}
 }
 
-// TestResolveRecipientRefusals pins which sentinel each address nothing answers to, or more than one agent does, comes back with.
-func TestResolveRecipientRefusals(t *testing.T) {
+// TestFindRecipientByID pins that an id answers the agent holding it, live or archived.
+func TestFindRecipientByID(t *testing.T) {
+	st := storetest.Open(t)
+	svc := newMailService(st, config.DefaultMaxExchange)
+	book := seedAddressBook(t, st)
+
+	tests := []struct {
+		name    string
+		id      string
+		want    string
+		wantErr error
+	}{
+		{
+			name:    "an id nothing holds",
+			id:      book.unheldID,
+			wantErr: ErrRecipientNotFound,
+		},
+		{
+			name: "a live agent",
+			id:   book.reviewerHere.ID,
+			want: book.reviewerHere.ID,
+		},
+		{
+			name: "an archived agent, for the send to refuse as archived",
+			id:   book.retired.ID,
+			want: book.retired.ID,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := svc.FindRecipient(t.Context(), FindRecipientParams{
+				To: oneofs.To{ToAgentId: xptr.Ptr(uuid.MustParse(tt.id))},
+			})
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				assert.Nil(t, got)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got.ID)
+		})
+	}
+}
+
+// TestFindRecipientRefusals pins which sentinel each name nothing answers to, or more than one agent does, comes back with.
+func TestFindRecipientRefusals(t *testing.T) {
 	st := storetest.Open(t)
 	svc := newMailService(st, config.DefaultMaxExchange)
 	book := seedAddressBook(t, st)
@@ -909,12 +957,6 @@ func TestResolveRecipientRefusals(t *testing.T) {
 		wantErr  error
 		wantSaid []string
 	}{
-		{
-			name:    "an id nothing holds is not found rather than tried as a name",
-			from:    book.sender.ID,
-			to:      book.unheldID,
-			wantErr: ErrRecipientNotFound,
-		},
 		{
 			name:    "a name nobody holds",
 			from:    book.sender.ID,
@@ -950,9 +992,9 @@ func TestResolveRecipientRefusals(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := svc.ResolveRecipient(t.Context(), ResolveRecipientParams{
+			got, err := svc.FindRecipient(t.Context(), FindRecipientParams{
 				From: tt.from,
-				To:   tt.to,
+				To:   oneofs.To{ToAgentName: xptr.Ptr(tt.to)},
 			})
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Nil(t, got)
@@ -963,8 +1005,8 @@ func TestResolveRecipientRefusals(t *testing.T) {
 	}
 }
 
-// TestResolveRecipient pins that an address resolves as an id first, then as a name in the sender's workflow, then as a name in any workflow.
-func TestResolveRecipient(t *testing.T) {
+// TestFindRecipient pins that a name resolves in the sender's workflow first, then in any workflow.
+func TestFindRecipient(t *testing.T) {
 	st := storetest.Open(t)
 	svc := newMailService(st, config.DefaultMaxExchange)
 	book := seedAddressBook(t, st)
@@ -975,18 +1017,6 @@ func TestResolveRecipient(t *testing.T) {
 		to   string
 		want string
 	}{
-		{
-			name: "an id, even when another agent is named that id",
-			from: book.sender.ID,
-			to:   book.reviewerHere.ID,
-			want: book.reviewerHere.ID,
-		},
-		{
-			name: "an archived agent by id, for the send to refuse as archived",
-			from: book.sender.ID,
-			to:   book.retired.ID,
-			want: book.retired.ID,
-		},
 		{
 			name: "a name held in the sender's own workflow and in another",
 			from: book.sender.ID,
@@ -1008,9 +1038,9 @@ func TestResolveRecipient(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := svc.ResolveRecipient(t.Context(), ResolveRecipientParams{
+			got, err := svc.FindRecipient(t.Context(), FindRecipientParams{
 				From: tt.from,
-				To:   tt.to,
+				To:   oneofs.To{ToAgentName: xptr.Ptr(tt.to)},
 			})
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got.ID)
@@ -1018,7 +1048,7 @@ func TestResolveRecipient(t *testing.T) {
 	}
 }
 
-// seedAddressBook records the address book, naming one agent after an id nothing holds and another after another agent's id.
+// seedAddressBook records the address book.
 func seedAddressBook(t *testing.T, st *storetest.Stores) addressBook {
 	t.Helper()
 
@@ -1043,8 +1073,6 @@ func seedAddressBook(t *testing.T, st *storetest.Stores) addressBook {
 		retired:       seed("retired", komrad.ID),
 		unheldID:      uuid.NewString(),
 	}
-	seed(book.unheldID, komrad.ID)
-	seed(book.reviewerHere.ID, komrad.ID)
 
 	_, err := st.Agents.Archive(t.Context(), []string{book.retired.ID})
 	require.NoError(t, err)

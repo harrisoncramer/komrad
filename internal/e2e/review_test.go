@@ -195,7 +195,7 @@ func TestIntegrationReviews(t *testing.T) {
 	t.Run("the person's comment reaches the worker as mail at once", func(t *testing.T) {
 		taskID := worker.GetTaskId()
 		remarked, err := instance.Agents.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
-			Task:     &taskID,
+			Task:     &agentv1.CreateReviewThreadRequest_TaskId{TaskId: taskID},
 			FilePath: "greet.go",
 			NewStart: 1,
 			NewEnd:   1,
@@ -214,7 +214,7 @@ func TestIntegrationReviews(t *testing.T) {
 
 	t.Run("the thread shows the person the comment was read, then answered", func(t *testing.T) {
 		taskID := worker.GetTaskId()
-		listed, err := instance.Agents.ListReviewThreads(ctx, connect.NewRequest(&agentv1.ListReviewThreadsRequest{Task: &taskID}))
+		listed, err := instance.Agents.ListReviewThreads(ctx, connect.NewRequest(&agentv1.ListReviewThreadsRequest{Task: &agentv1.ListReviewThreadsRequest_TaskId{TaskId: taskID}}))
 		require.NoError(t, err)
 
 		remarks := xslice.Filter(listed.Msg.GetThreads(), func(thread *agentv1.ReviewThread) bool { return thread.GetId() == remarkID })
@@ -250,7 +250,7 @@ type listThreadBodiesParams struct {
 func listThreadBodies(t *testing.T, instance *komradtest.Instance, params listThreadBodiesParams) []string {
 	t.Helper()
 
-	req := connect.NewRequest(&agentv1.ListReviewThreadsRequest{Task: &params.Task})
+	req := connect.NewRequest(&agentv1.ListReviewThreadsRequest{Task: &agentv1.ListReviewThreadsRequest_TaskId{TaskId: params.Task}})
 	callAs(req, params.ReaderID)
 
 	threads, err := instance.Agents.ListReviewThreads(t.Context(), req)

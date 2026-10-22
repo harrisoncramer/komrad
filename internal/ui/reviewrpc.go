@@ -17,7 +17,7 @@ func listReviewThreads(
 	taskID string,
 ) ([]*agentv1.ReviewThread, error) {
 	resp, err := agents.ListReviewThreads(ctx, connect.NewRequest(&agentv1.ListReviewThreadsRequest{
-		Task: &taskID,
+		Task: &agentv1.ListReviewThreadsRequest_TaskId{TaskId: taskID},
 	}))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the review of task %q: %w", taskID, err)
@@ -33,7 +33,7 @@ func listReviewViewedFiles(
 	taskID string,
 ) ([]*agentv1.ReviewViewedFile, error) {
 	resp, err := agents.ListReviewViewedFiles(ctx, connect.NewRequest(&agentv1.ListReviewViewedFilesRequest{
-		Task: taskID,
+		Task: &agentv1.ListReviewViewedFilesRequest_TaskId{TaskId: taskID},
 	}))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read which files you have already read: %w", err)

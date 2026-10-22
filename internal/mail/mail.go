@@ -19,6 +19,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
 	"komrad/lib/xstr"
+	"komrad/proto/gen/oneofs"
 )
 
 const maxPendingMail = 100
@@ -29,6 +30,9 @@ const MaxMailBody = 10000
 const maxClaimedMail = 20
 
 var ErrRecipientNotFound = fail.NotFound("no agent answers to that address")
+
+// errUnnamedRecipient is mail addressed to neither an agent's id nor its name.
+var errUnnamedRecipient = fail.InvalidArgument("a recipient is named by its id or its name")
 
 var ErrRecipientAmbiguous = fail.InvalidArgument("more than one live agent holds that name")
 
@@ -105,33 +109,47 @@ func (s *MailService) IsDormant(agent agentstore.Agent) bool {
 	return agent.State.DoesPaneDecide() && !s.panes.IsAgentRunning(agent)
 }
 
-type ResolveRecipientParams struct {
-	From string
-	To   string
-}
-
-// ResolveRecipient turns an address into the agent it names: an id as it stands, or else the
-// name of a live agent, looked for in the sender's own workflow before every workflow.
-func (s *MailService) ResolveRecipient(ctx context.Context, params ResolveRecipientParams) (*agentstore.Agent, error) {
-	if store.IsID(params.To) {
-		recipient, err := s.agents.GetByID(ctx, params.To)
-		if errors.Is(err, store.ErrNotFound) {
-			return nil, ErrRecipientNotFound.Saying("no agent holds the id %q", params.To)
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		return recipient, nil
+// getRecipient returns the agent an id names.
+func (s *MailService) getRecipient(ctx context.Context, id string) (*agentstore.Agent, error) {
+	recipient, err := s.agents.GetByID(ctx, id)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrRecipientNotFound.Saying("no agent holds the id %q", id)
 	}
-
-	named, err := s.agents.ListLiveNamed(ctx, params.To)
 	if err != nil {
 		return nil, err
 	}
 
-	if params.From != "" {
-		sender, err := s.findSender(ctx, params.From)
+	return recipient, nil
+}
+
+type FindRecipientParams struct {
+	From string
+	To   oneofs.To
+}
+
+// FindRecipient returns the agent a sender addressed, live or archived when named by id, and the
+// live agent of that name when named by name.
+func (s *MailService) FindRecipient(ctx context.Context, params FindRecipientParams) (*agentstore.Agent, error) {
+	switch {
+	case params.To.ToAgentId != nil:
+		return s.getRecipient(ctx, params.To.ToAgentId.String())
+	case params.To.ToAgentName != nil:
+		return s.resolveRecipient(ctx, params.From, *params.To.ToAgentName)
+	}
+
+	return nil, errUnnamedRecipient
+}
+
+// resolveRecipient returns the live agent a name names, looked for in the sender's own workflow
+// before every workflow.
+func (s *MailService) resolveRecipient(ctx context.Context, from, name string) (*agentstore.Agent, error) {
+	named, err := s.agents.ListLiveNamed(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+
+	if from != "" {
+		sender, err := s.findSender(ctx, from)
 		if err != nil {
 			return nil, err
 		}
@@ -146,12 +164,12 @@ func (s *MailService) ResolveRecipient(ctx context.Context, params ResolveRecipi
 
 	switch len(named) {
 	case 0:
-		return nil, ErrRecipientNotFound.Saying("no live agent is named %q", params.To)
+		return nil, ErrRecipientNotFound.Saying("no live agent is named %q", name)
 	case 1:
 		return &named[0], nil
 	}
 
-	return nil, ErrRecipientAmbiguous.Saying("%d live agents are named %q, so address one of them by id: %s", len(named), params.To, s.describeHolders(ctx, named))
+	return nil, ErrRecipientAmbiguous.Saying("%d live agents are named %q, so address one of them by id: %s", len(named), name, s.describeHolders(ctx, named))
 }
 
 func (s *MailService) describeHolders(ctx context.Context, holders []agentstore.Agent) string {

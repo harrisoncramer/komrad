@@ -220,7 +220,7 @@ message CreateAgentRequest {
   }];
   // The workflow to create the agent in, by id. The agent uses the workflow's directory, flags
   // and context.
-  string workflow_id = 4 [(buf.validate.field).string.min_len = 1];
+  string workflow_id = 4 [(buf.validate.field).string.uuid = true];
   // The harness to run. Empty to use the workflow's harness.
   string harness = 5 [(buf.validate.field).string = {
     max_len: 40
@@ -234,23 +234,33 @@ message CreateAgentRequest {
   // Whether the agent gets a worktree of its own. False keeps the agent in the workflow's
   // directory. Unset to follow the workflow.
   optional bool provision_enabled = 7;
-  // The task to put the agent on, by id or slug, in `workflow_id`. Unset to create a task with the
-  // agent as its writer. An agent that joins as a reviewer cannot set `provision_enabled` to true.
-  optional string task = 8 [(buf.validate.field).string.min_len = 1];
-  // The slug of the task komrad creates when `task` is unset. No task may have used it before.
+  // The task in `workflow_id` to put the agent on. Unset to create a task with the agent as its
+  // writer. An agent that joins as a reviewer cannot set `provision_enabled` to true.
+  oneof task {
+    // The task, by id.
+    string task_id = 8 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string task_slug = 12 [(buf.validate.field).string.min_len = 1];
+  }
+  // The slug of the task komrad creates when no task is named. No task may have used it before.
   // Unset to derive one from the agent's name.
-  optional string task_slug = 9 [(buf.validate.field).string = {
+  optional string new_task_slug = 9 [(buf.validate.field).string = {
     max_len: 80
     pattern: "^[a-z0-9]+(-[a-z0-9]+)*$"
   }];
-  // The goal of the task komrad creates when `task` is unset, in markdown. Empty to use the
+  // The goal of the task komrad creates when no task is named, in markdown. Empty to use the
   // first line of the prompt.
-  string task_goal = 10 [(buf.validate.field).string.max_len = 50000];
-  // The task the new task depends on, by id or slug, in `workflow_id`. The new task's branch starts
-  // from that task's branch on origin, and komrad rebases it as that branch moves and re-targets it
-  // onto the base branch once that task merges. Unset to start from the workflow's base branch.
-  // Cannot be set with `task`.
-  optional string depends_on = 11 [(buf.validate.field).string.min_len = 1];
+  string new_task_goal = 10 [(buf.validate.field).string.max_len = 50000];
+  // The task in `workflow_id` the new task depends on. The new task's branch starts from that
+  // task's branch on origin, and komrad rebases it as that branch moves and re-targets it onto the
+  // base branch once that task merges. Unset to start from the workflow's base branch. Cannot be
+  // set with a task to put the agent on.
+  oneof depends_on {
+    // The task, by id.
+    string depends_on_id = 11 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string depends_on_slug = 13 [(buf.validate.field).string.min_len = 1];
+  }
 }
 
 message CreateAgentResponse {
@@ -265,7 +275,7 @@ message RequestReviewRequest {
     max_len: 50000
   }];
   // The agent whose work to review, by id. Unset for the caller.
-  optional string agent_id = 2 [(buf.validate.field).string.min_len = 1];
+  optional string agent_id = 2 [(buf.validate.field).string.uuid = true];
   // The reviewer's name. Empty to name the reviewer after the agent under review.
   string title = 3 [(buf.validate.field).string = {
     max_len: 200
@@ -304,7 +314,7 @@ message AdoptRequest {
     [rules.v1.shell_safe]: true
   }];
   // The workflow to create the agent in, by id. The workflow's directory picks the repository.
-  string workflow_id = 2 [(buf.validate.field).string.min_len = 1];
+  string workflow_id = 2 [(buf.validate.field).string.uuid = true];
   // The agent's prompt. Empty to launch the CLI with no prompt.
   string prompt = 3 [(buf.validate.field).string.max_len = 50000];
   // The agent's name. Empty to have komrad name the agent.
@@ -338,7 +348,7 @@ message AdoptResponse {
 
 message GetAgentRequest {
   // The agent to get, by id. Archived agents are included.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message GetAgentResponse {
@@ -362,12 +372,14 @@ message GetAgentResponse {
 
 // PlanRebaseRequest asks what a rebase of a task's branch would do, without doing it.
 message PlanRebaseRequest {
-  // The task whose branch to plan a rebase of, by id or slug.
-  string task = 1 [(buf.validate.field).cel = {
-    id: "task.required"
-    message: "pass task, by id or by slug"
-    expression: "this.size() > 0"
-  }];
+  // The task whose branch to plan a rebase of.
+  oneof task {
+    option (buf.validate.oneof).required = true;
+    // The task, by id.
+    string task_id = 1 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string task_slug = 3 [(buf.validate.field).string.min_len = 1];
+  }
   // Plan a re-target of a child onto the workflow's base branch, rebasing only its own commits,
   // in place of a rebase onto its parent.
   bool onto_base = 2;
@@ -395,7 +407,7 @@ message PlanRebaseResponse {
 
 message StartOrchestratorRequest {
   // The workflow whose orchestrator to resume or create, by id.
-  string workflow_id = 1 [(buf.validate.field).string.min_len = 1];
+  string workflow_id = 1 [(buf.validate.field).string.uuid = true];
   // The prompt for a new orchestrator. Empty to use komrad's default prompt.
   string prompt = 2 [(buf.validate.field).string.max_len = 50000];
 }
@@ -406,12 +418,14 @@ message StartOrchestratorResponse {
 }
 
 message RebaseWorktreeRequest {
-  // The task whose branch to rebase onto the base branch, by id or slug.
-  string task = 1 [(buf.validate.field).cel = {
-    id: "task.required"
-    message: "pass task, by id or by slug"
-    expression: "this.size() > 0"
-  }];
+  // The task whose branch to rebase onto the base branch.
+  oneof task {
+    option (buf.validate.oneof).required = true;
+    // The task, by id.
+    string task_id = 1 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string task_slug = 3 [(buf.validate.field).string.min_len = 1];
+  }
   // Re-target a child onto the workflow's base branch, rebasing only its own commits, so it no
   // longer has a parent.
   bool onto_base = 2;
@@ -439,12 +453,14 @@ message RebaseWorktreeResponse {
 
 // PlanPushRequest asks what a push of a task's branch would do, without doing it.
 message PlanPushRequest {
-  // The task whose branch to plan a push of, by id or slug.
-  string task = 1 [(buf.validate.field).cel = {
-    id: "task.required"
-    message: "pass task, by id or by slug"
-    expression: "this.size() > 0"
-  }];
+  // The task whose branch to plan a push of.
+  oneof task {
+    option (buf.validate.oneof).required = true;
+    // The task, by id.
+    string task_id = 1 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string task_slug = 2 [(buf.validate.field).string.min_len = 1];
+  }
 }
 
 message PlanPushResponse {
@@ -462,12 +478,14 @@ message PlanPushResponse {
 }
 
 message PushWorktreeRequest {
-  // The task whose branch to push to origin, by id or slug.
-  string task = 1 [(buf.validate.field).cel = {
-    id: "task.required"
-    message: "pass task, by id or by slug"
-    expression: "this.size() > 0"
-  }];
+  // The task whose branch to push to origin.
+  oneof task {
+    option (buf.validate.oneof).required = true;
+    // The task, by id.
+    string task_id = 1 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string task_slug = 2 [(buf.validate.field).string.min_len = 1];
+  }
 }
 
 message PushWorktreeResponse {
@@ -482,12 +500,14 @@ message PushWorktreeResponse {
 }
 
 message PickForkPointRequest {
-  // The child, by id or slug.
-  string task = 1 [(buf.validate.field).cel = {
-    id: "task.required"
-    message: "pass task, by id or by slug"
-    expression: "this.size() > 0"
-  }];
+  // The child task.
+  oneof task {
+    option (buf.validate.oneof).required = true;
+    // The task, by id.
+    string task_id = 1 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string task_slug = 3 [(buf.validate.field).string.min_len = 1];
+  }
   // The commit the child's own commits sit on, which its branch must hold. Any name git reads as
   // a commit.
   string commit = 2 [(buf.validate.field).string.min_len = 1];
@@ -499,12 +519,14 @@ message PickForkPointResponse {
 }
 
 message AbortSequenceRequest {
-  // The task whose sequence to abort, by id or slug.
-  string task = 1 [(buf.validate.field).cel = {
-    id: "task.required"
-    message: "pass task, by id or by slug"
-    expression: "this.size() > 0"
-  }];
+  // The task whose sequence to abort.
+  oneof task {
+    option (buf.validate.oneof).required = true;
+    // The task, by id.
+    string task_id = 1 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string task_slug = 2 [(buf.validate.field).string.min_len = 1];
+  }
 }
 
 message AbortSequenceResponse {
@@ -542,12 +564,12 @@ message RecordReportRequest {
 
 message MarkRunsReadRequest {
   // The agent whose failed hook runs the person has seen, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message LogRequest {
   // The agent the line is about, by id. Unset for the caller.
-  optional string id = 1 [(buf.validate.field).string.min_len = 1];
+  optional string id = 1 [(buf.validate.field).string.uuid = true];
   // The line to write.
   string message = 2 [
     (buf.validate.field).string = {
@@ -573,7 +595,7 @@ message ArchiveAgentsRequest {
     min_items: 1
     unique: true
     items: {
-      string: {min_len: 1}
+      string: {uuid: true}
     }
   }];
 }
@@ -584,7 +606,7 @@ message RestoreAgentsRequest {
     min_items: 1
     unique: true
     items: {
-      string: {min_len: 1}
+      string: {uuid: true}
     }
   }];
 }
@@ -596,7 +618,7 @@ message RestoreAgentsResponse {
 
 message RetryAgentRequest {
   // The agent whose failed create to retry, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
   // The new flags for the agent's CLI. Empty to keep the flags of the failed attempt.
   string flags = 2 [(buf.validate.field).string = {
     max_len: 500
@@ -618,7 +640,7 @@ message RetryAgentResponse {
 
 message ResumeAgentRequest {
   // The dormant agent to resume, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message ResumeAgentResponse {
@@ -628,7 +650,7 @@ message ResumeAgentResponse {
 
 message RestartAgentRequest {
   // The writer or orchestrator to restart, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
   // Text to add to the agent's prompt. Empty to add nothing.
   string note = 2 [(buf.validate.field).string.max_len = 50000];
   // The harness to move the agent to. Empty to keep the agent's harness.
@@ -651,7 +673,7 @@ message RestartAgentResponse {
 
 message UpdateAgentRequest {
   // The agent to rename, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
   // The agent's new name.
   string name = 2 [
     (buf.validate.field).string = {
@@ -703,7 +725,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "create_agent"
-      description: "Create an agent and launch it with a prompt. With `task` set, the agent becomes the task's writer when the task has none, and otherwise a reviewer in the writer's checkout. With `task` unset, komrad creates a task with the agent as its writer, and the agent returned carries its `task_id` and `task_slug`."
+      description: "Create an agent and launch it with a prompt. With `task_id` or `task_slug` set, the agent becomes the task's writer when the task has none, and otherwise a reviewer in the writer's checkout. With neither set, komrad creates a task with the agent as its writer, and the agent returned carries its `task_id` and `task_slug`."
       mcp_guidance: "resource_exhausted means komrad is running as many agents as it may."
       destructive: false
       roles: [
@@ -753,7 +775,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "send_mail"
-      description: "Send mail to another agent by id or name, setting `reply_to` when answering. Komrad refuses a name used in more than one workflow. A reviewer may mail only the agents on its task and its workflow's orchestrator."
+      description: "Send mail to another agent by `to_agent_id` or `to_agent_name`, setting `reply_to` when answering. Komrad refuses a name used in more than one workflow. A reviewer may mail only the agents on its task and its workflow's orchestrator."
       mcp_guidance: "Say who is asking and what they want."
       destructive: false
       idempotent: false
