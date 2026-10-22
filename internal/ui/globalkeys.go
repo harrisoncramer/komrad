@@ -32,10 +32,8 @@ func globalTable() []globalArm {
 			describe: "the view switcher",
 			keys:     func(k config.Keybindings) []string { return slices.Concat(k.Views.Next, k.Views.Previous) },
 			on:       rendersSwitcher,
-			when: func(m *model) bool {
-				return rendersSwitcher(m.screen) && !m.isTabsFocused() && !m.isKindsFocused()
-			},
-			run: func(m *model, key tea.KeyPressMsg) tea.Cmd { return m.openViews(m.viewsDelta(key.String())) },
+			when:     func(m *model) bool { return !m.isTabsFocused() && !m.isKindsFocused() },
+			run:      func(m *model, key tea.KeyPressMsg) tea.Cmd { return m.openViews(m.viewsDelta(key.String())) },
 		},
 		{
 			describe: "the help toggle",
@@ -68,11 +66,7 @@ func globalTable() []globalArm {
 			describe: "the tabs focus",
 			keys:     func(k config.Keybindings) []string { return k.Tabs.Focus },
 			on:       screenIs[tabSwitcher],
-			when: func(m *model) bool {
-				_, ok := m.activeTabs()
-
-				return ok && !m.isTabsFocused()
-			},
+			when:     func(m *model) bool { return !m.isTabsFocused() },
 			run: func(m *model, _ tea.KeyPressMsg) tea.Cmd {
 				m.focusTabs()
 
@@ -123,13 +117,12 @@ func globalTable() []globalArm {
 			run:      (*model).updateKinds,
 		},
 		{
-			// The copy key answers only while the details hold the cursor.
 			describe: "the details copy",
 			keys:     func(k config.Keybindings) []string { return k.Details.Copy },
 			guarded:  true,
 			on:       screenIs[recordRenderer],
 			every:    true,
-			when:     func(m *model) bool { return m.isDetailsScreen() && m.isDetailsFocused() },
+			when:     (*model).isDetailsFocused,
 			run:      (*model).updateDetails,
 		},
 		{
@@ -146,6 +139,10 @@ func globalTable() []globalArm {
 func (m *model) routeGlobalKey(key tea.KeyPressMsg) (tea.Cmd, bool) {
 	for _, arm := range globalTable() {
 		if !arm.every && !keys.IsBound(key.String(), arm.keys(m.keys)) {
+			continue
+		}
+
+		if arm.on != nil && !arm.on(m.screen) {
 			continue
 		}
 
