@@ -113,7 +113,7 @@ func (r *renameSlot) renamingField() *field.NameEdit {
 
 // reconcileRename drops an open rename once the cursor leaves its row.
 func reconcileRename[T list.Keyed](r *renameSlot, rows []T, hovered string, name func(T) string) {
-	if r.renaming != nil && !reconcileNameEdit(r.renaming.NameEdit, rows, hovered, name) {
+	if r.renaming != nil && !field.ReconcileNameEdit(r.renaming.NameEdit, rows, hovered, name) {
 		r.renaming = nil
 	}
 }
