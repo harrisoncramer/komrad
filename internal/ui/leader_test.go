@@ -70,7 +70,7 @@ func TestLeader(t *testing.T) {
 		assert.NotEmpty(t, paneltest.RecordCursor(harness.Frame()), "the record holds the keys")
 	})
 
-	dormantOrchestrator := newOrchestrator()
+	dormantOrchestrator := paneltest.Orchestrator()
 	dormantOrchestrator.Alive = xptr.Ptr(false)
 	dormantOrchestrator.State = agentv1.AgentState_AGENT_STATE_IDLE
 
@@ -94,10 +94,10 @@ func TestLeader(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := paneltest.Start(t, paneltest.Params{})
-			answerWorktreeReads(harness)
+			harness.AnswerWorktreeReads()
 			answerLastScreens(harness, map[string]string{tt.agent.GetId(): "⏺ the migration is written"})
 			answerResume(harness)
-			harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), tt.agent))
+			harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), tt.agent))
 			harness.Press(tt.press...)
 			harness.Advance(time.Second)
 

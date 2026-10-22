@@ -471,6 +471,11 @@ func Stage(frame string) []string {
 	})
 }
 
+// StageText is Stage joined into one string by newlines.
+func StageText(frame string) string {
+	return strings.Join(Stage(frame), "\n")
+}
+
 // ReviewCursor is the review's line the cursor stands on, file and line first.
 func ReviewCursor(frame string) string {
 	for _, line := range Sidebar(frame) {

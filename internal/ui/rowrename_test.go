@@ -144,7 +144,7 @@ func TestRenameField(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 		harness.Press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"))...)
 
-		harness.Watch(paneltest.Snapshot(newFormWorkflow(), newFormAuthor(), newAgent("a2", "another", "w1")))
+		harness.Watch(paneltest.Snapshot(newFormWorkflow(), newFormAuthor(), paneltest.Agent("a2", "another", "w1")))
 
 		assert.Equal(t, "└─ author-v2▏", paneltest.HoveredRow(harness.Frame()))
 	})
@@ -167,8 +167,8 @@ func TestRenameField(t *testing.T) {
 		harness.Press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"enter"})...)
 		assert.Equal(t, "└─ author-v2", paneltest.HoveredRow(harness.Frame()), "not the old name before the watch catches up")
 
-		harness.Watch(paneltest.Snapshot(newFormWorkflow(), newAgent("a1", "author-v2", "w1")))
-		harness.Watch(paneltest.Snapshot(newFormWorkflow(), newAgent("a1", "author-v3", "w1")))
+		harness.Watch(paneltest.Snapshot(newFormWorkflow(), paneltest.Agent("a1", "author-v2", "w1")))
+		harness.Watch(paneltest.Snapshot(newFormWorkflow(), paneltest.Agent("a1", "author-v3", "w1")))
 		assert.Equal(t, "└─ author-v3", paneltest.HoveredRow(harness.Frame()), "the listing renders the name once it has caught up")
 	})
 

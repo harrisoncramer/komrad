@@ -50,7 +50,7 @@ func TestFormsSubmit(t *testing.T) {
 			name:      "the new-task form starts its agent and its task with an overridden harness",
 			press:     slices.Concat([]string{"space", "c"}, spellKeys("run the checks"), []string{"tab", "ctrl+u"}, spellKeys("codex"), []string{"enter"}),
 			answer:    connect.NewResponse(&agentv1.CreateAgentResponse{Agent: &agentv1.Agent{Id: "a2"}}),
-			settle:    []*watchv1.WatchEvent{paneltest.Puts(newAgent("a2", "ci", "w1"))},
+			settle:    []*watchv1.WatchEvent{paneltest.Puts(paneltest.Agent("a2", "ci", "w1"))},
 			procedure: agentv1connect.AgentServiceCreateAgentProcedure,
 			want: &agentv1.CreateAgentRequest{
 				Prompt:     "run the checks",
@@ -63,7 +63,7 @@ func TestFormsSubmit(t *testing.T) {
 			press: slices.Concat([]string{"space", "A"}, spellKeys("https://github.com/acmecorp/admin/pull/1069"), []string{"tab"},
 				spellKeys("pick it up"), []string{"enter"}),
 			answer:    connect.NewResponse(&agentv1.AdoptResponse{Agent: &agentv1.Agent{Id: "a2"}}),
-			settle:    []*watchv1.WatchEvent{paneltest.Puts(newAgent("a2", "adopted", "w1"))},
+			settle:    []*watchv1.WatchEvent{paneltest.Puts(paneltest.Agent("a2", "adopted", "w1"))},
 			procedure: agentv1connect.AgentServiceAdoptProcedure,
 			want: &agentv1.AdoptRequest{
 				Ref:        "https://github.com/acmecorp/admin/pull/1069",
@@ -78,7 +78,7 @@ func TestFormsSubmit(t *testing.T) {
 			hostPath:  "/work/from-tmux",
 			press:     slices.Concat([]string{"space", "w"}, spellKeys("web"), []string{"enter"}),
 			answer:    connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "w2"}}),
-			settle:    []*watchv1.WatchEvent{paneltest.Puts(newLiveWorkflow("w2", "web"))},
+			settle:    []*watchv1.WatchEvent{paneltest.Puts(paneltest.Workflow("w2", "web"))},
 			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
 			want: &workflowv1.CreateWorkflowRequest{
 				Name:     "web",
@@ -92,7 +92,7 @@ func TestFormsSubmit(t *testing.T) {
 				spellKeys("/work/web"), []string{"tab", "up", "tab", "enter", "tab"}, spellKeys("--model sonnet"), []string{"tab"}, spellKeys("codex"),
 				[]string{"tab"}, spellKeys("--model gpt-5"), []string{"enter"}),
 			answer:    connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "w2"}}),
-			settle:    []*watchv1.WatchEvent{paneltest.Puts(newLiveWorkflow("w2", "web"))},
+			settle:    []*watchv1.WatchEvent{paneltest.Puts(paneltest.Workflow("w2", "web"))},
 			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
 			want: &workflowv1.CreateWorkflowRequest{
 				Name:            "web",
@@ -110,7 +110,7 @@ func TestFormsSubmit(t *testing.T) {
 				spellKeys("develop"), []string{"tab", "tab"}, spellKeys(".env"), []string{"ctrl+j", "ctrl+j"}, spellKeys("config/local.json"),
 				[]string{"tab"}, spellKeys("node_modules"), []string{"tab"}, spellKeys("bin/setup"), []string{"enter"}),
 			answer:    connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "w2"}}),
-			settle:    []*watchv1.WatchEvent{paneltest.Puts(newLiveWorkflow("w2", "web"))},
+			settle:    []*watchv1.WatchEvent{paneltest.Puts(paneltest.Workflow("w2", "web"))},
 			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
 			want: &workflowv1.CreateWorkflowRequest{
 				Name: "web",
@@ -150,7 +150,7 @@ func TestFormsSubmit(t *testing.T) {
 		},
 		{
 			name:   "the workflow archive prompt archives the workflow from its orchestrator's menu",
-			author: newOrchestrator(),
+			author: paneltest.Orchestrator(),
 			press:  []string{"space", "a", "enter"},
 			settle: []*watchv1.WatchEvent{
 				paneltest.Deleted(watchv1.Resource_RESOURCE_WORKFLOW, "w1"),
@@ -173,7 +173,7 @@ func TestFormsSubmit(t *testing.T) {
 			}
 			var harness *paneltest.Panel
 			if tt.empty {
-				harness = openAgents(t)
+				harness = paneltest.OpenAgents(t)
 			} else {
 				harness = openForms(t, workflow, author)
 			}
@@ -284,10 +284,10 @@ func TestFormsRefused(t *testing.T) {
 
 // TestFormsAdoptExisting covers an adoption answered with the agent already on the branch.
 func TestFormsAdoptExisting(t *testing.T) {
-	tucked := newAgent("a4", "tucked", "w1")
-	tuckedTask := newTaskOf(tucked)
+	tucked := paneltest.Agent("a4", "tucked", "w1")
+	tuckedTask := paneltest.TaskOf(tucked)
 	tuckedTask.Hidden = true
-	reviewer := newReviewer("a5", "reviewer", "a4")
+	reviewer := paneltest.Reviewer("a5", "reviewer", "a4")
 
 	tests := []struct {
 		name        string
@@ -323,7 +323,7 @@ func TestFormsAdoptExisting(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openAgents(t, newFormWorkflow(), newFormAuthor(), newArchivedAgent("a3", "old-work", "w1"), tucked, tuckedTask, reviewer)
+			harness := paneltest.OpenAgents(t, newFormWorkflow(), newFormAuthor(), newArchivedAgent("a3", "old-work", "w1"), tucked, tuckedTask, reviewer)
 			harness.Press("g", "g")
 			harness.Answer(agentv1connect.AgentServiceAdoptProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 				return connect.NewResponse(&agentv1.AdoptResponse{Agent: tt.existing, Existing: true}), nil
@@ -361,7 +361,7 @@ func TestFormsInFlight(t *testing.T) {
 
 		assert.Contains(t, harness.Frame(), "check CI", "the form waits for the row the create made")
 
-		harness.Watch(paneltest.Puts(newAgent("a2", "check-ci", "w1")))
+		harness.Watch(paneltest.Puts(paneltest.Agent("a2", "check-ci", "w1")))
 
 		frame = harness.Frame()
 		assert.NotContains(t, frame, "starting the agent…")
@@ -371,7 +371,7 @@ func TestFormsInFlight(t *testing.T) {
 	t.Run("the form keeps saying so while the pane the create made warms up", func(t *testing.T) {
 		frames := &harnessFrameFake{}
 		harness := paneltest.Start(t, paneltest.Params{HarnessFrames: frames})
-		answerWorktreeReads(harness)
+		harness.AnswerWorktreeReads()
 		harness.Watch(paneltest.Snapshot(newFormWorkflow(), newFormAuthor()))
 		answerAgentCreate(harness, "%9")
 		harness.Press("g", "g")
@@ -400,7 +400,7 @@ func TestFormsInFlight(t *testing.T) {
 		harness.Hold(create)
 		harness.Press(submit...)
 
-		harness.Watch(paneltest.Puts(newAgent("a2", "check-ci", "w1")))
+		harness.Watch(paneltest.Puts(paneltest.Agent("a2", "check-ci", "w1")))
 		harness.Release(create)
 
 		frame := harness.Frame()
@@ -435,7 +435,7 @@ func TestFormsInFlight(t *testing.T) {
 		assert.Equal(t, "└─ author", paneltest.HoveredRow(harness.Frame()), "the panel takes keys again")
 
 		harness.Release(create)
-		harness.Watch(paneltest.Puts(newAgent("a2", "check-ci", "w1")))
+		harness.Watch(paneltest.Puts(paneltest.Agent("a2", "check-ci", "w1")))
 
 		frame := harness.Frame()
 		assert.Equal(t, "\uf444 local", readEngineLine(frame), "nothing is reported")
@@ -607,7 +607,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				harness := openAgents(t, buildReviewedTasks()...)
+				harness := paneltest.OpenAgents(t, buildReviewedTasks()...)
 				harness.Press(tt.choose...)
 				harness.Press("space", "a")
 				before := harness.Requests()
@@ -676,7 +676,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 	t.Run("a confirmed archive still in flight keeps a rebuilt panel up", func(t *testing.T) {
 		binary := &fakeBinary{}
 		harness := paneltest.Start(t, paneltest.Params{Binary: binary})
-		answerWorktreeReads(harness)
+		harness.AnswerWorktreeReads()
 		harness.Watch(paneltest.Snapshot(newFormWorkflow(), newFormAuthor()))
 		harness.Hold(agentv1connect.AgentServiceArchiveAgentsProcedure)
 		harness.Press("g", "g", "j", "space", "a", "enter")
@@ -1122,7 +1122,7 @@ func TestFormsLayout(t *testing.T) {
 		t.Parallel()
 
 		harness := paneltest.Start(t, paneltest.Params{Width: 160})
-		answerWorktreeReads(harness)
+		harness.AnswerWorktreeReads()
 		harness.Watch(paneltest.Snapshot(newFormWorkflow()))
 		harness.Refuse(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, connect.NewError(connect.CodeInvalidArgument, errors.New("no such workflow")))
 		harness.Press(slices.Concat([]string{"space", "w"}, spellKeys("web"), []string{"enter"})...)
@@ -1140,7 +1140,7 @@ func TestFormsLayout(t *testing.T) {
 func openForms(t *testing.T, workflow *workflowv1.Workflow, author *agentv1.Agent) *paneltest.Panel {
 	t.Helper()
 
-	harness := openAgents(t, workflow, author)
+	harness := paneltest.OpenAgents(t, workflow, author)
 	harness.Press("g", "g")
 
 	return harness
@@ -1149,7 +1149,7 @@ func openForms(t *testing.T, workflow *workflowv1.Workflow, author *agentv1.Agen
 func openTaskForms(t *testing.T, author *agentv1.Agent) *paneltest.Panel {
 	t.Helper()
 
-	harness := openAgents(t, newFormWorkflow(), author, newTaskOf(author))
+	harness := paneltest.OpenAgents(t, newFormWorkflow(), author, paneltest.TaskOf(author))
 	harness.Press("g", "g")
 
 	return harness
@@ -1159,7 +1159,7 @@ func openWideForms(t *testing.T, workflow *workflowv1.Workflow, author *agentv1.
 	t.Helper()
 
 	harness := paneltest.Start(t, paneltest.Params{Width: 220})
-	answerWorktreeReads(harness)
+	harness.AnswerWorktreeReads()
 	harness.Watch(paneltest.Snapshot(workflow, author))
 	harness.Press("g", "g")
 
@@ -1170,7 +1170,7 @@ func openFieldEditor(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
 	harness := paneltest.Start(t, paneltest.Params{})
-	answerWorktreeReads(harness)
+	harness.AnswerWorktreeReads()
 	harness.Watch(paneltest.Snapshot(newConfiguredWorkflow(), newFormAuthor()))
 	harness.Press("g", "g")
 	t.Cleanup(func() {
@@ -1232,7 +1232,7 @@ func newConfiguredWorkflow() *workflowv1.Workflow {
 }
 
 func newFormAuthor() *agentv1.Agent {
-	author := newAgent("a1", "author", "w1")
+	author := paneltest.Agent("a1", "author", "w1")
 	author.Cwd = "/work/api"
 	author.Harness = "claude"
 	author.Flags = "--model opus"
@@ -1241,7 +1241,7 @@ func newFormAuthor() *agentv1.Agent {
 }
 
 func newLiveAuthor() *agentv1.Agent {
-	author := newAgent("a1", "author", "w1")
+	author := paneltest.Agent("a1", "author", "w1")
 	author.Role = agentv1.AgentRole_AGENT_ROLE_WRITER
 	author.PaneId = "%9"
 	author.Alive = xptr.Ptr(true)

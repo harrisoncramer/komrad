@@ -110,14 +110,14 @@ func openFocus(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
 	harness := paneltest.Start(t, paneltest.Params{})
-	answerWorktreeReads(harness)
+	harness.AnswerWorktreeReads()
 	harness.Watch(paneltest.Snapshot(buildFocusRows()...))
 
 	return harness
 }
 
 func buildFocusRows() []proto.Message {
-	return []proto.Message{newLiveWorkflow("w1", "backend"), newFocusAgent("a1", "%9")}
+	return []proto.Message{paneltest.Workflow("w1", "backend"), newFocusAgent("a1", "%9")}
 }
 
 func newFocusAgent(id, pane string) *agentv1.Agent {

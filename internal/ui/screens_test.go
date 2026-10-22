@@ -57,8 +57,8 @@ func TestScreensStage(t *testing.T) {
 		t.Parallel()
 
 		harness := paneltest.Start(t, paneltest.Params{Width: 200})
-		answerWorktreeReads(harness)
-		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), newDormant("auth")))
+		harness.AnswerWorktreeReads()
+		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), newDormant("auth")))
 
 		harness.Press("j")
 		harness.Advance(time.Second)
@@ -127,7 +127,7 @@ func TestScreensStage(t *testing.T) {
 		t.Parallel()
 
 		harness := paneltest.Start(t, paneltest.Params{Width: 200, Engine: engine.Remote{URL: "https://komrad.example.com"}})
-		answerWorktreeReads(harness)
+		harness.AnswerWorktreeReads()
 		harness.Watch(paneltest.Snapshot(newNotedWorkflow(), newRunning()))
 		harness.Press("j")
 		harness.Advance(time.Second)
@@ -145,7 +145,7 @@ func TestScreensStage(t *testing.T) {
 			Engine:          engine.Remote{URL: "https://komrad.example.com"},
 			TerminalCommand: []string{"komrad", "terminal"},
 		})
-		answerWorktreeReads(harness)
+		harness.AnswerWorktreeReads()
 		harness.Watch(paneltest.Snapshot(newNotedWorkflow(), newRunning()))
 		harness.Press("j")
 		harness.Advance(time.Second)
@@ -388,7 +388,7 @@ func openStaged(t *testing.T, press ...string) *paneltest.Panel {
 	t.Helper()
 
 	harness := paneltest.Start(t, paneltest.Params{Width: 200})
-	answerWorktreeReads(harness)
+	harness.AnswerWorktreeReads()
 	harness.Watch(paneltest.Snapshot(newNotedWorkflow(), newRunning()))
 	harness.Press(press...)
 	harness.Advance(time.Second)
@@ -411,7 +411,7 @@ func openCrowded(t *testing.T, params paneltest.Params) *paneltest.Panel {
 	t.Helper()
 
 	harness := paneltest.Start(t, params)
-	answerWorktreeReads(harness)
+	harness.AnswerWorktreeReads()
 	harness.Watch(buildCrowdedSnapshot(""))
 
 	return harness
@@ -421,7 +421,7 @@ func openLongNamed(t *testing.T, params paneltest.Params) *paneltest.Panel {
 	t.Helper()
 
 	harness := paneltest.Start(t, params)
-	answerWorktreeReads(harness)
+	harness.AnswerWorktreeReads()
 	harness.Watch(buildCrowdedSnapshot(strings.Repeat("x", 120)))
 
 	return harness
@@ -433,14 +433,14 @@ func buildCrowdedSnapshot(long string) *watchv1.WatchEvent {
 		workflow = long
 	}
 
-	rows := []proto.Message{newLiveWorkflow("w1", workflow)}
+	rows := []proto.Message{paneltest.Workflow("w1", workflow)}
 	for i := range crowdedCount {
 		name := fmt.Sprintf("agent%02d", i)
 		if long != "" && i == 0 {
 			name = long
 		}
 
-		agent := newAgent("a"+name, name, "w1")
+		agent := paneltest.Agent("a"+name, name, "w1")
 		agent.CreatedAt = fmt.Sprintf("2026-09-20T12:%02d:00Z", crowdedCount-i)
 		archived := newArchivedAgent("r"+name, name, "w1")
 		archived.ArchivedAt = xptr.Ptr(fmt.Sprintf("2026-07-30T09:%02d:00Z", crowdedCount-i))

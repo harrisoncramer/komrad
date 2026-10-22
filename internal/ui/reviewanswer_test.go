@@ -24,7 +24,7 @@ func TestReviewAnswer(t *testing.T) {
 		require.NotContains(t, paneltest.Legend(harness.Frame()), "the answer")
 		harness.Press("?", "a")
 
-		assert.Contains(t, readStageText(harness.Frame()), "where the task starts ▸ snapshot 2")
+		assert.Contains(t, paneltest.StageText(harness.Frame()), "where the task starts ▸ snapshot 2")
 	})
 
 	t.Run("the answer key renders the change the answer carried", func(t *testing.T) {
@@ -37,13 +37,13 @@ func TestReviewAnswer(t *testing.T) {
 		harness.Press("a")
 
 		frame := harness.Frame()
-		assert.Contains(t, readStageText(frame), "the answer to this comment")
+		assert.Contains(t, paneltest.StageText(frame), "the answer to this comment")
 		assert.Contains(t, paneltest.SidebarProse(frame), "1 file, +3 -0")
 
 		harness.Press("space", "a")
 
 		frame = harness.Frame()
-		assert.Contains(t, readStageText(frame), "where the task starts ▸ snapshot 2")
+		assert.Contains(t, paneltest.StageText(frame), "where the task starts ▸ snapshot 2")
 		assert.Contains(t, paneltest.SidebarProse(frame), "2 files, +4 -1")
 	})
 
@@ -78,7 +78,7 @@ func TestReviewAnswer(t *testing.T) {
 		harness.Press("t", "space", "a")
 
 		frame := harness.Frame()
-		assert.Contains(t, readStageText(frame), "the answer to this comment")
+		assert.Contains(t, paneltest.StageText(frame), "the answer to this comment")
 		assert.Contains(t, frame, "tall.go")
 		assert.NotContains(t, frame, "second.go")
 	})
@@ -89,11 +89,11 @@ func TestReviewAnswer(t *testing.T) {
 		harness := openReviewAt(t, server, paneltest.Params{Height: 60})
 
 		harness.Press("t", "space", "a")
-		require.Contains(t, readStageText(harness.Frame()), "the answer to this comment")
+		require.Contains(t, paneltest.StageText(harness.Frame()), "the answer to this comment")
 		harness.Press("j", "space", "a")
 
 		frame := harness.Frame()
-		require.Contains(t, readStageText(frame), "where the task starts ▸ snapshot 2")
+		require.Contains(t, paneltest.StageText(frame), "where the task starts ▸ snapshot 2")
 		assert.Contains(t, paneltest.PopupProse(frame), "add a second file")
 	})
 
@@ -117,7 +117,7 @@ func TestReviewAnswer(t *testing.T) {
 		harness.Press("t", "space", "a")
 
 		frame := harness.Frame()
-		assert.Contains(t, readStageText(frame), "the answer to this comment")
+		assert.Contains(t, paneltest.StageText(frame), "the answer to this comment")
 		assert.Contains(t, paneltest.SidebarProse(frame), "1 file, +3 -0")
 	})
 
@@ -129,7 +129,7 @@ func TestReviewAnswer(t *testing.T) {
 		harness.Press("t", "space", "a")
 
 		frame := harness.Frame()
-		assert.Contains(t, readStageText(frame), "the answer to this comment, replayed across the rebase")
+		assert.Contains(t, paneltest.StageText(frame), "the answer to this comment, replayed across the rebase")
 		assert.Contains(t, paneltest.SidebarProse(frame), "1 file, +3 -0")
 	})
 
@@ -142,7 +142,7 @@ func TestReviewAnswer(t *testing.T) {
 
 		frame := harness.Frame()
 		assert.Contains(t, readOpenMessages(harness), "the answer can't be compared across the rebase, conflicts in greet.go, second.go")
-		assert.Contains(t, readStageText(frame), "where the task starts ▸ snapshot 2")
+		assert.Contains(t, paneltest.StageText(frame), "where the task starts ▸ snapshot 2")
 		require.Contains(t, paneltest.SidebarProse(frame), "2 files, +4 -1")
 	})
 

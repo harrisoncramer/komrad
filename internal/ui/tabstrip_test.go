@@ -108,7 +108,7 @@ func TestTabStrip(t *testing.T) {
 	})
 
 	t.Run("the record and the strip take the keys from each other", func(t *testing.T) {
-		harness := openAgents(t, buildSelectable()...)
+		harness := paneltest.OpenAgents(t, buildSelectable()...)
 
 		harness.Press("pick:record", "f")
 		frame := harness.Frame()
@@ -220,7 +220,7 @@ func TestTabStripGolden(t *testing.T) {
 				Width:  44,
 				Height: 28,
 			})
-			answerWorktreeReads(harness)
+			harness.AnswerWorktreeReads()
 			harness.Watch(paneltest.Snapshot(tt.rows...))
 
 			harness.Press(tt.press...)

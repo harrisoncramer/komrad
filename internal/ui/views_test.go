@@ -14,7 +14,9 @@ import (
 // TestViews covers the switcher rendered over every list and the keys that move between views.
 func TestViews(t *testing.T) {
 	t.Run("a page opened from a view renders the trail back to it beside the logo", func(t *testing.T) {
-		harness := openLogs(t, tailOfTwo())
+		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "komrad"), paneltest.Reviewer("reviewer", "reviewer", "writer"))
+		harness.MoveToRow("reviewer")
+		harness.Press("space", "l")
 
 		assert.True(t, strings.HasPrefix(paneltest.Trail(harness.Frame()), "agents › reviewer › logs"))
 	})
@@ -150,7 +152,7 @@ func TestTrail(t *testing.T) {
 	}
 
 	t.Run("an empty view's trail is the view alone", func(t *testing.T) {
-		harness := openAgents(t)
+		harness := paneltest.OpenAgents(t)
 
 		assert.Equal(t, "agents", paneltest.Trail(harness.Frame()))
 	})

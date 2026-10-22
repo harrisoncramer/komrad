@@ -88,8 +88,8 @@ func openNoticed(t *testing.T, params paneltest.Params, rows ...proto.Message) *
 	t.Helper()
 
 	harness := paneltest.Start(t, params)
-	answerWorktreeReads(harness)
-	harness.Watch(paneltest.Snapshot(append([]proto.Message{newLiveWorkflow("w1", "backend")}, rows...)...))
+	harness.AnswerWorktreeReads()
+	harness.Watch(paneltest.Snapshot(append([]proto.Message{paneltest.Workflow("w1", "backend")}, rows...)...))
 	harness.Press("g", "g", "j")
 
 	return harness
@@ -107,7 +107,7 @@ func newNoticed() *agentv1.Agent {
 
 func newPullRequested(state pullrequestv1.PullRequestState) []proto.Message {
 	agent := newNoticed()
-	task := newTaskOf(agent)
+	task := paneltest.TaskOf(agent)
 	task.RepositoryUrl = xptr.Ptr(repositoryURL)
 	task.Branch = xptr.Ptr("agent/n1")
 
@@ -136,7 +136,7 @@ func newFailedRun() *agentv1.Agent {
 
 func newRebasing() []proto.Message {
 	agent := newNoticed()
-	task := newTaskOf(agent)
+	task := paneltest.TaskOf(agent)
 	task.Sequence = taskv1.Sequence_SEQUENCE_REBASE
 
 	return []proto.Message{agent, task}

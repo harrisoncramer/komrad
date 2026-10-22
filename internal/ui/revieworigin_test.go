@@ -20,7 +20,7 @@ func TestReviewJump(t *testing.T) {
 		harness := openReviewAt(t, server, paneltest.Params{Height: 50})
 
 		harness.Press("<")
-		require.Contains(t, readStageText(harness.Frame()), "snapshot 1 ▸ snapshot 2")
+		require.Contains(t, paneltest.StageText(harness.Frame()), "snapshot 1 ▸ snapshot 2")
 
 		harness.Press("t")
 		frame := harness.Frame()
@@ -29,7 +29,7 @@ func TestReviewJump(t *testing.T) {
 		harness.Press("space", "J")
 
 		frame = harness.Frame()
-		assert.Contains(t, readStageText(frame), "where the comment was read ▸ snapshot 1")
+		assert.Contains(t, paneltest.StageText(frame), "where the comment was read ▸ snapshot 1")
 		assert.NotContains(t, paneltest.SidebarProse(frame), "outside what is on screen")
 		assert.Contains(t, paneltest.PopupProse(frame), "add a second file")
 		assert.Contains(t, findLine(paneltest.Stage(frame), "package greet"), "○")
@@ -46,7 +46,7 @@ func TestReviewJump(t *testing.T) {
 		assert.Contains(t, paneltest.PopupProse(harness.Frame()), "add a second file")
 
 		harness.Press("k")
-		assert.Contains(t, readStageText(harness.Frame()), "snapshot 1 ▸ snapshot 2")
+		assert.Contains(t, paneltest.StageText(harness.Frame()), "snapshot 1 ▸ snapshot 2")
 	})
 
 	for _, key := range []string{"<", ">"} {
@@ -60,7 +60,7 @@ func TestReviewJump(t *testing.T) {
 			assert.Contains(t, paneltest.PopupProse(harness.Frame()), "add a second file")
 
 			harness.Press("k")
-			assert.Contains(t, readStageText(harness.Frame()), "snapshot 1 ▸ snapshot 2")
+			assert.Contains(t, paneltest.StageText(harness.Frame()), "snapshot 1 ▸ snapshot 2")
 		})
 	}
 
@@ -72,7 +72,7 @@ func TestReviewJump(t *testing.T) {
 		harness.Press("t", "space", "J", "space", "a")
 
 		frame := harness.Frame()
-		assert.Contains(t, readStageText(frame), "where the task starts ▸ snapshot 2")
+		assert.Contains(t, paneltest.StageText(frame), "where the task starts ▸ snapshot 2")
 		assert.Contains(t, paneltest.SidebarProse(frame), "2 files, +4 -1")
 	})
 
@@ -82,7 +82,7 @@ func TestReviewJump(t *testing.T) {
 		harness := openReviewAt(t, server, paneltest.Params{Height: 50})
 
 		harness.Press("t", "space", "a", "t", "space", "J")
-		require.Contains(t, readStageText(harness.Frame()), "where the comment was read ▸ snapshot 1")
+		require.Contains(t, paneltest.StageText(harness.Frame()), "where the comment was read ▸ snapshot 1")
 		harness.Press("space", "J")
 
 		frame := harness.Frame()
@@ -103,7 +103,7 @@ func TestReviewJump(t *testing.T) {
 		harness.Press("t", "space", "J", "k")
 
 		frame := harness.Frame()
-		assert.Contains(t, readStageText(frame), "where the comment was read ▸ snapshot 2")
+		assert.Contains(t, paneltest.StageText(frame), "where the comment was read ▸ snapshot 2")
 		assert.Contains(t, frame, "1 file, +3 -0")
 	})
 
@@ -117,7 +117,7 @@ func TestReviewJump(t *testing.T) {
 		harness.Press("<", "t", "space", "J")
 
 		frame := harness.Frame()
-		assert.Contains(t, readStageText(frame), "where the comment was read ▸ snapshot 1, shown against the snapshot's base")
+		assert.Contains(t, paneltest.StageText(frame), "where the comment was read ▸ snapshot 1, shown against the snapshot's base")
 		assert.Contains(t, paneltest.PopupProse(frame), "add a second file")
 	})
 
@@ -132,7 +132,7 @@ func TestReviewJump(t *testing.T) {
 
 		frame := harness.Frame()
 		assert.Contains(t, readOpenMessages(harness), "the snapshot this comment was written on is gone")
-		assert.Contains(t, readStageText(frame), "where the task starts ▸ snapshot 2")
+		assert.Contains(t, paneltest.StageText(frame), "where the task starts ▸ snapshot 2")
 	})
 
 	t.Run("a range ending before the newest snapshot takes a reply and draws a new comment off", func(t *testing.T) {
@@ -164,7 +164,7 @@ func TestReviewJump(t *testing.T) {
 		harness.Press("t", "space", "J")
 
 		frame := harness.Frame()
-		require.Contains(t, readStageText(frame), "where the comment was read ▸ snapshot 1")
+		require.Contains(t, paneltest.StageText(frame), "where the comment was read ▸ snapshot 1")
 		assert.Contains(t, paneltest.PopupProse(frame), laterRule)
 	})
 }

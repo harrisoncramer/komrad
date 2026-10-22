@@ -13,7 +13,7 @@ import (
 // TestKeyholder covers which section renders the arrow on its hovered row.
 func TestKeyholder(t *testing.T) {
 	t.Run("the arrow stays on the hovered row while the timers run", func(t *testing.T) {
-		harness := openAgents(t, buildSelectable()...)
+		harness := paneltest.OpenAgents(t, buildSelectable()...)
 
 		harness.Advance(time.Second)
 
@@ -21,7 +21,7 @@ func TestKeyholder(t *testing.T) {
 	})
 
 	t.Run("a keypress renders the arrow on the row it lands on", func(t *testing.T) {
-		harness := openAgents(t, buildSelectable()...)
+		harness := paneltest.OpenAgents(t, buildSelectable()...)
 
 		harness.Press("j")
 
@@ -29,7 +29,7 @@ func TestKeyholder(t *testing.T) {
 	})
 
 	t.Run("the record holding the keys takes the arrow", func(t *testing.T) {
-		harness := openAgents(t, buildSelectable()...)
+		harness := paneltest.OpenAgents(t, buildSelectable()...)
 
 		harness.Press("pick:record")
 

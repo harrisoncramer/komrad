@@ -50,8 +50,8 @@ func TestTerminal(t *testing.T) {
 		harness := openTerminal(t, paneltest.Params{}, agent)
 		harness.Press("space", "t")
 
-		harness.Watch(paneltest.Snapshot(withTasks([]proto.Message{newLiveWorkflow("w1", "backend"), agent})...))
-		harness.Watch(paneltest.Snapshot(withTasks([]proto.Message{newLiveWorkflow("w1", "backend"), agent})...))
+		harness.Watch(paneltest.Snapshot(withTasks([]proto.Message{paneltest.Workflow("w1", "backend"), agent})...))
+		harness.Watch(paneltest.Snapshot(withTasks([]proto.Message{paneltest.Workflow("w1", "backend"), agent})...))
 
 		assert.Len(t, readShells(harness), 1)
 	})
@@ -64,7 +64,7 @@ func TestTerminal(t *testing.T) {
 		harness.Tmux().SetActivePane(harness.Tmux().StagePane())
 		harness.Send(tea.BlurMsg{})
 
-		harness.Watch(paneltest.Snapshot(withTasks([]proto.Message{newLiveWorkflow("w1", "backend"), agent})...))
+		harness.Watch(paneltest.Snapshot(withTasks([]proto.Message{paneltest.Workflow("w1", "backend"), agent})...))
 
 		assert.Empty(t, harness.Tmux().SelectedPanes()[selected:])
 		assert.False(t, harness.Tmux().IsZoomed())
@@ -122,7 +122,7 @@ func TestTerminal(t *testing.T) {
 
 	t.Run("a workflow opens the shell in its orchestrator's directory", func(t *testing.T) {
 		workflowDir, agentDir := t.TempDir(), t.TempDir()
-		orchestrator := newOrchestrator()
+		orchestrator := paneltest.Orchestrator()
 		orchestrator.Cwd = workflowDir
 		harness := openTerminal(t, paneltest.Params{}, orchestrator, newShellAgent("a2", agentDir))
 
@@ -133,12 +133,12 @@ func TestTerminal(t *testing.T) {
 
 	t.Run("a task with no checkout opens the shell in its workflow's directory", func(t *testing.T) {
 		workflowDir := t.TempDir()
-		workflow := newLiveWorkflow("w1", "backend")
+		workflow := paneltest.Workflow("w1", "backend")
 		workflow.Cwd = workflowDir
 		agent := newStagedShellAgent(t.TempDir())
 		harness := paneltest.Start(t, paneltest.Params{})
-		answerWorktreeReads(harness)
-		harness.Watch(paneltest.Snapshot(workflow, agent, newTaskOf(agent)))
+		harness.AnswerWorktreeReads()
+		harness.Watch(paneltest.Snapshot(workflow, agent, paneltest.TaskOf(agent)))
 		harness.Press("g", "g", "j", "space", "t")
 
 		assert.Equal(t, []string{workflowDir}, readShellDirs(harness))
@@ -148,11 +148,11 @@ func TestTerminal(t *testing.T) {
 		dir := t.TempDir()
 		agent := newShellAgent("a1", t.TempDir())
 		agent.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
-		task := newTaskOf(agent)
+		task := paneltest.TaskOf(agent)
 		task.Cwd, task.ArchivedAt = xptr.Ptr(dir), xptr.Ptr(archivedAt)
 		harness := paneltest.Start(t, paneltest.Params{})
-		answerWorktreeReads(harness)
-		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), agent, task))
+		harness.AnswerWorktreeReads()
+		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), agent, task))
 		harness.Press("g", "g", "j", "space", "t")
 
 		assert.Equal(t, []string{dir}, readShellDirs(harness))
@@ -236,12 +236,12 @@ func openTerminal(t *testing.T, params paneltest.Params, agents ...*agentv1.Agen
 	t.Helper()
 
 	harness := paneltest.Start(t, params)
-	answerWorktreeReads(harness)
-	rows := []proto.Message{newLiveWorkflow("w1", "backend")}
+	harness.AnswerWorktreeReads()
+	rows := []proto.Message{paneltest.Workflow("w1", "backend")}
 	for _, agent := range agents {
 		rows = append(rows, agent)
 		if agent.GetRole() != agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR {
-			task := newTaskOf(agent)
+			task := paneltest.TaskOf(agent)
 			task.Cwd = xptr.Ptr(agent.GetCwd())
 			rows = append(rows, task)
 		}

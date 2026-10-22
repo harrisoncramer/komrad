@@ -36,20 +36,20 @@ func TestSchedulesKeys(t *testing.T) {
 	}{
 		{
 			name:         "edit on an empty list opens no form",
-			rows:         []proto.Message{newLiveWorkflow("w1", "api")},
+			rows:         []proto.Message{paneltest.Workflow("w1", "api")},
 			press:        []string{"space", "e"},
 			wantRendered: []string{"no schedules yet"},
 			wantAbsent:   []string{scheduleForm},
 		},
 		{
 			name:       "archive on an empty list opens no prompt",
-			rows:       []proto.Message{newLiveWorkflow("w1", "api")},
+			rows:       []proto.Message{paneltest.Workflow("w1", "api")},
 			press:      []string{"space", "a"},
 			wantAbsent: []string{"Archive schedule"},
 		},
 		{
 			name:  "pause on an empty list asks for no write",
-			rows:  []proto.Message{newLiveWorkflow("w1", "api")},
+			rows:  []proto.Message{paneltest.Workflow("w1", "api")},
 			press: []string{"space", "p"},
 		},
 		{
@@ -78,14 +78,14 @@ func TestSchedulesKeys(t *testing.T) {
 		},
 		{
 			name:         "edit on a kind a newer server added says why rather than opening the form",
-			rows:         []proto.Message{newLiveWorkflow("w1", "api"), newUnknownKindSchedule()},
+			rows:         []proto.Message{paneltest.Workflow("w1", "api"), newUnknownKindSchedule()},
 			press:        []string{"space", "e"},
 			wantRendered: []string{"Could not edit schedule"},
 			wantAbsent:   []string{scheduleForm},
 		},
 		{
 			name:         "rename on a kind a newer server added sends nothing",
-			rows:         []proto.Message{newLiveWorkflow("w1", "api"), newUnknownKindSchedule()},
+			rows:         []proto.Message{paneltest.Workflow("w1", "api"), newUnknownKindSchedule()},
 			press:        slices.Concat([]string{"r"}, spellKeys("-2"), []string{"enter"}),
 			wantRendered: []string{"Could not rename schedule"},
 		},
@@ -115,7 +115,7 @@ func TestSchedulesKeys(t *testing.T) {
 		},
 		{
 			name:         "rename on a long name keeps the cursor in view near its start",
-			rows:         []proto.Message{newLiveWorkflow("w1", "api"), newSchedule("s1", "abcdefghijklmnopqrstuvwxyz0123456789")},
+			rows:         []proto.Message{paneltest.Workflow("w1", "api"), newSchedule("s1", "abcdefghijklmnopqrstuvwxyz0123456789")},
 			press:        []string{"r", "home", "right"},
 			wantRendered: []string{"a[b]cdefghijklmnopqrstuvwxyz…"},
 		},
@@ -146,13 +146,13 @@ func TestSchedulesKeys(t *testing.T) {
 		},
 		{
 			name:         "the menu offers resume on a paused schedule",
-			rows:         []proto.Message{newLiveWorkflow("w1", "api"), newPausedSchedule("s1", "weekly-report")},
+			rows:         []proto.Message{paneltest.Workflow("w1", "api"), newPausedSchedule("s1", "weekly-report")},
 			press:        []string{"space"},
 			wantRendered: []string{"resume"},
 		},
 		{
 			name:  "resume from the menu resumes a paused schedule",
-			rows:  []proto.Message{newLiveWorkflow("w1", "api"), newPausedSchedule("s1", "nightly")},
+			rows:  []proto.Message{paneltest.Workflow("w1", "api"), newPausedSchedule("s1", "nightly")},
 			press: []string{"space", "p"},
 			wantSent: []paneltest.Request{{
 				Procedure: schedulev1connect.ScheduleServiceSetScheduleEnabledProcedure,
@@ -192,7 +192,7 @@ func TestSchedulesKeys(t *testing.T) {
 // TestSchedulesList covers the rows the list renders and the cursor keeping its schedule.
 func TestSchedulesList(t *testing.T) {
 	t.Run("each schedule shows whether it is armed, its name and its expression", func(t *testing.T) {
-		harness := openSchedules(t, newLiveWorkflow("w1", "api"), newSchedule("s1", "morning-ci"), newPausedSchedule("s2", "nightly"))
+		harness := openSchedules(t, paneltest.Workflow("w1", "api"), newSchedule("s1", "morning-ci"), newPausedSchedule("s2", "nightly"))
 
 		frame := harness.Frame()
 		assert.Equal(t, screen.Schedules, paneltest.Screen(harness.Frame()))
@@ -200,7 +200,7 @@ func TestSchedulesList(t *testing.T) {
 	})
 
 	t.Run("an archived schedule is left to the archive", func(t *testing.T) {
-		harness := openSchedules(t, newLiveWorkflow("w1", "api"), newSchedule("s1", "morning-ci"), newArchivedSchedule("weekly-gone"))
+		harness := openSchedules(t, paneltest.Workflow("w1", "api"), newSchedule("s1", "morning-ci"), newArchivedSchedule("weekly-gone"))
 
 		assert.Equal(t, []string{"◆ morning-ci 0 9 * * 1-5"}, readScheduleRows(harness.Frame()))
 	})
@@ -229,7 +229,7 @@ func TestSchedulesList(t *testing.T) {
 		harness := openSchedules(t, newSchedule("a", "alpha"), newSchedule("b", "bravo"))
 		harness.Press("j")
 
-		assert.Contains(t, readStageText(harness.Frame()), "alpha")
+		assert.Contains(t, paneltest.StageText(harness.Frame()), "alpha")
 	})
 }
 
@@ -292,7 +292,7 @@ func TestSchedulesFilter(t *testing.T) {
 
 			nightly := newPausedSchedule("s2", "nightly")
 			nightly.WorkflowId = "w2"
-			harness := openSchedules(t, newLiveWorkflow("w1", "api"), newLiveWorkflow("w2", "web"), newSchedule("s1", "morning-ci"), nightly)
+			harness := openSchedules(t, paneltest.Workflow("w1", "api"), paneltest.Workflow("w2", "web"), newSchedule("s1", "morning-ci"), nightly)
 
 			harness.Press(slices.Concat([]string{"/", "tab"}, spellKeys(tt.query), []string{"enter"})...)
 
@@ -393,13 +393,13 @@ func TestSchedulesDocument(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rows := []proto.Message{newLiveWorkflow("w1", "api")}
+			rows := []proto.Message{paneltest.Workflow("w1", "api")}
 			if tt.schedule != nil {
 				rows = append(rows, tt.schedule)
 			}
 			harness := openSchedules(t, rows...)
 
-			document := readStageText(harness.Frame())
+			document := paneltest.StageText(harness.Frame())
 			for _, rendered := range tt.wantRendered {
 				assert.Contains(t, document, rendered)
 			}
@@ -442,7 +442,7 @@ func TestSchedulesRecord(t *testing.T) {
 			name:     "an orchestrator schedule names the orchestrator it mails in place of the workflow",
 			schedule: mailing,
 			workflow: configured,
-			agent:    newOrchestrator(),
+			agent:    paneltest.Orchestrator(),
 			want: []string{
 				"name morning-ci",
 				"cron 0 9 * * 1-5",
@@ -486,7 +486,7 @@ func TestSchedulesRecord(t *testing.T) {
 		},
 		{
 			name:     "a workflow with no defaults falls back to dashes",
-			workflow: newLiveWorkflow("w1", "api"),
+			workflow: paneltest.Workflow("w1", "api"),
 			want: []string{
 				"name morning-ci",
 				"cron 0 9 * * 1-5",
@@ -556,9 +556,9 @@ func TestSchedulesLaunchedAgent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			launched := newAgent("a1", "morning-ci-1", "w1")
+			launched := paneltest.Agent("a1", "morning-ci-1", "w1")
 			launched.ScheduleId = xptr.Ptr(tt.scheduleID)
-			harness := openAgents(t, newLiveWorkflow("w1", "api"), newSchedule("s1", "morning-ci"), launched)
+			harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), newSchedule("s1", "morning-ci"), launched)
 			harness.Press("j")
 
 			assert.Equal(t, tt.want, paneltest.RecordField(harness.Frame(), "launched by"))
@@ -587,16 +587,16 @@ func TestSchedulesForm(t *testing.T) {
 		})
 		frame := harness.Frame()
 		assert.Contains(t, frame, "Could not create the schedule")
-		assert.Contains(t, readStageText(frame), "> x")
-		assert.Contains(t, readStageText(frame), "> 0 9 * * *")
+		assert.Contains(t, paneltest.StageText(frame), "> x")
+		assert.Contains(t, paneltest.StageText(frame), "> 0 9 * * *")
 	})
 
 	t.Run("an orchestrator schedule mails the orchestrator picked in place of a workflow", func(t *testing.T) {
-		harness := openSchedules(t, append(buildSchedules(), newOrchestrator())...)
+		harness := openSchedules(t, append(buildSchedules(), paneltest.Orchestrator())...)
 
 		harness.Press(widenListPresses...)
 		harness.Press("space", "c", "down")
-		form := readStageText(harness.Frame())
+		form := paneltest.StageText(harness.Frame())
 		assert.Contains(t, form, "› orchestrator  api")
 		assert.NotContains(t, form, "  Workflow")
 		assert.NotContains(t, form, "Hide its tasks?")
@@ -620,7 +620,7 @@ func TestSchedulesForm(t *testing.T) {
 
 		harness.Press(widenListPresses...)
 		harness.Press("space", "c", "down")
-		form := readStageText(harness.Frame())
+		form := paneltest.StageText(harness.Frame())
 		assert.Contains(t, form, "start an orchestrator to mail one instead")
 		assert.NotContains(t, form, "mail one already running")
 
@@ -639,7 +639,7 @@ func TestSchedulesForm(t *testing.T) {
 	})
 
 	t.Run("flipping the kind keeps what was typed and the cursor on the kind", func(t *testing.T) {
-		harness := openSchedules(t, append(buildSchedules(), newOrchestrator())...)
+		harness := openSchedules(t, append(buildSchedules(), paneltest.Orchestrator())...)
 
 		harness.Press(widenListPresses...)
 		harness.Press("space", "c", "tab")
@@ -649,12 +649,12 @@ func TestSchedulesForm(t *testing.T) {
 		harness.Press("tab", "tab")
 		typeText(harness, "check CI")
 		harness.Press("shift+tab", "shift+tab", "shift+tab", "shift+tab", "down")
-		require.Contains(t, readStageText(harness.Frame()), "› orchestrator  api")
+		require.Contains(t, paneltest.StageText(harness.Frame()), "› orchestrator  api")
 		harness.Press("up")
-		require.Contains(t, readStageText(harness.Frame()), "› api")
+		require.Contains(t, paneltest.StageText(harness.Frame()), "› api")
 		harness.Press("down")
 
-		form := readStageText(harness.Frame())
+		form := paneltest.StageText(harness.Frame())
 		assert.Contains(t, form, "> nightly")
 		assert.Contains(t, form, "check CI")
 		harness.Press("tab")
@@ -674,10 +674,10 @@ func TestSchedulesForm(t *testing.T) {
 		mailing := newSchedule("s1", "morning-ci")
 		mailing.Kind = schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR
 		mailing.OrchestratorAgentId = xptr.Ptr("o1")
-		harness := openSchedules(t, newLiveWorkflow("w1", "api"), mailing, newOrchestrator())
+		harness := openSchedules(t, paneltest.Workflow("w1", "api"), mailing, paneltest.Orchestrator())
 
 		harness.Press("space", "e")
-		require.Contains(t, readStageText(harness.Frame()), "› orchestrator  api")
+		require.Contains(t, paneltest.StageText(harness.Frame()), "› orchestrator  api")
 		harness.Press("enter")
 
 		harness.AssertSentTo(schedulev1connect.ScheduleServiceUpdateScheduleProcedure, &schedulev1.UpdateScheduleRequest{
@@ -703,7 +703,7 @@ func TestSchedulesForm(t *testing.T) {
 	t.Run("an edit sends the field it changed and the flags it was opened with", func(t *testing.T) {
 		hidden := newSchedule("s1", "morning-ci")
 		hidden.HideAgents = true
-		harness := openSchedules(t, newLiveWorkflow("w1", "api"), hidden)
+		harness := openSchedules(t, paneltest.Workflow("w1", "api"), hidden)
 
 		harness.Press("space", "e", "tab", "tab", "tab", "tab")
 		typeText(harness, " harder")
@@ -740,11 +740,11 @@ func TestSchedulesForm(t *testing.T) {
 		harness := openSchedules(t, buildSchedules()...)
 		harness.Press("space", "e", "tab", "tab")
 
-		harness.Watch(paneltest.Puts(newLiveWorkflow("w2", "brandnew")))
+		harness.Watch(paneltest.Puts(paneltest.Workflow("w2", "brandnew")))
 
 		typeText(harness, "x")
 
-		form := readStageText(harness.Frame())
+		form := paneltest.StageText(harness.Frame())
 		assert.Contains(t, form, "brandnew  —")
 		assert.Contains(t, form, "> 0 9 * * 1-5x")
 	})
@@ -753,8 +753,8 @@ func TestSchedulesForm(t *testing.T) {
 		harness := openSchedules(t, buildSchedules()...)
 		harness.Press("space", "e")
 
-		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w2", "other"), newSchedule("s1", "morning-ci")))
-		require.Contains(t, readStageText(harness.Frame()), "w1  gone")
+		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w2", "other"), newSchedule("s1", "morning-ci")))
+		require.Contains(t, paneltest.StageText(harness.Frame()), "w1  gone")
 		harness.Press("enter")
 
 		harness.AssertSentTo(schedulev1connect.ScheduleServiceUpdateScheduleProcedure, &schedulev1.UpdateScheduleRequest{
@@ -785,7 +785,7 @@ func TestSchedulesForm(t *testing.T) {
 		)
 		harness.Press("space", "e")
 
-		form := readStageText(harness.Frame())
+		form := paneltest.StageText(harness.Frame())
 		assert.Contains(t, form, "bughunt  /repos/komrad")
 		assert.Contains(t, form, "› komrad  /repos/komrad")
 	})
@@ -799,7 +799,7 @@ const (
 func openSchedules(t *testing.T, rows ...proto.Message) *paneltest.Panel {
 	t.Helper()
 
-	harness := openAgents(t, rows...)
+	harness := paneltest.OpenAgents(t, rows...)
 	harness.Press("tab")
 
 	return harness
@@ -807,7 +807,7 @@ func openSchedules(t *testing.T, rows ...proto.Message) *paneltest.Panel {
 
 func buildSchedules() []proto.Message {
 	return []proto.Message{
-		newLiveWorkflow("w1", "api"),
+		paneltest.Workflow("w1", "api"),
 		newSchedule("s1", "morning-ci"),
 	}
 }

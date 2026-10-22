@@ -156,7 +156,7 @@ func TestFilterSearch(t *testing.T) {
 	}
 
 	t.Run("a selection survives a search", func(t *testing.T) {
-		harness := openAgents(t, withTasks(buildSelectable())...)
+		harness := paneltest.OpenAgents(t, withTasks(buildSelectable())...)
 
 		harness.Press("v", "j", "j", "v", "/", "d", "b", "enter", "space", "a")
 
@@ -395,7 +395,7 @@ func TestFilterSays(t *testing.T) {
 				name: "on the archived agents",
 				open: func(t *testing.T) *paneltest.Panel {
 					return openArchivedAgents(t,
-						newLiveWorkflow("w1", "backend"),
+						paneltest.Workflow("w1", "backend"),
 						newArchivedAgent("a1", "api-refactor", "w1"),
 						newArchivedAgent("a2", "db-migrate", "w1"),
 					)
@@ -485,7 +485,7 @@ func TestFilterSays(t *testing.T) {
 				live := newAgentAt("db", "w1", 3)
 				live.PaneId = "%9"
 				live.Alive = xptr.Ptr(true)
-				harness := openAgents(t, newLiveWorkflow("w1", "backend"), live)
+				harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "backend"), live)
 				harness.Answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 					return connect.NewResponse(&agentv1.SearchTranscriptsResponse{Matches: []*agentv1.SearchHit{{AgentId: "db", Snippet: "\x02xylophone\x03"}}}), nil
 				})
@@ -538,7 +538,7 @@ func TestFilterSays(t *testing.T) {
 func TestFilterScreens(t *testing.T) {
 	t.Run("the archive walks its matches and clears back to where it opened", func(t *testing.T) {
 		harness := openArchivedAgents(t,
-			newLiveWorkflow("w1", "backend"),
+			paneltest.Workflow("w1", "backend"),
 			newArchivedAgentAt("api-refactor", "2026-07-30T09:00:00Z"),
 			newArchivedAgentAt("auth-fix", "2026-07-30T08:00:00Z"),
 		)
@@ -560,7 +560,7 @@ func TestFilterScreens(t *testing.T) {
 	t.Run("the schedules walk their matches and narrow to them", func(t *testing.T) {
 		harness := paneltest.Start(t, paneltest.Params{})
 		harness.Watch(paneltest.Snapshot(
-			newLiveWorkflow("w1", "backend"),
+			paneltest.Workflow("w1", "backend"),
 			newNamedSchedule("s1", "nightly"),
 			newNamedSchedule("s2", "morning"),
 			newNamedSchedule("s3", "weekly"),
@@ -605,13 +605,13 @@ func TestFilterScreens(t *testing.T) {
 		harness.Press("esc", "/", "r", "o", "l", "l", "enter")
 		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "Rollout report")
 		harness.Advance(time.Second)
-		assert.Contains(t, readStageText(harness.Frame()), "It went out on Tuesday.")
+		assert.Contains(t, paneltest.StageText(harness.Frame()), "It went out on Tuesday.")
 
 		harness.Press("esc", "/", "tab", "r", "o", "l", "l", "enter")
 		harness.Advance(time.Second)
 		frame := harness.Frame()
 		assert.NotContains(t, paneltest.SidebarProse(frame), "Design the cache")
-		assert.Contains(t, readStageText(frame), "It went out on Tuesday.")
+		assert.Contains(t, paneltest.StageText(frame), "It went out on Tuesday.")
 	})
 
 	tests := []struct {
@@ -647,10 +647,10 @@ func TestFilterScreens(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := paneltest.Start(t, paneltest.Params{})
-			answerWorktreeReads(harness)
+			harness.AnswerWorktreeReads()
 			harness.Watch(paneltest.Snapshot(
-				newLiveWorkflow("w1", "backend"),
-				newAgent("a1", "auth", "w1"),
+				paneltest.Workflow("w1", "backend"),
+				paneltest.Agent("a1", "auth", "w1"),
 				newArchivedAgent("a2", "old", "w1"),
 				newNamedSchedule("s1", "nightly"),
 				newArchivedSchedule("monthly-gone"),
@@ -677,7 +677,7 @@ func TestFilterScreens(t *testing.T) {
 func TestFilterWorktreeHeader(t *testing.T) {
 	harness := paneltest.Start(t, paneltest.Params{})
 	harness.Watch(paneltest.Snapshot(
-		newLiveWorkflow("w1", "backend"),
+		paneltest.Workflow("w1", "backend"),
 		&worktreev1.WatchedWorktree{
 			Dir:        "/trees/worktree-view",
 			RepoDir:    "/home/h/komrad",
@@ -715,12 +715,12 @@ func openFilterable(t *testing.T, from string) *paneltest.Panel {
 	t.Helper()
 
 	auth := newAgentAt("auth", "w1", 5)
-	harness := openAgents(t,
-		newLiveWorkflow("w1", "backend"),
-		newLiveWorkflow("w2", "frontend"),
+	harness := paneltest.OpenAgents(t,
+		paneltest.Workflow("w1", "backend"),
+		paneltest.Workflow("w2", "frontend"),
 		auth,
-		newTaskOf(auth),
-		newReviewer("api", "api", "auth"),
+		paneltest.TaskOf(auth),
+		paneltest.Reviewer("api", "api", "auth"),
 		newAgentAt("db", "w1", 3),
 		newAgentAt("ui", "w2", 1),
 	)

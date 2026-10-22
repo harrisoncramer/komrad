@@ -118,8 +118,8 @@ func openFailedSetup(t *testing.T) *paneltest.Panel {
 	failed.FailureReason = "the worktree could not be made"
 
 	harness := paneltest.Start(t, paneltest.Params{})
-	answerWorktreeReads(harness)
-	harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), failed))
+	harness.AnswerWorktreeReads()
+	harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), failed))
 	harness.Press("j")
 	harness.Advance(time.Second)
 

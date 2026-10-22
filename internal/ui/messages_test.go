@@ -270,7 +270,7 @@ func TestMessagesRefusedWrites(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openAgents(t, newLiveWorkflow("w1", "backend"), tt.agent)
+			harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "backend"), tt.agent)
 			harness.Refuse(tt.refused, connect.NewError(connect.CodeFailedPrecondition, errors.New(tt.reason)))
 
 			harness.Press(tt.press...)
@@ -283,7 +283,7 @@ func TestMessagesRefusedWrites(t *testing.T) {
 	}
 
 	t.Run("a write that lands says nothing and takes nothing away", func(t *testing.T) {
-		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newDormant("api-refactor"))
+		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "backend"), newDormant("api-refactor"))
 		harness.Refuse(agentv1connect.AgentServiceResumeAgentProcedure, connect.NewError(connect.CodeNotFound, errors.New("no such agent")))
 
 		harness.Press("j", "enter", "space", "a", "enter", "ctrl+g")
@@ -300,8 +300,8 @@ func openMessages(t *testing.T, params paneltest.Params) *paneltest.Panel {
 	t.Helper()
 
 	harness := paneltest.Start(t, params)
-	answerWorktreeReads(harness)
-	harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), newDormant("api-refactor")))
+	harness.AnswerWorktreeReads()
+	harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), newDormant("api-refactor")))
 	harness.Refuse(agentv1connect.AgentServiceResumeAgentProcedure, newTracedRefusal("no such agent"))
 	harness.Press("j")
 

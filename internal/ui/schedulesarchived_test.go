@@ -21,7 +21,7 @@ import (
 // TestArchivedSchedules covers the schedules view switched to its archived kind.
 func TestArchivedSchedules(t *testing.T) {
 	rows := []proto.Message{
-		newLiveWorkflow("w1", "backend"),
+		paneltest.Workflow("w1", "backend"),
 		newArchivedAgent("a1", "api-refactor", "w1"),
 		newSchedule("s1", "nightly-live"),
 		newArchivedSchedule("weekly-gone"),
