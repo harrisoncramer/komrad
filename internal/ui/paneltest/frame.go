@@ -471,7 +471,7 @@ func Stage(frame string) []string {
 	})
 }
 
-// StageText is the block beside the list as one string, a line to each row.
+// StageText is Stage joined into one string by newlines.
 func StageText(frame string) string {
 	return strings.Join(Stage(frame), "\n")
 }
