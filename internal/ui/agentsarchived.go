@@ -221,7 +221,7 @@ func (a *archivedAgents) listRows(m *model, in screen.Inputs) []agentRow {
 	}
 
 	return a.built.read(key, func() []agentRow {
-		return narrowedAgentRows(m, treeRows(treeRowsParams{
+		return narrowedAgentRows(m, in.Listing, treeRows(treeRowsParams{
 			workflows:         a.headers(in.Listing),
 			agents:            sortedAgents(a.listedAgents(in.Listing), archivedAgentSorts, order),
 			showHidden:        true,

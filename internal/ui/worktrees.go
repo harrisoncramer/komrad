@@ -66,8 +66,8 @@ type worktreesScreen struct {
 
 // apply takes a fresh listing, keeping the cursor on the row it was on, or on the agent the
 // screen was opened for.
-func (w *worktreesScreen) apply(m *model, in screen.Inputs, items []panel.Worktree, hovered string) {
-	w.items = items
+func (w *worktreesScreen) apply(m *model, in screen.Inputs, hovered string) {
+	w.items = in.Listing.Worktrees
 	w.revision++
 
 	focus := w.focus

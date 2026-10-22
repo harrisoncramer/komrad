@@ -59,39 +59,41 @@ func checkAgentsClause(clause searchsyntax.Clause, now time.Time) error {
 }
 
 // agentRowFits matches a row of the tree against a qualifier, a header standing for its workflow.
-func (m *model) agentRowFits(r agentRow) clauseFits {
-	return func(clause searchsyntax.Clause) bool {
-		if !r.header {
-			return m.agentFits(r.item, clause)
-		}
-		if r.isTask() {
-			writer, ok := r.writer()
+func (m *model) agentRowFits(l panel.Listing) func(agentRow) clauseFits {
+	return func(r agentRow) clauseFits {
+		return func(clause searchsyntax.Clause) bool {
+			if !r.header {
+				return m.agentFits(l, r.item, clause)
+			}
+			if r.isTask() {
+				writer, ok := r.writer()
 
-			return clause.Key == searchsyntax.KeyTask && containsFold(r.task.Slug, clause.Value) ||
-				ok && m.agentFits(writer, clause)
-		}
-		if clause.Key == searchsyntax.KeyWorkflow {
-			return containsFold(r.workflow.Name, clause.Value)
-		}
-		if r.orchestrator == nil {
-			return false
-		}
+				return clause.Key == searchsyntax.KeyTask && containsFold(r.task.Slug, clause.Value) ||
+					ok && m.agentFits(l, writer, clause)
+			}
+			if clause.Key == searchsyntax.KeyWorkflow {
+				return containsFold(r.workflow.Name, clause.Value)
+			}
+			if r.orchestrator == nil {
+				return false
+			}
 
-		return m.agentFits(*r.orchestrator, clause)
+			return m.agentFits(l, *r.orchestrator, clause)
+		}
 	}
 }
 
-func (m *model) agentFits(row panel.AgentRow, clause searchsyntax.Clause) bool {
+func (m *model) agentFits(l panel.Listing, row panel.AgentRow, clause searchsyntax.Clause) bool {
 	agent := row.Agent
 	switch clause.Key {
 	case searchsyntax.KeyAgent:
 		return containsFold(agent.Name, clause.Value)
 	case searchsyntax.KeyWorkflow:
-		return containsFold(m.listing.WorkflowName(agent.WorkflowID), clause.Value)
+		return containsFold(l.WorkflowName(agent.WorkflowID), clause.Value)
 	case searchsyntax.KeyIs:
 		return strings.EqualFold(string(agent.Role), clause.Value)
 	case searchsyntax.KeyTask:
-		return containsFold(m.listing.Tasks.FindForAgent(agent).Slug, clause.Value)
+		return containsFold(l.Tasks.FindForAgent(agent).Slug, clause.Value)
 	case searchsyntax.KeyHarness:
 		return strings.EqualFold(agent.Harness, clause.Value)
 	case searchsyntax.KeyPR:
@@ -100,7 +102,7 @@ func (m *model) agentFits(row panel.AgentRow, clause searchsyntax.Clause) bool {
 			return false
 		}
 
-		return slices.ContainsFunc(m.listing.Tasks.FindForAgent(agent).PullRequests, func(pr panel.PullRequest) bool { return int(pr.Number) == number })
+		return slices.ContainsFunc(l.Tasks.FindForAgent(agent).PullRequests, func(pr panel.PullRequest) bool { return int(pr.Number) == number })
 	case searchsyntax.KeySince:
 		at, err := searchsyntax.ParseStart(clause.Key, clause.Value, m.filter.qualifiers.compiledAt)
 

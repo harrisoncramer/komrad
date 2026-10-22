@@ -510,14 +510,14 @@ func (l agentsLayout) cursorRow(cursor int) (agentRow, bool) {
 }
 
 // buildZone renders the most urgent tasks the zone has slots for and counts those left waiting.
-func buildZone(z triageZone, m *model, showHidden bool) (zone []agentRow, waiting int) {
-	reviewers := m.listing.Reviewers
-	allTriaged := xslice.Filter(findTriageTasks(z.entries, m.listing.Agents), func(triaged triageTask) bool {
-		return (!m.listing.Tasks.IsHidden(triaged.head.Agent) || showHidden) && !z.isSnoozed(triageKey(triaged.head))
+func buildZone(z triageZone, l panel.Listing, showHidden bool) (zone []agentRow, waiting int) {
+	reviewers := l.Reviewers
+	allTriaged := xslice.Filter(findTriageTasks(z.entries, l.Agents), func(triaged triageTask) bool {
+		return (!l.Tasks.IsHidden(triaged.head.Agent) || showHidden) && !z.isSnoozed(triageKey(triaged.head))
 	})
 	ordered := z.orderTasks(allTriaged)
 	slotted := ordered[:min(len(ordered), z.capacity)]
-	workflows := xslice.KeyBy(m.listing.Workflows, func(w panel.Workflow) string { return w.ID })
+	workflows := xslice.KeyBy(l.Workflows, func(w panel.Workflow) string { return w.ID })
 	for _, triaged := range slotted {
 		for _, row := range buildAgentRows(triaged.head, reviewers[triaged.head.Agent.ID]) {
 			row.workflow = workflows[row.item.Agent.WorkflowID]
@@ -614,8 +614,8 @@ func zoneHeads(zone []agentRow) []int {
 }
 
 // findZoneSlot is which task in the zone the cursor is on, counting from the top, or -1 off the zone.
-func (a *agentsScreen) findZoneSlot(m *model) int {
-	zone := a.layout(m, m.inputs()).zone
+func (a *agentsScreen) findZoneSlot(m *model, in screen.Inputs) int {
+	zone := a.layout(m, in).zone
 	if a.Row < 0 || a.Row >= len(zone) {
 		return -1
 	}

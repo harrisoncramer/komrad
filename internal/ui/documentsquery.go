@@ -8,6 +8,7 @@ import (
 
 	"komrad/internal/searchsyntax"
 	"komrad/internal/ui/api"
+	"komrad/internal/ui/panel"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"connectrpc.com/connect"
@@ -43,42 +44,44 @@ func checkDocumentsClause(clause searchsyntax.Clause, now time.Time) error {
 
 // documentRowFits matches a document against a qualifier, by the agent that wrote it for agent:
 // and workflow:, by its task for task:, and by what the server found it saying for says:.
-func (m *model) documentRowFits(r documentRow) clauseFits {
-	return func(clause searchsyntax.Clause) bool {
-		item := r.item
-		switch clause.Key {
-		case searchsyntax.KeyAgent:
-			if agentID, ok := m.openedForAgent(clause.Value); ok {
-				return item.agentID == agentID
+func (m *model) documentRowFits(l panel.Listing) func(documentRow) clauseFits {
+	return func(r documentRow) clauseFits {
+		return func(clause searchsyntax.Clause) bool {
+			item := r.item
+			switch clause.Key {
+			case searchsyntax.KeyAgent:
+				if agentID, ok := m.openedForAgent(l, clause.Value); ok {
+					return item.agentID == agentID
+				}
+
+				return containsFold(findAgentName(l, item.agentID), clause.Value)
+			case searchsyntax.KeyTask:
+				if taskID, ok := m.openedForTask(l, clause.Value); ok {
+					return item.taskID == taskID
+				}
+				task, ok := l.Tasks[item.taskID]
+
+				return ok && containsFold(task.Slug, clause.Value)
+			case searchsyntax.KeyWorkflow:
+				agent, ok := l.AnyAgent(item.agentID)
+
+				return ok && containsFold(l.WorkflowName(agent.Agent.WorkflowID), clause.Value)
+			case searchsyntax.KeyType:
+				return strings.EqualFold(item.typeName, clause.Value)
+			case searchsyntax.KeySince:
+				at, err := searchsyntax.ParseStart(clause.Key, clause.Value, m.filter.qualifiers.compiledAt)
+
+				return err == nil && !item.updatedAt.Before(at)
+			case searchsyntax.KeyUntil:
+				at, err := searchsyntax.ParseEnd(clause.Key, clause.Value, m.filter.qualifiers.compiledAt)
+
+				return err == nil && item.updatedAt.Before(at)
+			case searchsyntax.KeySays:
+				return m.filter.hasSaid(item.id)
 			}
 
-			return containsFold(findAgentName(m, item.agentID), clause.Value)
-		case searchsyntax.KeyTask:
-			if taskID, ok := m.openedForTask(clause.Value); ok {
-				return item.taskID == taskID
-			}
-			task, ok := m.listing.Tasks[item.taskID]
-
-			return ok && containsFold(task.Slug, clause.Value)
-		case searchsyntax.KeyWorkflow:
-			agent, ok := m.listing.AnyAgent(item.agentID)
-
-			return ok && containsFold(m.listing.WorkflowName(agent.Agent.WorkflowID), clause.Value)
-		case searchsyntax.KeyType:
-			return strings.EqualFold(item.typeName, clause.Value)
-		case searchsyntax.KeySince:
-			at, err := searchsyntax.ParseStart(clause.Key, clause.Value, m.filter.qualifiers.compiledAt)
-
-			return err == nil && !item.updatedAt.Before(at)
-		case searchsyntax.KeyUntil:
-			at, err := searchsyntax.ParseEnd(clause.Key, clause.Value, m.filter.qualifiers.compiledAt)
-
-			return err == nil && item.updatedAt.Before(at)
-		case searchsyntax.KeySays:
-			return m.filter.hasSaid(item.id)
+			return false
 		}
-
-		return false
 	}
 }
 
@@ -116,7 +119,7 @@ func (m *model) namedAgentID() (string, bool) {
 	if len(names) != 1 {
 		return "", false
 	}
-	if agentID, ok := m.openedForAgent(names[0]); ok {
+	if agentID, ok := m.openedForAgent(m.listing, names[0]); ok {
 		return agentID, true
 	}
 
@@ -134,9 +137,9 @@ func (m *model) namedAgentID() (string, bool) {
 }
 
 // openedForAgent is the agent the documents were opened for, when the name given is its name.
-func (m *model) openedForAgent(name string) (string, bool) {
+func (m *model) openedForAgent(l panel.Listing, name string) (string, bool) {
 	agentID := m.documents.agentID
-	if agentID == "" || !strings.EqualFold(findAgentName(m, agentID), name) {
+	if agentID == "" || !strings.EqualFold(findAgentName(l, agentID), name) {
 		return "", false
 	}
 
@@ -150,7 +153,7 @@ func (m *model) openedTaskWriter() (string, bool) {
 		if clause.Key != searchsyntax.KeyTask || clause.Negated {
 			continue
 		}
-		if _, ok := m.openedForTask(clause.Value); ok && m.documents.agentID != "" {
+		if _, ok := m.openedForTask(m.listing, clause.Value); ok && m.documents.agentID != "" {
 			return m.documents.agentID, true
 		}
 	}
@@ -159,9 +162,9 @@ func (m *model) openedTaskWriter() (string, bool) {
 }
 
 // openedForTask is the task the documents were opened for, when the slug given is its slug.
-func (m *model) openedForTask(slug string) (string, bool) {
+func (m *model) openedForTask(l panel.Listing, slug string) (string, bool) {
 	taskID := m.documents.taskID
-	task, ok := m.listing.Tasks[taskID]
+	task, ok := l.Tasks[taskID]
 	if taskID == "" || !ok || !strings.EqualFold(task.Slug, slug) {
 		return "", false
 	}

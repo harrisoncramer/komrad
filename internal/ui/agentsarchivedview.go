@@ -76,7 +76,7 @@ func (a *archivedAgents) snapshot(m *model, in screen.Inputs, pane list.Pane) vi
 		caret:        pane.Caret,
 		loaderFrame:  m.loading.frame(),
 		matcher:      m.filter.pattern,
-		picked:       pickedRows(m.filter, rows, m.agentRowFits),
+		picked:       pickedRows(m.filter, rows, m.agentRowFits(in.Listing)),
 		tasks:        in.Listing.Tasks,
 		renaming:     a.renamingField(),
 		showHidden:   true,

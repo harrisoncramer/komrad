@@ -66,6 +66,8 @@ func (a *agentsScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.
 		a.settleRename(m, in, msg.Row, msg.Err)
 
 		return nil, true
+	case screen.Relisted:
+		return a.relist(m, in, msg), true
 	}
 
 	return nil, false
@@ -186,6 +188,28 @@ func (a *agentsScreen) settleResume(in screen.Inputs, id string, err error) scre
 	return a.followAwaitingCLI(in)
 }
 
+// relist puts the cursors of the tree, the zone and the archive on show back on the rows they were on.
+func (a *agentsScreen) relist(m *model, in screen.Inputs, relisted screen.Relisted) screen.Request {
+	before := relisted.Before(in)
+	treeRow := a.list().hovered(m, before)
+	triageSlot := a.findZoneSlot(m, before)
+	archiveShown := a.shownArchive()
+	var archivedRow string
+	if archiveShown != nil {
+		archivedRow = archiveShown.list().hovered(m, before)
+	}
+
+	a.triage.refresh(in.Listing.Agents, in.Listing.Tasks, a.deps.clock.Now())
+	a.apply(m, in, treeRow)
+	followed := a.followAwaitingCLI(in)
+	a.landInTriage(m, in, treeRow, triageSlot)
+	if archiveShown != nil {
+		archiveShown.place(m, in, archivedRow)
+	}
+
+	return followed
+}
+
 func (a *agentsScreen) followAwaitingCLI(in screen.Inputs) screen.Request {
 	var notes screen.Batch
 	for id, paneSeen := range a.awaitingCLI {
@@ -240,7 +264,7 @@ func (a *agentsScreen) seeFinished(m *model, in screen.Inputs, item panel.AgentR
 // toggleSnooze snoozes or wakes the task under the key in triage, keeping the cursor in the zone.
 func (a *agentsScreen) toggleSnooze(m *model, in screen.Inputs, key string) screen.Request {
 	selected := a.list().hovered(m, in)
-	slot := a.findZoneSlot(m)
+	slot := a.findZoneSlot(m, in)
 	if !a.triage.toggleSnooze(key, in.Listing.Agents) {
 		return nil
 	}

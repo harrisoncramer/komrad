@@ -384,7 +384,7 @@ func (a *agentsScreen) buildFrame(m *model, in screen.Inputs) {
 }
 
 func (a *agentsScreen) buildLayout(m *model, in screen.Inputs) agentsLayout {
-	zone, waiting := buildZone(a.triage, m, a.showHidden)
+	zone, waiting := buildZone(a.triage, in.Listing, a.showHidden)
 	tree := a.buildTree(m, in)
 
 	return agentsLayout{
@@ -414,7 +414,7 @@ func (a *agentsScreen) buildTree(m *model, in screen.Inputs) []agentRow {
 	}
 
 	return a.tree.read(key, func() []agentRow {
-		return narrowedAgentRows(m, treeRows(treeRowsParams{
+		return narrowedAgentRows(m, in.Listing, treeRows(treeRowsParams{
 			workflows:         in.Listing.Workflows,
 			agents:            sortedAgents(in.Listing.Agents, agentSorts, order),
 			showHidden:        a.showHidden,
@@ -425,12 +425,12 @@ func (a *agentsScreen) buildTree(m *model, in screen.Inputs) []agentRow {
 	})
 }
 
-func narrowedAgentRows(m *model, rows []agentRow) []agentRow {
+func narrowedAgentRows(m *model, l panel.Listing, rows []agentRow) []agentRow {
 	return narrowed(m.filter, narrowedParams[agentRow]{
 		rows:  rows,
 		depth: agentRowDepth,
 		name:  agentRowName,
-		fits:  m.agentRowFits,
+		fits:  m.agentRowFits(l),
 	})
 }
 
