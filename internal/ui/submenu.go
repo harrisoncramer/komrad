@@ -58,17 +58,18 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 			case entry.Opens != nil:
 				return m.pushSubmenu(stack, newSubmenuLevel(*entry.Opens))
 			case entry.Pick == nil:
-			case entry.After == menu.Stay:
-				return entry.Pick()
-			case entry.After == menu.Hold:
-				return holdSubmit(func(*model) tea.Cmd { return entry.Pick() })(m)
-			default:
-				m.leaveForm()
-
-				return entry.Pick()
+				return m.closeForm()
 			}
 
-			return m.closeForm()
+			switch entry.After {
+			case menu.Leave:
+				m.leaveForm()
+			case menu.Hold:
+				return holdSubmit(func(*model) tea.Cmd { return entry.Pick() })(m)
+			case menu.Stay:
+			}
+
+			return entry.Pick()
 		},
 		beside: func(m *model, form formState) tea.Cmd {
 			if level.menu.InPlace {
