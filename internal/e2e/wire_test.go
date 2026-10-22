@@ -17,6 +17,7 @@ import (
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -117,7 +118,7 @@ func sendMail(t *testing.T, instance *komradtest.Instance, fromID, toID, body st
 	t.Helper()
 
 	req := connect.NewRequest(&agentv1.SendMailRequest{To: &agentv1.SendMailRequest_ToAgentId{ToAgentId: toID}, Body: body})
-	caller.Caller{AgentID: fromID}.SetHeader(req.Header())
+	caller.Caller{AgentID: uuid.MustParse(fromID)}.SetHeader(req.Header())
 
 	_, err := instance.Agents.SendMail(t.Context(), req)
 	require.NoError(t, err)

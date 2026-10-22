@@ -141,7 +141,7 @@ func TestWorktreeConfigRoundTrip(t *testing.T) {
 	}
 }
 
-var missingID = uuid.MustParse("00000000-0000-0000-0000-000000000000")
+var missingID = uuid.New()
 
 func open(t *testing.T) *WorkflowStore {
 	t.Helper()

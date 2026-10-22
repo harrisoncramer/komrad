@@ -308,7 +308,7 @@ func TestSendMailTellsTheRecipientWhenTheCapRefusesASend(t *testing.T) {
 		told := listCappedMail(t, st, writer.ID)
 		require.Len(t, told, 1)
 		assert.Contains(t, told[0].Body, reviewer.Name)
-		assert.Contains(t, told[0].Body, reviewer.ID, "the id, since two workflows may hold one name")
+		assert.Contains(t, told[0].Body, reviewer.ID.String(), "the id, since two workflows may hold one name")
 	})
 
 	t.Run("unread mail stands for the refusals behind it", func(t *testing.T) {

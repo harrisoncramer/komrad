@@ -21,12 +21,12 @@ import (
 // TestRestartAgentStartsANewConversation pins a writer relaunched on a new conversation, briefed from its task,
 // on a session it has not held before.
 func TestRestartAgentStartsANewConversation(t *testing.T) {
-	var earlier = uuid.MustParse("0f0b6f2c-6f8f-4a0e-9c2f-2a8f9d0a1b22")
+	const earlier = "0f0b6f2c-6f8f-4a0e-9c2f-2a8f9d0a1b22"
 
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
 	writer := seedRunning(t, st, tmux, "writer", "%1", agentstore.StateIdle)
-	require.NoError(t, st.Agents.SetSessionID(t.Context(), writer.ID, earlier.String()))
+	require.NoError(t, st.Agents.SetSessionID(t.Context(), writer.ID, earlier))
 	tmux.AfterKillPane = func(string) {
 		at := time.Now()
 		require.NoError(t, st.Agents.SetInterruptedAtByID(t.Context(), writer.ID, &at))
@@ -49,12 +49,12 @@ func TestRestartAgentStartsANewConversation(t *testing.T) {
 // TestRestartAgentStartsAnOrchestratorOnANewConversation pins an orchestrator relaunched on a new
 // conversation from the panel, briefed as its workflow's orchestrator.
 func TestRestartAgentStartsAnOrchestratorOnANewConversation(t *testing.T) {
-	var earlier = uuid.MustParse("5b1d9a7e-2c4f-4f0a-8e3d-7a6c5b4e3d21")
+	const earlier = "5b1d9a7e-2c4f-4f0a-8e3d-7a6c5b4e3d21"
 
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
 	orchestrator := seedOrchestrator(t, st, tmux)
-	require.NoError(t, st.Agents.SetSessionID(t.Context(), orchestrator.ID, earlier.String()))
+	require.NoError(t, st.Agents.SetSessionID(t.Context(), orchestrator.ID, earlier))
 	service, fakeHarness := newManagerWithHarness(tmux, st, "")
 
 	restarted, err := service.resume.RestartAgent(t.Context(), RestartAgentParams{ID: orchestrator.ID})
@@ -146,7 +146,7 @@ func TestRestartAgentOntoAnotherHarnessOrFlags(t *testing.T) {
 // TestRestartAgentGivingUpKeepsTheEarlierConversation pins a writer whose restart fails left on the
 // conversation, CLI and flags it had.
 func TestRestartAgentGivingUpKeepsTheEarlierConversation(t *testing.T) {
-	var earlier = uuid.MustParse("0f0b6f2c-6f8f-4a0e-9c2f-2a8f9d0a1b22")
+	const earlier = "0f0b6f2c-6f8f-4a0e-9c2f-2a8f9d0a1b22"
 
 	tests := []struct {
 		name string
@@ -171,7 +171,7 @@ func TestRestartAgentGivingUpKeepsTheEarlierConversation(t *testing.T) {
 				ID:        writer.ID,
 				Harness:   harnesstest.FakeID,
 				Flags:     "--model opus",
-				SessionID: earlier.String(),
+				SessionID: earlier,
 			}))
 			service, _ := newManagerWithHarness(tmux, st, "")
 			tt.fail(tmux)

@@ -711,4 +711,4 @@ func TestScheduleNotFound(t *testing.T) {
 	}
 }
 
-var missingScheduleID = uuid.MustParse("00000000-0000-0000-0000-000000000000")
+var missingScheduleID = uuid.New()

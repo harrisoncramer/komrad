@@ -175,14 +175,14 @@ func TestSplitProcedure(t *testing.T) {
 // the panel and every agent sharing one loopback address.
 func TestLoggingNamesTheCallingAgent(t *testing.T) {
 	req := unaryRequest("/agent.v1.AgentService/CreateAgent", "")
-	req.Header().Set(caller.AgentHeader, "agent-1")
+	req.Header().Set(caller.AgentHeader, firstAgentID.String())
 	req.Header().Set(caller.SessionHeader, "sess-1")
 
 	written, _, err := loggedCall(t, slog.LevelDebug, req, nil)
 	require.NoError(t, err)
 
 	record := logtest.Record(t, written)
-	assert.Equal(t, "agent-1", record[logging.AgentID])
+	assert.Equal(t, firstAgentID.String(), record[logging.AgentID])
 	assert.Equal(t, "sess-1", record[logging.SessionID])
 }
 
@@ -200,7 +200,7 @@ func TestLoggingLeavesThePanelUnattributed(t *testing.T) {
 // which agent it is acting for.
 func TestLoggingHandsTheIdentityDown(t *testing.T) {
 	req := unaryRequest("/agent.v1.AgentService/CreateAgent", "")
-	req.Header().Set(caller.AgentHeader, "agent-1")
+	req.Header().Set(caller.AgentHeader, firstAgentID.String())
 
 	var seen caller.Caller
 	next := func(ctx context.Context, _ connect.AnyRequest) (connect.AnyResponse, error) {

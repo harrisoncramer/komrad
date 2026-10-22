@@ -47,7 +47,7 @@ func TestCreateRefusesASecondConnectionForAHost(t *testing.T) {
 func TestNotFound(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	var missing = uuid.MustParse("00000000-0000-0000-0000-000000000000")
+	var missing = uuid.New()
 
 	_, err := st.Get(ctx, missing)
 	require.ErrorIs(t, err, store.ErrNotFound)

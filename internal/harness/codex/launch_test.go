@@ -78,7 +78,7 @@ func TestBuildCommand(t *testing.T) {
 		{
 			name:        "the agent's own id leads the line, so it reaches codex's environment",
 			launch:      harness.Launch{AgentID: launchedID, Prompt: "go"},
-			wantContain: []string{"KOMRAD_AGENT_ID='id-1' CODEX_INTERNAL_ORIGINATOR_OVERRIDE='komrad-id-1' command codex"},
+			wantContain: []string{"KOMRAD_AGENT_ID='" + launchedID.String() + "' CODEX_INTERNAL_ORIGINATOR_OVERRIDE='komrad-" + launchedID.String() + "' command codex"},
 		},
 		{
 			name: "and it survives a resume",
@@ -88,7 +88,7 @@ func TestBuildCommand(t *testing.T) {
 				Resume:    true,
 			},
 			wantContain: []string{
-				"KOMRAD_AGENT_ID='id-1' KOMRAD_SESSION_ID='sess' CODEX_INTERNAL_ORIGINATOR_OVERRIDE='komrad-id-1' command codex resume",
+				"KOMRAD_AGENT_ID='" + launchedID.String() + "' KOMRAD_SESSION_ID='sess' CODEX_INTERNAL_ORIGINATOR_OVERRIDE='komrad-" + launchedID.String() + "' command codex resume",
 			},
 		},
 		{
@@ -372,7 +372,7 @@ func TestMCPHeadersNameTheEnvironment(t *testing.T) {
 	assert.Contains(t, command,
 		`-c 'mcp_servers.komrad.env_http_headers={"X-Komrad-Agent-Id"="KOMRAD_AGENT_ID","X-Komrad-Session-Id"="KOMRAD_SESSION_ID"}'`)
 
-	assert.Contains(t, command, "KOMRAD_AGENT_ID='agent-1'")
+	assert.Contains(t, command, "KOMRAD_AGENT_ID='"+firstAgentID.String()+"'")
 	assert.Contains(t, command, "KOMRAD_SESSION_ID='sess-1'")
 }
 

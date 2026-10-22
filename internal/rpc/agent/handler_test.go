@@ -47,7 +47,7 @@ import (
 )
 
 var (
-	missingID  = uuid.MustParse("00000000-0000-0000-0000-000000000000")
+	missingID  = uuid.New()
 	workflowID = uuid.MustParse("01a0d1d7-0000-7000-8000-0000000000f1")
 )
 
@@ -795,7 +795,7 @@ func TestRecordReportLogsTheHookCall(t *testing.T) {
 			require.NoError(t, err)
 
 			record := logtest.Record(t, written.String())
-			assert.Equal(t, id, record[logging.TargetAgentID])
+			assert.Equal(t, id.String(), record[logging.TargetAgentID])
 			assert.Equal(t, "PreToolUse", record[logging.HookName])
 			assert.Equal(t, "tool started", record[logging.HookEvent])
 			assert.Equal(t, "Bash", record[logging.HookTool])
@@ -1139,7 +1139,7 @@ func TestLog(t *testing.T) {
 
 			record := logtest.Record(t, written.String())
 			assert.Equal(t, "fetched origin/main", record["body"])
-			assert.Equal(t, id, record[logging.TargetAgentID])
+			assert.Equal(t, id.String(), record[logging.TargetAgentID])
 			assert.Equal(t, "/repo", record[logging.ScriptAgentCwd])
 			if tt.script == "" {
 				assert.NotContains(t, record, logging.ScriptName)
@@ -1173,7 +1173,7 @@ type recordingAgentServices struct {
 	aborted       []oneofs.Task
 	archived      []agents.ArchiveAgentsParams
 	restored      []uuid.UUID
-	runsRead      []string
+	runsRead      []uuid.UUID
 	renamed       map[uuid.UUID]string
 }
 
@@ -1334,7 +1334,7 @@ func (f *recordingAgentServices) Rename(_ context.Context, id uuid.UUID, name st
 }
 
 func (f *recordingAgentServices) MarkRunsRead(_ context.Context, id uuid.UUID) error {
-	f.runsRead = append(f.runsRead, id.String())
+	f.runsRead = append(f.runsRead, id)
 
 	return f.err
 }

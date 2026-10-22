@@ -528,8 +528,8 @@ func TestUpdate(t *testing.T) {
 			wantErr: store.ErrNameTaken,
 		},
 		{
-			name:    "a ref that is not an id is not found",
-			id:      workTaskID,
+			name:    "an id no task holds is not found",
+			id:      uuid.New(),
 			params:  taskstore.UpdateParams{Title: xptr.Ptr("Renamed")},
 			wantErr: store.ErrNotFound,
 		},

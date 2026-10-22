@@ -20,7 +20,7 @@ func TestFromHeader(t *testing.T) {
 	}{
 		{
 			name:    "an agent naming itself",
-			headers: map[string]string{AgentHeader: "agent-1", SessionHeader: "sess-1"},
+			headers: map[string]string{AgentHeader: firstAgentID.String(), SessionHeader: "sess-1"},
 			want:    Caller{AgentID: firstAgentID, SessionID: "sess-1"},
 		},
 		{
@@ -36,7 +36,7 @@ func TestFromHeader(t *testing.T) {
 		},
 		{
 			name:    "an agent with no conversation yet",
-			headers: map[string]string{AgentHeader: "agent-2"},
+			headers: map[string]string{AgentHeader: secondAgentID.String()},
 			want:    Caller{AgentID: secondAgentID},
 		},
 	}
@@ -61,7 +61,7 @@ func TestSetHeaderLeavesOutWhatIsNotKnown(t *testing.T) {
 	header := http.Header{}
 	Caller{AgentID: firstAgentID}.SetHeader(header)
 
-	assert.Equal(t, "agent-1", header.Get(AgentHeader))
+	assert.Equal(t, firstAgentID.String(), header.Get(AgentHeader))
 	_, hasSession := header[http.CanonicalHeaderKey(SessionHeader)]
 	assert.False(t, hasSession)
 }
@@ -84,7 +84,7 @@ func TestTransportForwardsTheServedRequest(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, res.Body.Close())
 
-	assert.Equal(t, "agent-1", got.Get(AgentHeader))
+	assert.Equal(t, firstAgentID.String(), got.Get(AgentHeader))
 	assert.Equal(t, "sess-1", got.Get(SessionHeader))
 	assert.Equal(t, "trace-9", got.Get(TraceHeader))
 }

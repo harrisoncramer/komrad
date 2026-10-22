@@ -32,7 +32,7 @@ func TestFileStoreRoundTrip(t *testing.T) {
 	token, err = store.Get(ctx, connectionID)
 	require.NoError(t, err)
 	assert.Equal(t, "ghp_replaced", token.Expose())
-	entries, err := os.ReadDir(store.Path(uuid.Nil))
+	entries, err := os.ReadDir(filepath.Dir(store.Path(connectionID)))
 	require.NoError(t, err)
 	assert.Len(t, entries, 1, "a replaced token leaves no temporary file behind")
 

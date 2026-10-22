@@ -386,7 +386,7 @@ func TestAPullRequestChangeRetriesAFullMailboxAlone(t *testing.T) {
 	require.True(t, ok)
 	var change Change
 	require.NoError(t, json.Unmarshal(retry.Payload, &change))
-	assert.Equal(t, full, change.Recipient)
+	assert.Equal(t, &full, change.Recipient)
 
 	_, err := f.stores.ClaimMail(t.Context(), full, 200)
 	require.NoError(t, err)

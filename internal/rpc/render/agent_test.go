@@ -34,26 +34,30 @@ func TestAgent(t *testing.T) {
 		{
 			name: "an agent nothing has written to",
 			stored: agentstore.Agent{
-				ID:   secondAgentID,
-				Name: "reviewer",
+				ID:         secondAgentID,
+				WorkflowID: workflowID,
+				Name:       "reviewer",
 			},
 			want: &agentv1.Agent{
-				Id:    "a2",
-				Name:  "reviewer",
-				Alive: xptr.Ptr(false),
+				Id:         secondAgentID.String(),
+				WorkflowId: workflowID.String(),
+				Name:       "reviewer",
+				Alive:      xptr.Ptr(false),
 			},
 		},
 		{
 			name: "an agent whose state was written",
 			stored: agentstore.Agent{
 				ID:             firstAgentID,
+				WorkflowID:     workflowID,
 				Name:           "worker",
 				State:          agentstore.StateWaiting,
 				Role:           agentstore.RoleReviewer,
 				StateChangedAt: changed,
 			},
 			want: &agentv1.Agent{
-				Id:             "a1",
+				Id:             firstAgentID.String(),
+				WorkflowId:     workflowID.String(),
 				Name:           "worker",
 				State:          agentv1.AgentState_AGENT_STATE_WAITING,
 				Role:           agentv1.AgentRole_AGENT_ROLE_REVIEWER,
@@ -64,8 +68,9 @@ func TestAgent(t *testing.T) {
 		{
 			name: "an agent whose last turn ended after one that failed",
 			stored: agentstore.Agent{
-				ID:   fourthAgentID,
-				Name: "recovered",
+				ID:         fourthAgentID,
+				WorkflowID: workflowID,
+				Name:       "recovered",
 				Turn: agentstore.Turn{
 					EndedAt:  xptr.Ptr(changed.Add(time.Minute)),
 					FailedAt: xptr.Ptr(changed),
@@ -73,17 +78,19 @@ func TestAgent(t *testing.T) {
 				},
 			},
 			want: &agentv1.Agent{
-				Id:    "a4",
-				Name:  "recovered",
-				Alive: xptr.Ptr(false),
+				Id:         fourthAgentID.String(),
+				WorkflowId: workflowID.String(),
+				Name:       "recovered",
+				Alive:      xptr.Ptr(false),
 			},
 		},
 		{
 			name: "an agent whose last turn failed",
 			stored: agentstore.Agent{
-				ID:    fifthAgentID,
-				Name:  "failed",
-				State: agentstore.StateErrored,
+				ID:         fifthAgentID,
+				WorkflowID: workflowID,
+				Name:       "failed",
+				State:      agentstore.StateErrored,
 				Turn: agentstore.Turn{
 					EndedAt:  xptr.Ptr(changed),
 					FailedAt: xptr.Ptr(changed),
@@ -91,25 +98,28 @@ func TestAgent(t *testing.T) {
 				},
 			},
 			want: &agentv1.Agent{
-				Id:        "a5",
-				Name:      "failed",
-				State:     agentv1.AgentState_AGENT_STATE_ERRORED,
-				TurnError: "Overloaded",
-				Alive:     xptr.Ptr(false),
+				Id:         fifthAgentID.String(),
+				WorkflowId: workflowID.String(),
+				Name:       "failed",
+				State:      agentv1.AgentState_AGENT_STATE_ERRORED,
+				TurnError:  "Overloaded",
+				Alive:      xptr.Ptr(false),
 			},
 		},
 		{
 			name: "an agent that has written documents, stamped to within the second",
 			stored: agentstore.Agent{
-				ID:   thirdAgentID,
-				Name: "author",
+				ID:         thirdAgentID,
+				WorkflowID: workflowID,
+				Name:       "author",
 			},
 			beside: rowstore.Row{
 				Documents:          2,
 				DocumentsUpdatedAt: &written,
 			},
 			want: &agentv1.Agent{
-				Id:                 "a3",
+				Id:                 thirdAgentID.String(),
+				WorkflowId:         workflowID.String(),
 				Name:               "author",
 				Alive:              xptr.Ptr(false),
 				Documents:          2,
@@ -119,15 +129,17 @@ func TestAgent(t *testing.T) {
 		{
 			name: "an agent whose launch installed hooks",
 			stored: agentstore.Agent{
-				ID:    sixthAgentID,
-				Name:  "hooked",
-				Hooks: []string{"PreToolUse", "Stop"},
+				ID:         sixthAgentID,
+				WorkflowID: workflowID,
+				Name:       "hooked",
+				Hooks:      []string{"PreToolUse", "Stop"},
 			},
 			want: &agentv1.Agent{
-				Id:    "a6",
-				Name:  "hooked",
-				Alive: xptr.Ptr(false),
-				Hooks: []string{"PreToolUse", "Stop"},
+				Id:         sixthAgentID.String(),
+				WorkflowId: workflowID.String(),
+				Name:       "hooked",
+				Alive:      xptr.Ptr(false),
+				Hooks:      []string{"PreToolUse", "Stop"},
 			},
 		},
 	}
@@ -224,6 +236,7 @@ func TestAgentRoleOf(t *testing.T) {
 }
 
 var (
+	workflowID    = uuid.New()
 	fifthAgentID  = uuid.New()
 	firstAgentID  = uuid.New()
 	fourthAgentID = uuid.New()

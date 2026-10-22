@@ -310,7 +310,7 @@ func TestCreateSchedule(t *testing.T) {
 			require.NoError(t, err)
 
 			schedule := created.Msg.GetSchedule()
-			assert.Equal(t, scheduleID, schedule.GetId())
+			assert.Equal(t, scheduleID.String(), schedule.GetId())
 			assert.Equal(t, tt.wantKind, schedule.GetKind())
 			assert.Equal(t, tt.wantOrchestrator, schedule.OrchestratorAgentId)
 			assert.Equal(t, "check CI", schedule.GetPrompt())

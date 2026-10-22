@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var missingAgentID = uuid.MustParse("00000000-0000-0000-0000-000000000000")
+var missingAgentID = uuid.New()
 
 func newTranscriptReader(st *storetest.Stores) *TranscriptReader {
 	return NewTranscriptReader(NewTranscriptReaderParams{

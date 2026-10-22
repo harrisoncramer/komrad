@@ -305,11 +305,11 @@ func (i *Instance) WorkQueue() {
 }
 
 // Fire queues one firing of a schedule, due at scheduledFor, and works the queue until it drains.
-func (i *Instance) Fire(scheduleID uuid.UUID, scheduledFor time.Time) {
+func (i *Instance) Fire(scheduleID string, scheduledFor time.Time) {
 	i.t.Helper()
 
 	_, err := i.server.Jobs.Insert(i.t.Context(), internaljobs.LaunchAgentArgs{
-		ScheduleID:   scheduleID,
+		ScheduleID:   uuid.MustParse(scheduleID),
 		ScheduledFor: scheduledFor,
 	}, nil)
 	require.NoError(i.t, err)
@@ -371,17 +371,17 @@ func (i *Instance) MeasureWorktrees() {
 
 // Settle moves an agent to an activity and reconciles until the store agrees, so a test says
 // where an agent ends up rather than how many passes that takes.
-func (i *Instance) Settle(agentID uuid.UUID, activity harness.Activity, want agentstore.State) {
+func (i *Instance) Settle(agentID string, activity harness.Activity, want agentstore.State) {
 	i.t.Helper()
 
-	require.NoError(i.t, i.Harness.SetActivity(agentID, activity))
+	require.NoError(i.t, i.Harness.SetActivity(uuid.MustParse(agentID), activity))
 	i.WaitForActivity(agentID, activity)
 
 	deadline := time.Now().Add(settleTimeout)
 	for time.Now().Before(deadline) {
 		i.reconcile()
 
-		stored, err := i.Stores.Agents.GetByID(i.t.Context(), agentID)
+		stored, err := i.Stores.Agents.GetByID(i.t.Context(), uuid.MustParse(agentID))
 		require.NoError(i.t, err)
 		require.NotNil(i.t, stored)
 
@@ -396,14 +396,14 @@ func (i *Instance) Settle(agentID uuid.UUID, activity harness.Activity, want age
 }
 
 // WaitForHarness waits until an agent's harness has drawn in its own pane.
-func (i *Instance) WaitForHarness(agentID uuid.UUID) {
+func (i *Instance) WaitForHarness(agentID string) {
 	i.t.Helper()
 	i.WaitForActivity(agentID, harness.ActivityIdle)
 }
 
 // WaitForActivity waits until an agent's own pane says it is doing something, which anything
 // reading a frame would otherwise race against the first render.
-func (i *Instance) WaitForActivity(agentID uuid.UUID, activity harness.Activity) {
+func (i *Instance) WaitForActivity(agentID string, activity harness.Activity) {
 	i.t.Helper()
 
 	client := i.Tmux.Client()
@@ -422,10 +422,10 @@ func (i *Instance) WaitForActivity(agentID uuid.UUID, activity harness.Activity)
 }
 
 // Deliver runs one pass of the work the delivery queue does for an agent.
-func (i *Instance) Deliver(agentID uuid.UUID) mail.Delivery {
+func (i *Instance) Deliver(agentID string) mail.Delivery {
 	i.t.Helper()
 
-	delivery, err := i.server.Delivery.Deliver(i.t.Context(), agentID)
+	delivery, err := i.server.Delivery.Deliver(i.t.Context(), uuid.MustParse(agentID))
 	require.NoError(i.t, err)
 
 	return delivery
@@ -464,14 +464,14 @@ func (i *Instance) WaitForReceived(agentID string, lines int) []string {
 
 // GetOwnedPane is the pane stamped with an agent's id, which answers what is running rather
 // than what the row claims.
-func (i *Instance) GetOwnedPane(agentID uuid.UUID) string {
+func (i *Instance) GetOwnedPane(agentID string) string {
 	i.t.Helper()
 
 	panes, err := i.Tmux.Client().GetPanes()
 	require.NoError(i.t, err)
 
 	for pane, status := range panes {
-		if status.Owner == agentID {
+		if status.Owner.String() == agentID {
 			return pane
 		}
 	}

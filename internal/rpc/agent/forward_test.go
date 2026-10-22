@@ -149,7 +149,7 @@ func TestForwardLastTurns(t *testing.T) {
 			}
 
 			assert.Empty(t, cmp.Diff(&agentv1.ForwardLastTurnsResponse{
-				MailId:     "mail-1",
+				MailId:     mailID.String(),
 				ToAgentId:  betaID.String(),
 				CreatedAt:  "2026-09-24T09:00:00Z",
 				Turns:      3,

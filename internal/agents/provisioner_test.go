@@ -53,8 +53,8 @@ func TestProvisionerLogsAWorkflowThatWouldNotRead(t *testing.T) {
 
 	got := recordFor(t, records(), "the workflow could not be read")
 	assert.Equal(t, "ERROR", got["severity_text"])
-	assert.Equal(t, workflowID, got["komrad.workflow.id"])
-	assert.Equal(t, "a1", got["komrad.script.agent.id"])
+	assert.Equal(t, workflowID.String(), got["komrad.workflow.id"])
+	assert.Equal(t, firstAgentID.String(), got["komrad.script.agent.id"])
 	assert.Equal(t, "/repo/.worktrees/auth", got["komrad.script.agent.cwd"])
 }
 

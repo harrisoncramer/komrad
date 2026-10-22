@@ -153,7 +153,7 @@ func TestHTTPLoggingNamesTheCallingAgent(t *testing.T) {
 	var out bytes.Buffer
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"method":"tools/call","params":{"name":"create_agent"}}`))
-	req.Header.Set(caller.AgentHeader, "agent-1")
+	req.Header.Set(caller.AgentHeader, firstAgentID.String())
 	req.Header.Set(caller.SessionHeader, "sess-1")
 
 	var seen caller.Caller
@@ -165,7 +165,7 @@ func TestHTTPLoggingNamesTheCallingAgent(t *testing.T) {
 	NewLoggingHandler(logging.New(&out, slog.LevelInfo), next).ServeHTTP(httptest.NewRecorder(), req)
 
 	record := logtest.Record(t, out.String())
-	assert.Equal(t, "agent-1", record[logging.AgentID])
+	assert.Equal(t, firstAgentID.String(), record[logging.AgentID])
 	assert.Equal(t, "sess-1", record[logging.SessionID])
 	assert.Equal(t, "create_agent", record[logging.MCPTool])
 

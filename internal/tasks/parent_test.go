@@ -7,6 +7,7 @@ import (
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
+	"komrad/lib/xptr"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -62,15 +63,15 @@ func TestPlanParent(t *testing.T) {
 			}
 			repository := parentRepository
 			require.NoError(t, stores.Tasks.SetHead(ctx, parent.ID, taskstore.SetHeadParams{RepositoryURL: &repository, Branch: &tt.branch}))
-			var pullRequestID uuid.UUID
+			var pullRequestID *uuid.UUID
 			if tt.opened {
-				pullRequestID = stores.SeedPullRequest(t, storetest.SeedPullRequestParams{
+				pullRequestID = xptr.Ptr(stores.SeedPullRequest(t, storetest.SeedPullRequestParams{
 					RepositoryURL: parentRepository,
 					Number:        1,
 					HeadBranch:    tt.branch,
 					HeadSHA:       "newest",
 					BaseBranch:    "main",
-				}).ID
+				}).ID)
 			}
 			svc := NewTaskService(NewTaskServiceParams{
 				Tasks:        stores.Tasks,
@@ -86,7 +87,7 @@ func TestPlanParent(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, &taskstore.Parent{TaskID: parent.ID, ForkPoint: "newest", PullRequestID: &pullRequestID}, planned)
+			assert.Equal(t, &taskstore.Parent{TaskID: parent.ID, ForkPoint: "newest", PullRequestID: pullRequestID}, planned)
 		})
 	}
 }

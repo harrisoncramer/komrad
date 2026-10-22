@@ -133,7 +133,7 @@ func TestLaunchArgsForOccurrence(t *testing.T) {
 	launch, ok := args.(LaunchAgentArgs)
 	require.True(t, ok)
 
-	assert.Equal(t, "s1", launch.ScheduleID)
+	assert.Equal(t, firstScheduleID, launch.ScheduleID)
 	assert.Equal(t, nine, launch.ScheduledFor.UTC())
 }
 

@@ -288,24 +288,25 @@ func TestReconcileWithoutARecorderRecordsNothing(t *testing.T) {
 // TestReconcileForgetsAnAbandonedPane pins that a dormant agent drops its pane id and that komrad
 // closes the shell its CLI left behind.
 func TestReconcileForgetsAnAbandonedPane(t *testing.T) {
+	other := uuid.New()
 	tests := []struct {
 		name       string
 		mine       bool
 		command    string
-		wantStamp  string
+		wantStamp  uuid.UUID
 		wantKilled []string
 	}{
 		{
 			name:       "a pane whose CLI exited is killed as well as forgotten",
 			mine:       true,
 			command:    "-zsh",
-			wantStamp:  "",
+			wantStamp:  uuid.Nil,
 			wantKilled: []string{"%1"},
 		},
 		{
 			name:       "a pane that belongs to another agent is left alone",
 			command:    "2.1.241",
-			wantStamp:  "other-agent",
+			wantStamp:  other,
 			wantKilled: nil,
 		},
 	}
@@ -317,7 +318,7 @@ func TestReconcileForgetsAnAbandonedPane(t *testing.T) {
 			agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
 
 			tmux := tmuxtest.NewFake()
-			tmux.Owners["%1"] = uuid.New()
+			tmux.Owners["%1"] = other
 			if tt.mine {
 				tmux.Owners["%1"] = agent.ID
 			}

@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var missingID = uuid.MustParse("00000000-0000-0000-0000-000000000000")
+var missingID = uuid.New()
 
 // TestGet pins which lookups find a schedule, an archived one and an id nobody holds
 // included.
@@ -381,7 +381,7 @@ func TestListPage(t *testing.T) {
 
 			assert.Equal(t, tt.wantPages, pages)
 			assert.Len(t, seen, tt.wantSeen, "every schedule on the listed side is returned exactly once")
-			assert.IsDecreasing(t, seen, "the listing is newest first, which is descending id order")
+			assert.IsDecreasing(t, xslice.Map(seen, uuid.UUID.String), "the listing is newest first, which is descending id order")
 		})
 	}
 }

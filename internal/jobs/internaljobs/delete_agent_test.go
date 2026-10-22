@@ -18,18 +18,18 @@ import (
 
 type fakeAgentDeleter struct {
 	deleteErr error
-	deleted   []string
-	failed    []string
+	deleted   []uuid.UUID
+	failed    []uuid.UUID
 }
 
 func (f *fakeAgentDeleter) DeleteAgent(_ context.Context, id uuid.UUID, _ time.Time) error {
-	f.deleted = append(f.deleted, id.String())
+	f.deleted = append(f.deleted, id)
 
 	return f.deleteErr
 }
 
 func (f *fakeAgentDeleter) FailDelete(_ context.Context, id uuid.UUID, _ time.Time, _ error) error {
-	f.failed = append(f.failed, id.String())
+	f.failed = append(f.failed, id)
 
 	return nil
 }
@@ -44,7 +44,7 @@ func TestDeleteAgentWorker(t *testing.T) {
 		attempt    int
 		wantErr    bool
 		wantSnooze bool
-		wantFailed []string
+		wantFailed []uuid.UUID
 	}{
 		{
 			name:    "a delete that works is done",
@@ -61,7 +61,7 @@ func TestDeleteAgentWorker(t *testing.T) {
 			deleteErr:  errors.New("the store is away"),
 			attempt:    3,
 			wantErr:    true,
-			wantFailed: []string{"a1"},
+			wantFailed: []uuid.UUID{firstAgentID},
 		},
 		{
 			name:      "a delete whose teardown failed is done, since the failure is already on the agent",
@@ -94,7 +94,7 @@ func TestDeleteAgentWorker(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
-			assert.Equal(t, []string{"a1"}, fake.deleted)
+			assert.Equal(t, []uuid.UUID{firstAgentID}, fake.deleted)
 			assert.Equal(t, tt.wantFailed, fake.failed)
 		})
 	}

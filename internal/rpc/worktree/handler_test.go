@@ -91,7 +91,7 @@ func TestListWorktrees(t *testing.T) {
 	assert.Equal(t, "/trees/aaaa", first.GetDir())
 	assert.Equal(t, "agent/aaaa", first.GetBranch())
 	assert.True(t, first.GetReadable())
-	assert.Equal(t, "aaaa", first.GetTask().GetId())
+	assert.Equal(t, firstTaskID.String(), first.GetTask().GetId())
 	assert.Equal(t, "first-task", first.GetTask().GetSlug())
 	assert.Equal(t, "2026-09-19T12:00:00Z", first.GetTask().GetArchivedAt())
 	assert.True(t, first.GetTask().GetAdopted())
@@ -259,7 +259,7 @@ func buildListedWorktree() worktrees.Worktree {
 		},
 		Occupants: []worktrees.Agent{
 			{
-				ID:         firstWorktreeTaskID,
+				ID:         uuid.New(),
 				Name:       "first",
 				State:      agentstore.StateIdle,
 				ArchivedAt: &archived,
@@ -280,7 +280,4 @@ func buildListedWorktree() worktrees.Worktree {
 	}
 }
 
-var (
-	firstTaskID         = uuid.New()
-	firstWorktreeTaskID = uuid.New()
-)
+var firstTaskID = uuid.New()

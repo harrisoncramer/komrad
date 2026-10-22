@@ -166,7 +166,7 @@ func TestDeliverReportsExpiredMail(t *testing.T) {
 	written := records()
 	require.Len(t, written, 1)
 	assert.Equal(t, "WARN", written[0]["severity_text"])
-	assert.Equal(t, expired.ID, written[0][logging.MailID])
+	assert.Equal(t, expired.ID.String(), written[0][logging.MailID])
 }
 
 // TestDeliverAll pins that a sweep tells every agent holding mail and no other.

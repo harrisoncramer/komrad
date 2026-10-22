@@ -28,22 +28,25 @@ func TestTask(t *testing.T) {
 		{
 			name: "a task with no checkout",
 			stored: taskstore.Task{
-				ID:        firstTaskID,
-				Slug:      "fresh",
-				CreatedAt: created,
-				UpdatedAt: created,
+				ID:         firstTaskID,
+				WorkflowID: workflowID,
+				Slug:       "fresh",
+				CreatedAt:  created,
+				UpdatedAt:  created,
 			},
 			want: &taskv1.Task{
-				Id:        "t1",
-				Slug:      "fresh",
-				CreatedAt: "2026-09-01T09:09:00Z",
-				UpdatedAt: "2026-09-01T09:09:00Z",
+				Id:         firstTaskID.String(),
+				WorkflowId: workflowID.String(),
+				Slug:       "fresh",
+				CreatedAt:  "2026-09-01T09:09:00Z",
+				UpdatedAt:  "2026-09-01T09:09:00Z",
 			},
 		},
 		{
 			name: "a task the syncers have written to",
 			stored: taskstore.Task{
 				ID:            secondTaskID,
+				WorkflowID:    workflowID,
 				Slug:          "worked",
 				FailureReason: "teardown exited 1",
 				CreatedAt:     created,
@@ -61,7 +64,8 @@ func TestTask(t *testing.T) {
 				},
 			},
 			want: &taskv1.Task{
-				Id:                    "t2",
+				Id:                    secondTaskID.String(),
+				WorkflowId:            workflowID.String(),
 				Slug:                  "worked",
 				CreatedAt:             "2026-09-01T09:09:00Z",
 				UpdatedAt:             "2026-09-01T09:09:00Z",

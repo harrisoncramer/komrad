@@ -15,6 +15,7 @@ import (
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -54,7 +55,7 @@ func TestIntegrationAgentLifecycle(t *testing.T) {
 	t.Run("a turn an API error ended stands until the next one ends", func(t *testing.T) {
 		report := func(sent *agentv1.RecordReportRequest) {
 			req := connect.NewRequest(sent)
-			caller.Caller{AgentID: agent.GetId(), SessionID: agent.GetSessionId()}.SetHeader(req.Header())
+			caller.Caller{AgentID: uuid.MustParse(agent.GetId()), SessionID: agent.GetSessionId()}.SetHeader(req.Header())
 			_, err := instance.Agents.RecordReport(ctx, req)
 			require.NoError(t, err)
 		}

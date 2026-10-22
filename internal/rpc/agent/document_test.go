@@ -493,7 +493,7 @@ func TestWriteDocument(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Equal(t, []documents.WriteDocumentParams{tt.want}, docs.written)
-			assert.Equal(t, documentID, written.Msg.GetDocument().GetId())
+			assert.Equal(t, documentID.String(), written.Msg.GetDocument().GetId())
 			assert.Empty(t, written.Msg.GetDocument().GetBody())
 		})
 	}
@@ -808,7 +808,7 @@ func TestWriteDocumentType(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Equal(t, []documents.WriteDocumentTypeParams{tt.want}, docs.writtenTypes)
-			assert.Equal(t, documentTypeID, written.Msg.GetDocumentType().GetId())
+			assert.Equal(t, documentTypeID.String(), written.Msg.GetDocumentType().GetId())
 			assert.Equal(t, tt.want.Context, written.Msg.GetDocumentType().GetContext())
 		})
 	}

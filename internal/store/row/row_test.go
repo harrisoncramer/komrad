@@ -166,7 +166,7 @@ func TestListWatched(t *testing.T) {
 	_, err = st.Agents.MarkDeleting(ctx, []uuid.UUID{deleting.ID})
 	require.NoError(t, err)
 
-	rows, err := st.Rows.ListWatched(ctx, []uuid.UUID{first.ID, second.ID, archived.ID, deleting.ID, uuid.MustParse("00000000-0000-0000-0000-000000000000")})
+	rows, err := st.Rows.ListWatched(ctx, []uuid.UUID{first.ID, second.ID, archived.ID, deleting.ID, uuid.New()})
 	require.NoError(t, err)
 	assert.Equal(t, []uuid.UUID{archived.ID, second.ID, first.ID}, xslice.Map(rows, func(row rowstore.Row) uuid.UUID { return row.ID }))
 
@@ -194,7 +194,7 @@ func TestListWatchedCarriesTheTaskSlug(t *testing.T) {
 	for _, row := range rows {
 		slugs[row.ID] = row.TaskSlug
 	}
-	assert.Equal(t, map[string]*string{working.ID.String(): xptr.Ptr("fix-login"), idle.ID.String(): nil}, slugs)
+	assert.Equal(t, map[uuid.UUID]*string{working.ID: xptr.Ptr("fix-login"), idle.ID: nil}, slugs)
 }
 
 // TestGet pins the one-row read: an archived row answers, and one a delete has claimed, an id
@@ -217,6 +217,6 @@ func TestGet(t *testing.T) {
 	_, err = st.Rows.Get(ctx, deleting.ID)
 	require.ErrorIs(t, err, store.ErrNotFound)
 
-	_, err = st.Rows.Get(ctx, uuid.MustParse("00000000-0000-0000-0000-000000000000"))
+	_, err = st.Rows.Get(ctx, uuid.New())
 	require.ErrorIs(t, err, store.ErrNotFound)
 }

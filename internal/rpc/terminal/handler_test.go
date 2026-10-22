@@ -302,9 +302,9 @@ func TestShellWhenTheCallerStops(t *testing.T) {
 	})
 }
 
-func openAttachRequest(agentID uuid.UUID) *terminalv1.AttachRequest {
+func openAttachRequest(agentID string) *terminalv1.AttachRequest {
 	return &terminalv1.AttachRequest{Message: &terminalv1.AttachRequest_Open{Open: &terminalv1.OpenAttach{
-		AgentId: agentID.String(),
+		AgentId: agentID,
 		Size:    &terminalv1.Size{Rows: 24, Cols: 80},
 		Term:    "screen-256color",
 	}}}
@@ -338,7 +338,7 @@ func TestAttachRefuses(t *testing.T) {
 		},
 		{
 			name:     "an opening that names no agent",
-			first:    openAttachRequest(uuid.Nil),
+			first:    openAttachRequest(""),
 			wantCode: connect.CodeInvalidArgument,
 		},
 	}
@@ -364,7 +364,7 @@ func TestAttachCarriesATerminal(t *testing.T) {
 	client := serveAttaches(t, attacher)
 
 	stream := client.Attach(t.Context())
-	require.NoError(t, stream.Send(openAttachRequest(agentID)))
+	require.NoError(t, stream.Send(openAttachRequest(agentID.String())))
 
 	t.Run("it attaches to the agent asked for and says it is ready", func(t *testing.T) {
 		assert.Equal(t, attaches.OpenParams{

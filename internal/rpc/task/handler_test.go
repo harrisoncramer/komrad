@@ -114,7 +114,7 @@ func TestSetTaskNotesPassesDown(t *testing.T) {
 	require.Len(t, fake.updated, 1)
 	assert.Equal(t, oneofs.Task{TaskSlug: xptr.Ptr("fix-login")}, fake.updated[0].Task)
 	assert.Equal(t, xptr.Ptr("Found it."), fake.updated[0].Fields.Notes)
-	assert.Equal(t, "agent-1", fake.updated[0].CallerAgentID)
+	assert.Equal(t, firstAgentID, fake.updated[0].CallerAgentID)
 	require.NotNil(t, fake.updated[0].Fields.ReadNotesUpdatedAt)
 	assert.True(t, readAt.Equal(*fake.updated[0].Fields.ReadNotesUpdatedAt))
 	assert.Equal(t, "Found it.", written.Msg.GetTask().GetNotes())

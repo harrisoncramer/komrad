@@ -50,7 +50,7 @@ func TestRequestReviewSpawnsTheReviewer(t *testing.T) {
 	assert.Equal(t, author.WorkflowID, reviewer.WorkflowID)
 
 	assert.Contains(t, reviewer.Prompt, "it rewrites the parser", "what the asker said reaches it")
-	assert.Contains(t, reviewer.Prompt, author.ID, "and so does whose work it is")
+	assert.Contains(t, reviewer.Prompt, author.ID.String(), "and so does whose work it is")
 
 	assert.Contains(t, guidance, "Settle everything it raises",
 		"the asker is handed the rest of the loop, since it was not launched with this half")

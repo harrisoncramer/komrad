@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
@@ -21,18 +20,10 @@ import (
 // TestClaimCheckout pins that a task's checkout is claimed once, whoever asks.
 func TestClaimCheckout(t *testing.T) {
 	tests := []struct {
-		name    string
-		seed    func(t *testing.T, stores *storetest.Stores, taskID uuid.UUID)
-		missing bool
-		wantErr error
-		want    bool
+		name string
+		seed func(t *testing.T, stores *storetest.Stores, taskID uuid.UUID)
+		want bool
 	}{
-		{
-			name:    "a task that is not an id is not found",
-			seed:    func(*testing.T, *storetest.Stores, uuid.UUID) {},
-			missing: true,
-			wantErr: store.ErrNotFound,
-		},
 		{
 			name: "a task already claimed is not claimed again",
 			seed: func(t *testing.T, stores *storetest.Stores, taskID uuid.UUID) {
@@ -63,18 +54,7 @@ func TestClaimCheckout(t *testing.T) {
 			task := stores.SeedTask(t, taskstore.CreateParams{WorkflowID: workflow.ID, Slug: "work"})
 			tt.seed(t, stores, task.ID)
 
-			id := task.ID
-			if tt.missing {
-				id = workTaskID
-			}
-
-			got, err := stores.Tasks.ClaimCheckout(t.Context(), taskstore.ClaimCheckoutParams{ID: id})
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-
-				return
-			}
-
+			got, err := stores.Tasks.ClaimCheckout(t.Context(), taskstore.ClaimCheckoutParams{ID: task.ID})
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 		})
@@ -239,7 +219,3 @@ func TestSetHead(t *testing.T) {
 		})
 	}
 }
-
-var (
-	workTaskID = uuid.New()
-)

@@ -752,8 +752,8 @@ func TestUnlandedSnapshotsAreTheReleasedOnesNotYetLanded(t *testing.T) {
 
 	unlanded, err := st.ListUnlandedSnapshots(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, map[string][]UnlandedSnapshot{
-		st.taskOf(t, agentID).String(): {
+	assert.Equal(t, map[uuid.UUID][]UnlandedSnapshot{
+		st.taskOf(t, agentID): {
 			{
 				Ordinal: 3,
 				BaseSHA: "base-tree-three",

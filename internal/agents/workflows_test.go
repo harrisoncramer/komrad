@@ -121,7 +121,7 @@ func TestUpdateWorkflow(t *testing.T) {
 			st := newStore(t)
 			workflows := newWorkflowService(st, tmuxtest.NewFake())
 
-			id := uuid.MustParse("00000000-0000-0000-0000-000000000000")
+			id := uuid.New()
 			if tt.create {
 				created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{Name: "backend"})
 				require.NoError(t, err)
@@ -523,7 +523,7 @@ func TestArchiveWorkflow(t *testing.T) {
 			workflows := newWorkflowService(st, tmux)
 			ctx := t.Context()
 
-			id := uuid.MustParse("00000000-0000-0000-0000-000000000000")
+			id := uuid.New()
 			if tt.create {
 				created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
 				require.NoError(t, err)
@@ -617,7 +617,7 @@ func TestRestoreWorkflow(t *testing.T) {
 			workflows := newWorkflowService(st, tmux)
 			ctx := t.Context()
 
-			id := uuid.MustParse("00000000-0000-0000-0000-000000000000")
+			id := uuid.New()
 			if tt.name != "an id nobody holds" {
 				created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
 				require.NoError(t, err)
@@ -861,7 +861,7 @@ func TestDeleteWorkflow(t *testing.T) {
 			workflows := newWorkflowService(st, tmux)
 			ctx := t.Context()
 
-			id := uuid.MustParse("00000000-0000-0000-0000-000000000000")
+			id := uuid.New()
 			if tt.create {
 				created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
 				require.NoError(t, err)

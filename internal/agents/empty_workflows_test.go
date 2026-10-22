@@ -52,7 +52,7 @@ func TestDeleteIfEmpty(t *testing.T) {
 			workflows := newWorkflowService(st, tmux)
 			ctx := t.Context()
 
-			id := uuid.MustParse("00000000-0000-0000-0000-000000000000")
+			id := uuid.New()
 			if tt.create {
 				created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
 				require.NoError(t, err)

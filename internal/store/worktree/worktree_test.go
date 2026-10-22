@@ -166,12 +166,13 @@ func TestDeleteForgetsOnlyTheDirectoriesNamed(t *testing.T) {
 // worktree directory holds them, and the rest staying.
 func TestDeleteForTaskForgetsTheTasksDirectories(t *testing.T) {
 	worktrees := openWorktreeStore(t)
-	for _, dir := range []string{"/trees/a", "/elsewhere/a", "/trees/b"} {
+	taskID := uuid.New()
+	for _, dir := range []string{"/trees/" + taskID.String(), "/elsewhere/" + taskID.String(), "/trees/b"} {
 		require.NoError(t, worktrees.Upsert(t.Context(), Worktree{Dir: dir}))
 	}
 
 	require.NoError(t, worktrees.DeleteForTask(t.Context(), uuid.New()))
-	require.NoError(t, worktrees.DeleteForTask(t.Context(), uuid.New()))
+	require.NoError(t, worktrees.DeleteForTask(t.Context(), taskID))
 
 	listed, err := worktrees.List(t.Context())
 	require.NoError(t, err)

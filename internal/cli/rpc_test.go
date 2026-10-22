@@ -19,6 +19,7 @@ import (
 	"komrad/internal/version"
 	"komrad/lib/xhttp"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zalando/go-keyring"
@@ -117,6 +118,7 @@ func TestIntegrationResponseIsWrittenForWhoeverIsReadingIt(t *testing.T) {
 
 // TestIntegrationCallCarriesWhoIsAskingAndWhatTheyAskedFor pins the request as the server receives it.
 func TestIntegrationCallCarriesWhoIsAskingAndWhatTheyAskedFor(t *testing.T) {
+	agentID := uuid.New()
 	var (
 		gotBody   map[string]any
 		gotHeader http.Header
@@ -136,7 +138,7 @@ func TestIntegrationCallCarriesWhoIsAskingAndWhatTheyAskedFor(t *testing.T) {
 		Transport: rpcapi.NewTransport(),
 		Base:      service.URL,
 		Path:      "/agent.v1.AgentService/GetAgent",
-		From:      caller.Caller{AgentID: "agent-one", SessionID: "session-one"},
+		From:      caller.Caller{AgentID: agentID, SessionID: "session-one"},
 		Request:   map[string]any{"id": "a1"},
 	})
 	require.NoError(t, err)
@@ -145,7 +147,7 @@ func TestIntegrationCallCarriesWhoIsAskingAndWhatTheyAskedFor(t *testing.T) {
 	assert.Equal(t, "/agent.v1.AgentService/GetAgent", gotPath)
 	assert.Equal(t, map[string]any{"id": "a1"}, gotBody)
 	assert.Equal(t, "application/json", gotHeader.Get("Content-Type"))
-	assert.Equal(t, "agent-one", gotHeader.Get(caller.AgentHeader))
+	assert.Equal(t, agentID.String(), gotHeader.Get(caller.AgentHeader))
 	assert.Equal(t, "session-one", gotHeader.Get(caller.SessionHeader))
 }
 
@@ -253,7 +255,7 @@ func TestIntegrationRpcSubcommandCarriesItsFlagsToTheServer(t *testing.T) {
 	t.Cleanup(service.Close)
 
 	addr := strings.TrimPrefix(service.URL, "http://")
-	root := rpcCmd(&app{env: &config.Environment{Addr: addr, AgentID: "agent-one"}})
+	root := rpcCmd(&app{env: &config.Environment{Addr: addr, AgentID: uuid.New()}})
 
 	var out bytes.Buffer
 	root.SetOut(&out)

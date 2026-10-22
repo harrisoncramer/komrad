@@ -473,7 +473,7 @@ func TestOpenReviewHistoryPassesTheSpan(t *testing.T) {
 func TestOpenReviewHistoryRendersTheHistory(t *testing.T) {
 	released := time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC)
 	reviewer := &fakeReviewer{
-		snapshot: reviewstore.Snapshot{ID: secondSnapshotID, Ordinal: 2},
+		snapshot: reviewstore.Snapshot{ID: secondSnapshotID, TaskID: betaTaskID, Ordinal: 2},
 		record: history.Record{
 			Span: history.ResolvedSpan{
 				BaseSHA:   "base",
@@ -499,11 +499,13 @@ func TestOpenReviewHistoryRendersTheHistory(t *testing.T) {
 	want := &agentv1.OpenReviewHistoryResponse{
 		Snapshot: &agentv1.ReviewSnapshot{
 			Id:        secondSnapshotID.String(),
+			TaskId:    betaTaskID.String(),
 			Ordinal:   2,
 			CreatedAt: dates.Stamp(time.Time{}),
 		},
 		Snapshots: []*agentv1.ReviewSnapshot{{
 			Id:        secondSnapshotID.String(),
+			TaskId:    betaTaskID.String(),
 			Ordinal:   2,
 			CreatedAt: dates.Stamp(time.Time{}),
 		}},
@@ -602,9 +604,10 @@ func TestGetReviewRendersTheReview(t *testing.T) {
 			CreatedAt: reviewedAt,
 		},
 		thread: reviewstore.Thread{
-			ID:       threadID,
-			TaskID:   betaTaskID,
-			FilePath: "greet.go",
+			ID:         threadID,
+			TaskID:     betaTaskID,
+			SnapshotID: firstSnapshotID,
+			FilePath:   "greet.go",
 		},
 	}
 	svc := newReviewHandler(reviewer)
@@ -641,6 +644,7 @@ func TestGetReviewRendersTheReview(t *testing.T) {
 			Thread: &agentv1.ReviewThread{
 				Id:         threadID.String(),
 				TaskId:     betaTaskID.String(),
+				SnapshotId: firstSnapshotID.String(),
 				FilePath:   "greet.go",
 				AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
 			},

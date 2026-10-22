@@ -210,7 +210,7 @@ func TestPruneKeepsTheNewest(t *testing.T) {
 	agentID := f.seedAgent(t)
 	other := f.seedAgent(t)
 
-	var ids []string
+	var ids []uuid.UUID
 	for range 5 {
 		id, err := f.Begin(t.Context(), BeginParams{
 			AgentID: agentID,
@@ -219,7 +219,7 @@ func TestPruneKeepsTheNewest(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NoError(t, f.Finish(t.Context(), FinishParams{ID: id, Failure: "it failed"}))
-		ids = append(ids, id.String())
+		ids = append(ids, id)
 	}
 
 	kept, err := f.Begin(t.Context(), BeginParams{
@@ -239,16 +239,16 @@ func TestPruneKeepsTheNewest(t *testing.T) {
 
 // runIDs reads an agent's rows oldest first, which nothing in the store does because nothing
 // above it reads a run back yet.
-func (f *fixture) runIDs(t *testing.T, agentID uuid.UUID) []string {
+func (f *fixture) runIDs(t *testing.T, agentID uuid.UUID) []uuid.UUID {
 	t.Helper()
 
 	rows, err := f.db.Query(t.Context(), "SELECT id FROM agent_runs WHERE agent_id = $1 ORDER BY started_at, id", agentID)
 	require.NoError(t, err)
 	defer rows.Close()
 
-	found := make([]string, 0, 8)
+	found := make([]uuid.UUID, 0, 8)
 	for rows.Next() {
-		var id string
+		var id uuid.UUID
 		require.NoError(t, rows.Scan(&id))
 		found = append(found, id)
 	}

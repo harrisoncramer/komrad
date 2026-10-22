@@ -420,7 +420,7 @@ func TestArchiveAgent(t *testing.T) {
 		{
 			name: "an id nobody holds is not a quiet success",
 			target: func(agentstore.Agent, agentstore.Agent) uuid.UUID {
-				return uuid.MustParse("00000000-0000-0000-0000-000000000000")
+				return uuid.New()
 			},
 			wantErrIs: agenterr.ErrAgentNotFound,
 		},

@@ -442,7 +442,7 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 
 			record := logtest.Record(t, written.String())
 			assert.Equal(t, tt.wantBody, record["body"])
-			assert.Equal(t, tt.wantTarget, record[logging.TargetAgentID])
+			assert.Equal(t, tt.wantTarget.String(), record[logging.TargetAgentID])
 		})
 	}
 }

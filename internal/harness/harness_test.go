@@ -21,12 +21,12 @@ func TestEnvPrefix(t *testing.T) {
 		{
 			name:   "the agent and its conversation",
 			launch: Launch{AgentID: firstAgentID, SessionID: "s1"},
-			want:   "KOMRAD_AGENT_ID='a1' KOMRAD_SESSION_ID='s1' ",
+			want:   "KOMRAD_AGENT_ID='" + firstAgentID.String() + "' KOMRAD_SESSION_ID='s1' ",
 		},
 		{
 			name:   "the tools directory goes ahead of the pane's own PATH",
 			launch: Launch{ToolsDir: "/cache/komrad-agent-tools", AgentID: firstAgentID},
-			want:   `PATH='/cache/komrad-agent-tools':"$PATH" KOMRAD_AGENT_ID='a1' `,
+			want:   `PATH='/cache/komrad-agent-tools':"$PATH" KOMRAD_AGENT_ID='` + firstAgentID.String() + "' ",
 		},
 	}
 

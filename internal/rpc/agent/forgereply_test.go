@@ -136,8 +136,8 @@ func TestForgeReplyDrawsWhatTheServiceHeld(t *testing.T) {
 	require.NoError(t, err)
 
 	want := &agentv1.ForgeReply{
-		Id:         "reply-1",
-		ThreadId:   "thread-1",
+		Id:         replyID.String(),
+		ThreadId:   threadID.String(),
 		State:      agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT,
 		Body:       "added the guard, thanks",
 		ApprovedAt: dates.Stamp(reviewedAt),

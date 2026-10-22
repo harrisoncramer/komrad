@@ -139,7 +139,7 @@ func TestLaunchPassesWhatThePanelKnows(t *testing.T) {
 	assert.Equal(t, "--model opus", launch.Flags)
 	assert.Equal(t, "do the thing", launch.Prompt)
 	assert.Equal(t, "sess", launch.SessionID)
-	assert.Equal(t, "id-1", launch.AgentID)
+	assert.Equal(t, launchedID, launch.AgentID)
 	assert.Equal(t, "127.0.0.1:9999", launch.MCPEndpoint, "the agent is told where the panel's own server is")
 	assert.True(t, launch.Resume)
 
@@ -312,6 +312,8 @@ func TestAppendedSystemPrompt(t *testing.T) {
 // TestAppendedSystemPromptDelegateBriefing pins that komrad writes the delegate briefing
 // itself, so the wording is the same whether or not the spawning agent thought to say it.
 func TestAppendedSystemPromptDelegateBriefing(t *testing.T) {
+	spawnedBy := uuid.New()
+
 	tests := []struct {
 		name             string
 		spawnedByAgentID uuid.UUID
@@ -325,9 +327,9 @@ func TestAppendedSystemPromptDelegateBriefing(t *testing.T) {
 		},
 		{
 			name:             "a spawned agent is told who spawned it and to report back",
-			spawnedByAgentID: uuid.New(),
+			spawnedByAgentID: spawnedBy,
 			spawnedByName:    "reviewer",
-			wantContain:      []string{"spawned by agent reviewer (parent-id-1)", "Answer its mail", "tell it when you are done"},
+			wantContain:      []string{"spawned by agent reviewer (" + spawnedBy.String() + ")", "Answer its mail", "tell it when you are done"},
 		},
 	}
 
@@ -646,7 +648,7 @@ func TestLaunchAnswersWithItsHooks(t *testing.T) {
 			assert.Equal(t, tt.wantInstalled, hooks)
 
 			record := logtest.Record(t, written.String())
-			assert.Equal(t, "id-1", record[logging.TargetAgentID])
+			assert.Equal(t, launchedID.String(), record[logging.TargetAgentID])
 			assert.Equal(t, tt.wantLogged, record[logging.HookInstalled])
 		})
 	}

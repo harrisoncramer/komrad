@@ -163,6 +163,7 @@ func TestListStatusChecks(t *testing.T) {
 				HeadSHA:     "c1",
 				FirstReadAt: readAt.Add(-time.Hour),
 				ReadAt:      readAt,
+				CheckIDs:    map[string]uuid.UUID{"1": firstCheckID},
 				StatusChecks: []forge.StatusCheck{{
 					ProviderID: "1",
 					Kind:       forge.StatusCheckKindRun,
@@ -191,6 +192,7 @@ func TestListStatusChecks(t *testing.T) {
 				FirstReadAt: xptr.Ptr("2026-10-03T11:00:00Z"),
 				ReadAt:      xptr.Ptr("2026-10-03T12:00:00Z"),
 				StatusChecks: []*pullrequestv1.StatusCheck{{
+					Id:         firstCheckID.String(),
 					ProviderId: "1",
 					Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 					Source:     "CI",
@@ -221,6 +223,7 @@ func TestListStatusChecks(t *testing.T) {
 				HeadSHA:     "c1",
 				FirstReadAt: readAt,
 				ReadAt:      readAt,
+				CheckIDs:    map[string]uuid.UUID{"1": firstCheckID},
 				StatusChecks: []forge.StatusCheck{{
 					ProviderID: "1",
 					Kind:       forge.StatusCheckKindRun,
@@ -240,6 +243,7 @@ func TestListStatusChecks(t *testing.T) {
 				FirstReadAt: xptr.Ptr("2026-10-03T12:00:00Z"),
 				ReadAt:      xptr.Ptr("2026-10-03T12:00:00Z"),
 				StatusChecks: []*pullrequestv1.StatusCheck{{
+					Id:         firstCheckID.String(),
 					ProviderId: "1",
 					Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 					Name:       "docs",
@@ -263,6 +267,7 @@ func TestListStatusChecks(t *testing.T) {
 				HeadSHA:     "c1",
 				FirstReadAt: readAt,
 				ReadAt:      readAt,
+				CheckIDs:    map[string]uuid.UUID{"1": firstCheckID},
 				StatusChecks: []forge.StatusCheck{{
 					ProviderID: "1",
 					Kind:       forge.StatusCheckKindRun,
@@ -275,6 +280,7 @@ func TestListStatusChecks(t *testing.T) {
 				FirstReadAt: xptr.Ptr("2026-10-03T12:00:00Z"),
 				ReadAt:      xptr.Ptr("2026-10-03T12:00:00Z"),
 				StatusChecks: []*pullrequestv1.StatusCheck{{
+					Id:         firstCheckID.String(),
 					ProviderId: "1",
 					Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 					Name:       "test",

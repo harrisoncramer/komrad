@@ -186,7 +186,7 @@ func TestScriptPayload(t *testing.T) {
 		values[key] = value
 	}
 
-	assert.Equal(t, fixtureAgentID, values["KOMRAD_AGENT_ID"])
+	assert.Equal(t, fixtureAgentID.String(), values["KOMRAD_AGENT_ID"])
 	assert.Equal(t, "/repo", values["KOMRAD_AGENT_CWD"])
 	assert.Equal(t, "127.0.0.1:8787", values["KOMRAD_ADDR"])
 	assert.Equal(t, "komrad", values["KOMRAD_TMUX_SOCKET"])
@@ -347,7 +347,7 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 			assert.Equal(t, tt.worktree.SetupCommand, values["KOMRAD_WORKTREE_SETUP_COMMAND"])
 			assert.Equal(t, tt.adopted, values["KOMRAD_WORKTREE_ADOPT_BRANCH"])
 
-			assert.Equal(t, *seeded.TaskID, values["KOMRAD_WORKTREE_NAME"])
+			assert.Equal(t, seeded.TaskID.String(), values["KOMRAD_WORKTREE_NAME"])
 			assert.Equal(t, "task/"+seeded.TaskID.String(), values["KOMRAD_WORKTREE_BRANCH"])
 		})
 	}
@@ -413,7 +413,7 @@ func TestTaskEnvOnlyWhenTheAgentWorksOnOne(t *testing.T) {
 
 				return
 			}
-			assert.Equal(t, task.ID, values["KOMRAD_TASK_ID"])
+			assert.Equal(t, task.ID.String(), values["KOMRAD_TASK_ID"])
 			assert.Equal(t, tt.wantSlug, values["KOMRAD_TASK_SLUG"])
 		})
 	}
@@ -726,7 +726,7 @@ func TestFiredScriptLogsWhatItDid(t *testing.T) {
 				"komrad.script.stderr":   nil,
 				"komrad.script.name":     firedScript,
 				"komrad.run.trigger":     triggerDeprovision,
-				"komrad.script.agent.id": fixtureAgentID,
+				"komrad.script.agent.id": fixtureAgentID.String(),
 			},
 		},
 		{
@@ -806,7 +806,7 @@ func TestProvisionerLogsBothEnds(t *testing.T) {
 				"process.exit.code":      float64(0),
 				"komrad.script.stderr":   "cloning",
 				"komrad.script.name":     "make-worktree",
-				"komrad.script.agent.id": fixtureAgentID,
+				"komrad.script.agent.id": fixtureAgentID.String(),
 			},
 		},
 	}
@@ -863,7 +863,7 @@ func TestRunDeprovisionLogsUnderItsOwnTrigger(t *testing.T) {
 
 	got := recordFor(t, records(), "script failed")
 	assert.Equal(t, triggerDeprovision, got["komrad.run.trigger"])
-	assert.Equal(t, "a2", got["komrad.script.agent.id"])
+	assert.Equal(t, secondAgentID.String(), got["komrad.script.agent.id"])
 	assert.Equal(t, gone, got["komrad.script.agent.cwd"], "the row is gone, so the record is what names the directory")
 	assert.True(t, doneCalled, "the caller learns the run finished, not just that it logged")
 	require.ErrorIs(t, doneErr, scripts.ErrFailed)

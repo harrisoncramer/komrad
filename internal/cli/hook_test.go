@@ -17,16 +17,19 @@ import (
 	"komrad/lib/xslice"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+var agentA = uuid.New()
+
 // TestIntegrationStopHookRecordsTheBoundary covers the hook Claude runs as a turn ends.
 func TestIntegrationStopHookRecordsTheBoundary(t *testing.T) {
 	tests := []struct {
 		name        string
-		agentID     string
+		agentID     uuid.UUID
 		wantReports []recordedReport
 	}{
 		{
@@ -34,9 +37,9 @@ func TestIntegrationStopHookRecordsTheBoundary(t *testing.T) {
 		},
 		{
 			name:    "a turn ending is recorded",
-			agentID: "agent-a",
+			agentID: agentA,
 			wantReports: []recordedReport{{
-				agentID: "agent-a",
+				agentID: agentA,
 				event:   "REPORT_EVENT_TURN_ENDED",
 				hook:    "Stop",
 			}},
@@ -143,7 +146,7 @@ func TestIntegrationHookSurvivesAServerThatIsNotThere(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			state := &app{
-				env:       &config.Environment{Addr: "127.0.0.1:1", AgentID: "agent-a"},
+				env:       &config.Environment{Addr: "127.0.0.1:1", AgentID: agentA},
 				harnesses: hookHarnesses(t),
 			}
 
@@ -166,7 +169,7 @@ func TestIntegrationHookSurvivesAServerThatIsNotThere(t *testing.T) {
 
 // recordedReport is one call of the endpoint every hook event reports through.
 type recordedReport struct {
-	agentID   string
+	agentID   uuid.UUID
 	event     string
 	hook      string
 	tool      string
@@ -226,7 +229,7 @@ func fakeHookServer(t *testing.T, params fakeHookServerParams) string {
 func TestIntegrationTurnEndHookRecordsTheBoundary(t *testing.T) {
 	tests := []struct {
 		name         string
-		agentID      string
+		agentID      uuid.UUID
 		args         []string
 		wantBoundary bool
 		wantProblem  bool
@@ -237,18 +240,18 @@ func TestIntegrationTurnEndHookRecordsTheBoundary(t *testing.T) {
 		},
 		{
 			name:        "a payload that will not parse is reported and records nothing",
-			agentID:     "agent-a",
+			agentID:     agentA,
 			args:        []string{`{`},
 			wantProblem: true,
 		},
 		{
 			name:    "a payload carrying nothing to record stays silent",
-			agentID: "agent-a",
+			agentID: agentA,
 			args:    []string{`{"type":"agent-something-else"}`},
 		},
 		{
 			name:         "a completed turn is recorded",
-			agentID:      "agent-a",
+			agentID:      agentA,
 			args:         []string{`{"type":"agent-turn-complete","turn-id":"t1"}`},
 			wantBoundary: true,
 		},
@@ -301,7 +304,7 @@ func TestIntegrationStopFailureHookRecordsTheFailure(t *testing.T) {
 	})
 
 	state := &app{
-		env:       &config.Environment{Addr: addr, AgentID: "agent-a"},
+		env:       &config.Environment{Addr: addr, AgentID: agentA},
 		harnesses: hookHarnesses(t),
 	}
 
@@ -315,7 +318,7 @@ func TestIntegrationStopFailureHookRecordsTheFailure(t *testing.T) {
 	require.NoError(t, cmd.Execute())
 	require.Len(t, reports, 1)
 	assert.Equal(t, recordedReport{
-		agentID:   "agent-a",
+		agentID:   agentA,
 		event:     "REPORT_EVENT_TURN_FAILED",
 		hook:      "StopFailure",
 		turnError: "Rate limit reached",
