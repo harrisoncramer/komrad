@@ -17,8 +17,8 @@ func DocStyledRows(markdown string, width int, style ansi.StyleConfig) []string 
 	return strings.Split(strings.TrimRight(renderWith(markdown, width, style), "\n"), "\n")
 }
 
-// RenderDocument writes the markdown of a titled page with an optional notice, prose and footer.
-func RenderDocument(title, notice, prose, footer string) string {
+// DocumentMarkdown is the markdown of a titled page with an optional notice, prose and footer.
+func DocumentMarkdown(title, notice, prose, footer string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n", title)
 	if notice != "" {

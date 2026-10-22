@@ -26,7 +26,7 @@ func workflowFields(w panel.Workflow, agentCount int) []record.Field {
 }
 
 func workflowContextMarkdown(w panel.Workflow) string {
-	return paint.RenderDocument(w.Name, "", workflowProse(w), "")
+	return paint.DocumentMarkdown(w.Name, "", workflowProse(w), "")
 }
 
 func workflowProse(w panel.Workflow) string {
@@ -141,6 +141,6 @@ const emptyDeletedMarkdown = "# Deleted\n\n_nothing deleted_\n\nKomrad lists the
 const emptyScheduleArchiveMarkdown = "# Archive\n\n_no archived schedules_\n\nKomrad keeps the schedules you archive here until you delete them.\n"
 
 func archiveMarkdown(agent panel.Agent) string {
-	return paint.RenderDocument(agent.Name, "_archived — kept until deleted_", "",
+	return paint.DocumentMarkdown(agent.Name, "_archived — kept until deleted_", "",
 		"Restore brings it back and picks the conversation up where it stopped.")
 }

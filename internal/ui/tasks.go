@@ -58,7 +58,7 @@ func taskMarkdown(task panel.Task) string {
 		notes = "_no notes yet_"
 	}
 
-	return paint.RenderDocument(task.Title, "", goal+"\n\n## Notes\n\n"+notes, "")
+	return paint.DocumentMarkdown(task.Title, "", goal+"\n\n## Notes\n\n"+notes, "")
 }
 
 // isShowingNotes reports whether the row stands for the task whose notes are shown in place of its

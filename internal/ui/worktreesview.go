@@ -196,22 +196,22 @@ func (w *worktreesScreen) gitDoc(in screen.Inputs) string {
 	row, ok := list.At(w.rows(in), w.Row)
 	switch {
 	case !ok:
-		return paint.RenderDocument("Worktrees", "_no worktrees_", "", "")
+		return paint.DocumentMarkdown("Worktrees", "_no worktrees_", "", "")
 	case row.header:
-		return paint.RenderDocument(label.Path(row.repo, homeDir()), fmt.Sprintf("_%s_", label.Count(w.countUnder(row.repo), "worktree", "worktrees")), "", "")
+		return paint.DocumentMarkdown(label.Path(row.repo, homeDir()), fmt.Sprintf("_%s_", label.Count(w.countUnder(row.repo), "worktree", "worktrees")), "", "")
 	}
 
 	read, ok := in.Inspections[row.item.Dir]
 	switch {
 	case !ok || !read.Answered:
-		return paint.RenderDocument(row.name(), "_"+row.item.Dir+"_", "_reading the directory…_", "")
+		return paint.DocumentMarkdown(row.name(), "_"+row.item.Dir+"_", "_reading the directory…_", "")
 	case read.Err != nil && !read.IsRead():
-		return paint.RenderDocument(row.name(), "_"+row.item.Dir+"_", "could not read: "+errui.GetReason(read.Err), "")
+		return paint.DocumentMarkdown(row.name(), "_"+row.item.Dir+"_", "could not read: "+errui.GetReason(read.Err), "")
 	case read.Err != nil:
-		return paint.RenderDocument(row.name(), "_"+row.item.Dir+"_", "_could not read: "+errui.GetReason(read.Err)+"_\n\n"+worktreeProse(row.item, read, in.Room.Now), "")
+		return paint.DocumentMarkdown(row.name(), "_"+row.item.Dir+"_", "_could not read: "+errui.GetReason(read.Err)+"_\n\n"+worktreeProse(row.item, read, in.Room.Now), "")
 	}
 
-	return paint.RenderDocument(row.name(), "_"+row.item.Dir+"_", worktreeProse(row.item, read, in.Room.Now), "")
+	return paint.DocumentMarkdown(row.name(), "_"+row.item.Dir+"_", worktreeProse(row.item, read, in.Room.Now), "")
 }
 
 // worktreeProse is the three blocks the document renders, each fenced.
