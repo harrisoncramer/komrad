@@ -21,22 +21,22 @@ func TestScan(t *testing.T) {
 	}{
 		{
 			name:  "a block on one line",
-			frame: "ab" + zone.Block("list", "cd", 4) + "ef",
+			frame: "ab" + zone.MarkBlock("list", "cd", 4) + "ef",
 			want:  map[zone.Name]panes.Rect{"list": {Pane: "list", Left: 2, Top: 0, Width: 4, Height: 1}},
 		},
 		{
 			name:  "a block over several lines",
-			frame: "top\n" + zone.Block("column", "one\ntwo\nthree", 5) + "\nbottom",
+			frame: "top\n" + zone.MarkBlock("column", "one\ntwo\nthree", 5) + "\nbottom",
 			want:  map[zone.Name]panes.Rect{"column": {Pane: "column", Left: 0, Top: 1, Width: 5, Height: 3}},
 		},
 		{
 			name:  "a block ending on a line of its own leaves that line out",
-			frame: zone.Block("details", "one\ntwo\n", 3),
+			frame: zone.MarkBlock("details", "one\ntwo\n", 3),
 			want:  map[zone.Name]panes.Rect{"details": {Pane: "details", Left: 0, Top: 0, Width: 3, Height: 2}},
 		},
 		{
 			name:  "an empty block is not marked",
-			frame: zone.Block("list", "", 4),
+			frame: zone.MarkBlock("list", "", 4),
 			want:  map[zone.Name]panes.Rect{},
 		},
 		{
@@ -59,7 +59,7 @@ func TestScan(t *testing.T) {
 func TestHitAt(t *testing.T) {
 	t.Parallel()
 
-	line := zone.Key("parentmenu", 10, 0, "1") + "ab" + zone.Key("menu", 3, 2, "row:7") + "cde" + "fghij"
+	line := zone.MarkKey("parentmenu", 10, 0, "1") + "ab" + zone.MarkKey("menu", 3, 2, "row:7") + "cde" + "fghij"
 
 	tests := []struct {
 		name   string
@@ -100,8 +100,8 @@ func TestHitAt(t *testing.T) {
 func TestStripKeys(t *testing.T) {
 	t.Parallel()
 
-	block := zone.Block("list", "row", 3)
-	frame := strings.Join([]string{zone.Key("menu", 3, 0, "a") + "one", block}, "\n")
+	block := zone.MarkBlock("list", "row", 3)
+	frame := strings.Join([]string{zone.MarkKey("menu", 3, 0, "a") + "one", block}, "\n")
 
 	assert.Equal(t, "one\n"+block, zone.StripKeys(frame))
 }

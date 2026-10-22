@@ -106,11 +106,11 @@ func submenuLabel(entry submenuEntry, labelCols, keyCols int) string {
 }
 
 func markEntry(label string, at int) string {
-	return zone.Key(zoneMenu, lipgloss.Width(label), 0, strconv.Itoa(at)) + label
+	return zone.MarkKey(zoneMenu, lipgloss.Width(label), 0, strconv.Itoa(at)) + label
 }
 
 func markParentMenu(view string, at int) string {
-	mark := zone.Key(zoneParentMenu, lipgloss.Width(view), 0, strconv.Itoa(at))
+	mark := zone.MarkKey(zoneParentMenu, lipgloss.Width(view), 0, strconv.Itoa(at))
 
 	return strings.Join(xslice.Map(strings.Split(view, "\n"), func(line string) string { return mark + line }), "\n")
 }

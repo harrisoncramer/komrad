@@ -27,8 +27,8 @@ var blockMark = regexp.MustCompile("\x1b_kz([se]):([a-z]+):([0-9]*)\x1b\\\\")
 
 var keyMark = regexp.MustCompile("\x1b_kzr:([a-z]+):([0-9]+):([0-9]+):([0-9a-f]*)\x1b\\\\")
 
-// Block wraps a block in the marks that say where it was rendered and how wide it is.
-func Block(name Name, block string, width int) string {
+// MarkBlock wraps a block in the marks that say where it was rendered and how wide it is.
+func MarkBlock(name Name, block string, width int) string {
 	if block == "" {
 		return block
 	}
@@ -36,9 +36,9 @@ func Block(name Name, block string, width int) string {
 	return "\x1b_kzs:" + string(name) + ":" + strconv.Itoa(width) + "\x1b\\" + block + "\x1b_kze:" + string(name) + ":\x1b\\"
 }
 
-// Key is the mark that opens a row of a zone, naming its key, how wide it is, and its nth among
+// MarkKey is the mark that opens a row of a zone, naming its key, how wide it is, and its nth among
 // the rows sharing that key.
-func Key(name Name, width, nth int, key string) string {
+func MarkKey(name Name, width, nth int, key string) string {
 	return "\x1b_kzr:" + string(name) + ":" + strconv.Itoa(width) + ":" + strconv.Itoa(nth) + ":" + hex.EncodeToString([]byte(key)) + "\x1b\\"
 }
 

@@ -39,7 +39,7 @@ func (m *model) markZone(name zone.Name, block string, width int) string {
 		return block
 	}
 
-	return zone.Block(name, block, width)
+	return zone.MarkBlock(name, block, width)
 }
 
 // isMarkingZones reports whether this frame is rendered to find where its blocks landed.
@@ -139,7 +139,7 @@ func (m *model) rowMarker(name zone.Name, rows []view.Row, width int) func(int, 
 			}
 		}
 
-		return zone.Key(name, width, nth, key) + row
+		return zone.MarkKey(name, width, nth, key) + row
 	}
 }
 
@@ -162,7 +162,7 @@ func (m *model) markSpan(name zone.Name, key, span string) string {
 		return span
 	}
 
-	return zone.Key(name, lipgloss.Width(span), 0, key) + span
+	return zone.MarkKey(name, lipgloss.Width(span), 0, key) + span
 }
 
 func (m *model) markSearch(to stop, width int, line string) string {
@@ -174,7 +174,7 @@ func (m *model) markRow(name zone.Name, width int, key, row string) string {
 		return row
 	}
 
-	return zone.Key(name, width, 0, key) + row
+	return zone.MarkKey(name, width, 0, key) + row
 }
 
 func (m *model) findKeyAt(x, y int) (zone.Hit, bool) {
