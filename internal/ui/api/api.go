@@ -121,16 +121,6 @@ func (a Clients) RenameAgent(agent panel.Agent, name string) error {
 	})
 }
 
-// NilIfBlank leaves an optional field unset rather than sending it empty, which the request's
-// own validation would refuse.
-func NilIfBlank(value string) *string {
-	if value == "" {
-		return nil
-	}
-
-	return &value
-}
-
 type CreateAgentParams struct {
 	Prompt           string
 	Title            string
@@ -153,8 +143,8 @@ func (a Clients) CreateAgent(params CreateAgentParams) (*agentv1.Agent, error) {
 			Flags:            params.Flags,
 			ProvisionEnabled: params.ProvisionEnabled,
 			WorkflowId:       params.WorkflowID,
-			Task:             NilIfBlank(params.Task),
-			DependsOn:        NilIfBlank(params.DependsOn),
+			Task:             xptr.NonEmpty(params.Task),
+			DependsOn:        xptr.NonEmpty(params.DependsOn),
 		}))
 		if err != nil {
 			return nil, err

@@ -6,11 +6,11 @@ import (
 
 	"komrad/internal/diff"
 	"komrad/internal/glyph"
-	"komrad/internal/ui/api"
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
+	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -246,8 +246,8 @@ func historyRequestOf(params loadReviewCmdParams) *agentv1.OpenReviewHistoryRequ
 		}}
 	case !spec.isWholeChange():
 		req.Span = &agentv1.OpenReviewHistoryRequest_Snapshots{Snapshots: &agentv1.ReviewSnapshotSpan{
-			FromSnapshotId: api.NilIfBlank(spec.from),
-			ToSnapshotId:   api.NilIfBlank(spec.to),
+			FromSnapshotId: xptr.NonEmpty(spec.from),
+			ToSnapshotId:   xptr.NonEmpty(spec.to),
 		}}
 	}
 
