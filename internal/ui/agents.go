@@ -38,8 +38,6 @@ func (a *agentsScreen) update(m *model, msg tea.Msg) screen.Request {
 		if a.isRenaming() {
 			return a.updateRename(a.deps.register, a.deps.clients, msg)
 		}
-	case reviewPausedMsg:
-		return a.applyPaused(msg)
 	case tea.KeyPressMsg:
 		a.reconcileRename(m)
 		if a.isRenaming() {
@@ -54,6 +52,12 @@ func (a *agentsScreen) update(m *model, msg tea.Msg) screen.Request {
 
 func (a *agentsScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) {
 	switch msg := msg.(type) {
+	case reviewPausedMsg:
+		if !m.isUp(a) {
+			return nil, true
+		}
+
+		return a.applyPaused(msg), true
 	case agentEditorStaged:
 		return a.applyEditorStaged(m, msg), true
 	case resumeSettled:

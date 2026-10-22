@@ -7,6 +7,7 @@ import (
 	"komrad/internal/diff"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
@@ -122,7 +123,7 @@ func (r *reviewScreen) drop(m *model) screen.Request {
 
 	*r = reviewScreen{deps: r.deps, loads: r.loads}
 
-	return screen.Batch{unstaged, screen.Open{Screen: screen.Agents}, letGo}
+	return screen.Batch{unstaged, form.Close{}, screen.Open{Screen: screen.Agents}, letGo}
 }
 
 // describeRefusedReview says which of the two empty diffs this is: an agent that has written
