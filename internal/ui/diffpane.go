@@ -257,18 +257,19 @@ func (k diffKeys) toggleExpanded(m *model) screen.Request {
 		}
 	}
 
+	var said screen.Request
 	switch k.pane.ToggleExpanded(k.window(m)) {
 	case diffview.ExpandNothing:
 		return nil
 	case diffview.ExpandNoMore:
 		return screen.NewNote(screen.Warning, "there is no more of that file to show")
 	case diffview.ExpandWhole:
-		return screen.Batch{screen.NewNote(screen.Info, "showing the whole file"), k.land(m)}
+		said = screen.NewNote(screen.Info, "showing the whole file")
 	case diffview.ExpandChanged:
-		return screen.Batch{screen.NewNote(screen.Info, "showing the changed lines"), k.land(m)}
+		said = screen.NewNote(screen.Info, "showing the changed lines")
 	}
 
-	return k.land(m)
+	return screen.Batch{said, k.land(m)}
 }
 
 func (k diffKeys) moveTo(m *model, row int) screen.Request {

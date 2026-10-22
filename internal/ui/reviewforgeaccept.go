@@ -1,10 +1,9 @@
 package ui
 
 import (
-	"komrad/internal/ui/screen"
-
 	"context"
 
+	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"connectrpc.com/connect"
@@ -77,7 +76,7 @@ func (r *reviewScreen) acceptForge(m *model) screen.Request {
 
 	agents, id := m.clients().agents, target.GetId()
 
-	return r.writeCmd(m, "accepting the comment", "comment accepted", func(ctx context.Context) error {
+	return r.write(m, "accepting the comment", "comment accepted", func(ctx context.Context) error {
 		_, err := agents.AcceptForgeMessage(ctx, connect.NewRequest(&agentv1.AcceptForgeMessageRequest{
 			MessageId: id,
 		}))

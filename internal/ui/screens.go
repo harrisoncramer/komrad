@@ -374,8 +374,6 @@ func (m *model) apply(request screen.Request) tea.Cmd {
 		return m.stepFilterMatch(request.Delta)
 	case screen.ClearFilter:
 		m.clearFilter()
-	case screen.ApplyFilter:
-		m.applyFilter()
 	case screen.Filter:
 		m.filterBy(request.Query)
 	case screen.FocusDoc:
@@ -389,13 +387,15 @@ func (m *model) apply(request screen.Request) tea.Cmd {
 	case screen.Copy:
 		return m.copyCmd(request.Text)
 	case screen.Note:
-		m.pushMessage(message{kind: request.Kind, key: request.Key, summary: request.Summary, detail: request.Detail, hint: request.Hint})
+		m.pushMessage(message{
+			kind:    request.Kind,
+			key:     request.Key,
+			summary: request.Summary,
+			detail:  request.Detail,
+			hint:    request.Hint,
+		})
 	case screen.Unnote:
 		m.dropMessage(request.Key)
-	case screen.Edited:
-		m.noteEdited(request.AgentID, request.Files)
-	case screen.Wrap:
-		m.diffWrap = request.On
 	case menu.Open:
 		return m.openForm(submenuState(nil, newSubmenuLevel(request.Menu)))
 	case form.Open:

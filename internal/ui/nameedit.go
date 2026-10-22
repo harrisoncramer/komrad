@@ -26,8 +26,8 @@ type renameSettled struct {
 	err error
 }
 
-// renameCmd sends a name typed over a row, handing the outcome to the screens that type names.
-func (m *model) renameCmd(doing, summary, row string, write func(api) error) screen.Request {
+// rename sends a name typed over a row, handing the outcome to the screens that type names.
+func (m *model) rename(doing, summary, row string, write func(api) error) screen.Request {
 	clients := m.api
 
 	return screen.Write{

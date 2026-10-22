@@ -183,7 +183,7 @@ func (r *reviewScreen) saveMessage(m *model) screen.Request {
 	kept := reviewUnsent{editing: threadID, body: body}
 	if threadID != "" {
 		// Nothing is said back: the reply is rendered in the thread it went into.
-		return r.writeMsgCmd(m, "replying", &kept, func(ctx context.Context) (string, error) {
+		return r.writeMsg(m, "replying", &kept, func(ctx context.Context) (string, error) {
 			_, err := agents.AddReviewMessage(ctx, connect.NewRequest(&agentv1.AddReviewMessageRequest{
 				ThreadId: threadID,
 				Body:     body,
@@ -216,7 +216,7 @@ func (r *reviewScreen) saveMessage(m *model) screen.Request {
 
 	kept.place = place
 
-	return r.createThreadCmd(m, *place, kept)
+	return r.createThread(m, *place, kept)
 }
 
 // reviewUnsent is a message on its way to the server, held until the write carrying it lands.
@@ -272,11 +272,11 @@ func (t *reviewThreads) cancelMessage() {
 	t.forge = nil
 }
 
-func (r reviewScreen) createThreadCmd(m *model, place reviewPlace, kept reviewUnsent) screen.Request {
+func (r reviewScreen) createThread(m *model, place reviewPlace, kept reviewUnsent) screen.Request {
 	agents, taskID, body := m.clients().agents, r.taskID, kept.body
 	anchor := place.anchor
 
-	return r.writeMsgCmd(m, "opening a thread", &kept, func(ctx context.Context) (string, error) {
+	return r.writeMsg(m, "opening a thread", &kept, func(ctx context.Context) (string, error) {
 		_, err := agents.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
 			Task:        &taskID,
 			BaseSha:     place.base,
@@ -308,7 +308,7 @@ func (r reviewScreen) resolveThread(m *model) screen.Request {
 		doing, notice = "settling the thread", "thread settled"
 	}
 
-	return r.writeCmd(m, doing, notice, func(ctx context.Context) error {
+	return r.write(m, doing, notice, func(ctx context.Context) error {
 		_, err := agents.SetReviewThreadResolved(ctx, connect.NewRequest(&agentv1.SetReviewThreadResolvedRequest{
 			Id:       id,
 			Resolved: settling,
@@ -349,7 +349,7 @@ func (r *reviewScreen) toggleViewed(m *model) screen.Request {
 	agents, taskID := m.clients().agents, r.taskID
 	fingerprint := file.Fingerprint()
 
-	return r.writeCmd(m, doing, notice, func(ctx context.Context) error {
+	return r.write(m, doing, notice, func(ctx context.Context) error {
 		_, err := agents.SetReviewFileViewed(ctx, connect.NewRequest(&agentv1.SetReviewFileViewedRequest{
 			Task:        taskID,
 			FilePath:    path,
@@ -361,8 +361,8 @@ func (r *reviewScreen) toggleViewed(m *model) screen.Request {
 	})
 }
 
-// markThreadReadCmd claims the thread the cursor came to rest on and only that one.
-func (r reviewScreen) markThreadReadCmd(m *model) screen.Request {
+// markThreadRead claims the thread the cursor came to rest on and only that one.
+func (r reviewScreen) markThreadRead(m *model) screen.Request {
 	thread, ok := r.diff.threadAtCursor()
 	if !ok || !thread.GetUnreadByHuman() {
 		return nil
@@ -370,28 +370,28 @@ func (r reviewScreen) markThreadReadCmd(m *model) screen.Request {
 
 	agents, id := m.clients().agents, thread.GetId()
 
-	return r.quietWriteCmd(m, func(ctx context.Context) error {
+	return r.quietWrite(m, func(ctx context.Context) error {
 		_, err := agents.MarkReviewThreadRead(ctx, connect.NewRequest(&agentv1.MarkReviewThreadReadRequest{Id: id}))
 
 		return err
 	})
 }
 
-// writeCmd runs one write on the review, saying notice once it lands.
-func (r reviewScreen) writeCmd(m *model, doing, notice string, write func(context.Context) error) screen.Request {
-	return r.writeMsgCmd(m, doing, nil, func(ctx context.Context) (string, error) {
+// write runs one write on the review, saying notice once it lands.
+func (r reviewScreen) write(m *model, doing, notice string, write func(context.Context) error) screen.Request {
+	return r.writeMsg(m, doing, nil, func(ctx context.Context) (string, error) {
 		return notice, write(ctx)
 	})
 }
 
-// quietWriteCmd runs one write on the review that the panel does not count in flight.
-func (r reviewScreen) quietWriteCmd(m *model, write func(context.Context) error) screen.Request {
-	return r.writeCmd(m, "", "", write)
+// quietWrite runs one write on the review that the panel does not count in flight.
+func (r reviewScreen) quietWrite(m *model, write func(context.Context) error) screen.Request {
+	return r.write(m, "", "", write)
 }
 
-// writeMsgCmd runs one write, marking whose answer it is, handing back the message a refused write
+// writeMsg runs one write, marking whose answer it is, handing back the message a refused write
 // carried, and reading an archived agent's threads back.
-func (r reviewScreen) writeMsgCmd(m *model, doing string, unsent *reviewUnsent, write func(context.Context) (string, error)) screen.Request {
+func (r reviewScreen) writeMsg(m *model, doing string, unsent *reviewUnsent, write func(context.Context) (string, error)) screen.Request {
 	agents, agentID, taskID := m.api.reads().agents, r.agentID, r.taskID
 	_, live := r.agentRow(m)
 

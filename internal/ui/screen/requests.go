@@ -52,9 +52,6 @@ type StepMatch struct {
 // ClearFilter drops the filter and puts the cursor back where the filter found it.
 type ClearFilter struct{}
 
-// ApplyFilter narrows the list by the query typed so far.
-type ApplyFilter struct{}
-
 // Filter narrows the list up by a query, as if it were typed and applied.
 type Filter struct {
 	Query string
@@ -111,17 +108,6 @@ type Unnote struct {
 	Key string
 }
 
-// Edited records files a reader edited over an agent's pause.
-type Edited struct {
-	AgentID string
-	Files   []string
-}
-
-// Wrap turns the wrapping of long diff lines on or off.
-type Wrap struct {
-	On bool
-}
-
 // Request marks Cmd as a request.
 func (Cmd) Request() {}
 
@@ -164,9 +150,6 @@ func (StepMatch) Request() {}
 // Request marks ClearFilter as a request.
 func (ClearFilter) Request() {}
 
-// Request marks ApplyFilter as a request.
-func (ApplyFilter) Request() {}
-
 // Request marks Filter as a request.
 func (Filter) Request() {}
 
@@ -190,9 +173,3 @@ func (Note) Request() {}
 
 // Request marks Unnote as a request.
 func (Unnote) Request() {}
-
-// Request marks Edited as a request.
-func (Edited) Request() {}
-
-// Request marks Wrap as a request.
-func (Wrap) Request() {}

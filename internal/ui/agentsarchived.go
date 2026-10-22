@@ -79,12 +79,13 @@ func (a *agentsScreen) kindsSwitch(*model) bool {
 func (a *agentsScreen) stepKind(m *model, delta int) screen.Request {
 	return screen.Leave{Then: func() screen.Request {
 		a.kind = agentsKind(stepStop(int(a.kind), delta, len(a.kinds(m).labels)))
-		staged := a.stage(m)
+		var staged screen.Request
 		if shown := a.shownArchive(); shown != nil {
 			shown.Selected = list.Selection{}
 			staged = shown.stage(m)
 		} else {
 			a.Selected = list.Selection{}
+			staged = a.stage(m)
 		}
 
 		return screen.Batch{screen.ResetFilter{}, screen.Reconcile{}, staged, screen.Settle{}}
@@ -422,8 +423,8 @@ func (a *archivedAgents) buildItemMenu(m *model) (menu.Menu, bool) {
 	return menu.WithNested(band, "archive", m.keys.Menu.Archive, archiveMenu(m, target)), true
 }
 
-// restoreAndResumeCmd takes the agents out of the archive and puts the resumed agent's conversation back in a pane.
-func restoreAndResumeCmd(m *model, agents []panel.Agent, resumed panel.Agent) screen.Request {
+// restoreAndResume takes the agents out of the archive and puts the resumed agent's conversation back in a pane.
+func restoreAndResume(m *model, agents []panel.Agent, resumed panel.Agent) screen.Request {
 	return m.openingWrite("restoring "+resumed.Name, fmt.Sprintf("Could not restore and open agent %q", resumed.Name), func(a api) (*agentv1.Agent, error) {
 		if err := a.restoreAgents(panel.IDs(agents)); err != nil {
 			return nil, err
@@ -433,7 +434,7 @@ func restoreAndResumeCmd(m *model, agents []panel.Agent, resumed panel.Agent) sc
 	})
 }
 
-func restoreAgentsCmd(m *model, agents []panel.Agent) screen.Request {
+func restoreAgents(m *model, agents []panel.Agent) screen.Request {
 	if len(agents) == 0 {
 		return nil
 	}

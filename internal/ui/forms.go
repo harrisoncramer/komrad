@@ -203,13 +203,13 @@ func (m *model) formLeading() ([]string, int) {
 func holdSubmit(write func(*model) tea.Cmd) func(*model) tea.Cmd {
 	return func(m *model) tea.Cmd {
 		began := m.writes.count
-		writeCmd := write(m)
+		write := write(m)
 
 		if m.writes.count != began && m.form.isActive() {
-			return tea.Batch(writeCmd, m.holdForm())
+			return tea.Batch(write, m.holdForm())
 		}
 
-		return tea.Batch(writeCmd, m.closeForm())
+		return tea.Batch(write, m.closeForm())
 	}
 }
 

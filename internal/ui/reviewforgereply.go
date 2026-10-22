@@ -109,7 +109,7 @@ func (r *reviewScreen) retryForgeReply(m *model) screen.Request {
 
 	agents, id := m.clients().agents, reply.GetId()
 
-	return r.writeMsgCmd(m, "retrying the reply", nil, func(ctx context.Context) (string, error) {
+	return r.writeMsg(m, "retrying the reply", nil, func(ctx context.Context) (string, error) {
 		res, err := agents.RetryForgeReply(ctx, connect.NewRequest(&agentv1.RetryForgeReplyRequest{
 			Id: id,
 		}))
@@ -155,7 +155,7 @@ func (r *reviewScreen) discardForgeReply(m *model) screen.Request {
 
 	agents, id := m.clients().agents, reply.GetId()
 
-	return r.writeCmd(m, "discarding the reply", "reply discarded", func(ctx context.Context) error {
+	return r.write(m, "discarding the reply", "reply discarded", func(ctx context.Context) error {
 		_, err := agents.DiscardForgeReply(ctx, connect.NewRequest(&agentv1.DiscardForgeReplyRequest{
 			Id: id,
 		}))
@@ -196,7 +196,7 @@ func (r *reviewScreen) saveForgeReply(m *model, compose *reviewForgeCompose, bod
 		forge:   compose,
 	}
 
-	return r.writeMsgCmd(m, "replying on the forge", &kept, func(ctx context.Context) (string, error) {
+	return r.writeMsg(m, "replying on the forge", &kept, func(ctx context.Context) (string, error) {
 		res, err := agents.ReplyOnForge(ctx, connect.NewRequest(&agentv1.ReplyOnForgeRequest{
 			ThreadId: threadID,
 			Body:     body,

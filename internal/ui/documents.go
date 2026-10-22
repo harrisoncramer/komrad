@@ -169,10 +169,8 @@ func (d *documentsScreen) kindsSwitch(*model) bool {
 func (d *documentsScreen) stepKind(m *model, delta int) screen.Request {
 	d.kind = documentKind(stepStop(int(d.kind), delta, len(d.kinds(m).labels)))
 	d.history, d.focus = nil, false
-	m.filter = filterState{}
-	m.stageTerminal()
 
-	return screen.Settle{}
+	return screen.Batch{screen.ResetFilter{}, screen.StageTerminal{}, screen.Settle{}}
 }
 
 func (d *documentsScreen) list() screenList[documentRow] {

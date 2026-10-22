@@ -41,8 +41,8 @@ type gitDoneMsg struct {
 	report gitReport
 }
 
-// planGitCmd asks what the operation would do.
-func (m *model) planGitCmd(op gitOp) screen.Request {
+// planGit asks what the operation would do.
+func (m *model) planGit(op gitOp) screen.Request {
 	clients := m.api
 
 	return screen.Write{

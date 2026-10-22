@@ -76,7 +76,8 @@ func (d *documentsScreen) stepNewer(m *model) screen.Request {
 		d.history = nil
 		if d.focus {
 			d.focus = false
-			m.focusDoc()
+
+			return screen.FocusDoc{}
 		}
 
 		return nil

@@ -39,7 +39,7 @@ func hideEntry(m *model, tasks []panel.Task) menu.Entry {
 	return menu.Holding(label, m.keys.HideMenu.Hide, func() screen.Request { return hideTasks(m, tasks) })
 }
 
-// toggleHidden leaves the menu and shows the hidden tasks, or puts them away.
+// toggleHidden shows the hidden tasks, or puts them away.
 func (m *model) toggleHidden() screen.Request {
 	return screen.Batch{screen.Reconcile{}, m.agents.toggleHidden(m)}
 }

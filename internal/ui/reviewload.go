@@ -91,7 +91,14 @@ func (r *reviewScreen) open(m *model, agent panel.Agent) screen.Request {
 func (r *reviewScreen) refuse(m *model, err error) screen.Request {
 	name := r.agentName
 
-	return screen.Batch{r.drop(m), screen.Note{Kind: screen.Error, Summary: describeRefusedReview(name, err), Detail: err.Error()}}
+	return screen.Batch{
+		r.drop(m),
+		screen.Note{
+			Kind:    screen.Error,
+			Summary: describeRefusedReview(name, err),
+			Detail:  err.Error(),
+		},
+	}
 }
 
 // abandon backs out to the listing for a diff that could not be read at all.

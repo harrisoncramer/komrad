@@ -249,19 +249,19 @@ func (m *model) runGitChoice(taskID string, choice gitChoice) screen.Request {
 			return screen.Report{Summary: "Could not rebase the worktree of " + task.Slug, Err: err}
 		}
 
-		return m.planGitCmd(rebaseOp(task.ID, task.Slug, false))
+		return m.planGit(rebaseOp(task.ID, task.Slug, false))
 	case gitChoiceRebaseOntoBase:
 		if err := rebaseOntoBaseRefusal(m.listing, task); err != nil {
 			return screen.Report{Summary: "Could not re-target " + task.Slug + " onto the base branch", Err: err}
 		}
 
-		return m.planGitCmd(rebaseOp(task.ID, task.Slug, true))
+		return m.planGit(rebaseOp(task.ID, task.Slug, true))
 	case gitChoicePush:
 		if err := pushRefusal(m.listing, task); err != nil {
 			return screen.Report{Summary: "Could not push the branch of " + task.Slug, Err: err}
 		}
 
-		return m.planGitCmd(pushOp(task))
+		return m.planGit(pushOp(task))
 	case gitChoiceOpenPullRequest:
 		return m.openPullRequest(task)
 	case gitChoiceCopyPullRequestURL:

@@ -55,7 +55,7 @@ func (r *rowRename) save(m *model) (screen.Request, bool) {
 		renamed.Name = name
 		id := r.schedule.ID
 
-		return m.renameCmd(
+		return m.rename(
 			"renaming "+r.Was(),
 			fmt.Sprintf("Could not rename schedule %q", r.Was()),
 			r.Key(),
@@ -64,7 +64,7 @@ func (r *rowRename) save(m *model) (screen.Request, bool) {
 	case r.task != nil:
 		id := r.task.ID
 
-		return m.renameCmd(
+		return m.rename(
 			"renaming "+r.Was(),
 			fmt.Sprintf("Could not rename task %q", r.Was()),
 			r.Key(),
@@ -74,7 +74,7 @@ func (r *rowRename) save(m *model) (screen.Request, bool) {
 		renamed := *r.workflow
 		renamed.Name = name
 
-		return m.renameCmd(
+		return m.rename(
 			"renaming "+r.Was(),
 			fmt.Sprintf("Could not rename workflow %q", r.Was()),
 			r.Key(),
@@ -84,7 +84,7 @@ func (r *rowRename) save(m *model) (screen.Request, bool) {
 
 	agent := r.agent
 
-	return m.renameCmd(
+	return m.rename(
 		"renaming "+r.Was(),
 		fmt.Sprintf("Could not rename agent %q", r.Was()),
 		r.Key(),
@@ -125,12 +125,12 @@ func (r *renameSlot) updateRename(m *model, msg tea.Msg) screen.Request {
 	case field.NameCancelled:
 		r.renaming = nil
 	case field.NameSubmitted:
-		cmd, ok := r.renaming.save(m)
+		request, ok := r.renaming.save(m)
 		if !ok {
 			r.renaming = nil
 		}
 
-		return cmd
+		return request
 	case field.NameTyping:
 	}
 

@@ -102,10 +102,10 @@ func (a *agentsScreen) stageResting(m *model) screen.Request {
 
 func (r *reviewScreen) stageResting(m *model) screen.Request {
 	if r.hold.atEditor {
-		return r.markThreadReadCmd(m)
+		return r.markThreadRead(m)
 	}
 
-	return screen.Batch{screen.Restage{}, r.markThreadReadCmd(m)}
+	return screen.Batch{screen.Restage{}, r.markThreadRead(m)}
 }
 
 // paneStatusRows is the rows the blank status line tmux renders over every pane takes from its window.

@@ -79,7 +79,11 @@ func (r *reviewScreen) startHold(m *model) screen.Request {
 	}
 
 	if item.Agent.HeldAt != nil {
-		return screen.Note{Kind: screen.Error, Summary: "could not edit " + r.agentName, Detail: stillPaused}
+		return screen.Note{
+			Kind:    screen.Error,
+			Summary: "could not edit " + r.agentName,
+			Detail:  stillPaused,
+		}
 	}
 
 	r.hold.pausing = true
@@ -90,12 +94,12 @@ func (r *reviewScreen) startHold(m *model) screen.Request {
 			Summary: "stopping the agent",
 			Detail:  "the editor opens once it stops",
 		},
-		holdAgentCmd(m, r.agentID, r.agentName),
+		holdAgent(m, r.agentID, r.agentName),
 	}
 }
 
-// holdAgentCmd asks for the agent to stop and reports what came back.
-func holdAgentCmd(m *model, agentID, name string) screen.Request {
+// holdAgent asks for the agent to stop and reports what came back.
+func holdAgent(m *model, agentID, name string) screen.Request {
 	agents := m.clients().agents
 
 	return screen.Write{

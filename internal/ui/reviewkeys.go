@@ -14,10 +14,10 @@ import (
 )
 
 func (r *reviewScreen) updateKey(m *model, key tea.KeyPressMsg) screen.Request {
-	if cmd, ok := r.takeKey(m, key); ok {
+	if request, ok := r.takeKey(m, key); ok {
 		m.dropTopPress()
 
-		return cmd
+		return request
 	}
 
 	return m.dispatchTop(r.actions(m), key.String())

@@ -271,12 +271,12 @@ func (l *logsScreen) switchSource(m *model) screen.Request {
 	l.logFilter, l.pattern = filterState{}, ""
 	l.applyFormat(row)
 
-	return screen.Batch{screen.Cmd(l.restart(m)), l.markFailedRunReadCmd(m, row)}
+	return screen.Batch{screen.Cmd(l.restart(m)), l.markFailedRunRead(m, row)}
 }
 
-// markFailedRunReadCmd claims the agent's failed runs once the run that failed is opened, leaving a
+// markFailedRunRead claims the agent's failed runs once the run that failed is opened, leaving a
 // task's to the screen opening.
-func (l *logsScreen) markFailedRunReadCmd(m *model, row logSourceRow) screen.Request {
+func (l *logsScreen) markFailedRunRead(m *model, row logSourceRow) screen.Request {
 	if !row.failed || l.taskID != "" {
 		return nil
 	}

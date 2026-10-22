@@ -19,11 +19,7 @@ func (w *schedulesScreen) actions() keys.Spec[*model] {
 			{
 				ID:   keys.FilterOpen,
 				Keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				Nav: func(m *model, _ string) screen.Request {
-					m.beginFilter()
-
-					return nil
-				},
+				Nav:  func(*model, string) screen.Request { return screen.BeginFilter{} },
 			},
 			{
 				ID:   keys.Quit,
@@ -42,11 +38,7 @@ func (w *schedulesScreen) actions() keys.Spec[*model] {
 				ID:   keys.FilterClear,
 				Keys: keys.FixedBack,
 				When: standing,
-				Nav: func(m *model, _ string) screen.Request {
-					m.clearFilter()
-
-					return screen.Settle{}
-				},
+				Nav:  func(*model, string) screen.Request { return screen.Batch{screen.ClearFilter{}, screen.Settle{}} },
 			},
 			{
 				ID:   actionScheduleBack,

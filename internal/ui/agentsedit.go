@@ -34,20 +34,28 @@ func (a *agentsScreen) pressEdit(m *model, item panel.AgentRow) screen.Request {
 	}
 
 	agent := item.Agent
+	refuse := func(reason string) screen.Note {
+		return screen.Note{
+			Kind:    screen.Error,
+			Summary: "could not edit " + agent.Name,
+			Detail:  reason,
+		}
+	}
+
 	if agent.Cwd == "" || m.listing.Tasks.FindForAgent(agent).IsWorktreeRemoved() {
-		return screen.Note{Kind: screen.Error, Summary: "could not edit " + agent.Name, Detail: "it has no worktree to open"}
+		return refuse("it has no worktree to open")
 	}
 
 	if item.Alive && agent.State == panel.StateUncertain {
-		return screen.Note{Kind: screen.Error, Summary: "could not edit " + agent.Name, Detail: "komrad cannot read its pane, so it may be writing in this worktree"}
+		return refuse("komrad cannot read its pane, so it may be writing in this worktree")
 	}
 
 	if agent.HeldAt != nil {
-		return screen.Note{Kind: screen.Error, Summary: "could not edit " + agent.Name, Detail: stillPaused}
+		return refuse(stillPaused)
 	}
 
 	if reason, refused := m.isRemoteEditRefused(); refused {
-		return screen.Note{Kind: screen.Error, Summary: "could not edit " + agent.Name, Detail: reason}
+		return refuse(reason)
 	}
 
 	a.editing = &agentEdit{agent: agent}
@@ -57,7 +65,7 @@ func (a *agentsScreen) pressEdit(m *model, item panel.AgentRow) screen.Request {
 
 	a.editing.pausing = true
 
-	return holdAgentCmd(m, agent.ID, agent.Name)
+	return holdAgent(m, agent.ID, agent.Name)
 }
 
 func (a *agentsScreen) applyPaused(m *model, msg reviewPausedMsg) screen.Request {
@@ -111,7 +119,11 @@ func (a *agentsScreen) applyEditorStaged(m *model, staged agentEditorStaged) scr
 	edit := *a.editing
 	a.editing = nil
 	refused := screen.Batch{
-		screen.Note{Kind: screen.Error, Summary: "could not edit " + edit.agent.Name, Detail: "there is no room beside the sidebar for an editor"},
+		screen.Note{
+			Kind:    screen.Error,
+			Summary: "could not edit " + edit.agent.Name,
+			Detail:  "there is no room beside the sidebar for an editor",
+		},
 		screen.Restage{},
 	}
 	if !edit.ourPause {

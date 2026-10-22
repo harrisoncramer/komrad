@@ -115,7 +115,7 @@ func (m *model) restoreAndOpen(target archived) screen.Request {
 		return screen.Report{Summary: "Could not restore and open " + target.name(), Err: err}
 	}
 
-	return restoreAndResumeCmd(m, target.work.chosen, *resumed)
+	return restoreAndResume(m, target.work.chosen, *resumed)
 }
 
 func restoreArchived(m *model, target archived) screen.Request {
@@ -140,7 +140,7 @@ func restoreArchived(m *model, target archived) screen.Request {
 		)
 	}
 
-	return restoreAgentsCmd(m, target.work.chosen)
+	return restoreAgents(m, target.work.chosen)
 }
 
 func confirmDeleteArchivedRow(m *model, target archived) screen.Request {

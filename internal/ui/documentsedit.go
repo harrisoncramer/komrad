@@ -34,7 +34,11 @@ func (d *documentsScreen) pressEdit(m *model) screen.Request {
 
 	read, asked := d.bodies[item.id]
 	if !asked || read.err != nil || read.body == "" || read.pending || read.updatedAt.Before(item.updatedAt) {
-		return screen.Note{Kind: screen.Error, Summary: "could not edit " + item.name, Detail: "its text has not been read yet"}
+		return screen.Note{
+			Kind:    screen.Error,
+			Summary: "could not edit " + item.name,
+			Detail:  "its text has not been read yet",
+		}
 	}
 
 	path, err := writeDocumentCopy(m.settings.DraftDir, read.body)
@@ -66,7 +70,11 @@ func (d *documentsScreen) applyEditorStaged(staged documentEditorStaged) screen.
 	if pane == "" {
 		return screen.Batch{
 			screen.Report{Summary: "could not edit " + item.name, Err: removeDocumentCopy(path)},
-			screen.Note{Kind: screen.Error, Summary: "could not edit " + item.name, Detail: "there is no room beside the sidebar for an editor"},
+			screen.Note{
+				Kind:    screen.Error,
+				Summary: "could not edit " + item.name,
+				Detail:  "there is no room beside the sidebar for an editor",
+			},
 		}
 	}
 
@@ -100,7 +108,11 @@ func (d *documentsScreen) closeEdit(m *model) screen.Request {
 
 	body := string(content)
 	if strings.TrimSpace(body) == "" {
-		return screen.Note{Kind: screen.Error, Summary: summary, Detail: "komrad does not save an empty document, so your copy stays at " + edit.path}
+		return screen.Note{
+			Kind:    screen.Error,
+			Summary: summary,
+			Detail:  "komrad does not save an empty document, so your copy stays at " + edit.path,
+		}
 	}
 
 	if body == edit.body {

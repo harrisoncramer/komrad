@@ -152,8 +152,8 @@ func (r *reviewScreen) filesActions() keys.Spec[*model] {
 					return slices.Concat(keys.FixedOpen(k), k.Review.ToggleFolder)
 				},
 				Nav: func(m *model, _ string) screen.Request {
-					if cmd, chosen := r.chooseSide(m); chosen {
-						return cmd
+					if request, chosen := r.chooseSide(m); chosen {
+						return request
 					}
 
 					r.toggleFolder()
