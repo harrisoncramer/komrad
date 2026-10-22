@@ -34,7 +34,7 @@ func (m *model) shownScreen() shownScreen {
 }
 
 func (m *model) forgetDetailsFit() {
-	m.detailsFits = derived[shownScreen, bool]{}
+	m.detailsFits = screen.Derived[shownScreen, bool]{}
 }
 
 // dropRenderedView forgets the frame View last rendered, keeping it while the panel waits to be told its size.

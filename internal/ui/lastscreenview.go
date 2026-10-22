@@ -49,7 +49,7 @@ func lastScreenRows(params lastScreenRowsParams) []string {
 		fmt.Sprintf("%dx%d", saved.GetWidth(), saved.GetHeight()),
 	}, separated))
 	size := screenSize{width: max(params.width, 1), height: min(max(params.height-1, 1), int(saved.GetHeight()))}
-	fitted := shown.fitted.read(size, func() string {
+	fitted := shown.fitted.Read(size, func() string {
 		return savedscreen.Fit(saved.GetFrame(), size.width, size.height)
 	})
 

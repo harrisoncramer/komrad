@@ -72,8 +72,8 @@ type documentsScreen struct {
 	documentTypes list.Cursor
 	items         []documentItem
 	revision      int
-	built         derived[documentRowsKey, []documentRow]
-	builtTypes    derived[listingKey, []documentTypeRow]
+	built         screen.Derived[documentRowsKey, []documentRow]
+	builtTypes    screen.Derived[screen.ListingKey, []documentTypeRow]
 	// listedAt is the newest write the list was read at, and listedCount how many were written.
 	listedAt    *time.Time
 	listedCount int32
@@ -236,7 +236,7 @@ func (d *documentsScreen) documentTypeList() keys.ScreenList[documentTypeRow] {
 
 type documentRowsKey struct {
 	revision int
-	listing  listingKey
+	listing  screen.ListingKey
 	agentID  string
 	taskID   string
 }
@@ -244,12 +244,12 @@ type documentRowsKey struct {
 func (d *documentsScreen) rows(in screen.Inputs) []documentRow {
 	key := documentRowsKey{
 		revision: d.revision,
-		listing:  listingKeyOf(in),
+		listing:  in.ListingKey(),
 		agentID:  d.agentID,
 		taskID:   d.taskID,
 	}
 
-	return d.built.read(key, func() []documentRow {
+	return d.built.Read(key, func() []documentRow {
 		return list.Narrowed(in.Room.Pattern, list.NarrowedParams[documentRow]{
 			Rows: xslice.Map(d.items, func(item documentItem) documentRow {
 				return documentRow{item: item}
@@ -262,7 +262,7 @@ func (d *documentsScreen) rows(in screen.Inputs) []documentRow {
 }
 
 func (d *documentsScreen) documentTypeRows(in screen.Inputs) []documentTypeRow {
-	return d.builtTypes.read(listingKeyOf(in), func() []documentTypeRow {
+	return d.builtTypes.Read(in.ListingKey(), func() []documentTypeRow {
 		return list.Narrowed(in.Room.Pattern, list.NarrowedParams[documentTypeRow]{
 			Rows: xslice.Map(in.Listing.DocumentTypes, func(t *agentv1.DocumentType) documentTypeRow {
 				return documentTypeRow{documentType: t}

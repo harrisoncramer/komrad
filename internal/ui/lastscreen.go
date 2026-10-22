@@ -14,7 +14,7 @@ type lastScreen struct {
 	answered bool
 	screen   *agentv1.GetLastScreenResponse
 	err      error
-	fitted   derived[screenSize, string]
+	fitted   screen.Derived[screenSize, string]
 }
 
 type screenSize struct {

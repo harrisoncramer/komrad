@@ -109,7 +109,7 @@ func (m *model) isDetailsRendered(held record.Details) bool {
 		return true
 	}
 
-	return m.detailsFits.read(m.shownScreen(), m.detailsFit)
+	return m.detailsFits.Read(m.shownScreen(), m.detailsFit)
 }
 
 // detailsFit is whether the record's share fits under a list, judged with the keys on the
