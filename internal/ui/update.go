@@ -407,12 +407,6 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 		return nil, true
 	case writeResult:
 		return m.applyWrite(msg), true
-	case reviewPausedMsg:
-		if m.isPausing(msg.agentID) {
-			return nil, false
-		}
-
-		return m.apply(m.releaseAbandonedPause(msg)), true
 	case gitPlannedMsg:
 		return m.apply(m.applyGitPlanned(msg)), true
 	case gitDoneMsg:

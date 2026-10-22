@@ -31,8 +31,6 @@ func agentFrom(s *agentv1.Agent) Agent {
 		CreatedAt:         dates.Parse(s.GetCreatedAt()),
 		StateChangedAt:    dates.Parse(s.GetStateChangedAt()),
 		ArchivedAt:        dates.ParsePtr(s.GetArchivedAt()),
-		HeldAt:            dates.ParsePtr(s.GetHeldAt()),
-		HeldByAgentID:     s.GetHeldByAgentId(),
 		TaskID:            s.GetTaskId(),
 		ProvisionDisabled: s.GetProvisionDisabled(),
 		Tool:              s.GetReportedReason(),

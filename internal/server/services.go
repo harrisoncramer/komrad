@@ -60,7 +60,6 @@ type agentServices struct {
 	lifecycle    *agents.LifecycleService
 	workflow     *agents.WorkflowService
 	orchestrator *agents.OrchestratorService
-	holder       *agents.Holder
 	reconciler   *agents.Reconciler
 	rowReader    *agents.RowReader
 	rowWriter    *agents.RowWriter
@@ -148,10 +147,6 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 	}
 
 	paneChannel := pane.NewPane(pane.NewPaneParams{Terminal: params.Tmux, Harnesses: params.Harnesses})
-	settler := agents.NewSettler(agents.NewSettlerParams{
-		Channel:  paneChannel,
-		Observer: paneChannel,
-	})
 	checkoutLocks := checkouts.NewTreeLocks()
 	taskService := tasks.NewTaskService(tasks.NewTaskServiceParams{
 		Tasks:        st.tasks,
@@ -190,7 +185,6 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Queue:       queue,
 		Scripts:     scriptService,
 		Panes:       paneChannel,
-		Settler:     settler,
 		Locks:       checkoutLocks,
 		RunLogsDir:  runLogsDir,
 		Transcripts: transcriptSync,
@@ -218,7 +212,6 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Tasks:           st.tasks,
 		TaskFinder:      taskService,
 		Workflows:       st.workflows,
-		Settler:         settler,
 		Events:          queue,
 		Git:             gitClient,
 		PullRequests:    st.pullRequests,
@@ -367,7 +360,6 @@ type buildAgentsParams struct {
 	Queue       *jobs.Enqueuer
 	Scripts     *scriptrun.ScriptService
 	Panes       *pane.Pane
-	Settler     *agents.Settler
 	Tasks       *tasks.TaskService
 	Locks       *checkouts.TreeLocks
 	RunLogsDir  string
@@ -477,11 +469,6 @@ func buildAgents(params buildAgentsParams) agentServices {
 			Lifecycle:   lifecycleService,
 			Resume:      resumeService,
 			StateDir:    server.Env.StateDir,
-		}),
-		holder: agents.NewHolder(agents.NewHolderParams{
-			Agents:     st.agents,
-			MailSender: params.Mail,
-			Settler:    params.Settler,
 		}),
 		reconciler: reconciler,
 		rowReader: agents.NewRowReader(agents.NewRowReaderParams{

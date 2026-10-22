@@ -18,7 +18,7 @@ import (
 
 const rebasedTopic = "worktree_rebased"
 
-// rebased is a task's worktree having been rebased, or a rebase of it having failed.
+// rebased is a task's worktree having been rebased.
 type rebased struct {
 	TaskID string `json:"task_id"`
 }
@@ -30,8 +30,7 @@ func (rebased) Topic() string {
 
 // rebaseOutcome is what the latest rebase of a task's worktree came to.
 type rebaseOutcome struct {
-	Result  *RebaseResult `json:"result,omitempty"`
-	Failure string        `json:"failure,omitempty"`
+	Result RebaseResult `json:"result"`
 	// Settled says a cascade pass saw the writer finish or abort the rebase that stopped part way.
 	Settled bool `json:"settled,omitempty"`
 }
@@ -88,12 +87,10 @@ func handlePushed(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 
 const abortedTopic = "worktree_aborted"
 
-// aborted is what a task's worktree had part-way through having been aborted from the panel,
-// or an abort that cut its writer's turn having failed.
+// aborted is what a task's worktree had part-way through having been aborted from the panel.
 type aborted struct {
-	TaskID  string       `json:"task_id"`
-	Result  *AbortResult `json:"result,omitempty"`
-	Failure string       `json:"failure,omitempty"`
+	TaskID string       `json:"task_id"`
+	Result *AbortResult `json:"result,omitempty"`
 }
 
 // Topic names the handler that tells the task's writer.
@@ -182,35 +179,23 @@ func mailWriter(ctx context.Context, tx store.DBTX, mailer *mail.MailService, pa
 
 // mail is what the writer is told of the outcome.
 func (o rebaseOutcome) mail() eventprompts.Mail {
-	if o.Result == nil {
-		return eventprompts.RebaseFailed{Failure: o.Failure}
-	}
-
-	result := *o.Result
-
 	return eventprompts.Rebased{
-		BaseRef:     result.BaseRef,
-		BaseSHA:     result.BaseSHA,
-		Replay:      result.Replay,
-		Landed:      result.Landed,
-		Conflicted:  result.Conflicted,
-		Moved:       result.Moved,
-		Interrupted: result.Interrupted,
-		ParkedRef:   result.ParkedRef,
+		BaseRef:    o.Result.BaseRef,
+		BaseSHA:    o.Result.BaseSHA,
+		Replay:     o.Result.Replay,
+		Landed:     o.Result.Landed,
+		Conflicted: o.Result.Conflicted,
+		Moved:      o.Result.Moved,
+		ParkedRef:  o.Result.ParkedRef,
 	}
 }
 
 // mail is what the writer is told of the abort.
 func (a aborted) mail() eventprompts.Mail {
-	if a.Result == nil {
-		return eventprompts.AbortFailed{Failure: a.Failure}
-	}
-
 	return eventprompts.Aborted{
-		Command:     a.Result.Command,
-		Branch:      a.Result.Branch,
-		ParkedRef:   a.Result.ParkedRef,
-		Ours:        a.Result.Ours,
-		Interrupted: a.Result.Interrupted,
+		Command:   a.Result.Command,
+		Branch:    a.Result.Branch,
+		ParkedRef: a.Result.ParkedRef,
+		Ours:      a.Result.Ours,
 	}
 }

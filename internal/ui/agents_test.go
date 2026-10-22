@@ -1610,25 +1610,7 @@ func TestAgentsLastScreen(t *testing.T) {
 		},
 		{
 			name:  "a running agent asks for no saved screen",
-			agent: newPausable(""),
-		},
-		{
-			name:          "a paused agent renders that it is paused over its saved screen",
-			agent:         newPausable("1970-01-01T00:00:00Z"),
-			want:          []string{"paused", "saved screen", "the migration is written"},
-			wantScreenFor: []string{"a1"},
-		},
-		{
-			name: "a paused agent whose pane died is still rendered as paused",
-			agent: func() *agentv1.Agent {
-				agent := newPausable("1970-01-01T00:00:00Z")
-				agent.Alive = xptr.Ptr(false)
-
-				return agent
-			}(),
-			want:          []string{"paused", "saved screen", "the migration is written"},
-			wantAbsent:    []string{"dormant · press"},
-			wantScreenFor: []string{"a1"},
+			agent: newThinking(),
 		},
 	}
 
@@ -1690,39 +1672,36 @@ func TestAgentsLastScreen(t *testing.T) {
 
 // TestAgentsEdit covers opening your editor on an agent's worktree from its row.
 func TestAgentsEdit(t *testing.T) {
-	t.Run("the edit key stops the agent and opens its worktree beside the list", func(t *testing.T) {
-		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""))
+	t.Run("the edit key opens the worktree beside the list", func(t *testing.T) {
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable())
 
 		harness.Press("space", "e")
 
-		harness.AssertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
 		require.NotEmpty(t, harness.Tmux().Respawns())
 		assert.Contains(t, harness.Tmux().Respawns()[0], "'/work/telescope'")
 		assert.Equal(t, "/work/telescope", harness.Tmux().RespawnDirs()[0])
 	})
 
 	t.Run("on an engine elsewhere the edit key opens the worktree there, through its ssh host", func(t *testing.T) {
-		harness := openAgentsWith(t, paneltest.Params{Settings: remoteEditSettings(t, "nvim")}, newLiveWorkflow("w1", "backend"), newEditable(""))
+		harness := openAgentsWith(t, paneltest.Params{Settings: remoteEditSettings(t, "nvim")}, newLiveWorkflow("w1", "backend"), newEditable())
 
 		harness.Press("space", "e")
 
-		harness.AssertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
 		require.NotEmpty(t, harness.Tmux().Respawns())
 		assert.Contains(t, harness.Tmux().Respawns()[0], "-t 'komrad-remote'")
 		assert.Empty(t, harness.Tmux().RespawnDirs()[0], "the pane is not rooted at a directory this machine lacks")
 	})
 
-	t.Run("on an engine elsewhere an editor that cannot reach it leaves the agent running", func(t *testing.T) {
-		harness := openAgentsWith(t, paneltest.Params{Settings: remoteEditSettings(t, "subl")}, newLiveWorkflow("w1", "backend"), newEditable(""))
+	t.Run("on an engine elsewhere an editor that cannot reach it opens nothing", func(t *testing.T) {
+		harness := openAgentsWith(t, paneltest.Params{Settings: remoteEditSettings(t, "subl")}, newLiveWorkflow("w1", "backend"), newEditable())
 
 		harness.Press("space", "e")
 
-		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceHoldAgentProcedure))
 		assert.Empty(t, harness.Tmux().Respawns())
 		assert.Contains(t, harness.Frame(), "could not edit telescope")
 	})
 
-	t.Run("closing the editor lets the agent go", func(t *testing.T) {
+	t.Run("closing the editor mails the agent", func(t *testing.T) {
 		tests := []struct {
 			name  string
 			close func(*paneltest.Panel)
@@ -1747,24 +1726,24 @@ func TestAgentsEdit(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""))
-				said := recordRelease(harness)
+				harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable())
+				said := recordMail(harness)
 				harness.Press("space", "e")
 				require.Empty(t, *said)
 
 				tt.close(harness)
 
 				require.Len(t, *said, 1)
-				assert.Equal(t, "a1", (*said)[0].GetId())
-				assert.Contains(t, (*said)[0].GetSaid(), "while I had your worktree open")
+				assert.Equal(t, "a1", (*said)[0].GetTo())
+				assert.Contains(t, (*said)[0].GetBody(), "had your worktree open in my editor")
 			})
 		}
 	})
 
 	t.Run("a task's edit opens the worktree its writer was provisioned, not a newer agent's own directory", func(t *testing.T) {
-		writer := newEditable("")
+		writer := newEditable()
 		task := newTaskOf(writer)
-		adopter := newPausable("")
+		adopter := newThinking()
 		adopter.Id = "a2"
 		adopter.Name = "adopter"
 		adopter.PaneId = "%8"
@@ -1776,27 +1755,14 @@ func TestAgentsEdit(t *testing.T) {
 
 		harness.Press("space", "e")
 
-		harness.AssertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
 		require.NotEmpty(t, harness.Tmux().RespawnDirs())
 		assert.Equal(t, "/work/telescope", harness.Tmux().RespawnDirs()[0])
 	})
 
-	t.Run("a snapshot leaves alone the pause the editor holds", func(t *testing.T) {
-		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""))
-		said := recordRelease(harness)
-		harness.Press("space", "e")
-		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), newEditable(heldAt)))
-		require.Empty(t, *said)
-
-		harness.Press("space", "e")
-		require.Len(t, *said, 1)
-		assert.Contains(t, (*said)[0].GetSaid(), "while I had your worktree open")
-	})
-
 	t.Run("moving the cursor keeps the editor on the stage", func(t *testing.T) {
-		other := newEditable("")
+		other := newEditable()
 		other.Id, other.Name, other.PaneId = "a2", "comet", "%10"
-		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""), other)
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(), other)
 		moveToAgentRow(t, harness, "telescope")
 		harness.Press("space", "e")
 		respawns, swaps := len(harness.Tmux().Respawns()), harness.Tmux().Swaps()
@@ -1806,173 +1772,34 @@ func TestAgentsEdit(t *testing.T) {
 
 		assert.Len(t, harness.Tmux().Respawns(), respawns)
 		assert.Equal(t, swaps, harness.Tmux().Swaps())
-		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceReleaseAgentProcedure))
+		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceSendMailProcedure))
 	})
 
-	t.Run("an agent paused by somebody else opens no editor", func(t *testing.T) {
-		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(heldAt))
+	t.Run("an agent that may be writing opens no editor", func(t *testing.T) {
+		for _, state := range []agentv1.AgentState{agentv1.AgentState_AGENT_STATE_THINKING, agentv1.AgentState_AGENT_STATE_UNCERTAIN} {
+			t.Run(state.String(), func(t *testing.T) {
+				agent := newEditable()
+				agent.State = state
+				harness := openAgents(t, newLiveWorkflow("w1", "backend"), agent)
 
-		harness.Press("space", "e")
+				harness.Press("space", "e")
 
-		assert.Empty(t, harness.Tmux().Respawns())
-		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceHoldAgentProcedure))
-		assert.Contains(t, harness.Frame(), "could not edit")
-	})
-
-	t.Run("a dormant agent is neither stopped nor let go", func(t *testing.T) {
-		agent := newEditable("")
-		agent.Alive = xptr.Ptr(false)
-		harness := openAgents(t, newLiveWorkflow("w1", "backend"), agent)
-
-		harness.Press("space", "e")
-		require.NotEmpty(t, harness.Tmux().Respawns())
-		harness.Press("space", "e")
-
-		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceHoldAgentProcedure))
-		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceReleaseAgentProcedure))
-	})
-
-	t.Run("an agent that will not stop opens no editor", func(t *testing.T) {
-		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""))
-		harness.Answer(agentv1connect.AgentServiceHoldAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-			return nil, errors.New("the agent did not stop")
-		})
-
-		harness.Press("space", "e")
-
-		assert.Empty(t, harness.Tmux().Respawns())
-	})
-
-	t.Run("an unreadable pane refuses the key and stops nothing", func(t *testing.T) {
-		agent := newEditable("")
-		agent.State = agentv1.AgentState_AGENT_STATE_UNCERTAIN
-		harness := openAgents(t, newLiveWorkflow("w1", "backend"), agent)
-
-		harness.Press("space", "e")
-
-		assert.Empty(t, harness.Tmux().Respawns())
-		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceHoldAgentProcedure))
-	})
-
-	t.Run("an edit given up before the agent stops lets it go", func(t *testing.T) {
-		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""))
-		said := recordRelease(harness)
-		harness.Hold(agentv1connect.AgentServiceHoldAgentProcedure)
-		harness.Press("space", "e")
-
-		harness.Press("esc", "shift+tab", "shift+tab")
-		harness.Release(agentv1connect.AgentServiceHoldAgentProcedure)
-
-		assert.Empty(t, harness.Tmux().Respawns())
-		require.Len(t, *said, 1)
-		assert.Contains(t, (*said)[0].GetSaid(), "without opening it")
-	})
-}
-
-// TestAgentsStrandedPause covers a pause no screen of the panel holds.
-func TestAgentsStrandedPause(t *testing.T) {
-	t.Run("the snapshot lets it go and tells it why", func(t *testing.T) {
-		harness := paneltest.Start(t, paneltest.Params{})
-		answerWorktreeReads(harness)
-		said := recordRelease(harness)
-
-		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), newPausable(heldAt)))
-
-		require.Len(t, *said, 1)
-		assert.Equal(t, "a1", (*said)[0].GetId())
-		assert.Contains(t, (*said)[0].GetSaid(), "lost track of the pause")
-	})
-
-	t.Run("an agent nobody paused is left alone", func(t *testing.T) {
-		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(""))
-
-		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceReleaseAgentProcedure))
-	})
-
-	t.Run("a pause another agent holds", func(t *testing.T) {
-		holder := newPausable("")
-		holder.Id, holder.Name, holder.PaneId = "a2", "conductor", "%10"
-
-		tests := []struct {
-			name     string
-			rows     []proto.Message
-			wantSent int
-		}{
-			{
-				name: "is left alone while that agent is listed",
-				rows: []proto.Message{newLiveWorkflow("w1", "backend"), holder},
-			},
-			{
-				name:     "is let go once that agent is gone",
-				rows:     []proto.Message{newLiveWorkflow("w1", "backend")},
-				wantSent: 1,
-			},
-		}
-
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				held := newPausable(heldAt)
-				held.HeldByAgentId = "a2"
-				harness := paneltest.Start(t, paneltest.Params{})
-				answerWorktreeReads(harness)
-				said := recordRelease(harness)
-
-				harness.Watch(paneltest.Snapshot(append(tt.rows, held)...))
-
-				assert.Len(t, *said, tt.wantSent)
+				assert.Empty(t, harness.Tmux().Respawns())
+				assert.Contains(t, harness.Frame(), "could not edit telescope")
 			})
 		}
 	})
 
-	t.Run("a paused agent renders its document in place of its pane", func(t *testing.T) {
-		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(heldAt))
+	t.Run("a dormant agent's worktree opens whatever it stopped in", func(t *testing.T) {
+		agent := newEditable()
+		agent.Alive = xptr.Ptr(false)
+		agent.State = agentv1.AgentState_AGENT_STATE_THINKING
+		harness := openAgents(t, newLiveWorkflow("w1", "backend"), agent)
 
-		assert.True(t, harness.Tmux().IsZoomed(), "the panel keeps the window")
-		assert.Contains(t, harness.Frame(), "Paused.")
+		harness.Press("space", "e")
+
+		assert.NotEmpty(t, harness.Tmux().Respawns())
 	})
-
-	tests := []struct {
-		name  string
-		state agentv1.AgentState
-		want  string
-	}{
-		{
-			name:  "at rest, which is what a pause claims",
-			state: agentv1.AgentState_AGENT_STATE_IDLE,
-			want:  "paused: you stopped it and have its worktree",
-		},
-		{
-			name:  "writing again",
-			state: agentv1.AgentState_AGENT_STATE_THINKING,
-			want:  "paused, but it has started working again",
-		},
-		{
-			name:  "stopped at a prompt anybody could answer",
-			state: agentv1.AgentState_AGENT_STATE_WAITING,
-			want:  "paused, but stopped at a prompt, so a write lands if anybody answers",
-		},
-		{
-			name:  "a pane nobody can read",
-			state: agentv1.AgentState_AGENT_STATE_UNCERTAIN,
-			want:  "paused, but its pane cannot be read, so it may be writing",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			agent := newPausable(heldAt)
-			agent.State = tt.state
-			harness := paneltest.Start(t, paneltest.Params{Width: 240})
-			answerWorktreeReads(harness)
-			harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), agent))
-
-			harness.Press(slices.Repeat([]string{"ctrl+space", "l"}, 30)...)
-
-			record := strings.Join(paneltest.Record(harness.Frame()), "\n")
-			assert.Contains(t, record, tt.want)
-			assert.Equal(t, 1, strings.Count(record, "paused"), "a row says one thing about a pause, not two")
-		})
-	}
 }
 
 // TestAgentsOrchestrator covers the agent that stands behind a workflow's row.
@@ -2750,7 +2577,7 @@ func buildRecordedTask() []proto.Message {
 	return append(rows, task)
 }
 
-func newPausable(held string) *agentv1.Agent {
+func newThinking() *agentv1.Agent {
 	return &agentv1.Agent{
 		Id:         "a1",
 		Name:       "telescope",
@@ -2758,17 +2585,16 @@ func newPausable(held string) *agentv1.Agent {
 		PaneId:     "%9",
 		Alive:      xptr.Ptr(true),
 		State:      agentv1.AgentState_AGENT_STATE_THINKING,
-		HeldAt:     held,
 	}
 }
 
-func recordRelease(harness *paneltest.Panel) *[]*agentv1.ReleaseAgentRequest {
-	var said []*agentv1.ReleaseAgentRequest
-	harness.Answer(agentv1connect.AgentServiceReleaseAgentProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
-		release, _ := req.Any().(*agentv1.ReleaseAgentRequest)
-		said = append(said, release)
+func recordMail(harness *paneltest.Panel) *[]*agentv1.SendMailRequest {
+	var said []*agentv1.SendMailRequest
+	harness.Answer(agentv1connect.AgentServiceSendMailProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+		mail, _ := req.Any().(*agentv1.SendMailRequest)
+		said = append(said, mail)
 
-		return connect.NewResponse(&agentv1.ReleaseAgentResponse{}), nil
+		return connect.NewResponse(&agentv1.SendMailResponse{}), nil
 	})
 
 	return &said
@@ -2800,8 +2626,9 @@ func buildSelectable() []proto.Message {
 	}, newAgentOnHiddenTask("sweep", "sweep"))
 }
 
-func newEditable(held string) *agentv1.Agent {
-	agent := newPausable(held)
+func newEditable() *agentv1.Agent {
+	agent := newThinking()
+	agent.State = agentv1.AgentState_AGENT_STATE_IDLE
 	agent.Cwd = "/work/telescope"
 
 	return agent
@@ -2809,8 +2636,7 @@ func newEditable(held string) *agentv1.Agent {
 
 // TestAgentsRowShowsTheTool covers the tool an agent reported, drawn after its name while it works.
 func TestAgentsRowShowsTheTool(t *testing.T) {
-	agent := newPausable("")
-	agent.State = agentv1.AgentState_AGENT_STATE_THINKING
+	agent := newThinking()
 	agent.ReportedReason = "WebFetch"
 	harness := openAgents(t, newLiveWorkflow("w1", "backend"), agent)
 

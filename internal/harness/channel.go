@@ -15,8 +15,6 @@ type Channel interface {
 
 	Send(ctx context.Context, target Target, text string) (bool, error)
 
-	Interrupt(ctx context.Context, target Target) error
-
 	Forget(agentID string)
 }
 

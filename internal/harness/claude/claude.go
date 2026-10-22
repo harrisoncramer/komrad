@@ -51,12 +51,6 @@ func (h *Harness) Binary() string {
 	return HarnessID
 }
 
-// InterruptKeys stops Claude where it stands, the second Escape dismissing the prompt the first
-// can leave behind.
-func (h *Harness) InterruptKeys() []string {
-	return []string{"Escape", "Escape"}
-}
-
 // SessionNaming is SessionMinted.
 func (h *Harness) SessionNaming() harness.SessionNaming {
 	return harness.SessionMinted

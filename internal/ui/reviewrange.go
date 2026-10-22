@@ -244,7 +244,7 @@ func (d *reviewDiff) widen() {
 // doesWalk says whether the step keys have anywhere to go, which an editor holding the stage takes
 // away.
 func (r reviewScreen) doesWalk() bool {
-	return !r.hold.atEditor && len(r.diff.steps(r.threads.list)) > 0
+	return !r.edit.atEditor && len(r.diff.steps(r.threads.list)) > 0
 }
 
 // doesFitBaseLegend reports whether the step keys are worth a legend row.
@@ -363,7 +363,7 @@ func (d reviewDiff) jumpOffSaid() string {
 // editOffSaid is why opening the editor is drawn off, empty when it would open.
 func (r reviewScreen) editOffSaid(m *model) string {
 	switch {
-	case r.hold.atEditor:
+	case r.edit.atEditor:
 		return ""
 	case r.isWorktreeRemoved(m):
 		return worktreeRemovedSaid

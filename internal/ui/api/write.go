@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-	"slices"
 
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
@@ -118,32 +117,15 @@ func (a Clients) RenameWrite(params RenameWriteParams) screen.Write {
 	}
 }
 
-// ReleaseWriteParams is an agent to let go, what it is told, and the files a reader had open over it.
-type ReleaseWriteParams struct {
-	Summary string
-	Agent   panel.Agent
-	Said    string
-	Edited  []string
-}
+// editedSaid is what the agent hears when the reader's editor on its worktree closes.
+const editedSaid = "I had your worktree open in my editor and have closed it."
 
-// ReleaseWrite lets an agent go, naming the files a reader had open over it.
-func (a Clients) ReleaseWrite(params ReleaseWriteParams) screen.Write {
-	let := screen.Released{
-		ID:    params.Agent.ID,
-		Name:  params.Agent.Name,
-		Files: slices.Clone(params.Edited),
-	}
-
-	return screen.Write{
-		Doing:   "letting " + params.Agent.Name + " go",
-		Summary: params.Summary,
-		Send: func() screen.Landed {
-			return screen.Landed{
-				Err:      a.Release(params.Agent, params.Said+touchedSaid(let.Files)),
-				Released: &let,
-			}
-		},
-	}
+// EditedWrite tells an agent the reader's editor on its worktree has closed, naming the files the
+// reader opened in it.
+func (a Clients) EditedWrite(agent panel.Agent, touched []string) screen.Write {
+	return a.Write("telling "+agent.Name+" about your edits", "Could not tell "+agent.Name+" about your edits", func(c Clients) error {
+		return c.SendMail(agent.ID, editedSaid+touchedSaid(touched))
+	})
 }
 
 // touchedSaid names the files the reader opened an editor on.
@@ -152,8 +134,8 @@ func touchedSaid(touched []string) string {
 		return ""
 	}
 
-	return fmt.Sprintf(" I had these files open in an editor while you were paused, so read them "+
-		"before you trust what you remember of them: %s.", joinList(touched))
+	return fmt.Sprintf(" I opened these files in it, so read them before you trust what you "+
+		"remember of them: %s.", joinList(touched))
 }
 
 // joinList is a list of paths as a sentence rather than as a slice.

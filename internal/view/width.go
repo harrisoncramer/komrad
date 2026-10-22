@@ -47,7 +47,7 @@ func trailingColumns(line line) int {
 		columns += textCursorColumns
 	}
 
-	for _, cell := range []Cell{line.Working, line.Held, line.Hidden, line.Document, line.Mail, line.Alert, line.Schedule} {
+	for _, cell := range []Cell{line.Working, line.Hidden, line.Document, line.Mail, line.Alert, line.Schedule} {
 		if !cell.IsBlank() {
 			columns += plainColumns + spaceColumns
 		}

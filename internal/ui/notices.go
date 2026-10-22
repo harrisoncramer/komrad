@@ -20,10 +20,6 @@ const (
 	sequenceNotice        = "a rebase is stopped part way in it"
 	hiddenNotice          = "hidden from the sidebar"
 	documentsNotice       = "it has written documents for you to read"
-	heldNotice            = "paused: you stopped it and have its worktree"
-	heldWorkingNotice     = "paused, but it has started working again"
-	heldUnreadableNotice  = "paused, but its pane cannot be read, so it may be writing"
-	heldPromptedNotice    = "paused, but stopped at a prompt, so a write lands if anybody answers"
 )
 
 var (
@@ -79,7 +75,6 @@ func agentNotices(glyphs glyph.Set, loaderFrame string, tasks panel.Tasks, r age
 	notices = appendCellNotice(notices, glyphs, view.MailCell(row), unreadMailNotice)
 	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), standing.Describe(forgeReviewSaid[row.Forge]))
 	notices = appendCellNotice(notices, glyphs, view.RepoCell(row), repoSaid[row.Repo])
-	notices = appendCellNotice(notices, glyphs, view.HeldCell(row), heldNoticeText(item))
 	notices = appendCellNotice(notices, glyphs, view.HiddenCell(row), hiddenNotice)
 	notices = appendCellNotice(notices, glyphs, view.DocumentCell(row), documentsNotice)
 	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), standing.Describe(forgeSaid[row.Forge]))
@@ -123,35 +118,9 @@ func describeFailure(item panel.AgentRow) string {
 		return failureSaid[state]
 	}
 
-	if item.Agent.HeldAt != nil {
-		return ""
-	}
-
 	if item.Agent.TurnError == "" {
 		return turnFailedNotice
 	}
 
 	return turnFailedNotice + ": " + item.Agent.TurnError
-}
-
-// heldNoticeText is what the record has to say about an agent somebody is holding.
-func heldNoticeText(item panel.AgentRow) string {
-	if item.Agent.HeldAt == nil {
-		return ""
-	}
-
-	if item.Alive {
-		switch item.Agent.State {
-		case panel.StateThinking:
-			return heldWorkingNotice
-		case panel.StateWaiting:
-			return heldPromptedNotice
-		case panel.StateUncertain:
-			return heldUnreadableNotice
-		case panel.StateIdle, panel.StateErrored, panel.StateSettingUp,
-			panel.StateFailedToCreate, panel.StateFailedToCleanup:
-		}
-	}
-
-	return heldNotice
 }

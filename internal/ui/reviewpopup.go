@@ -69,7 +69,7 @@ func (r reviewScreen) placeThread(m *model, in screen.Inputs, body string) popup
 
 // isPopupForm reports whether the form stands in the review's popup rather than in a column of its own.
 func (m *model) isPopupForm() bool {
-	return m.form.isOpening() && m.screen == screen.Review && !m.review.hold.atEditor && !m.isMessagesFocused()
+	return m.form.isOpening() && m.screen == screen.Review && !m.review.edit.atEditor && !m.isMessagesFocused()
 }
 
 // measurePopupRoom is the rows inside the tallest popup the review has room for beside the cursor.

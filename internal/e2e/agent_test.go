@@ -105,26 +105,6 @@ func TestIntegrationAgentLifecycle(t *testing.T) {
 		assert.Equal(t, "login-race", got.Msg.GetAgent().GetName())
 	})
 
-	t.Run("a person holds the agent at rest and lets it go", func(t *testing.T) {
-		held, err := instance.Agents.HoldAgent(ctx, connect.NewRequest(&agentv1.HoldAgentRequest{
-			Id: agent.GetId(),
-		}))
-		require.NoError(t, err)
-		assert.NotEmpty(t, held.Msg.GetAgent().GetHeldAt())
-
-		_, err = instance.Agents.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{
-			Id: agent.GetId(),
-		}))
-		assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err), "a held agent is left alone")
-
-		released, err := instance.Agents.ReleaseAgent(ctx, connect.NewRequest(&agentv1.ReleaseAgentRequest{
-			Id: agent.GetId(),
-		}))
-		require.NoError(t, err)
-		assert.Empty(t, released.Msg.GetAgent().GetHeldAt())
-		assert.Empty(t, instance.Typed(agent.GetId()), "an agent that had finished is told nothing")
-	})
-
 	t.Run("archiving its task takes the pane with it", func(t *testing.T) {
 		_, err := instance.Tasks.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{
 			Task: agent.GetTaskId(),

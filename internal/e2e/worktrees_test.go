@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"komrad/config"
-	"komrad/internal/harness"
 	"komrad/internal/komradtest"
 	worktreestore "komrad/internal/store/worktree"
 	"komrad/lib/xslice"
@@ -213,35 +212,15 @@ func TestIntegrationRebase(t *testing.T) {
 
 	instance := komradtest.Start(t, komradtest.Params{WorktreesDir: t.TempDir()})
 	repo := initGitRepo(t)
-	agentID, taskID, tree := createRebaseAgent(t, instance, repo)
+	_, taskID, tree := createRebaseAgent(t, instance, repo)
 	landOnTheBase(t, repo)
 	writeIn(t, tree, "uncommitted.txt", "never committed\n")
 	before := readGitOutput(t, tree, "rev-parse", "HEAD")
 
-	require.NoError(t, instance.Harness.SetActivity(agentID, harness.ActivityWorking))
-	instance.WaitForActivity(agentID, harness.ActivityWorking)
-
-	const rest = 2 * time.Second
-	settled := make(chan error, 1)
-	go func() {
-		select {
-		case <-t.Context().Done():
-			settled <- nil
-		case <-time.After(rest):
-			settled <- instance.Harness.SetActivity(agentID, harness.ActivityIdle)
-		}
-	}()
-	t.Cleanup(func() { assert.NoError(t, <-settled) })
-
-	started := time.Now()
 	rebased, err := instance.Agents.RebaseWorktree(t.Context(), connect.NewRequest(&agentv1.RebaseWorktreeRequest{
 		Task: taskID,
 	}))
 	require.NoError(t, err)
-
-	t.Run("the branch waits for the agent to stop", func(t *testing.T) {
-		assert.GreaterOrEqual(t, time.Since(started), rest)
-	})
 
 	t.Run("a branch whose work landed reaches the base without replaying anything", func(t *testing.T) {
 		assert.True(t, rebased.Msg.GetMoved())

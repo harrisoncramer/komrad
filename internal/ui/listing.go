@@ -144,39 +144,6 @@ func (m *model) send(write screen.Write) tea.Cmd {
 	}
 }
 
-// noteEdited keeps the files a reader opened over a paused agent until whoever holds that pause
-// lets it go.
-func (m *model) noteEdited(agentID string, touched []string) {
-	if len(touched) == 0 {
-		return
-	}
-
-	if m.edited == nil {
-		m.edited = screen.Holds{}
-	}
-
-	for _, path := range touched {
-		if !slices.Contains(m.edited[agentID], path) {
-			m.edited[agentID] = append(m.edited[agentID], path)
-		}
-	}
-}
-
-// forgetSpoken drops the files a release has already carried.
-func (m *model) forgetSpoken(agentID string, carried []string) {
-	kept := slices.DeleteFunc(m.edited[agentID], func(path string) bool {
-		return slices.Contains(carried, path)
-	})
-
-	if len(kept) == 0 {
-		delete(m.edited, agentID)
-
-		return
-	}
-
-	m.edited[agentID] = kept
-}
-
 // rowWrite is a write whose landing takes the panel to the row it made.
 func rowWrite(clients api.Clients, doing, summary string, write func(api.Clients) (*screen.Made, error)) screen.Write {
 	return screen.Write{
@@ -347,10 +314,6 @@ func (m *model) finishWrite(result writeResult) tea.Cmd {
 		m.report(result.summary, landed.Err)
 	}
 
-	if landed.Released != nil && landed.Err == nil {
-		m.forgetSpoken(landed.Released.ID, landed.Released.Files)
-	}
-
 	if len(result.unstaged) > 0 {
 		m.settleUnstaged(result.unstaged, landed.Killed)
 	}
@@ -425,7 +388,7 @@ func (m *model) landOnMade(made screen.Made, keyMoved bool) tea.Cmd {
 	}
 
 	pane := made.Pane
-	cmds = append(cmds, m.apply(m.agents.closeEdit(m.inputs())))
+	cmds = append(cmds, m.apply(m.agents.dropEdit()))
 	m.frame.Solo(false)
 	m.frame.ShowGuest(layout.Guest{Agent: made.Agent, Pane: pane})
 	delete(m.warm.since, pane)

@@ -81,7 +81,7 @@ type renderer struct {
 func (d renderer) trailing(line line) string {
 	palette := d.palette
 	var b strings.Builder
-	for _, cell := range []Cell{line.Working, line.Held, line.Hidden, line.Document, line.Mail, line.Alert} {
+	for _, cell := range []Cell{line.Working, line.Hidden, line.Document, line.Mail, line.Alert} {
 		if !cell.IsBlank() {
 			b.WriteString(" " + d.cell(cell))
 		}

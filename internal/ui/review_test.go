@@ -1977,11 +1977,10 @@ func TestReviewComposer(t *testing.T) {
 	})
 }
 
-// TestReviewHold covers the reader stopping the agent to edit its worktree.
-func TestReviewHold(t *testing.T) {
-	t.Run("the edit key stops the agent and opens the editor over the diff", func(t *testing.T) {
+// TestReviewEdit covers the reader opening an editor over the agent's worktree.
+func TestReviewEdit(t *testing.T) {
+	t.Run("the edit key opens the editor over the diff", func(t *testing.T) {
 		server := newReviewServer(t)
-		server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
 		harness := openReview(t, server)
 
 		harness.Press("space", "e")
@@ -1989,7 +1988,6 @@ func TestReviewHold(t *testing.T) {
 		frame := harness.Frame()
 		assert.Contains(t, frame, "editing greet.go")
 		assert.NotContains(t, frame, "package greet")
-		harness.AssertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
 
 		editor := harness.Tmux().RespawnPanes()
 		require.NotEmpty(t, editor)
@@ -1999,7 +1997,18 @@ func TestReviewHold(t *testing.T) {
 		assert.False(t, isBeside(harness))
 	})
 
-	t.Run("a waiting agent does not hold the edit key", func(t *testing.T) {
+	t.Run("a working agent refuses the edit key", func(t *testing.T) {
+		server := newReviewServer(t)
+		server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
+		harness := openReview(t, server)
+
+		harness.Press("space", "e")
+
+		assert.Contains(t, readOpenMessages(harness), "stop it before you edit")
+		assert.NotContains(t, harness.Frame(), "editing")
+	})
+
+	t.Run("a waiting agent takes the edit key", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.agent.State = agentv1.AgentState_AGENT_STATE_WAITING
 		harness := openReview(t, server)
@@ -2009,17 +2018,7 @@ func TestReviewHold(t *testing.T) {
 		assert.Contains(t, harness.Frame(), "editing greet.go")
 	})
 
-	t.Run("an agent that will not stop opens no editor", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.holdErr = errors.New("the agent did not stop")
-		harness := openReview(t, server)
-
-		harness.Press("space", "e")
-
-		assert.NotContains(t, harness.Frame(), "editing")
-	})
-
-	t.Run("a removed worktree refuses the edit key and stops nothing", func(t *testing.T) {
+	t.Run("a removed worktree refuses the edit key", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.task.WorktreeRemovalReason = taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE
 		server.task.Snapshots = 1
@@ -2031,10 +2030,9 @@ func TestReviewHold(t *testing.T) {
 		harness.Press("e")
 
 		assert.NotContains(t, harness.Frame(), "editing")
-		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceHoldAgentProcedure))
 	})
 
-	t.Run("an unreadable pane refuses the edit key and stops nothing", func(t *testing.T) {
+	t.Run("an unreadable pane refuses the edit key", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.agent.State = agentv1.AgentState_AGENT_STATE_UNCERTAIN
 		harness := openReview(t, server)
@@ -2042,20 +2040,17 @@ func TestReviewHold(t *testing.T) {
 		harness.Press("space", "e")
 
 		assert.Contains(t, readOpenMessages(harness), "cannot read this agent's pane")
-		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceHoldAgentProcedure))
 	})
 
-	t.Run("a dormant agent is edited without stopping anything", func(t *testing.T) {
+	t.Run("a dormant agent's worktree opens whatever it stopped in", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.agent.Alive = xptr.Ptr(false)
+		server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
 		harness := openReview(t, server)
 
 		harness.Press("space", "e")
-		require.Contains(t, harness.Frame(), "editing greet.go")
-		harness.Press("space", "e", "esc")
 
-		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceHoldAgentProcedure))
-		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceReleaseAgentProcedure))
+		assert.Contains(t, harness.Frame(), "editing greet.go")
 	})
 
 	t.Run("a deleted file refuses the edit key and opens no editor", func(t *testing.T) {
@@ -2077,49 +2072,6 @@ func TestReviewHold(t *testing.T) {
 		assert.NotContains(t, frame, "editing ·")
 	})
 
-	t.Run("the compose key leaves the agent running", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
-		harness := openReview(t, server)
-
-		harness.Press("space", "c")
-
-		assert.Contains(t, harness.Frame(), "  Comment")
-		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceHoldAgentProcedure))
-	})
-
-	t.Run("a second edit press waits for the agent the first is stopping", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
-		harness := openReview(t, server)
-		harness.Hold(agentv1connect.AgentServiceHoldAgentProcedure)
-
-		harness.Press("space", "e")
-		require.Contains(t, harness.Frame(), "stopping the agent")
-
-		harness.Press("space", "e")
-		frame := harness.Frame()
-		assert.Contains(t, readEngineLine(frame), "still stopping")
-		assert.NotContains(t, frame, "editing greet.go")
-
-		harness.Release(agentv1connect.AgentServiceHoldAgentProcedure)
-		assert.Contains(t, harness.Frame(), "editing greet.go")
-	})
-
-	t.Run("an edit given up before the agent stops lets it go", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.agent.State = agentv1.AgentState_AGENT_STATE_THINKING
-		harness := openReview(t, server)
-		harness.Hold(agentv1connect.AgentServiceHoldAgentProcedure)
-		harness.Press("space", "e")
-
-		harness.Press("esc")
-		harness.Release(agentv1connect.AgentServiceHoldAgentProcedure)
-
-		assert.NotContains(t, harness.Frame(), "editing ·")
-		assert.Contains(t, readReleaseSaid(t, harness), "without opening it")
-	})
-
 	t.Run("the editor quitting gives the stage back and reads the diff again", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 		harness.Press("space", "e")
@@ -2132,7 +2084,7 @@ func TestReviewHold(t *testing.T) {
 		harness.Advance(time.Second)
 
 		assert.NotContains(t, harness.Frame(), "editing ·")
-		assert.Contains(t, readReleaseSaid(t, harness), "while I had your worktree open")
+		assert.Contains(t, readMailSaid(t, harness), "had your worktree open in my editor")
 		assert.Len(t, harness.Sent(agentv1connect.AgentServiceOpenReviewHistoryProcedure), loads+1)
 	})
 
@@ -2148,7 +2100,7 @@ func TestReviewHold(t *testing.T) {
 
 		assert.Equal(t, swaps, harness.Tmux().Swaps())
 		assert.Len(t, harness.Tmux().Respawns(), respawns)
-		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceReleaseAgentProcedure))
+		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceSendMailProcedure))
 	})
 
 	t.Run("the editor opens at the repository root the paths are named from", func(t *testing.T) {
@@ -2181,7 +2133,6 @@ func TestReviewHold(t *testing.T) {
 		harness.Press("space", "e")
 
 		assert.Empty(t, harness.Tmux().Respawns())
-		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceHoldAgentProcedure))
 		assert.Contains(t, harness.Frame(), "goland cannot open files")
 	})
 
@@ -2217,14 +2168,13 @@ func TestReviewHold(t *testing.T) {
 		assert.Contains(t, frame, "auth › review")
 	})
 
-	t.Run("closing the editor lets the agent go and says where to look", func(t *testing.T) {
+	t.Run("closing the editor mails the agent the files it opened", func(t *testing.T) {
 		server := newReviewServer(t)
 		harness := openReview(t, server)
 
 		harness.Press("space", "e", "space", "e")
 
-		said := readReleaseSaid(t, harness)
-		assert.Contains(t, said, "let you go")
+		said := readMailSaid(t, harness)
 		assert.Contains(t, said, "greet.go")
 		assert.Contains(t, harness.Frame(), "auth › review")
 		assert.Contains(t, harness.Tmux().KilledPanes(), paneltest.ColumnPane)
@@ -2232,7 +2182,7 @@ func TestReviewHold(t *testing.T) {
 		assert.True(t, isBeside(harness))
 	})
 
-	t.Run("a diff that stops being readable lets the agent go with the files", func(t *testing.T) {
+	t.Run("a diff that stops being readable mails the agent the files", func(t *testing.T) {
 		server := newReviewServer(t)
 		harness := openReview(t, server)
 		harness.Press("space", "e")
@@ -2241,44 +2191,8 @@ func TestReviewHold(t *testing.T) {
 		harness.Press("space", "R")
 
 		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
-		assert.Contains(t, readReleaseSaid(t, harness), "greet.go")
+		assert.Contains(t, readMailSaid(t, harness), "greet.go")
 		assert.Contains(t, harness.Tmux().KilledPanes(), paneltest.ColumnPane, "the editor goes with the review")
-	})
-
-	t.Run("an agent paused by somebody else opens no editor", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.agent.HeldAt = heldAt
-		harness := openReview(t, server)
-
-		harness.Press("space", "e")
-
-		assert.Empty(t, harness.Tmux().Respawns())
-		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceHoldAgentProcedure))
-		assert.Contains(t, harness.Frame(), "could not edit")
-	})
-
-	t.Run("a pause a refused release left standing is let go with the files on the next snapshot", func(t *testing.T) {
-		server := newReviewServer(t)
-		harness := openReview(t, server)
-		refusals := 1
-		harness.Answer(agentv1connect.AgentServiceReleaseAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-			if refusals > 0 {
-				refusals--
-
-				return nil, connect.NewError(connect.CodeUnavailable, errors.New("the input box would not take the words"))
-			}
-
-			return connect.NewResponse(&agentv1.ReleaseAgentResponse{}), nil
-		})
-
-		harness.Press("space", "e", "space", "e")
-		server.agent.HeldAt = heldAt
-		harness.Watch(server.buildSnapshot())
-
-		sent := harness.Sent(agentv1connect.AgentServiceReleaseAgentProcedure)
-		require.Len(t, sent, 2)
-		released, _ := sent[1].(*agentv1.ReleaseAgentRequest)
-		assert.Contains(t, released.GetSaid(), "greet.go")
 	})
 
 	t.Run("closing the editor renders the reader's own edits over a pinned diff", func(t *testing.T) {
@@ -2313,7 +2227,8 @@ func TestReviewHold(t *testing.T) {
 		assert.NotContains(t, harness.Frame(), "written by the agent")
 
 		harness.Press("space", "e")
-		harness.AssertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
+		assert.Contains(t, readOpenMessages(harness), "stop it before you edit")
+		assert.NotContains(t, harness.Frame(), "editing greet.go")
 	})
 }
 
@@ -2351,7 +2266,6 @@ type reviewServer struct {
 	forge      []proto.Message
 	historyErr error
 	takeErr    error
-	holdErr    error
 }
 
 func newReviewServer(t *testing.T) *reviewServer {
@@ -2473,7 +2387,9 @@ func (s *reviewServer) serve(harness *paneltest.Panel) {
 	harness.Answer(agentv1connect.AgentServiceAddReviewMessageProcedure, s.reply)
 	harness.Answer(agentv1connect.AgentServiceSetReviewThreadResolvedProcedure, s.settle)
 	harness.Answer(agentv1connect.AgentServiceCreateReviewThreadProcedure, s.createThread)
-	harness.Answer(agentv1connect.AgentServiceHoldAgentProcedure, s.hold)
+	harness.Answer(agentv1connect.AgentServiceSendMailProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&agentv1.SendMailResponse{}), nil
+	})
 }
 
 func (s *reviewServer) takeSnapshot() (*agentv1.ReviewSnapshot, error) {
@@ -2588,14 +2504,6 @@ func (s *reviewServer) createThread(req connect.AnyRequest) (connect.AnyResponse
 	s.threads = append(s.threads, thread)
 
 	return connect.NewResponse(&agentv1.CreateReviewThreadResponse{Thread: thread}), nil
-}
-
-func (s *reviewServer) hold(connect.AnyRequest) (connect.AnyResponse, error) {
-	if s.holdErr != nil {
-		return nil, s.holdErr
-	}
-
-	return connect.NewResponse(&agentv1.HoldAgentResponse{}), nil
 }
 
 func newThreadOnFirstLine(messages ...*agentv1.ReviewMessage) *agentv1.ReviewThread {
@@ -2798,15 +2706,15 @@ func newMovedBaseServer(t *testing.T, tree string, conflicts ...string) *reviewS
 	return server
 }
 
-func readReleaseSaid(t *testing.T, harness *paneltest.Panel) string {
+func readMailSaid(t *testing.T, harness *paneltest.Panel) string {
 	t.Helper()
 
-	sent := harness.Sent(agentv1connect.AgentServiceReleaseAgentProcedure)
+	sent := harness.Sent(agentv1connect.AgentServiceSendMailProcedure)
 	require.Len(t, sent, 1)
-	released, _ := sent[0].(*agentv1.ReleaseAgentRequest)
-	assert.Equal(t, "a1", released.GetId())
+	mail, _ := sent[0].(*agentv1.SendMailRequest)
+	assert.Equal(t, "a1", mail.GetTo())
 
-	return released.GetSaid()
+	return mail.GetBody()
 }
 
 const (

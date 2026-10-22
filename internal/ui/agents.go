@@ -55,14 +55,8 @@ func (a *agentsScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen.Re
 
 func (a *agentsScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 	switch msg := msg.(type) {
-	case reviewPausedMsg:
-		if !in.Up {
-			return nil, true
-		}
-
-		return a.applyPaused(msg), true
 	case agentEditorStaged:
-		return a.applyEditorStaged(in, msg), true
+		return a.applyEditorStaged(msg), true
 	case resumeSettled:
 		return a.settleResume(in, msg.agentID, msg.err), true
 	case api.RenameSettled:
@@ -139,13 +133,9 @@ func (a *agentsScreen) openAgent(m *model, in screen.Inputs, item panel.AgentRow
 	}
 
 	if item.Alive {
-		if item.Agent.HeldAt == nil {
-			a.seeFinished(m, in, item)
+		a.seeFinished(m, in, item)
 
-			return screen.SelectGuest{Pane: item.Agent.Pane}
-		}
-
-		return nil
+		return screen.SelectGuest{Pane: item.Agent.Pane}
 	}
 
 	return a.resume(item.Agent)
@@ -285,14 +275,9 @@ func (a *agentsScreen) toggleSnooze(m *model, in screen.Inputs, key string) scre
 // hasPane reports whether an agent has a pane of its own worth putting in the window.
 func hasPane(item panel.AgentRow) bool {
 	return item.Alive &&
-		item.Agent.HeldAt == nil &&
 		item.Agent.State != panel.StateSettingUp &&
 		!item.Agent.State.IsFailed()
 }
-
-const heldPlaceholder = "Paused."
-
-const stillPaused = "it is still paused"
 
 func agentsTabs() tabs.Strip {
 	return tabs.Strip{
@@ -360,7 +345,6 @@ var (
 	_ editorReconciler     = (*agentsScreen)(nil)
 	_ hoveredAgentReporter = (*agentsScreen)(nil)
 	_ savedScreenRenderer  = (*agentsScreen)(nil)
-	_ agentPauser          = (*agentsScreen)(nil)
 )
 
 func (a *agentsScreen) doesRenderFromListing() bool {

@@ -1,4 +1,4 @@
-h1:H9iV/Yl1cnjIFDnzLdBbpIQrqKJqS9XxmW35Vm3w890=
+h1:mZJ43LxIPAO68Tupu0o4kwZ/+oXweZzkm0t7mBHsVao=
 20261002173502_baseline.sql h1:9d8cMqM4pjaXPZ1GoiSuGxOMMRegbNB1TYG3Gw8tqYw=
 20261003155931_transcript_synced_at_default.sql h1:Jtvi8tLVWC4qxstK0x7tymn0Vno5hrw7mDHBXA3Lji4=
 20261003175808_scope_agent_idempotency_key_to_requester.sql h1:j9KesdPVx/XPRlNWbCdWkXKFKb6f6ox/88fwoSGIp8Q=
@@ -40,3 +40,4 @@ h1:H9iV/Yl1cnjIFDnzLdBbpIQrqKJqS9XxmW35Vm3w890=
 20261020192930_worktree_removal_reason.sql h1:seLI4Ap+Er0TOub+k3Zi2lPw2rnIWsuMyAmcaQLHsfU=
 20261021161308_comments_release_at_once.sql h1:Z10K+n+Sw68oe0EEWtbWrT0FtcXaYseepj1eLiNYnlY=
 20261021212108_komrad_owned_stacks.sql h1:lktm1/ff0Dnm+hxoLhrbiYYiKDWsOzRMgXafk2tpfsk=
+20261022163211_drop_agent_holds.sql h1:0tNi4YZr5jFHm6snRs5S5vaA8Da0jqPYp+6bxxsdPz8=

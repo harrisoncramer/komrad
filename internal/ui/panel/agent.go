@@ -84,10 +84,6 @@ type Agent struct {
 	ScheduleID     *string
 	CreatedAt      time.Time
 	ArchivedAt     *time.Time
-	// HeldAt is when a person stopped this agent and took its worktree, nil while nobody holds it.
-	HeldAt *time.Time
-	// HeldByAgentID is the agent that took the hold, empty when the panel took it.
-	HeldByAgentID string
 	// TaskID is the task the agent works on, empty for an orchestrator.
 	TaskID string
 	// ProvisionDisabled is whether it was told to keep the directory it was given rather than be provisioned a worktree.

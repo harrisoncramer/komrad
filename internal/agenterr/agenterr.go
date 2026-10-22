@@ -32,14 +32,8 @@ var (
 	// ErrAlreadyLaunched says an idempotency key was already spent on an agent that launched.
 	ErrAlreadyLaunched = fail.AlreadyExists("this idempotency key already launched an agent")
 
-	// ErrAgentHeld is anything else komrad was asked to do to an agent a person is holding.
-	ErrAgentHeld = fail.Precondition("this agent is held")
-
 	// ErrReviewNeedsOwnWork says the agent asked for has no work of its own to be read.
 	ErrReviewNeedsOwnWork = fail.Precondition("this agent has no work of its own to have read")
-
-	// ErrUnsettled is an agent that could not be seen to come to rest.
-	ErrUnsettled = fail.Precondition("the agent did not stop")
 
 	// ErrDeleteByAgent is an agent deleting a task or a workflow.
 	ErrDeleteByAgent = fail.Denied("only a person deletes tasks and workflows")

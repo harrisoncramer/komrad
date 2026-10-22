@@ -209,11 +209,6 @@ type editorReconciler interface {
 	reconcileEditor(m *model, in screen.Inputs) screen.Request
 }
 
-// agentPauser is a screen that can pause an agent while it is up.
-type agentPauser interface {
-	isPausing(agentID string) bool
-}
-
 // active is the screen that is up.
 func (m *model) active() screenModel {
 	return m.screenOf(m.screen)

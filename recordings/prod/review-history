@@ -24,15 +24,6 @@ wait_turn() {
 	exit 1
 }
 
-hold() {
-	for _ in $(seq 30); do
-		komrad rpc hold-agent --id "$1" >/dev/null 2>&1 && return
-		sleep 1
-	done
-	echo "agent $1 could not be held" >&2
-	exit 1
-}
-
 line_of() {
 	grep -nF -- "$2" "$1" | head -1 | cut -d: -f1
 }
@@ -56,10 +47,9 @@ commit() {
 
 workflow="$(komrad rpc create-workflow --name neovim --cwd "$HOME/neovim" --worktree.enabled --flags "--model haiku" --compact | jq -r '.workflow.id')"
 agent="$(komrad rpc create-agent --workflow-id "$workflow" --title text-truncate --task-slug text-truncate \
-	--prompt "Reply with the single word ready. Your change to vim.text will be reviewed, and you answer the review when its mail arrives." \
+	--prompt "Reply with the single word ready. Your change to vim.text will be reviewed, and the review is answered for you, so leave any mail you are sent unread and do nothing else." \
 	--compact | jq -r '.agent.id')"
 wait_turn "$agent"
-hold "$agent"
 agent_json="$(komrad rpc get-agent --id "$agent" --compact)"
 tree="$(jq -r '.agent.cwd' <<<"$agent_json")"
 task="$(jq -r '.agent.task_id' <<<"$agent_json")"
@@ -132,8 +122,7 @@ as "$agent" add-review-message --thread-id "$bytes" --addressed \
 	--body "Switched both measurements to strdisplaywidth() and the cut to strcharpart(), so it counts columns." >/dev/null
 
 reviewer="$(as "$agent" request-review --flags "--model haiku" --title text-truncate-review \
-	--prompt "Review vim.text.truncate() in runtime/lua/vim/text.lua and its tests." --compact | jq -r '.reviewer.id')"
-hold "$reviewer"
+	--prompt "Reply with the single word ready. The review is written for you, so leave any mail you are sent unread and do nothing else." --compact | jq -r '.reviewer.id')"
 comment "$reviewer" "$spec" "it('cuts a long string and marks it'" "Add a case with a wide character, such as a CJK string, since measuring columns is what the fix is for." >/dev/null
 as "$reviewer" release-review --task "$task" --verdict REVIEW_VERDICT_CHANGES_REQUESTED \
 	--body "The fix reads right. One test is missing." >/dev/null
@@ -167,4 +156,3 @@ commit "test(text): truncate() with wide characters"
 
 komrad rpc archive-agents --ids "$reviewer" >/dev/null
 KOMRAD_AGENT_ID="$agent" komrad rpc read-mail >/dev/null
-komrad rpc release-agent --id "$agent" >/dev/null

@@ -37,7 +37,7 @@ func TestNoticesGolden(t *testing.T) {
 		{
 			name:  "marks-beside-the-name",
 			press: widenListPresses,
-			rows:  []proto.Message{newHeld(newFailedRun()), newUnreadMail("n1")},
+			rows:  []proto.Message{newFailedRun(), newUnreadMail("n1")},
 		},
 		{
 			name:  "column-facts",
@@ -70,7 +70,7 @@ func TestNoticesGolden(t *testing.T) {
 		{
 			name:  "a-wrapped-sentence",
 			width: 34,
-			rows:  []proto.Message{newHeld(newNoticed())},
+			rows:  []proto.Message{newFailedRun()},
 		},
 	}
 
@@ -130,12 +130,6 @@ func newPullRequested(state pullrequestv1.PullRequestState) []proto.Message {
 func newFailedRun() *agentv1.Agent {
 	agent := newNoticed()
 	agent.FailedRun = true
-
-	return agent
-}
-
-func newHeld(agent *agentv1.Agent) *agentv1.Agent {
-	agent.HeldAt = "1970-01-01T00:00:00Z"
 
 	return agent
 }

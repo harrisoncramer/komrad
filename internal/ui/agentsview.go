@@ -99,8 +99,6 @@ func (a *agentsScreen) doc(m *model, in screen.Inputs) string {
 		return startingPlaceholder(in.Room.Spinner)
 	case item.Agent.State == panel.StateSettingUp:
 		return settingUpPlaceholder(in.Room.Spinner)
-	case item.Agent.HeldAt != nil:
-		return heldPlaceholder
 	case item.Agent.State.IsFailed():
 		return failedPlaceholder(item.Agent)
 	}

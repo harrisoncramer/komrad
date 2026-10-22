@@ -37,6 +37,9 @@ var (
 	// errBusy says something else is already moving the worktree.
 	errBusy = fail.Precondition("something else is already moving this worktree")
 
+	// errWriterNotAtRest says the task's writer is not between turns.
+	errWriterNotAtRest = fail.Precondition("the task's writer is not at rest")
+
 	// errSelf says an agent asked komrad to act on the checkout it is working in.
 	errSelf = fail.InvalidArgument("an agent cannot rebase, push or abort in the checkout it is working in")
 )
@@ -67,11 +70,6 @@ type taskFinder interface {
 // txRunner runs a function inside one transaction.
 type txRunner interface {
 	InTx(ctx context.Context, fn func(store.DBTX) error) error
-}
-
-// agentSettler brings an agent to rest, reporting whether a turn was cut to do it.
-type agentSettler interface {
-	Settle(ctx context.Context, agent agentstore.Agent) (bool, error)
 }
 
 // forgeFinder is the forge a pull request is changed through, found by its address.
@@ -116,7 +114,6 @@ type NewServiceParams struct {
 	Tasks           *taskstore.TaskStore
 	TaskFinder      taskFinder
 	Workflows       *workflowstore.WorkflowStore
-	Settler         agentSettler
 	Events          eventRecorder
 	Git             branchMover
 	PullRequests    *pullrequeststore.PullRequestStore
@@ -134,7 +131,6 @@ type Service struct {
 	tasks           *taskstore.TaskStore
 	taskFinder      taskFinder
 	workflows       *workflowstore.WorkflowStore
-	settler         agentSettler
 	events          eventRecorder
 	git             branchMover
 	pullRequests    *pullrequeststore.PullRequestStore
@@ -158,7 +154,6 @@ func NewService(params NewServiceParams) *Service {
 		tasks:           params.Tasks,
 		taskFinder:      params.TaskFinder,
 		workflows:       params.Workflows,
-		settler:         params.Settler,
 		events:          params.Events,
 		git:             params.Git,
 		pullRequests:    params.PullRequests,
@@ -169,15 +164,6 @@ func NewService(params NewServiceParams) *Service {
 		cascade:         params.Cascade,
 		pullRequestSync: params.PullRequestSync,
 	}
-}
-
-// settle brings the task's writer to rest before its files move, reporting whether a turn was cut.
-func (s *Service) settle(ctx context.Context, target checkoutTarget) (bool, error) {
-	if target.writer == nil || target.writer.Pane == "" {
-		return false, nil
-	}
-
-	return s.settler.Settle(ctx, *target.writer)
 }
 
 // buildParkRef names where a checkout is held before it is moved, under the space for that kind of move.
@@ -224,7 +210,7 @@ func (s *Service) eligible(ctx context.Context, ref string) (*checkoutTarget, er
 }
 
 // readWriter is the task's live writer, answering store.ErrNotFound when it has none and refusing
-// one that is still being set up or that a person is holding.
+// one that is still being set up.
 func readWriter(ctx context.Context, agents *agentstore.AgentStore, task taskstore.Task) (*agentstore.Agent, error) {
 	writer, err := agents.GetTaskWriter(ctx, task.ID)
 	if err != nil {
@@ -234,15 +220,13 @@ func readWriter(ctx context.Context, agents *agentstore.AgentStore, task tasksto
 	if writer.State == agentstore.StateSettingUp {
 		return nil, fmt.Errorf("%w: %q is still being set up", errBusy, writer.Name)
 	}
-	if err := writer.ValidateActionable(); err != nil {
-		return nil, err
-	}
 
 	return writer, nil
 }
 
 // recheckWriter reads the task's writer again once its checkout is locked, waiting out a launch
-// claiming the task as it does, and refuses a writer that came back since the target was read.
+// claiming the task as it does, and refuses a writer that came back since the target was read or
+// one that is not between turns.
 func (s *Service) recheckWriter(ctx context.Context, target checkoutTarget) error {
 	return s.tx.InTx(ctx, func(db store.DBTX) error {
 		if _, err := taskstore.NewTaskStore(db).GetUndeletedForUpdate(ctx, target.task.ID); err != nil {
@@ -258,6 +242,9 @@ func (s *Service) recheckWriter(ctx context.Context, target checkoutTarget) erro
 		}
 		if target.writer == nil {
 			return fmt.Errorf("%w: %q started writing task %q", errBusy, writer.Name, target.task.Slug)
+		}
+		if !isAtRest(*writer) {
+			return fmt.Errorf("%w: %q is not between turns", errWriterNotAtRest, writer.Name)
 		}
 
 		return nil

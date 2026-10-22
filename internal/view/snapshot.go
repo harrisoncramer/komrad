@@ -162,12 +162,9 @@ type Row struct {
 	// Archived says the row has been put away, which greys its name.
 	Archived bool
 	// Hidden says a person took the row out of the sidebar, rendered as a mark after its name.
-	Hidden bool
-	Held   bool
-	// HeldWorking says a paused agent is working anyway, which the hold did not stop.
-	HeldWorking bool
-	UnreadMail  bool
-	FailedRun   bool
+	Hidden     bool
+	UnreadMail bool
+	FailedRun  bool
 	// Documents says the agent has written something for a person to read.
 	Documents bool
 	Scheduled bool

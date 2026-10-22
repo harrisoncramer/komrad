@@ -28,8 +28,6 @@ type Landed struct {
 	Awaits Awaits
 	// Made is the row the write made, which the panel lands on once it is shown.
 	Made *Made
-	// Released is the agent the write let go.
-	Released *Released
 	// Notice is what to say once the write has landed.
 	Notice *Notice
 	// Killed says the write took down the agents it unstaged.
@@ -50,13 +48,6 @@ type Made struct {
 	Focus bool
 	// Archived says the row is in the archive rather than the agents list.
 	Archived bool
-}
-
-// Released is the agent a write let go, with the files a reader had open over it.
-type Released struct {
-	ID    string
-	Name  string
-	Files []string
 }
 
 // Notice is what the panel says once a write has landed.

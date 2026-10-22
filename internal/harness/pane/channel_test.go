@@ -406,55 +406,6 @@ func TestSendHandsBackADraftWhenTheFrameGoesUnreadable(t *testing.T) {
 	assert.Empty(t, terminal.Sent[target.Pane])
 }
 
-// TestInterruptSendsTheHarnessItsOwnKeys pins that stopping an agent is the CLI's own interrupt
-// rather than anything komrad decides.
-func TestInterruptSendsTheHarnessItsOwnKeys(t *testing.T) {
-	terminal := terminalShowing(harnesstest.FrameWorking)
-	pane := NewPane(NewPaneParams{Terminal: terminal, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{InterruptWith: []string{"Escape", "Escape"}}}})
-
-	require.NoError(t, pane.Interrupt(t.Context(), target))
-	assert.Equal(t, [][]string{{"Escape", "Escape"}}, terminal.Sent[target.Pane])
-}
-
-// TestInterruptRefusesWhatItCannotStop pins the two agents there is no interrupt to send.
-func TestInterruptRefusesWhatItCannotStop(t *testing.T) {
-	tests := []struct {
-		name      string
-		target    harness.Target
-		harnesses harnessGetter
-		wantErr   string
-	}{
-		{
-			name:      "an agent holding no pane",
-			target:    harness.Target{AgentID: "agent-a", HarnessID: harnesstest.FakeID},
-			harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}},
-			wantErr:   "not in a pane",
-		},
-		{
-			name:      "a harness komrad cannot look up",
-			target:    target,
-			harnesses: harnesstest.Registry{},
-			wantErr:   "failed to find the harness",
-		},
-		{
-			name:      "a harness with no keys that stop it",
-			target:    target,
-			harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{InterruptWith: []string{}}},
-			wantErr:   "no keys that interrupt it",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			terminal := terminalShowing(harnesstest.FrameWorking)
-			p := NewPane(NewPaneParams{Terminal: terminal, Harnesses: tt.harnesses})
-
-			require.ErrorContains(t, p.Interrupt(t.Context(), tt.target), tt.wantErr)
-			assert.Empty(t, terminal.Sent)
-		})
-	}
-}
-
 // target is the agent every test in this package speaks to.
 var target = harness.Target{
 	AgentID:   "agent-a",

@@ -180,8 +180,6 @@ restart: Launch a writer or an orchestrator on a new conversation, its old one k
 
 retry: Launch an agent again after its create failed.
 
-held: Interrupted and kept still by a caller, such as before editing files in its checkout. Release lets it go on.
-
 archived: Stopped and taken out of the list, with its records kept. Restore brings it back, dormant. Not "hidden from the panel" or "put away".
 
 hidden: Live, but left out of a client's lists. Use it only for tasks, and never for archived.

@@ -276,8 +276,9 @@ type MenuKeys struct {
 	// task, or showing the hidden ones. The entry is only on the agents list.
 	Hide []string `mapstructure:"hide" default:"h"`
 	// Open your editor on the files of the hovered task or agent, in place of the pane beside
-	// the list. The agent working there is paused while the editor is open, and quitting the
-	// editor, picking the entry again or leaving the agents list closes it and unpauses the agent.
+	// the list. The entry is refused while the agent is working. Quitting the editor, picking
+	// the entry again or leaving the agents list closes it and mails the agent that you had its
+	// worktree open.
 	// The entry is only on the agents list.
 	Edit []string `mapstructure:"edit" default:"e"`
 	// Retry the launch of an agent that failed to create, opening a form where the flags can be

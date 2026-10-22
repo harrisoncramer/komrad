@@ -197,7 +197,7 @@ func (a *agentsScreen) closeEditEntries(m *model) []menu.Entry {
 	}
 
 	return []menu.Entry{menu.Holding("close the editor", a.deps.keys.Menu.Edit, func() screen.Request {
-		return m.agents.releaseEdit(m.inputs())
+		return m.agents.closeEdit()
 	})}
 }
 

@@ -146,11 +146,6 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	return command + " " + harness.QuoteArg(h.binary) + " " + agentArg + " " + harness.QuoteArg(h.script), nil
 }
 
-// InterruptKeys is what the panel would send to stop this harness where it stands.
-func (h *Harness) InterruptKeys() []string {
-	return []string{"Escape"}
-}
-
 // ReadInput reads the bottom of a captured frame, where only the last line the agent
 // printed is its current state.
 func (h *Harness) ReadInput(frame string) harness.Input {

@@ -180,7 +180,7 @@ func (z *triageZone) refresh(agents []panel.AgentRow, tasks panel.Tasks, now tim
 	entries := make(map[string]triageEntry)
 	for _, item := range agents {
 		id := item.Agent.ID
-		if tasks.IsHidden(item.Agent) || item.Agent.HeldAt != nil {
+		if tasks.IsHidden(item.Agent) {
 			continue
 		}
 

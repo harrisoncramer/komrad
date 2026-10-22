@@ -509,7 +509,7 @@ func (s *Service) settleRetarget(ctx context.Context, task taskstore.Task) (bool
 	}
 
 	last := outcome.Result
-	if last == nil || !last.OntoBase || !last.Conflicted || outcome.Settled {
+	if !last.OntoBase || !last.Conflicted || outcome.Settled {
 		return false, nil
 	}
 
@@ -632,9 +632,9 @@ func (s *Service) isReadyToCascade(ctx context.Context, task taskstore.Task) (bo
 	return refuseTreeState(state) == nil, nil
 }
 
-// isAtRest reports whether an agent is between turns with nobody holding it.
+// isAtRest reports whether an agent is between turns.
 func isAtRest(agent agentstore.Agent) bool {
-	if agent.Hold.IsHeld() || agent.State == agentstore.StateSettingUp {
+	if agent.State == agentstore.StateSettingUp {
 		return false
 	}
 	if !agent.Alive {

@@ -335,13 +335,10 @@ func (a Clients) StartOrchestrator(workflowID string) (*agentv1.Agent, error) {
 	})
 }
 
-// Release lets go of a held agent, saying what changed while it was held.
-func (a Clients) Release(agent panel.Agent, said string) error {
+// SendMail mails an agent from the person.
+func (a Clients) SendMail(agentID, body string) error {
 	return mutate(func(ctx context.Context) (any, error) {
-		return a.Agents.ReleaseAgent(ctx, connect.NewRequest(&agentv1.ReleaseAgentRequest{
-			Id:   agent.ID,
-			Said: said,
-		}))
+		return a.Agents.SendMail(ctx, connect.NewRequest(&agentv1.SendMailRequest{To: agentID, Body: body}))
 	})
 }
 

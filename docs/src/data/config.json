@@ -1047,7 +1047,7 @@
               "key": "edit",
               "path": "keybindings.menu.edit",
               "type": "array",
-              "description": "Open your editor on the files of the hovered task or agent, in place of the pane beside\nthe list. The agent working there is paused while the editor is open, and quitting the\neditor, picking the entry again or leaving the agents list closes it and unpauses the agent.\nThe entry is only on the agents list.",
+              "description": "Open your editor on the files of the hovered task or agent, in place of the pane beside\nthe list. The entry is refused while the agent is working. Quitting the editor, picking\nthe entry again or leaving the agents list closes it and mails the agent that you had its\nworktree open.\nThe entry is only on the agents list.",
               "default": "[\"e\"]"
             },
             {
@@ -1316,13 +1316,6 @@
               "type": "string",
               "description": "Mail is waiting that the agent has not read.",
               "default": "\"\""
-            },
-            {
-              "key": "paused",
-              "path": "glyphs.marks.paused",
-              "type": "string",
-              "description": "The agent is paused, held by a person reading its worktree.",
-              "default": "\"\""
             },
             {
               "key": "hidden",

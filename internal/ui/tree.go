@@ -467,7 +467,7 @@ func (a *agentsScreen) hoveredResting(m *model, in screen.Inputs) (panel.AgentRo
 	}
 
 	item, held := r.paneItem()
-	if !held || a.isShowingNotes(r) || (item.Alive && item.Agent.HeldAt == nil) || item.Agent.State == panel.StateSettingUp || item.Agent.State.IsFailed() {
+	if !held || a.isShowingNotes(r) || item.Alive || item.Agent.State == panel.StateSettingUp || item.Agent.State.IsFailed() {
 		return panel.AgentRow{}, false
 	}
 

@@ -56,8 +56,8 @@ type reviewScreen struct {
 	// threads is the conversation in the sidebar and what the reader is writing into it.
 	threads reviewThreads
 
-	// hold is the reader's own hold over the work, and the editor it may hold open.
-	hold  reviewHold
+	// edit is the reader's own editor over the agent's worktree.
+	edit  reviewEdit
 	focus reviewFocus
 
 	// side is the row over the file tree the sidebar's cursor rests on, nil while it is on the tree.
@@ -112,7 +112,7 @@ func (r reviewScreen) isWriting() bool {
 
 // isBusy reports whether the reader is part way through something a restart would lose.
 func (r reviewScreen) isBusy() bool {
-	return r.isWriting() || r.hold.isHeld()
+	return r.isWriting() || r.edit.atEditor
 }
 
 // isDiffFocused is whether the patch holds the keys.
@@ -133,7 +133,7 @@ func (r *reviewScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.
 	switch msg := msg.(type) {
 	case reviewEditorStaged:
 		return r.applyEditorStaged(m, msg), true
-	case reviewLoadedMsg, reviewPausedMsg, reviewWroteMsg, messageEditedMsg:
+	case reviewLoadedMsg, reviewWroteMsg, messageEditedMsg:
 		if !in.Up {
 			return nil, true
 		}
@@ -150,8 +150,6 @@ func (r *reviewScreen) route(m *model, msg tea.Msg) screen.Request {
 	switch msg := msg.(type) {
 	case reviewLoadedMsg:
 		return r.applyLoaded(m, msg)
-	case reviewPausedMsg:
-		return r.applyPaused(m, msg)
 	case reviewWroteMsg:
 		return r.applyWrote(m, msg)
 	case messageEditedMsg:
@@ -173,7 +171,6 @@ var (
 	_ lineTyper        = (*reviewScreen)(nil)
 	_ listScroller     = (*reviewScreen)(nil)
 	_ editorReconciler = (*reviewScreen)(nil)
-	_ agentPauser      = (*reviewScreen)(nil)
 )
 
 func (r *reviewScreen) doesRenderFromListing() bool {

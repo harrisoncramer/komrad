@@ -84,7 +84,7 @@ table "tasks" {
   column "last_rebase" {
     null    = true
     type    = jsonb
-    comment = "What the latest rebase of the task's checkout came to, as the result or the failure; null until its first rebase."
+    comment = "What the latest rebase of the task's checkout came to; null until its first rebase."
   }
   column "sequence" {
     null    = true

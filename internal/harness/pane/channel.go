@@ -61,29 +61,6 @@ func (p *Pane) Send(ctx context.Context, target harness.Target, text string) (bo
 	return true, nil
 }
 
-// Interrupt types whatever the agent's own CLI reads as an interrupt into its pane.
-func (p *Pane) Interrupt(_ context.Context, target harness.Target) error {
-	if target.Pane == "" {
-		return fmt.Errorf("agent %q is not in a pane to interrupt", target.AgentID)
-	}
-
-	found, err := p.harnesses.GetByID(target.HarnessID)
-	if err != nil {
-		return fmt.Errorf("failed to find the harness of agent %q: %w", target.AgentID, err)
-	}
-
-	keys := found.InterruptKeys()
-	if len(keys) == 0 {
-		return fmt.Errorf("the %q harness has no keys that interrupt it", target.HarnessID)
-	}
-
-	if err := p.terminal.SendKeys(target.Pane, keys...); err != nil {
-		return fmt.Errorf("failed to interrupt agent %q: %w", target.AgentID, err)
-	}
-
-	return nil
-}
-
 // planFor reads the pane for what komrad may do to the input box it is showing.
 func (p *Pane) planFor(ctx context.Context, target harness.Target) plan {
 	if !p.terminal.IsPaneRunningCLI(target.Pane) {

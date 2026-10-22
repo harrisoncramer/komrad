@@ -101,7 +101,7 @@ func (a *agentsScreen) stageResting(m *model, in screen.Inputs) screen.Request {
 }
 
 func (r *reviewScreen) stageResting(m *model, in screen.Inputs) screen.Request {
-	if r.hold.atEditor {
+	if r.edit.atEditor {
 		return r.markThreadRead(m)
 	}
 

@@ -21,7 +21,6 @@ const (
 	worktreeRebased                 = "worktree.rebased"
 	worktreeLanded                  = "worktree.landed"
 	worktreeRebaseConflicted        = "worktree.rebase_conflicted"
-	worktreeRebaseFailed            = "worktree.rebase_failed"
 	DocumentWrittenByPerson         = "document.written_by_person"
 	ReviewApproved                  = "review.approved"
 	ReviewChangesRequested          = "review.changes_requested"
@@ -93,10 +92,6 @@ func All() []Event {
 		{
 			Name: worktreeRebaseConflicted, Title: "Rebase conflicted", Description: "a rebase stopped on conflicts",
 			DefaultPrompt: "Resolve each conflict keeping the intent of both sides, continue the rebase, run the tests, and push with --force-with-lease. If it's unclear which side of the logic is preferred, stop and ask for help.",
-		},
-		{
-			Name: worktreeRebaseFailed, Title: "Rebase failed", Description: "a rebase failed before it finished",
-			DefaultPrompt: "Fix whatever stopped the rebase before carrying on. Do not retry it blindly. If anything is unclear, stop and ask for help.",
 		},
 		{
 			Name: DocumentWrittenByPerson, Title: "Document written by a person", Description: "a person wrote or edited the agent's document",

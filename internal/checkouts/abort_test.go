@@ -2,13 +2,10 @@ package checkouts
 
 import (
 	"encoding/json"
-	"errors"
 	"testing"
 
 	"komrad/internal/git"
 	"komrad/internal/gittest"
-	"komrad/internal/harness"
-	"komrad/internal/harnesstest"
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 
@@ -16,7 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestAbortRefusals covers an abort that undoes nothing, and one that parked but found the index held.
+// TestAbortRefusals covers an abort that undoes nothing, one under a working writer, and one that
+// parked but found the index held.
 func TestAbortRefusals(t *testing.T) {
 	type testCase struct {
 		name      string
@@ -32,6 +30,12 @@ func TestAbortRefusals(t *testing.T) {
 			agent:   agentstore.Agent{Cwd: "/locked"},
 			aborter: gittest.Mover{Sequence: git.SequenceRebase},
 			wantErr: errBusy,
+		},
+		{
+			name:    "a writer part way through a turn",
+			agent:   agentstore.Agent{Pane: "%1", State: agentstore.StateThinking},
+			aborter: gittest.Mover{Sequence: git.SequenceRebase},
+			wantErr: errWriterNotAtRest,
 		},
 		{
 			name:    "a checkout with nothing part-way through",
@@ -79,7 +83,7 @@ func TestAbortUndoesTheSequence(t *testing.T) {
 		wantMail   []string
 	}
 
-	conflicted := &rebaseOutcome{Result: &RebaseResult{
+	conflicted := &rebaseOutcome{Result: RebaseResult{
 		RebasePlan: RebasePlan{BaseSHA: "basesha"},
 		Conflicted: true,
 	}}
@@ -160,57 +164,6 @@ func TestAbortUndoesTheSequence(t *testing.T) {
 			for _, want := range append(tt.wantMail, result.ParkedRef) {
 				assert.Contains(t, inbox[0], want)
 			}
-			assert.NotContains(t, inbox[0], "interrupted")
-		})
-	}
-}
-
-// TestAbortTellsAnAgentWhoseTurnWasCut covers komrad stopping the agent first and telling it so whether or not the abort went through.
-func TestAbortTellsAnAgentWhoseTurnWasCut(t *testing.T) {
-	type testCase struct {
-		name     string
-		abortErr error
-		wantMail string
-	}
-
-	tests := []testCase{
-		{
-			name:     "an abort that failed after the turn was cut",
-			abortErr: errors.New("could not detach HEAD"),
-			wantMail: "but the abort failed: could not detach HEAD",
-		},
-		{
-			name:     "an abort that went through",
-			wantMail: "Your turn was interrupted so that the rebase in your worktree could be aborted.",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fixture := newRebaseFixture(t)
-			agent := fixture.seed(t, agentstore.Agent{Pane: "%1", State: agentstore.StateThinking})
-			channel := &harnesstest.Channel{}
-			observer := harnesstest.NewActivityObserver(harness.ActivityWorking, harness.ActivityIdle)
-			aborter := &gittest.Mover{
-				Sequence: git.SequenceRebase,
-				State:    git.TreeState{Branch: "agent/a1"},
-				AbortErr: tt.abortErr,
-			}
-
-			_, err := fixture.newService(NewServiceParams{
-				Settler: buildSettler(channel, observer),
-				Git:     aborter,
-			}).Abort(t.Context(), *agent.TaskID)
-			if tt.abortErr != nil {
-				require.ErrorIs(t, err, tt.abortErr)
-			} else {
-				require.NoError(t, err)
-			}
-
-			assert.Equal(t, 1, channel.Interrupts)
-			inbox := fixture.readInbox(t, agent.ID)
-			require.Len(t, inbox, 1)
-			assert.Contains(t, inbox[0], tt.wantMail)
 		})
 	}
 }

@@ -111,19 +111,19 @@ func (r *reviewScreen) abandon(m *model, err error) screen.Request {
 	return screen.Batch{r.drop(m), screen.Report{Summary: "Could not read the diff of " + name, Err: err}}
 }
 
-// drop puts the reader back on the row they opened the review from, closing the editor and letting
-// go of an agent stopped for it.
+// drop puts the reader back on the row they opened the review from, closing the editor and telling
+// the agent which files the reader opened in it.
 func (r *reviewScreen) drop(m *model) screen.Request {
 	var unstaged screen.Request
-	if r.hold.atEditor {
+	if r.edit.atEditor {
 		unstaged = screen.Unstage{}
 	}
 
-	letGo := r.endHold(m, abandonedSaid)
+	told := r.mailEdited(m)
 
 	*r = reviewScreen{deps: r.deps, loads: r.loads}
 
-	return screen.Batch{unstaged, form.Close{}, screen.Open{Screen: screen.Agents}, letGo}
+	return screen.Batch{unstaged, form.Close{}, screen.Open{Screen: screen.Agents}, told}
 }
 
 // describeRefusedReview says which of the two empty diffs this is: an agent that has written
@@ -523,7 +523,7 @@ func (r *reviewScreen) reload() screen.Request {
 }
 
 func (r *reviewScreen) back(m *model) screen.Request {
-	if r.hold.atEditor {
+	if r.edit.atEditor {
 		return r.closeEdit(m)
 	}
 
@@ -534,7 +534,7 @@ func (r *reviewScreen) back(m *model) screen.Request {
 
 // backFromDiff hands the keys to the file tree, or leaves the screen where no tree renders.
 func (r *reviewScreen) backFromDiff(m *model, in screen.Inputs) screen.Request {
-	if r.hold.isHeld() || !r.isBlockRendered(m, in) {
+	if r.edit.atEditor || !r.isBlockRendered(m, in) {
 		return r.back(m)
 	}
 
