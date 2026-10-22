@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"komrad/internal/ui/panel"
-	"komrad/lib/xslice"
+	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -14,102 +14,82 @@ import (
 // settleWait is how long an answered write waits for the panel to show what it did before it finishes regardless.
 const settleWait = warmupCap
 
-// rowList is which of the listing's lists a row is looked for in.
-type rowList int
-
-const (
-	listAgents rowList = iota
-	listArchivedAgents
-	listWorkflows
-	listArchivedWorkflows
-	listSchedules
-	listArchivedSchedules
-	listWorktrees
-)
-
-// listedRow is one row of the listing, by the list it sits in and its id.
-type listedRow struct {
-	list rowList
-	id   string
-}
-
-// awaits is what the panel shows once a write is answered, and the write is held until it does.
-type awaits struct {
-	shown []listedRow
-	gone  []listedRow
-	// pane is the pane whose harness is to have rendered itself, empty when there is none to wait on.
-	pane    string
-	harness string
-}
-
 // parkedWrite is an answered write waiting for the panel to show what it did.
 type parkedWrite struct {
 	result   writeResult
 	deadline time.Time
 }
 
-// rowsIn names the given ids as rows of one list.
-func rowsIn(list rowList, ids ...string) []listedRow {
-	return xslice.Map(ids, func(id string) listedRow { return listedRow{list: list, id: id} })
-}
-
 // awaitDeleted waits for the rows to leave the listing when the delete takes the records.
-func awaitDeleted(records bool, rows []listedRow) *awaits {
+func awaitDeleted(records bool, rows []screen.Row) screen.Awaits {
 	if !records {
-		return nil
+		return screen.Awaits{}
 	}
 
-	return &awaits{gone: rows}
+	return screen.Awaits{Gone: rows}
 }
 
-// awaitShown waits for the listing to hold the row a write made, with its pane warm when it has one to show.
-func (w written) awaitShown() *awaits {
-	if w.archived {
-		return &awaits{shown: rowsIn(listArchivedAgents, w.agent)}
+// awaitsOf is everything a landed write waits on: what it named, the row it made with its pane
+// warm, and the rows of the agents it killed gone.
+func awaitsOf(landed screen.Landed, unstaged []panel.Agent) screen.Awaits {
+	awaits := landed.Awaits
+	if made := landed.Made; made != nil {
+		awaits.Shown = append(awaits.Shown, madeRow(*made))
+		if !made.Archived {
+			awaits.Pane, awaits.Harness = made.Pane, made.Harness
+		}
 	}
 
-	shown := rowsIn(listAgents, w.agent)
-	if id, ok := strings.CutPrefix(w.row, workflowRowPrefix); ok {
-		shown = rowsIn(listWorkflows, id)
+	if landed.Killed {
+		awaits.Gone = append(awaits.Gone, screen.RowsIn(screen.ListAgents, panel.IDs(unstaged)...)...)
 	}
 
-	return &awaits{
-		shown:   shown,
-		pane:    w.pane,
-		harness: w.harness,
+	return awaits
+}
+
+// madeRow is the row of the listing a write made.
+func madeRow(made screen.Made) screen.Row {
+	if made.Archived {
+		return screen.Row{List: screen.ListArchivedAgents, ID: made.Agent}
 	}
+
+	if id, ok := strings.CutPrefix(made.Row, workflowRowPrefix); ok {
+		return screen.Row{List: screen.ListWorkflows, ID: id}
+	}
+
+	return screen.Row{List: screen.ListAgents, ID: made.Agent}
 }
 
 // isSettled reports whether the panel shows everything a write waits on.
-func (a *awaits) isSettled(m *model) bool {
-	if slices.ContainsFunc(a.shown, func(row listedRow) bool { return !isListed(m.listing, row) }) {
+func (m *model) isSettled(a screen.Awaits) bool {
+	if slices.ContainsFunc(a.Shown, func(row screen.Row) bool { return !isListed(m.listing, row) }) {
 		return false
 	}
 
-	if slices.ContainsFunc(a.gone, func(row listedRow) bool { return isListed(m.listing, row) }) {
+	if slices.ContainsFunc(a.Gone, func(row screen.Row) bool { return isListed(m.listing, row) }) {
 		return false
 	}
 
-	return a.pane == "" || m.isPaneWarm(a.pane, a.harness)
+	return a.Pane == "" || m.isPaneWarm(a.Pane, a.Harness)
 }
 
 // isListed reports whether the listing has a row.
-func isListed(l panel.Listing, row listedRow) bool {
-	switch row.list {
-	case listAgents:
-		return hasAgentRow(l.Agents, row.id)
-	case listArchivedAgents:
-		return hasAgentRow(l.ArchivedAgents, row.id)
-	case listWorkflows:
-		return hasWorkflow(l.Workflows, row.id)
-	case listArchivedWorkflows:
-		return hasWorkflow(l.ArchivedWorkflows, row.id)
-	case listSchedules:
-		return hasSchedule(l.Schedules, row.id)
-	case listArchivedSchedules:
-		return hasSchedule(l.ArchivedSchedules, row.id)
-	case listWorktrees:
-		return slices.ContainsFunc(l.Worktrees, func(item panel.Worktree) bool { return item.Dir == row.id })
+func isListed(l panel.Listing, row screen.Row) bool {
+	switch row.List {
+	case screen.ListAgents:
+		return hasAgentRow(l.Agents, row.ID)
+	case screen.ListArchivedAgents:
+		return hasAgentRow(l.ArchivedAgents, row.ID)
+	case screen.ListWorkflows:
+		return hasWorkflow(l.Workflows, row.ID)
+	case screen.ListArchivedWorkflows:
+		return hasWorkflow(l.ArchivedWorkflows, row.ID)
+	case screen.ListSchedules:
+		return hasSchedule(l.Schedules, row.ID)
+	case screen.ListArchivedSchedules:
+		return hasSchedule(l.ArchivedSchedules, row.ID)
+	case screen.ListWorktrees:
+		return slices.ContainsFunc(l.Worktrees, func(item panel.Worktree) bool { return item.Dir == row.ID })
 	}
 
 	return false
@@ -149,7 +129,7 @@ func (m *model) finishParked() tea.Cmd {
 	now := time.Now()
 	var ready []int
 	for write, parked := range m.writes.parked {
-		if parked.result.awaits.isSettled(m) || now.After(parked.deadline) {
+		if m.isSettled(parked.result.awaits) || now.After(parked.deadline) {
 			ready = append(ready, write)
 		}
 	}
@@ -171,7 +151,7 @@ func (m *model) finishParked() tea.Cmd {
 // isPaneAwaited reports whether a parked write is waiting on a pane's harness to render itself.
 func (m *model) isPaneAwaited(pane string) bool {
 	for _, parked := range m.writes.parked {
-		if parked.result.awaits.pane == pane {
+		if parked.result.awaits.Pane == pane {
 			return true
 		}
 	}

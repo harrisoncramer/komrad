@@ -126,21 +126,13 @@ func (m *model) afterListing() tea.Cmd {
 
 type writeResult struct {
 	summary string
-	err     error
-	written *written
+	landed  screen.Landed
 	// write is which write this result belongs to.
 	write int
-	// released is the agent a landed release let go.
-	released *released
-	// announce is what to say once the write has landed.
-	announce *message
-	// renamed is the row a rename typed over it was written for.
-	renamed string
-	// resumed is the agent a resume was written for.
-	resumed  string
-	unstaged *unstaged
+	// unstaged is the agents whose panes came off the stage before the write was sent.
+	unstaged []panel.Agent
 	// awaits is what the panel shows once the write is answered, and the write is held until it does.
-	awaits *awaits
+	awaits screen.Awaits
 	// keyMoved says a key moved the cursor while the write was parked.
 	keyMoved bool
 }
@@ -150,44 +142,69 @@ type focusGuestMsg struct {
 	pane string
 }
 
-type released struct {
-	id   string
-	name string
-	// files is the files a reader had open over the agent.
-	files []string
-}
+// send runs a write off the panel's loop, counted in flight under what it is doing.
+func (m *model) send(write screen.Write) tea.Cmd {
+	id := 0
+	if write.Doing != "" {
+		id = m.beginWrite(write.Doing)
+	}
 
-// written is the row a write made, as the write answered with it.
-type written struct {
-	row     string
-	agent   string
-	pane    string
-	harness string
-	// focus says the pane the write made is to be handed the keyboard once it is shown.
-	focus bool
-	// archived says the row is in the archive rather than the agents list.
-	archived bool
-	// notice is what to say once the panel has landed on the row.
-	notice *message
+	if len(write.Unstage) > 0 {
+		m.unstageAhead(write.Unstage)
+	}
+
+	return func() tea.Msg {
+		landed := write.Send()
+
+		return writeResult{
+			summary:  write.Summary,
+			landed:   landed,
+			write:    id,
+			unstaged: write.Unstage,
+			awaits:   awaitsOf(landed, write.Unstage),
+		}
+	}
 }
 
 func (m *model) writeCmd(doing, summary string, write func(api) error) tea.Cmd {
-	return m.awaitingWriteCmd(doing, summary, nil, write)
+	return m.awaitingWriteCmd(doing, summary, screen.Awaits{}, write)
 }
 
 // awaitingWriteCmd sends a write that is held, once it lands, until the panel shows what it did.
-func (m *model) awaitingWriteCmd(doing, summary string, awaits *awaits, write func(api) error) tea.Cmd {
+func (m *model) awaitingWriteCmd(doing, summary string, awaits screen.Awaits, write func(api) error) tea.Cmd {
 	clients := m.api
-	id := m.beginWrite(doing)
 
-	return func() tea.Msg {
-		return writeResult{
-			summary: summary,
-			err:     write(clients),
-			write:   id,
-			awaits:  awaits,
-		}
-	}
+	return m.apply(screen.Write{
+		Doing:   doing,
+		Summary: summary,
+		Send: func() screen.Landed {
+			return screen.Landed{Err: write(clients), Awaits: awaits}
+		},
+	})
+}
+
+// archiving is a write that archives agents, their panes taken off the stage before it is sent.
+type archiving struct {
+	doing   string
+	summary string
+	agents  []panel.Agent
+	awaits  screen.Awaits
+	write   func(api) error
+}
+
+func (m *model) archivingWriteCmd(archive archiving) tea.Cmd {
+	clients := m.api
+
+	return m.apply(screen.Write{
+		Doing:   archive.doing,
+		Summary: archive.summary,
+		Unstage: archive.agents,
+		Send: func() screen.Landed {
+			err := archive.write(clients)
+
+			return screen.Landed{Err: err, Awaits: archive.awaits, Killed: err == nil}
+		},
+	})
 }
 
 // noteEdited keeps the files a reader opened over a paused agent until whoever holds that pause
@@ -225,71 +242,41 @@ func (m *model) forgetSpoken(agentID string, carried []string) {
 
 // releaseCmd lets an agent go, naming the files a reader had open over it.
 func (m *model) releaseCmd(summary string, agent panel.Agent, said string) tea.Cmd {
-	let := released{
-		id:    agent.ID,
-		name:  agent.Name,
-		files: slices.Clone(m.edited[agent.ID]),
+	clients := m.api
+	let := screen.Released{
+		ID:    agent.ID,
+		Name:  agent.Name,
+		Files: slices.Clone(m.edited[agent.ID]),
 	}
 
-	return stampRelease(m.writeCmd("letting "+agent.Name+" go", summary, func(a api) error {
-		return a.release(agent, said+touchedSaid(let.files))
-	}), let)
-}
-
-// announced says on a write's result the message to show once it finishes.
-func announced(cmd tea.Cmd, announce message) tea.Cmd {
-	return func() tea.Msg {
-		msg := cmd()
-
-		result, ok := msg.(writeResult)
-		if !ok {
-			return msg
-		}
-
-		result.announce = &announce
-
-		return result
-	}
-}
-
-// stampRelease says on a write's result which agent it let go and which files it carried.
-func stampRelease(cmd tea.Cmd, let released) tea.Cmd {
-	return func() tea.Msg {
-		msg := cmd()
-
-		result, ok := msg.(writeResult)
-		if !ok {
-			return msg
-		}
-
-		result.released = &let
-
-		return result
-	}
+	return m.apply(screen.Write{
+		Doing:   "letting " + agent.Name + " go",
+		Summary: summary,
+		Send: func() screen.Landed {
+			return screen.Landed{
+				Err:      clients.release(agent, said+touchedSaid(let.Files)),
+				Released: &let,
+			}
+		},
+	})
 }
 
 // rowWriteCmd sends a write whose landing takes the panel to the row it made.
-func (m *model) rowWriteCmd(doing, summary string, write func(api) (written, error)) tea.Cmd {
+func (m *model) rowWriteCmd(doing, summary string, write func(api) (*screen.Made, error)) tea.Cmd {
 	clients := m.api
-	id := m.beginWrite(doing)
 
-	return func() tea.Msg {
-		row, err := write(clients)
-		if err != nil {
-			return writeResult{
-				summary: summary,
-				err:     err,
-				write:   id,
+	return m.apply(screen.Write{
+		Doing:   doing,
+		Summary: summary,
+		Send: func() screen.Landed {
+			made, err := write(clients)
+			if err != nil {
+				return screen.Landed{Err: err}
 			}
-		}
 
-		return writeResult{
-			summary: summary,
-			written: &row,
-			write:   id,
-			awaits:  row.awaitShown(),
-		}
-	}
+			return screen.Landed{Made: made}
+		},
+	})
 }
 
 // agentWriteCmd is rowWriteCmd for a write answering with an agent, whose row is shown in the
@@ -305,20 +292,25 @@ func (m *model) openingWriteCmd(doing, summary string, write func(api) (*agentv1
 }
 
 func (m *model) paneWriteCmd(doing, summary string, focus bool, write func(api) (*agentv1.Agent, error)) tea.Cmd {
-	return m.rowWriteCmd(doing, summary, func(clients api) (written, error) {
+	return m.rowWriteCmd(doing, summary, func(clients api) (*screen.Made, error) {
 		agent, err := write(clients)
 		if err != nil {
-			return written{}, err
+			return nil, err
 		}
 
-		return written{
-			row:     agentRowKey(agent.GetId()),
-			agent:   agent.GetId(),
-			pane:    agent.GetPaneId(),
-			harness: agent.GetHarness(),
-			focus:   focus,
-		}, nil
+		return madeAgent(agent, focus), nil
 	})
+}
+
+// madeAgent is the row of an agent a write made, shown in the pane the agent is running in.
+func madeAgent(agent *agentv1.Agent, focus bool) *screen.Made {
+	return &screen.Made{
+		Row:     agentRowKey(agent.GetId()),
+		Agent:   agent.GetId(),
+		Pane:    agent.GetPaneId(),
+		Harness: agent.GetHarness(),
+		Focus:   focus,
+	}
 }
 
 func (m *model) retryCmd(agent panel.Agent, values retryFormValues) tea.Cmd {
@@ -347,53 +339,52 @@ func startingLabel(title string) string {
 }
 
 func (m *model) adoptCmd(params adoptParams) tea.Cmd {
-	return m.rowWriteCmd("adopting "+params.Ref, "Could not adopt", func(clients api) (written, error) {
-		adopted, err := clients.adopt(params)
-		if err != nil {
-			return written{}, err
-		}
+	clients := m.api
 
-		agent := adopted.GetAgent()
-		row := written{
-			row:     agentRowKey(agent.GetId()),
-			agent:   agent.GetId(),
-			pane:    agent.GetPaneId(),
-			harness: agent.GetHarness(),
-		}
-
-		if adopted.GetExisting() {
-			row.archived = agent.ArchivedAt != nil
-			row.notice = &message{
-				kind:    messageInfo,
-				summary: "This agent already exists",
-				detail:  fmt.Sprintf("%s is already on %s", agent.GetName(), params.Ref),
+	return m.apply(screen.Write{
+		Doing:   "adopting " + params.Ref,
+		Summary: "Could not adopt",
+		Send: func() screen.Landed {
+			adopted, err := clients.adopt(params)
+			if err != nil {
+				return screen.Landed{Err: err}
 			}
-		}
 
-		return row, nil
+			agent := adopted.GetAgent()
+			landed := screen.Landed{Made: madeAgent(agent, false)}
+			if adopted.GetExisting() {
+				landed.Made.Archived = agent.ArchivedAt != nil
+				landed.Notice = &screen.Notice{
+					Summary: "This agent already exists",
+					Detail:  fmt.Sprintf("%s is already on %s", agent.GetName(), params.Ref),
+				}
+			}
+
+			return landed
+		},
 	})
 }
 
 func (m *model) createWorkflowCmd(cfg panel.WorkflowConfig) tea.Cmd {
-	return m.rowWriteCmd("creating workflow "+cfg.Name, "Could not create the workflow", func(clients api) (written, error) {
+	return m.rowWriteCmd("creating workflow "+cfg.Name, "Could not create the workflow", func(clients api) (*screen.Made, error) {
 		workflow, err := clients.createWorkflow(cfg)
 		if err != nil {
-			return written{}, err
+			return nil, err
 		}
 
 		// A new workflow comes with the agent that stands behind it, and stands on its own when
 		// that agent will not start.
 		agent, err := clients.startOrchestrator(workflow.GetId())
 		if err != nil {
-			return written{row: workflowRowKey(workflow.GetId())}, nil //nolint:nilerr // the workflow was created
+			return &screen.Made{Row: workflowRowKey(workflow.GetId())}, nil //nolint:nilerr // the workflow was created
 		}
 
-		return written{
-			row:     workflowRowKey(workflow.GetId()),
-			agent:   agent.GetId(),
-			pane:    agent.GetPaneId(),
-			harness: agent.GetHarness(),
-			focus:   true,
+		return &screen.Made{
+			Row:     workflowRowKey(workflow.GetId()),
+			Agent:   agent.GetId(),
+			Pane:    agent.GetPaneId(),
+			Harness: agent.GetHarness(),
+			Focus:   true,
 		}, nil
 	})
 }
@@ -416,19 +407,6 @@ func (m *model) clients() api {
 	return m.api
 }
 
-// countedWrite is a message that lands a write begun with beginWrite.
-type countedWrite interface {
-	countedWrite() int
-}
-
-func (w reviewWroteMsg) countedWrite() int {
-	return w.write
-}
-
-func (w reviewPausedMsg) countedWrite() int {
-	return w.write
-}
-
 // landWrite counts a write back in.
 func (m *model) landWrite(write int) {
 	delete(m.writes.inflight, write)
@@ -441,7 +419,7 @@ func (m *model) applyWrite(result writeResult) tea.Cmd {
 
 	caught := m.releaseWatch(m.writes.held.owns(result.write))
 
-	if result.err == nil && result.awaits != nil && !result.awaits.isSettled(m) {
+	if result.landed.Err == nil && !m.isSettled(result.awaits) {
 		m.parkWrite(result)
 
 		return caught
@@ -450,52 +428,46 @@ func (m *model) applyWrite(result writeResult) tea.Cmd {
 	return tea.Batch(caught, m.finishWrite(result))
 }
 
-// finishWrite reports a write, takes down its form and shows what it made in one change.
+// finishWrite reports a write, takes down its form, shows what it made and hands the asking
+// screen its message in one change.
 func (m *model) finishWrite(result writeResult) tea.Cmd {
 	m.frame.Begin()
 	defer m.frame.Flush()
 
-	m.report(result.summary, result.err)
-
-	if result.renamed != "" {
-		m.agents.settleRename(m, result.renamed, result.err)
-		m.documents.settleRename(m, result.renamed, result.err)
-		m.agents.archived.settleRename(m, result.renamed, result.err)
-		m.agents.deleted.settleRename(m, result.renamed, result.err)
-		m.schedules.settleRename(m, result.renamed, result.err)
+	landed := result.landed
+	if result.summary != "" {
+		m.report(result.summary, landed.Err)
 	}
 
-	if result.resumed != "" {
-		m.agents.settleResume(m, result.resumed, result.err)
+	if landed.Released != nil && landed.Err == nil {
+		m.forgetSpoken(landed.Released.ID, landed.Released.Files)
 	}
 
-	if result.announce != nil && result.err == nil {
-		m.pushMessage(*result.announce)
+	if len(result.unstaged) > 0 {
+		m.settleUnstaged(result.unstaged, landed.Killed)
 	}
 
-	if result.released != nil && result.err == nil {
-		m.forgetSpoken(result.released.id, result.released.files)
-	}
-
-	if result.unstaged != nil {
-		m.settleUnstaged(result.unstaged)
+	if landed.Notice != nil && landed.Err == nil {
+		m.pushMessage(message{
+			kind:    messageInfo,
+			summary: landed.Notice.Summary,
+			detail:  landed.Notice.Detail,
+		})
 	}
 
 	_, walkedAway := m.writes.detached[result.write]
 	delete(m.writes.detached, result.write)
 
-	if result.written != nil && result.written.notice != nil {
-		m.pushMessage(*result.written.notice)
-	}
-
 	var cmds []tea.Cmd
 	if m.writes.held.owns(result.write) {
 		m.writes.held = heldWrite{}
 
-		if result.err == nil || !m.form.keepsOnRefusal {
+		switch {
+		case landed.Replaces:
+		case landed.Err == nil || !m.form.keepsOnRefusal:
 			cmds = append(cmds, m.closeForm())
-		} else {
-			m.form.refusal = errui.GetReason(result.err)
+		default:
+			m.form.refusal = errui.GetReason(landed.Err)
 			m.messages.setNewestHint("fix and submit again")
 		}
 	}
@@ -506,38 +478,53 @@ func (m *model) finishWrite(result writeResult) tea.Cmd {
 		cmds = append(cmds, formResized())
 	}
 
-	switch {
-	case result.written == nil || walkedAway:
-	case result.written.archived && result.keyMoved:
-		cmds = append(cmds, m.enterArchived(screen.Target{}))
-	case result.written.archived:
-		cmds = append(cmds, m.enterArchived(screen.Target{AgentID: result.written.agent}))
-	default:
-		m.agents.kind = agentsLive
-		cmds = append(cmds, m.enterScreen(screen.Agents))
-
-		m.agents.showHiddenFor(m, result.written.agent)
-
-		rows := m.agents.rows(m)
-		if key := findLandingKey(rows, m.agents.list().hovered(m), result.written.row); !result.keyMoved && list.IndexOf(rows, key) >= 0 {
-			m.agents.apply(m, key)
-		}
-
-		if pane := result.written.pane; pane != "" {
-			cmds = append(cmds, m.agents.closeEdit(m))
-			m.frame.Solo(false)
-			m.frame.ShowGuest(layout.Guest{Agent: result.written.agent, Pane: pane})
-			delete(m.warm.since, pane)
-
-			if result.written.focus {
-				cmds = append(cmds, func() tea.Msg { return focusGuestMsg{pane: pane} })
-			}
-		} else {
-			m.stageSelection()
-		}
+	if made := landed.Made; made != nil && !walkedAway {
+		cmds = append(cmds, m.landOnMade(*made, result.keyMoved))
 	}
 
 	m.landWrite(result.write)
+
+	if landed.Then != nil {
+		cmds = append(cmds, m.route(landed.Then))
+	}
+
+	return tea.Batch(cmds...)
+}
+
+// landOnMade takes the panel to the row a write made, showing its pane.
+func (m *model) landOnMade(made screen.Made, keyMoved bool) tea.Cmd {
+	switch {
+	case made.Archived && keyMoved:
+		return m.enterArchived(screen.Target{})
+	case made.Archived:
+		return m.enterArchived(screen.Target{AgentID: made.Agent})
+	}
+
+	m.agents.kind = agentsLive
+	cmds := []tea.Cmd{m.enterScreen(screen.Agents)}
+
+	m.agents.showHiddenFor(m, made.Agent)
+
+	rows := m.agents.rows(m)
+	if key := findLandingKey(rows, m.agents.list().hovered(m), made.Row); !keyMoved && list.IndexOf(rows, key) >= 0 {
+		m.agents.apply(m, key)
+	}
+
+	if made.Pane == "" {
+		m.stageSelection()
+
+		return tea.Batch(cmds...)
+	}
+
+	pane := made.Pane
+	cmds = append(cmds, m.agents.closeEdit(m))
+	m.frame.Solo(false)
+	m.frame.ShowGuest(layout.Guest{Agent: made.Agent, Pane: pane})
+	delete(m.warm.since, pane)
+
+	if made.Focus {
+		cmds = append(cmds, func() tea.Msg { return focusGuestMsg{pane: pane} })
+	}
 
 	return tea.Batch(cmds...)
 }

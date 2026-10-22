@@ -2,6 +2,7 @@ package ui
 
 import (
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -94,10 +95,27 @@ func (a *agentsScreen) isPausing(agentID string) bool {
 	return a.editing != nil && a.editing.pausing && a.editing.agent.ID == agentID
 }
 
+// agentEditorStaged is the pane an editor over an agent's directory was given, empty where the
+// split was refused.
+type agentEditorStaged struct {
+	pane string
+}
+
 func (a *agentsScreen) openEditor(m *model) tea.Cmd {
-	pane := m.stageEditor(m.agentDirEditorContent(a.editing.agent.Cwd))
-	if pane != "" {
-		a.editing.pane = pane
+	return m.apply(screen.Stage{
+		Content: m.agentDirEditorContent(a.editing.agent.Cwd),
+		Staged:  func(pane string) tea.Msg { return agentEditorStaged{pane: pane} },
+	})
+}
+
+// applyEditorStaged keeps the editor's pane, or gives the edit up when there was no room for it.
+func (a *agentsScreen) applyEditorStaged(m *model, staged agentEditorStaged) tea.Cmd {
+	if a.editing == nil {
+		return nil
+	}
+
+	if staged.pane != "" {
+		a.editing.pane = staged.pane
 
 		return nil
 	}

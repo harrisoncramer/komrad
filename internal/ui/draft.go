@@ -12,16 +12,6 @@ import (
 
 const draftTimeout = 30 * time.Second
 
-// draftedMsg is a draft change come back.
-type draftedMsg struct {
-	name  string
-	ref   string
-	title string
-	draft bool
-	err   error
-	write int
-}
-
 // isDraft says whether the task's pull request is a draft.
 func isDraft(task panel.Task) bool {
 	return task.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT
@@ -44,54 +34,20 @@ func (m *model) toggleDraft(task panel.Task) tea.Cmd {
 	}
 
 	clients := m.api
-	standing := task.PullRequest
-	drafted := draftedMsg{
-		name:  task.Slug,
-		ref:   standing.Ref(),
-		title: standing.Title,
-		draft: !isDraft(task),
-	}
-	drafted.write = m.beginWrite(draftingLabel(drafted))
-
-	return func() tea.Msg {
-		drafted.err = clients.setPullRequestDraft(standing.URL, drafted.draft)
-
-		return drafted
-	}
-}
-
-// applyDrafted reports the draft change and takes down the menu held for it.
-func (m *model) applyDrafted(msg draftedMsg) tea.Cmd {
-	held := m.landHeld(msg.write)
-
-	switch {
-	case msg.err != nil:
-		m.report("Could not change "+msg.ref+" of "+msg.name, msg.err)
-	case msg.draft:
-		m.pushMessage(message{
-			kind:    messageInfo,
-			summary: msg.name + ": " + msg.ref + " is a draft",
-			detail:  msg.title,
-		})
-	default:
-		m.pushMessage(message{
-			kind:    messageInfo,
-			summary: msg.name + ": " + msg.ref + " is ready for review",
-			detail:  msg.title,
-		})
+	standing, draft := task.PullRequest, !isDraft(task)
+	doing, said := "marking "+standing.Ref()+" ready", " is ready for review"
+	if draft {
+		doing, said = "marking "+standing.Ref()+" a draft", " is a draft"
 	}
 
-	if !held {
-		return nil
-	}
-
-	return m.closeForm()
-}
-
-func draftingLabel(drafted draftedMsg) string {
-	if drafted.draft {
-		return "marking " + drafted.ref + " a draft"
-	}
-
-	return "marking " + drafted.ref + " ready"
+	return m.apply(screen.Write{
+		Doing:   doing,
+		Summary: "Could not change " + standing.Ref() + " of " + task.Slug,
+		Send: func() screen.Landed {
+			return screen.Landed{
+				Err:    clients.setPullRequestDraft(standing.URL, draft),
+				Notice: &screen.Notice{Summary: task.Slug + ": " + standing.Ref() + said, Detail: standing.Title},
+			}
+		},
+	})
 }

@@ -7,6 +7,7 @@ import (
 	"komrad/config"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/menu"
 	"komrad/internal/ui/paint"
 	"komrad/lib/xslice"
 
@@ -14,149 +15,67 @@ import (
 	"charm.land/huh/v2"
 )
 
-// submenuCancel is the choice of the cancel entry every submenu ends on.
-const submenuCancel = -1
-
 // nestedMark follows an entry that opens a menu of its own.
 const nestedMark = " " + glyph.Crumb
 
-// submenu is a short list beside the list it opened over, with the cursor and each entry's own key
-// picking an entry.
-type submenu struct {
-	kind    formKind
-	title   string
-	entries []submenuEntry
-	// actions is the menu the menu key opens on the entry under a list's cursor, nil for a menu
-	// whose entries act on their own.
-	actions func(choice int) submenu
-	// preview renders the entry under a list's cursor beside the list, within width and height.
-	preview func(choice, width, height int) string
-	// empty is the row a list renders while it holds nothing.
-	empty string
-	// inPlace says a form an entry opens takes the menu's place rather than opening beside it.
-	inPlace bool
-}
-
-func (s submenu) isList() bool {
-	return s.actions != nil
-}
-
-// submenuEntry is one row of a submenu.
-type submenuEntry struct {
-	label string
-	keys  []string
-	// isOff says the entry would do nothing here.
-	isOff bool
-	// offSaid is why the entry would do nothing here, drawn under it.
-	offSaid string
-	// isDivider says the row is a rule between two bands of entries.
-	isDivider bool
-	// opens is the menu the entry opens to the right of its own.
-	opens *submenu
-	// form is the form the entry opens to the right of its own menu.
-	form func() formState
-	// write is what the entry does, the menu held up while a write it began is in flight.
-	write func(m *model) tea.Cmd
-	// open leaves the menu for the form or screen the entry goes on to.
-	open func(m *model) tea.Cmd
-}
-
-// writeEntry is an entry whose write the root runs.
-func writeEntry(label string, keys []string, run func(*model) tea.Cmd) submenuEntry {
-	return submenuEntry{
-		label: label,
-		keys:  keys,
-		write: run,
-	}
-}
-
-// openEntry is an entry that leaves the menu for the form or screen run opens.
-func openEntry(label string, keys []string, run func(*model) tea.Cmd) submenuEntry {
-	return submenuEntry{
-		label: label,
-		keys:  keys,
-		open: func(m *model) tea.Cmd {
-			m.leaveForm()
-			return run(m)
-		},
-	}
-}
-
 // submenuLevel is one menu of an open stack, and where its cursor sits.
 type submenuLevel struct {
-	menu   submenu
+	menu   menu.Menu
 	choice *int
 }
 
-// nestedEntry is an entry that opens a menu, gray when nothing inside it would do anything.
-func nestedEntry(label string, keys []string, menu submenu) submenuEntry {
-	return submenuEntry{
-		label: label,
-		keys:  keys,
-		isOff: !menu.isList() && menu.firstOn() == submenuCancel,
-		opens: &menu,
-	}
-}
+func newSubmenuLevel(open menu.Menu) submenuLevel {
+	choice := open.FirstOn()
 
-// withNested is a band with a nested menu at its foot.
-func withNested(menu submenu, label string, keys []string, nested submenu) submenu {
-	at := len(menu.entries)
-	menu.entries = append(menu.entries[:at:at], nestedEntry(label, keys, nested))
-
-	return menu
-}
-
-var dividerEntry = submenuEntry{isOff: true, isDivider: true}
-
-// openSubmenu renders a submenu, its cursor on the first entry that would do something.
-func openSubmenu(m *model, menu submenu) tea.Cmd {
-	return m.openForm(submenuState(nil, newSubmenuLevel(menu)))
-}
-
-func newSubmenuLevel(menu submenu) submenuLevel {
-	choice := menu.firstOn()
-
-	return submenuLevel{menu: menu, choice: &choice}
+	return submenuLevel{menu: open, choice: &choice}
 }
 
 // submenuState is the form for the menu on top of a stack, the menus under it rendered to its left.
 func submenuState(parents []submenuLevel, level submenuLevel) formState {
+	stack := slices.Concat(parents, []submenuLevel{level})
 	state := formState{
-		kind:   level.menu.kind,
+		kind:   formMenu,
 		isMenu: true,
-		crumbs: append(xslice.Map(parents, func(p submenuLevel) string { return p.menu.title }), level.menu.title),
+		crumbs: append(xslice.Map(parents, func(p submenuLevel) string { return p.menu.Title }), level.menu.Title),
 		update: func(m *model, msg tea.Msg) tea.Cmd {
 			return m.updateSubmenu(msg, parents, level)
 		},
 		submit: func(m *model) tea.Cmd {
-			stack := slices.Concat(parents, []submenuLevel{level})
-			if level.menu.isList() {
+			if level.menu.IsList() {
 				return m.openListActions(stack, level)
 			}
 
-			if *level.choice == submenuCancel {
+			if *level.choice == menu.Cancel {
 				return m.backSubmenu(parents)
 			}
 
-			entry := level.menu.entries[*level.choice]
-			if entry.offSaid != "" {
+			entry := level.menu.Entries[*level.choice]
+			if entry.OffSaid != "" {
 				return nil
 			}
 
 			switch {
-			case entry.opens != nil:
-				return m.pushSubmenu(stack, newSubmenuLevel(*entry.opens))
-			case entry.form != nil && level.menu.inPlace:
-				return m.stackForm(parents, stack, entry.form())
-			case entry.form != nil:
-				return m.stackForm(stack, stack, entry.form())
-			case entry.write != nil:
-				return holdSubmit(entry.write)(m)
-			case entry.open != nil:
-				return entry.open(m)
+			case entry.Opens != nil:
+				return m.pushSubmenu(stack, newSubmenuLevel(*entry.Opens))
+			case entry.Pick == nil:
+			case entry.After == menu.Stay:
+				return entry.Pick()
+			case entry.After == menu.Hold:
+				return holdSubmit(func(*model) tea.Cmd { return entry.Pick() })(m)
+			default:
+				m.leaveForm()
+
+				return entry.Pick()
 			}
 
 			return m.closeForm()
+		},
+		beside: func(m *model, form formState) tea.Cmd {
+			if level.menu.InPlace {
+				return m.stackForm(parents, stack, form)
+			}
+
+			return m.stackForm(stack, stack, form)
 		},
 		rebuild: func(*model) (*huh.Form, []string) {
 			return submenuForm(level, len(parents) > 0, fixedKeys()), nil
@@ -165,13 +84,22 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 			return submenuLeading(parents, level, width)
 		},
 	}
-	if level.menu.preview != nil {
+	if level.menu.Preview != nil {
 		state.trailing = func(width, height int) string {
-			return level.menu.preview(*level.choice, width, height)
+			return level.menu.Preview(*level.choice, width, height)
 		}
 	}
 
 	return state
+}
+
+// openBeside renders a form to the right of the menu on screen, or on its own when no menu is up.
+func (m *model) openBeside(form formState) tea.Cmd {
+	if m.form.beside == nil {
+		return m.openForm(form)
+	}
+
+	return m.form.beside(m, form)
 }
 
 // pushSubmenu renders a menu to the right of the one that opened it.
@@ -182,8 +110,8 @@ func (m *model) pushSubmenu(parents []submenuLevel, level submenuLevel) tea.Cmd 
 // openListActions renders the menu on the entry under a list's cursor in place of the list's
 // preview.
 func (m *model) openListActions(stack []submenuLevel, list submenuLevel) tea.Cmd {
-	actions := list.menu.actions(*list.choice)
-	actions.inPlace = true
+	actions := list.menu.Actions(*list.choice)
+	actions.InPlace = true
 
 	return m.pushSubmenu(stack, newSubmenuLevel(actions))
 }
@@ -191,7 +119,7 @@ func (m *model) openListActions(stack []submenuLevel, list submenuLevel) tea.Cmd
 // stackForm renders a form to the right of the menus beside it, going back to the menus that
 // opened it.
 func (m *model) stackForm(rendered, from []submenuLevel, form formState) tea.Cmd {
-	form.crumbs = append(xslice.Map(from, func(l submenuLevel) string { return l.menu.title }), form.crumbs...)
+	form.crumbs = append(xslice.Map(from, func(l submenuLevel) string { return l.menu.Title }), form.crumbs...)
 	form.leading = func(width, _ int) []string {
 		return frozenMenus(rendered, width-formColumnFloor)
 	}
@@ -213,25 +141,15 @@ func (m *model) backSubmenu(parents []submenuLevel) tea.Cmd {
 	return m.pushSubmenu(parents[:last], parents[last])
 }
 
-func (s submenu) firstOn() int {
-	for i, entry := range s.entries {
-		if !entry.isOff {
-			return i
-		}
-	}
-
-	return submenuCancel
-}
-
 func submenuForm(level submenuLevel, nested bool, keys config.FixedKeys) *huh.Form {
 	field := huh.NewSelect[int]().
 		Key("submenu").
-		Title(level.menu.title).
+		Title(level.menu.Title).
 		Value(level.choice).
 		Options(submenuOptions(level.menu, nested)...)
 
 	return huh.NewForm(huh.NewGroup(field)).
-		WithShowHelp(!level.menu.isList()).WithKeyMap(submenuKeyMap(keys)).WithTheme(paint.Panel.FormTheme())
+		WithShowHelp(!level.menu.IsList()).WithKeyMap(submenuKeyMap(keys)).WithTheme(paint.Panel.FormTheme())
 }
 
 // submenuKeyGap is the columns between an entry's label and its key.
@@ -261,12 +179,12 @@ func (m *model) updateSubmenu(msg tea.Msg, parents []submenuLevel, level submenu
 		return m.backSubmenu(parents)
 	}
 
-	if level.menu.isList() && keys.IsBound(press.String(), m.keys.Menu.Open) {
+	if level.menu.IsList() && keys.IsBound(press.String(), m.keys.Menu.Open) {
 		return m.openListActions(slices.Concat(parents, []submenuLevel{level}), level)
 	}
 
-	for i, entry := range level.menu.entries {
-		if keys.IsBound(press.String(), entry.keys) {
+	for i, entry := range level.menu.Entries {
+		if keys.IsBound(press.String(), entry.Keys) {
 			*level.choice = i
 
 			return m.answerForm()
@@ -284,7 +202,7 @@ func (m *model) updateSubmenu(msg tea.Msg, parents []submenuLevel, level submenu
 func (l submenuLevel) isOnDivider() bool {
 	choice := *l.choice
 
-	return choice >= 0 && choice < len(l.menu.entries) && l.menu.entries[choice].isDivider
+	return choice >= 0 && choice < len(l.menu.Entries) && l.menu.Entries[choice].Divider
 }
 
 type submenuClickMsg struct {
@@ -313,16 +231,4 @@ func (m *model) answerSubmenuClick(click submenuClickMsg, parents []submenuLevel
 	}
 
 	return m.pushSubmenu(parents[:click.at], parents[click.at])
-}
-
-// drawnOff is an entry drawn off with the reason it does nothing here, or the entry itself when
-// said is empty.
-func drawnOff(entry submenuEntry, said string) submenuEntry {
-	if said == "" {
-		return entry
-	}
-
-	entry.isOff, entry.offSaid = true, said
-
-	return entry
 }

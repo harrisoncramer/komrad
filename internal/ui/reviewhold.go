@@ -70,7 +70,6 @@ func (p *reviewHold) openEditor(path, pane string) {
 type reviewPausedMsg struct {
 	agentID string
 	err     error
-	write   int
 }
 
 // startHold stops the agent and opens the editor once it has.
@@ -98,20 +97,19 @@ func (r *reviewScreen) startHold(m *model) tea.Cmd {
 
 // holdAgentCmd asks for the agent to stop and reports what came back.
 func holdAgentCmd(m *model, agentID, name string) tea.Cmd {
-	agents, write := m.clients().agents, m.beginWrite("pausing "+name)
+	agents := m.clients().agents
 
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
-		defer cancel()
+	return m.apply(screen.Write{
+		Doing: "pausing " + name,
+		Send: func() screen.Landed {
+			ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
+			defer cancel()
 
-		_, err := agents.HoldAgent(ctx, connect.NewRequest(&agentv1.HoldAgentRequest{Id: agentID}))
+			_, err := agents.HoldAgent(ctx, connect.NewRequest(&agentv1.HoldAgentRequest{Id: agentID}))
 
-		return reviewPausedMsg{
-			agentID: agentID,
-			err:     err,
-			write:   write,
-		}
-	}
+			return screen.Landed{Then: reviewPausedMsg{agentID: agentID, err: err}}
+		},
+	})
 }
 
 // applyPaused opens the editor, or gives it up when the agent would not stop.

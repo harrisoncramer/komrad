@@ -9,6 +9,7 @@ import (
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
+	"komrad/internal/ui/menu"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/zone"
 	"komrad/internal/view"
@@ -390,12 +391,12 @@ func (m *model) listClicker(l keyedList) clicker {
 			return l.click(m, key, nth)
 		}
 
-		menu, ok := m.buildMenu()
+		band, ok := m.buildMenu()
 		if !ok {
 			return nil
 		}
 
-		return openSubmenu(m, menu)
+		return m.apply(menu.Open{Menu: band})
 	})
 }
 

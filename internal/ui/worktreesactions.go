@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
+	"komrad/internal/ui/menu"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
@@ -200,51 +201,53 @@ func deleteWorktreesCmd(m *model, deletion worktreeDeletion) tea.Cmd {
 	dirs := deletion.dirs()
 	subject := label.Count(len(dirs), "worktree", "worktrees")
 
-	deleting := m.awaitingWriteCmd(
-		"deleting "+subject,
-		"Could not delete "+subject,
-		&awaits{gone: rowsIn(listWorktrees, dirs...)},
-		func(a api) error {
-			return a.deleteWorktrees(dirs)
-		},
-	)
+	clients := m.api
 
-	return announced(deleting, message{
-		kind:    messageInfo,
-		summary: "Deleting " + subject,
-		detail:  "A background job deletes the directories. Komrad drops their rows from the list now. If the job refuses one, its row comes back and the log says why.",
+	return m.apply(screen.Write{
+		Doing:   "deleting " + subject,
+		Summary: "Could not delete " + subject,
+		Send: func() screen.Landed {
+			return screen.Landed{
+				Err:    clients.deleteWorktrees(dirs),
+				Awaits: screen.Awaits{Gone: screen.RowsIn(screen.ListWorktrees, dirs...)},
+				Notice: &screen.Notice{
+					Summary: "Deleting " + subject,
+					Detail:  "A background job deletes the directories. Komrad drops their rows from the list now. If the job refuses one, its row comes back and the log says why.",
+				},
+			}
+		},
 	})
 }
 
-func (w *worktreesScreen) buildItemMenu(m *model) (submenu, bool) {
+func (w *worktreesScreen) buildItemMenu(m *model) (menu.Menu, bool) {
 	if w.list().isSelecting(m) {
 		deletion := w.chosenDeletion(m)
 		if deletion.chosen() == 0 {
-			return submenu{}, false
+			return menu.Menu{}, false
 		}
 
-		return withNested(rowMenu(label.Count(deletion.chosen(), "worktree", "worktrees")), "archive", m.keys.Menu.Archive, liveArchiveMenu(openEntry("delete all", m.keys.ArchiveMenu.Delete, func(m *model) tea.Cmd {
+		return menu.WithNested(rowMenu(label.Count(deletion.chosen(), "worktree", "worktrees")), "archive", m.keys.Menu.Archive, liveArchiveMenu(menu.Leaving("delete all", m.keys.ArchiveMenu.Delete, func() tea.Cmd {
 			return confirmDeleteChosen(m, deletion)
 		}))), true
 	}
 
 	row, ok := list.At(w.rows(m), w.Row)
 	if !ok {
-		return submenu{}, false
+		return menu.Menu{}, false
 	}
 
 	if row.header {
-		return submenu{}, false
+		return menu.Menu{}, false
 	}
 
-	menu := rowMenu(row.name())
+	band := rowMenu(row.name())
 	if entry, ok := worktreeDeleteEntry(m, row.item); ok {
-		menu = withNested(menu, "archive", m.keys.Menu.Archive, liveArchiveMenu(entry))
+		band = menu.WithNested(band, "archive", m.keys.Menu.Archive, liveArchiveMenu(entry))
 	}
 
 	occupant, ok := row.item.FirstOccupant()
 	if !ok {
-		return menu, len(menu.entries) > 0
+		return band, len(band.Entries) > 0
 	}
 
 	to := screen.Target{AgentID: occupant.ID}
@@ -252,36 +255,35 @@ func (w *worktreesScreen) buildItemMenu(m *model) (submenu, bool) {
 		to.TaskID = row.item.Task.ID
 	}
 
-	return withNested(menu, "jump", m.keys.Menu.Jump, jumpMenu(m, screen.Worktrees, to)), true
+	return menu.WithNested(band, "jump", m.keys.Menu.Jump, jumpMenu(m, screen.Worktrees, to)), true
 }
 
 // buildScreenMenu builds the worktrees screen's own band, for clearing every directory that can go.
-func (w *worktreesScreen) buildScreenMenu(m *model) (submenu, bool) {
+func (w *worktreesScreen) buildScreenMenu(m *model) (menu.Menu, bool) {
 	clearable := w.clearDeletion(m)
-	clearAll := openEntry("delete unused worktrees", m.keys.ArchiveMenu.Clear, func(m *model) tea.Cmd {
+	clearAll := menu.Leaving("delete unused worktrees", m.keys.ArchiveMenu.Clear, func() tea.Cmd {
 		return confirmDeleteWorktrees(m, clearable)
 	})
-	clearAll.isOff = clearable.isEmpty()
+	clearAll.Off = clearable.isEmpty()
 
-	return submenu{
-		kind:    formMenu,
-		title:   "worktrees",
-		entries: []submenuEntry{clearAll},
+	return menu.Menu{
+		Title:   "worktrees",
+		Entries: []menu.Entry{clearAll},
 	}, true
 }
 
 // worktreeDeleteEntry is the entry that sends a directory the way its fate decides, false when
 // the fate offers none.
-func worktreeDeleteEntry(m *model, item panel.Worktree) (submenuEntry, bool) {
+func worktreeDeleteEntry(m *model, item panel.Worktree) (menu.Entry, bool) {
 	desc := deleteDesc(item.Fate)
-	run := func(m *model) tea.Cmd { return deleteWorktree(m, item) }
+	run := func() tea.Cmd { return deleteWorktree(m, item) }
 	switch item.Fate {
 	case panel.FateLive:
-		return writeEntry(desc, m.keys.ArchiveMenu.Archive, run), true
+		return menu.Holding(desc, m.keys.ArchiveMenu.Archive, run), true
 	case panel.FateArchived, panel.FateUnowned:
-		return openEntry(desc, m.keys.ArchiveMenu.Delete, run), true
+		return menu.Leaving(desc, m.keys.ArchiveMenu.Delete, run), true
 	case panel.FateDeleting:
 	}
 
-	return submenuEntry{}, false
+	return menu.Entry{}, false
 }

@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/eventprompts"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 	hookv1 "komrad/proto/gen/hook/v1"
 
@@ -74,16 +75,15 @@ func (m *model) getAvailableHooks() []string {
 }
 
 func (m *model) archiveWorkflow(workflow panel.Workflow) tea.Cmd {
-	pending := m.unstageAhead(m.listing.AgentsOf(workflow.ID))
-
-	return pending.attach(m.awaitingWriteCmd(
-		"archiving "+workflow.Name,
-		fmt.Sprintf("Could not archive workflow %q", workflow.Name),
-		&awaits{gone: rowsIn(listWorkflows, workflow.ID)},
-		func(a api) error {
-			return pending.noteArchive(a.archiveWorkflow(workflow.ID))
+	return m.archivingWriteCmd(archiving{
+		doing:   "archiving " + workflow.Name,
+		summary: fmt.Sprintf("Could not archive workflow %q", workflow.Name),
+		agents:  m.listing.AgentsOf(workflow.ID),
+		awaits:  screen.Awaits{Gone: screen.RowsIn(screen.ListWorkflows, workflow.ID)},
+		write: func(a api) error {
+			return a.archiveWorkflow(workflow.ID)
 		},
-	))
+	})
 }
 
 // eventPromptEditables are the event prompts the panel's editor key can open.

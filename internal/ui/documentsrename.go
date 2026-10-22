@@ -94,11 +94,12 @@ func (d *documentsScreen) saveRename(m *model) tea.Cmd {
 	}
 	item.name = name
 
-	return stampRename(m.writeCmd(
+	return m.renameCmd(
 		"renaming "+rename.Was(),
 		fmt.Sprintf("Could not rename document %q", rename.Was()),
+		rename.Key(),
 		func(a api) error { return a.writeDocument(item, read.version, read.body) },
-	), rename.Key())
+	)
 }
 
 // settleRename marks the field saved once its write has landed, or open for another try when it

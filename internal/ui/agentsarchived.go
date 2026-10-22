@@ -8,6 +8,7 @@ import (
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
+	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	"komrad/internal/view"
@@ -410,25 +411,25 @@ func (a *archivedAgents) menuTarget(m *model) (archived, bool) {
 	}, true
 }
 
-func (a *archivedAgents) buildItemMenu(m *model) (submenu, bool) {
+func (a *archivedAgents) buildItemMenu(m *model) (menu.Menu, bool) {
 	target, ok := a.menuTarget(m)
 	if !ok {
-		return submenu{}, false
+		return menu.Menu{}, false
 	}
 
-	menu := rowMenu(target.name())
+	band := rowMenu(target.name())
 	if row, ok := list.At(a.listRows(m), a.Row); ok && a.holdsAnAgent(m) {
 		item, _ := row.paneItem()
-		menu = agentMenu(m, item)
+		band = agentMenu(m, item)
 	}
 
 	if a.kind == agentsDeleted {
-		menu.entries = append(menu.entries, deletedEntries(m, target)...)
+		band.Entries = append(band.Entries, deletedEntries(m, target)...)
 
-		return menu, true
+		return band, true
 	}
 
-	return withNested(menu, "archive", m.keys.Menu.Archive, archiveMenu(m, target)), true
+	return menu.WithNested(band, "archive", m.keys.Menu.Archive, archiveMenu(m, target)), true
 }
 
 // restoreAndResumeCmd takes the agents out of the archive and puts the resumed agent's conversation back in a pane.
@@ -450,7 +451,7 @@ func restoreAgentsCmd(m *model, agents []panel.Agent) tea.Cmd {
 	return m.awaitingWriteCmd(
 		"restoring "+describeAgents(agents),
 		fmt.Sprintf("Could not restore %s", describeAgents(agents)),
-		&awaits{shown: rowsIn(listAgents, panel.IDs(agents)...)},
+		screen.Awaits{Shown: screen.RowsIn(screen.ListAgents, panel.IDs(agents)...)},
 		func(a api) error { return a.restoreAgents(panel.IDs(agents)) },
 	)
 }
@@ -463,7 +464,7 @@ func confirmDeleteWorkflow(m *model, workflow panel.Workflow) tea.Cmd {
 		return m.awaitingWriteCmd(
 			"deleting "+workflow.Name,
 			fmt.Sprintf("Could not delete workflow %q", workflow.Name),
-			awaitDeleted(confirm.values.deletesRecords(), rowsIn(listArchivedWorkflows, workflow.ID)),
+			awaitDeleted(confirm.values.deletesRecords(), screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)),
 			func(a api) error { return a.deleteWorkflow(workflow.ID, confirm.values.deletesRecords()) },
 		)
 	})

@@ -353,7 +353,7 @@ func NewWatchLost(err error) tea.Msg {
 
 // NewWriteLanded is a write landing with the agent it made or changed, which puts the agents screen up on it.
 func NewWriteLanded(agentID string) tea.Msg {
-	return writeResult{written: &written{row: agentRowKey(agentID), agent: agentID}}
+	return writeResult{landed: screen.Landed{Made: &screen.Made{Row: agentRowKey(agentID), Agent: agentID}}}
 }
 
 // RequireGolden compares a rendered block against the file named for it under testdata.

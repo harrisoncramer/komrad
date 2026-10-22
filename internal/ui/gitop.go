@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"komrad/config"
+	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
@@ -31,78 +32,64 @@ type gitReport func(*model) tea.Cmd
 
 // gitPlannedMsg is a plan come back, or the reason there is none.
 type gitPlannedMsg struct {
-	op    gitOp
-	form  gitConfirmForm
-	err   error
-	write int
+	op   gitOp
+	form gitConfirmForm
+	err  error
 }
 
 // gitDoneMsg is a finished git operation.
 type gitDoneMsg struct {
 	report gitReport
-	write  int
 }
 
 // planGitCmd asks what the operation would do.
 func (m *model) planGitCmd(op gitOp) tea.Cmd {
 	clients := m.api
-	write := m.beginWrite(op.planning)
 
-	return func() tea.Msg {
-		form, err := op.plan(clients)
+	return m.apply(screen.Write{
+		Doing: op.planning,
+		Send: func() screen.Landed {
+			form, err := op.plan(clients)
 
-		return gitPlannedMsg{
-			op:    op,
-			form:  form,
-			err:   err,
-			write: write,
-		}
-	}
+			return screen.Landed{
+				Replaces: err == nil,
+				Then:     gitPlannedMsg{op: op, form: form, err: err},
+			}
+		},
+	})
 }
 
 // runGitCmd runs the operation and reports what it did.
 func (m *model) runGitCmd(op gitOp) tea.Cmd {
 	clients := m.api
-	write := m.beginWrite(op.running)
 
-	return func() tea.Msg {
-		return gitDoneMsg{report: op.run(clients), write: write}
-	}
+	return m.apply(screen.Write{
+		Doing: op.running,
+		Send: func() screen.Landed {
+			return screen.Landed{Then: gitDoneMsg{report: op.run(clients)}}
+		},
+	})
 }
 
 // applyGitPlanned opens the confirmation, or says why there is nothing to confirm.
 func (m *model) applyGitPlanned(msg gitPlannedMsg) tea.Cmd {
-	held := m.landHeld(msg.write)
-
-	if msg.err != nil {
-		var skipped gitSkippedError
-		if errors.As(msg.err, &skipped) {
-			m.note(messageWarning, string(skipped))
-		} else {
-			m.report(msg.op.planFailed, msg.err)
-		}
-
-		if held {
-			return m.closeForm()
-		}
-
-		return nil
+	if msg.err == nil {
+		return m.openGitConfirm(msg.op, msg.form)
 	}
 
-	return m.openGitConfirm(msg.op, msg.form)
+	var skipped gitSkippedError
+	if errors.As(msg.err, &skipped) {
+		m.note(messageWarning, string(skipped))
+	} else {
+		m.report(msg.op.planFailed, msg.err)
+	}
+
+	return nil
 }
 
-// applyGitDone reports the outcome, and takes down the confirmation held for it.
+// applyGitDone reports the outcome.
 func (m *model) applyGitDone(msg gitDoneMsg) tea.Cmd {
-	held := m.landHeld(msg.write)
-
-	reported := msg.report(m)
-
-	if !held {
-		return reported
-	}
-
-	return tea.Batch(reported, m.closeForm())
+	return msg.report(m)
 }
 
 func (m *model) openGitConfirm(op gitOp, buildForm gitConfirmForm) tea.Cmd {

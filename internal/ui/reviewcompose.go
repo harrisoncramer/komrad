@@ -195,14 +195,14 @@ func (r *reviewScreen) saveMessage(m *model) tea.Cmd {
 	kept := reviewUnsent{editing: threadID, body: body}
 	if threadID != "" {
 		// Nothing is said back: the reply is rendered in the thread it went into.
-		return keepUnsent(kept, r.writeCmd(m, m.beginWrite("replying"), "", func(ctx context.Context) error {
+		return r.writeMsgCmd(m, "replying", &kept, func(ctx context.Context) (string, error) {
 			_, err := agents.AddReviewMessage(ctx, connect.NewRequest(&agentv1.AddReviewMessageRequest{
 				ThreadId: threadID,
 				Body:     body,
 			}))
 
-			return err
-		}))
+			return "", err
+		})
 	}
 
 	place := retrying.getPlace()
@@ -228,7 +228,7 @@ func (r *reviewScreen) saveMessage(m *model) tea.Cmd {
 
 	kept.place = place
 
-	return keepUnsent(kept, r.createThreadCmd(m, *place, body))
+	return r.createThreadCmd(m, *place, kept)
 }
 
 // reviewUnsent is a message on its way to the server, held until the write carrying it lands.
@@ -254,22 +254,6 @@ type reviewPlace struct {
 	anchor   diffview.Anchor
 	base     string
 	snapshot string
-}
-
-// keepUnsent hands a message back with the refusal of the write carrying it.
-func keepUnsent(kept reviewUnsent, write tea.Cmd) tea.Cmd {
-	return func() tea.Msg {
-		msg := write()
-
-		wrote, ok := msg.(reviewWroteMsg)
-		if !ok || wrote.err == nil || errors.Is(wrote.err, errForgeRefused) {
-			return msg
-		}
-
-		wrote.unsent = &kept
-
-		return wrote
-	}
 }
 
 // restoreMessage opens the composer again on a message the server refused.
@@ -300,11 +284,11 @@ func (t *reviewThreads) cancelMessage() {
 	t.forge = nil
 }
 
-func (r reviewScreen) createThreadCmd(m *model, place reviewPlace, body string) tea.Cmd {
-	agents, taskID := m.clients().agents, r.taskID
+func (r reviewScreen) createThreadCmd(m *model, place reviewPlace, kept reviewUnsent) tea.Cmd {
+	agents, taskID, body := m.clients().agents, r.taskID, kept.body
 	anchor := place.anchor
 
-	return r.writeCmd(m, m.beginWrite("opening a thread"), "thread opened", func(ctx context.Context) error {
+	return r.writeMsgCmd(m, "opening a thread", &kept, func(ctx context.Context) (string, error) {
 		_, err := agents.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
 			Task:        &taskID,
 			BaseSha:     place.base,
@@ -318,7 +302,7 @@ func (r reviewScreen) createThreadCmd(m *model, place reviewPlace, body string) 
 			Body:        body,
 		}))
 
-		return err
+		return "thread opened", err
 	})
 }
 
@@ -336,7 +320,7 @@ func (r reviewScreen) resolveThread(m *model) tea.Cmd {
 		doing, notice = "settling the thread", "thread settled"
 	}
 
-	return r.writeCmd(m, m.beginWrite(doing), notice, func(ctx context.Context) error {
+	return r.writeCmd(m, doing, notice, func(ctx context.Context) error {
 		_, err := agents.SetReviewThreadResolved(ctx, connect.NewRequest(&agentv1.SetReviewThreadResolvedRequest{
 			Id:       id,
 			Resolved: settling,
@@ -377,7 +361,7 @@ func (r *reviewScreen) toggleViewed(m *model) tea.Cmd {
 	agents, taskID := m.clients().agents, r.taskID
 	fingerprint := file.Fingerprint()
 
-	return r.writeCmd(m, m.beginWrite(doing), notice, func(ctx context.Context) error {
+	return r.writeCmd(m, doing, notice, func(ctx context.Context) error {
 		_, err := agents.SetReviewFileViewed(ctx, connect.NewRequest(&agentv1.SetReviewFileViewedRequest{
 			Task:        taskID,
 			FilePath:    path,
@@ -405,43 +389,48 @@ func (r reviewScreen) markThreadReadCmd(m *model) tea.Cmd {
 	})
 }
 
-// writeCmd runs one write on the review, landing the write that beginWrite counted out.
-func (r reviewScreen) writeCmd(m *model, counted int, notice string, write func(context.Context) error) tea.Cmd {
-	return r.writeMsgCmd(m, counted, func(ctx context.Context) (string, error) {
+// writeCmd runs one write on the review, saying notice once it lands.
+func (r reviewScreen) writeCmd(m *model, doing, notice string, write func(context.Context) error) tea.Cmd {
+	return r.writeMsgCmd(m, doing, nil, func(ctx context.Context) (string, error) {
 		return notice, write(ctx)
 	})
 }
 
 // quietWriteCmd runs one write on the review that the panel does not count in flight.
 func (r reviewScreen) quietWriteCmd(m *model, write func(context.Context) error) tea.Cmd {
-	return r.writeCmd(m, 0, "", write)
+	return r.writeCmd(m, "", "", write)
 }
 
-// writeMsgCmd runs one write, marking whose answer it is, and reads an archived agent's threads back.
-func (r reviewScreen) writeMsgCmd(m *model, counted int, write func(context.Context) (string, error)) tea.Cmd {
+// writeMsgCmd runs one write, marking whose answer it is, handing back the message a refused write
+// carried, and reading an archived agent's threads back.
+func (r reviewScreen) writeMsgCmd(m *model, doing string, unsent *reviewUnsent, write func(context.Context) (string, error)) tea.Cmd {
 	agents, agentID, taskID := m.api.reads().agents, r.agentID, r.taskID
 	_, live := r.agentRow(m)
 
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
-		defer cancel()
+	return m.apply(screen.Write{
+		Doing: doing,
+		Send: func() screen.Landed {
+			ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
+			defer cancel()
 
-		notice, err := write(ctx)
-		wrote := reviewWroteMsg{
-			agentID: agentID,
-			notice:  notice,
-			err:     err,
-			write:   counted,
-		}
-		if err != nil || live {
-			return wrote
-		}
+			notice, err := write(ctx)
+			wrote := reviewWroteMsg{
+				agentID: agentID,
+				notice:  notice,
+				err:     err,
+			}
 
-		wrote.readBack = true
-		wrote.threads, wrote.readErr = listReviewThreads(ctx, agents, taskID)
+			switch {
+			case err != nil && !errors.Is(err, errForgeRefused):
+				wrote.unsent = unsent
+			case err == nil && !live:
+				wrote.readBack = true
+				wrote.threads, wrote.readErr = listReviewThreads(ctx, agents, taskID)
+			}
 
-		return wrote
-	}
+			return screen.Landed{Then: wrote}
+		},
+	})
 }
 
 // inputHead is the composer's title and what its submit key is said to do.

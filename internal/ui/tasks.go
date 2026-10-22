@@ -9,6 +9,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/menu"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
@@ -70,12 +71,12 @@ func (a *agentsScreen) isShowingNotes(r agentRow) bool {
 }
 
 // notesEntry swaps the pane beside the list between the task's notes and its writer's pane.
-func (a *agentsScreen) notesEntry(m *model, row agentRow) submenuEntry {
+func (a *agentsScreen) notesEntry(m *model, row agentRow) menu.Entry {
 	if a.notes == row.task.ID {
-		return openEntry("close the notes", m.keys.Menu.Notes, a.closeNotes)
+		return menu.Leaving("close the notes", m.keys.Menu.Notes, func() tea.Cmd { return a.closeNotes(m) })
 	}
 
-	return openEntry("notes", m.keys.Menu.Notes, func(m *model) tea.Cmd {
+	return menu.Leaving("notes", m.keys.Menu.Notes, func() tea.Cmd {
 		a.notes = row.task.ID
 		m.stageSelection()
 
@@ -112,34 +113,32 @@ func taskDirs(tasks []panel.Task) []string {
 
 // archiveTasks archives the tasks along with the live agents on them.
 func (m *model) archiveTasks(tasks []panel.Task) tea.Cmd {
-	pending := m.unstageAhead(m.listing.AgentsOnTasks(tasks))
-
-	return pending.attach(m.writeCmd(
-		"archiving "+describeTasks(tasks),
-		"Could not archive "+describeTasks(tasks),
-		func(a api) error {
+	return m.archivingWriteCmd(archiving{
+		doing:   "archiving " + describeTasks(tasks),
+		summary: "Could not archive " + describeTasks(tasks),
+		agents:  m.listing.AgentsOnTasks(tasks),
+		write: func(a api) error {
 			for _, task := range tasks {
-				if err := pending.noteArchive(a.archiveTask(task.ID)); err != nil {
+				if err := a.archiveTask(task.ID); err != nil {
 					return err
 				}
 			}
 
 			return nil
 		},
-	))
+	})
 }
 
 // deleteTasks deletes the tasks' worktrees, and with records the tasks for good with everything on them.
 func (m *model) deleteTasks(tasks []panel.Task, records bool) tea.Cmd {
-	pending := m.unstageAhead(m.listing.AgentsOnTasks(tasks))
-
-	return pending.attach(m.writeCmd(
-		"deleting "+describeTasks(tasks),
-		"Could not delete "+describeTasks(tasks),
-		func(a api) error {
-			return pending.noteArchive(a.deleteTasks(panel.TaskIDs(tasks), records))
+	return m.archivingWriteCmd(archiving{
+		doing:   "deleting " + describeTasks(tasks),
+		summary: "Could not delete " + describeTasks(tasks),
+		agents:  m.listing.AgentsOnTasks(tasks),
+		write: func(a api) error {
+			return a.deleteTasks(panel.TaskIDs(tasks), records)
 		},
-	))
+	})
 }
 
 // confirmDeleteTasks asks what goes before the tasks are deleted.

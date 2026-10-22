@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/client"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/menu"
 	"komrad/internal/ui/paint"
 
 	tea "charm.land/bubbletea/v2"
@@ -136,12 +137,6 @@ func (m *model) route(msg tea.Msg) tea.Cmd {
 
 		if cmd, handled := m.routePicker(key); handled {
 			return cmd
-		}
-	}
-
-	if landed, ok := msg.(countedWrite); ok {
-		if m.landHeld(landed.countedWrite()) {
-			return tea.Batch(m.closeForm(), m.route(msg))
 		}
 	}
 
@@ -355,8 +350,8 @@ func (m *model) routeGlobalKey(key tea.KeyPressMsg) (tea.Cmd, bool) {
 	}
 
 	if slices.Contains(m.keys.Menu.Open, key.String()) {
-		if menu, ok := m.buildMenu(); ok && keys.IsBound(key.String(), m.keys.Menu.Open) {
-			return openSubmenu(m, menu), true
+		if band, ok := m.buildMenu(); ok && keys.IsBound(key.String(), m.keys.Menu.Open) {
+			return m.apply(menu.Open{Menu: band}), true
 		}
 	}
 
@@ -488,6 +483,22 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 		return nil, true
 	case writeResult:
 		return m.applyWrite(msg), true
+	case renameSettled:
+		m.settleRename(msg)
+
+		return nil, true
+	case resumeSettled:
+		m.agents.settleResume(m, msg.agentID, msg.err)
+
+		return nil, true
+	case agentEditorStaged:
+		return m.agents.applyEditorStaged(m, msg), true
+	case documentEditorStaged:
+		m.documents.applyEditorStaged(m, msg)
+
+		return nil, true
+	case reviewEditorStaged:
+		return m.review.applyEditorStaged(m, msg), true
 	case reviewPausedMsg:
 		if m.isPausing(msg.agentID) {
 			return nil, false
@@ -498,14 +509,8 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 		return m.applyGitPlanned(msg), true
 	case gitDoneMsg:
 		return m.applyGitDone(msg), true
-	case draftedMsg:
-		return m.applyDrafted(msg), true
-	case rereviewedMsg:
-		return m.applyRereviewed(msg), true
 	case mergePlannedMsg:
 		return m.applyMergePlanned(msg), true
-	case autoMergedMsg:
-		return m.applyAutoMerged(msg), true
 	case formFieldEditedMsg:
 		return m.applyFormFieldEdited(msg), true
 	case copyResult:

@@ -55,37 +55,41 @@ func (r *rowRename) save(m *model) (tea.Cmd, bool) {
 		renamed.Name = name
 		id := r.schedule.ID
 
-		return stampRename(m.writeCmd(
+		return m.renameCmd(
 			"renaming "+r.Was(),
 			fmt.Sprintf("Could not rename schedule %q", r.Was()),
+			r.Key(),
 			func(a api) error { return a.updateSchedule(id, renamed) },
-		), r.Key()), true
+		), true
 	case r.task != nil:
 		id := r.task.ID
 
-		return stampRename(m.writeCmd(
+		return m.renameCmd(
 			"renaming "+r.Was(),
 			fmt.Sprintf("Could not rename task %q", r.Was()),
+			r.Key(),
 			func(a api) error { return a.updateTask(updateTaskParams{id: id, slug: &name}) },
-		), r.Key()), true
+		), true
 	case r.workflow != nil:
 		renamed := *r.workflow
 		renamed.Name = name
 
-		return stampRename(m.writeCmd(
+		return m.renameCmd(
 			"renaming "+r.Was(),
 			fmt.Sprintf("Could not rename workflow %q", r.Was()),
+			r.Key(),
 			func(a api) error { return a.updateWorkflow(renamed) },
-		), r.Key()), true
+		), true
 	}
 
 	agent := r.agent
 
-	return stampRename(m.writeCmd(
+	return m.renameCmd(
 		"renaming "+r.Was(),
 		fmt.Sprintf("Could not rename agent %q", r.Was()),
+		r.Key(),
 		func(a api) error { return a.renameAgent(agent, name) },
-	), r.Key()), true
+	), true
 }
 
 // renameSlot is the rename a list screen has open, nil when none is.
