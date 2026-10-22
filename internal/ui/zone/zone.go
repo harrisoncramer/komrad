@@ -16,7 +16,7 @@ import (
 // Name names a block the panel renders inside its own pane.
 type Name string
 
-// Hit is the marked row under a cell: its zone, its key, and which of the rows sharing that key it is.
+// Hit is the marked row under a cell.
 type Hit struct {
 	Zone Name
 	Key  string
