@@ -37,8 +37,8 @@ var (
 	errNoParent             = errors.New("this task does not depend on another task, so it is already on the base branch")
 )
 
-// gitMenu is the git actions on a task's checkout and pull request.
-func gitMenu(m *model, task panel.Task) menu.Menu {
+// Git is the git actions on a task's checkout and pull request.
+func (m *model) Git(task panel.Task) menu.Menu {
 	taskID := task.ID
 
 	worktreeEntries := []menu.Entry{
@@ -60,13 +60,13 @@ func gitMenu(m *model, task panel.Task) menu.Menu {
 			Label: "pick fork point",
 			Keys:  m.keys.Git.PickForkPoint,
 			Off:   pickForkPointRefusal(m.listing, task) != nil,
-			Pick:  func() screen.Request { return m.openGitPickForkPoint(taskID) },
+			Pick:  func(screen.Inputs) screen.Request { return m.openGitPickForkPoint(taskID) },
 		},
 		{
 			Label: abortLabel(task),
 			Keys:  m.keys.Git.Abort,
 			Off:   abortRefusal(m.listing, task) != nil,
-			Pick:  func() screen.Request { return m.openGitAbort(taskID) },
+			Pick:  func(screen.Inputs) screen.Request { return m.openGitAbort(taskID) },
 		},
 	}
 
@@ -76,8 +76,8 @@ func gitMenu(m *model, task panel.Task) menu.Menu {
 	}
 }
 
-// pullRequestGitMenu is the git menu holding only a task's pull request entries.
-func pullRequestGitMenu(m *model, task panel.Task) menu.Menu {
+// PullRequestGit is the git menu holding only a task's pull request entries.
+func (m *model) PullRequestGit(task panel.Task) menu.Menu {
 	return menu.Menu{
 		Title:   "git",
 		Entries: pullRequestEntries(m, task),
@@ -127,8 +127,8 @@ func pullRequestEntries(m *model, task panel.Task) []menu.Entry {
 }
 
 // gitWrite is the write a git menu entry makes on a task.
-func gitWrite(m *model, taskID string, choice gitChoice) func() screen.Request {
-	return func() screen.Request { return m.runGitChoice(taskID, choice) }
+func gitWrite(m *model, taskID string, choice gitChoice) func(screen.Inputs) screen.Request {
+	return func(screen.Inputs) screen.Request { return m.runGitChoice(taskID, choice) }
 }
 
 // worktreeRefusal returns the reason a task's worktree refuses an action, or nil when it allows one.
@@ -308,5 +308,5 @@ func (m *model) openGitPickForkPoint(taskID string) screen.Request {
 		return screen.Batch{screen.Report{Summary: "Could not pick the fork point of " + task.Slug, Err: err}, form.Close{}}
 	}
 
-	return m.agents.openPickForkPoint(m, task)
+	return m.agents.openPickForkPoint(m.inputs(), task)
 }

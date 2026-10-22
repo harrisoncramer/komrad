@@ -40,8 +40,8 @@ type mergePlannedMsg struct {
 func mergeMenu(m *model, task panel.Task) menu.Menu {
 	taskID := task.ID
 	refused := openPullRequestRefusal(task) != nil
-	run := func(choice mergeChoice) func() screen.Request {
-		return func() screen.Request { return m.runMerge(taskID, choice) }
+	run := func(choice mergeChoice) func(screen.Inputs) screen.Request {
+		return func(screen.Inputs) screen.Request { return m.runMerge(taskID, choice) }
 	}
 
 	return menu.Menu{

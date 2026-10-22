@@ -7,7 +7,7 @@ import (
 )
 
 // hideMenu is the agents list's hide menu, hiding the tasks given and gray when there are none.
-func (a *agentsScreen) hideMenu(m *model, tasks []panel.Task) menu.Menu {
+func (a *agentsScreen) hideMenu(tasks []panel.Task) menu.Menu {
 	return menu.Menu{
 		Title: "hide",
 		Entries: []menu.Entry{
@@ -15,7 +15,9 @@ func (a *agentsScreen) hideMenu(m *model, tasks []panel.Task) menu.Menu {
 			{
 				Label: a.showHiddenDesc(),
 				Keys:  a.deps.keys.HideMenu.ShowHidden,
-				Pick:  m.toggleHidden,
+				Pick: func(in screen.Inputs) screen.Request {
+					return screen.Batch{screen.Reconcile{}, a.toggleHidden(in)}
+				},
 			},
 		},
 	}
@@ -36,10 +38,5 @@ func (a *agentsScreen) hideEntry(tasks []panel.Task) menu.Entry {
 		label = "unhide"
 	}
 
-	return menu.Holding(label, a.deps.keys.HideMenu.Hide, func() screen.Request { return a.hideTasks(tasks) })
-}
-
-// toggleHidden shows the hidden tasks, or puts them away.
-func (m *model) toggleHidden() screen.Request {
-	return screen.Batch{screen.Reconcile{}, m.agents.toggleHidden(m.inputs())}
+	return menu.Holding(label, a.deps.keys.HideMenu.Hide, func(screen.Inputs) screen.Request { return a.hideTasks(tasks) })
 }

@@ -25,9 +25,9 @@ type documentFormValues struct {
 }
 
 // newDocumentForm puts up the form for a document written for an agent.
-func (d *documentsScreen) newDocumentForm(m *model, agentID string) screen.Request {
-	owner, types := agentID, m.listing.DocumentTypeNames()
-	if item, ok := m.listing.AnyAgent(agentID); ok {
+func (d *documentsScreen) newDocumentForm(in screen.Inputs, agentID string) screen.Request {
+	owner, types := agentID, in.Listing.DocumentTypeNames()
+	if item, ok := in.Listing.AnyAgent(agentID); ok {
 		owner = item.Agent.Name
 	}
 	values := &documentFormValues{Type: defaultDocumentType(types)}
@@ -95,11 +95,11 @@ func defaultDocumentType(types []string) string {
 }
 
 // pressNew puts up the form for a new document of the one agent the filter names.
-func (d *documentsScreen) pressNew(m *model) screen.Request {
-	agentID, ok := d.namedAgentID(m.inputs())
+func (d *documentsScreen) pressNew(in screen.Inputs) screen.Request {
+	agentID, ok := d.namedAgentID(in)
 	if d.editing != nil || !ok {
 		return nil
 	}
 
-	return d.newDocumentForm(m, agentID)
+	return d.newDocumentForm(in, agentID)
 }

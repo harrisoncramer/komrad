@@ -18,11 +18,11 @@ func (m *model) buildMenu() (menu.Menu, bool) {
 	var hasItem, hasBand bool
 
 	if screen, ok := m.active().(itemMenuBuilder); ok {
-		item, hasItem = screen.buildItemMenu(m, m.inputs())
+		item, hasItem = screen.buildItemMenu(m.inputs(), m)
 	}
 
 	if screen, ok := m.active().(screenMenuBuilder); ok {
-		band, hasBand = screen.buildScreenMenu(m, m.inputs())
+		band, hasBand = screen.buildScreenMenu(m.inputs(), m)
 	}
 
 	switch {
@@ -35,7 +35,7 @@ func (m *model) buildMenu() (menu.Menu, bool) {
 	}
 }
 
-func (a *agentsScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
+func (a *agentsScreen) buildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
 	if a.list().isSelecting() {
 		chosen := chosenAgents(a.Selected, a.rows(in))
 		if len(chosen) == 0 {
@@ -47,9 +47,9 @@ func (a *agentsScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, boo
 		if len(work.loneAgents) > 0 {
 			hideable = nil
 		}
-		band := menu.WithNested(rowMenu(describeAgents(chosen)), "hide", a.deps.keys.Menu.Hide, a.hideMenu(m, hideable))
+		band := menu.WithNested(rowMenu(describeAgents(chosen)), "hide", a.deps.keys.Menu.Hide, a.hideMenu(hideable))
 
-		return menu.WithNested(band, "archive", a.deps.keys.Menu.Archive, a.chosenArchiveMenu(m, work)), true
+		return menu.WithNested(band, "archive", a.deps.keys.Menu.Archive, a.chosenArchiveMenu(work)), true
 	}
 
 	if !a.isBrowsing() {
@@ -60,8 +60,8 @@ func (a *agentsScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, boo
 	if !ok {
 		return menu.Menu{}, false
 	}
-	if task, ok := a.taskRowOf(m, row); ok {
-		return a.taskMenu(m, in, task), true
+	if task, ok := a.taskRowOf(in, row); ok {
+		return a.taskMenu(in, nest, task), true
 	}
 
 	item, hasAgent := row.paneItem()
@@ -70,24 +70,30 @@ func (a *agentsScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, boo
 		band := rowMenu(workflow.Name)
 		var orchestrator *panel.Agent
 		if hasAgent {
-			band = agentMenu(m, a.deps.keys, item, slices.Concat(a.closeEditEntries(m), a.snoozeEntries(m, in, item))...)
+			band = agentMenu(agentMenuParams{
+				in:       in,
+				nest:     nest,
+				bindings: a.deps.keys,
+				item:     item,
+				own:      slices.Concat(a.closeEditEntries(), a.snoozeEntries(in, item)),
+			})
 			orchestrator = &item.Agent
 		}
-		band.Entries = append(band.Entries, a.workflowEntries(m, workflow, orchestrator)...)
+		band.Entries = append(band.Entries, a.workflowEntries(workflow, orchestrator)...)
 
-		band = menu.WithNested(band, "hide", a.deps.keys.Menu.Hide, a.hideMenu(m, nil))
+		band = menu.WithNested(band, "hide", a.deps.keys.Menu.Hide, a.hideMenu(nil))
 
-		return menu.WithNested(band, "archive", a.deps.keys.Menu.Archive, a.workflowArchiveMenu(m, workflow)), true
+		return menu.WithNested(band, "archive", a.deps.keys.Menu.Archive, a.workflowArchiveMenu(workflow)), true
 	}
 
 	if !hasAgent {
 		return menu.Menu{}, false
 	}
 
-	return a.agentRowMenu(m, in, item), true
+	return a.agentRowMenu(in, item), true
 }
 
-func (w *schedulesScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
+func (w *schedulesScreen) buildItemMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
 	item, ok := w.selected(in)
 	if !ok {
 		return menu.Menu{}, false
@@ -97,11 +103,11 @@ func (w *schedulesScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, 
 }
 
 // buildScreenMenu builds the schedules screen's own band, for writing a new schedule.
-func (w *schedulesScreen) buildScreenMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
+func (w *schedulesScreen) buildScreenMenu(_ screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
 	return menu.Menu{
 		Title: "schedules",
 		Entries: []menu.Entry{
-			menu.Leaving("new schedule", w.deps.keys.ScheduleMenu.New, func() screen.Request { return w.newScheduleForm(m) }),
+			menu.Leaving("new schedule", w.deps.keys.ScheduleMenu.New, w.newScheduleForm),
 		},
 	}, true
 }
@@ -116,8 +122,8 @@ func (w *schedulesScreen) scheduleMenu(schedule panel.Schedule) menu.Menu {
 	return menu.Menu{
 		Title: schedule.Name,
 		Entries: []menu.Entry{
-			menu.Leaving("edit", w.deps.keys.ScheduleMenu.Edit, func() screen.Request { return w.editScheduleForm(schedule) }),
-			menu.Holding(toggle, w.deps.keys.ScheduleMenu.Toggle, func() screen.Request { return w.toggleSchedule(schedule) }),
+			menu.Leaving("edit", w.deps.keys.ScheduleMenu.Edit, func(screen.Inputs) screen.Request { return w.editScheduleForm(schedule) }),
+			menu.Holding(toggle, w.deps.keys.ScheduleMenu.Toggle, func(screen.Inputs) screen.Request { return w.toggleSchedule(schedule) }),
 		},
 	}
 }

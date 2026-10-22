@@ -7,6 +7,7 @@ import (
 	"komrad/internal/ui/api"
 	"komrad/internal/ui/column"
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/legend"
 	"komrad/internal/ui/list"
@@ -412,7 +413,7 @@ func (a *archivedAgents) menuTarget(in screen.Inputs) (archived, bool) {
 	}, true
 }
 
-func (a *archivedAgents) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
+func (a *archivedAgents) buildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
 	target, ok := a.menuTarget(in)
 	if !ok {
 		return menu.Menu{}, false
@@ -421,16 +422,16 @@ func (a *archivedAgents) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, b
 	band := rowMenu(target.name())
 	if row, ok := list.At(a.listRows(in), a.Row); ok && a.holdsAnAgent(in) {
 		item, _ := row.paneItem()
-		band = agentMenu(m, a.deps.keys, item)
+		band = agentMenu(agentMenuParams{in: in, nest: nest, bindings: a.deps.keys, item: item})
 	}
 
 	if a.kind == agentsDeleted {
-		band.Entries = append(band.Entries, deletedEntries(m, a.deps.keys, a.deps.clients, target)...)
+		band.Entries = append(band.Entries, deletedEntries(a.deps.keys, a.deps.clients, target)...)
 
 		return band, true
 	}
 
-	return menu.WithNested(band, "archive", a.deps.keys.Menu.Archive, archiveMenu(m, a.deps.keys, a.deps.clients, target)), true
+	return menu.WithNested(band, "archive", a.deps.keys.Menu.Archive, archiveMenu(in, a.deps.keys, a.deps.clients, target)), true
 }
 
 // restoreAndResume takes the agents out of the archive and puts the resumed agent's conversation back in a pane.
@@ -458,10 +459,10 @@ func restoreAgents(clients api.Clients, agents []panel.Agent) screen.Request {
 }
 
 // confirmDeleteWorkflow asks what goes before it deletes an archived workflow.
-func confirmDeleteWorkflow(m *model, clients api.Clients, workflow panel.Workflow) screen.Request {
-	confirm := deleteWorkflowConfirm(workflow, workflow.Worktree.Enabled && !isWorkflowOnDeletedList(m.listing, workflow.ID))
+func confirmDeleteWorkflow(in screen.Inputs, clients api.Clients, workflow panel.Workflow) screen.Request {
+	confirm := deleteWorkflowConfirm(workflow, workflow.Worktree.Enabled && !isWorkflowOnDeletedList(in.Listing, workflow.ID))
 
-	return confirm.open(m, func() screen.Request {
+	return confirm.open(in, func(form.Inputs) screen.Request {
 		return clients.AwaitingWrite(api.AwaitingWriteParams{
 			Doing:   "deleting " + workflow.Name,
 			Summary: fmt.Sprintf("Could not delete workflow %q", workflow.Name),

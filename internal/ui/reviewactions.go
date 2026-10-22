@@ -282,9 +282,9 @@ const (
 )
 
 // buildItemMenu builds the band on the thread under the diff's cursor.
-func (r *reviewScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
+func (r *reviewScreen) buildItemMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
 	if side, ok := r.findSide(in); ok && r.isBlockFocused(in) {
-		return r.sideMenu(m, in, side)
+		return r.sideMenu(in, side)
 	}
 
 	if !r.isDiffFocused(in) {
@@ -300,40 +300,40 @@ func (r *reviewScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, boo
 	entries := []menu.Entry{}
 
 	if reachable {
-		entries = append(entries, r.composeEntry(m, ""))
+		entries = append(entries, r.composeEntry(""))
 	}
 
 	if reachable && r.doesOfferForgeReply() {
-		entries = append(entries, menu.Leaving("reply on "+r.forgeName(in), r.deps.keys.Review.ForgeReply, func() screen.Request {
-			return m.review.orRefuseWrite(m.inputs(), m.review.composeForge)
+		entries = append(entries, menu.Leaving("reply on "+r.forgeName(in), r.deps.keys.Review.ForgeReply, func(in screen.Inputs) screen.Request {
+			return r.orRefuseWrite(in, r.composeForge)
 		}))
 	}
 
-	entries = append(entries, menu.Leaving(r.diff.resolveDesc(), r.deps.keys.Review.Resolve, func() screen.Request { return m.review.resolveThread(m.inputs()) }))
+	entries = append(entries, menu.Leaving(r.diff.resolveDesc(), r.deps.keys.Review.Resolve, func(in screen.Inputs) screen.Request { return r.resolveThread(in) }))
 
 	if r.doesOfferAccept() {
-		accept := menu.Leaving("accept the forge comment", r.deps.keys.Review.Accept, func() screen.Request {
-			return m.review.orRefuseWrite(m.inputs(), m.review.acceptForge)
+		accept := menu.Leaving("accept the forge comment", r.deps.keys.Review.Accept, func(in screen.Inputs) screen.Request {
+			return r.orRefuseWrite(in, r.acceptForge)
 		})
 		entries = append(entries, menu.DrawnOff(accept, r.diff.newestSaid()))
 	}
 
 	if reachable && r.doesOfferForgeRetry() {
 		entries = append(entries,
-			menu.Leaving("retry the reply", r.deps.keys.Review.ForgePost, func() screen.Request {
-				return m.review.orRefuseWrite(m.inputs(), m.review.retryForgeReply)
+			menu.Leaving("retry the reply", r.deps.keys.Review.ForgePost, func(in screen.Inputs) screen.Request {
+				return r.orRefuseWrite(in, r.retryForgeReply)
 			}),
-			menu.Leaving("discard the reply", r.deps.keys.Review.ForgeDiscard, func() screen.Request {
-				return m.review.orRefuseWrite(m.inputs(), m.review.discardForgeReply)
+			menu.Leaving("discard the reply", r.deps.keys.Review.ForgeDiscard, func(in screen.Inputs) screen.Request {
+				return r.orRefuseWrite(in, r.discardForgeReply)
 			}),
 		)
 	}
 
 	if r.doesOfferAnswer() {
-		entries = append(entries, r.answerEntry(m))
+		entries = append(entries, r.answerEntry())
 	}
 
-	entries = append(entries, menu.DrawnOff(r.jumpEntry(m), r.diff.jumpOffSaid()))
+	entries = append(entries, menu.DrawnOff(r.jumpEntry(), r.diff.jumpOffSaid()))
 
 	return menu.Menu{
 		Title:   "thread",
@@ -343,15 +343,15 @@ func (r *reviewScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, boo
 
 // buildScreenMenu builds the band of whichever of the diff, the file tree and the rows over it holds
 // the keys.
-func (r *reviewScreen) buildScreenMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
+func (r *reviewScreen) buildScreenMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
 	var band menu.Menu
 	switch {
 	case r.isSideFocused(in):
 		band = pullRequestMenu()
 	case r.isBlockFocused(in):
-		band = menu.Menu{Title: "file", Entries: r.fileEntries(m, in)}
+		band = menu.Menu{Title: "file", Entries: r.fileEntries(in)}
 	default:
-		band = r.diffMenu(m, in)
+		band = r.diffMenu(in, nest)
 	}
 
 	return band, true
@@ -366,50 +366,50 @@ func pullRequestMenu() menu.Menu {
 }
 
 // fileEntries is the entries on the file under the cursor, for the editor and whether it is viewed.
-func (r *reviewScreen) fileEntries(m *model, in screen.Inputs) []menu.Entry {
-	edit := menu.Leaving(r.edit.editorDesc(), r.deps.keys.Review.EditFile, func() screen.Request { return m.review.pressEdit(m.inputs()) })
-	viewed := menu.Leaving(r.diff.viewedDesc(), r.deps.keys.Review.ToggleViewed, func() screen.Request { return m.review.toggleViewed(m.inputs()) })
+func (r *reviewScreen) fileEntries(in screen.Inputs) []menu.Entry {
+	edit := menu.Leaving(r.edit.editorDesc(), r.deps.keys.Review.EditFile, r.pressEdit)
+	viewed := menu.Leaving(r.diff.viewedDesc(), r.deps.keys.Review.ToggleViewed, r.toggleViewed)
 
 	return []menu.Entry{menu.DrawnOff(edit, r.editOffSaid(in)), menu.DrawnOff(viewed, r.diff.viewedOffSaid())}
 }
 
 // diffMenu is the diff's band, for the file in the editor, how the diff is rendered and the review
 // waiting to be sent.
-func (r *reviewScreen) diffMenu(m *model, in screen.Inputs) menu.Menu {
+func (r *reviewScreen) diffMenu(in screen.Inputs, nest menu.Nester) menu.Menu {
 	reachable := !r.isArchived(in)
 	_, onThread := r.diff.threadAtCursor()
 	diffFocused := r.isDiffFocused(in)
 
-	entries := append(r.fileEntries(m, in),
-		menu.Leaving(r.diffKeys().expandDesc(), r.deps.keys.Diff.Expand, func() screen.Request { return m.review.diffKeys().toggleExpanded(m.inputs()) }),
-		menu.Leaving(wrapDesc(in), r.deps.keys.Diff.Wrap, func() screen.Request { return m.review.diffKeys().toggleWrap(m.inputs()) }),
+	entries := append(r.fileEntries(in),
+		menu.Leaving(r.diffKeys().expandDesc(), r.deps.keys.Diff.Expand, func(in screen.Inputs) screen.Request { return r.diffKeys().toggleExpanded(in) }),
+		menu.Leaving(wrapDesc(in), r.deps.keys.Diff.Wrap, func(in screen.Inputs) screen.Request { return r.diffKeys().toggleWrap(in) }),
 	)
 
 	if diffFocused && !onThread {
 		if r.doesOfferAnswer() {
-			entries = append(entries, r.answerEntry(m))
+			entries = append(entries, r.answerEntry())
 		}
 
 		if r.diff.spec.origin != nil {
-			entries = append(entries, r.jumpEntry(m))
+			entries = append(entries, r.jumpEntry())
 		}
 
 		if reachable {
-			entries = append(entries, r.composeEntry(m, r.diff.newestSaid()))
+			entries = append(entries, r.composeEntry(r.diff.newestSaid()))
 		}
 	}
 
 	if r.isHistory() {
-		entries = append(entries, menu.Leaving(fmt.Sprintf("end the range on snapshot %d", r.diff.newest.GetOrdinal()), r.deps.keys.Review.RangeEnd, func() screen.Request {
-			return m.review.endOnNewest()
+		entries = append(entries, menu.Leaving(fmt.Sprintf("end the range on snapshot %d", r.diff.newest.GetOrdinal()), r.deps.keys.Review.RangeEnd, func(screen.Inputs) screen.Request {
+			return r.endOnNewest()
 		}))
 	}
 
-	entries = append(entries, menu.Leaving(r.reloadDesc(in), r.deps.keys.Review.Reload, func() screen.Request { return m.review.catchUp() }))
-	entries = append(entries, menu.Leaving(r.diff.agentThreadsDesc(), r.deps.keys.Review.AgentThreads, func() screen.Request { return m.review.toggleAgentThreads(m.inputs()) }))
+	entries = append(entries, menu.Leaving(r.reloadDesc(in), r.deps.keys.Review.Reload, func(screen.Inputs) screen.Request { return r.catchUp() }))
+	entries = append(entries, menu.Leaving(r.diff.agentThreadsDesc(), r.deps.keys.Review.AgentThreads, r.toggleAgentThreads))
 
 	if task, ok := in.Listing.Tasks[r.taskID]; ok {
-		entries = append(entries, menu.Nested("git", r.deps.keys.Menu.Git, pullRequestGitMenu(m, task)))
+		entries = append(entries, menu.Nested("git", r.deps.keys.Menu.Git, nest.PullRequestGit(task)))
 	}
 
 	return menu.Menu{
@@ -418,18 +418,18 @@ func (r *reviewScreen) diffMenu(m *model, in screen.Inputs) menu.Menu {
 	}
 }
 
-func (r *reviewScreen) composeEntry(m *model, said string) menu.Entry {
-	return menu.DrawnOff(menu.Leaving(r.composeDesc(), r.deps.keys.Review.Compose, func() screen.Request {
-		return m.review.orRefuseWrite(m.inputs(), m.review.compose)
+func (r *reviewScreen) composeEntry(said string) menu.Entry {
+	return menu.DrawnOff(menu.Leaving(r.composeDesc(), r.deps.keys.Review.Compose, func(in screen.Inputs) screen.Request {
+		return r.orRefuseWrite(in, r.compose)
 	}), said)
 }
 
-func (r *reviewScreen) answerEntry(m *model) menu.Entry {
-	return menu.Leaving(r.diff.answerDesc(), r.deps.keys.Review.Answer, func() screen.Request { return m.review.toggleAnswer() })
+func (r *reviewScreen) answerEntry() menu.Entry {
+	return menu.Leaving(r.diff.answerDesc(), r.deps.keys.Review.Answer, func(screen.Inputs) screen.Request { return r.toggleAnswer() })
 }
 
-func (r *reviewScreen) jumpEntry(m *model) menu.Entry {
-	return menu.Leaving(r.diff.jumpDesc(), r.deps.keys.Review.Jump, func() screen.Request { return m.review.toggleJump() })
+func (r *reviewScreen) jumpEntry() menu.Entry {
+	return menu.Leaving(r.diff.jumpDesc(), r.deps.keys.Review.Jump, func(screen.Inputs) screen.Request { return r.toggleJump() })
 }
 
 // folderDesc says whether the folder key on the tree opens the folder or closes it.

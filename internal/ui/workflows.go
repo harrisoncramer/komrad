@@ -12,13 +12,13 @@ import (
 	hookv1 "komrad/proto/gen/hook/v1"
 )
 
-func (a *agentsScreen) newWorkflowForm(m *model) screen.Request {
+func (a *agentsScreen) newWorkflowForm(in screen.Inputs) screen.Request {
 	values := workflowFormValues{
 		EventPrompts: eventPromptsByEvent(xslice.Map(eventprompts.All(), func(event eventprompts.Event) panel.EventPrompt {
 			return panel.EventPrompt{Event: event.Name, Prompt: event.DefaultPrompt}
 		})),
 	}
-	if len(m.listing.Workflows) == 0 {
+	if len(in.Listing.Workflows) == 0 {
 		values.Cwd = a.deps.panes.GetHostPath()
 	}
 
@@ -73,11 +73,11 @@ func (a *agentsScreen) getAvailableHooks() []string {
 	})
 }
 
-func (a *agentsScreen) archiveWorkflow(m *model, workflow panel.Workflow) screen.Request {
+func (a *agentsScreen) archiveWorkflow(in screen.Inputs, workflow panel.Workflow) screen.Request {
 	return a.deps.clients.ArchivingWrite(api.ArchivingWriteParams{
 		Doing:   "archiving " + workflow.Name,
 		Summary: fmt.Sprintf("Could not archive workflow %q", workflow.Name),
-		Agents:  m.listing.AgentsOf(workflow.ID),
+		Agents:  in.Listing.AgentsOf(workflow.ID),
 		Awaits:  screen.Awaits{Gone: screen.RowsIn(screen.ListWorkflows, workflow.ID)},
 		Write: func(clients api.Clients) error {
 			return clients.ArchiveWorkflow(workflow.ID)

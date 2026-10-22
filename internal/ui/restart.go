@@ -35,18 +35,18 @@ type restartTarget struct {
 
 // restartEntries is the entry that restarts a task's live writer on a new conversation, and none
 // when no agent can start on the task.
-func (a *agentsScreen) restartEntries(m *model, task panel.Task) []menu.Entry {
-	if !isTaskStartable(m, task) {
+func (a *agentsScreen) restartEntries(in screen.Inputs, task panel.Task) []menu.Entry {
+	if !isTaskStartable(in.Listing, task) {
 		return nil
 	}
 
-	writer, refusal := findRestartableWriter(m.listing, task)
-	entry := menu.Leaving("restart", a.deps.keys.Menu.Restart, func() screen.Request {
+	writer, refusal := findRestartableWriter(in.Listing, task)
+	entry := menu.Leaving("restart", a.deps.keys.Menu.Restart, func(screen.Inputs) screen.Request {
 		if refusal != nil {
 			return screen.Report{Summary: "Could not restart the writer of task " + task.Slug, Err: refusal}
 		}
 
-		return a.openRestart(m, restartTarget{agent: *writer, on: task.Slug, briefing: "the task's notes"})
+		return a.openRestart(restartTarget{agent: *writer, on: task.Slug, briefing: "the task's notes"})
 	})
 	entry.Off = refusal != nil
 
@@ -68,18 +68,18 @@ func findRestartableWriter(l panel.Listing, task panel.Task) (*panel.Agent, erro
 
 // orchestratorRestartEntries is the entry that restarts the workflow's orchestrator on a new
 // conversation, and none when the workflow has no orchestrator.
-func (a *agentsScreen) orchestratorRestartEntries(m *model, workflow panel.Workflow, orchestrator *panel.Agent) []menu.Entry {
+func (a *agentsScreen) orchestratorRestartEntries(workflow panel.Workflow, orchestrator *panel.Agent) []menu.Entry {
 	if orchestrator == nil {
 		return nil
 	}
 
-	return []menu.Entry{menu.Leaving("restart orchestrator", a.deps.keys.Menu.Restart, func() screen.Request {
-		return a.openRestart(m, restartTarget{agent: *orchestrator, on: workflow.Name, briefing: "its briefing"})
+	return []menu.Entry{menu.Leaving("restart orchestrator", a.deps.keys.Menu.Restart, func(screen.Inputs) screen.Request {
+		return a.openRestart(restartTarget{agent: *orchestrator, on: workflow.Name, briefing: "its briefing"})
 	})}
 }
 
 // openRestart opens the form that restarts an agent on a new conversation.
-func (a *agentsScreen) openRestart(m *model, target restartTarget) screen.Request {
+func (a *agentsScreen) openRestart(target restartTarget) screen.Request {
 	values := &restartValues{
 		Harness: target.agent.Harness,
 		Flags:   target.agent.Flags,
@@ -90,17 +90,17 @@ func (a *agentsScreen) openRestart(m *model, target restartTarget) screen.Reques
 			return restartForm(fixedKeys(), values, target)
 		},
 		Editable: []form.Editable{{Key: "note", Value: &values.Note}},
-		Submit:   func(form.Inputs) screen.Request { return a.restartWrite(m, target.agent, *values) },
+		Submit:   func(in form.Inputs) screen.Request { return a.restartWrite(in.Listing, target.agent, *values) },
 	}}
 }
 
 // restartWrite is the write that relaunches the agent on a new conversation in the same directory.
-func (a *agentsScreen) restartWrite(m *model, agent panel.Agent, values restartValues) screen.Write {
+func (a *agentsScreen) restartWrite(l panel.Listing, agent panel.Agent, values restartValues) screen.Write {
 	clients := a.deps.clients
 
 	return screen.Write{
-		Doing:   "restarting " + m.listing.AgentName(agent),
-		Summary: fmt.Sprintf("Could not restart agent %q", m.listing.AgentName(agent)),
+		Doing:   "restarting " + l.AgentName(agent),
+		Summary: fmt.Sprintf("Could not restart agent %q", l.AgentName(agent)),
 		Unstage: []panel.Agent{agent},
 		Send: func() screen.Landed {
 			restarted, err := clients.RestartAgent(api.RestartAgentParams{

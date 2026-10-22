@@ -3,6 +3,7 @@ package ui
 import (
 	"slices"
 
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/menu"
@@ -90,16 +91,16 @@ func deleteDesc(fate panel.WorktreeFate) string {
 }
 
 // deleteWorktree asks before a directory goes the way its fate decides.
-func (w *worktreesScreen) deleteWorktree(m *model, item panel.Worktree) screen.Request {
+func (w *worktreesScreen) deleteWorktree(in screen.Inputs, item panel.Worktree) screen.Request {
 	switch item.Fate {
 	case panel.FateLive:
 		tasks := []panel.Task{*item.Task}
 
-		return w.deps.clients.ArchiveTasksWrite(tasks, m.listing.AgentsOnTasks(tasks))
+		return w.deps.clients.ArchiveTasksWrite(tasks, in.Listing.AgentsOnTasks(tasks))
 	case panel.FateArchived:
-		return confirmDeleteTasks(m, w.deps.clients, []panel.Task{*item.Task})
+		return confirmDeleteTasks(in, w.deps.clients, []panel.Task{*item.Task})
 	case panel.FateUnowned:
-		return w.confirmDeleteWorktrees(m, worktreeDeletion{unowned: []panel.Worktree{item}})
+		return w.confirmDeleteWorktrees(in, worktreeDeletion{unowned: []panel.Worktree{item}})
 	case panel.FateDeleting:
 	}
 
@@ -164,34 +165,34 @@ func (d worktreeDeletion) chosen() int {
 }
 
 // confirmDeleteChosen asks before the chosen directories go, with the confirm that fits the choice.
-func (w *worktreesScreen) confirmDeleteChosen(m *model, deletion worktreeDeletion) screen.Request {
+func (w *worktreesScreen) confirmDeleteChosen(in screen.Inputs, deletion worktreeDeletion) screen.Request {
 	switch {
 	case len(deletion.tasks) == 0:
-		return w.confirmDeleteWorktrees(m, deletion)
+		return w.confirmDeleteWorktrees(in, deletion)
 	case deletion.isEmpty():
-		return confirmDeleteTasks(m, w.deps.clients, deletion.tasks)
+		return confirmDeleteTasks(in, w.deps.clients, deletion.tasks)
 	default:
-		return w.confirmDeleteMixed(m, deletion)
+		return w.confirmDeleteMixed(in, deletion)
 	}
 }
 
 // confirmDeleteMixed asks once before task checkouts go with their tasks and the other directories
 // through the remover.
-func (w *worktreesScreen) confirmDeleteMixed(m *model, deletion worktreeDeletion) screen.Request {
-	confirm := deleteMixedConfirm(deletion, len(m.listing.AgentsOnTasks(deletion.tasks)))
+func (w *worktreesScreen) confirmDeleteMixed(in screen.Inputs, deletion worktreeDeletion) screen.Request {
+	confirm := deleteMixedConfirm(deletion, len(in.Listing.AgentsOnTasks(deletion.tasks)))
 
-	return confirm.open(m, func() screen.Request {
-		return screen.Batch{w.deps.clients.DeleteTasksWrite(deletion.tasks, m.listing.AgentsOnTasks(deletion.tasks), confirm.values.deletesRecords()), w.deleteWorktreesWrite(deletion)}
+	return confirm.open(in, func(submitted form.Inputs) screen.Request {
+		return screen.Batch{w.deps.clients.DeleteTasksWrite(deletion.tasks, submitted.Listing.AgentsOnTasks(deletion.tasks), confirm.values.deletesRecords()), w.deleteWorktreesWrite(deletion)}
 	})
 }
 
 // confirmDeleteWorktrees asks before a deletion.
-func (w *worktreesScreen) confirmDeleteWorktrees(m *model, deletion worktreeDeletion) screen.Request {
+func (w *worktreesScreen) confirmDeleteWorktrees(in screen.Inputs, deletion worktreeDeletion) screen.Request {
 	if deletion.isEmpty() {
 		return nil
 	}
 
-	return deleteWorktreesConfirm(deletion).open(m, func() screen.Request {
+	return deleteWorktreesConfirm(deletion).open(in, func(form.Inputs) screen.Request {
 		return w.deleteWorktreesWrite(deletion)
 	})
 }
@@ -219,15 +220,15 @@ func (w *worktreesScreen) deleteWorktreesWrite(deletion worktreeDeletion) screen
 	}
 }
 
-func (w *worktreesScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
+func (w *worktreesScreen) buildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
 	if w.list().isSelecting() {
 		deletion := w.chosenDeletion(in)
 		if deletion.chosen() == 0 {
 			return menu.Menu{}, false
 		}
 
-		return menu.WithNested(rowMenu(label.Count(deletion.chosen(), "worktree", "worktrees")), "archive", w.deps.keys.Menu.Archive, liveArchiveMenu(menu.Leaving("delete all", w.deps.keys.ArchiveMenu.Delete, func() screen.Request {
-			return w.confirmDeleteChosen(m, deletion)
+		return menu.WithNested(rowMenu(label.Count(deletion.chosen(), "worktree", "worktrees")), "archive", w.deps.keys.Menu.Archive, liveArchiveMenu(menu.Leaving("delete all", w.deps.keys.ArchiveMenu.Delete, func(in screen.Inputs) screen.Request {
+			return w.confirmDeleteChosen(in, deletion)
 		}))), true
 	}
 
@@ -241,7 +242,7 @@ func (w *worktreesScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, 
 	}
 
 	band := rowMenu(row.name())
-	if entry, ok := w.worktreeDeleteEntry(m, row.item); ok {
+	if entry, ok := w.worktreeDeleteEntry(row.item); ok {
 		band = menu.WithNested(band, "archive", w.deps.keys.Menu.Archive, liveArchiveMenu(entry))
 	}
 
@@ -255,14 +256,14 @@ func (w *worktreesScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, 
 		to.TaskID = row.item.Task.ID
 	}
 
-	return menu.WithNested(band, "jump", w.deps.keys.Menu.Jump, jumpMenu(m, w.deps.keys, screen.Worktrees, to)), true
+	return menu.WithNested(band, "jump", w.deps.keys.Menu.Jump, nest.Jump(screen.Worktrees, to)), true
 }
 
 // buildScreenMenu builds the worktrees screen's own band, for clearing every directory that can go.
-func (w *worktreesScreen) buildScreenMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
+func (w *worktreesScreen) buildScreenMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
 	clearable := w.clearDeletion(in)
-	clearAll := menu.Leaving("delete unused worktrees", w.deps.keys.ArchiveMenu.Clear, func() screen.Request {
-		return w.confirmDeleteWorktrees(m, clearable)
+	clearAll := menu.Leaving("delete unused worktrees", w.deps.keys.ArchiveMenu.Clear, func(in screen.Inputs) screen.Request {
+		return w.confirmDeleteWorktrees(in, clearable)
 	})
 	clearAll.Off = clearable.isEmpty()
 
@@ -274,9 +275,9 @@ func (w *worktreesScreen) buildScreenMenu(m *model, in screen.Inputs) (menu.Menu
 
 // worktreeDeleteEntry is the entry that sends a directory the way its fate decides, false when
 // the fate offers none.
-func (w *worktreesScreen) worktreeDeleteEntry(m *model, item panel.Worktree) (menu.Entry, bool) {
+func (w *worktreesScreen) worktreeDeleteEntry(item panel.Worktree) (menu.Entry, bool) {
 	desc := deleteDesc(item.Fate)
-	run := func() screen.Request { return w.deleteWorktree(m, item) }
+	run := func(in screen.Inputs) screen.Request { return w.deleteWorktree(in, item) }
 	switch item.Fate {
 	case panel.FateLive:
 		return menu.Holding(desc, w.deps.keys.ArchiveMenu.Archive, run), true

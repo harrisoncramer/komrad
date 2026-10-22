@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"komrad/internal/ui/form"
+	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 )
 
@@ -54,8 +55,15 @@ type Entry struct {
 	Opens *Menu
 	// Form is the form the entry opens beside the menu.
 	Form  func() form.Form
-	Pick  func() screen.Request
+	Pick  func(screen.Inputs) screen.Request
 	After after
+}
+
+// Nester is what builds the git and jump menus a band nests.
+type Nester interface {
+	Git(task panel.Task) Menu
+	PullRequestGit(task panel.Task) Menu
+	Jump(from screen.ID, to screen.Target) Menu
 }
 
 // Open renders a menu, its cursor on the first entry that would do something.
@@ -121,11 +129,11 @@ func DrawnOff(entry Entry, said string) Entry {
 }
 
 // Leaving is an entry that takes the menu down before pick runs.
-func Leaving(label string, keys []string, pick func() screen.Request) Entry {
+func Leaving(label string, keys []string, pick func(screen.Inputs) screen.Request) Entry {
 	return Entry{Label: label, Keys: keys, Pick: pick}
 }
 
 // Holding is an entry that keeps the menu up while a write pick began is in flight.
-func Holding(label string, keys []string, pick func() screen.Request) Entry {
+func Holding(label string, keys []string, pick func(screen.Inputs) screen.Request) Entry {
 	return Entry{Label: label, Keys: keys, Pick: pick, After: Hold}
 }

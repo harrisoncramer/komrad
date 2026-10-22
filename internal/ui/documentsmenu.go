@@ -4,7 +4,6 @@ import (
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/screen"
-	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
@@ -27,13 +26,7 @@ func (d *documentsScreen) documentTypeMenu(t *agentv1.DocumentType) menu.Menu {
 	}
 }
 
-// documentEntry is one entry of the menu on a document.
-type documentEntry struct {
-	entry menu.Entry
-	run   func(d *documentsScreen, m *model) screen.Request
-}
-
-func (d *documentsScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
+func (d *documentsScreen) buildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
 	if d.kind == documentKindTypes {
 		t := d.hoveredDocumentType(in)
 
@@ -43,11 +36,11 @@ func (d *documentsScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, 
 		return menu.Menu{}, false
 	}
 
-	return documentMenu(m, d)
+	return d.documentMenu(in, nest)
 }
 
 // buildScreenMenu builds the documents screen's own band, for writing a new document or type.
-func (d *documentsScreen) buildScreenMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
+func (d *documentsScreen) buildScreenMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
 	if d.kind == documentKindTypes {
 		return menu.Menu{
 			Title: "document types",
@@ -68,23 +61,21 @@ func (d *documentsScreen) buildScreenMenu(m *model, in screen.Inputs) (menu.Menu
 
 	return menu.Menu{
 		Title: "documents",
-		Entries: documentEntries(m, []documentEntry{
+		Entries: []menu.Entry{
 			{
-				entry: menu.Entry{
-					Label: "new document",
-					Keys:  d.deps.keys.DocumentMenu.New,
-					Off:   d.editing != nil || !named,
-				},
-				run: (*documentsScreen).pressNew,
+				Label: "new document",
+				Keys:  d.deps.keys.DocumentMenu.New,
+				Off:   d.editing != nil || !named,
+				Pick:  d.pressNew,
 			},
-		}),
+		},
 	}, true
 }
 
 // documentMenu is the actions on the hovered document, or on the editor open over the list,
 // false for neither.
-func documentMenu(m *model, d *documentsScreen) (menu.Menu, bool) {
-	item, hovered := d.hovered(m.inputs())
+func (d *documentsScreen) documentMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
+	item, hovered := d.hovered(in)
 	if !hovered && d.editing == nil {
 		return menu.Menu{}, false
 	}
@@ -96,37 +87,23 @@ func documentMenu(m *model, d *documentsScreen) (menu.Menu, bool) {
 
 	band := menu.Menu{
 		Title: title,
-		Entries: documentEntries(m, []documentEntry{
+		Entries: []menu.Entry{
 			{
-				entry: menu.Entry{
-					Label: d.editLabel(),
-					Keys:  d.deps.keys.DocumentMenu.Edit,
-				},
-				run: func(d *documentsScreen, m *model) screen.Request { return d.pressEdit(m, m.inputs()) },
+				Label: d.editLabel(),
+				Keys:  d.deps.keys.DocumentMenu.Edit,
+				Pick:  d.pressEdit,
 			},
 			{
-				entry: menu.Entry{
-					Label: "rename",
-					Keys:  d.deps.keys.DocumentMenu.Rename,
-					Off:   !hovered || d.editing != nil,
-				},
-				run: func(d *documentsScreen, m *model) screen.Request { return d.openRename(m.inputs()) },
+				Label: "rename",
+				Keys:  d.deps.keys.DocumentMenu.Rename,
+				Off:   !hovered || d.editing != nil,
+				Pick:  d.openRename,
 			},
-		}),
+		},
 	}
 	if !hovered {
 		return band, true
 	}
 
-	return menu.WithNested(band, "jump", d.deps.keys.Menu.Jump, jumpMenu(m, d.deps.keys, screen.Documents, screen.Target{AgentID: item.agentID, TaskID: item.taskID})), true
-}
-
-// documentEntries are the entries that leave the menu and run on the documents screen.
-func documentEntries(m *model, entries []documentEntry) []menu.Entry {
-	return xslice.Map(entries, func(e documentEntry) menu.Entry {
-		entry, run := e.entry, e.run
-		entry.Pick = func() screen.Request { return run(&m.documents, m) }
-
-		return entry
-	})
+	return menu.WithNested(band, "jump", d.deps.keys.Menu.Jump, nest.Jump(screen.Documents, screen.Target{AgentID: item.agentID, TaskID: item.taskID})), true
 }

@@ -24,9 +24,9 @@ type documentEdit struct {
 }
 
 // pressEdit opens the document under the cursor in your editor, or saves and closes the one open.
-func (d *documentsScreen) pressEdit(m *model, in screen.Inputs) screen.Request {
+func (d *documentsScreen) pressEdit(in screen.Inputs) screen.Request {
 	if d.editing != nil {
-		return d.closeEdit(m)
+		return d.closeEdit()
 	}
 
 	item, ok := d.hovered(in)
@@ -93,15 +93,19 @@ func (d *documentsScreen) applyEditorStaged(staged documentEditorStaged) screen.
 }
 
 // closeEdit takes the editor down and writes back what changed in the copy.
-func (d *documentsScreen) closeEdit(m *model) screen.Request {
+func (d *documentsScreen) closeEdit() screen.Request {
 	if d.editing == nil {
 		return nil
 	}
 
 	edit := *d.editing
 	d.editing = nil
-	m.unstageEditor()
 
+	return screen.Batch{screen.Unstage{}, d.saveEdit(edit)}
+}
+
+// saveEdit writes back what changed in the copy.
+func (d *documentsScreen) saveEdit(edit documentEdit) screen.Request {
 	summary := "could not save " + edit.item.name
 	content, err := os.ReadFile(edit.path)
 	if err != nil {
@@ -142,7 +146,7 @@ func (d *documentsScreen) reconcileEditor(m *model, in screen.Inputs) screen.Req
 		return nil
 	}
 
-	return d.closeEdit(m)
+	return d.closeEdit()
 }
 
 // editLabel says what the edit entry would do.

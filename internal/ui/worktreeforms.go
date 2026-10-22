@@ -29,12 +29,12 @@ type worktreeConfirm struct {
 
 // open reads each worktree afresh and puts the confirm on screen, sending what write asks for
 // once it is answered yes.
-func (c worktreeConfirm) open(m *model, write func() screen.Request) screen.Request {
+func (c worktreeConfirm) open(in screen.Inputs, write func(form.Inputs) screen.Request) screen.Request {
 	confirmed := c.startsConfirmed
 
 	var requests screen.Batch
 	for _, dir := range c.dirs {
-		if !m.inspections[dir].IsSettled() {
+		if !in.Inspections[dir].IsSettled() {
 			requests = append(requests, screen.Inspect{Dir: dir})
 		}
 	}
@@ -48,7 +48,7 @@ func (c worktreeConfirm) open(m *model, write func() screen.Request) screen.Requ
 
 			return c.values.form(fixedKeys(), c.title, confirm)
 		},
-		Submit: func(form.Inputs) screen.Request {
+		Submit: func(submitted form.Inputs) screen.Request {
 			if !confirmed {
 				return nil
 			}
@@ -58,7 +58,7 @@ func (c worktreeConfirm) open(m *model, write func() screen.Request) screen.Requ
 				}
 			}
 
-			return write()
+			return write(submitted)
 		},
 		Narrow:          true,
 		ClosesOnRefusal: true,
