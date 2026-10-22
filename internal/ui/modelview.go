@@ -116,17 +116,17 @@ func (m *model) screenView() string {
 		return m.active().view(m)
 	}
 
-	split, ok := m.columnSplit()
-	if !ok && m.isMessagesFocused() {
+	split := m.columnSplit()
+	if !split.On && m.isMessagesFocused() {
 		return m.renderMessagesWindow(m.term.width, m.term.height).view(m.term.height)
 	}
-	if !ok {
+	if !split.On {
 		return m.heldFormView()
 	}
 
 	// Asked for before either half is rendered, so the halves are laid out already knowing their
 	// column.
-	held := m.measuredAt(split.sidebar)
+	held := m.measuredAt(split.Sidebar)
 
 	if m.isMessagesFocused() {
 		return m.joinColumns(split, held.active().view(held), m.docColumnView(split))

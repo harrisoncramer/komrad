@@ -38,11 +38,11 @@ const reviewChangeFolds = 2
 // view renders the diff and, beside it, the file tree, with the thread the cursor is standing on
 // in a popup over them.
 func (r reviewScreen) view(m *model) string {
-	split, ok := m.screenColumnSplit()
-	if !ok && m.term.paneMeasure > 0 {
+	split := m.screenColumnSplit()
+	if !split.On && m.term.paneMeasure > 0 {
 		return r.sidebarView(m)
 	}
-	if !ok {
+	if !split.On {
 		band := r.bandView(m)
 		layout := r.layoutSidebar(m, band)
 
@@ -53,7 +53,7 @@ func (r reviewScreen) view(m *model) string {
 	// the patch.
 	band := r.bandView(m)
 	area := band + r.diffView(m, split)
-	diff := m.markZone(zoneList, area, split.column)
+	diff := m.markZone(zoneList, area, split.Column)
 
 	return r.overlayThread(m, m.joinColumns(split, r.sidebarView(m), diff))
 }

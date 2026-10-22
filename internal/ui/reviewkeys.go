@@ -86,14 +86,14 @@ func (r *reviewScreen) refuseExpand(m *model) string {
 
 // diffWindow is the window that renders the diff, zero-sized without a split.
 func (r *reviewScreen) diffWindow(m *model) diffview.Window {
-	split, ok := m.screenColumnSplit()
-	if !ok {
+	split := m.screenColumnSplit()
+	if !split.On {
 		return diffview.Window{Wrap: m.diffWrap}
 	}
 
 	return diffview.Window{
-		Width:  split.column,
-		Height: split.rows,
+		Width:  split.Column,
+		Height: split.Rows,
 		Wrap:   m.diffWrap,
 	}
 }
@@ -246,7 +246,7 @@ func (r *reviewScreen) scrollSidebarAt(m *model, y, rows int) (screen.Request, b
 
 // sidebarNavAt is the sidebar section rendered on row y, and false for a row the wheel leaves alone.
 func (r *reviewScreen) sidebarNavAt(m *model, y int) (navigable, bool) {
-	if _, ok := m.screenColumnSplit(); !ok {
+	if !m.screenColumnSplit().On {
 		return nil, false
 	}
 

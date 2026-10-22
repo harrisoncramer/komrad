@@ -68,12 +68,12 @@ func sourceLabel(source *logv1.LogSource) string {
 // block is the log rendered at the width and height of the block beside the sidebar, its lines
 // pinned to the prompt at its foot.
 func (l *logsScreen) block(m *model, width int) []string {
-	split, ok := m.screenColumnSplit()
-	if !ok {
+	split := m.screenColumnSplit()
+	if !split.On {
 		return nil
 	}
 
-	height := max(split.rows-1, 1)
+	height := max(split.Rows-1, 1)
 	rows := l.logRows(m, width, height)
 	if l.read && l.viewer.Len() > 0 {
 		rows = append(make([]string, max(height-len(rows), 0)), rows...)

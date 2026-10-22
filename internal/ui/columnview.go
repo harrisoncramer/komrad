@@ -4,20 +4,21 @@ import (
 	"strings"
 
 	"komrad/internal/glyph"
+	"komrad/internal/ui/column"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
 // joinColumns lays the sidebar left of the column, having squared each off at its share first.
-func (m *model) joinColumns(split columnSplit, sidebar, column string) string {
+func (m *model) joinColumns(split column.Split, sidebar, block string) string {
 	// Trimmed so the two halves are the same height.
-	sidebar = fitColumn(strings.TrimRight(sidebar, "\n"), split.sidebar)
-	column = m.markZone(zoneColumn, fitColumn(column, split.column), split.column)
+	sidebar = fitColumn(strings.TrimRight(sidebar, "\n"), split.Sidebar)
+	block = m.markZone(zoneColumn, fitColumn(block, split.Column), split.Column)
 
-	sidebarLines, columnLines := strings.Split(sidebar, "\n"), strings.Split(column, "\n")
+	sidebarLines, columnLines := strings.Split(sidebar, "\n"), strings.Split(block, "\n")
 	rows := max(len(sidebarLines), len(columnLines))
-	sidebarWidth, columnWidth := lipgloss.Width(sidebar), lipgloss.Width(column)
+	sidebarWidth, columnWidth := lipgloss.Width(sidebar), lipgloss.Width(block)
 
 	out := make([]string, rows)
 	for i := range rows {
@@ -71,22 +72,22 @@ func renderDividerRow(fromLeft, fromRight bool) string {
 // columnView renders a screen as its list beside its own block, or as the list alone on a window
 // that will not hold both.
 func (m *model) columnView(list func(*model) string) string {
-	split, ok := m.screenColumnSplit()
-	if !ok {
+	split := m.screenColumnSplit()
+	if !split.On {
 		return list(m)
 	}
 
 	// Asked for before either half is rendered, so the halves are laid out already knowing their
 	// column.
-	held := m.measuredAt(split.sidebar)
+	held := m.measuredAt(split.Sidebar)
 
 	return m.joinColumns(split, list(held), held.docColumnView(split))
 }
 
 // docColumnView is the first screenful of the block beside the list, with a marker under it
 // counting what is past it.
-func (m *model) docColumnView(split columnSplit) string {
-	return m.columnDoc(split).view(split.rows)
+func (m *model) docColumnView(split column.Split) string {
+	return m.columnDoc(split).view(split.Rows)
 }
 
 // fitColumn squares a block off at a width.

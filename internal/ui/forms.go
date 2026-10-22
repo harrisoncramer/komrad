@@ -173,8 +173,8 @@ func (m *model) formArea() (width, height int) {
 		return m.review.measurePopupInner(m), m.review.measurePopupRoom(m)
 	}
 
-	if split, ok := m.columnGeometry(); ok {
-		return split.column, split.rows
+	if split := m.columnGeometry(); split.On {
+		return split.Column, split.Rows
 	}
 
 	return m.term.width, m.term.height

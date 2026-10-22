@@ -167,12 +167,12 @@ func (c *statusCheckLogsScreen) rows(m *model) []statusCheckLogRow {
 
 // anchor puts the hovered row's header at the top of the document.
 func (c *statusCheckLogsScreen) anchor(m *model) screen.Request {
-	split, ok := m.screenColumnSplit()
-	if !ok {
+	split := m.screenColumnSplit()
+	if !split.On {
 		return nil
 	}
 
-	line, ok := c.keepDoc(m, split.column).anchors[c.list().hovered(m)]
+	line, ok := c.keepDoc(m, split.Column).anchors[c.list().hovered(m)]
 	if !ok {
 		return nil
 	}
@@ -342,8 +342,8 @@ func (c *statusCheckLogsScreen) isLoading(m *model) bool {
 }
 
 func (c *statusCheckLogsScreen) buildFrame(m *model) {
-	if split, ok := m.screenColumnSplit(); ok {
-		c.keepDoc(m, split.column)
+	if split := m.screenColumnSplit(); split.On {
+		c.keepDoc(m, split.Column)
 	}
 }
 

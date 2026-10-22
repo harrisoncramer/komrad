@@ -470,12 +470,12 @@ func (l *logsScreen) listParams(m *model) screenListParams {
 
 // buildFrame fits the log's cursor and view to the block it is rendered in.
 func (l *logsScreen) buildFrame(m *model) {
-	split, ok := m.screenColumnSplit()
-	if !ok || !l.read || l.viewer.Len() == 0 {
+	split := m.screenColumnSplit()
+	if !split.On || !l.read || l.viewer.Len() == 0 {
 		return
 	}
 
-	l.viewer.Fit(split.column-len(list.Blank), max(split.rows-1, 1))
+	l.viewer.Fit(split.Column-len(list.Blank), max(split.Rows-1, 1))
 }
 
 func (l *logsScreen) parent() screen.ID {
@@ -518,7 +518,7 @@ func (l *logsScreen) column() columnSpec {
 
 // isBlockRendered reports whether the block beside the list holds lines of the log.
 func (l *logsScreen) isBlockRendered(m *model) bool {
-	if _, ok := m.screenColumnSplit(); !ok {
+	if !m.screenColumnSplit().On {
 		return false
 	}
 
@@ -531,7 +531,7 @@ func (l *logsScreen) isBlockFocused(m *model) bool {
 		return false
 	}
 
-	if _, ok := m.screenColumnSplit(); ok && l.logFilter.isStanding() {
+	if m.screenColumnSplit().On && l.logFilter.isStanding() {
 		return true
 	}
 

@@ -168,7 +168,7 @@ func (r reviewScreen) countFilesFloor(spare int) int {
 }
 
 func (r *reviewScreen) isBlockRendered(m *model) bool {
-	if _, ok := m.screenColumnSplit(); !ok {
+	if !m.screenColumnSplit().On {
 		return false
 	}
 

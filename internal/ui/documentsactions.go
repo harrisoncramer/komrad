@@ -200,7 +200,7 @@ func (d *documentsScreen) updateDiff(m *model, key tea.KeyPressMsg) screen.Reque
 
 // isDiffRendered reports whether the panel renders a write's change as a diff beside the list.
 func (d *documentsScreen) isDiffRendered(m *model) bool {
-	if _, ok := m.screenColumnSplit(); !ok {
+	if !m.screenColumnSplit().On {
 		return false
 	}
 

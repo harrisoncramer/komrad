@@ -11,12 +11,12 @@ import (
 // popupAnchor is the columns the popup takes beside the diff's code, which are the sidebar, the
 // divider and the gutter with a split and the whole pane without one.
 func (r reviewScreen) popupAnchor(m *model) popupAnchor {
-	split, ok := m.screenColumnSplit()
-	if !ok {
+	split := m.screenColumnSplit()
+	if !split.On {
 		return popupAnchor{right: m.paneWidth()}
 	}
 
-	return popupAnchor{right: split.sidebar + dividerCols + diffview.GutterWidth, codeOnRight: true}
+	return popupAnchor{right: split.Sidebar + dividerCols + diffview.GutterWidth, codeOnRight: true}
 }
 
 // measurePopupInner is the room inside the popup over the review.
@@ -80,8 +80,8 @@ func (r reviewScreen) measurePopupRoom(m *model) int {
 // measurePopupStage is the rows the popup stands over, the band and the diff beside the sidebar or
 // the band and the sidebar without a split, less the bar at the top that carries the messages.
 func (r reviewScreen) measurePopupStage(m *model) popupStage {
-	split, ok := m.screenColumnSplit()
-	if !ok {
+	split := m.screenColumnSplit()
+	if !split.On {
 		band := r.bandView(m)
 		layout := r.layoutSidebar(m, band)
 
@@ -102,6 +102,6 @@ func (r reviewScreen) measurePopupStage(m *model) popupStage {
 		top:        strings.Count(r.layoutSidebar(m).bar, "\n"),
 		cursor:     above + first,
 		cursorLast: above + first + height - 1,
-		rows:       above + split.rows,
+		rows:       above + split.Rows,
 	}
 }

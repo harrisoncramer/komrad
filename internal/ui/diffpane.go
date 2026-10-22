@@ -318,12 +318,12 @@ func (k diffKeys) moveToEnd(m *model, direction int) screen.Request {
 
 // panStep is a third of the pane, or the smallest jump until the pane is measured.
 func panStep(m *model) int {
-	split, ok := m.screenColumnSplit()
-	if !ok {
+	split := m.screenColumnSplit()
+	if !split.On {
 		return diffPanStep
 	}
 
-	return max(split.column/3, diffPanStep)
+	return max(split.Column/3, diffPanStep)
 }
 
 func (k diffKeys) click(m *model, key string) screen.Request {

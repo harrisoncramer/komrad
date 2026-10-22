@@ -161,10 +161,10 @@ func (w *worktreesScreen) screenNotice(*model) string {
 
 // columnHeight is the rows that render the block beside the list.
 func (m *model) columnHeight() int {
-	split, ok := m.columnSplit()
-	if !ok {
+	split := m.columnSplit()
+	if !split.On {
 		return 0
 	}
 
-	return split.rows
+	return split.Rows
 }
