@@ -1,6 +1,10 @@
 package ui
 
-import "time"
+import (
+	"time"
+
+	"komrad/internal/ui/panel"
+)
 
 type derived[K comparable, V any] struct {
 	built bool
@@ -47,6 +51,6 @@ type listingKey struct {
 	filter     filterKey
 }
 
-func (m *model) listingKey() listingKey {
-	return listingKey{generation: m.listing.Generation, filter: m.filter.key()}
+func (m *model) listingKey(l panel.Listing) listingKey {
+	return listingKey{generation: l.Generation, filter: m.filter.key()}
 }

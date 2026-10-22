@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"komrad/internal/searchsyntax"
+	"komrad/internal/ui/panel"
 )
 
 var schedulesQuery = queryGrammar{syntax: searchsyntax.Schedules, check: checkSchedulesClause}
@@ -25,17 +26,19 @@ func checkSchedulesClause(clause searchsyntax.Clause, _ time.Time) error {
 	return nil
 }
 
-func (m *model) scheduleItemFits(item scheduleItem) clauseFits {
-	return func(clause searchsyntax.Clause) bool {
-		switch clause.Key {
-		case searchsyntax.KeyName:
-			return containsFold(item.schedule.Name, clause.Value)
-		case searchsyntax.KeyWorkflow:
-			return containsFold(m.listing.WorkflowName(item.schedule.WorkflowID), clause.Value)
-		case searchsyntax.KeyIs:
-			return !item.schedule.Enabled
-		}
+func (m *model) scheduleItemFits(l panel.Listing) func(scheduleItem) clauseFits {
+	return func(item scheduleItem) clauseFits {
+		return func(clause searchsyntax.Clause) bool {
+			switch clause.Key {
+			case searchsyntax.KeyName:
+				return containsFold(item.schedule.Name, clause.Value)
+			case searchsyntax.KeyWorkflow:
+				return containsFold(l.WorkflowName(item.schedule.WorkflowID), clause.Value)
+			case searchsyntax.KeyIs:
+				return !item.schedule.Enabled
+			}
 
-		return false
+			return false
+		}
 	}
 }

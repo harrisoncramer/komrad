@@ -14,3 +14,15 @@ type Inputs struct {
 
 // Holds is the files a reader edited over each paused agent's worktree, keyed by agent.
 type Holds map[string][]string
+
+// Relisted tells every screen the listing changed, carrying the listing it replaced.
+type Relisted struct {
+	Was panel.Listing
+}
+
+// Before is the inputs as they stood before the listing changed.
+func (r Relisted) Before(in Inputs) Inputs {
+	in.Listing = r.Was
+
+	return in
+}

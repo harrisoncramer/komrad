@@ -65,47 +65,25 @@ func (m *model) unreachableHint() string {
 	return "Start it with: komrad serve"
 }
 
-// withListing changes the listing the screens read from and puts each cursor back where it was.
+// withListing changes the listing the screens read from and tells each screen it changed.
 func (m *model) withListing(change func(*panel.Listing)) tea.Cmd {
 	m.frame.Begin()
 	defer m.frame.Flush()
 
-	treeRow := m.agents.list().hovered(m, m.inputs())
-	triageSlot := m.agents.findZoneSlot(m)
-	scheduleRow := m.schedules.list().hovered(m, m.inputs())
-	archiveShown := m.agents.shownArchive()
-	var archivedAgentRow string
-	if archiveShown != nil {
-		archivedAgentRow = archiveShown.list().hovered(m, m.inputs())
-	}
-	archivedScheduleRow := m.schedules.archived.list().hovered(m, m.inputs())
-	worktreeRow := m.worktrees.list().hovered(m, m.inputs())
-
-	before := slices.Clone(m.listing.Workflows)
-	beforeTypes := m.listing.DocumentTypeNames()
+	was := m.listing
 	change(&m.listing)
-
-	now := m.clock.Now()
-	m.agents.triage.refresh(m.listing.Agents, m.listing.Tasks, now)
-	m.agents.apply(m, m.inputs(), treeRow)
-	cmds := []tea.Cmd{m.apply(m.agents.followAwaitingCLI(m.inputs()))}
-	m.agents.landInTriage(m, m.inputs(), treeRow, triageSlot)
-	cmds = append(cmds, m.apply(m.schedules.apply(m, m.inputs(), scheduleRow)))
-	if archiveShown != nil {
-		archiveShown.place(m, m.inputs(), archivedAgentRow)
-	}
-	m.schedules.archived.place(m, m.inputs(), archivedScheduleRow)
-	m.applyWorktrees(m.listing.Worktrees, worktreeRow)
+	m.forgetUnlistedInspections()
+	relisted, _ := m.routeResult(screen.Relisted{Was: was})
 	m.sizeAgentWindows()
 
 	// A form renders its options from the listing it was built over, so it is rendered again when
 	// that listing moves under it.
 	var rerendered tea.Cmd
-	if !reflect.DeepEqual(before, m.listing.Workflows) || !slices.Equal(beforeTypes, m.listing.DocumentTypeNames()) {
+	if !reflect.DeepEqual(was.Workflows, m.listing.Workflows) || !slices.Equal(was.DocumentTypeNames(), m.listing.DocumentTypeNames()) {
 		rerendered = m.rerenderOpenForm()
 	}
 
-	return tea.Batch(append(cmds, rerendered, m.finishParked(), m.afterListing())...)
+	return tea.Batch(relisted, rerendered, m.finishParked(), m.afterListing())
 }
 
 // afterListing asks for what the hovered rows are owed and stages the screen over them.

@@ -74,8 +74,15 @@ func (a *archivedSchedules) update(m *model, in screen.Inputs, msg tea.Msg) scre
 	return a.list().update(m, key, a.actions())
 }
 
-func (a *archivedSchedules) receive(*model, screen.Inputs, tea.Msg) (screen.Request, bool) {
-	return nil, false
+func (a *archivedSchedules) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
+	relisted, ok := msg.(screen.Relisted)
+	if !ok {
+		return nil, false
+	}
+
+	a.place(m, in, a.list().hovered(m, relisted.Before(in)))
+
+	return nil, true
 }
 
 func (a *archivedSchedules) kinds(m *model) stops {
@@ -112,12 +119,12 @@ func (a *archivedSchedules) list() screenList[scheduleItem] {
 }
 
 func (a *archivedSchedules) listRows(m *model, in screen.Inputs) []scheduleItem {
-	return a.built.read(m.listingKey(), func() []scheduleItem {
+	return a.built.read(m.listingKey(in.Listing), func() []scheduleItem {
 		return narrowed(m.filter, narrowedParams[scheduleItem]{
 			rows:  xslice.Map(in.Listing.ArchivedSchedules, scheduleItemOf),
 			depth: func(scheduleItem) int { return 0 },
 			name:  func(item scheduleItem) string { return item.schedule.Name },
-			fits:  m.scheduleItemFits,
+			fits:  m.scheduleItemFits(in.Listing),
 		})
 	})
 }

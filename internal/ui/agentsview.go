@@ -168,7 +168,7 @@ func (a *agentsScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view
 		caret:        pane.Caret,
 		loaderFrame:  m.loading.frame(),
 		matcher:      m.filter.pattern,
-		picked:       pickedRows(m.filter, layout.cursorRows(), m.agentRowFits),
+		picked:       pickedRows(m.filter, layout.cursorRows(), m.agentRowFits(in.Listing)),
 		tasks:        in.Listing.Tasks,
 		renaming:     a.renamingField(),
 		showHidden:   a.showHidden,

@@ -39,7 +39,7 @@ func documentColumns() view.Columns {
 
 func (d *documentsScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
 	rows := d.rows(m, in)
-	picked := pickedRows(m.filter, rows, m.documentRowFits)
+	picked := pickedRows(m.filter, rows, m.documentRowFits(in.Listing))
 	now := m.clock.Now()
 	caret := pane.Caret
 	if d.isDiffFocused(m) {
@@ -75,7 +75,7 @@ func (d *documentsScreen) details(m *model, in screen.Inputs) details {
 		fields: []recordField{
 			{label: "type", value: label.OrDash(item.typeName)},
 			{label: "updated", value: label.OrDash(label.Friendly(item.updatedAt))},
-			{label: "agent", value: findAgentName(m, item.agentID)},
+			{label: "agent", value: findAgentName(m.listing, item.agentID)},
 		},
 	}
 }

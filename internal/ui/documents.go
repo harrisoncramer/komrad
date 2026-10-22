@@ -9,6 +9,7 @@ import (
 	"komrad/internal/ui/api"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
+	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 	"komrad/internal/vim"
@@ -118,7 +119,7 @@ func (d *documentsScreen) enter(m *model, in screen.Inputs, target screen.Target
 		case target.TaskID != "":
 			requests = append(requests, screen.Filter{Query: taskClause(in.Listing.Tasks[target.TaskID].Slug)})
 		case target.AgentID != "":
-			requests = append(requests, screen.Filter{Query: agentClause(findAgentName(m, target.AgentID))})
+			requests = append(requests, screen.Filter{Query: agentClause(findAgentName(in.Listing, target.AgentID))})
 		}
 	}
 
@@ -252,7 +253,7 @@ type documentRowsKey struct {
 func (d *documentsScreen) rows(m *model, in screen.Inputs) []documentRow {
 	key := documentRowsKey{
 		revision: d.revision,
-		listing:  m.listingKey(),
+		listing:  m.listingKey(in.Listing),
 		agentID:  d.agentID,
 		taskID:   d.taskID,
 	}
@@ -264,13 +265,13 @@ func (d *documentsScreen) rows(m *model, in screen.Inputs) []documentRow {
 			}),
 			depth: func(documentRow) int { return 0 },
 			name:  documentRowName,
-			fits:  m.documentRowFits,
+			fits:  m.documentRowFits(in.Listing),
 		})
 	})
 }
 
 func (d *documentsScreen) documentTypeRows(m *model, in screen.Inputs) []documentTypeRow {
-	return d.builtTypes.read(m.listingKey(), func() []documentTypeRow {
+	return d.builtTypes.read(m.listingKey(in.Listing), func() []documentTypeRow {
 		return narrowed(m.filter, narrowedParams[documentTypeRow]{
 			rows: xslice.Map(in.Listing.DocumentTypes, func(t *agentv1.DocumentType) documentTypeRow {
 				return documentTypeRow{documentType: t}
@@ -358,9 +359,9 @@ func (d *documentsScreen) back(*model) screen.Request {
 }
 
 // findAgentName is the name of the agent an id names, live or archived, and the id when neither.
-func findAgentName(m *model, agentID string) string {
-	if item, ok := m.listing.AnyAgent(agentID); ok {
-		return m.listing.AgentName(item.Agent)
+func findAgentName(l panel.Listing, agentID string) string {
+	if item, ok := l.AnyAgent(agentID); ok {
+		return l.AgentName(item.Agent)
 	}
 
 	return agentID

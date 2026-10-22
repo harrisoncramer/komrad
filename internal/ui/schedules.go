@@ -81,14 +81,16 @@ func (w *schedulesScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen
 }
 
 func (w *schedulesScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
-	settled, ok := msg.(api.RenameSettled)
-	if !ok {
-		return nil, false
+	switch msg := msg.(type) {
+	case api.RenameSettled:
+		w.settleRename(m, in, msg.Row, msg.Err)
+
+		return nil, true
+	case screen.Relisted:
+		return w.apply(m, in, w.list().hovered(m, msg.Before(in))), true
 	}
 
-	w.settleRename(m, in, settled.Row, settled.Err)
-
-	return nil, true
+	return nil, false
 }
 
 func (w *schedulesScreen) list() screenList[scheduleItem] {
@@ -104,12 +106,12 @@ func (w *schedulesScreen) list() screenList[scheduleItem] {
 }
 
 func (w *schedulesScreen) listRows(m *model, in screen.Inputs) []scheduleItem {
-	return w.built.read(m.listingKey(), func() []scheduleItem {
+	return w.built.read(m.listingKey(in.Listing), func() []scheduleItem {
 		return narrowed(m.filter, narrowedParams[scheduleItem]{
 			rows:  xslice.Map(in.Listing.Schedules, scheduleItemOf),
 			depth: func(scheduleItem) int { return 0 },
 			name:  scheduleItemName,
-			fits:  m.scheduleItemFits,
+			fits:  m.scheduleItemFits(in.Listing),
 		})
 	})
 }

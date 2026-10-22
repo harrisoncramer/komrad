@@ -37,8 +37,15 @@ func (w *worktreesScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen
 	return w.list().update(m, key, w.actions())
 }
 
-func (w *worktreesScreen) receive(*model, screen.Inputs, tea.Msg) (screen.Request, bool) {
-	return nil, false
+func (w *worktreesScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
+	relisted, ok := msg.(screen.Relisted)
+	if !ok {
+		return nil, false
+	}
+
+	w.apply(m, in, in.Listing.Worktrees, w.list().hovered(m, relisted.Before(in)))
+
+	return nil, true
 }
 
 func (w *worktreesScreen) list() screenList[worktreeRow] {
@@ -134,11 +141,10 @@ func (m *model) applyWorktreeInspection(msg worktreeInspectedMsg) {
 	m.inspections[msg.dir] = msg.inspection
 }
 
-// applyWorktrees hands the screen a fresh listing and forgets the readings of directories that
-// have left it.
-func (m *model) applyWorktrees(items []panel.Worktree, hovered string) {
-	listedDirs := make(map[string]bool, len(items))
-	for _, item := range items {
+// forgetUnlistedInspections forgets the readings of directories that have left the listing.
+func (m *model) forgetUnlistedInspections() {
+	listedDirs := make(map[string]bool, len(m.listing.Worktrees))
+	for _, item := range m.listing.Worktrees {
 		listedDirs[item.Dir] = true
 	}
 	for dir := range m.inspections {
@@ -146,8 +152,6 @@ func (m *model) applyWorktrees(items []panel.Worktree, hovered string) {
 			delete(m.inspections, dir)
 		}
 	}
-
-	m.worktrees.apply(m, m.inputs(), items, hovered)
 }
 
 func worktreesTabs() tabStrip {
