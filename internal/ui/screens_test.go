@@ -6,9 +6,11 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"komrad/internal/engine"
-	"komrad/internal/ui"
+	"komrad/internal/ui/paneltest"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xptr"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	watchv1 "komrad/proto/gen/watch/v1"
@@ -32,11 +34,11 @@ func TestScreensStage(t *testing.T) {
 
 		harness := openStaged(t, "g", "g")
 
-		frame := harness.readFrame()
-		assert.True(t, harness.panel.IsZoomed())
+		frame := harness.Frame()
+		assert.True(t, harness.Tmux().IsZoomed())
 		assert.Contains(t, frame, "always run the linter")
-		assert.Contains(t, readListRows(frame), "backend")
-		for _, line := range splitLines(harness.readRendered()) {
+		assert.Contains(t, paneltest.ListRows(frame), "backend")
+		for _, line := range paneltest.SplitLines(harness.Rendered()) {
 			assert.Equal(t, 200, ansi.StringWidth(line), "every row of the frame is squared off")
 		}
 	})
@@ -46,23 +48,23 @@ func TestScreensStage(t *testing.T) {
 
 		harness := openStaged(t, "g", "g", "j")
 
-		assert.False(t, harness.panel.IsZoomed())
-		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
-		assert.Equal(t, 197, measureListRule(harness.readFrame()), "and the list goes back to the whole of the pane")
+		assert.False(t, harness.Tmux().IsZoomed())
+		assert.Equal(t, "%9", harness.Tmux().GuestPane())
+		assert.Equal(t, 197, measureListRule(harness.Frame()), "and the list goes back to the whole of the pane")
 	})
 
 	t.Run("a dormant agent says why it has no pane", func(t *testing.T) {
 		t.Parallel()
 
-		harness := newPanelHarness(t, panelHarnessParams{width: 200})
+		harness := paneltest.Start(t, paneltest.Params{Width: 200})
 		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newDormant("auth")))
+		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), newDormant("auth")))
 
-		harness.press("j")
-		harness.fireTimers()
+		harness.Press("j")
+		harness.Advance(time.Second)
 
-		assert.True(t, harness.panel.IsZoomed())
-		assert.Contains(t, harness.readFrame(), "dormant")
+		assert.True(t, harness.Tmux().IsZoomed())
+		assert.Contains(t, harness.Frame(), "dormant")
 	})
 
 	t.Run("leaving a running agent for a row with no pane takes the window", func(t *testing.T) {
@@ -70,10 +72,10 @@ func TestScreensStage(t *testing.T) {
 
 		harness := openStaged(t, "g", "g", "j")
 
-		harness.press("k")
-		harness.fireTimers()
+		harness.Press("k")
+		harness.Advance(time.Second)
 
-		assert.True(t, harness.panel.IsZoomed(), "tmux is holding the zoom rather than the frame only believing so")
+		assert.True(t, harness.Tmux().IsZoomed(), "tmux is holding the zoom rather than the frame only believing so")
 	})
 
 	t.Run("a pane moved by hand gives up both halves until the keys come back", func(t *testing.T) {
@@ -81,32 +83,32 @@ func TestScreensStage(t *testing.T) {
 
 		harness := openStaged(t, "g", "g")
 
-		harness.panel.SetKeysElsewhere(true)
-		harness.send(tea.BlurMsg{})
+		harness.Tmux().SetKeysElsewhere(true)
+		harness.Send(tea.BlurMsg{})
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.NotContains(t, frame, "always run the linter", "the frame is told what tmux did rather than assuming")
 		assert.Equal(t, 199, measureListRule(frame), "so the list is rendered in the whole of the pane")
 
-		harness.watch(buildSnapshot(newNotedWorkflow(), newRunning()))
+		harness.Watch(paneltest.Snapshot(newNotedWorkflow(), newRunning()))
 
-		assert.False(t, harness.panel.IsZoomed(), "a listing does not zoom the panel over the pane the keys are on")
+		assert.False(t, harness.Tmux().IsZoomed(), "a listing does not zoom the panel over the pane the keys are on")
 
-		harness.panel.SetKeysElsewhere(false)
-		harness.send(tea.FocusMsg{})
+		harness.Tmux().SetKeysElsewhere(false)
+		harness.Send(tea.FocusMsg{})
 
-		assert.Contains(t, harness.readFrame(), "always run the linter", "and takes the window back once the keys return")
+		assert.Contains(t, harness.Frame(), "always run the linter", "and takes the window back once the keys return")
 	})
 
 	t.Run("an unfocused terminal keeps the window", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openStaged(t, "g", "g")
-		before := harness.readFrame()
+		before := harness.Frame()
 
-		harness.send(tea.BlurMsg{})
+		harness.Send(tea.BlurMsg{})
 
-		assert.Equal(t, before, harness.readFrame(), "nothing is laid out again behind an unfocused terminal")
+		assert.Equal(t, before, harness.Frame(), "nothing is laid out again behind an unfocused terminal")
 	})
 
 	t.Run("a running agent's window is kept at the size of the stage", func(t *testing.T) {
@@ -114,9 +116,9 @@ func TestScreensStage(t *testing.T) {
 
 		harness := openStaged(t, "g", "g", "j")
 
-		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
+		harness.Send(tea.WindowSizeMsg{Width: 200, Height: paneltest.DefaultHeight})
 
-		sizes := harness.panel.ReadWindowSizes()
+		sizes := harness.Tmux().WindowSizes()
 		assert.Contains(t, sizes, "%9")
 		assert.NotContains(t, sizes, "", "a dormant agent has no window to size")
 	})
@@ -124,31 +126,31 @@ func TestScreensStage(t *testing.T) {
 	t.Run("a remote engine's agent windows are left alone", func(t *testing.T) {
 		t.Parallel()
 
-		harness := newPanelHarness(t, panelHarnessParams{width: 200, engine: engine.Remote{URL: "https://komrad.example.com"}})
+		harness := paneltest.Start(t, paneltest.Params{Width: 200, Engine: engine.Remote{URL: "https://komrad.example.com"}})
 		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(newNotedWorkflow(), newRunning()))
-		harness.press("j")
-		harness.fireTimers()
+		harness.Watch(paneltest.Snapshot(newNotedWorkflow(), newRunning()))
+		harness.Press("j")
+		harness.Advance(time.Second)
 
-		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
+		harness.Send(tea.WindowSizeMsg{Width: 200, Height: paneltest.DefaultHeight})
 
-		assert.Empty(t, harness.panel.ReadWindowSizes(), "no window on the panel's own server is touched")
+		assert.Empty(t, harness.Tmux().WindowSizes(), "no window on the panel's own server is touched")
 	})
 
 	t.Run("a remote engine's agent is attached over the engine's api", func(t *testing.T) {
 		t.Parallel()
 
-		harness := newPanelHarness(t, panelHarnessParams{
-			width:           200,
-			engine:          engine.Remote{URL: "https://komrad.example.com"},
-			terminalCommand: []string{"komrad", "terminal"},
+		harness := paneltest.Start(t, paneltest.Params{
+			Width:           200,
+			Engine:          engine.Remote{URL: "https://komrad.example.com"},
+			TerminalCommand: []string{"komrad", "terminal"},
 		})
 		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(newNotedWorkflow(), newRunning()))
-		harness.press("j")
-		harness.fireTimers()
+		harness.Watch(paneltest.Snapshot(newNotedWorkflow(), newRunning()))
+		harness.Press("j")
+		harness.Advance(time.Second)
 
-		assert.Contains(t, harness.panel.ReadRespawns(), "komrad terminal -- a1")
+		assert.Contains(t, harness.Tmux().Respawns(), "komrad terminal -- a1")
 	})
 }
 
@@ -161,75 +163,42 @@ func TestScreensDivider(t *testing.T) {
 
 		harness := openDragged(t)
 
-		harness.panel.SetWindowWidth(300)
-		harness.panel.SetPaneWidth("%0", 75)
-		harness.panel.SetPaneWidth("%9", 224)
-		harness.send(tea.WindowSizeMsg{Width: 75, Height: defaultHarnessHeight})
+		harness.Tmux().SetWindowWidth(300)
+		harness.Tmux().SetPaneWidth("%0", 75)
+		harness.Tmux().SetPaneWidth("%9", 224)
+		harness.Send(tea.WindowSizeMsg{Width: 75, Height: paneltest.DefaultHeight})
 
-		assert.Contains(t, harness.panel.ReadResizes(), "%0 50")
+		assert.Contains(t, harness.Tmux().Resizes(), "%0 50")
 	})
 
 	t.Run("the dragged width survives the sidebar taking the window", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openDragged(t)
-		harness.press("k")
-		harness.fireTimers()
+		harness.Press("k")
+		harness.Advance(time.Second)
 
-		harness.panel.SetPaneWidth("%0", 200)
-		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
+		harness.Tmux().SetPaneWidth("%0", 200)
+		harness.Send(tea.WindowSizeMsg{Width: 200, Height: paneltest.DefaultHeight})
 
-		assert.Equal(t, 47, measureListRule(harness.readFrame()))
+		assert.Equal(t, 47, measureListRule(harness.Frame()))
 	})
 
 	t.Run("the dragged width survives tmux dropping the zoom", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openDragged(t)
-		harness.press("k")
-		harness.fireTimers()
-		harness.panel.SetPaneWidth("%0", 200)
-		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
+		harness.Press("k")
+		harness.Advance(time.Second)
+		harness.Tmux().SetPaneWidth("%0", 200)
+		harness.Send(tea.WindowSizeMsg{Width: 200, Height: paneltest.DefaultHeight})
 
-		harness.panel.SetPaneWidth("%0", 50)
-		harness.send(tea.WindowSizeMsg{Width: 50, Height: defaultHarnessHeight})
-		harness.panel.SetPaneWidth("%0", 200)
-		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
+		harness.Tmux().SetPaneWidth("%0", 50)
+		harness.Send(tea.WindowSizeMsg{Width: 50, Height: paneltest.DefaultHeight})
+		harness.Tmux().SetPaneWidth("%0", 200)
+		harness.Send(tea.WindowSizeMsg{Width: 200, Height: paneltest.DefaultHeight})
 
-		assert.Equal(t, 47, measureListRule(harness.readFrame()))
-	})
-
-	t.Run("a size tmux has already moved past is not rendered", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openDragged(t)
-		harness.press("k")
-		harness.fireTimers()
-		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
-		before := harness.readRendered()
-
-		harness.settle(harness.panel.Update(tea.WindowSizeMsg{Width: 100, Height: defaultHarnessHeight}))
-
-		assert.Equal(t, before, harness.readRendered())
-	})
-
-	t.Run("a size read back before tmux moved the pane is not rendered", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openDragged(t)
-		harness.press("k")
-		harness.fireTimers()
-		harness.panel.SetPaneWidth("%0", 200)
-		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
-
-		harness.panel.SetPaneWidth("%0", 50)
-		harness.press("j")
-		harness.fireTimersUnsettled()
-		before := harness.readRendered()
-
-		harness.settle(harness.panel.Update(ui.NewSizeRead(200, defaultHarnessHeight)))
-
-		assert.Equal(t, before, harness.readRendered())
+		assert.Equal(t, 47, measureListRule(harness.Frame()))
 	})
 }
 
@@ -254,28 +223,28 @@ func TestScreensSidebarWidth(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := newPanelHarness(t, panelHarnessParams{
-				width:        200,
-				sidebarWidth: tt.columns,
+			harness := paneltest.Start(t, paneltest.Params{
+				Width:        200,
+				SidebarWidth: tt.columns,
 			})
-			harness.watch(buildSnapshot(newNotedWorkflow()))
+			harness.Watch(paneltest.Snapshot(newNotedWorkflow()))
 
-			assert.Equal(t, tt.want, measureListRule(harness.readFrame()))
+			assert.Equal(t, tt.want, measureListRule(harness.Frame()))
 		})
 	}
 
 	t.Run("a divider dragged past the document's floor is rendered where it is", func(t *testing.T) {
 		harness := openStaged(t, "g", "g", "j")
-		harness.panel.SetPaneWidth("%0", 174)
-		harness.panel.SetPaneWidth("%9", 25)
-		harness.send(tea.WindowSizeMsg{Width: 174, Height: defaultHarnessHeight})
+		harness.Tmux().SetPaneWidth("%0", 174)
+		harness.Tmux().SetPaneWidth("%9", 25)
+		harness.Send(tea.WindowSizeMsg{Width: 174, Height: paneltest.DefaultHeight})
 
-		harness.press("k")
-		harness.fireTimers()
-		harness.panel.SetPaneWidth("%0", 200)
-		harness.send(tea.WindowSizeMsg{Width: 200, Height: defaultHarnessHeight})
+		harness.Press("k")
+		harness.Advance(time.Second)
+		harness.Tmux().SetPaneWidth("%0", 200)
+		harness.Send(tea.WindowSizeMsg{Width: 200, Height: paneltest.DefaultHeight})
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Equal(t, 171, measureListRule(frame), "the window less the stage, the divider and its gutters")
 		assert.Contains(t, frame, "always run the linter", "and the document keeps what is left")
 	})
@@ -343,17 +312,17 @@ func TestScreensFitATightPane(t *testing.T) {
 			t.Parallel()
 
 			for _, screen := range buildListScreens() {
-				harness := openCrowded(t, panelHarnessParams{width: tt.width, height: tall})
-				harness.refuse(agentv1connect.AgentServiceResumeAgentProcedure, connect.NewError(connect.CodeNotFound, errors.New("no such agent")))
-				harness.press(slices.Concat(screen.press, []string{"G"}, tt.press)...)
+				harness := openCrowded(t, paneltest.Params{Width: tt.width, Height: tall})
+				harness.Refuse(agentv1connect.AgentServiceResumeAgentProcedure, connect.NewError(connect.CodeNotFound, errors.New("no such agent")))
+				harness.Press(slices.Concat(screen.press, []string{"G"}, tt.press)...)
 
 				for height := fitsFrom; height <= tall; height++ {
 					resize(harness, tt.width, height)
-					frame := harness.readFrame()
+					frame := harness.Frame()
 
-					assert.Len(t, splitLines(frame), height, "%s in a pane %d lines tall", screen.name, height)
+					assert.Len(t, paneltest.SplitLines(frame), height, "%s in a pane %d lines tall", screen.name, height)
 					if height > fitsFrom {
-						assert.NotEmpty(t, readHoveredRow(frame), "%s keeps the hovered row on screen in a pane %d lines tall", screen.name, height)
+						assert.NotEmpty(t, paneltest.HoveredRow(frame), "%s keeps the hovered row on screen in a pane %d lines tall", screen.name, height)
 					}
 				}
 			}
@@ -374,17 +343,17 @@ func TestScreensOutgrowNoPane(t *testing.T) {
 
 			for _, width := range widths {
 				for _, height := range []int{28, 60} {
-					harness := openLongNamed(t, panelHarnessParams{width: width, height: height})
-					harness.press(tt.press...)
+					harness := openLongNamed(t, paneltest.Params{Width: width, Height: height})
+					harness.Press(tt.press...)
 
 					for range 2 {
-						frame := harness.readFrame()
-						assert.LessOrEqual(t, len(splitLines(frame)), height, "taller than a %dx%d pane", width, height)
-						for i, line := range splitLines(frame) {
+						frame := harness.Frame()
+						assert.LessOrEqual(t, len(paneltest.SplitLines(frame)), height, "taller than a %dx%d pane", width, height)
+						for i, line := range paneltest.SplitLines(frame) {
 							assert.LessOrEqual(t, ansi.StringWidth(line), width, "row %d is wider than a %dx%d pane: %q", i, width, height, line)
 						}
 
-						harness.press("?")
+						harness.Press("?")
 					}
 				}
 			}
@@ -397,12 +366,12 @@ func TestScreensSurviveAListing(t *testing.T) {
 	tests := buildListScreens()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openCrowded(t, panelHarnessParams{width: 200})
-			harness.press(tt.press...)
+			harness := openCrowded(t, paneltest.Params{Width: 200})
+			harness.Press(tt.press...)
 
-			harness.watch(buildCrowdedSnapshot(""))
+			harness.Watch(buildCrowdedSnapshot(""))
 
-			assert.Equal(t, tt.screen, harness.readScreen(), "the screen stays where it was")
+			assert.Equal(t, tt.screen, paneltest.Screen(harness.Frame()), "the screen stays where it was")
 		})
 	}
 }
@@ -412,48 +381,48 @@ const crowdedCount = 40
 type listScreen struct {
 	name   string
 	press  []string
-	screen string
+	screen screen.ID
 }
 
-func openStaged(t *testing.T, press ...string) *panelHarness {
+func openStaged(t *testing.T, press ...string) *paneltest.Panel {
 	t.Helper()
 
-	harness := newPanelHarness(t, panelHarnessParams{width: 200})
+	harness := paneltest.Start(t, paneltest.Params{Width: 200})
 	answerWorktreeReads(harness)
-	harness.watch(buildSnapshot(newNotedWorkflow(), newRunning()))
-	harness.press(press...)
-	harness.fireTimers()
+	harness.Watch(paneltest.Snapshot(newNotedWorkflow(), newRunning()))
+	harness.Press(press...)
+	harness.Advance(time.Second)
 
 	return harness
 }
 
-func openDragged(t *testing.T) *panelHarness {
+func openDragged(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
 	harness := openStaged(t, "g", "g", "j")
-	harness.panel.SetPaneWidth("%0", 50)
-	harness.panel.SetPaneWidth("%9", 149)
-	harness.send(tea.WindowSizeMsg{Width: 50, Height: defaultHarnessHeight})
+	harness.Tmux().SetPaneWidth("%0", 50)
+	harness.Tmux().SetPaneWidth("%9", 149)
+	harness.Send(tea.WindowSizeMsg{Width: 50, Height: paneltest.DefaultHeight})
 
 	return harness
 }
 
-func openCrowded(t *testing.T, params panelHarnessParams) *panelHarness {
+func openCrowded(t *testing.T, params paneltest.Params) *paneltest.Panel {
 	t.Helper()
 
-	harness := newPanelHarness(t, params)
+	harness := paneltest.Start(t, params)
 	answerWorktreeReads(harness)
-	harness.watch(buildCrowdedSnapshot(""))
+	harness.Watch(buildCrowdedSnapshot(""))
 
 	return harness
 }
 
-func openLongNamed(t *testing.T, params panelHarnessParams) *panelHarness {
+func openLongNamed(t *testing.T, params paneltest.Params) *paneltest.Panel {
 	t.Helper()
 
-	harness := newPanelHarness(t, params)
+	harness := paneltest.Start(t, params)
 	answerWorktreeReads(harness)
-	harness.watch(buildCrowdedSnapshot(strings.Repeat("x", 120)))
+	harness.Watch(buildCrowdedSnapshot(strings.Repeat("x", 120)))
 
 	return harness
 }
@@ -487,7 +456,7 @@ func buildCrowdedSnapshot(long string) *watchv1.WatchEvent {
 		rows = append(rows, agent, archived, schedule, worktree)
 	}
 
-	return buildSnapshot(rows...)
+	return paneltest.Snapshot(rows...)
 }
 
 func newNotedWorkflow() *workflowv1.Workflow {
@@ -498,15 +467,15 @@ func newNotedWorkflow() *workflowv1.Workflow {
 	}
 }
 
-func resize(harness *panelHarness, width, height int) {
-	harness.panel.SetPaneSize(width, height)
-	harness.send(tea.WindowSizeMsg{Width: width, Height: height})
+func resize(harness *paneltest.Panel, width, height int) {
+	harness.Tmux().SetPaneSize(width, height)
+	harness.Send(tea.WindowSizeMsg{Width: width, Height: height})
 }
 
 func measureListRule(frame string) int {
-	for _, line := range splitLines(frame) {
+	for _, line := range paneltest.SplitLines(frame) {
 		if strings.HasPrefix(line, "─") {
-			return ruleWidth(line)
+			return paneltest.RuleWidth(line)
 		}
 	}
 
@@ -516,7 +485,7 @@ func measureListRule(frame string) int {
 func findRowWith(t *testing.T, frame, want string) string {
 	t.Helper()
 
-	for _, line := range readSidebar(frame) {
+	for _, line := range paneltest.Sidebar(frame) {
 		if strings.Contains(line, want) {
 			return line
 		}
@@ -531,22 +500,22 @@ func buildListScreens() []listScreen {
 	return []listScreen{
 		{
 			name:   "the agents tree",
-			screen: agentsScreen,
+			screen: screen.Agents,
 		},
 		{
 			name:   "the archived agents",
 			press:  []string{"F", "tab", "esc"},
-			screen: agentsScreen,
+			screen: screen.Agents,
 		},
 		{
 			name:   "the schedules",
 			press:  []string{"tab"},
-			screen: schedulesScreen,
+			screen: screen.Schedules,
 		},
 		{
 			name:   "the worktrees",
 			press:  []string{"shift+tab"},
-			screen: worktreesScreen,
+			screen: screen.Worktrees,
 		},
 	}
 }

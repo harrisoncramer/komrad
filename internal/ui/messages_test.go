@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -13,7 +14,7 @@ import (
 
 	"komrad/internal/caller"
 	"komrad/internal/engine"
-	"komrad/internal/ui"
+	"komrad/internal/ui/paneltest"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 )
@@ -21,115 +22,115 @@ import (
 // TestMessagesHeader covers a message flashing on the engine line and what it leaves there.
 func TestMessagesHeader(t *testing.T) {
 	t.Run("dismissing the message that landed ends its flash", func(t *testing.T) {
-		harness := openMessages(t, panelHarnessParams{sidebarWidth: 60})
+		harness := openMessages(t, paneltest.Params{SidebarWidth: 60})
 
-		harness.press("enter", "enter", "ctrl+g", "d", "esc")
+		harness.Press("enter", "enter", "ctrl+g", "d", "esc")
 
-		assert.Equal(t, "\uf444 local  ✗ 1  C-g", readEngineLine(harness.readFrame()))
+		assert.Equal(t, "\uf444 local  ✗ 1  C-g", readEngineLine(harness.Frame()))
 	})
 
 	t.Run("an info message leaves nothing once the flash is over", func(t *testing.T) {
 		harness := openWorktrees(t)
 
-		harness.press("space", "c", "y")
-		harness.watch(buildDeletedWorktrees("/trees/admin", "/trees/archived", "/trees/broken", "/trees/orphan"))
-		require.Contains(t, readEngineLine(harness.readFrame()), "·")
+		harness.Press("space", "c", "y")
+		harness.Watch(buildDeletedWorktrees("/trees/admin", "/trees/archived", "/trees/broken", "/trees/orphan"))
+		require.Contains(t, readEngineLine(harness.Frame()), "·")
 		settleFlash(harness)
 
-		assert.Equal(t, " local", readEngineLine(harness.readFrame()))
+		assert.Equal(t, " local", readEngineLine(harness.Frame()))
 	})
 }
 
 // TestMessagesPane covers every message read in the main pane.
 func TestMessagesPane(t *testing.T) {
 	t.Run("the key is refused with nothing to read", func(t *testing.T) {
-		harness := openMessages(t, panelHarnessParams{})
+		harness := openMessages(t, paneltest.Params{})
 
-		harness.press("ctrl+g", "k")
+		harness.Press("ctrl+g", "k")
 
-		assert.Equal(t, "backend", readHoveredRow(harness.readFrame()), "the list kept the keys")
+		assert.Equal(t, "backend", paneltest.HoveredRow(harness.Frame()), "the list kept the keys")
 	})
 
 	t.Run("the cursor walks from the newest message back", func(t *testing.T) {
-		harness := openMessages(t, panelHarnessParams{})
-		harness.press("enter", "enter", "enter", "ctrl+g")
+		harness := openMessages(t, paneltest.Params{})
+		harness.Press("enter", "enter", "enter", "ctrl+g")
 
 		var tallies []string
 		for _, key := range []string{"j", "j", "j", "k"} {
-			tallies = append(tallies, readPaneTally(harness.readFrame()))
-			harness.press(key)
+			tallies = append(tallies, readPaneTally(harness.Frame()))
+			harness.Press(key)
 		}
-		tallies = append(tallies, readPaneTally(harness.readFrame()))
+		tallies = append(tallies, readPaneTally(harness.Frame()))
 
 		assert.Equal(t, []string{"1 of 3", "2 of 3", "3 of 3", "3 of 3", "2 of 3"}, tallies)
 	})
 
 	t.Run("the message under the cursor is rendered whole in a short pane", func(t *testing.T) {
 		for height := 9; height <= 16; height++ {
-			harness := openMessages(t, panelHarnessParams{height: height})
-			harness.press("enter", "enter", "enter", "ctrl+g")
+			harness := openMessages(t, paneltest.Params{Height: height})
+			harness.Press("enter", "enter", "enter", "ctrl+g")
 
 			for at := range 3 {
-				stage := readStage(harness.readFrame())
+				stage := paneltest.Stage(harness.Frame())
 				caret := slices.IndexFunc(stage, func(line string) bool { return strings.HasPrefix(strings.TrimSpace(line), "›") })
 				require.GreaterOrEqual(t, caret, 0, "message %d at height %d", at, height)
 				require.Less(t, caret+2, len(stage), "message %d at height %d", at, height)
 				assert.Contains(t, stage[caret+2], "komrad log "+traceID, "message %d at height %d", at, height)
-				harness.press("j")
+				harness.Press("j")
 			}
 		}
 	})
 
 	t.Run("d dismisses the message under the cursor and the last one hands the keys back", func(t *testing.T) {
-		harness := openMessages(t, panelHarnessParams{})
-		harness.press("enter", "enter", "ctrl+g", "d")
+		harness := openMessages(t, paneltest.Params{})
+		harness.Press("enter", "enter", "ctrl+g", "d")
 
-		assert.Equal(t, "1 of 1", readPaneTally(harness.readFrame()))
+		assert.Equal(t, "1 of 1", readPaneTally(harness.Frame()))
 
-		harness.press("d", "k")
+		harness.Press("d", "k")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.NotContains(t, frame, "Could not resume")
-		assert.Equal(t, "backend", readHoveredRow(frame))
+		assert.Equal(t, "backend", paneltest.HoveredRow(frame))
 	})
 
 	t.Run("D dismisses every message", func(t *testing.T) {
-		harness := openMessages(t, panelHarnessParams{sidebarWidth: 60})
-		harness.press("enter", "enter", "ctrl+g", "D")
+		harness := openMessages(t, paneltest.Params{SidebarWidth: 60})
+		harness.Press("enter", "enter", "ctrl+g", "D")
 		settleFlash(harness)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.NotContains(t, frame, "Could not resume")
 		assert.Equal(t, " local", readEngineLine(frame))
 	})
 
 	t.Run("esc hands the keys back and keeps the messages", func(t *testing.T) {
-		harness := openMessages(t, panelHarnessParams{sidebarWidth: 60})
-		harness.press("enter", "ctrl+g", "esc", "k")
+		harness := openMessages(t, paneltest.Params{SidebarWidth: 60})
+		harness.Press("enter", "ctrl+g", "esc", "k")
 		settleFlash(harness)
 
-		frame := harness.readFrame()
-		assert.Equal(t, "backend", readHoveredRow(frame))
+		frame := harness.Frame()
+		assert.Equal(t, "backend", paneltest.HoveredRow(frame))
 		assert.Equal(t, " local  ✗ 1  C-g", readEngineLine(frame))
 	})
 
 	t.Run("a message landing while the pane is read leaves the reader where they were", func(t *testing.T) {
-		harness := openMessages(t, panelHarnessParams{})
+		harness := openMessages(t, paneltest.Params{})
 
-		harness.press("enter")
-		harness.hold(agentv1connect.AgentServiceResumeAgentProcedure)
-		harness.press("enter", "ctrl+g")
-		harness.release(agentv1connect.AgentServiceResumeAgentProcedure)
+		harness.Press("enter")
+		harness.Hold(agentv1connect.AgentServiceResumeAgentProcedure)
+		harness.Press("enter", "ctrl+g")
+		harness.Release(agentv1connect.AgentServiceResumeAgentProcedure)
 
-		assert.Equal(t, "2 of 2", readPaneTally(harness.readFrame()))
+		assert.Equal(t, "2 of 2", readPaneTally(harness.Frame()))
 	})
 
 	t.Run("the messages stand in for a form opened over the list", func(t *testing.T) {
-		harness := openMessages(t, panelHarnessParams{})
+		harness := openMessages(t, paneltest.Params{})
 
-		harness.press("enter", "c", "ctrl+g")
+		harness.Press("enter", "c", "ctrl+g")
 
-		stage := joinProse(readStage(harness.readFrame()))
+		stage := paneltest.JoinProse(paneltest.Stage(harness.Frame()))
 		assert.Contains(t, stage, "messages 1 of 1")
 		assert.Contains(t, stage, "komrad log "+traceID)
 	})
@@ -137,9 +138,9 @@ func TestMessagesPane(t *testing.T) {
 	t.Run("the unreachable server says what to do about it", func(t *testing.T) {
 		harness := openUnreachable(t, engine.Remote{})
 
-		harness.press("ctrl+g")
+		harness.Press("ctrl+g")
 
-		pane := joinProse(readStage(harness.readFrame()))
+		pane := paneltest.JoinProse(paneltest.Stage(harness.Frame()))
 		assert.Contains(t, pane, "connection refused")
 		assert.Contains(t, pane, "Start it with: komrad serve")
 	})
@@ -148,25 +149,25 @@ func TestMessagesPane(t *testing.T) {
 // TestMessagesCopy covers y putting the message under the cursor on the clipboard.
 func TestMessagesCopy(t *testing.T) {
 	t.Run("the message under the cursor is put on the clipboard", func(t *testing.T) {
-		harness := openMessages(t, panelHarnessParams{})
-		harness.press("enter", "ctrl+g", "y")
+		harness := openMessages(t, paneltest.Params{})
+		harness.Press("enter", "ctrl+g", "y")
 
-		assert.Equal(t, []string{"Could not resume agent \"api-refactor\"\n\nno such agent\n\nkomrad log " + traceID}, harness.panel.ReadCopied())
+		assert.Equal(t, []string{"Could not resume agent \"api-refactor\"\n\nno such agent\n\nkomrad log " + traceID}, harness.Copied())
 	})
 
 	t.Run("the copied message keeps its flash when another lands above it", func(t *testing.T) {
-		harness := openMessages(t, panelHarnessParams{})
-		harness.press("enter")
-		harness.refuse(agentv1connect.AgentServiceResumeAgentProcedure, newTracedRefusal("gone for good"))
-		harness.hold(agentv1connect.AgentServiceResumeAgentProcedure)
-		harness.press("enter", "ctrl+g")
+		harness := openMessages(t, paneltest.Params{})
+		harness.Press("enter")
+		harness.Refuse(agentv1connect.AgentServiceResumeAgentProcedure, newTracedRefusal("gone for good"))
+		harness.Hold(agentv1connect.AgentServiceResumeAgentProcedure)
+		harness.Press("enter", "ctrl+g")
 		settleFlash(harness)
 		plain := readStyledSummary(harness, "no such agent")
-		harness.press("y")
+		harness.Press("y")
 		flashed := readStyledSummary(harness, "no such agent")
 		require.NotEqual(t, plain, flashed, "the copy flashes the row")
 
-		harness.release(agentv1connect.AgentServiceResumeAgentProcedure)
+		harness.Release(agentv1connect.AgentServiceResumeAgentProcedure)
 
 		assert.Equal(t, flashed, readStyledSummary(harness, "no such agent"))
 	})
@@ -178,14 +179,14 @@ func TestMessagesGolden(t *testing.T) {
 
 	tests := []struct {
 		name string
-		open func(t *testing.T) *panelHarness
-		read func(harness *panelHarness) string
+		open func(t *testing.T) *paneltest.Panel
+		read func(harness *paneltest.Panel) string
 	}{
 		{
 			name: "an-error-flashing",
-			open: func(t *testing.T) *panelHarness {
-				harness := openMessages(t, panelHarnessParams{sidebarWidth: 60})
-				harness.press("enter")
+			open: func(t *testing.T) *paneltest.Panel {
+				harness := openMessages(t, paneltest.Params{SidebarWidth: 60})
+				harness.Press("enter")
 				settlePulse(harness)
 
 				return harness
@@ -194,9 +195,9 @@ func TestMessagesGolden(t *testing.T) {
 		},
 		{
 			name: "errors-counted",
-			open: func(t *testing.T) *panelHarness {
-				harness := openMessages(t, panelHarnessParams{sidebarWidth: 60})
-				harness.press("enter", "enter")
+			open: func(t *testing.T) *paneltest.Panel {
+				harness := openMessages(t, paneltest.Params{SidebarWidth: 60})
+				harness.Press("enter", "enter")
 				settleFlash(harness)
 
 				return harness
@@ -205,9 +206,9 @@ func TestMessagesGolden(t *testing.T) {
 		},
 		{
 			name: "the-pane-holding-the-keys",
-			open: func(t *testing.T) *panelHarness {
-				harness := openMessages(t, panelHarnessParams{})
-				harness.press("enter", "enter", "enter", "ctrl+g", "j")
+			open: func(t *testing.T) *paneltest.Panel {
+				harness := openMessages(t, paneltest.Params{})
+				harness.Press("enter", "enter", "enter", "ctrl+g", "j")
 				settleFlash(harness)
 
 				return harness
@@ -216,11 +217,11 @@ func TestMessagesGolden(t *testing.T) {
 		},
 		{
 			name: "a-copied-message",
-			open: func(t *testing.T) *panelHarness {
-				harness := openMessages(t, panelHarnessParams{})
-				harness.press("enter", "ctrl+g")
+			open: func(t *testing.T) *paneltest.Panel {
+				harness := openMessages(t, paneltest.Params{})
+				harness.Press("enter", "ctrl+g")
 				settleFlash(harness)
-				harness.press("y")
+				harness.Press("y")
 
 				return harness
 			},
@@ -234,7 +235,7 @@ func TestMessagesGolden(t *testing.T) {
 
 			harness := tt.open(t)
 
-			ui.RequireGolden(t, "messages-"+tt.name, landedAt.ReplaceAllString(tt.read(harness), "<landed>"))
+			paneltest.RequireGolden(t, "messages-"+tt.name, landedAt.ReplaceAllString(tt.read(harness), "<landed>"))
 		})
 	}
 }
@@ -270,12 +271,12 @@ func TestMessagesRefusedWrites(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openAgents(t, newLiveWorkflow("w1", "backend"), tt.agent)
-			harness.refuse(tt.refused, connect.NewError(connect.CodeFailedPrecondition, errors.New(tt.reason)))
+			harness.Refuse(tt.refused, connect.NewError(connect.CodeFailedPrecondition, errors.New(tt.reason)))
 
-			harness.press(tt.press...)
-			harness.press("ctrl+g")
+			harness.Press(tt.press...)
+			harness.Press("ctrl+g")
 
-			pane := joinProse(readStage(harness.readFrame()))
+			pane := paneltest.JoinProse(paneltest.Stage(harness.Frame()))
 			assert.Contains(t, pane, tt.wantSummary)
 			assert.Contains(t, pane, tt.reason, "the server's reason is shown rather than the connect code in front of it")
 		})
@@ -283,11 +284,11 @@ func TestMessagesRefusedWrites(t *testing.T) {
 
 	t.Run("a write that lands says nothing and takes nothing away", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newDormant("api-refactor"))
-		harness.refuse(agentv1connect.AgentServiceResumeAgentProcedure, connect.NewError(connect.CodeNotFound, errors.New("no such agent")))
+		harness.Refuse(agentv1connect.AgentServiceResumeAgentProcedure, connect.NewError(connect.CodeNotFound, errors.New("no such agent")))
 
-		harness.press("j", "enter", "space", "a", "enter", "ctrl+g")
+		harness.Press("j", "enter", "space", "a", "enter", "ctrl+g")
 
-		assert.Equal(t, "1 of 1", readPaneTally(harness.readFrame()), "the archive that landed pushed nothing onto the stack")
+		assert.Equal(t, "1 of 1", readPaneTally(harness.Frame()), "the archive that landed pushed nothing onto the stack")
 	})
 }
 
@@ -295,28 +296,24 @@ const traceID = "7c1f2a94"
 
 var landedAt = regexp.MustCompile(`[A-Z][a-z]{2} \d{1,2} at \d{1,2}:\d{2}[ap]m`)
 
-func openMessages(t *testing.T, params panelHarnessParams) *panelHarness {
+func openMessages(t *testing.T, params paneltest.Params) *paneltest.Panel {
 	t.Helper()
 
-	harness := newPanelHarness(t, params)
+	harness := paneltest.Start(t, params)
 	answerWorktreeReads(harness)
-	harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newDormant("api-refactor")))
-	harness.refuse(agentv1connect.AgentServiceResumeAgentProcedure, newTracedRefusal("no such agent"))
-	harness.press("j")
+	harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), newDormant("api-refactor")))
+	harness.Refuse(agentv1connect.AgentServiceResumeAgentProcedure, newTracedRefusal("no such agent"))
+	harness.Press("j")
 
 	return harness
 }
 
-func settlePulse(harness *panelHarness) {
-	for range 3 {
-		harness.firePulse()
-	}
+func settlePulse(harness *paneltest.Panel) {
+	harness.Advance(time.Second)
 }
 
-func settleFlash(harness *panelHarness) {
-	for range 4 {
-		harness.fireTimers()
-	}
+func settleFlash(harness *paneltest.Panel) {
+	harness.Advance(6 * time.Second)
 }
 
 func newTracedRefusal(reason string) error {
@@ -326,16 +323,16 @@ func newTracedRefusal(reason string) error {
 	return refusal
 }
 
-func readStyledEngineLine(harness *panelHarness) string {
-	return splitLines(harness.readRawFrame())[1]
+func readStyledEngineLine(harness *paneltest.Panel) string {
+	return paneltest.SplitLines(harness.RawFrame())[1]
 }
 
-func readStyledPane(harness *panelHarness) string {
-	return strings.Join(readStage(harness.readRawFrame()), "\n")
+func readStyledPane(harness *paneltest.Panel) string {
+	return strings.Join(paneltest.Stage(harness.RawFrame()), "\n")
 }
 
-func readStyledSummary(harness *panelHarness, summary string) string {
-	line := findLine(readStage(harness.readRawFrame()), summary)
+func readStyledSummary(harness *paneltest.Panel, summary string) string {
+	line := findLine(paneltest.Stage(harness.RawFrame()), summary)
 	at := strings.Index(line, summary)
 	if at < 0 {
 		return ""
@@ -345,7 +342,7 @@ func readStyledSummary(harness *panelHarness, summary string) string {
 }
 
 func readPaneTally(frame string) string {
-	for _, line := range readStage(frame) {
+	for _, line := range paneltest.Stage(frame) {
 		fields := strings.Fields(line)
 		if len(fields) == 4 && fields[0] == "messages" {
 			return strings.Join(fields[1:], " ")
@@ -355,8 +352,8 @@ func readPaneTally(frame string) string {
 	return ""
 }
 
-func readOpenMessages(harness *panelHarness) string {
-	harness.press("ctrl+g")
+func readOpenMessages(harness *paneltest.Panel) string {
+	harness.Press("ctrl+g")
 
-	return joinProse(readStage(harness.readFrame()))
+	return paneltest.JoinProse(paneltest.Stage(harness.Frame()))
 }

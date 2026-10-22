@@ -29,7 +29,7 @@ func (m *model) fatal() error {
 	return m.startupErr
 }
 
-// Init starts the tick, unless startup failed and there is nothing to keep current.
+// Init starts the watch and the tick, unless startup failed and there is nothing to keep current.
 func (m *model) Init() tea.Cmd {
 	if m.fatal() != nil {
 		return nil
@@ -39,13 +39,18 @@ func (m *model) Init() tea.Cmd {
 		return m.checkAccessCmd()
 	}
 
+	m.startWatch()
 	m.holdLeader()
 
-	return tea.Batch(tick(), tea.RequestBackgroundColor)
+	return tea.Batch(m.tick(), tea.RequestBackgroundColor)
 }
 
 // Update routes a message to the screen that owns it.
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if _, ok := msg.(wheelHeldMsg); ok {
+		return m, m.clock.After(wheelFrame, func(time.Time) tea.Msg { return wheelFlushMsg{} })
+	}
+
 	if _, ok := msg.(tea.KeyPressMsg); ok {
 		m.wheelHit = wheelHit{}
 	}
@@ -272,7 +277,7 @@ func (m *model) applySizeRead(msg sizeReadMsg) tea.Cmd {
 		return nil
 	}
 
-	return startTimer(sizeFallback, func(time.Time) tea.Msg {
+	return m.clock.After(sizeFallback, func(time.Time) tea.Msg {
 		return sizeFallbackMsg(msg)
 	})
 }
@@ -385,7 +390,7 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 			return nil, true
 		}
 
-		return tea.Batch(tick(), edited), true
+		return tea.Batch(m.tick(), edited), true
 	case engineBuildMsg:
 		m.landEngineBuild(msg)
 

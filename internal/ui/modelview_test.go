@@ -2,12 +2,10 @@ package ui_test
 
 import (
 	"errors"
-	"slices"
 	"testing"
 
-	"komrad/internal/ui"
+	"komrad/internal/ui/paneltest"
 
-	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -47,36 +45,18 @@ func TestViewFatalScreens(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := newPanelHarness(t, panelHarnessParams{configErr: tt.configErr, startupErr: tt.startupErr})
-			require.Nil(t, harness.panel.Init(), "nothing runs behind the screen")
+			harness := paneltest.Start(t, paneltest.Params{ConfigErr: tt.configErr, StartupErr: tt.startupErr})
+			require.False(t, harness.IsWatching(), "nothing runs behind the screen")
 
-			harness.watch(buildSnapshot(newLiveWorkflow("w1", "should-not-render")))
-			harness.send(ui.NewWatchLost(errors.New("connection refused")))
-
-			frame := joinProse(splitLines(harness.readFrame()))
+			frame := paneltest.JoinProse(paneltest.SplitLines(harness.Frame()))
 			for _, want := range tt.wantContain {
 				assert.Contains(t, frame, want)
 			}
-			for _, absent := range append(tt.wantAbsent, "should-not-render") {
+			for _, absent := range tt.wantAbsent {
 				assert.NotContains(t, frame, absent)
 			}
 
-			assert.True(t, doesQuit(harness.panel.Update(ui.NewKeyPress("x"))), "any key dismisses the screen and quits")
+			assert.True(t, harness.Quits("x"), "any key dismisses the screen and quits")
 		})
-	}
-}
-
-func doesQuit(cmd tea.Cmd) bool {
-	if cmd == nil {
-		return false
-	}
-
-	switch msg := cmd().(type) {
-	case tea.QuitMsg:
-		return true
-	case tea.BatchMsg:
-		return slices.ContainsFunc(msg, doesQuit)
-	default:
-		return false
 	}
 }

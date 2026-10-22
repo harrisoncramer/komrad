@@ -76,7 +76,9 @@ type filterState struct {
 
 // qualifierState is the qualifiers a search reads and what the server found for its says: one.
 type qualifierState struct {
-	grammar    *queryGrammar
+	grammar *queryGrammar
+	// clock is what the grammar reads relative dates against.
+	clock      screen.Clock
 	clauses    []searchsyntax.Clause
 	compiledAt time.Time
 	said       saidState
@@ -95,9 +97,9 @@ func withDebounce(wait time.Duration) filterOption {
 	}
 }
 
-func withGrammar(grammar queryGrammar) filterOption {
+func withGrammar(grammar queryGrammar, clock screen.Clock) filterOption {
 	return func(f *filterState) {
-		f.qualifiers.grammar = &grammar
+		f.qualifiers.grammar, f.qualifiers.clock = &grammar, clock
 	}
 }
 
@@ -176,10 +178,10 @@ func (f filterState) isSettled() bool {
 	return f.compiledQuery == f.query()
 }
 
-func (f filterState) settleCmd(settled func(query string) tea.Msg) tea.Cmd {
+func (f filterState) settleCmd(clock screen.Clock, settled func(query string) tea.Msg) tea.Cmd {
 	query := f.query()
 
-	return startTimer(f.debounce, func(time.Time) tea.Msg {
+	return clock.After(f.debounce, func(time.Time) tea.Msg {
 		return settled(query)
 	})
 }
@@ -198,7 +200,7 @@ func (f *filterState) settle(query string) bool {
 func (f *filterState) compile() {
 	query := f.query()
 	f.pattern, f.broken, f.compiledQuery = nil, false, query
-	f.problem, f.qualifiers.clauses, f.qualifiers.compiledAt = "", nil, time.Now()
+	f.problem, f.qualifiers.clauses = "", nil
 	defer f.askSaid()
 
 	if f.isTooShort() {
@@ -207,6 +209,7 @@ func (f *filterState) compile() {
 
 	expr := query
 	if f.qualifiers.grammar != nil {
+		f.qualifiers.compiledAt = f.qualifiers.clock.Now()
 		parsed, err := f.qualifiers.grammar.parse(query, f.qualifiers.compiledAt)
 		if err != nil {
 			f.fail(errui.GetReason(err))
@@ -313,7 +316,7 @@ func (m *model) beginFilter() {
 	var opts []filterOption
 	if screen, ok := m.active().(queryGrammarer); ok && !m.isDetailsFocused() {
 		if grammar, reads := screen.queryGrammar(); reads {
-			opts = append(opts, withGrammar(grammar))
+			opts = append(opts, withGrammar(grammar, m.clock))
 		}
 	}
 

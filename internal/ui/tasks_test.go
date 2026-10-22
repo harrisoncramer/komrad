@@ -5,8 +5,9 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
-	"komrad/internal/ui"
+	"komrad/internal/ui/paneltest"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -25,7 +26,7 @@ func TestTasksTree(t *testing.T) {
 	t.Run("every task stands over the agents on it", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
-		assert.Equal(t, []string{"komrad", "├─ solo", "└─ fix-login", "   └─ " + reviewerMark + "follow-up"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"komrad", "├─ solo", "└─ fix-login", "   └─ " + reviewerMark + "follow-up"}, paneltest.ListRows(harness.Frame()))
 	})
 
 	t.Run("enter on a task opens its writer", func(t *testing.T) {
@@ -33,34 +34,34 @@ func TestTasksTree(t *testing.T) {
 			harness := openAgents(t, buildTasks()...)
 			answerResume(harness)
 
-			harness.press(press...)
+			harness.Press(press...)
 
-			harness.assertSentTo(agentv1connect.AgentServiceResumeAgentProcedure, &agentv1.ResumeAgentRequest{Id: "a1"})
+			harness.AssertSentTo(agentv1connect.AgentServiceResumeAgentProcedure, &agentv1.ResumeAgentRequest{Id: "a1"})
 		}
 	})
 
 	t.Run("the task qualifier keeps the task and the agents on it", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
-		harness.press(slices.Concat([]string{"/", "tab"}, spellKeys("task:fix"), []string{"enter"})...)
+		harness.Press(slices.Concat([]string{"/", "tab"}, spellKeys("task:fix"), []string{"enter"})...)
 
-		assert.Equal(t, []string{"komrad", "└─ fix-login", "   └─ " + reviewerMark + "follow-up"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"komrad", "└─ fix-login", "   └─ " + reviewerMark + "follow-up"}, paneltest.ListRows(harness.Frame()))
 	})
 
 	t.Run("selecting a task archives only that task", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
-		harness.press("j", "v", "space", "a", "enter")
+		harness.Press("j", "v", "space", "a", "enter")
 
-		harness.assertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, &taskv1.ArchiveTaskRequest{Task: "t1"})
+		harness.AssertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, &taskv1.ArchiveTaskRequest{Task: "t1"})
 	})
 
 	t.Run("a task's menu is its writer's pages and a new agent on it, over the list's new workflow", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
-		harness.press("j", "space")
+		harness.Press("j", "space")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "status checks")
 		assert.Contains(t, frame, "logs")
 		assert.Contains(t, frame, "new agent")
@@ -197,11 +198,11 @@ func TestTasksTree(t *testing.T) {
 				harness := openAgents(t, newLiveWorkflow("w1", "komrad"), tt.task, onTask)
 				answerAgentCreate(harness, "")
 				if tt.deleting {
-					harness.watch(buildDeleted(watchv1.Resource_RESOURCE_TASK, "t1"))
+					harness.Watch(paneltest.Deleted(watchv1.Resource_RESOURCE_TASK, "t1"))
 				}
 
-				harness.press("space")
-				menu := strings.Join(readStage(harness.readFrame()), "\n")
+				harness.Press("space")
+				menu := strings.Join(paneltest.Stage(harness.Frame()), "\n")
 				require.Contains(t, menu, "edit task")
 				if !tt.offered {
 					assert.NotContains(t, menu, "new agent")
@@ -211,11 +212,11 @@ func TestTasksTree(t *testing.T) {
 				}
 				require.Contains(t, menu, "new agent")
 
-				harness.press("c")
-				assert.Contains(t, harness.readFrame(), tt.form)
-				harness.press(slices.Concat(spellKeys("review it"), []string{"enter"})...)
+				harness.Press("c")
+				assert.Contains(t, harness.Frame(), tt.form)
+				harness.Press(slices.Concat(spellKeys("review it"), []string{"enter"})...)
 
-				harness.assertSentTo(agentv1connect.AgentServiceCreateAgentProcedure, tt.want)
+				harness.AssertSentTo(agentv1connect.AgentServiceCreateAgentProcedure, tt.want)
 			})
 		}
 	})
@@ -223,9 +224,9 @@ func TestTasksTree(t *testing.T) {
 	t.Run("the archive on a task's menu archives the task", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
-		harness.press("j", "space", "a", "enter")
+		harness.Press("j", "space", "a", "enter")
 
-		harness.assertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, &taskv1.ArchiveTaskRequest{Task: "t1"})
+		harness.AssertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, &taskv1.ArchiveTaskRequest{Task: "t1"})
 	})
 }
 
@@ -269,28 +270,28 @@ func TestTasksRow(t *testing.T) {
 	t.Run("r renames the task's slug", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
-		harness.press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"enter"})...)
+		harness.Press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"enter"})...)
 
-		harness.assertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure, &taskv1.UpdateTaskRequest{Task: "t1", Slug: xptr.Ptr("fix-login-v2")})
+		harness.AssertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure, &taskv1.UpdateTaskRequest{Task: "t1", Slug: xptr.Ptr("fix-login-v2")})
 	})
 
 	t.Run("r inside the task's menu is the review", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
-		harness.press("j", "space", "r")
+		harness.Press("j", "space", "r")
 
-		assert.Contains(t, harness.readFrame(), "Could not open the review of fix")
-		harness.assertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure)
+		assert.Contains(t, harness.Frame(), "Could not open the review of fix")
+		harness.AssertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure)
 	})
 
 	t.Run("editing the task saves its title and goal", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
-		harness.press(slices.Concat([]string{"j", "space", "E"}, spellKeys(" now"), []string{"tab", "ctrl+e"})...)
-		harness.send(harness.panel.NewFieldEdited("goal", "Logins work.\n"))
-		harness.press("enter")
+		harness.WriteInEditor("Logins work.\n")
+		harness.Press(slices.Concat([]string{"j", "space", "E"}, spellKeys(" now"), []string{"tab", "ctrl+e"})...)
+		harness.Press("enter")
 
-		harness.assertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure, &taskv1.UpdateTaskRequest{
+		harness.AssertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure, &taskv1.UpdateTaskRequest{
 			Task:  "t1",
 			Title: xptr.Ptr("Fix login now"),
 			Goal:  xptr.Ptr("Logins work."),
@@ -300,24 +301,24 @@ func TestTasksRow(t *testing.T) {
 	t.Run("a blank title keeps the task's form open", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
-		harness.press(slices.Concat([]string{"j", "space", "E"}, slices.Repeat([]string{"backspace"}, len("Fix login")), []string{"enter"})...)
+		harness.Press(slices.Concat([]string{"j", "space", "E"}, slices.Repeat([]string{"backspace"}, len("Fix login")), []string{"enter"})...)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, `Task "fix-login"`)
 		assert.Contains(t, frame, "Logins work again.")
 		assert.Contains(t, frame, "a task needs a title")
 		assert.NotContains(t, frame, "Could not save task")
-		harness.assertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure)
+		harness.AssertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure)
 	})
 
 	t.Run("editing the task's notes saves them over the version they were read at", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
-		harness.press("j", "space", "E", "tab", "tab", "ctrl+e")
-		harness.send(harness.panel.NewFieldEdited("notes", "Fixed.\n"))
-		harness.press("enter")
+		harness.WriteInEditor("Fixed.\n")
+		harness.Press("j", "space", "E", "tab", "tab", "ctrl+e")
+		harness.Press("enter")
 
-		harness.assertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure, &taskv1.UpdateTaskRequest{
+		harness.AssertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure, &taskv1.UpdateTaskRequest{
 			Task:           "t1",
 			Title:          xptr.Ptr("Fix login"),
 			Goal:           xptr.Ptr("Logins work again."),
@@ -328,11 +329,11 @@ func TestTasksRow(t *testing.T) {
 
 	t.Run("a restart that fails says so", func(t *testing.T) {
 		harness := openAgents(t, buildRestart()...)
-		harness.refuse(agentv1connect.AgentServiceRestartAgentProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("restore its task first")))
+		harness.Refuse(agentv1connect.AgentServiceRestartAgentProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("restore its task first")))
 
-		harness.press("space", "o", "enter")
+		harness.Press("space", "o", "enter")
 
-		assert.Contains(t, harness.readFrame(), "Could not restart agent")
+		assert.Contains(t, harness.Frame(), "Could not restart agent")
 	})
 
 	t.Run("a restart of a writer that never started says to retry it", func(t *testing.T) {
@@ -341,21 +342,21 @@ func TestTasksRow(t *testing.T) {
 		writer.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
 		harness := openAgents(t, rows...)
 
-		harness.press("space", "o")
+		harness.Press("space", "o")
 
 		assert.Contains(t, readOpenMessages(harness), "writer never started, so retry it")
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceRestartAgentProcedure))
+		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceRestartAgentProcedure))
 	})
 
 	t.Run("a restart relaunches the writer with the note", func(t *testing.T) {
 		harness := openAgents(t, buildRestart()...)
-		harness.answer(agentv1connect.AgentServiceRestartAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		harness.Answer(agentv1connect.AgentServiceRestartAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 			return connect.NewResponse(&agentv1.RestartAgentResponse{Agent: &agentv1.Agent{Id: "a1"}}), nil
 		})
 
-		harness.press(slices.Concat([]string{"space", "o"}, spellKeys("finish the cookie fix"), []string{"enter"})...)
+		harness.Press(slices.Concat([]string{"space", "o"}, spellKeys("finish the cookie fix"), []string{"enter"})...)
 
-		harness.assertSentTo(agentv1connect.AgentServiceRestartAgentProcedure, &agentv1.RestartAgentRequest{
+		harness.AssertSentTo(agentv1connect.AgentServiceRestartAgentProcedure, &agentv1.RestartAgentRequest{
 			Id:      "a1",
 			Note:    "finish the cookie fix",
 			Harness: "claude",
@@ -365,13 +366,13 @@ func TestTasksRow(t *testing.T) {
 
 	t.Run("a restart moves the writer onto another CLI and model", func(t *testing.T) {
 		harness := openAgents(t, buildRestart()...)
-		harness.answer(agentv1connect.AgentServiceRestartAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		harness.Answer(agentv1connect.AgentServiceRestartAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 			return connect.NewResponse(&agentv1.RestartAgentResponse{Agent: &agentv1.Agent{Id: "a1"}}), nil
 		})
 
-		harness.press(slices.Concat([]string{"space", "o", "tab", "ctrl+u"}, spellKeys("codex"), []string{"tab", "ctrl+u"}, spellKeys("--model o3"), []string{"enter"})...)
+		harness.Press(slices.Concat([]string{"space", "o", "tab", "ctrl+u"}, spellKeys("codex"), []string{"tab", "ctrl+u"}, spellKeys("--model o3"), []string{"enter"})...)
 
-		harness.assertSentTo(agentv1connect.AgentServiceRestartAgentProcedure, &agentv1.RestartAgentRequest{
+		harness.AssertSentTo(agentv1connect.AgentServiceRestartAgentProcedure, &agentv1.RestartAgentRequest{
 			Id:      "a1",
 			Harness: "codex",
 			Flags:   "--model o3",
@@ -381,9 +382,9 @@ func TestTasksRow(t *testing.T) {
 	t.Run("a task's menu holds everything done to the work", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
-		harness.press("j", "space")
+		harness.Press("j", "space")
 
-		menu := strings.Join(readStage(harness.readFrame()), "\n")
+		menu := strings.Join(paneltest.Stage(harness.Frame()), "\n")
 		for _, entry := range []string{"review", "logs", "status checks", "terminal", "new agent", "edit task", "notes", "restart", "edit files", "git ›", "jump ›", "hide ›", "archive ›"} {
 			assert.Contains(t, menu, entry)
 		}
@@ -392,9 +393,9 @@ func TestTasksRow(t *testing.T) {
 	t.Run("an agent's menu holds only its session", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
 
-		harness.press("j", "j", "j", "space")
+		harness.Press("j", "j", "j", "space")
 
-		menu := strings.Join(readStage(harness.readFrame()), "\n")
+		menu := strings.Join(paneltest.Stage(harness.Frame()), "\n")
 		for _, entry := range []string{"logs", "edit files", "archive ›"} {
 			assert.Contains(t, menu, entry)
 		}
@@ -408,9 +409,9 @@ func TestTasksRow(t *testing.T) {
 		rows[5].(*agentv1.Agent).State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
 		harness := openAgents(t, rows...)
 
-		harness.press("space")
+		harness.Press("space")
 
-		assert.Contains(t, strings.Join(readStage(harness.readFrame()), "\n"), "retry launch")
+		assert.Contains(t, strings.Join(paneltest.Stage(harness.Frame()), "\n"), "retry launch")
 	})
 
 	t.Run("a task's row shows its writer's pane, and its notes in place of it until escape", func(t *testing.T) {
@@ -420,40 +421,40 @@ func TestTasksRow(t *testing.T) {
 		writer.Alive = xptr.Ptr(true)
 		harness := openAgents(t, rows...)
 
-		harness.press("j")
-		harness.fireTimers()
-		require.Equal(t, "%3", harness.panel.ReadGuestPane())
-		require.False(t, harness.panel.IsZoomed())
+		harness.Press("j")
+		harness.Advance(time.Second)
+		require.Equal(t, "%3", harness.Tmux().GuestPane())
+		require.False(t, harness.Tmux().IsZoomed())
 
-		harness.press("space", "n")
-		harness.fireTimers()
+		harness.Press("space", "n")
+		harness.Advance(time.Second)
 
-		assert.True(t, harness.panel.IsZoomed())
-		stage := readStageText(harness.readFrame())
+		assert.True(t, harness.Tmux().IsZoomed())
+		stage := readStageText(harness.Frame())
 		for _, text := range []string{"Fix login", "Logins work again.", "The session cookie expires early."} {
 			assert.Contains(t, stage, text)
 		}
 		assert.NotContains(t, stage, "• follow-up")
 
-		harness.press("esc")
-		harness.fireTimers()
+		harness.Press("esc")
+		harness.Advance(time.Second)
 
-		assert.False(t, harness.panel.IsZoomed())
+		assert.False(t, harness.Tmux().IsZoomed())
 	})
 
 	t.Run("a says: search that finds the writer leaves its task's notes to show", func(t *testing.T) {
 		harness := openAgents(t, buildTasks()...)
-		harness.answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		harness.Answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 			return connect.NewResponse(&agentv1.SearchTranscriptsResponse{Matches: []*agentv1.SearchHit{{AgentId: "a1", Snippet: "\x02cookie\x03"}}}), nil
 		})
-		harness.press(slices.Concat([]string{"/"}, spellKeys("says:cookie"), []string{"enter"})...)
-		harness.fireMatching(ui.IsSaysSettled)
-		require.Contains(t, readHoveredRow(harness.readFrame()), "fix-login")
+		harness.Press(slices.Concat([]string{"/"}, spellKeys("says:cookie"), []string{"enter"})...)
+		harness.Advance(time.Second)
+		require.Contains(t, paneltest.HoveredRow(harness.Frame()), "fix-login")
 
-		harness.press("space", "n")
-		harness.fireTimers()
+		harness.Press("space", "n")
+		harness.Advance(time.Second)
 
-		assert.Contains(t, readStageText(harness.readFrame()), "The session cookie expires early.")
+		assert.Contains(t, readStageText(harness.Frame()), "The session cookie expires early.")
 	})
 }
 

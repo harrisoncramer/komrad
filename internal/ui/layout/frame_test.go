@@ -646,6 +646,65 @@ func TestFrameSidebarWidthFollowsTheDivider(t *testing.T) {
 	assert.False(t, measured, "which the caller is told is the configured one")
 }
 
+// TestFrameIsStaleSize covers a size the terminal or the frame reported after tmux had already
+// moved the panel's own pane on.
+func TestFrameIsStaleSize(t *testing.T) {
+	tests := []struct {
+		name       string
+		paneWidth  int
+		paneHeight int
+		width      int
+		height     int
+		want       bool
+	}{
+		{
+			name:       "the size the pane stands at is current",
+			paneWidth:  200,
+			paneHeight: 40,
+			width:      200,
+			height:     40,
+		},
+		{
+			name:       "a narrower size than the pane stands at is stale",
+			paneWidth:  200,
+			paneHeight: 40,
+			width:      100,
+			height:     40,
+			want:       true,
+		},
+		{
+			name:       "a wider size than the pane stands at is stale",
+			paneWidth:  50,
+			paneHeight: 40,
+			width:      200,
+			height:     40,
+			want:       true,
+		},
+		{
+			name:       "a shorter size than the pane stands at is stale",
+			paneWidth:  200,
+			paneHeight: 40,
+			width:      200,
+			height:     24,
+			want:       true,
+		},
+		{
+			name:   "a pane tmux cannot measure leaves every size current",
+			width:  200,
+			height: 40,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			frame := New(&recordingTmux{width: tt.paneWidth, height: tt.paneHeight}, config.DefaultLayout())
+			frame.Attach(sidebarPane)
+
+			assert.Equal(t, tt.want, frame.IsStaleSize(tt.width, tt.height))
+		})
+	}
+}
+
 // TestRestoreSplitGivesTheSidebarItsColumnsBack covers a window that changed size, where tmux
 // shares the change out between the panes and leaves a narrow sidebar with almost none of it.
 func TestRestoreSplitGivesTheSidebarItsColumnsBack(t *testing.T) {

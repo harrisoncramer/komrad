@@ -9,7 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"komrad/internal/ui"
+	"komrad/internal/ui/paneltest"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -121,7 +122,7 @@ func TestAgentsRows(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openAgents(t, tt.rows...)
 
-			assert.Equal(t, tt.want, readListRows(harness.readFrame()))
+			assert.Equal(t, tt.want, paneltest.ListRows(harness.Frame()))
 		})
 	}
 
@@ -134,18 +135,18 @@ func TestAgentsRows(t *testing.T) {
 		plain := openAgents(t, newLiveWorkflow("w1", "backend"), plainAgent, newTaskOf(plainAgent))
 		branched := openAgents(t, newLiveWorkflow("w1", "backend"), branchedAgent, branch)
 
-		assert.Equal(t, readListRows(plain.readFrame()), readListRows(branched.readFrame()))
+		assert.Equal(t, paneltest.ListRows(plain.Frame()), paneltest.ListRows(branched.Frame()))
 	})
 
 	t.Run("an empty panel welcomes a newcomer and says where to start", func(t *testing.T) {
 		harness := openAgents(t)
 
-		frame := harness.readFrame()
-		assert.Equal(t, agentsScreen, harness.readScreen())
+		frame := harness.Frame()
+		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
 		assert.Contains(t, frame, "Welcome, komrad!")
 		assert.Contains(t, frame, "Press 'space' then 'w' to set up your first workflow")
-		assert.Empty(t, readListRows(frame))
-		ui.RequireGolden(t, "agents-welcome", harness.readRawFrame())
+		assert.Empty(t, paneltest.ListRows(frame))
+		paneltest.RequireGolden(t, "agents-welcome", harness.RawFrame())
 	})
 }
 
@@ -162,54 +163,54 @@ func TestAgentsShowHidden(t *testing.T) {
 
 	t.Run("a hidden task comes back under its own workflow and the cursor keeps its row", func(t *testing.T) {
 		harness := openAgents(t, rows...)
-		harness.press("j", "j")
-		require.Equal(t, "└─ task-a3", readHoveredRow(harness.readFrame()))
+		harness.Press("j", "j")
+		require.Equal(t, "└─ task-a3", paneltest.HoveredRow(harness.Frame()))
 
-		harness.press("space", "h", "H")
+		harness.Press("space", "h", "H")
 
-		frame := harness.readFrame()
-		assert.Equal(t, []string{"backend", "├─ task-a2" + hiddenMark, "└─ task-a1", "frontend", "└─ task-a3"}, readListRows(frame))
-		assert.Equal(t, "└─ task-a3", readHoveredRow(frame))
+		frame := harness.Frame()
+		assert.Equal(t, []string{"backend", "├─ task-a2" + hiddenMark, "└─ task-a1", "frontend", "└─ task-a3"}, paneltest.ListRows(frame))
+		assert.Equal(t, "└─ task-a3", paneltest.HoveredRow(frame))
 	})
 
 	t.Run("a hidden task comes back with every agent on it", func(t *testing.T) {
 		harness := openAgents(t, hideTaskOf(buildReviewedTasks(), "writer")...)
 
-		harness.press("k", "space", "h", "H")
+		harness.Press("k", "space", "h", "H")
 
-		assert.Equal(t, []string{"komrad", "├─ task-fix-gutter", "└─ task-writer" + hiddenMark, "   ├─ " + reviewerMark + "second-reviewer", "   └─ " + reviewerMark + "reviewer"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"komrad", "├─ task-fix-gutter", "└─ task-writer" + hiddenMark, "   ├─ " + reviewerMark + "second-reviewer", "   └─ " + reviewerMark + "reviewer"}, paneltest.ListRows(harness.Frame()))
 	})
 
 	t.Run("the hide entry hides the hovered task", func(t *testing.T) {
 		harness := openAgents(t, rows...)
 
-		harness.press("space", "h", "h")
+		harness.Press("space", "h", "h")
 
-		harness.assertSentTo(taskv1connect.TaskServiceSetTaskHiddenProcedure, &taskv1.SetTaskHiddenRequest{Task: "task-a1", Hidden: true})
+		harness.AssertSentTo(taskv1connect.TaskServiceSetTaskHiddenProcedure, &taskv1.SetTaskHiddenRequest{Task: "task-a1", Hidden: true})
 	})
 
 	t.Run("the hide entry unhides a revealed task", func(t *testing.T) {
 		harness := openAgents(t, rows...)
 
-		harness.press("space", "h", "H", "k", "space", "h", "h")
+		harness.Press("space", "h", "H", "k", "space", "h", "h")
 
-		harness.assertSentTo(taskv1connect.TaskServiceSetTaskHiddenProcedure, &taskv1.SetTaskHiddenRequest{Task: "task-a2", Hidden: false})
+		harness.AssertSentTo(taskv1connect.TaskServiceSetTaskHiddenProcedure, &taskv1.SetTaskHiddenRequest{Task: "task-a2", Hidden: false})
 	})
 
 	t.Run("a selection covering a whole task hides it", func(t *testing.T) {
 		harness := openAgents(t, buildReviewedTasks()...)
 
-		harness.press("v", "space", "h", "h")
+		harness.Press("v", "space", "h", "h")
 
-		harness.assertSentTo(taskv1connect.TaskServiceSetTaskHiddenProcedure, &taskv1.SetTaskHiddenRequest{Task: "task-fix-gutter", Hidden: true})
+		harness.AssertSentTo(taskv1connect.TaskServiceSetTaskHiddenProcedure, &taskv1.SetTaskHiddenRequest{Task: "task-fix-gutter", Hidden: true})
 	})
 
 	t.Run("a selection reaching part of a task holds hide gray", func(t *testing.T) {
 		harness := openAgents(t, buildReviewedTasks()...)
 
-		harness.press("v", "j", "j", "j", "v", "space", "h")
+		harness.Press("v", "j", "j", "j", "v", "space", "h")
 
-		assert.Regexp(t, readOffEntry("hide", "h"), harness.readRawFrame())
+		assert.Regexp(t, readOffEntry("hide", "h"), harness.RawFrame())
 	})
 
 	tests := []struct {
@@ -238,9 +239,9 @@ func TestAgentsShowHidden(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openAgents(t, rows...)
 
-			harness.press(append(tt.press, "space", "h")...)
+			harness.Press(append(tt.press, "space", "h")...)
 
-			frame := harness.readFrame()
+			frame := harness.Frame()
 			for _, want := range tt.want {
 				assert.Contains(t, frame, want)
 			}
@@ -290,36 +291,36 @@ func TestAgentsSort(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openAgents(t, buildSortable()...)
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			assert.Equal(t, tt.want, readListRows(harness.readFrame()))
+			assert.Equal(t, tt.want, paneltest.ListRows(harness.Frame()))
 		})
 	}
 
 	t.Run("the cursor keeps its row as the tree is reordered", func(t *testing.T) {
 		harness := openAgents(t, buildSortable()...)
-		harness.press("j", "j", "j", "j")
-		require.Equal(t, "└─ task-alpha", readHoveredRow(harness.readFrame()))
+		harness.Press("j", "j", "j", "j")
+		require.Equal(t, "└─ task-alpha", paneltest.HoveredRow(harness.Frame()))
 
-		harness.press("f", "tab", "esc")
-		assert.Equal(t, "└─ task-alpha", readHoveredRow(harness.readFrame()), "walking to a tab reorders nothing")
+		harness.Press("f", "tab", "esc")
+		assert.Equal(t, "└─ task-alpha", paneltest.HoveredRow(harness.Frame()), "walking to a tab reorders nothing")
 
-		harness.press("f", "tab", "j", "esc")
-		assert.Equal(t, "├─ task-alpha", readHoveredRow(harness.readFrame()), "activity down")
+		harness.Press("f", "tab", "j", "esc")
+		assert.Equal(t, "├─ task-alpha", paneltest.HoveredRow(harness.Frame()), "activity down")
 
-		harness.press("f", "tab", "k", "esc")
-		assert.Equal(t, "├─ task-alpha", readHoveredRow(harness.readFrame()), "name up")
+		harness.Press("f", "tab", "k", "esc")
+		assert.Equal(t, "├─ task-alpha", paneltest.HoveredRow(harness.Frame()), "name up")
 	})
 
 	t.Run("the cursor keeps its agent across the flip to a flat list and back", func(t *testing.T) {
 		harness := openAgents(t, buildSortable()...)
-		require.Equal(t, "└─ echo", readHoveredRow(harness.readFrame()))
+		require.Equal(t, "└─ echo", paneltest.HoveredRow(harness.Frame()))
 
-		harness.press("f", "shift+tab", "j", "esc")
-		assert.Equal(t, "echo", readHoveredRow(harness.readFrame()), "the flat list")
+		harness.Press("f", "shift+tab", "j", "esc")
+		assert.Equal(t, "echo", paneltest.HoveredRow(harness.Frame()), "the flat list")
 
-		harness.press("f", "shift+tab", "k", "esc")
-		assert.Equal(t, "└─ echo", readHoveredRow(harness.readFrame()), "the tree again")
+		harness.Press("f", "shift+tab", "k", "esc")
+		assert.Equal(t, "└─ echo", paneltest.HoveredRow(harness.Frame()), "the tree again")
 	})
 }
 
@@ -362,19 +363,19 @@ func TestAgentsCursor(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openAgents(t, rows...)
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			assert.Equal(t, tt.want, readHoveredRow(harness.readFrame()))
+			assert.Equal(t, tt.want, paneltest.HoveredRow(harness.Frame()))
 		})
 	}
 
 	t.Run("the keys do nothing on an empty tree", func(t *testing.T) {
 		harness := openAgents(t)
 
-		harness.press("G", "g", "g", "enter")
+		harness.Press("G", "g", "g", "enter")
 
-		assert.Empty(t, readHoveredRow(harness.readFrame()))
-		harness.assertSent()
+		assert.Empty(t, paneltest.HoveredRow(harness.Frame()))
+		harness.AssertSent()
 	})
 }
 
@@ -388,17 +389,17 @@ func TestAgentsResume(t *testing.T) {
 		other := newAgent("a2", "other", "w1")
 		harness := openAgents(t, newLiveWorkflow("w1", "api"), newDormant("old"), other)
 		answerResume(harness)
-		harness.hold(agentv1connect.AgentServiceResumeAgentProcedure)
+		harness.Hold(agentv1connect.AgentServiceResumeAgentProcedure)
 
-		harness.press("j", "j")
-		require.Equal(t, "└─ old", readHoveredRow(harness.readFrame()))
-		harness.press("enter", "k")
-		moved := readHoveredRow(harness.readFrame())
+		harness.Press("j", "j")
+		require.Equal(t, "└─ old", paneltest.HoveredRow(harness.Frame()))
+		harness.Press("enter", "k")
+		moved := paneltest.HoveredRow(harness.Frame())
 		require.NotEqual(t, "  old", moved)
 
-		harness.release(agentv1connect.AgentServiceResumeAgentProcedure)
+		harness.Release(agentv1connect.AgentServiceResumeAgentProcedure)
 
-		assert.Equal(t, moved, readHoveredRow(harness.readFrame()), "the landing leaves the cursor where it was moved")
+		assert.Equal(t, moved, paneltest.HoveredRow(harness.Frame()), "the landing leaves the cursor where it was moved")
 	})
 
 	t.Run("the open key again over an agent still resuming sends nothing", func(t *testing.T) {
@@ -406,13 +407,13 @@ func TestAgentsResume(t *testing.T) {
 
 		harness := openAgents(t, newLiveWorkflow("w1", "api"), newDormant("old"))
 		answerResume(harness)
-		harness.hold(agentv1connect.AgentServiceResumeAgentProcedure)
+		harness.Hold(agentv1connect.AgentServiceResumeAgentProcedure)
 
-		harness.press("j", "enter", "enter")
-		harness.release(agentv1connect.AgentServiceResumeAgentProcedure)
+		harness.Press("j", "enter", "enter")
+		harness.Release(agentv1connect.AgentServiceResumeAgentProcedure)
 
-		assert.Len(t, harness.readSent(agentv1connect.AgentServiceResumeAgentProcedure), 1)
-		assert.Empty(t, harness.panel.ReadSelectedPanes())
+		assert.Len(t, harness.Sent(agentv1connect.AgentServiceResumeAgentProcedure), 1)
+		assert.Empty(t, harness.Tmux().SelectedPanes())
 	})
 	t.Run("a resume says the agent is back up only once its pane decides its state", func(t *testing.T) {
 		t.Parallel()
@@ -420,21 +421,21 @@ func TestAgentsResume(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "api"), newDormant("old"))
 		answerResume(harness)
 
-		harness.press("j", "enter")
+		harness.Press("j", "enter")
 		require.NotContains(t, readOpenMessages(harness), "old is back up", "the write landing says nothing yet")
 
 		settingUp := newRunning()
 		settingUp.State = agentv1.AgentState_AGENT_STATE_SETTING_UP
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), settingUp))
+		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "api"), settingUp))
 		require.NotContains(t, readOpenMessages(harness), "old is back up", "a CLI still starting is not back up")
-		require.Contains(t, harness.readFrame(), "Its CLI is coming up in a new pane.")
+		require.Contains(t, harness.Frame(), "Its CLI is coming up in a new pane.")
 
 		settledBeforeAlive := newRunning()
 		settledBeforeAlive.Alive = xptr.Ptr(false)
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), settledBeforeAlive))
+		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "api"), settledBeforeAlive))
 		require.NotContains(t, readOpenMessages(harness), "old is back up", "an idle row not yet alive is not back up")
 
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), newRunning()))
+		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "api"), newRunning()))
 		assert.Contains(t, readOpenMessages(harness), "old is back up")
 	})
 
@@ -444,13 +445,13 @@ func TestAgentsResume(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "api"), newDormant("old"))
 		answerResume(harness)
 
-		harness.press("j", "enter")
+		harness.Press("j", "enter")
 
 		settingUp := newRunning()
 		settingUp.State = agentv1.AgentState_AGENT_STATE_SETTING_UP
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), settingUp))
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), newDormant("old")))
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), newRunning()))
+		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "api"), settingUp))
+		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "api"), newDormant("old")))
+		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "api"), newRunning()))
 
 		assert.NotContains(t, readOpenMessages(harness), "old is back up")
 	})
@@ -459,12 +460,12 @@ func TestAgentsResume(t *testing.T) {
 		t.Parallel()
 
 		harness := openAgents(t, newLiveWorkflow("w1", "api"), newDormant("old"))
-		harness.answer(agentv1connect.AgentServiceResumeAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		harness.Answer(agentv1connect.AgentServiceResumeAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("held"))
 		})
 
-		harness.press("j", "enter")
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "api"), newRunning()))
+		harness.Press("j", "enter")
+		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "api"), newRunning()))
 
 		assert.NotContains(t, readOpenMessages(harness), "old is back up")
 	})
@@ -538,13 +539,13 @@ func TestAgentsCursorAcrossListings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openAgents(t, rows...)
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			harness.watch(buildSnapshot(tt.next...))
+			harness.Watch(paneltest.Snapshot(tt.next...))
 
-			frame := harness.readFrame()
-			assert.Equal(t, agentsScreen, harness.readScreen())
-			assert.Equal(t, tt.want, readHoveredRow(frame))
+			frame := harness.Frame()
+			assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
+			assert.Equal(t, tt.want, paneltest.HoveredRow(frame))
 		})
 	}
 }
@@ -597,14 +598,14 @@ func TestAgentsRecord(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openAgents(t, tt.rows...)
 
-			harness.press(append(tt.press, widenListPresses...)...)
+			harness.Press(append(tt.press, widenListPresses...)...)
 
-			frame := harness.readFrame()
+			frame := harness.Frame()
 			for label, value := range tt.want {
-				assert.Equal(t, value, readRecordField(frame, label), label)
+				assert.Equal(t, value, paneltest.RecordField(frame, label), label)
 			}
 			for _, label := range tt.wantAbsent {
-				assert.Negative(t, findRecordLine(frame, label), label)
+				assert.Negative(t, paneltest.RecordLine(frame, label), label)
 			}
 		})
 	}
@@ -615,84 +616,85 @@ func TestAgentsRecordFocus(t *testing.T) {
 	t.Run("movement runs down the fields while the list keeps its row", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
 
-		harness.press("pick:record", "j")
+		harness.Press("pick:record", "j")
 
-		frame := harness.readFrame()
-		assert.Regexp(t, `^directory\s+/repo$`, readRecordCursor(frame))
-		assert.Contains(t, readLegend(frame), "esc back to the list")
+		frame := harness.Frame()
+		assert.Regexp(t, `^directory\s+/repo$`, paneltest.RecordCursor(frame))
+		assert.Contains(t, paneltest.Legend(frame), "esc back to the list")
 
-		harness.press("pick:list")
+		harness.Press("pick:list")
 
-		frame = harness.readFrame()
-		assert.Empty(t, readRecordCursor(frame))
-		assert.Equal(t, "└─ auth", readHoveredRow(frame), "the list kept its row")
+		frame = harness.Frame()
+		assert.Empty(t, paneltest.RecordCursor(frame))
+		assert.Equal(t, "└─ auth", paneltest.HoveredRow(frame), "the list kept its row")
 
-		harness.press("k")
-		assert.Equal(t, "backend", readHoveredRow(harness.readFrame()), "the list has the keys again")
+		harness.Press("k")
+		assert.Equal(t, "backend", paneltest.HoveredRow(harness.Frame()), "the list has the keys again")
 	})
 
 	t.Run("the wheel over the record hands it the keys and over the list hands them back", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
-		y := findRecordLine(harness.readFrame(), "agent")
+		y := paneltest.RecordLine(harness.Frame(), "agent")
 		require.GreaterOrEqual(t, y, 0)
 
-		harness.send(tea.MouseWheelMsg{
+		harness.Send(tea.MouseWheelMsg{
 			X:      1,
 			Y:      y,
 			Button: tea.MouseWheelDown,
 		})
+		harness.Advance(wheelFrame)
 
-		frame := harness.readFrame()
-		assert.Regexp(t, `^directory\s+/repo$`, readRecordCursor(frame))
+		frame := harness.Frame()
+		assert.Regexp(t, `^directory\s+/repo$`, paneltest.RecordCursor(frame))
 
-		harness.send(tea.MouseWheelMsg{
+		harness.Send(tea.MouseWheelMsg{
 			X:      1,
 			Y:      9,
 			Button: tea.MouseWheelUp,
 		})
 
-		frame = harness.readFrame()
-		assert.Empty(t, readRecordCursor(frame))
-		assert.Equal(t, "backend", readHoveredRow(frame), "the list has the keys again")
+		frame = harness.Frame()
+		assert.Empty(t, paneltest.RecordCursor(frame))
+		assert.Equal(t, "backend", paneltest.HoveredRow(frame), "the list has the keys again")
 	})
 
 	t.Run("one cursor is rendered at a time", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
-		require.Equal(t, 1, countCursors(harness.readFrame()))
+		require.Equal(t, 1, countCursors(harness.Frame()))
 
-		harness.press("pick:record")
+		harness.Press("pick:record")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Equal(t, 1, countCursors(frame))
-		assert.NotEmpty(t, readRecordCursor(frame), "the cursor is the record's")
+		assert.NotEmpty(t, paneltest.RecordCursor(frame), "the cursor is the record's")
 	})
 
 	t.Run("another row's record opens at its top", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
 
-		harness.press("pick:record", "j", "j", "pick:list", "k", "pick:record")
+		harness.Press("pick:record", "j", "j", "pick:list", "k", "pick:record")
 
-		assert.Regexp(t, `^name\s+backend$`, readRecordCursor(harness.readFrame()))
+		assert.Regexp(t, `^name\s+backend$`, paneltest.RecordCursor(harness.Frame()))
 	})
 
 	t.Run("the keys that act on a row stand down while the record has them", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
-		harness.press("pick:record")
-		before := harness.readFrame()
-		sent := harness.readRequests()
+		harness.Press("pick:record")
+		before := harness.Frame()
+		sent := harness.Requests()
 
-		harness.press("r", "n", "c")
+		harness.Press("r", "n", "c")
 
-		assert.Equal(t, before, harness.readFrame())
-		harness.assertSent(sent...)
+		assert.Equal(t, before, harness.Frame())
+		harness.AssertSent(sent...)
 	})
 
 	t.Run("nothing listed gives the record no letter", func(t *testing.T) {
 		harness := openAgents(t)
 
-		harness.press("ctrl+space", "j")
+		harness.Press("ctrl+space", "j")
 
-		assert.Empty(t, harness.panel.ReadPickLetter("record"))
+		assert.Empty(t, harness.PickLetter("record"))
 	})
 
 	t.Run("a record shortened under the cursor holds it on its last field", func(t *testing.T) {
@@ -702,70 +704,70 @@ func TestAgentsRecordFocus(t *testing.T) {
 		task.Branch = xptr.Ptr("agent/auth")
 		rows = append(rows, task)
 		harness := openAgents(t, rows...)
-		harness.press("pick:record", "G")
-		require.Regexp(t, `^task_id\s`, readRecordCursor(harness.readFrame()))
+		harness.Press("pick:record", "G")
+		require.Regexp(t, `^task_id\s`, paneltest.RecordCursor(harness.Frame()))
 
 		task.Branch = nil
-		harness.watch(buildSnapshot(rows...))
+		harness.Watch(paneltest.Snapshot(rows...))
 
-		assert.Regexp(t, `^task_id\s`, readRecordCursor(harness.readFrame()))
+		assert.Regexp(t, `^task_id\s`, paneltest.RecordCursor(harness.Frame()))
 	})
 
 	t.Run("the row going from under a focused record renders the next from its top", func(t *testing.T) {
 		rows := buildRecorded()
 		harness := openAgents(t, rows...)
-		harness.press("pick:record", "j", "j", "j")
+		harness.Press("pick:record", "j", "j", "j")
 
-		harness.watch(buildSnapshot(rows[0]))
-		require.Regexp(t, `^name\s+backend$`, readRecordCursor(harness.readFrame()))
+		harness.Watch(paneltest.Snapshot(rows[0]))
+		require.Regexp(t, `^name\s+backend$`, paneltest.RecordCursor(harness.Frame()))
 
-		harness.press("j")
-		assert.Regexp(t, `^agents\s+0$`, readRecordCursor(harness.readFrame()))
+		harness.Press("j")
+		assert.Regexp(t, `^agents\s+0$`, paneltest.RecordCursor(harness.Frame()))
 	})
 }
 
 // TestAgentsRecordCopy covers the copy key taking the field under the record's cursor.
 func TestAgentsRecordCopy(t *testing.T) {
 	t.Run("a clipboard that refuses the write says so", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{})
-		harness.panel.SetClipboardErr(errors.New("no clipboard utility found"))
+		harness := paneltest.Start(t, paneltest.Params{})
+		harness.SetClipboardErr(errors.New("no clipboard utility found"))
 		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(buildRecorded()...))
+		harness.Watch(paneltest.Snapshot(buildRecorded()...))
 
-		harness.press("pick:record", "y")
-		harness.fireTimers()
+		harness.Press("pick:record", "y")
+		harness.Advance(time.Second)
 		opened := readOpenMessages(harness)
 		require.Contains(t, opened, "Could not copy")
 		require.Contains(t, opened, "no clipboard utility found")
-		harness.press("ctrl+g")
-		harness.fireTimers()
-		refused := harness.readFrame()
+		harness.Press("ctrl+g")
+		settleFlash(harness)
+		refused := harness.Frame()
 		require.Contains(t, readEngineLine(refused), "✗ 1")
 
-		harness.panel.SetClipboardErr(nil)
-		harness.press("y")
-		harness.fireTimers()
+		harness.SetClipboardErr(nil)
+		harness.Press("y")
+		harness.Advance(time.Second)
 
-		assert.Equal(t, refused, harness.readFrame(), "a copy that worked reports nothing of its own")
+		assert.Equal(t, refused, harness.Frame(), "a copy that worked reports nothing of its own")
 	})
 
 	tests := []struct {
 		name  string
-		open  func(*testing.T) *panelHarness
+		open  func(*testing.T) *paneltest.Panel
 		press []string
 		want  string
 	}{
 		{
 			name: "the whole value is taken rather than the clipped line it is rendered on",
-			open: func(t *testing.T) *panelHarness {
+			open: func(t *testing.T) *paneltest.Panel {
 				t.Helper()
 
 				rows := buildRecorded()
 				agent, _ := rows[1].(*agentv1.Agent)
 				agent.Flags = strings.Repeat("--append-system-prompt read every file on the branch ", 4)
-				harness := newPanelHarness(t, panelHarnessParams{})
+				harness := paneltest.Start(t, paneltest.Params{})
 				answerWorktreeReads(harness)
-				harness.watch(buildSnapshot(rows...))
+				harness.Watch(paneltest.Snapshot(rows...))
 
 				return harness
 			},
@@ -774,7 +776,7 @@ func TestAgentsRecordCopy(t *testing.T) {
 		},
 		{
 			name: "a narrowed record copies from the rows that are left",
-			open: func(t *testing.T) *panelHarness {
+			open: func(t *testing.T) *paneltest.Panel {
 				t.Helper()
 
 				return openAgentRecord(t)
@@ -788,21 +790,21 @@ func TestAgentsRecordCopy(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := tt.open(t)
 
-			harness.press(append(tt.press, "y")...)
+			harness.Press(append(tt.press, "y")...)
 
-			assert.Equal(t, []string{tt.want}, harness.panel.ReadCopied())
+			assert.Equal(t, []string{tt.want}, harness.Copied())
 		})
 	}
 
 	t.Run("the field on screen is taken after the row goes from under the record", func(t *testing.T) {
 		rows := buildRecorded()
 		harness := openCopyRecord(t)
-		harness.press("pick:record", "j", "j", "j")
+		harness.Press("pick:record", "j", "j", "j")
 
-		harness.watch(buildSnapshot(rows[0]))
-		harness.press("y")
+		harness.Watch(paneltest.Snapshot(rows[0]))
+		harness.Press("y")
 
-		assert.Equal(t, []string{"backend"}, harness.panel.ReadCopied())
+		assert.Equal(t, []string{"backend"}, harness.Copied())
 	})
 }
 
@@ -852,16 +854,16 @@ func TestAgentsRecordHeight(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := newPanelHarness(t, panelHarnessParams{
-				height:        tt.height,
-				detailsHeight: tt.detailsHeight,
+			harness := paneltest.Start(t, paneltest.Params{
+				Height:        tt.height,
+				DetailsHeight: tt.detailsHeight,
 			})
 			answerWorktreeReads(harness)
-			harness.watch(buildSnapshot(buildRecorded()...))
+			harness.Watch(paneltest.Snapshot(buildRecorded()...))
 
-			frame := harness.readFrame()
-			assert.Equal(t, tt.want > 0, isRecordRendered(frame))
-			assert.Len(t, readRecord(frame), tt.want)
+			frame := harness.Frame()
+			assert.Equal(t, tt.want > 0, paneltest.IsRecordRendered(frame))
+			assert.Len(t, paneltest.Record(frame), tt.want)
 		})
 	}
 }
@@ -872,57 +874,57 @@ func TestAgentsRecordFocusAndSize(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		params panelHarnessParams
+		params paneltest.Params
 	}{
 		{
 			name:   "a pane too short to render the record takes no letter",
-			params: panelHarnessParams{height: 8},
+			params: paneltest.Params{Height: 8},
 		},
 		{
 			name: "a share too small for a field takes no letter",
-			params: panelHarnessParams{
-				height:        19,
-				detailsHeight: 0.05,
+			params: paneltest.Params{
+				Height:        19,
+				DetailsHeight: 0.05,
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := newPanelHarness(t, tt.params)
+			harness := paneltest.Start(t, tt.params)
 			answerWorktreeReads(harness)
-			harness.watch(buildSnapshot(rows...))
+			harness.Watch(paneltest.Snapshot(rows...))
 
-			harness.press("ctrl+space", "j")
+			harness.Press("ctrl+space", "j")
 
-			assert.Empty(t, harness.panel.ReadPickLetter("record"))
+			assert.Empty(t, harness.PickLetter("record"))
 		})
 	}
 
 	t.Run("a shrink takes the keys back and a grow does not return them", func(t *testing.T) {
 		harness := openAgents(t, rows...)
-		harness.press("pick:record", "j")
-		require.NotEmpty(t, readRecordCursor(harness.readFrame()))
+		harness.Press("pick:record", "j")
+		require.NotEmpty(t, paneltest.RecordCursor(harness.Frame()))
 
-		harness.send(tea.WindowSizeMsg{
-			Width:  defaultHarnessWidth,
+		harness.Send(tea.WindowSizeMsg{
+			Width:  paneltest.DefaultWidth,
 			Height: 4,
 		})
-		harness.press("j")
-		harness.send(tea.WindowSizeMsg{
-			Width:  defaultHarnessWidth,
-			Height: defaultHarnessHeight,
+		harness.Press("j")
+		harness.Send(tea.WindowSizeMsg{
+			Width:  paneltest.DefaultWidth,
+			Height: paneltest.DefaultHeight,
 		})
 
-		frame := harness.readFrame()
-		assert.Equal(t, "└─ auth", readHoveredRow(frame), "the list answered the key pressed while it was small")
-		assert.Empty(t, readRecordCursor(frame))
+		frame := harness.Frame()
+		assert.Equal(t, "└─ auth", paneltest.HoveredRow(frame), "the list answered the key pressed while it was small")
+		assert.Empty(t, paneltest.RecordCursor(frame))
 
-		harness.press("k")
-		assert.Equal(t, "├─ billing", readHoveredRow(harness.readFrame()), "the keys are still with the list")
+		harness.Press("k")
+		assert.Equal(t, "├─ billing", paneltest.HoveredRow(harness.Frame()), "the keys are still with the list")
 
-		harness.press("pick:record")
-		assert.NotEmpty(t, readRecordCursor(harness.readFrame()), "until the focus key is pressed again")
+		harness.Press("pick:record")
+		assert.NotEmpty(t, paneltest.RecordCursor(harness.Frame()), "until the focus key is pressed again")
 	})
 }
 
@@ -933,7 +935,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		answer     answerFunc
+		answer     paneltest.AnswerFunc
 		want       map[string]string
 		wantAbsent []string
 	}{
@@ -967,34 +969,34 @@ func TestAgentsRecordWorktree(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := newPanelHarness(t, panelHarnessParams{})
-			harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, tt.answer)
-			harness.watch(buildSnapshot(buildRecordedTask()...))
+			harness := paneltest.Start(t, paneltest.Params{})
+			harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, tt.answer)
+			harness.Watch(paneltest.Snapshot(buildRecordedTask()...))
 
-			harness.press(append([]string{"pick:record"}, widenListPresses...)...)
+			harness.Press(append([]string{"pick:record"}, widenListPresses...)...)
 
-			frame := harness.readFrame()
+			frame := harness.Frame()
 			for label, value := range tt.want {
-				assert.Equal(t, value, readRecordField(frame, label), label)
+				assert.Equal(t, value, paneltest.RecordField(frame, label), label)
 			}
 			for _, label := range tt.wantAbsent {
-				assert.Negative(t, findRecordLine(frame, label), label)
+				assert.Negative(t, paneltest.RecordLine(frame, label), label)
 			}
 		})
 	}
 
 	t.Run("a flat list puts the task's checkout on the agent's record", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{})
-		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
-		harness.watch(buildSnapshot(buildRecordedTask()...))
+		harness := paneltest.Start(t, paneltest.Params{})
+		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
+		harness.Watch(paneltest.Snapshot(buildRecordedTask()...))
 
-		harness.press("f", "shift+tab", "j", "esc")
-		harness.fireTimers()
-		harness.press(append([]string{"pick:record"}, widenListPresses...)...)
+		harness.Press("f", "shift+tab", "j", "esc")
+		harness.Advance(time.Second)
+		harness.Press(append([]string{"pick:record"}, widenListPresses...)...)
 
-		frame := harness.readFrame()
-		assert.Equal(t, "agent/auth", readRecordField(frame, "branch"))
-		assert.Equal(t, "2 modified, 1 untracked", readRecordField(frame, "changes"))
+		frame := harness.Frame()
+		assert.Equal(t, "agent/auth", paneltest.RecordField(frame, "branch"))
+		assert.Equal(t, "2 modified, 1 untracked", paneltest.RecordField(frame, "changes"))
 	})
 
 	t.Run("the top rule carries where the directory stands left of the lines the branch changed", func(t *testing.T) {
@@ -1103,30 +1105,30 @@ func TestAgentsRecordWorktree(t *testing.T) {
 				task.DiffStat = tt.diffStat
 				task.Cwd = xptr.Ptr("/repo")
 				recorded = append(recorded, task)
-				harness := newPanelHarness(t, panelHarnessParams{})
+				harness := paneltest.Start(t, paneltest.Params{})
 				if tt.read == nil {
-					harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, refuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"))
+					harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, refuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"))
 				} else {
-					harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(tt.read))
+					harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(tt.read))
 				}
-				harness.watch(buildSnapshot(recorded...))
+				harness.Watch(paneltest.Snapshot(recorded...))
 
-				harness.press(tt.presses...)
-				harness.fireTimers()
+				harness.Press(tt.presses...)
+				harness.Advance(time.Second)
 
-				assert.Equal(t, tt.want, readRecordTag(harness.readFrame()))
+				assert.Equal(t, tt.want, readRecordTag(harness.Frame()))
 			})
 		}
 	})
 
 	t.Run("the focus key reads the directory again", func(t *testing.T) {
 		harness := openAgents(t, buildRecordedTask()...)
-		harness.fireTimers()
-		harness.assertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, buildWorktreeReads(1)...)
+		harness.Advance(time.Second)
+		harness.AssertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, buildWorktreeReads(1)...)
 
-		harness.press("pick:record")
+		harness.Press("pick:record")
 
-		harness.assertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, buildWorktreeReads(2)...)
+		harness.AssertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, buildWorktreeReads(2)...)
 	})
 
 	t.Run("looking at a live agent wakes the cwd sync to measure it", func(t *testing.T) {
@@ -1147,28 +1149,28 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				harness := openAgents(t, buildRecorded()...)
-				harness.assertSentTo(loopv1connect.LoopServiceWakeLoopProcedure)
+				harness.AssertSentTo(loopv1connect.LoopServiceWakeLoopProcedure)
 
-				harness.press(tt.presses...)
-				harness.fireTimers()
+				harness.Press(tt.presses...)
+				harness.Advance(time.Second)
 
-				harness.assertSentTo(loopv1connect.LoopServiceWakeLoopProcedure, &loopv1.WakeLoopRequest{Loop: loopv1.Loop_LOOP_CWD_SYNC})
+				harness.AssertSentTo(loopv1connect.LoopServiceWakeLoopProcedure, &loopv1.WakeLoopRequest{Loop: loopv1.Loop_LOOP_CWD_SYNC})
 			})
 		}
 	})
 
 	t.Run("a refused reread keeps the last answer beside the refusal", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{})
-		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
-		harness.watch(buildSnapshot(buildRecordedTask()...))
-		harness.fireTimers()
-		harness.refuse(worktreev1connect.WorktreeServiceGetWorktreeProcedure, connect.NewError(connect.CodeInternal, errors.New("context deadline exceeded")))
+		harness := paneltest.Start(t, paneltest.Params{})
+		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
+		harness.Watch(paneltest.Snapshot(buildRecordedTask()...))
+		harness.Advance(time.Second)
+		harness.Refuse(worktreev1connect.WorktreeServiceGetWorktreeProcedure, connect.NewError(connect.CodeInternal, errors.New("context deadline exceeded")))
 
-		harness.press(append([]string{"pick:record"}, widenListPresses...)...)
+		harness.Press(append([]string{"pick:record"}, widenListPresses...)...)
 
-		frame := harness.readFrame()
-		assert.Equal(t, "could not read: context deadline exceeded", readRecordField(frame, "worktree"))
-		assert.Equal(t, "2 modified, 1 untracked", readRecordField(frame, "changes"))
+		frame := harness.Frame()
+		assert.Equal(t, "could not read: context deadline exceeded", paneltest.RecordField(frame, "worktree"))
+		assert.Equal(t, "2 modified, 1 untracked", paneltest.RecordField(frame, "changes"))
 	})
 
 	t.Run("the cursor coming to rest asks again only for a read gone stale", func(t *testing.T) {
@@ -1191,183 +1193,183 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				harness := openAgents(t, buildRecordedTask()...)
-				harness.fireTimers()
-				harness.panel.AgeWorktreeReads(tt.age)
+				harness.Advance(time.Second)
+				harness.Advance(tt.age)
 
-				harness.press("k", "j")
-				harness.fireTimers()
+				harness.Press("k", "j")
+				harness.Advance(time.Second)
 
-				harness.assertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, buildWorktreeReads(tt.want)...)
+				harness.AssertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, buildWorktreeReads(tt.want)...)
 			})
 		}
 	})
 
 	t.Run("a directory komrad does not hold is never asked about twice", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{})
-		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, refuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"))
-		harness.watch(buildSnapshot(buildRecordedTask()...))
+		harness := paneltest.Start(t, paneltest.Params{})
+		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, refuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"))
+		harness.Watch(paneltest.Snapshot(buildRecordedTask()...))
 
-		harness.press("pick:record", "pick:list", "k", "j")
-		harness.fireTimers()
+		harness.Press("pick:record", "pick:list", "k", "j")
+		harness.Advance(time.Second)
 
-		harness.assertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, buildWorktreeReads(1)...)
+		harness.AssertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, buildWorktreeReads(1)...)
 	})
 
 	t.Run("a focused record grows to show every field and shrinks back", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{detailsHeight: 5})
-		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
-		harness.watch(buildSnapshot(buildRecordedTask()...))
-		harness.fireTimers()
-		share := len(readRecord(harness.readFrame()))
-		require.Negative(t, findRecordLine(harness.readFrame(), "created"), "the last fields are past the share")
+		harness := paneltest.Start(t, paneltest.Params{DetailsHeight: 5})
+		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
+		harness.Watch(paneltest.Snapshot(buildRecordedTask()...))
+		harness.Advance(time.Second)
+		share := len(paneltest.Record(harness.Frame()))
+		require.Negative(t, paneltest.RecordLine(harness.Frame(), "created"), "the last fields are past the share")
 
-		harness.press("pick:record")
+		harness.Press("pick:record")
 
-		frame := harness.readFrame()
-		assert.Positive(t, findRecordLine(frame, "created"))
-		assert.NotContains(t, strings.Join(readRecord(frame), "\n"), "more", "nothing is left out")
-		assert.Len(t, splitLines(frame), defaultHarnessHeight)
-		assert.Equal(t, []string{"backend", "└─ task-a1"}, readListRows(frame), "the list keeps its rows")
+		frame := harness.Frame()
+		assert.Positive(t, paneltest.RecordLine(frame, "created"))
+		assert.NotContains(t, strings.Join(paneltest.Record(frame), "\n"), "more", "nothing is left out")
+		assert.Len(t, paneltest.SplitLines(frame), paneltest.DefaultHeight)
+		assert.Equal(t, []string{"backend", "└─ task-a1"}, paneltest.ListRows(frame), "the list keeps its rows")
 
-		harness.press("pick:list")
-		assert.Len(t, readRecord(harness.readFrame()), share)
+		harness.Press("pick:list")
+		assert.Len(t, paneltest.Record(harness.Frame()), share)
 	})
 
 	t.Run("a focused record taller than the pane grows only as far as the room", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{height: 16})
-		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
-		harness.watch(buildSnapshot(buildRecordedTask()...))
-		harness.press("k")
-		harness.fireTimers()
+		harness := paneltest.Start(t, paneltest.Params{Height: 16})
+		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
+		harness.Watch(paneltest.Snapshot(buildRecordedTask()...))
+		harness.Press("k")
+		harness.Advance(time.Second)
 
-		harness.press("pick:record")
+		harness.Press("pick:record")
 
-		frame := harness.readFrame()
-		assert.Len(t, splitLines(frame), 16)
-		assert.Contains(t, strings.Join(readRecord(frame), "\n"), "more")
+		frame := harness.Frame()
+		assert.Len(t, paneltest.SplitLines(frame), 16)
+		assert.Contains(t, strings.Join(paneltest.Record(frame), "\n"), "more")
 	})
 }
 
 // TestAgentsRecordSearch covers the one search over a focused record.
 func TestAgentsRecordSearch(t *testing.T) {
 	t.Run("typing lights the match and moves nothing until enter walks onto it", func(t *testing.T) {
-		harness := openWorktreeRecord(t, panelHarnessParams{})
+		harness := openWorktreeRecord(t, paneltest.Params{})
 
-		harness.press("/", "s", "i", "z")
+		harness.Press("/", "s", "i", "z")
 
-		frame := harness.readFrame()
-		assert.Regexp(t, `^directory\s`, readRecordCursor(frame))
+		frame := harness.Frame()
+		assert.Regexp(t, `^directory\s`, paneltest.RecordCursor(frame))
 		assert.Contains(t, frame, "/ siz", "the header's search line is the record's")
 
-		harness.press("enter")
-		assert.Regexp(t, `^size\s`, readRecordCursor(harness.readFrame()))
+		harness.Press("enter")
+		assert.Regexp(t, `^size\s`, paneltest.RecordCursor(harness.Frame()))
 	})
 
 	t.Run("n and N step between the matches once a search stands", func(t *testing.T) {
 		harness := openAgentRecord(t)
 
-		harness.press("n")
-		require.Regexp(t, `^agent\s`, readRecordCursor(harness.readFrame()), "nothing stands to step through")
+		harness.Press("n")
+		require.Regexp(t, `^agent\s`, paneltest.RecordCursor(harness.Frame()), "nothing stands to step through")
 
-		harness.press("/", "_", "i", "d", "enter")
-		assert.Regexp(t, `^agent_id\s`, readRecordCursor(harness.readFrame()))
+		harness.Press("/", "_", "i", "d", "enter")
+		assert.Regexp(t, `^agent_id\s`, paneltest.RecordCursor(harness.Frame()))
 
-		harness.press("n")
-		assert.Regexp(t, `^session_id\s`, readRecordCursor(harness.readFrame()))
+		harness.Press("n")
+		assert.Regexp(t, `^session_id\s`, paneltest.RecordCursor(harness.Frame()))
 
-		harness.press("N")
-		assert.Regexp(t, `^agent_id\s`, readRecordCursor(harness.readFrame()))
+		harness.Press("N")
+		assert.Regexp(t, `^agent_id\s`, paneltest.RecordCursor(harness.Frame()))
 	})
 
 	t.Run("tab narrows the record to the fields it matches and the rows under them", func(t *testing.T) {
 		harness := openAgentRecord(t)
 
-		harness.press(append([]string{"/", "_", "i", "d", "tab", "enter"}, widenListPresses...)...)
+		harness.Press(append([]string{"/", "_", "i", "d", "tab", "enter"}, widenListPresses...)...)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "▽ _id")
 		assert.Equal(t, []string{
 			"› agent_id   a1",
 			"  session_id abc",
-		}, slices.DeleteFunc(readRecord(frame), isBlank))
+		}, slices.DeleteFunc(paneltest.Record(frame), isBlank))
 	})
 
 	t.Run("a filter nothing matches says so and leaves the list alone", func(t *testing.T) {
 		harness := openAgentRecord(t)
 
-		harness.press("/", "z", "z", "z", "tab", "enter")
+		harness.Press("/", "z", "z", "z", "tab", "enter")
 
-		frame := harness.readFrame()
-		assert.Contains(t, strings.Join(readRecord(frame), "\n"), "nothing matches")
-		assert.Contains(t, readLegend(frame), "back to the list", "the record keeps the keys")
-		assert.Equal(t, []string{"backend", "└─ auth"}, readListRows(frame))
+		frame := harness.Frame()
+		assert.Contains(t, strings.Join(paneltest.Record(frame), "\n"), "nothing matches")
+		assert.Contains(t, paneltest.Legend(frame), "back to the list", "the record keeps the keys")
+		assert.Equal(t, []string{"backend", "└─ auth"}, paneltest.ListRows(frame))
 	})
 
 	t.Run("escape abandons the input, then clears the search, then hands the keys back", func(t *testing.T) {
-		harness := openWorktreeRecord(t, panelHarnessParams{})
+		harness := openWorktreeRecord(t, paneltest.Params{})
 
-		harness.press("/", "s", "i", "z", "esc")
+		harness.Press("/", "s", "i", "z", "esc")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Equal(t, "/", readSearch(frame))
-		assert.Regexp(t, `^directory\s`, readRecordCursor(frame), "the record keeps the keys and its cursor")
+		assert.Regexp(t, `^directory\s`, paneltest.RecordCursor(frame), "the record keeps the keys and its cursor")
 
-		harness.press("/", "s", "i", "z", "enter", "esc")
+		harness.Press("/", "s", "i", "z", "enter", "esc")
 
-		frame = harness.readFrame()
+		frame = harness.Frame()
 		assert.Equal(t, "/", readSearch(frame), "the first escape clears the search")
-		assert.NotEmpty(t, readRecordCursor(frame))
+		assert.NotEmpty(t, paneltest.RecordCursor(frame))
 
-		harness.press("esc")
-		assert.Empty(t, readRecordCursor(harness.readFrame()), "the second hands the keys back")
+		harness.Press("esc")
+		assert.Empty(t, paneltest.RecordCursor(harness.Frame()), "the second hands the keys back")
 	})
 
 	t.Run("a search standing when the keys go keeps narrowing the record", func(t *testing.T) {
-		harness := openWorktreeRecord(t, panelHarnessParams{})
+		harness := openWorktreeRecord(t, paneltest.Params{})
 
-		harness.press("/", "s", "i", "z", "tab", "enter", "pick:record")
+		harness.Press("/", "s", "i", "z", "tab", "enter", "pick:record")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Equal(t, "▽ siz", readSearch(frame))
-		assert.Len(t, slices.DeleteFunc(readRecord(frame), isBlank), 1)
+		assert.Len(t, slices.DeleteFunc(paneltest.Record(frame), isBlank), 1)
 	})
 
 	t.Run("the search goes with the screen", func(t *testing.T) {
-		harness := openWorktreeRecord(t, panelHarnessParams{})
+		harness := openWorktreeRecord(t, paneltest.Params{})
 
-		harness.press("/", "s", "i", "z", "enter", "pick:record", "tab", "shift+tab")
+		harness.Press("/", "s", "i", "z", "enter", "pick:record", "tab", "shift+tab")
 
-		frame := harness.readFrame()
-		assert.Equal(t, agentsScreen, harness.readScreen())
+		frame := harness.Frame()
+		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
 		assert.Equal(t, "/", readSearch(frame))
 	})
 
 	t.Run("a focused record keeps the keys through its search in a tight pane", func(t *testing.T) {
 		tests := []struct {
 			name       string
-			params     panelHarnessParams
+			params     paneltest.Params
 			press      []string
 			wantLegend bool
 		}{
 			{
 				name: "a pane the share only just fits",
-				params: panelHarnessParams{
-					width:  80,
-					height: 13,
+				params: paneltest.Params{
+					Width:  80,
+					Height: 13,
 				},
 			},
 			{
 				name: "one row taller",
-				params: panelHarnessParams{
-					width:  80,
-					height: 14,
+				params: paneltest.Params{
+					Width:  80,
+					Height: 14,
 				},
 			},
 			{
 				name: "a narrow pane with the legend expanded",
-				params: panelHarnessParams{
-					width:  38,
-					height: 44,
+				params: paneltest.Params{
+					Width:  38,
+					Height: 44,
 				},
 				press:      []string{"?"},
 				wantLegend: true,
@@ -1376,47 +1378,47 @@ func TestAgentsRecordSearch(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				harness := newPanelHarness(t, tt.params)
-				harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
-				harness.watch(buildSnapshot(buildRecorded()...))
-				harness.press(tt.press...)
+				harness := paneltest.Start(t, tt.params)
+				harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
+				harness.Watch(paneltest.Snapshot(buildRecorded()...))
+				harness.Press(tt.press...)
 				if tt.wantLegend {
-					require.Contains(t, readLegend(harness.readFrame()), "hide help", "the legend is expanded")
+					require.Contains(t, paneltest.Legend(harness.Frame()), "hide help", "the legend is expanded")
 				}
-				harness.press("pick:record")
-				require.NotEmpty(t, readRecordCursor(harness.readFrame()), "the share fits, so the record takes the keys")
+				harness.Press("pick:record")
+				require.NotEmpty(t, paneltest.RecordCursor(harness.Frame()), "the share fits, so the record takes the keys")
 
-				harness.press("/", "a")
+				harness.Press("/", "a")
 
-				frame := harness.readFrame()
-				assert.NotEmpty(t, readRecord(frame), "the record is still rendered with its search line")
-				assert.Len(t, splitLines(frame), tt.params.height)
+				frame := harness.Frame()
+				assert.NotEmpty(t, paneltest.Record(frame), "the record is still rendered with its search line")
+				assert.Len(t, paneltest.SplitLines(frame), tt.params.Height)
 
-				harness.press("enter")
+				harness.Press("enter")
 
-				frame = harness.readFrame()
-				assert.NotEmpty(t, readRecordCursor(frame), "enter kept the search rather than reaching the list")
-				assert.Equal(t, agentsScreen, harness.readScreen())
+				frame = harness.Frame()
+				assert.NotEmpty(t, paneltest.RecordCursor(frame), "enter kept the search rather than reaching the list")
+				assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
 
-				harness.press("esc", "esc")
-				assert.Empty(t, readRecordCursor(harness.readFrame()), "two escapes clear the search and hand the keys back")
+				harness.Press("esc", "esc")
+				assert.Empty(t, paneltest.RecordCursor(harness.Frame()), "two escapes clear the search and hand the keys back")
 			})
 		}
 	})
 
 	t.Run("a slash after a shrink took the keys opens the list's search", func(t *testing.T) {
-		harness := openWorktreeRecord(t, panelHarnessParams{
-			width:  80,
-			height: 30,
+		harness := openWorktreeRecord(t, paneltest.Params{
+			Width:  80,
+			Height: 30,
 		})
-		harness.send(tea.WindowSizeMsg{
+		harness.Send(tea.WindowSizeMsg{
 			Width:  80,
 			Height: 11,
 		})
 
-		harness.press("/", "a", "g", "e", "n", "t", "3")
+		harness.Press("/", "a", "g", "e", "n", "t", "3")
 
-		assert.Contains(t, harness.readFrame(), "/ agent3")
+		assert.Contains(t, harness.Frame(), "/ agent3")
 	})
 }
 
@@ -1424,115 +1426,115 @@ func TestAgentsRecordSearch(t *testing.T) {
 func TestAgentsSearchAcrossSections(t *testing.T) {
 	t.Run("a filter typed on the list narrows the list alone", func(t *testing.T) {
 		harness := openAgents(t, append(buildRecorded(), newAgentAt("billing", "w1", 1))...)
-		harness.press("j")
-		fields := len(readRecord(harness.readFrame()))
+		harness.Press("j")
+		fields := len(paneltest.Record(harness.Frame()))
 
-		harness.press("/", "a", "u", "t", "h", "tab", "enter")
+		harness.Press("/", "a", "u", "t", "h", "tab", "enter")
 
-		frame := harness.readFrame()
-		assert.Equal(t, []string{"backend", "└─ auth"}, readListRows(frame))
-		assert.Len(t, readRecord(frame), fields, "the record keeps every field")
+		frame := harness.Frame()
+		assert.Equal(t, []string{"backend", "└─ auth"}, paneltest.ListRows(frame))
+		assert.Len(t, paneltest.Record(frame), fields, "the record keeps every field")
 	})
 
 	t.Run("the focus key while typing jumps into the record's first match and back out moves nothing", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
 
-		harness.press("/", "a", "b", "c", "pick:record")
+		harness.Press("/", "a", "b", "c", "pick:record")
 
-		frame := harness.readFrame()
-		assert.Regexp(t, `^session_id\s+abc$`, readRecordCursor(frame))
+		frame := harness.Frame()
+		assert.Regexp(t, `^session_id\s+abc$`, paneltest.RecordCursor(frame))
 		assert.Contains(t, frame, "/ abc", "the pattern stands")
 		assert.NotContains(t, frame, "/ abc▏", "and the input is closed")
 
-		harness.press("pick:list")
-		assert.Equal(t, "└─ auth", readHoveredRow(harness.readFrame()), "the list never moved")
+		harness.Press("pick:list")
+		assert.Equal(t, "└─ auth", paneltest.HoveredRow(harness.Frame()), "the list never moved")
 
-		harness.press("esc", "/", "b", "a", "c", "k", "enter", "pick:record")
-		assert.Regexp(t, `^name\s+backend$`, readRecordCursor(harness.readFrame()), "enter walked the list onto the header before the jump")
+		harness.Press("esc", "/", "b", "a", "c", "k", "enter", "pick:record")
+		assert.Regexp(t, `^name\s+backend$`, paneltest.RecordCursor(harness.Frame()), "enter walked the list onto the header before the jump")
 	})
 
 	t.Run("clearing the search where it opened puts the cursor back and from the record leaves it", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
-		harness.press("k", "/", "a", "u", "t", "enter")
-		require.Equal(t, "└─ auth", readHoveredRow(harness.readFrame()))
+		harness.Press("k", "/", "a", "u", "t", "enter")
+		require.Equal(t, "└─ auth", paneltest.HoveredRow(harness.Frame()))
 
-		harness.press("esc")
-		assert.Equal(t, "backend", readHoveredRow(harness.readFrame()))
+		harness.Press("esc")
+		assert.Equal(t, "backend", paneltest.HoveredRow(harness.Frame()))
 
-		harness.press("/", "a", "u", "t", "enter", "pick:record", "esc")
+		harness.Press("/", "a", "u", "t", "enter", "pick:record", "esc")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.NotContains(t, frame, "/ aut")
-		assert.NotEmpty(t, readRecordCursor(frame), "the record keeps the keys")
+		assert.NotEmpty(t, paneltest.RecordCursor(frame), "the record keeps the keys")
 
-		harness.press("pick:list")
-		assert.Equal(t, "└─ auth", readHoveredRow(harness.readFrame()))
+		harness.Press("pick:list")
+		assert.Equal(t, "└─ auth", paneltest.HoveredRow(harness.Frame()))
 	})
 
 	t.Run("the page keys move the record's cursor ten fields at a time", func(t *testing.T) {
 		rows := buildRecorded()
 		rows[0].(*workflowv1.Workflow).Worktree.CopyPaths = []string{".env"}
 		harness := openAgents(t, rows...)
-		harness.press("k", "pick:record")
-		first := readRecordCursor(harness.readFrame())
+		harness.Press("k", "pick:record")
+		first := paneltest.RecordCursor(harness.Frame())
 
-		harness.press("ctrl+d")
-		assert.Equal(t, 10, findRecordCursor(harness.readFrame()))
+		harness.Press("ctrl+d")
+		assert.Equal(t, 10, findRecordCursor(harness.Frame()))
 
-		harness.press("ctrl+u")
-		assert.Equal(t, first, readRecordCursor(harness.readFrame()))
+		harness.Press("ctrl+u")
+		assert.Equal(t, first, paneltest.RecordCursor(harness.Frame()))
 
-		harness.press("G")
-		last := readRecordCursor(harness.readFrame())
-		harness.press("ctrl+d")
-		assert.Equal(t, last, readRecordCursor(harness.readFrame()), "a page past the end stays on the last field")
+		harness.Press("G")
+		last := paneltest.RecordCursor(harness.Frame())
+		harness.Press("ctrl+d")
+		assert.Equal(t, last, paneltest.RecordCursor(harness.Frame()), "a page past the end stays on the last field")
 	})
 
 	t.Run("the match keys walk only the section holding the keys", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
 
-		harness.press("k", "/", "b", "a", "c", "k", "enter", "n")
+		harness.Press("k", "/", "b", "a", "c", "k", "enter", "n")
 
-		frame := harness.readFrame()
-		assert.Equal(t, "backend", readHoveredRow(frame), "n wraps to the list's only match")
-		assert.Empty(t, readRecordCursor(frame))
+		frame := harness.Frame()
+		assert.Equal(t, "backend", paneltest.HoveredRow(frame), "n wraps to the list's only match")
+		assert.Empty(t, paneltest.RecordCursor(frame))
 
-		harness.press("pick:record", "n")
-		assert.Regexp(t, `^name\s+backend$`, readRecordCursor(harness.readFrame()), "and in the record wraps to the record's")
+		harness.Press("pick:record", "n")
+		assert.Regexp(t, `^name\s+backend$`, paneltest.RecordCursor(harness.Frame()), "and in the record wraps to the record's")
 	})
 
 	t.Run("enter walks the list only onto a row the list matches", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
 
-		harness.press("/", "b", "a", "c", "k")
-		assert.Equal(t, "└─ auth", readHoveredRow(harness.readFrame()), "typing moves nothing")
+		harness.Press("/", "b", "a", "c", "k")
+		assert.Equal(t, "└─ auth", paneltest.HoveredRow(harness.Frame()), "typing moves nothing")
 
-		harness.press("enter")
-		assert.Equal(t, "backend", readHoveredRow(harness.readFrame()))
+		harness.Press("enter")
+		assert.Equal(t, "backend", paneltest.HoveredRow(harness.Frame()))
 
-		harness.press("esc", "/", "a", "b", "c", "enter")
-		assert.Equal(t, "└─ auth", readHoveredRow(harness.readFrame()), "a pattern only the record matches leaves the list where it is")
+		harness.Press("esc", "/", "a", "b", "c", "enter")
+		assert.Equal(t, "└─ auth", paneltest.HoveredRow(harness.Frame()), "a pattern only the record matches leaves the list where it is")
 	})
 
 	t.Run("escape after the jump into the record clears the search and leaves both cursors", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
-		harness.press("/", "a", "b", "c", "pick:record")
+		harness.Press("/", "a", "b", "c", "pick:record")
 
-		harness.press("esc")
+		harness.Press("esc")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.NotContains(t, frame, "/ abc")
-		assert.Regexp(t, `^session_id\s+abc$`, readRecordCursor(frame))
+		assert.Regexp(t, `^session_id\s+abc$`, paneltest.RecordCursor(frame))
 	})
 
 	t.Run("a filter matching only a field empties the list and the record with it", func(t *testing.T) {
 		harness := openAgents(t, buildRecorded()...)
 
-		harness.press("/", "a", "b", "c", "tab", "enter")
+		harness.Press("/", "a", "b", "c", "tab", "enter")
 
-		frame := harness.readFrame()
-		assert.Empty(t, readListRows(frame))
-		assert.Empty(t, readRecordCursor(frame))
+		frame := harness.Frame()
+		assert.Empty(t, paneltest.ListRows(frame))
+		assert.Empty(t, paneltest.RecordCursor(frame))
 		assert.Contains(t, frame, "nothing matches")
 	})
 }
@@ -1570,9 +1572,9 @@ func TestAgentsFailedPlaceholder(t *testing.T) {
 			failed.State = tt.state
 			failed.FailureReason = tt.reason
 			harness := openAgents(t, newLiveWorkflow("w1", "api"), failed)
-			harness.press("j")
+			harness.Press("j")
 
-			frame := harness.readFrame()
+			frame := harness.Frame()
 			for _, want := range tt.want {
 				assert.Contains(t, frame, want)
 			}
@@ -1632,55 +1634,55 @@ func TestAgentsLastScreen(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := newPanelHarness(t, panelHarnessParams{})
+			harness := paneltest.Start(t, paneltest.Params{})
 			answerWorktreeReads(harness)
 			answerLastScreens(harness, map[string]string{"a1": "⏺ the migration is written"})
-			harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), tt.agent))
-			harness.press("j")
-			harness.fireTimers()
+			harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), tt.agent))
+			harness.Press("j")
+			harness.Advance(time.Second)
 
-			frame := harness.readFrame()
+			frame := harness.Frame()
 			for _, want := range tt.want {
 				assert.Contains(t, frame, want)
 			}
 			for _, absent := range tt.wantAbsent {
 				assert.NotContains(t, frame, absent)
 			}
-			harness.assertSentTo(agentv1connect.AgentServiceGetLastScreenProcedure, xslice.Map(tt.wantScreenFor, func(id string) proto.Message {
+			harness.AssertSentTo(agentv1connect.AgentServiceGetLastScreenProcedure, xslice.Map(tt.wantScreenFor, func(id string) proto.Message {
 				return &agentv1.GetLastScreenRequest{AgentId: id}
 			})...)
 		})
 	}
 
 	t.Run("an agent that runs and stops again under the cursor renders its newer screen", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{})
+		harness := paneltest.Start(t, paneltest.Params{})
 		answerWorktreeReads(harness)
 		answerLastScreens(harness, map[string]string{"a1": "⏺ the migration is written"})
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newDormant("login")))
-		harness.press("j")
-		harness.fireTimers()
-		require.Contains(t, harness.readFrame(), "the migration is written")
+		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), newDormant("login")))
+		harness.Press("j")
+		harness.Advance(time.Second)
+		require.Contains(t, harness.Frame(), "the migration is written")
 
 		live := newDormant("login")
 		live.Alive = xptr.Ptr(true)
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), live))
+		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), live))
 		answerLastScreens(harness, map[string]string{"a1": "⏺ the tests pass"})
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newDormant("login")))
+		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), newDormant("login")))
 
-		assert.Contains(t, harness.readFrame(), "the tests pass")
+		assert.Contains(t, harness.Frame(), "the tests pass")
 	})
 
 	t.Run("a saved screen taller than the window opens on its bottom", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{})
+		harness := paneltest.Start(t, paneltest.Params{})
 		answerWorktreeReads(harness)
 		answerLastScreens(harness, map[string]string{
 			"a1": "❯ the first ask\n" + strings.Repeat("working through it\n", 60) + "⏺ the migration is written",
 		})
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newDormant("login")))
-		harness.press("j")
-		harness.fireTimers()
+		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), newDormant("login")))
+		harness.Press("j")
+		harness.Advance(time.Second)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "the migration is written")
 		assert.NotContains(t, frame, "the first ask")
 	})
@@ -1691,55 +1693,55 @@ func TestAgentsEdit(t *testing.T) {
 	t.Run("the edit key stops the agent and opens its worktree beside the list", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""))
 
-		harness.press("space", "e")
+		harness.Press("space", "e")
 
-		harness.assertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
-		require.NotEmpty(t, harness.panel.ReadRespawns())
-		assert.Contains(t, harness.panel.ReadRespawns()[0], "'/work/telescope'")
-		assert.Equal(t, "/work/telescope", harness.panel.ReadRespawnDirs()[0])
+		harness.AssertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
+		require.NotEmpty(t, harness.Tmux().Respawns())
+		assert.Contains(t, harness.Tmux().Respawns()[0], "'/work/telescope'")
+		assert.Equal(t, "/work/telescope", harness.Tmux().RespawnDirs()[0])
 	})
 
 	t.Run("on an engine elsewhere the edit key opens the worktree there, through its ssh host", func(t *testing.T) {
-		harness := openAgentsWith(t, panelHarnessParams{settings: remoteEditSettings(t, "nvim")}, newLiveWorkflow("w1", "backend"), newEditable(""))
+		harness := openAgentsWith(t, paneltest.Params{Settings: remoteEditSettings(t, "nvim")}, newLiveWorkflow("w1", "backend"), newEditable(""))
 
-		harness.press("space", "e")
+		harness.Press("space", "e")
 
-		harness.assertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
-		require.NotEmpty(t, harness.panel.ReadRespawns())
-		assert.Contains(t, harness.panel.ReadRespawns()[0], "-t 'komrad-remote'")
-		assert.Empty(t, harness.panel.ReadRespawnDirs()[0], "the pane is not rooted at a directory this machine lacks")
+		harness.AssertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
+		require.NotEmpty(t, harness.Tmux().Respawns())
+		assert.Contains(t, harness.Tmux().Respawns()[0], "-t 'komrad-remote'")
+		assert.Empty(t, harness.Tmux().RespawnDirs()[0], "the pane is not rooted at a directory this machine lacks")
 	})
 
 	t.Run("on an engine elsewhere an editor that cannot reach it leaves the agent running", func(t *testing.T) {
-		harness := openAgentsWith(t, panelHarnessParams{settings: remoteEditSettings(t, "subl")}, newLiveWorkflow("w1", "backend"), newEditable(""))
+		harness := openAgentsWith(t, paneltest.Params{Settings: remoteEditSettings(t, "subl")}, newLiveWorkflow("w1", "backend"), newEditable(""))
 
-		harness.press("space", "e")
+		harness.Press("space", "e")
 
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
-		assert.Empty(t, harness.panel.ReadRespawns())
-		assert.Contains(t, harness.readFrame(), "could not edit telescope")
+		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceHoldAgentProcedure))
+		assert.Empty(t, harness.Tmux().Respawns())
+		assert.Contains(t, harness.Frame(), "could not edit telescope")
 	})
 
 	t.Run("closing the editor lets the agent go", func(t *testing.T) {
 		tests := []struct {
 			name  string
-			close func(*panelHarness)
+			close func(*paneltest.Panel)
 		}{
 			{
 				name:  "the key again",
-				close: func(h *panelHarness) { h.press("space", "e") },
+				close: func(h *paneltest.Panel) { h.Press("space", "e") },
 			},
 			{
 				name: "the editor quitting",
-				close: func(h *panelHarness) {
-					editors := h.panel.ReadRespawnPanes()
-					h.panel.SetPaneDead(editors[len(editors)-1])
-					h.fireTimers()
+				close: func(h *paneltest.Panel) {
+					editors := h.Tmux().RespawnPanes()
+					h.Tmux().SetPaneDead(editors[len(editors)-1])
+					h.Advance(time.Second)
 				},
 			},
 			{
 				name:  "leaving the agents list",
-				close: func(h *panelHarness) { h.press("shift+tab", "shift+tab") },
+				close: func(h *paneltest.Panel) { h.Press("shift+tab", "shift+tab") },
 			},
 		}
 
@@ -1747,7 +1749,7 @@ func TestAgentsEdit(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""))
 				said := recordRelease(harness)
-				harness.press("space", "e")
+				harness.Press("space", "e")
 				require.Empty(t, *said)
 
 				tt.close(harness)
@@ -1772,21 +1774,21 @@ func TestAgentsEdit(t *testing.T) {
 		adopter.TaskId = writer.TaskId
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), writer, adopter, task)
 
-		harness.press("space", "e")
+		harness.Press("space", "e")
 
-		harness.assertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
-		require.NotEmpty(t, harness.panel.ReadRespawnDirs())
-		assert.Equal(t, "/work/telescope", harness.panel.ReadRespawnDirs()[0])
+		harness.AssertSentTo(agentv1connect.AgentServiceHoldAgentProcedure, &agentv1.HoldAgentRequest{Id: "a1"})
+		require.NotEmpty(t, harness.Tmux().RespawnDirs())
+		assert.Equal(t, "/work/telescope", harness.Tmux().RespawnDirs()[0])
 	})
 
 	t.Run("a snapshot leaves alone the pause the editor holds", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""))
 		said := recordRelease(harness)
-		harness.press("space", "e")
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newEditable(heldAt)))
+		harness.Press("space", "e")
+		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), newEditable(heldAt)))
 		require.Empty(t, *said)
 
-		harness.press("space", "e")
+		harness.Press("space", "e")
 		require.Len(t, *said, 1)
 		assert.Contains(t, (*said)[0].GetSaid(), "while I had your worktree open")
 	})
@@ -1796,25 +1798,25 @@ func TestAgentsEdit(t *testing.T) {
 		other.Id, other.Name, other.PaneId = "a2", "comet", "%10"
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""), other)
 		moveToAgentRow(t, harness, "telescope")
-		harness.press("space", "e")
-		respawns, swaps := harness.panel.CountRespawns(), harness.panel.CountSwaps()
+		harness.Press("space", "e")
+		respawns, swaps := len(harness.Tmux().Respawns()), harness.Tmux().Swaps()
 
-		harness.press("j")
-		harness.fireTimers()
+		harness.Press("j")
+		harness.Advance(time.Second)
 
-		assert.Equal(t, respawns, harness.panel.CountRespawns())
-		assert.Equal(t, swaps, harness.panel.CountSwaps())
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure))
+		assert.Len(t, harness.Tmux().Respawns(), respawns)
+		assert.Equal(t, swaps, harness.Tmux().Swaps())
+		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceReleaseAgentProcedure))
 	})
 
 	t.Run("an agent paused by somebody else opens no editor", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(heldAt))
 
-		harness.press("space", "e")
+		harness.Press("space", "e")
 
-		assert.Empty(t, harness.panel.ReadRespawns())
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
-		assert.Contains(t, harness.readFrame(), "could not edit")
+		assert.Empty(t, harness.Tmux().Respawns())
+		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceHoldAgentProcedure))
+		assert.Contains(t, harness.Frame(), "could not edit")
 	})
 
 	t.Run("a dormant agent is neither stopped nor let go", func(t *testing.T) {
@@ -1822,23 +1824,23 @@ func TestAgentsEdit(t *testing.T) {
 		agent.Alive = xptr.Ptr(false)
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), agent)
 
-		harness.press("space", "e")
-		require.NotEmpty(t, harness.panel.ReadRespawns())
-		harness.press("space", "e")
+		harness.Press("space", "e")
+		require.NotEmpty(t, harness.Tmux().Respawns())
+		harness.Press("space", "e")
 
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure))
+		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceHoldAgentProcedure))
+		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceReleaseAgentProcedure))
 	})
 
 	t.Run("an agent that will not stop opens no editor", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""))
-		harness.answer(agentv1connect.AgentServiceHoldAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		harness.Answer(agentv1connect.AgentServiceHoldAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 			return nil, errors.New("the agent did not stop")
 		})
 
-		harness.press("space", "e")
+		harness.Press("space", "e")
 
-		assert.Empty(t, harness.panel.ReadRespawns())
+		assert.Empty(t, harness.Tmux().Respawns())
 	})
 
 	t.Run("an unreadable pane refuses the key and stops nothing", func(t *testing.T) {
@@ -1846,22 +1848,22 @@ func TestAgentsEdit(t *testing.T) {
 		agent.State = agentv1.AgentState_AGENT_STATE_UNCERTAIN
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), agent)
 
-		harness.press("space", "e")
+		harness.Press("space", "e")
 
-		assert.Empty(t, harness.panel.ReadRespawns())
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceHoldAgentProcedure))
+		assert.Empty(t, harness.Tmux().Respawns())
+		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceHoldAgentProcedure))
 	})
 
 	t.Run("an edit given up before the agent stops lets it go", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newEditable(""))
 		said := recordRelease(harness)
-		harness.hold(agentv1connect.AgentServiceHoldAgentProcedure)
-		harness.press("space", "e")
+		harness.Hold(agentv1connect.AgentServiceHoldAgentProcedure)
+		harness.Press("space", "e")
 
-		harness.press("esc", "shift+tab", "shift+tab")
-		harness.release(agentv1connect.AgentServiceHoldAgentProcedure)
+		harness.Press("esc", "shift+tab", "shift+tab")
+		harness.Release(agentv1connect.AgentServiceHoldAgentProcedure)
 
-		assert.Empty(t, harness.panel.ReadRespawns())
+		assert.Empty(t, harness.Tmux().Respawns())
 		require.Len(t, *said, 1)
 		assert.Contains(t, (*said)[0].GetSaid(), "without opening it")
 	})
@@ -1870,11 +1872,11 @@ func TestAgentsEdit(t *testing.T) {
 // TestAgentsStrandedPause covers a pause no screen of the panel holds.
 func TestAgentsStrandedPause(t *testing.T) {
 	t.Run("the snapshot lets it go and tells it why", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{})
+		harness := paneltest.Start(t, paneltest.Params{})
 		answerWorktreeReads(harness)
 		said := recordRelease(harness)
 
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newPausable(heldAt)))
+		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), newPausable(heldAt)))
 
 		require.Len(t, *said, 1)
 		assert.Equal(t, "a1", (*said)[0].GetId())
@@ -1884,7 +1886,7 @@ func TestAgentsStrandedPause(t *testing.T) {
 	t.Run("an agent nobody paused is left alone", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(""))
 
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceReleaseAgentProcedure))
+		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceReleaseAgentProcedure))
 	})
 
 	t.Run("a pause another agent holds", func(t *testing.T) {
@@ -1911,11 +1913,11 @@ func TestAgentsStrandedPause(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				held := newPausable(heldAt)
 				held.HeldByAgentId = "a2"
-				harness := newPanelHarness(t, panelHarnessParams{})
+				harness := paneltest.Start(t, paneltest.Params{})
 				answerWorktreeReads(harness)
 				said := recordRelease(harness)
 
-				harness.watch(buildSnapshot(append(tt.rows, held)...))
+				harness.Watch(paneltest.Snapshot(append(tt.rows, held)...))
 
 				assert.Len(t, *said, tt.wantSent)
 			})
@@ -1925,8 +1927,8 @@ func TestAgentsStrandedPause(t *testing.T) {
 	t.Run("a paused agent renders its document in place of its pane", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newPausable(heldAt))
 
-		assert.True(t, harness.panel.IsZoomed(), "the panel keeps the window")
-		assert.Contains(t, harness.readFrame(), "Paused.")
+		assert.True(t, harness.Tmux().IsZoomed(), "the panel keeps the window")
+		assert.Contains(t, harness.Frame(), "Paused.")
 	})
 
 	tests := []struct {
@@ -1960,13 +1962,13 @@ func TestAgentsStrandedPause(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			agent := newPausable(heldAt)
 			agent.State = tt.state
-			harness := newPanelHarness(t, panelHarnessParams{width: 240})
+			harness := paneltest.Start(t, paneltest.Params{Width: 240})
 			answerWorktreeReads(harness)
-			harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), agent))
+			harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), agent))
 
-			harness.press(slices.Repeat([]string{"}"}, 30)...)
+			harness.Press(slices.Repeat([]string{"}"}, 30)...)
 
-			record := strings.Join(readRecord(harness.readFrame()), "\n")
+			record := strings.Join(paneltest.Record(harness.Frame()), "\n")
 			assert.Contains(t, record, tt.want)
 			assert.Equal(t, 1, strings.Count(record, "paused"), "a row says one thing about a pause, not two")
 		})
@@ -2016,25 +2018,25 @@ func TestAgentsOrchestrator(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openAgents(t, tt.rows...)
 			if !tt.wantZoomed {
-				harness.fireTimers()
+				harness.Advance(time.Second)
 			}
 
-			assert.Equal(t, tt.wantZoomed, harness.panel.IsZoomed())
+			assert.Equal(t, tt.wantZoomed, harness.Tmux().IsZoomed())
 			if tt.want != "" {
-				assert.Contains(t, harness.readFrame(), tt.want)
+				assert.Contains(t, harness.Frame(), tt.want)
 			}
 		})
 	}
 
 	t.Run("a restart relaunches the orchestrator with the note", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newOrchestrator())
-		harness.answer(agentv1connect.AgentServiceRestartAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		harness.Answer(agentv1connect.AgentServiceRestartAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 			return connect.NewResponse(&agentv1.RestartAgentResponse{Agent: newOrchestrator()}), nil
 		})
 
-		harness.press(slices.Concat([]string{"space", "o"}, spellKeys("start fresh"), []string{"enter"})...)
+		harness.Press(slices.Concat([]string{"space", "o"}, spellKeys("start fresh"), []string{"enter"})...)
 
-		harness.assertSentTo(agentv1connect.AgentServiceRestartAgentProcedure, &agentv1.RestartAgentRequest{
+		harness.AssertSentTo(agentv1connect.AgentServiceRestartAgentProcedure, &agentv1.RestartAgentRequest{
 			Id:      "o1",
 			Note:    "start fresh",
 			Harness: "claude",
@@ -2042,45 +2044,45 @@ func TestAgentsOrchestrator(t *testing.T) {
 	})
 
 	t.Run("a running orchestrator whose frame reads as no harness is staged at once", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: &harnessFrameFake{}})
+		harness := paneltest.Start(t, paneltest.Params{HarnessFrames: &harnessFrameFake{}})
 		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newOrchestrator()))
+		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), newOrchestrator()))
 
-		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
+		assert.Equal(t, "%9", harness.Tmux().GuestPane())
 	})
 
 	t.Run("an orchestrator setting up is staged once it is running", func(t *testing.T) {
-		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: &harnessFrameFake{}})
+		harness := paneltest.Start(t, paneltest.Params{HarnessFrames: &harnessFrameFake{}})
 		answerWorktreeReads(harness)
 		settingUp := newOrchestrator()
 		settingUp.State = agentv1.AgentState_AGENT_STATE_SETTING_UP
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), settingUp))
-		harness.fireTimers()
-		require.Empty(t, harness.panel.ReadGuestPane())
+		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), settingUp))
+		harness.Advance(time.Second)
+		require.Empty(t, harness.Tmux().GuestPane())
 
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newOrchestrator()))
+		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), newOrchestrator()))
 
-		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
+		assert.Equal(t, "%9", harness.Tmux().GuestPane())
 	})
 
 	t.Run("open on a workflow starts its orchestrator", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"))
 
-		harness.press("enter")
+		harness.Press("enter")
 
-		harness.assertSent(request{
-			procedure: agentv1connect.AgentServiceStartOrchestratorProcedure,
-			msg:       &agentv1.StartOrchestratorRequest{WorkflowId: "w1"},
+		harness.AssertSent(paneltest.Request{
+			Procedure: agentv1connect.AgentServiceStartOrchestratorProcedure,
+			Msg:       &agentv1.StartOrchestratorRequest{WorkflowId: "w1"},
 		})
 	})
 
 	t.Run("moving onto a workflow starts nothing", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"), newAgent("a1", "telescope", "w1"))
 
-		harness.press("k")
+		harness.Press("k")
 
-		require.Equal(t, "backend", readHoveredRow(harness.readFrame()))
-		harness.assertSentTo(agentv1connect.AgentServiceStartOrchestratorProcedure)
+		require.Equal(t, "backend", paneltest.HoveredRow(harness.Frame()))
+		harness.AssertSentTo(agentv1connect.AgentServiceStartOrchestratorProcedure)
 	})
 
 	t.Run("a flat list renders no row for the orchestrator it folded away", func(t *testing.T) {
@@ -2093,28 +2095,28 @@ func TestAgentsOrchestrator(t *testing.T) {
 			newReviewer("a2", "reviewer", "telescope"),
 		)
 
-		harness.press("f", "shift+tab", "j")
+		harness.Press("f", "shift+tab", "j")
 
-		assert.Equal(t, []string{"telescope", "  └ " + reviewerMark + "reviewer"}, readListRows(harness.readFrame()))
+		assert.Equal(t, []string{"telescope", "  └ " + reviewerMark + "reviewer"}, paneltest.ListRows(harness.Frame()))
 	})
 
 	t.Run("a workflow made in the panel comes with its orchestrator", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"))
 		answerWorkflowCreate(harness)
 
-		harness.press("space", "w", "a", "p", "i", "enter")
+		harness.Press("space", "w", "a", "p", "i", "enter")
 
-		harness.assertSentWith(ignoringEventPrompts,
-			request{
-				procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
-				msg: &workflowv1.CreateWorkflowRequest{
+		harness.AssertSentWith(ignoringEventPrompts,
+			paneltest.Request{
+				Procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
+				Msg: &workflowv1.CreateWorkflowRequest{
 					Name:     "api",
 					Worktree: &workflowv1.WorktreeConfig{Enabled: true},
 				},
 			},
-			request{
-				procedure: agentv1connect.AgentServiceStartOrchestratorProcedure,
-				msg:       &agentv1.StartOrchestratorRequest{WorkflowId: "w2"},
+			paneltest.Request{
+				Procedure: agentv1connect.AgentServiceStartOrchestratorProcedure,
+				Msg:       &agentv1.StartOrchestratorRequest{WorkflowId: "w2"},
 			},
 		)
 	})
@@ -2122,14 +2124,14 @@ func TestAgentsOrchestrator(t *testing.T) {
 	t.Run("a workflow stands when its orchestrator will not start", func(t *testing.T) {
 		harness := openAgents(t, newLiveWorkflow("w1", "backend"))
 		answerWorkflowCreate(harness)
-		harness.refuse(agentv1connect.AgentServiceStartOrchestratorProcedure, connect.NewError(connect.CodePermissionDenied, errors.New("the person refused the directory")))
+		harness.Refuse(agentv1connect.AgentServiceStartOrchestratorProcedure, connect.NewError(connect.CodePermissionDenied, errors.New("the person refused the directory")))
 
-		harness.press("space", "w", "a", "p", "i", "enter")
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), newLiveWorkflow("w2", "api")))
+		harness.Press("space", "w", "a", "p", "i", "enter")
+		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), newLiveWorkflow("w2", "api")))
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.NotContains(t, frame, "Could not create the workflow")
-		assert.Equal(t, "api", readHoveredRow(frame), "the cursor lands on the workflow it made")
+		assert.Equal(t, "api", paneltest.HoveredRow(frame), "the cursor lands on the workflow it made")
 	})
 }
 
@@ -2156,9 +2158,9 @@ func TestAgentsReviewers(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openAgents(t, buildReviewedTasks()...)
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			assert.Contains(t, readFormProse(harness.readFrame()), tt.want)
+			assert.Contains(t, readFormProse(harness.Frame()), tt.want)
 		})
 	}
 
@@ -2175,9 +2177,9 @@ func TestAgentsReviewers(t *testing.T) {
 		writerTask.Cwd = xptr.Ptr("/tmp/tree")
 		harness := openAgents(t, rows...)
 
-		harness.press("j", "space", "g")
+		harness.Press("j", "space", "g")
 
-		assert.NotRegexp(t, readOffEntry("rebase with base", "r"), harness.readRawFrame())
+		assert.NotRegexp(t, readOffEntry("rebase with base", "r"), harness.RawFrame())
 	})
 }
 
@@ -2187,30 +2189,30 @@ func TestAgentsWatchedEdits(t *testing.T) {
 		workflow := newLiveWorkflow("w1", "api")
 		workflow.Context = "old notes"
 		harness := openAgents(t, workflow)
-		require.Contains(t, harness.readFrame(), "old notes")
+		require.Contains(t, harness.Frame(), "old notes")
 
-		harness.watch(buildPuts(&workflowv1.Workflow{
+		harness.Watch(paneltest.Puts(&workflowv1.Workflow{
 			Id:      "w1",
 			Name:    "api",
 			Context: "new notes",
 		}))
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "new notes")
 		assert.NotContains(t, frame, "old notes")
 	})
 
 	t.Run("a pull request for a branch nobody is on waits for the task that arrives on it", func(t *testing.T) {
 		agent, task := newBranchAgent("a1", "api", "agent/x")
-		harness := openAgentsWith(t, panelHarnessParams{detailsHeight: 14},
+		harness := openAgentsWith(t, paneltest.Params{DetailsHeight: 14},
 			newLiveWorkflow("w1", "api"),
 			agent,
 			task,
 			&pullrequestv1.Repository{Url: repositoryURL},
 		)
-		harness.press(widenListPresses...)
+		harness.Press(widenListPresses...)
 
-		harness.watch(buildPuts(&pullrequestv1.PullRequest{
+		harness.Watch(paneltest.Puts(&pullrequestv1.PullRequest{
 			Id:                "pr-1",
 			RepositoryUrl:     repositoryURL,
 			HeadRepositoryUrl: repositoryURL,
@@ -2228,29 +2230,29 @@ func TestAgentsWatchedEdits(t *testing.T) {
 			OpenedAt:          "2026-09-18T12:00:00Z",
 			ClosedAt:          xptr.Ptr("2026-09-18T13:00:00Z"),
 		}))
-		require.Negative(t, findRecordLine(harness.readFrame(), "pull requests"), "the row on another branch is untouched")
+		require.Negative(t, paneltest.RecordLine(harness.Frame(), "pull requests"), "the row on another branch is untouched")
 
 		arrived, arrivedTask := newBranchAgent("a2", "web", "agent/other")
 		arrived.CreatedAt = "2026-09-20T12:00:00Z"
-		harness.watch(buildPuts(arrived, arrivedTask))
-		harness.press("k")
+		harness.Watch(paneltest.Puts(arrived, arrivedTask))
+		harness.Press("k")
 
-		frame := harness.readFrame()
-		require.Equal(t, "├─ task-a2", readHoveredRow(frame))
-		assert.Equal(t, "#5 closed", readRecordField(frame, "pull requests"))
+		frame := harness.Frame()
+		require.Equal(t, "├─ task-a2", paneltest.HoveredRow(frame))
+		assert.Equal(t, "#5 closed", paneltest.RecordField(frame, "pull requests"))
 	})
 
 	t.Run("a pull request's title and author reach the record of the task on its branch", func(t *testing.T) {
 		agent, task := newBranchAgent("a1", "api", "agent/x")
-		harness := openAgentsWith(t, panelHarnessParams{detailsHeight: 14},
+		harness := openAgentsWith(t, paneltest.Params{DetailsHeight: 14},
 			newLiveWorkflow("w1", "api"),
 			agent,
 			task,
 			&pullrequestv1.Repository{Url: repositoryURL},
 		)
-		harness.press(widenListPresses...)
+		harness.Press(widenListPresses...)
 
-		harness.watch(buildPuts(&pullrequestv1.PullRequest{
+		harness.Watch(paneltest.Puts(&pullrequestv1.PullRequest{
 			Id:                "pr-1",
 			RepositoryUrl:     repositoryURL,
 			HeadRepositoryUrl: repositoryURL,
@@ -2262,9 +2264,9 @@ func TestAgentsWatchedEdits(t *testing.T) {
 			OpenedAt:          "2026-09-19T12:00:00Z",
 		}))
 
-		frame := harness.readFrame()
-		assert.Equal(t, "#7 Pull more pull request info", readRecordField(frame, "pull request"))
-		assert.Equal(t, "@octocat", readRecordField(frame, "author"))
+		frame := harness.Frame()
+		assert.Equal(t, "#7 Pull more pull request info", paneltest.RecordField(frame, "pull request"))
+		assert.Equal(t, "@octocat", paneltest.RecordField(frame, "author"))
 	})
 }
 
@@ -2350,58 +2352,58 @@ func TestAgentsSelection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openAgents(t, withTasks(buildSelectable())...)
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			harness.press("space", "a")
-			harness.assertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure)
-			harness.press("enter")
+			harness.Press("space", "a")
+			harness.AssertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure)
+			harness.Press("enter")
 
-			harness.assertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, readArchiveTaskRequests(tt.wantTasks)...)
+			harness.AssertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, readArchiveTaskRequests(tt.wantTasks)...)
 		})
 	}
 
 	t.Run("a folder with no rows under it opens no selection", func(t *testing.T) {
 		harness := openAgents(t, append(buildSelectable(), newLiveWorkflow("w3", "chores"))...)
 
-		harness.press("j", "j", "j")
-		require.Equal(t, "chores", readHoveredRow(harness.readFrame()))
+		harness.Press("j", "j", "j")
+		require.Equal(t, "chores", paneltest.HoveredRow(harness.Frame()))
 
-		harness.press("v")
-		assert.NotContains(t, readLegend(harness.readFrame()), "selected")
+		harness.Press("v")
+		assert.NotContains(t, paneltest.Legend(harness.Frame()), "selected")
 	})
 
 	t.Run("keys with nothing to say about a set stand down and escape clears it", func(t *testing.T) {
 		harness := openAgents(t, buildSelectable()...)
-		harness.press("v")
+		harness.Press("v")
 
-		harness.press("r")
-		assert.NotContains(t, harness.readFrame(), "enter submit", "rename does not open its form")
+		harness.Press("r")
+		assert.NotContains(t, harness.Frame(), "enter submit", "rename does not open its form")
 
-		harness.press("j")
-		assert.Equal(t, "├─ api", readHoveredRow(harness.readFrame()), "the cursor still moves")
+		harness.Press("j")
+		assert.Equal(t, "├─ api", paneltest.HoveredRow(harness.Frame()), "the cursor still moves")
 
-		harness.press("esc")
-		assert.NotContains(t, readLegend(harness.readFrame()), "selected")
+		harness.Press("esc")
+		assert.NotContains(t, paneltest.Legend(harness.Frame()), "selected")
 	})
 
 	t.Run("an agent gone from the listing drops out of the selection", func(t *testing.T) {
 		harness := openAgents(t, withTasks(buildSelectable())...)
-		harness.press("v", "G", "v")
+		harness.Press("v", "G", "v")
 
 		ui := newAgentAt("ui", "w2", 1)
-		harness.watch(buildSnapshot(newLiveWorkflow("w2", "frontend"), ui, newTaskOf(ui)))
-		harness.press("space", "a", "enter")
+		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w2", "frontend"), ui, newTaskOf(ui)))
+		harness.Press("space", "a", "enter")
 
-		harness.assertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, readArchiveTaskRequests([]string{"task-ui"})...)
+		harness.AssertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, readArchiveTaskRequests([]string{"task-ui"})...)
 	})
 
 	t.Run("so does one the hidden toggle puts away", func(t *testing.T) {
 		harness := openAgents(t, withTasks(buildSelectable())...)
-		harness.press("space", "h", "H", "v", "j", "j", "j", "v", "space", "h", "H")
+		harness.Press("space", "h", "H", "v", "j", "j", "j", "v", "space", "h", "H")
 
-		harness.press("space", "a", "enter")
+		harness.Press("space", "a", "enter")
 
-		harness.assertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, readArchiveTaskRequests([]string{"task-auth"})...)
+		harness.AssertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, readArchiveTaskRequests([]string{"task-auth"})...)
 	})
 }
 
@@ -2416,24 +2418,24 @@ const (
 	repositoryURL = "https://github.com/harrisoncramer/komrad"
 )
 
-func openAgents(t *testing.T, rows ...proto.Message) *panelHarness {
+func openAgents(t *testing.T, rows ...proto.Message) *paneltest.Panel {
 	t.Helper()
 
-	return openAgentsWith(t, panelHarnessParams{}, rows...)
+	return openAgentsWith(t, paneltest.Params{}, rows...)
 }
 
-func openAgentsWith(t *testing.T, params panelHarnessParams, rows ...proto.Message) *panelHarness {
+func openAgentsWith(t *testing.T, params paneltest.Params, rows ...proto.Message) *paneltest.Panel {
 	t.Helper()
 
-	harness := newPanelHarness(t, params)
+	harness := paneltest.Start(t, params)
 	answerWorktreeReads(harness)
-	harness.watch(buildSnapshot(rows...))
+	harness.Watch(paneltest.Snapshot(rows...))
 
 	return harness
 }
 
-func answerWorktreeReads(harness *panelHarness) {
-	harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+func answerWorktreeReads(harness *paneltest.Panel) {
+	harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
 		read, _ := req.Any().(*worktreev1.GetWorktreeRequest)
 
 		return connect.NewResponse(&worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: read.GetDir()}}), nil
@@ -2586,7 +2588,7 @@ func newOrchestrator() *agentv1.Agent {
 }
 
 func findRawLine(frame string, pattern *regexp.Regexp) string {
-	for _, line := range splitLines(frame) {
+	for _, line := range paneltest.SplitLines(frame) {
 		if pattern.MatchString(ansi.Strip(line)) {
 			return line
 		}
@@ -2595,39 +2597,39 @@ func findRawLine(frame string, pattern *regexp.Regexp) string {
 	return ""
 }
 
-func openCopyRecord(t *testing.T) *panelHarness {
+func openCopyRecord(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
-	harness := newPanelHarness(t, panelHarnessParams{})
+	harness := paneltest.Start(t, paneltest.Params{})
 	answerWorktreeReads(harness)
-	harness.watch(buildSnapshot(buildRecorded()...))
+	harness.Watch(paneltest.Snapshot(buildRecorded()...))
 
 	return harness
 }
 
-func openAgentRecord(t *testing.T) *panelHarness {
+func openAgentRecord(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
 	harness := openAgents(t, buildRecorded()...)
-	harness.press("pick:record")
+	harness.Press("pick:record")
 
 	return harness
 }
 
-func openWorktreeRecord(t *testing.T, params panelHarnessParams) *panelHarness {
+func openWorktreeRecord(t *testing.T, params paneltest.Params) *paneltest.Panel {
 	t.Helper()
 
-	harness := newPanelHarness(t, params)
-	harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
-	harness.watch(buildSnapshot(buildRecordedTask()...))
-	harness.press("pick:record")
+	harness := paneltest.Start(t, params)
+	harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
+	harness.Watch(paneltest.Snapshot(buildRecordedTask()...))
+	harness.Press("pick:record")
 
 	return harness
 }
 
 func readSearch(frame string) string {
-	for _, line := range readBelowViews(frame) {
-		prompt := strings.TrimSpace(ansi.Truncate(line, ui.SidebarCols, ""))
+	for _, line := range paneltest.BelowViews(frame) {
+		prompt := strings.TrimSpace(ansi.Truncate(line, paneltest.ListWidth(frame), ""))
 		if strings.HasPrefix(prompt, "/") || strings.HasPrefix(prompt, "▽") {
 			return prompt
 		}
@@ -2637,13 +2639,13 @@ func readSearch(frame string) string {
 }
 
 func findRecordCursor(frame string) int {
-	return slices.IndexFunc(readRecord(frame), func(line string) bool {
+	return slices.IndexFunc(paneltest.Record(frame), func(line string) bool {
 		return strings.HasPrefix(line, "› ")
 	})
 }
 
 func countCursors(frame string) int {
-	return strings.Count(strings.Join(readBelowViews(frame), "\n"), "›")
+	return strings.Count(strings.Join(paneltest.BelowViews(frame), "\n"), "›")
 }
 
 func isBlank(line string) bool {
@@ -2686,7 +2688,7 @@ func buildWorktreeRead() *worktreev1.GetWorktreeResponse {
 }
 
 func readRecordTag(frame string) string {
-	for _, line := range splitLines(frame) {
+	for _, line := range paneltest.SplitLines(frame) {
 		if strings.HasPrefix(line, "─") {
 			tag := strings.TrimPrefix(strings.Trim(strings.TrimRight(line, " │┤┼"), "─ "), "Info")
 
@@ -2697,13 +2699,13 @@ func readRecordTag(frame string) string {
 	return ""
 }
 
-func answerWith(read *worktreev1.GetWorktreeResponse) answerFunc {
+func answerWith(read *worktreev1.GetWorktreeResponse) paneltest.AnswerFunc {
 	return func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(read), nil
 	}
 }
 
-func refuseWith(code connect.Code, reason string) answerFunc {
+func refuseWith(code connect.Code, reason string) paneltest.AnswerFunc {
 	return func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return nil, connect.NewError(code, errors.New(reason))
 	}
@@ -2760,9 +2762,9 @@ func newPausable(held string) *agentv1.Agent {
 	}
 }
 
-func recordRelease(harness *panelHarness) *[]*agentv1.ReleaseAgentRequest {
+func recordRelease(harness *paneltest.Panel) *[]*agentv1.ReleaseAgentRequest {
 	var said []*agentv1.ReleaseAgentRequest
-	harness.answer(agentv1connect.AgentServiceReleaseAgentProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+	harness.Answer(agentv1connect.AgentServiceReleaseAgentProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
 		release, _ := req.Any().(*agentv1.ReleaseAgentRequest)
 		said = append(said, release)
 
@@ -2772,8 +2774,8 @@ func recordRelease(harness *panelHarness) *[]*agentv1.ReleaseAgentRequest {
 	return &said
 }
 
-func answerWorkflowCreate(harness *panelHarness) {
-	harness.answer(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+func answerWorkflowCreate(harness *paneltest.Panel) {
+	harness.Answer(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "w2"}}), nil
 	})
 }
@@ -2812,6 +2814,6 @@ func TestAgentsRowShowsTheTool(t *testing.T) {
 	agent.ReportedReason = "WebFetch"
 	harness := openAgents(t, newLiveWorkflow("w1", "backend"), agent)
 
-	row := findRowWith(t, harness.readFrame(), "telescope")
+	row := findRowWith(t, harness.Frame(), "telescope")
 	assert.Contains(t, row, "WebFetch")
 }

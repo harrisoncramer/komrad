@@ -70,7 +70,7 @@ func (m *model) pulseMessages(before int) tea.Cmd {
 
 	m.messages.flashing = true
 	landed := m.messages.landed
-	done := startTimer(messagesFlashFor, func(time.Time) tea.Msg { return messagesFlashDoneMsg{landed: landed} })
+	done := m.clock.After(messagesFlashFor, func(time.Time) tea.Msg { return messagesFlashDoneMsg{landed: landed} })
 
 	return tea.Batch(m.startPulse(&m.messages.pulse, messagesPulseBlinks), done)
 }
@@ -118,7 +118,7 @@ func (m *model) copyMessage() tea.Cmd {
 	at := m.messages.clampedCursor()
 	m.messages.flashed = m.messages.items[at].landed
 
-	return tea.Batch(m.copyCmd(formatMessageText(m.messages.items[at])), flashRevertTick())
+	return tea.Batch(m.copyCmd(formatMessageText(m.messages.items[at])), m.flashRevertTick())
 }
 
 // pushMessage puts a message at the front of the stack and keeps the reader on whatever they
@@ -133,7 +133,7 @@ func (m *model) pushMessage(next message) {
 	}
 
 	if next.at.IsZero() {
-		next.at = time.Now()
+		next.at = m.clock.Now()
 	}
 
 	m.messages.landed++

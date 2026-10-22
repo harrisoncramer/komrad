@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"slices"
-	"time"
 
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/keys"
@@ -348,7 +347,7 @@ func (a *archivedAgents) isLoading(m *model) bool {
 func (a *archivedAgents) stageResting(m *model) tea.Cmd {
 	a.stage(m)
 
-	return tea.Batch(m.readLastScreenCmd(), m.inspectTaskWorktreeCmd(time.Now()))
+	return tea.Batch(m.readLastScreenCmd(), m.inspectTaskWorktreeCmd(m.clock.Now()))
 }
 
 // menuTarget is what the archive menu would act on, and none on the folder of a live workflow

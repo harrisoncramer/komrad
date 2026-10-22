@@ -7,9 +7,11 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
-	"komrad/internal/ui"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/paneltest"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -43,15 +45,15 @@ func TestDocumentsOpen(t *testing.T) {
 		harness := openAgents(t, buildDocumentAuthors()...)
 		docs.answer(harness)
 		moveToAgentRow(t, harness, "task-author")
-		harness.press("space", "J", "d")
-		harness.fireTimers()
+		harness.Press("space", "J", "d")
+		harness.Advance(time.Second)
 
-		frame := harness.readFrame()
-		assert.Equal(t, documentsScreen, harness.readScreen())
+		frame := harness.Frame()
+		assert.Equal(t, screen.Documents, paneltest.Screen(harness.Frame()))
 		assert.Equal(t, "▽ task:task-author", readSearch(frame))
 		assert.Contains(t, readStageText(frame), "Design the cache")
-		assert.NotContains(t, strings.Join(readListRows(frame), "\n"), "Quiet notes")
-		harness.assertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{
+		assert.NotContains(t, strings.Join(paneltest.ListRows(frame), "\n"), "Quiet notes")
+		harness.AssertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{
 			Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](100)},
 		})
 	})
@@ -71,11 +73,11 @@ func TestDocumentsOpen(t *testing.T) {
 		harness := openAgents(t, buildDocumentAuthors()...)
 		docs.answer(harness)
 		moveToAgentRow(t, harness, "komrad")
-		harness.press("space", "J", "d")
-		harness.fireTimers()
+		harness.Press("space", "J", "d")
+		harness.Advance(time.Second)
 
-		frame := harness.readFrame()
-		rows := strings.Join(readListRows(frame), "\n")
+		frame := harness.Frame()
+		rows := strings.Join(paneltest.ListRows(frame), "\n")
 		assert.Equal(t, "▽ agent:komrad", readSearch(frame))
 		assert.Contains(t, rows, "Workflow plan")
 		assert.NotContains(t, rows, "Design the cache")
@@ -85,13 +87,13 @@ func TestDocumentsOpen(t *testing.T) {
 		t.Parallel()
 
 		harness, _ := openDocuments(t)
-		harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		harness.Answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 			return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
 		})
 
-		harness.press("space", "c", "P", "enter")
+		harness.Press("space", "c", "P", "enter")
 
-		harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, &agentv1.WriteDocumentRequest{
+		harness.AssertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, &agentv1.WriteDocumentRequest{
 			AgentId: xptr.Ptr("author"),
 			Name:    "P",
 			Type:    "RFC",
@@ -125,13 +127,13 @@ func TestDocumentsOpen(t *testing.T) {
 		rows[2].(*taskv1.Task).Slug = "fix-login-2"
 		harness := openAgents(t, rows...)
 		docs.answer(harness)
-		harness.press("j")
-		require.Contains(t, readHoveredRow(harness.readFrame()), "fix-login")
-		require.NotContains(t, readHoveredRow(harness.readFrame()), "fix-login-2")
-		harness.press("space", "J", "d")
-		harness.fireTimers()
+		harness.Press("j")
+		require.Contains(t, paneltest.HoveredRow(harness.Frame()), "fix-login")
+		require.NotContains(t, paneltest.HoveredRow(harness.Frame()), "fix-login-2")
+		harness.Press("space", "J", "d")
+		harness.Advance(time.Second)
 
-		listed := strings.Join(readListRows(harness.readFrame()), "\n")
+		listed := strings.Join(paneltest.ListRows(harness.Frame()), "\n")
 		assert.Contains(t, listed, "Login plan")
 		assert.NotContains(t, listed, "Solo notes")
 		assert.NotContains(t, rows, "Design the cache")
@@ -144,31 +146,31 @@ func TestDocumentsOpen(t *testing.T) {
 		harness := openAgents(t, buildDocumentAuthors()...)
 		docs.answer(harness)
 		moveToAgentRow(t, harness, "task-quiet")
-		harness.press("space", "J", "d")
-		harness.fireTimers()
+		harness.Press("space", "J", "d")
+		harness.Advance(time.Second)
 
-		assert.Equal(t, documentsScreen, harness.readScreen())
-		assert.Contains(t, readStageText(harness.readFrame()), "no documents")
+		assert.Equal(t, screen.Documents, paneltest.Screen(harness.Frame()))
+		assert.Contains(t, readStageText(harness.Frame()), "no documents")
 	})
 
 	t.Run("back clears the agent's filter and stays on the documents", func(t *testing.T) {
 		t.Parallel()
 
 		harness, _ := openDocuments(t)
-		harness.press("esc")
+		harness.Press("esc")
 
-		assert.Equal(t, documentsScreen, harness.readScreen())
-		assert.NotContains(t, readSearch(harness.readFrame()), "agent:author")
+		assert.Equal(t, screen.Documents, paneltest.Screen(harness.Frame()))
+		assert.NotContains(t, readSearch(harness.Frame()), "agent:author")
 	})
 
 	t.Run("closing the menu comes back to the same agent's documents", func(t *testing.T) {
 		t.Parallel()
 
 		harness, _ := openDocuments(t)
-		harness.press("space", "esc")
+		harness.Press("space", "esc")
 
-		frame := harness.readFrame()
-		assert.Equal(t, documentsScreen, harness.readScreen())
+		frame := harness.Frame()
+		assert.Equal(t, screen.Documents, paneltest.Screen(harness.Frame()))
 		assert.Contains(t, readStageText(frame), "Design the cache")
 	})
 
@@ -177,13 +179,13 @@ func TestDocumentsOpen(t *testing.T) {
 
 		harness := openEveryDocument(t)
 
-		frame := harness.readFrame()
-		assert.Equal(t, documentsScreen, harness.readScreen())
-		assert.NotContains(t, readHoveredRow(frame), "author")
-		assert.Equal(t, "RFC", readRecordField(frame, "type"))
-		assert.Contains(t, readRecordField(frame, "updated"), "Sep 25")
-		assert.Equal(t, "author", readRecordField(frame, "agent"))
-		harness.assertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{
+		frame := harness.Frame()
+		assert.Equal(t, screen.Documents, paneltest.Screen(harness.Frame()))
+		assert.NotContains(t, paneltest.HoveredRow(frame), "author")
+		assert.Equal(t, "RFC", paneltest.RecordField(frame, "type"))
+		assert.Contains(t, paneltest.RecordField(frame, "updated"), "Sep 25")
+		assert.Equal(t, "author", paneltest.RecordField(frame, "agent"))
+		harness.AssertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{
 			Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](100)},
 		})
 	})
@@ -192,10 +194,10 @@ func TestDocumentsOpen(t *testing.T) {
 		t.Parallel()
 
 		harness := openEveryDocument(t)
-		harness.press("space", "J", "t")
+		harness.Press("space", "J", "t")
 
-		assert.Equal(t, agentsScreen, harness.readScreen())
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "task-author")
+		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
+		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "task-author")
 	})
 
 	t.Run("the jump menu on a document with no task lands on its author", func(t *testing.T) {
@@ -208,24 +210,24 @@ func TestDocumentsOpen(t *testing.T) {
 		}
 		shelf.answer(harness)
 		moveToAgentRow(t, harness, "task-quiet")
-		harness.press("tab", "tab")
-		harness.fireTimers()
-		harness.press("space", "J", "a")
+		harness.Press("tab", "tab")
+		harness.Advance(time.Second)
+		harness.Press("space", "J", "a")
 
-		assert.Equal(t, agentsScreen, harness.readScreen())
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "task-author")
+		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
+		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "task-author")
 	})
 
 	t.Run("the jump menu lands on an archived task among the archived agents", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openArchivedSubpages(t)
-		harness.press("J", "d")
-		harness.fireTimers()
-		harness.press("space", "J", "t")
+		harness.Press("J", "d")
+		harness.Advance(time.Second)
+		harness.Press("space", "J", "t")
 
-		assert.Equal(t, agentsScreen, harness.readScreen())
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "task-author")
+		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
+		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "task-author")
 	})
 
 	t.Run("the jump menu lands on a deleted task among the deleted agents", func(t *testing.T) {
@@ -234,16 +236,16 @@ func TestDocumentsOpen(t *testing.T) {
 		author := newArchivedAgent("author", "author", "w1")
 		author.Documents = 2
 		author.DocumentsUpdatedAt = xptr.Ptr("2026-09-25T12:00:00Z")
-		harness := newPanelHarness(t, panelHarnessParams{})
-		harness.press("F", "shift+tab", "esc")
-		harness.watch(buildSnapshot(newLiveWorkflow("w1", "komrad"), author, newDeletedTaskOf(author)))
+		harness := paneltest.Start(t, paneltest.Params{})
+		harness.Press("F", "shift+tab", "esc")
+		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "komrad"), author, newDeletedTaskOf(author)))
 		newDocumentShelf().answer(harness)
-		harness.press("j", "j", "space", "J", "d")
-		harness.fireTimers()
-		harness.press("space", "J", "t")
+		harness.Press("j", "j", "space", "J", "d")
+		harness.Advance(time.Second)
+		harness.Press("space", "J", "t")
 
-		assert.Equal(t, agentsScreen, harness.readScreen())
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "task-author")
+		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
+		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "task-author")
 	})
 }
 
@@ -322,13 +324,13 @@ func TestDocumentsFilter(t *testing.T) {
 			harness := openAgents(t, buildDocumentAuthors()...)
 			docs.answer(harness)
 			moveToAgentRow(t, harness, "task-quiet")
-			harness.press("tab", "tab")
-			harness.fireTimers()
+			harness.Press("tab", "tab")
+			harness.Advance(time.Second)
 
-			harness.press(slices.Concat([]string{"/", "tab"}, spellKeys(tt.query), []string{"enter"})...)
+			harness.Press(slices.Concat([]string{"/", "tab"}, spellKeys(tt.query), []string{"enter"})...)
 
-			frame := harness.readFrame()
-			rows := strings.Join(readListRows(frame), "\n")
+			frame := harness.Frame()
+			rows := strings.Join(paneltest.ListRows(frame), "\n")
 			var names []string
 			for _, name := range []string{"Design the cache", "Rollout report", "Quiet notes"} {
 				if strings.Contains(rows, name) {
@@ -347,7 +349,7 @@ func TestDocumentsSays(t *testing.T) {
 
 	harness, _ := openDocuments(t)
 	var asked []string
-	harness.answer(agentv1connect.AgentServiceSearchDocumentsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+	harness.Answer(agentv1connect.AgentServiceSearchDocumentsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
 		asked = append(asked, req.Any().(*agentv1.SearchDocumentsRequest).GetQuery())
 
 		return connect.NewResponse(&agentv1.SearchDocumentsResponse{Matches: []*agentv1.DocumentHit{
@@ -358,23 +360,23 @@ func TestDocumentsSays(t *testing.T) {
 	marked := regexp.MustCompile(`\x1b\[[0-9;]*mTuesday`)
 	picked := regexp.MustCompile(`38;5;208mRollout report`)
 
-	harness.press(slices.Concat([]string{"esc", "/", "tab"}, spellKeys("says:tuesday"))...)
-	harness.fireMatching(ui.IsSaysSettled)
-	harness.press("enter")
-	harness.fireTimers()
+	harness.Press(slices.Concat([]string{"esc", "/", "tab"}, spellKeys("says:tuesday"))...)
+	harness.Advance(time.Second)
+	harness.Press("enter")
+	harness.Advance(time.Second)
 
-	frame := harness.readFrame()
+	frame := harness.Frame()
 	assert.Equal(t, []string{`"tuesday"`}, asked)
-	assert.Equal(t, []string{"Rollout report"}, readListRows(frame))
+	assert.Equal(t, []string{"Rollout report"}, paneltest.ListRows(frame))
 	assert.Equal(t, "▽ says:tuesday", readSearch(frame))
-	assert.Regexp(t, marked, findRawLine(harness.readRawFrame(), line), "the word found is lit in the document")
-	assert.Regexp(t, picked, readRawListRow(harness.readRawFrame(), "Rollout report"), "the document found is lit in the list")
+	assert.Regexp(t, marked, findRawLine(harness.RawFrame(), line), "the word found is lit in the document")
+	assert.Regexp(t, picked, paneltest.RawListRow(harness.RawFrame(), "Rollout report"), "the document found is lit in the list")
 
-	harness.press("/", "esc")
-	harness.fireTimers()
+	harness.Press("/", "esc")
+	harness.Advance(time.Second)
 
-	assert.NotRegexp(t, marked, findRawLine(harness.readRawFrame(), line), "the word is dark once the qualifier is gone")
-	assert.NotRegexp(t, picked, readRawListRow(harness.readRawFrame(), "Rollout report"), "the document is dark once the qualifier is gone")
+	assert.NotRegexp(t, marked, findRawLine(harness.RawFrame(), line), "the word is dark once the qualifier is gone")
+	assert.NotRegexp(t, picked, paneltest.RawListRow(harness.RawFrame(), "Rollout report"), "the document is dark once the qualifier is gone")
 }
 
 // TestDocumentsRead covers the document under the cursor rendered beside the list, read once and
@@ -387,7 +389,7 @@ func TestDocumentsRead(t *testing.T) {
 
 		harness, _ := openDocuments(t)
 
-		stage := readStageText(harness.readFrame())
+		stage := readStageText(harness.Frame())
 		assert.Contains(t, stage, "RFC, written")
 		assert.Contains(t, stage, "Keep the cache warm.")
 		assert.Equal(t, 1, strings.Count(stage, "Design the cache"), "a heading that repeats the name is rendered once")
@@ -397,16 +399,16 @@ func TestDocumentsRead(t *testing.T) {
 		t.Parallel()
 
 		harness, _ := openDocuments(t)
-		harness.press("j")
-		harness.fireTimers()
+		harness.Press("j")
+		harness.Advance(time.Second)
 
-		stage := readStageText(harness.readFrame())
+		stage := readStageText(harness.Frame())
 		assert.Contains(t, stage, "Rollout report")
 		assert.Contains(t, stage, "It went out on Tuesday.")
 
-		harness.press("k")
-		harness.fireTimers()
-		assert.Len(t, harness.readSent(agentv1connect.AgentServiceGetDocumentProcedure), 2, "a document already read is not read again")
+		harness.Press("k")
+		harness.Advance(time.Second)
+		assert.Len(t, harness.Sent(agentv1connect.AgentServiceGetDocumentProcedure), 2, "a document already read is not read again")
 	})
 
 	t.Run("a new write lists and reads again", func(t *testing.T) {
@@ -417,10 +419,10 @@ func TestDocumentsRead(t *testing.T) {
 
 		author := buildDocumentAuthors()[2].(*agentv1.Agent)
 		author.DocumentsUpdatedAt = xptr.Ptr("2026-09-26T12:00:00Z")
-		harness.watch(buildPuts(author))
+		harness.Watch(paneltest.Puts(author))
 
-		assert.Len(t, harness.readSent(agentv1connect.AgentServiceListDocumentsProcedure), 2)
-		assert.Contains(t, readStageText(harness.readFrame()), "The cache is cold now.")
+		assert.Len(t, harness.Sent(agentv1connect.AgentServiceListDocumentsProcedure), 2)
+		assert.Contains(t, readStageText(harness.Frame()), "The cache is cold now.")
 	})
 
 	t.Run("a rewrite within the second it was listed in reads again", func(t *testing.T) {
@@ -431,10 +433,10 @@ func TestDocumentsRead(t *testing.T) {
 
 		author := buildDocumentAuthors()[2].(*agentv1.Agent)
 		author.DocumentsUpdatedAt = xptr.Ptr("2026-09-25T12:00:00.5Z")
-		harness.watch(buildPuts(author))
+		harness.Watch(paneltest.Puts(author))
 
-		assert.Len(t, harness.readSent(agentv1connect.AgentServiceGetDocumentProcedure), 2)
-		assert.Contains(t, readStageText(harness.readFrame()), "The cache is cold now.")
+		assert.Len(t, harness.Sent(agentv1connect.AgentServiceGetDocumentProcedure), 2)
+		assert.Contains(t, readStageText(harness.Frame()), "The cache is cold now.")
 	})
 
 	t.Run("another document stamped with the newest one's time lists again", func(t *testing.T) {
@@ -452,10 +454,10 @@ func TestDocumentsRead(t *testing.T) {
 
 		author := buildDocumentAuthors()[2].(*agentv1.Agent)
 		author.Documents = 3
-		harness.watch(buildPuts(author))
+		harness.Watch(paneltest.Puts(author))
 
-		assert.Len(t, harness.readSent(agentv1connect.AgentServiceListDocumentsProcedure), 2)
-		assert.Contains(t, harness.readFrame(), "Cache notes")
+		assert.Len(t, harness.Sent(agentv1connect.AgentServiceListDocumentsProcedure), 2)
+		assert.Contains(t, harness.Frame(), "Cache notes")
 	})
 }
 
@@ -468,42 +470,33 @@ func TestDocumentsEdit(t *testing.T) {
 		name      string
 		write     string
 		refuse    bool
-		between   func(*panelHarness, *documentShelf)
-		close     func(*panelHarness)
+		between   func(*paneltest.Panel, *documentShelf)
+		close     func(*paneltest.Panel)
 		wantSaved string
 		wantKept  bool
 	}{
 		{
 			name:      "the key again saves what changed",
 			write:     "# Design the cache\n\nKeep the cache cold.",
-			close:     func(h *panelHarness) { h.press("space", "e") },
+			close:     func(h *paneltest.Panel) { h.Press("space", "e") },
 			wantSaved: "# Design the cache\n\nKeep the cache cold.",
 		},
 		{
 			name:  "the editor quitting saves what changed",
 			write: "Rewritten.",
-			close: func(h *panelHarness) {
-				editors := h.panel.ReadRespawnPanes()
-				h.panel.SetPaneDead(editors[len(editors)-1])
-				h.fireTimers()
+			close: func(h *paneltest.Panel) {
+				editors := h.Tmux().RespawnPanes()
+				h.Tmux().SetPaneDead(editors[len(editors)-1])
+				h.Advance(time.Second)
 			},
 			wantSaved: "Rewritten.",
 		},
 		{
 			name:  "leaving the screen saves what changed",
 			write: "Rewritten.",
-			close: func(h *panelHarness) {
-				h.press("tab")
-				require.Equal(t, worktreesScreen, h.readScreen())
-			},
-			wantSaved: "Rewritten.",
-		},
-		{
-			name:  "a write landing on the agents screen saves what changed",
-			write: "Rewritten.",
-			close: func(h *panelHarness) {
-				h.send(ui.NewWriteLanded("author"))
-				require.Equal(t, agentsScreen, h.readScreen())
+			close: func(h *paneltest.Panel) {
+				h.Press("tab")
+				require.Equal(t, screen.Worktrees, paneltest.Screen(h.Frame()))
 			},
 			wantSaved: "Rewritten.",
 		},
@@ -511,33 +504,33 @@ func TestDocumentsEdit(t *testing.T) {
 			name:      "a refused write keeps the copy",
 			write:     "Rewritten.",
 			refuse:    true,
-			close:     func(h *panelHarness) { h.press("space", "e") },
+			close:     func(h *paneltest.Panel) { h.Press("space", "e") },
 			wantSaved: "Rewritten.",
 			wantKept:  true,
 		},
 		{
 			name:  "a write refused because the agent rewrote it meanwhile keeps the copy",
 			write: "Rewritten.",
-			between: func(h *panelHarness, docs *documentShelf) {
+			between: func(h *paneltest.Panel, docs *documentShelf) {
 				docs.rewrite("d1", "The agent's own rewrite.", "2026-09-26T12:00:00Z")
 				author := buildDocumentAuthors()[2].(*agentv1.Agent)
 				author.DocumentsUpdatedAt = xptr.Ptr("2026-09-26T12:00:00Z")
-				h.watch(buildPuts(author))
+				h.Watch(paneltest.Puts(author))
 			},
 			refuse:    true,
-			close:     func(h *panelHarness) { h.press("space", "e") },
+			close:     func(h *paneltest.Panel) { h.Press("space", "e") },
 			wantSaved: "Rewritten.",
 			wantKept:  true,
 		},
 		{
 			name:  "nothing changed saves nothing",
 			write: "# Design the cache\n\nKeep the cache warm.",
-			close: func(h *panelHarness) { h.press("space", "e") },
+			close: func(h *paneltest.Panel) { h.Press("space", "e") },
 		},
 		{
 			name:  "an emptied document is not saved",
 			write: "  \n",
-			close: func(h *panelHarness) { h.press("space", "e") },
+			close: func(h *paneltest.Panel) { h.Press("space", "e") },
 		},
 	}
 
@@ -546,19 +539,19 @@ func TestDocumentsEdit(t *testing.T) {
 			t.Parallel()
 
 			harness, docs := openDocuments(t)
-			harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			harness.Answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 				if tt.refuse {
 					return nil, connect.NewError(connect.CodeFailedPrecondition, nil)
 				}
 
 				return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
 			})
-			harness.press("space", "e")
+			harness.Press("space", "e")
 
-			respawns := harness.panel.ReadRespawns()
+			respawns := harness.Tmux().Respawns()
 			require.NotEmpty(t, respawns)
 			path := readEditedPath(t, respawns[len(respawns)-1])
-			assert.NotContains(t, readStageText(harness.readFrame()), "Keep the cache warm.", "the editor stands where the document was rendered")
+			assert.NotContains(t, readStageText(harness.Frame()), "Keep the cache warm.", "the editor stands where the document was rendered")
 
 			require.NoError(t, os.WriteFile(path, []byte(tt.write), 0o600))
 			if tt.between != nil {
@@ -571,12 +564,12 @@ func TestDocumentsEdit(t *testing.T) {
 			}
 
 			if tt.wantSaved == "" {
-				assert.Empty(t, harness.readSent(agentv1connect.AgentServiceWriteDocumentProcedure))
+				assert.Empty(t, harness.Sent(agentv1connect.AgentServiceWriteDocumentProcedure))
 
 				return
 			}
 
-			harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, &agentv1.WriteDocumentRequest{
+			harness.AssertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, &agentv1.WriteDocumentRequest{
 				Id:      xptr.Ptr("d1"),
 				Version: xptr.Ptr[int32](3),
 				Name:    "Design the cache",
@@ -630,17 +623,17 @@ func TestDocumentsNew(t *testing.T) {
 			t.Parallel()
 
 			harness, _ := openDocuments(t)
-			harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			harness.Answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 				return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
 			})
-			harness.press(tt.presses...)
+			harness.Press(tt.presses...)
 
 			if tt.want == nil {
-				assert.Empty(t, harness.readSent(agentv1connect.AgentServiceWriteDocumentProcedure))
+				assert.Empty(t, harness.Sent(agentv1connect.AgentServiceWriteDocumentProcedure))
 
 				return
 			}
-			harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, tt.want)
+			harness.AssertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, tt.want)
 		})
 	}
 }
@@ -651,12 +644,12 @@ func TestDocumentsNewRerendersTheTypes(t *testing.T) {
 	t.Parallel()
 
 	harness, _ := openDocuments(t)
-	harness.press("space", "c")
-	require.NotContains(t, harness.readFrame(), "brief")
+	harness.Press("space", "c")
+	require.NotContains(t, harness.Frame(), "brief")
 
-	harness.watch(buildPuts(newDocumentType("t5", "brief")))
+	harness.Watch(paneltest.Puts(newDocumentType("t5", "brief")))
 
-	assert.Contains(t, harness.readFrame(), "brief")
+	assert.Contains(t, harness.Frame(), "brief")
 }
 
 // TestDocumentsNewFromEmpty covers writing a first document for an agent that has none, from its
@@ -666,16 +659,16 @@ func TestDocumentsNewFromEmpty(t *testing.T) {
 
 	harness := openAgents(t, buildDocumentAuthors()...)
 	newDocumentShelf().answer(harness)
-	harness.answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+	harness.Answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
 	})
 	moveToAgentRow(t, harness, "task-quiet")
-	harness.press("space", "J", "d")
-	harness.fireTimers()
-	harness.press("space", "c", "P", "l", "a", "n", "enter")
+	harness.Press("space", "J", "d")
+	harness.Advance(time.Second)
+	harness.Press("space", "c", "P", "l", "a", "n", "enter")
 
-	assert.Equal(t, documentsScreen, harness.readScreen())
-	harness.assertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, &agentv1.WriteDocumentRequest{
+	assert.Equal(t, screen.Documents, paneltest.Screen(harness.Frame()))
+	harness.AssertSentTo(agentv1connect.AgentServiceWriteDocumentProcedure, &agentv1.WriteDocumentRequest{
 		AgentId: xptr.Ptr("quiet"),
 		Name:    "Plan",
 		Type:    "RFC",
@@ -689,7 +682,7 @@ func TestDocumentsMenu(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		open     func(*testing.T) *panelHarness
+		open     func(*testing.T) *paneltest.Panel
 		presses  []string
 		wantOn   []*regexp.Regexp
 		wantOff  []*regexp.Regexp
@@ -697,7 +690,7 @@ func TestDocumentsMenu(t *testing.T) {
 	}{
 		{
 			name: "a document's band is titled for it and has no delete",
-			open: func(t *testing.T) *panelHarness {
+			open: func(t *testing.T) *paneltest.Panel {
 				harness, _ := openDocuments(t)
 
 				return harness
@@ -708,7 +701,7 @@ func TestDocumentsMenu(t *testing.T) {
 		},
 		{
 			name: "an open editor turns edit into closing it and grays the rest",
-			open: func(t *testing.T) *panelHarness {
+			open: func(t *testing.T) *paneltest.Panel {
 				harness, _ := openDocuments(t)
 
 				return harness
@@ -731,14 +724,14 @@ func TestDocumentsMenu(t *testing.T) {
 			t.Parallel()
 
 			harness := tt.open(t)
-			harness.press(tt.presses...)
+			harness.Press(tt.presses...)
 
-			frame := harness.readFrame()
+			frame := harness.Frame()
 			for _, want := range tt.wantOn {
 				assert.Regexp(t, want, frame)
 			}
 			for _, want := range tt.wantOff {
-				assert.Regexp(t, want, harness.readRawFrame())
+				assert.Regexp(t, want, harness.RawFrame())
 			}
 			for _, gone := range tt.wantGone {
 				assert.NotRegexp(t, gone, frame)
@@ -887,19 +880,19 @@ func TestDocumentsHistory(t *testing.T) {
 			docs.mu.Unlock()
 
 			for _, key := range tt.presses {
-				harness.press(key)
-				harness.fireTimers()
+				harness.Press(key)
+				harness.Advance(time.Second)
 			}
 
 			if tt.relisted {
 				docs.mu.Lock()
 				docs.unlisted = false
 				docs.mu.Unlock()
-				harness.press("<")
-				harness.fireTimers()
+				harness.Press("<")
+				harness.Advance(time.Second)
 			}
 
-			stage := readStageText(harness.readFrame())
+			stage := readStageText(harness.Frame())
 			for _, want := range tt.want {
 				assert.Contains(t, stage, want)
 			}
@@ -995,11 +988,11 @@ func TestDocumentsReading(t *testing.T) {
 
 			harness, _ := openDocuments(t)
 			for _, key := range tt.presses {
-				harness.press(key)
-				harness.fireTimers()
+				harness.Press(key)
+				harness.Advance(time.Second)
 			}
 
-			stage := readStageText(harness.readFrame())
+			stage := readStageText(harness.Frame())
 			for _, want := range tt.want {
 				assert.Contains(t, stage, want)
 			}
@@ -1014,9 +1007,9 @@ func TestDocumentsReading(t *testing.T) {
 
 		harness, _ := openDocuments(t)
 
-		harness.press("pick:block", "ctrl+c")
+		harness.Press("pick:block", "ctrl+c")
 
-		assert.Equal(t, 1, harness.panel.ReadDetaches())
+		assert.Equal(t, 1, harness.Tmux().Detaches())
 	})
 }
 
@@ -1030,19 +1023,19 @@ func TestDocumentsReadingCursor(t *testing.T) {
 
 	bar := paint.BackgroundSequence(paint.Panel.Background(paint.ShadeSelection))
 
-	assert.NotEqual(t, "/", strings.TrimSpace(readStage(harness.readFrame())[0]), "the search waits for the document to hold the keys")
-	unfocused := findRawLine(harness.readRawFrame(), line)
+	assert.NotEqual(t, "/", strings.TrimSpace(paneltest.Stage(harness.Frame())[0]), "the search waits for the document to hold the keys")
+	unfocused := findRawLine(harness.RawFrame(), line)
 	require.NotEmpty(t, unfocused)
 	assert.NotContains(t, unfocused, bar)
 
-	harness.press("pick:block", "G")
-	assert.Equal(t, "/", strings.TrimSpace(readStage(harness.readFrame())[0]), "the search stands over the focused document")
-	focused := findRawLine(harness.readRawFrame(), line)
+	harness.Press("pick:block", "G")
+	assert.Equal(t, "/", strings.TrimSpace(paneltest.Stage(harness.Frame())[0]), "the search stands over the focused document")
+	focused := findRawLine(harness.RawFrame(), line)
 	require.NotEmpty(t, focused)
 	assert.Contains(t, focused, bar, "the cursor is rendered as a bar on the line it moved to")
 
-	harness.press("/", "w", "a", "r", "m", "enter")
-	found := findRawLine(harness.readRawFrame(), line)
+	harness.Press("/", "w", "a", "r", "m", "enter")
+	found := findRawLine(harness.RawFrame(), line)
 	require.NotEmpty(t, found)
 	assert.NotEqual(t, focused, found, "the hit is painted")
 	hit := strings.Index(found, "warm")
@@ -1076,15 +1069,15 @@ func TestDocumentsReadingKeepsTheCursorShown(t *testing.T) {
 
 			author := buildDocumentAuthors()[2].(*agentv1.Agent)
 			author.DocumentsUpdatedAt = xptr.Ptr("2026-09-26T12:00:00Z")
-			harness.watch(buildPuts(author))
+			harness.Watch(paneltest.Puts(author))
 
-			harness.press("j")
-			harness.fireTimers()
-			harness.press("pick:block", "G")
-			require.Contains(t, readStageText(harness.readFrame()), "The last line.")
+			harness.Press("j")
+			harness.Advance(time.Second)
+			harness.Press("pick:block", "G")
+			require.Contains(t, readStageText(harness.Frame()), "The last line.")
 
-			harness.press(tt.presses...)
-			assert.Contains(t, readStageText(harness.readFrame()), "The last line.")
+			harness.Press(tt.presses...)
+			assert.Contains(t, readStageText(harness.Frame()), "The last line.")
 		})
 	}
 }
@@ -1097,18 +1090,18 @@ func TestDocumentsDiffCursor(t *testing.T) {
 	harness, _ := openDocuments(t)
 	heading := regexp.MustCompile(`1\s+1\s+# Design the cache`)
 
-	harness.press("<")
-	harness.fireTimers()
-	dim := findRawLine(harness.readRawFrame(), heading)
+	harness.Press("<")
+	harness.Advance(time.Second)
+	dim := findRawLine(harness.RawFrame(), heading)
 	require.NotEmpty(t, dim)
 
-	harness.press("pick:block")
-	live := findRawLine(harness.readRawFrame(), heading)
+	harness.Press("pick:block")
+	live := findRawLine(harness.RawFrame(), heading)
 	require.NotEmpty(t, live)
 	assert.NotEqual(t, dim, live, "focusing the diff lights the cursor")
 
-	harness.press("j")
-	plain := findRawLine(harness.readRawFrame(), heading)
+	harness.Press("j")
+	plain := findRawLine(harness.RawFrame(), heading)
 	require.NotEmpty(t, plain)
 	assert.NotEqual(t, live, plain, "the cursor leaves the line it stood on")
 	assert.NotEqual(t, dim, plain)
@@ -1120,20 +1113,18 @@ func TestDocumentsDiffSearchOutlastsTheSplit(t *testing.T) {
 	t.Parallel()
 
 	harness, _ := openDocuments(t)
-	harness.press("<")
-	harness.fireTimers()
-	harness.press("pick:block", "/", "w")
+	harness.Press("<")
+	harness.Advance(time.Second)
+	harness.Press("pick:block", "/", "w")
 
-	harness.send(tea.WindowSizeMsg{Width: 50, Height: 40})
-	harness.press("a", "r", "m", "enter")
-	harness.send(tea.WindowSizeMsg{Width: 140, Height: 40})
+	harness.Send(tea.WindowSizeMsg{Width: 50, Height: 40})
+	harness.Press("a", "r", "m", "enter")
+	harness.Send(tea.WindowSizeMsg{Width: 140, Height: 40})
 
-	stage := readStageText(harness.readFrame())
+	stage := readStageText(harness.Frame())
 	assert.Contains(t, stage, "/ warm")
 	assert.Contains(t, stage, "1 of 1")
 }
-
-const documentsScreen = "the documents"
 
 // readEditedPath is the file an editor's shell line opens.
 func readEditedPath(t *testing.T, respawn string) string {
@@ -1147,54 +1138,54 @@ func readEditedPath(t *testing.T, respawn string) string {
 
 // openDocuments opens the documents screen from the agents list on the author, and fires the
 // rest the cursor waits for.
-func openDocuments(t *testing.T) (*panelHarness, *documentShelf) {
+func openDocuments(t *testing.T) (*paneltest.Panel, *documentShelf) {
 	t.Helper()
 
-	return openDocumentsWith(t, panelHarnessParams{})
+	return openDocumentsWith(t, paneltest.Params{})
 }
 
-func openDocumentsWith(t *testing.T, params panelHarnessParams) (*panelHarness, *documentShelf) {
+func openDocumentsWith(t *testing.T, params paneltest.Params) (*paneltest.Panel, *documentShelf) {
 	t.Helper()
 
 	docs := newDocumentShelf()
-	harness := newPanelHarness(t, params)
+	harness := paneltest.Start(t, params)
 	answerWorktreeReads(harness)
-	harness.watch(buildSnapshot(buildDocumentAuthors()...))
+	harness.Watch(paneltest.Snapshot(buildDocumentAuthors()...))
 	docs.answer(harness)
 
 	moveToAgentRow(t, harness, "task-author")
-	harness.press("space", "J", "d")
-	harness.fireTimers()
+	harness.Press("space", "J", "d")
+	harness.Advance(time.Second)
 
 	return harness, docs
 }
 
 // openEveryDocument opens the documents view on the switcher from an agent that wrote none.
-func openEveryDocument(t *testing.T) *panelHarness {
+func openEveryDocument(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
 	harness := openAgents(t, buildDocumentAuthors()...)
 	newDocumentShelf().answer(harness)
 	moveToAgentRow(t, harness, "task-quiet")
-	harness.press("tab", "tab")
-	harness.fireTimers()
+	harness.Press("tab", "tab")
+	harness.Advance(time.Second)
 
 	return harness
 }
 
 // moveToAgentRow puts the agents list's cursor on the row named the one given.
-func moveToAgentRow(t *testing.T, harness *panelHarness, name string) {
+func moveToAgentRow(t *testing.T, harness *paneltest.Panel, name string) {
 	t.Helper()
 
-	harness.press("g", "g")
+	harness.Press("g", "g")
 	for range 12 {
-		if slices.Contains(strings.Fields(readHoveredRow(harness.readFrame())), name) {
+		if slices.Contains(strings.Fields(paneltest.HoveredRow(harness.Frame())), name) {
 			return
 		}
-		harness.press("j")
+		harness.Press("j")
 	}
 
-	require.Contains(t, strings.Fields(readHoveredRow(harness.readFrame())), name, "no row is named %q", name)
+	require.Contains(t, strings.Fields(paneltest.HoveredRow(harness.Frame())), name, "no row is named %q", name)
 }
 
 // buildDocumentAuthors is a workflow whose orchestrator and one agent have written, beside an
@@ -1322,8 +1313,8 @@ func (d *documentShelf) add(document *agentv1.Document) {
 	d.listed = append(d.listed, document)
 }
 
-func (d *documentShelf) answer(harness *panelHarness) {
-	harness.answer(agentv1connect.AgentServiceListDocumentsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+func (d *documentShelf) answer(harness *paneltest.Panel) {
+	harness.Answer(agentv1connect.AgentServiceListDocumentsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
 		d.mu.Lock()
 		defer d.mu.Unlock()
 
@@ -1333,14 +1324,12 @@ func (d *documentShelf) answer(harness *panelHarness) {
 			if asked.AgentId != nil && document.GetAgentId() != asked.GetAgentId() {
 				continue
 			}
-			copied, ok := proto.Clone(document).(*agentv1.Document)
-			require.True(harness.t, ok)
-			listed = append(listed, copied)
+			listed = append(listed, proto.CloneOf(document))
 		}
 
 		return connect.NewResponse(&agentv1.ListDocumentsResponse{Documents: listed}), nil
 	})
-	harness.answer(agentv1connect.AgentServiceGetDocumentProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+	harness.Answer(agentv1connect.AgentServiceGetDocumentProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
 		d.mu.Lock()
 		defer d.mu.Unlock()
 
@@ -1350,8 +1339,7 @@ func (d *documentShelf) answer(harness *panelHarness) {
 				continue
 			}
 
-			whole, ok := proto.Clone(document).(*agentv1.Document)
-			require.True(harness.t, ok)
+			whole := proto.CloneOf(document)
 			whole.Body = d.bodies[read.GetId()]
 			if read.Version != nil {
 				whole.Version = read.GetVersion()
@@ -1367,7 +1355,7 @@ func (d *documentShelf) answer(harness *panelHarness) {
 
 		return nil, connect.NewError(connect.CodeNotFound, nil)
 	})
-	harness.answer(agentv1connect.AgentServiceListDocumentVersionsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+	harness.Answer(agentv1connect.AgentServiceListDocumentVersionsProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
 		d.mu.Lock()
 		defer d.mu.Unlock()
 

@@ -167,7 +167,7 @@ func (m *model) openedForTask(slug string) (string, bool) {
 
 // filterDocuments narrows the list as if the user typed and applied the query.
 func (m *model) filterDocuments(query string) {
-	m.filter.open(withGrammar(documentsQuery))
+	m.filter.open(withGrammar(documentsQuery, m.clock))
 	m.filter.mode = filterModeFilter
 	m.filter.openedIn = sectionList
 	m.filter.setQuery(query)

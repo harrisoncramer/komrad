@@ -4,8 +4,10 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"komrad/internal/panes"
+	"komrad/internal/ui/paneltest"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/charmbracelet/x/ansi"
@@ -18,7 +20,7 @@ import (
 func TestVisualMode(t *testing.T) {
 	tests := []struct {
 		name       string
-		open       func(t *testing.T) *panelHarness
+		open       func(t *testing.T) *paneltest.Panel
 		from       []string
 		want       string
 		wantCursor string
@@ -48,11 +50,11 @@ func TestVisualMode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := tt.open(t)
-			harness.press(tt.from...)
+			harness.Press(tt.from...)
 
-			harness.press("ctrl+space", "v")
+			harness.Press("ctrl+space", "v")
 
-			standIns := harness.panel.ReadStandIns()
+			standIns := harness.Tmux().StandIns()
 			require.Len(t, standIns, 1)
 			assert.Equal(t, "%0", standIns[0].Pane)
 			assert.Equal(t, []string{"C-Space", "v"}, standIns[0].Keys, "the stand-in says when copy-mode ends")
@@ -81,45 +83,45 @@ func TestVisualMode(t *testing.T) {
 	t.Run("copy-mode ending lets the window move again", func(t *testing.T) {
 		harness := openFocus(t)
 
-		harness.press("ctrl+space", "v")
-		harness.press("ctrl+space", "j")
-		assert.NotContains(t, harness.readRendered(), "JUMP", "the picker waits while the stand-in has the sidebar's place")
+		harness.Press("ctrl+space", "v")
+		harness.Press("ctrl+space", "j")
+		assert.NotContains(t, harness.Rendered(), "JUMP", "the picker waits while the stand-in has the sidebar's place")
 
-		harness.press("ctrl+space", "v")
-		harness.press("ctrl+space", "j")
-		assert.Contains(t, harness.readRendered(), "JUMP")
-		assert.Len(t, harness.panel.ReadStandIns(), 1)
+		harness.Press("ctrl+space", "v")
+		harness.Press("ctrl+space", "j")
+		assert.Contains(t, harness.Rendered(), "JUMP")
+		assert.Len(t, harness.Tmux().StandIns(), 1)
 	})
 
 	t.Run("a stand-in tmux refuses says so and leaves v to try again", func(t *testing.T) {
 		harness := openFocus(t)
-		harness.panel.RefuseStandIns(errors.New("no space for a window"))
+		harness.Tmux().RefuseStandIns(errors.New("no space for a window"))
 
-		harness.press("ctrl+space", "v")
-		harness.fireTimers()
+		harness.Press("ctrl+space", "v")
+		harness.Advance(time.Second)
 
 		opened := readOpenMessages(harness)
 		assert.Contains(t, opened, "Could not start visual mode")
 		assert.Contains(t, opened, "no space for a window")
 
-		harness.panel.RefuseStandIns(nil)
-		harness.press("ctrl+space", "v")
-		assert.Len(t, harness.panel.ReadStandIns(), 2)
+		harness.Tmux().RefuseStandIns(nil)
+		harness.Press("ctrl+space", "v")
+		assert.Len(t, harness.Tmux().StandIns(), 2)
 	})
 }
 
-func openFailedSetup(t *testing.T) *panelHarness {
+func openFailedSetup(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
 	failed := newDormant("login")
 	failed.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
 	failed.FailureReason = "the worktree could not be made"
 
-	harness := newPanelHarness(t, panelHarnessParams{})
+	harness := paneltest.Start(t, paneltest.Params{})
 	answerWorktreeReads(harness)
-	harness.watch(buildSnapshot(newLiveWorkflow("w1", "backend"), failed))
-	harness.press("j")
-	harness.fireTimers()
+	harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), failed))
+	harness.Press("j")
+	harness.Advance(time.Second)
 
 	return harness
 }

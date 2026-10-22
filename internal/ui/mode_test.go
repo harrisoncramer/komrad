@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/internal/ui/paneltest"
+
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -51,9 +53,9 @@ func TestModeLabel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openFocus(t)
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 			for _, msg := range tt.send {
-				harness.send(msg)
+				harness.Send(msg)
 			}
 
 			assert.Equal(t, at, findColumn(readBottomRow(harness), tt.want), "every mode is named in the same place")
@@ -61,8 +63,8 @@ func TestModeLabel(t *testing.T) {
 	}
 }
 
-func readBottomRow(harness *panelHarness) string {
-	rows := strings.Split(harness.readRendered(), "\n")
+func readBottomRow(harness *paneltest.Panel) string {
+	rows := strings.Split(harness.Rendered(), "\n")
 
 	return rows[len(rows)-1]
 }

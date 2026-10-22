@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"komrad/internal/gittest"
+	"komrad/internal/ui/paneltest"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -19,31 +20,31 @@ func TestReviewAnswer(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{newCommentOnSnapshotOne(newAgentMessage("m2", "why?"))}
 		harness := openReview(t, server)
 
-		harness.press("t", "?")
-		require.NotContains(t, readLegend(harness.readFrame()), "the answer")
-		harness.press("?", "a")
+		harness.Press("t", "?")
+		require.NotContains(t, paneltest.Legend(harness.Frame()), "the answer")
+		harness.Press("?", "a")
 
-		assert.Contains(t, readStageText(harness.readFrame()), "where the task starts ▸ snapshot 2")
+		assert.Contains(t, readStageText(harness.Frame()), "where the task starts ▸ snapshot 2")
 	})
 
 	t.Run("the answer key renders the change the answer carried", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{newCommentOnSnapshotOne(newAnswer())}
-		harness := openReviewAt(t, server, panelHarnessParams{height: 60})
+		harness := openReviewAt(t, server, paneltest.Params{Height: 60})
 
-		harness.press("t", "space")
-		require.Contains(t, harness.readFrame(), "the answer")
-		harness.press("a")
+		harness.Press("t", "space")
+		require.Contains(t, harness.Frame(), "the answer")
+		harness.Press("a")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, readStageText(frame), "the answer to this comment")
-		assert.Contains(t, readSidebarProse(frame), "1 file, +3 -0")
+		assert.Contains(t, paneltest.SidebarProse(frame), "1 file, +3 -0")
 
-		harness.press("space", "a")
+		harness.Press("space", "a")
 
-		frame = harness.readFrame()
+		frame = harness.Frame()
 		assert.Contains(t, readStageText(frame), "where the task starts ▸ snapshot 2")
-		assert.Contains(t, readSidebarProse(frame), "2 files, +4 -1")
+		assert.Contains(t, paneltest.SidebarProse(frame), "2 files, +4 -1")
 	})
 
 	t.Run("the answer key leaves out what earlier answers changed since the comment's snapshot", func(t *testing.T) {
@@ -72,11 +73,11 @@ func TestReviewAnswer(t *testing.T) {
 		answer := newAnswer()
 		answer.SnapshotId = xptr.Ptr("snapshot-3")
 		server.threads = []*agentv1.ReviewThread{newCommentOnSnapshotOne(answer)}
-		harness := openReviewAt(t, server, panelHarnessParams{height: 60})
+		harness := openReviewAt(t, server, paneltest.Params{Height: 60})
 
-		harness.press("t", "space", "a")
+		harness.Press("t", "space", "a")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, readStageText(frame), "the answer to this comment")
 		assert.Contains(t, frame, "tall.go")
 		assert.NotContains(t, frame, "second.go")
@@ -85,15 +86,15 @@ func TestReviewAnswer(t *testing.T) {
 	t.Run("leaving the answer puts the cursor back on the comment", func(t *testing.T) {
 		server := newEarlierReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{newCommentOnSnapshotOne(newAnswer())}
-		harness := openReviewAt(t, server, panelHarnessParams{height: 60})
+		harness := openReviewAt(t, server, paneltest.Params{Height: 60})
 
-		harness.press("t", "space", "a")
-		require.Contains(t, readStageText(harness.readFrame()), "the answer to this comment")
-		harness.press("j", "space", "a")
+		harness.Press("t", "space", "a")
+		require.Contains(t, readStageText(harness.Frame()), "the answer to this comment")
+		harness.Press("j", "space", "a")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		require.Contains(t, readStageText(frame), "where the task starts ▸ snapshot 2")
-		assert.Contains(t, readPopupProse(frame), "add a second file")
+		assert.Contains(t, paneltest.PopupProse(frame), "add a second file")
 	})
 
 	t.Run("an answer taken after the screen opened is found among the snapshots listed afresh", func(t *testing.T) {
@@ -111,13 +112,13 @@ func TestReviewAnswer(t *testing.T) {
 			Sha:     server.snapshots[len(server.snapshots)-1].GetSha(),
 		})
 		server.threads = []*agentv1.ReviewThread{newCommentOnSnapshotOne(answer)}
-		harness.watch(server.buildSnapshot())
+		harness.Watch(server.buildSnapshot())
 
-		harness.press("t", "space", "a")
+		harness.Press("t", "space", "a")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, readStageText(frame), "the answer to this comment")
-		assert.Contains(t, readSidebarProse(frame), "1 file, +3 -0")
+		assert.Contains(t, paneltest.SidebarProse(frame), "1 file, +3 -0")
 	})
 
 	t.Run("an answer across a rebase is replayed onto the answer's base", func(t *testing.T) {
@@ -125,11 +126,11 @@ func TestReviewAnswer(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{newCommentOnSnapshotOne(newAnswer())}
 		harness := openReview(t, server)
 
-		harness.press("t", "space", "a")
+		harness.Press("t", "space", "a")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, readStageText(frame), "the answer to this comment, replayed across the rebase")
-		assert.Contains(t, readSidebarProse(frame), "1 file, +3 -0")
+		assert.Contains(t, paneltest.SidebarProse(frame), "1 file, +3 -0")
 	})
 
 	t.Run("an answer the rebase conflicts with is refused and names the paths", func(t *testing.T) {
@@ -137,20 +138,20 @@ func TestReviewAnswer(t *testing.T) {
 		server.threads = []*agentv1.ReviewThread{newCommentOnSnapshotOne(newAnswer())}
 		harness := openReview(t, server)
 
-		harness.press("t", "space", "a")
+		harness.Press("t", "space", "a")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, readOpenMessages(harness), "the answer can't be compared across the rebase, conflicts in greet.go, second.go")
 		assert.Contains(t, readStageText(frame), "where the task starts ▸ snapshot 2")
-		require.Contains(t, readSidebarProse(frame), "2 files, +4 -1")
+		require.Contains(t, paneltest.SidebarProse(frame), "2 files, +4 -1")
 	})
 
 	t.Run("the whole change renders no rule but still names the answer's snapshot", func(t *testing.T) {
-		harness := openReviewAt(t, newLaterRepliesServer(t), panelHarnessParams{height: 50})
+		harness := openReviewAt(t, newLaterRepliesServer(t), paneltest.Params{Height: 50})
 
-		harness.press("t")
+		harness.Press("t")
 
-		said := readPopupProse(harness.readFrame())
+		said := paneltest.PopupProse(harness.Frame())
 		assert.NotContains(t, said, laterRule)
 		assert.Contains(t, said, "addressed in snapshot 2")
 	})
@@ -162,11 +163,11 @@ func TestReviewAnswer(t *testing.T) {
 		earlier.SnapshotId = xptr.Ptr("snapshot-1")
 		thread := server.threads[0]
 		thread.Messages = slices.Insert(thread.Messages, 1, earlier)
-		harness := openReviewAt(t, server, panelHarnessParams{height: 50})
+		harness := openReviewAt(t, server, paneltest.Params{Height: 50})
 
-		harness.press("t")
+		harness.Press("t")
 
-		said := readPopupProse(harness.readFrame())
+		said := paneltest.PopupProse(harness.Frame())
 		assert.NotContains(t, said, "addressed in snapshot 1")
 		assert.Contains(t, said, "addressed in snapshot 2")
 	})

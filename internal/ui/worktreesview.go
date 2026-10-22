@@ -33,7 +33,7 @@ func (w *worktreesScreen) snapshot(m *model, pane list.Pane) view.Snapshot {
 		caret:    pane.Caret,
 		matcher:  m.filter.pattern,
 		pane:     pane.Width,
-		now:      time.Now(),
+		now:      m.clock.Now(),
 	})
 }
 
@@ -50,7 +50,7 @@ func (w *worktreesScreen) details(m *model) details {
 		}
 	}
 
-	return details{id: row.Key(), fields: worktreeFields(m, row.item, time.Now())}
+	return details{id: row.Key(), fields: worktreeFields(m, row.item, m.clock.Now())}
 }
 
 func worktreeFields(m *model, item panel.Worktree, now time.Time) []recordField {
@@ -210,14 +210,14 @@ func (w *worktreesScreen) gitDoc(m *model) string {
 	case read.Err != nil && !read.IsRead():
 		return renderDocument(row.name(), "_"+row.item.Dir+"_", "could not read: "+errui.GetReason(read.Err), "")
 	case read.Err != nil:
-		return renderDocument(row.name(), "_"+row.item.Dir+"_", "_could not read: "+errui.GetReason(read.Err)+"_\n\n"+worktreeProse(row.item, read), "")
+		return renderDocument(row.name(), "_"+row.item.Dir+"_", "_could not read: "+errui.GetReason(read.Err)+"_\n\n"+worktreeProse(row.item, read, m.clock.Now()), "")
 	}
 
-	return renderDocument(row.name(), "_"+row.item.Dir+"_", worktreeProse(row.item, read), "")
+	return renderDocument(row.name(), "_"+row.item.Dir+"_", worktreeProse(row.item, read, m.clock.Now()), "")
 }
 
 // worktreeProse is the three blocks the document renders, each fenced.
-func worktreeProse(item panel.Worktree, read panel.WorktreeInspection) string {
+func worktreeProse(item panel.Worktree, read panel.WorktreeInspection, now time.Time) string {
 	var b strings.Builder
 
 	b.WriteString("## Contents\n\n")
@@ -241,7 +241,7 @@ func worktreeProse(item panel.Worktree, read panel.WorktreeInspection) string {
 		if len(read.Commits) == 0 {
 			b.WriteString("_none_\n")
 		} else {
-			fenced(&b, commitLines(read.Commits))
+			fenced(&b, commitLines(read.Commits, now))
 		}
 	}
 
@@ -304,9 +304,9 @@ func changeLines(read panel.WorktreeInspection) []string {
 	return lines
 }
 
-func commitLines(commits []panel.WorktreeCommit) []string {
+func commitLines(commits []panel.WorktreeCommit, now time.Time) []string {
 	lines := xslice.Map(commits, func(commit panel.WorktreeCommit) string {
-		return fmt.Sprintf("%s  %-4s %s", xsha.Short(commit.SHA), label.Age(commit.CommittedAt), commit.Subject)
+		return fmt.Sprintf("%s  %-4s %s", xsha.Short(commit.SHA), label.AgeAt(commit.CommittedAt, now), commit.Subject)
 	})
 
 	return lines

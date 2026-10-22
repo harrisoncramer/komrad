@@ -20,6 +20,9 @@ type wheelMsg struct {
 	rows int
 }
 
+// wheelHeldMsg says the filter has started holding turns back, which it lets go of on a wheelFlushMsg.
+type wheelHeldMsg struct{}
+
 // wheelFlushMsg asks the filter for the turns it held back.
 type wheelFlushMsg struct{}
 
@@ -27,7 +30,6 @@ type wheelFlushMsg struct{}
 // a frame.
 type wheelFilter struct {
 	now     func() time.Time
-	later   func(tea.Msg)
 	last    time.Time
 	x       int
 	y       int
@@ -35,10 +37,9 @@ type wheelFilter struct {
 	flushed bool
 }
 
-func newWheelFilter(now func() time.Time, later func(tea.Msg)) *wheelFilter {
+func newWheelFilter(now func() time.Time) *wheelFilter {
 	return &wheelFilter{
 		now:     now,
-		later:   later,
 		flushed: true,
 	}
 }
@@ -70,12 +71,13 @@ func (f *wheelFilter) filter(_ tea.Model, msg tea.Msg) tea.Msg {
 		return f.release()
 	}
 
-	if f.flushed {
-		f.flushed = false
-		f.later(wheelFlushMsg{})
+	if !f.flushed {
+		return nil
 	}
 
-	return nil
+	f.flushed = false
+
+	return wheelHeldMsg{}
 }
 
 func (f *wheelFilter) release() tea.Msg {
@@ -208,7 +210,7 @@ type wheelHit struct {
 }
 
 func (m *model) findWheelBlocks() []sidebarBlock {
-	now := time.Now()
+	now := m.clock.Now()
 	if m.wheelHit.blocks == nil || now.Sub(m.wheelHit.at) >= wheelGesture {
 		m.wheelHit.blocks = m.findSidebarBlocks()
 	}

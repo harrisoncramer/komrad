@@ -1,14 +1,16 @@
-package ui
+// Package pickfont is the pane picker's letters drawn large.
+package pickfont
 
 import (
+	"maps"
+	"slices"
 	"strings"
 
 	"komrad/internal/panes"
 )
 
-// pickFont is the picker's letters rendered five rows tall, each cell doubled across so a letter
-// reads square.
-var pickFont = map[string][]string{
+// font is the letters rendered five rows tall, each cell doubled across so a letter reads square.
+var font = map[string][]string{
 	"d": {"██████ ", "██   ██", "██   ██", "██   ██", "██████ "},
 	"f": {"███████", "██     ", "█████  ", "██     ", "██     "},
 	"j": {"     ██", "     ██", "     ██", "██   ██", " █████ "},
@@ -18,9 +20,14 @@ var pickFont = map[string][]string{
 	"a": {" █████ ", "██   ██", "███████", "██   ██", "██   ██"},
 }
 
-// renderLetter is a target's letter as large as the target holds, falling back to the letter alone.
-func renderLetter(letter string, rect panes.Rect) string {
-	rows, ok := pickFont[letter]
+// Letters is every letter the font draws.
+func Letters() []string {
+	return slices.Sorted(maps.Keys(font))
+}
+
+// Render is a letter as large as a rect holds, falling back to the letter alone.
+func Render(letter string, rect panes.Rect) string {
+	rows, ok := font[letter]
 	if !ok {
 		return letter
 	}

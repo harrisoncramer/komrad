@@ -2,15 +2,16 @@ package ui_test
 
 import (
 	"errors"
-	"io/fs"
 	"os"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"komrad/config"
 	"komrad/internal/eventprompts"
-	"komrad/internal/ui"
+	"komrad/internal/ui/paneltest"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -49,7 +50,7 @@ func TestFormsSubmit(t *testing.T) {
 			name:      "the new-task form starts its agent and its task with an overridden harness",
 			press:     slices.Concat([]string{"space", "c"}, spellKeys("run the checks"), []string{"tab", "ctrl+u"}, spellKeys("codex"), []string{"enter"}),
 			answer:    connect.NewResponse(&agentv1.CreateAgentResponse{Agent: &agentv1.Agent{Id: "a2"}}),
-			settle:    []*watchv1.WatchEvent{buildPuts(newAgent("a2", "ci", "w1"))},
+			settle:    []*watchv1.WatchEvent{paneltest.Puts(newAgent("a2", "ci", "w1"))},
 			procedure: agentv1connect.AgentServiceCreateAgentProcedure,
 			want: &agentv1.CreateAgentRequest{
 				Prompt:     "run the checks",
@@ -62,7 +63,7 @@ func TestFormsSubmit(t *testing.T) {
 			press: slices.Concat([]string{"space", "A"}, spellKeys("https://github.com/acmecorp/admin/pull/1069"), []string{"tab"},
 				spellKeys("pick it up"), []string{"enter"}),
 			answer:    connect.NewResponse(&agentv1.AdoptResponse{Agent: &agentv1.Agent{Id: "a2"}}),
-			settle:    []*watchv1.WatchEvent{buildPuts(newAgent("a2", "adopted", "w1"))},
+			settle:    []*watchv1.WatchEvent{paneltest.Puts(newAgent("a2", "adopted", "w1"))},
 			procedure: agentv1connect.AgentServiceAdoptProcedure,
 			want: &agentv1.AdoptRequest{
 				Ref:        "https://github.com/acmecorp/admin/pull/1069",
@@ -77,7 +78,7 @@ func TestFormsSubmit(t *testing.T) {
 			hostPath:  "/work/from-tmux",
 			press:     slices.Concat([]string{"space", "w"}, spellKeys("web"), []string{"enter"}),
 			answer:    connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "w2"}}),
-			settle:    []*watchv1.WatchEvent{buildPuts(newLiveWorkflow("w2", "web"))},
+			settle:    []*watchv1.WatchEvent{paneltest.Puts(newLiveWorkflow("w2", "web"))},
 			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
 			want: &workflowv1.CreateWorkflowRequest{
 				Name:     "web",
@@ -91,7 +92,7 @@ func TestFormsSubmit(t *testing.T) {
 				spellKeys("/work/web"), []string{"tab", "up", "tab", "enter", "tab"}, spellKeys("--model sonnet"), []string{"tab"}, spellKeys("codex"),
 				[]string{"tab"}, spellKeys("--model gpt-5"), []string{"enter"}),
 			answer:    connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "w2"}}),
-			settle:    []*watchv1.WatchEvent{buildPuts(newLiveWorkflow("w2", "web"))},
+			settle:    []*watchv1.WatchEvent{paneltest.Puts(newLiveWorkflow("w2", "web"))},
 			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
 			want: &workflowv1.CreateWorkflowRequest{
 				Name:            "web",
@@ -109,7 +110,7 @@ func TestFormsSubmit(t *testing.T) {
 				spellKeys("develop"), []string{"tab", "tab"}, spellKeys(".env"), []string{"ctrl+j", "ctrl+j"}, spellKeys("config/local.json"),
 				[]string{"tab"}, spellKeys("node_modules"), []string{"tab"}, spellKeys("bin/setup"), []string{"enter"}),
 			answer:    connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "w2"}}),
-			settle:    []*watchv1.WatchEvent{buildPuts(newLiveWorkflow("w2", "web"))},
+			settle:    []*watchv1.WatchEvent{paneltest.Puts(newLiveWorkflow("w2", "web"))},
 			procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
 			want: &workflowv1.CreateWorkflowRequest{
 				Name: "web",
@@ -141,8 +142,8 @@ func TestFormsSubmit(t *testing.T) {
 			name:  "the workflow archive prompt archives the workflow",
 			press: []string{"space", "a", "enter"},
 			settle: []*watchv1.WatchEvent{
-				buildDeleted(watchv1.Resource_RESOURCE_WORKFLOW, "w1"),
-				buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a1"),
+				paneltest.Deleted(watchv1.Resource_RESOURCE_WORKFLOW, "w1"),
+				paneltest.Deleted(watchv1.Resource_RESOURCE_AGENT, "a1"),
 			},
 			procedure: workflowv1connect.WorkflowServiceArchiveWorkflowProcedure,
 			want:      &workflowv1.ArchiveWorkflowRequest{Id: "w1"},
@@ -152,8 +153,8 @@ func TestFormsSubmit(t *testing.T) {
 			author: newOrchestrator(),
 			press:  []string{"space", "a", "enter"},
 			settle: []*watchv1.WatchEvent{
-				buildDeleted(watchv1.Resource_RESOURCE_WORKFLOW, "w1"),
-				buildDeleted(watchv1.Resource_RESOURCE_AGENT, "o1"),
+				paneltest.Deleted(watchv1.Resource_RESOURCE_WORKFLOW, "w1"),
+				paneltest.Deleted(watchv1.Resource_RESOURCE_AGENT, "o1"),
 			},
 			procedure: workflowv1connect.WorkflowServiceArchiveWorkflowProcedure,
 			want:      &workflowv1.ArchiveWorkflowRequest{Id: "w1"},
@@ -170,27 +171,27 @@ func TestFormsSubmit(t *testing.T) {
 			if author == nil {
 				author = newFormAuthor()
 			}
-			var harness *panelHarness
+			var harness *paneltest.Panel
 			if tt.empty {
 				harness = openAgents(t)
 			} else {
 				harness = openForms(t, workflow, author)
 			}
-			harness.panel.SetHostPath(tt.hostPath)
+			harness.Tmux().SetHostPath(tt.hostPath)
 			if tt.answer != nil {
-				harness.answer(tt.procedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+				harness.Answer(tt.procedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 					return tt.answer, nil
 				})
 			}
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 			if len(tt.settle) > 0 {
-				harness.watch(tt.settle...)
+				harness.Watch(tt.settle...)
 			}
 
-			harness.assertSentToWith(tt.procedure, ignoringEventPrompts, tt.want)
-			assert.NotContains(t, harness.readFrame(), "Could not", "the server accepted the write")
-			assert.NotContains(t, harness.readFrame(), "enter submit", "and the form it closed is gone")
+			harness.AssertSentToWith(tt.procedure, ignoringEventPrompts, tt.want)
+			assert.NotContains(t, harness.Frame(), "Could not", "the server accepted the write")
+			assert.NotContains(t, harness.Frame(), "enter submit", "and the form it closed is gone")
 		})
 	}
 }
@@ -203,9 +204,9 @@ func TestFormsNewAgentWorktree(t *testing.T) {
 	t.Run("the field opens on what the workflow does", func(t *testing.T) {
 		harness := openForms(t, workflow, newFormAuthor())
 
-		harness.press("space", "c")
+		harness.Press("space", "c")
 
-		assert.Contains(t, harness.readFrame(), "› Same as workflow")
+		assert.Contains(t, harness.Frame(), "› Same as workflow")
 	})
 
 	tests := []struct {
@@ -227,9 +228,9 @@ func TestFormsNewAgentWorktree(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openForms(t, workflow, newFormAuthor())
 
-			harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), tt.press, []string{"enter"})...)
+			harness.Press(slices.Concat([]string{"space", "c"}, spellKeys("go"), tt.press, []string{"enter"})...)
 
-			sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
+			sent := harness.Sent(agentv1connect.AgentServiceCreateAgentProcedure)
 			require.Len(t, sent, 1)
 			create, ok := sent[0].(*agentv1.CreateAgentRequest)
 			require.True(t, ok)
@@ -263,20 +264,20 @@ func TestFormsRefused(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openForms(t, newFormWorkflow(), newFormAuthor())
-			harness.refuse(tt.procedure, connect.NewError(connect.CodeInvalidArgument, errors.New("not allowed")))
+			harness.Refuse(tt.procedure, connect.NewError(connect.CodeInvalidArgument, errors.New("not allowed")))
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			assert.Contains(t, harness.readFrame(), tt.typed, "the form is still up holding what was filled in")
-			assert.Contains(t, harness.readFrame(), "not allowed", "the reason is rendered under the form")
+			assert.Contains(t, harness.Frame(), tt.typed, "the form is still up holding what was filled in")
+			assert.Contains(t, harness.Frame(), "not allowed", "the reason is rendered under the form")
 
-			harness.press("ctrl+g")
-			frame := harness.readFrame()
+			harness.Press("ctrl+g")
+			frame := harness.Frame()
 			assert.Contains(t, frame, "not allowed", "a refused write is reported")
 			assert.Contains(t, frame, "fix and submit again", "ctrl+g opens the whole refusal over the form")
 
-			harness.press("ctrl+g", "!")
-			assert.Contains(t, harness.readFrame(), tt.typed+"!", "and the form takes keys again")
+			harness.Press("ctrl+g", "!")
+			assert.Contains(t, harness.Frame(), tt.typed+"!", "and the form takes keys again")
 		})
 	}
 }
@@ -291,31 +292,31 @@ func TestFormsAdoptExisting(t *testing.T) {
 	tests := []struct {
 		name        string
 		existing    *agentv1.Agent
-		wantScreen  string
+		wantScreen  screen.ID
 		wantHovered string
 	}{
 		{
 			name:        "a live agent lands the agents list on its row",
 			existing:    newFormAuthor(),
-			wantScreen:  agentsScreen,
+			wantScreen:  screen.Agents,
 			wantHovered: "author",
 		},
 		{
 			name:        "a writer on a hidden task shows the hidden tasks and lands on its task's row",
 			existing:    tucked,
-			wantScreen:  agentsScreen,
+			wantScreen:  screen.Agents,
 			wantHovered: "task-a4",
 		},
 		{
 			name:        "a reviewer on a hidden task shows the hidden tasks and lands on its row",
 			existing:    reviewer,
-			wantScreen:  agentsScreen,
+			wantScreen:  screen.Agents,
 			wantHovered: "reviewer",
 		},
 		{
 			name:        "an archived agent lands the archive on its row",
 			existing:    newArchivedAgent("a3", "old-work", "w1"),
-			wantScreen:  agentsScreen,
+			wantScreen:  screen.Agents,
 			wantHovered: "old-work",
 		},
 	}
@@ -323,16 +324,16 @@ func TestFormsAdoptExisting(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openAgents(t, newFormWorkflow(), newFormAuthor(), newArchivedAgent("a3", "old-work", "w1"), tucked, tuckedTask, reviewer)
-			harness.press("g", "g")
-			harness.answer(agentv1connect.AgentServiceAdoptProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			harness.Press("g", "g")
+			harness.Answer(agentv1connect.AgentServiceAdoptProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 				return connect.NewResponse(&agentv1.AdoptResponse{Agent: tt.existing, Existing: true}), nil
 			})
 
-			harness.press(slices.Concat([]string{"space", "A"}, spellKeys("someones/work"), []string{"enter"})...)
+			harness.Press(slices.Concat([]string{"space", "A"}, spellKeys("someones/work"), []string{"enter"})...)
 
-			frame := harness.readFrame()
-			assert.Equal(t, tt.wantScreen, harness.readScreen())
-			assert.Contains(t, readHoveredRow(frame), tt.wantHovered)
+			frame := harness.Frame()
+			assert.Equal(t, tt.wantScreen, paneltest.Screen(harness.Frame()))
+			assert.Contains(t, paneltest.HoveredRow(frame), tt.wantHovered)
 			assert.Contains(t, frame, "This agent already exists")
 			assert.NotContains(t, frame, "Could not adopt")
 		})
@@ -347,110 +348,110 @@ func TestFormsInFlight(t *testing.T) {
 	t.Run("the form stays up saying it is submitting until the create lands", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 		answerAgentCreate(harness, "")
-		harness.hold(create)
+		harness.Hold(create)
 
-		harness.press(submit...)
+		harness.Press(submit...)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "starting the agent…")
 		assert.Contains(t, frame, "check CI", "the form is still up")
-		assert.Empty(t, harness.panel.ReadRespawns(), "no pane is opened for the provisioner")
+		assert.Empty(t, harness.Tmux().Respawns(), "no pane is opened for the provisioner")
 
-		harness.release(create)
+		harness.Release(create)
 
-		assert.Contains(t, harness.readFrame(), "check CI", "the form waits for the row the create made")
+		assert.Contains(t, harness.Frame(), "check CI", "the form waits for the row the create made")
 
-		harness.watch(buildPuts(newAgent("a2", "check-ci", "w1")))
+		harness.Watch(paneltest.Puts(newAgent("a2", "check-ci", "w1")))
 
-		frame = harness.readFrame()
+		frame = harness.Frame()
 		assert.NotContains(t, frame, "starting the agent…")
 		assert.NotContains(t, frame, "check CI", "the form goes once the row is shown")
 	})
 
 	t.Run("the form keeps saying so while the pane the create made warms up", func(t *testing.T) {
 		frames := &harnessFrameFake{}
-		harness := newPanelHarness(t, panelHarnessParams{harnessFrames: frames})
+		harness := paneltest.Start(t, paneltest.Params{HarnessFrames: frames})
 		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(newFormWorkflow(), newFormAuthor()))
+		harness.Watch(paneltest.Snapshot(newFormWorkflow(), newFormAuthor()))
 		answerAgentCreate(harness, "%9")
-		harness.press("g", "g")
+		harness.Press("g", "g")
 
-		harness.press(submit...)
+		harness.Press(submit...)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "starting the agent…")
 		assert.Contains(t, frame, "check CI", "the form is still up")
 
-		harness.watch(buildPuts(newCreatedAgent()))
-		assert.Contains(t, harness.readFrame(), "check CI", "the row alone does not close it")
+		harness.Watch(paneltest.Puts(newCreatedAgent()))
+		assert.Contains(t, harness.Frame(), "check CI", "the row alone does not close it")
 
 		frames.isShowing = true
-		harness.fireTimers()
+		harness.Advance(time.Second)
 
-		frame = harness.readFrame()
+		frame = harness.Frame()
 		assert.NotContains(t, frame, "starting the agent…")
 		assert.NotContains(t, frame, "check CI", "the form goes with the reveal")
-		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
+		assert.Equal(t, "%9", harness.Tmux().GuestPane())
 	})
 
 	t.Run("a row that lands before its create comes back takes the cursor with the create", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 		answerAgentCreate(harness, "")
-		harness.hold(create)
-		harness.press(submit...)
+		harness.Hold(create)
+		harness.Press(submit...)
 
-		harness.watch(buildPuts(newAgent("a2", "check-ci", "w1")))
-		harness.release(create)
+		harness.Watch(paneltest.Puts(newAgent("a2", "check-ci", "w1")))
+		harness.Release(create)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.NotContains(t, frame, "check CI", "the form goes once the create lands")
-		assert.Contains(t, readHoveredRow(frame), "check-ci")
-		assert.Contains(t, readTrail(frame), "check-ci")
+		assert.Contains(t, paneltest.HoveredRow(frame), "check-ci")
+		assert.Contains(t, paneltest.Trail(frame), "check-ci")
 	})
 
 	t.Run("a second submit sends nothing", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
-		harness.hold(create)
-		harness.press(submit...)
+		harness.Hold(create)
+		harness.Press(submit...)
 
-		harness.press("enter", "!")
+		harness.Press("enter", "!")
 
-		assert.Len(t, harness.readSent(create), 1, "the key never reached the submit path")
-		assert.Contains(t, harness.readFrame(), "check CI", "and the form is as it was")
-		assert.NotContains(t, harness.readFrame(), "check CI!")
+		assert.Len(t, harness.Sent(create), 1, "the key never reached the submit path")
+		assert.Contains(t, harness.Frame(), "check CI", "and the form is as it was")
+		assert.NotContains(t, harness.Frame(), "check CI!")
 	})
 
 	t.Run("esc hands the panel back and the create still lands without taking the cursor", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 		answerAgentCreate(harness, "")
-		harness.hold(create)
-		harness.press(submit...)
+		harness.Hold(create)
+		harness.Press(submit...)
 
-		harness.press("esc")
+		harness.Press("esc")
 
-		assert.NotContains(t, harness.readFrame(), "what the agent is told", "the form it was holding is gone")
-		assert.Contains(t, readLegend(harness.readFrame()), "⠋ starting", "the create it left is rendered in the corner")
-		harness.press("j")
-		assert.Equal(t, "└─ author", readHoveredRow(harness.readFrame()), "the panel takes keys again")
+		assert.NotContains(t, harness.Frame(), "what the agent is told", "the form it was holding is gone")
+		assert.Contains(t, paneltest.Legend(harness.Frame()), "⠋ starting", "the create it left is rendered in the corner")
+		harness.Press("j")
+		assert.Equal(t, "└─ author", paneltest.HoveredRow(harness.Frame()), "the panel takes keys again")
 
-		harness.release(create)
-		harness.watch(buildPuts(newAgent("a2", "check-ci", "w1")))
+		harness.Release(create)
+		harness.Watch(paneltest.Puts(newAgent("a2", "check-ci", "w1")))
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Equal(t, "\uf444 local", readEngineLine(frame), "nothing is reported")
-		assert.Equal(t, "└─ author", readHoveredRow(frame), "the cursor stays where the reader left it")
+		assert.Equal(t, "└─ author", paneltest.HoveredRow(frame), "the cursor stays where the reader left it")
 	})
 
 	t.Run("an escaped create landing leaves a later form held", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
-		harness.hold(create)
-		harness.press(submit...)
-		harness.press("esc")
-		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("the second one"), []string{"enter"})...)
+		harness.Hold(create)
+		harness.Press(submit...)
+		harness.Press("esc")
+		harness.Press(slices.Concat([]string{"space", "c"}, spellKeys("the second one"), []string{"enter"})...)
 
-		harness.release(create)
+		harness.Release(create)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "starting the agent…", "the second form is still held")
 		assert.Contains(t, frame, "the second one")
 	})
@@ -461,9 +462,9 @@ func TestFormsArchivePrompt(t *testing.T) {
 	t.Run("an agent's menu archives that one agent and nothing more", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press("j", "space", "a")
+		harness.Press("j", "space", "a")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "› archive this agent")
 		assert.Contains(t, frame, "back")
 		assert.NotContains(t, frame, "for good")
@@ -472,9 +473,9 @@ func TestFormsArchivePrompt(t *testing.T) {
 	t.Run("a task's menu opens on the reversible answer", func(t *testing.T) {
 		harness := openTaskForms(t, newFormAuthor())
 
-		harness.press("j", "space", "a")
+		harness.Press("j", "space", "a")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "› archive with its agents")
 		assert.Contains(t, frame, "archive and delete for good")
 		assert.Contains(t, frame, "back")
@@ -484,14 +485,14 @@ func TestFormsArchivePrompt(t *testing.T) {
 		tests := []struct {
 			name     string
 			press    []string
-			wantSent []request
+			wantSent []paneltest.Request
 		}{
 			{
 				name:  "submitting without moving archives the agent",
 				press: []string{"enter"},
-				wantSent: []request{{
-					procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
-					msg:       &agentv1.ArchiveAgentsRequest{Ids: []string{"a1"}},
+				wantSent: []paneltest.Request{{
+					Procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
+					Msg:       &agentv1.ArchiveAgentsRequest{Ids: []string{"a1"}},
 				}},
 			},
 			{
@@ -503,13 +504,13 @@ func TestFormsArchivePrompt(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				harness := openForms(t, newFormWorkflow(), newFormAuthor())
-				harness.press("j", "space", "a")
-				before := harness.readRequests()
+				harness.Press("j", "space", "a")
+				before := harness.Requests()
 
-				harness.press(tt.press...)
+				harness.Press(tt.press...)
 
-				harness.assertSent(append(before, tt.wantSent...)...)
-				assert.Equal(t, agentsScreen, harness.readScreen(), "every answer lands back on the list")
+				harness.AssertSent(append(before, tt.wantSent...)...)
+				assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()), "every answer lands back on the list")
 			})
 		}
 	})
@@ -518,22 +519,22 @@ func TestFormsArchivePrompt(t *testing.T) {
 		tests := []struct {
 			name     string
 			press    []string
-			wantSent []request
+			wantSent []paneltest.Request
 		}{
 			{
 				name:  "submitting without moving archives the task and keeps the record",
 				press: []string{"enter"},
-				wantSent: []request{{
-					procedure: taskv1connect.TaskServiceArchiveTaskProcedure,
-					msg:       &taskv1.ArchiveTaskRequest{Task: "task-a1"},
+				wantSent: []paneltest.Request{{
+					Procedure: taskv1connect.TaskServiceArchiveTaskProcedure,
+					Msg:       &taskv1.ArchiveTaskRequest{Task: "task-a1"},
 				}},
 			},
 			{
 				name:  "one row down deletes the task once confirmed",
 				press: []string{"down", "enter", "enter"},
-				wantSent: []request{{
-					procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-					msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-a1"}, Records: true},
+				wantSent: []paneltest.Request{{
+					Procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
+					Msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-a1"}, Records: true},
 				}},
 			},
 			{
@@ -549,13 +550,13 @@ func TestFormsArchivePrompt(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				harness := openTaskForms(t, newFormAuthor())
-				harness.press("j", "space", "a")
-				before := harness.readRequests()
+				harness.Press("j", "space", "a")
+				before := harness.Requests()
 
-				harness.press(tt.press...)
+				harness.Press(tt.press...)
 
-				harness.assertSent(append(before, tt.wantSent...)...)
-				assert.Equal(t, agentsScreen, harness.readScreen(), "every answer lands back on the list")
+				harness.AssertSent(append(before, tt.wantSent...)...)
+				assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()), "every answer lands back on the list")
 			})
 		}
 	})
@@ -568,15 +569,15 @@ func TestFormsArchivePrompt(t *testing.T) {
 			name     string
 			choose   []string
 			press    []string
-			wantSent []request
+			wantSent []paneltest.Request
 		}{
 			{
 				name:   "archiving chosen agents leaves the rest of their task standing",
 				choose: siblings,
 				press:  []string{"enter"},
-				wantSent: []request{{
-					procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
-					msg:       &agentv1.ArchiveAgentsRequest{Ids: []string{"a4", "a3"}},
+				wantSent: []paneltest.Request{{
+					Procedure: agentv1connect.AgentServiceArchiveAgentsProcedure,
+					Msg:       &agentv1.ArchiveAgentsRequest{Ids: []string{"a4", "a3"}},
 				}},
 			},
 			{
@@ -588,18 +589,18 @@ func TestFormsArchivePrompt(t *testing.T) {
 				name:   "archiving every agent on a task archives the task",
 				choose: wholeTask,
 				press:  []string{"enter"},
-				wantSent: []request{{
-					procedure: taskv1connect.TaskServiceArchiveTaskProcedure,
-					msg:       &taskv1.ArchiveTaskRequest{Task: "task-writer"},
+				wantSent: []paneltest.Request{{
+					Procedure: taskv1connect.TaskServiceArchiveTaskProcedure,
+					Msg:       &taskv1.ArchiveTaskRequest{Task: "task-writer"},
 				}},
 			},
 			{
 				name:   "deleting every agent on a task deletes the task",
 				choose: wholeTask,
 				press:  []string{"down", "enter", "enter"},
-				wantSent: []request{{
-					procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-					msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-writer"}, Records: true},
+				wantSent: []paneltest.Request{{
+					Procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
+					Msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-writer"}, Records: true},
 				}},
 			},
 		}
@@ -607,13 +608,13 @@ func TestFormsArchivePrompt(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				harness := openAgents(t, buildReviewedTasks()...)
-				harness.press(tt.choose...)
-				harness.press("space", "a")
-				before := harness.readRequests()
+				harness.Press(tt.choose...)
+				harness.Press("space", "a")
+				before := harness.Requests()
 
-				harness.press(tt.press...)
+				harness.Press(tt.press...)
 
-				harness.assertSent(append(before, tt.wantSent...)...)
+				harness.AssertSent(append(before, tt.wantSent...)...)
 			})
 		}
 	})
@@ -621,83 +622,82 @@ func TestFormsArchivePrompt(t *testing.T) {
 	t.Run("the workflow menu stays up until the archive lands", func(t *testing.T) {
 		archive := workflowv1connect.WorkflowServiceArchiveWorkflowProcedure
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
-		harness.hold(archive)
+		harness.Hold(archive)
 
-		harness.press("space", "a", "a")
+		harness.Press("space", "a", "a")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "archive with its agents", "the menu is still rendered")
 		assert.Contains(t, frame, "archiving api…")
 
-		harness.release(archive)
+		harness.Release(archive)
 
-		require.Contains(t, harness.readFrame(), "archive with its agents", "the agents are still on the list")
+		require.Contains(t, harness.Frame(), "archive with its agents", "the agents are still on the list")
 
-		harness.watch(buildSnapshot())
+		harness.Watch(paneltest.Snapshot())
 
-		assert.NotContains(t, harness.readFrame(), "archive with its agents")
+		assert.NotContains(t, harness.Frame(), "archive with its agents")
 	})
 
 	t.Run("a task delete keeps its form up until the watch drops the task", func(t *testing.T) {
 		harness := openTaskForms(t, newFormAuthor())
 
-		harness.press("j", "space", "a", "down", "enter", "enter")
+		harness.Press("j", "space", "a", "down", "enter", "enter")
 
-		require.Contains(t, harness.readFrame(), `deleting task "task-a1"`)
+		require.Contains(t, harness.Frame(), `deleting task "task-a1"`)
 
-		harness.watch(buildSnapshot(newFormWorkflow()))
+		harness.Watch(paneltest.Snapshot(newFormWorkflow()))
 
-		assert.NotContains(t, harness.readFrame(), `deleting task "task-a1"`)
-		assert.NotContains(t, harness.readFrame(), "enter submit")
+		assert.NotContains(t, harness.Frame(), `deleting task "task-a1"`)
+		assert.NotContains(t, harness.Frame(), "enter submit")
 	})
 
 	t.Run("a delete the watch never drops closes its form once the wait runs out", func(t *testing.T) {
 		harness := openTaskForms(t, newFormAuthor())
 
-		harness.press("j", "space", "a", "down", "enter", "enter")
-		require.Contains(t, harness.readFrame(), `deleting task "task-a1"`)
+		harness.Press("j", "space", "a", "down", "enter", "enter")
+		require.Contains(t, harness.Frame(), `deleting task "task-a1"`)
 
-		harness.panel.ExpireParked()
-		harness.fireMatching(ui.IsWarmupTick)
+		harness.Advance(5 * time.Second)
 
-		assert.NotContains(t, harness.readFrame(), `deleting task "task-a1"`)
+		assert.NotContains(t, harness.Frame(), `deleting task "task-a1"`)
 	})
 
 	t.Run("a refused archive takes the menu down", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
-		harness.refuse(agentv1connect.AgentServiceArchiveAgentsProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("already archived")))
+		harness.Refuse(agentv1connect.AgentServiceArchiveAgentsProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("already archived")))
 
-		harness.press("j", "space", "a", "a")
+		harness.Press("j", "space", "a", "a")
 
-		assert.NotContains(t, harness.readFrame(), "archive and delete for good")
-		assert.Equal(t, agentsScreen, harness.readScreen())
+		assert.NotContains(t, harness.Frame(), "archive and delete for good")
+		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
 	})
 
 	t.Run("a confirmed archive still in flight keeps a rebuilt panel up", func(t *testing.T) {
 		binary := &fakeBinary{}
-		harness := newPanelHarness(t, panelHarnessParams{binary: binary})
+		harness := paneltest.Start(t, paneltest.Params{Binary: binary})
 		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(newFormWorkflow(), newFormAuthor()))
-		harness.hold(agentv1connect.AgentServiceArchiveAgentsProcedure)
-		harness.press("g", "g", "j", "space", "a", "enter")
+		harness.Watch(paneltest.Snapshot(newFormWorkflow(), newFormAuthor()))
+		harness.Hold(agentv1connect.AgentServiceArchiveAgentsProcedure)
+		harness.Press("g", "g", "j", "space", "a", "enter")
 
 		binary.isReplaced = true
-		harness.fireTimers()
-		require.NotContains(t, harness.readFrame(), "komrad was rebuilt", "the write is still in flight")
+		harness.Advance(time.Second)
+		require.NotContains(t, harness.Frame(), "komrad was rebuilt", "the write is still in flight")
 
-		harness.release(agentv1connect.AgentServiceArchiveAgentsProcedure)
-		harness.watch(buildSnapshot(newFormWorkflow()))
-		harness.fireTimers()
-		assert.Contains(t, harness.readFrame(), "komrad was rebuilt")
+		harness.Release(agentv1connect.AgentServiceArchiveAgentsProcedure)
+		harness.Watch(paneltest.Snapshot(newFormWorkflow()))
+		harness.Advance(time.Second)
+		assert.Contains(t, harness.Frame(), "komrad was rebuilt")
 	})
 
 	t.Run("a refused workflow archive says why and keeps the workflow", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
-		harness.refuse(workflowv1connect.WorkflowServiceArchiveWorkflowProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("agents still running")))
+		harness.Refuse(workflowv1connect.WorkflowServiceArchiveWorkflowProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("agents still running")))
 
-		harness.press(slices.Concat([]string{"space", "a", "enter"}, widenListPresses)...)
+		harness.Press(slices.Concat([]string{"space", "a", "enter"}, widenListPresses)...)
 
-		assert.Contains(t, readListRows(harness.readFrame()), "api")
+		assert.Contains(t, paneltest.ListRows(harness.Frame()), "api")
 		assert.Contains(t, readOpenMessages(harness), "agents still running")
 	})
 
@@ -705,82 +705,84 @@ func TestFormsArchivePrompt(t *testing.T) {
 		reviewer := newLiveAuthor()
 		reviewer.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
 		harness := openForms(t, newFormWorkflow(), reviewer)
-		harness.press("j")
-		harness.fireTimers()
-		require.Equal(t, "%9", harness.panel.ReadGuestPane())
-		harness.refuse(agentv1connect.AgentServiceArchiveAgentsProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("agent.pre-archive hook refused")))
+		harness.Press("j")
+		harness.Advance(time.Second)
+		require.Equal(t, "%9", harness.Tmux().GuestPane())
+		harness.Refuse(agentv1connect.AgentServiceArchiveAgentsProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("agent.pre-archive hook refused")))
 
-		harness.press("space", "a", "a")
+		harness.Press("space", "a", "a")
 
-		assert.Equal(t, "%9", harness.panel.ReadGuestPane())
-		assert.NotContains(t, harness.readFrame(), "dormant")
+		assert.Equal(t, "%9", harness.Tmux().GuestPane())
+		assert.NotContains(t, harness.Frame(), "dormant")
 	})
 
 	t.Run("a refused task delete leaves the agent on it live", func(t *testing.T) {
 		harness := openTaskForms(t, newLiveAuthor())
-		harness.press("j")
-		harness.fireTimers()
-		harness.refuse(taskv1connect.TaskServiceDeleteTasksProcedure, connect.NewError(connect.CodeInternal, errors.New("delete failed")))
+		harness.Press("j")
+		harness.Advance(time.Second)
+		harness.Refuse(taskv1connect.TaskServiceDeleteTasksProcedure, connect.NewError(connect.CodeInternal, errors.New("delete failed")))
 
-		harness.press("space", "a", "down", "enter", "enter")
+		harness.Press("space", "a", "down", "enter", "enter")
 
-		assert.Equal(t, agentsScreen, harness.readScreen())
-		assert.True(t, harness.panel.IsAgentAlive("a1"))
+		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
+		assert.True(t, isListed(harness, "└─ task-a1"))
+		assert.Equal(t, "%9", harness.Tmux().GuestPane())
 	})
 
 	t.Run("an archive in flight takes the pane off the stage and leaves the agent live until it lands", func(t *testing.T) {
 		reviewer := newLiveAuthor()
 		reviewer.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
 		harness := openForms(t, newFormWorkflow(), reviewer)
-		harness.press("j")
-		harness.fireTimers()
-		require.Equal(t, "%9", harness.panel.ReadGuestPane())
-		harness.hold(agentv1connect.AgentServiceArchiveAgentsProcedure)
+		harness.Press("j")
+		harness.Advance(time.Second)
+		require.Equal(t, "%9", harness.Tmux().GuestPane())
+		harness.Hold(agentv1connect.AgentServiceArchiveAgentsProcedure)
 
-		harness.press("space", "a", "a")
+		harness.Press("space", "a", "a")
 
-		assert.Empty(t, harness.panel.ReadGuestPane())
-		assert.True(t, harness.panel.IsAgentAlive("a1"))
+		assert.Empty(t, harness.Tmux().GuestPane())
+		t.Log(paneltest.ListRows(harness.Frame()), harness.Tmux().GuestPane())
+		assert.True(t, isListed(harness, "author"))
 
-		harness.press("esc")
-		harness.fireTimers()
+		harness.Press("esc")
+		harness.Advance(time.Second)
 
-		assert.Empty(t, harness.panel.ReadGuestPane(), "walking away from the form does not stage the pane the write is killing")
+		assert.Empty(t, harness.Tmux().GuestPane(), "walking away from the form does not stage the pane the write is killing")
 
-		harness.release(agentv1connect.AgentServiceArchiveAgentsProcedure)
+		harness.Release(agentv1connect.AgentServiceArchiveAgentsProcedure)
 
-		assert.True(t, harness.panel.IsAgentAlive("a1"), "the agent stays until the watch drops it")
+		assert.True(t, isListed(harness, "author"), "the agent stays until the watch drops it")
 
-		harness.watch(buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a1"))
+		harness.Watch(paneltest.Deleted(watchv1.Resource_RESOURCE_AGENT, "a1"))
 
-		assert.False(t, harness.panel.IsAgentAlive("a1"))
-		assert.NotContains(t, readListRows(harness.readFrame()), "author")
+		assert.False(t, isListed(harness, "author"))
+		assert.NotContains(t, paneltest.ListRows(harness.Frame()), "author")
 	})
 
 	t.Run("a watch that lands while an archive is in flight waits for the archive", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
-		harness.hold(agentv1connect.AgentServiceArchiveAgentsProcedure)
-		harness.press("j", "space", "a", "a")
-		held := harness.readFrame()
+		harness.Hold(agentv1connect.AgentServiceArchiveAgentsProcedure)
+		harness.Press("j", "space", "a", "a")
+		held := harness.Frame()
 
-		harness.watch(buildDeleted(watchv1.Resource_RESOURCE_AGENT, "a1"))
+		harness.Watch(paneltest.Deleted(watchv1.Resource_RESOURCE_AGENT, "a1"))
 
-		assert.Equal(t, held, harness.readFrame(), "the list and the menu stay as they were")
+		assert.Equal(t, held, harness.Frame(), "the list and the menu stay as they were")
 
-		harness.release(agentv1connect.AgentServiceArchiveAgentsProcedure)
+		harness.Release(agentv1connect.AgentServiceArchiveAgentsProcedure)
 
-		frame := harness.readFrame()
-		assert.NotContains(t, readListRows(frame), "author")
+		frame := harness.Frame()
+		assert.NotContains(t, paneltest.ListRows(frame), "author")
 		assert.NotContains(t, frame, "archive this agent")
 	})
 
 	t.Run("a refused task delete says why", func(t *testing.T) {
 		harness := openTaskForms(t, newFormAuthor())
-		harness.refuse(taskv1connect.TaskServiceDeleteTasksProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("already deleting")))
+		harness.Refuse(taskv1connect.TaskServiceDeleteTasksProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("already deleting")))
 
-		harness.press(slices.Concat([]string{"j", "space", "a", "down", "enter", "enter"}, widenListPresses)...)
+		harness.Press(slices.Concat([]string{"j", "space", "a", "down", "enter", "enter"}, widenListPresses)...)
 
-		assert.Contains(t, harness.readFrame(), `Could not delete task "task-a1"`)
+		assert.Contains(t, harness.Frame(), `Could not delete task "task-a1"`)
 	})
 }
 
@@ -789,9 +791,9 @@ func TestFormsKeys(t *testing.T) {
 	t.Run("enter submits from a text field", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"enter"})...)
+		harness.Press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"enter"})...)
 
-		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
+		sent := harness.Sent(agentv1connect.AgentServiceCreateAgentProcedure)
 		require.Len(t, sent, 1)
 		create, ok := sent[0].(*agentv1.CreateAgentRequest)
 		require.True(t, ok)
@@ -801,10 +803,10 @@ func TestFormsKeys(t *testing.T) {
 	t.Run("ctrl+j and alt+enter break a line in a text field", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(slices.Concat([]string{"space", "c"}, spellKeys("check CI"), []string{"ctrl+j"}, spellKeys("then"),
+		harness.Press(slices.Concat([]string{"space", "c"}, spellKeys("check CI"), []string{"ctrl+j"}, spellKeys("then"),
 			[]string{"alt+enter"}, spellKeys("fix it"), []string{"enter"})...)
 
-		sent := harness.readSent(agentv1connect.AgentServiceCreateAgentProcedure)
+		sent := harness.Sent(agentv1connect.AgentServiceCreateAgentProcedure)
 		require.Len(t, sent, 1)
 		create, ok := sent[0].(*agentv1.CreateAgentRequest)
 		require.True(t, ok)
@@ -814,18 +816,18 @@ func TestFormsKeys(t *testing.T) {
 	t.Run("a workflow edited to a blank name sends nothing", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press("space", "E", "ctrl+u", "space", "space", "enter")
+		harness.Press("space", "E", "ctrl+u", "space", "space", "enter")
 
-		assert.Empty(t, harness.readSent(workflowv1connect.WorkflowServiceUpdateWorkflowProcedure))
+		assert.Empty(t, harness.Sent(workflowv1connect.WorkflowServiceUpdateWorkflowProcedure))
 	})
 
 	t.Run("the adopt key on an agent row opens nothing", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press("j", "a")
+		harness.Press("j", "a")
 
-		assert.NotContains(t, harness.readFrame(), "Adopt")
-		assert.Equal(t, "└─ author", readHoveredRow(harness.readFrame()))
+		assert.NotContains(t, harness.Frame(), "Adopt")
+		assert.Equal(t, "└─ author", paneltest.HoveredRow(harness.Frame()))
 	})
 }
 
@@ -833,17 +835,17 @@ func TestFormsKeys(t *testing.T) {
 func TestFormsWorkflowProvisioner(t *testing.T) {
 	harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-	harness.press(slices.Concat([]string{"space", "w"}, slices.Repeat([]string{"tab"}, 3))...)
-	frame := harness.readFrame()
+	harness.Press(slices.Concat([]string{"space", "w"}, slices.Repeat([]string{"tab"}, 3))...)
+	frame := harness.Frame()
 	assert.Contains(t, frame, "None: agents keep the directory they are given", "neither option is hidden by the other being picked")
 	assert.Less(t, strings.Index(frame, "None: agents keep"), strings.Index(frame, "Worktree: a git worktree per agent"), "and the options keep their order")
 
-	harness.press(slices.Concat([]string{"tab", "down", "enter", "tab", "tab"}, spellKeys(".env"), []string{"esc", "shift+tab", "up", "tab", "enter"})...)
-	assert.NotContains(t, harness.readFrame(), "Worktree base branch", "none provisions nothing, so its worktree subform does not open")
+	harness.Press(slices.Concat([]string{"tab", "down", "enter", "tab", "tab"}, spellKeys(".env"), []string{"esc", "shift+tab", "up", "tab", "enter"})...)
+	assert.NotContains(t, harness.Frame(), "Worktree base branch", "none provisions nothing, so its worktree subform does not open")
 
-	harness.press("shift+tab", "down", "enter")
+	harness.Press("shift+tab", "down", "enter")
 
-	sent := harness.readSent(workflowv1connect.WorkflowServiceCreateWorkflowProcedure)
+	sent := harness.Sent(workflowv1connect.WorkflowServiceCreateWorkflowProcedure)
 	require.Len(t, sent, 1)
 	create, ok := sent[0].(*workflowv1.CreateWorkflowRequest)
 	require.True(t, ok)
@@ -855,15 +857,15 @@ func TestFormsWorkflowSubforms(t *testing.T) {
 	t.Run("back keeps what the subform was given and lands on the list of subforms", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSubformKeys(0), spellKeys("codex"), []string{"esc"})...)
-		assert.NotContains(t, harness.readFrame(), "Default Agent", "the subform closed")
+		harness.Press(slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSubformKeys(0), spellKeys("codex"), []string{"esc"})...)
+		assert.NotContains(t, harness.Frame(), "Default Agent", "the subform closed")
 
-		harness.press("enter")
-		assert.Contains(t, harness.readFrame(), "Default Agent", "enter opens the subform the cursor came back to")
+		harness.Press("enter")
+		assert.Contains(t, harness.Frame(), "Default Agent", "enter opens the subform the cursor came back to")
 
-		harness.press("enter")
+		harness.Press("enter")
 
-		sent := harness.readSent(workflowv1connect.WorkflowServiceCreateWorkflowProcedure)
+		sent := harness.Sent(workflowv1connect.WorkflowServiceCreateWorkflowProcedure)
 		require.Len(t, sent, 1)
 		create, ok := sent[0].(*workflowv1.CreateWorkflowRequest)
 		require.True(t, ok)
@@ -873,10 +875,10 @@ func TestFormsWorkflowSubforms(t *testing.T) {
 	t.Run("back on the top form throws the edit away", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), []string{"esc"})...)
+		harness.Press(slices.Concat([]string{"space", "w"}, spellKeys("web"), []string{"esc"})...)
 
-		assert.NotContains(t, harness.readFrame(), "New workflow name")
-		assert.Empty(t, harness.readSent(workflowv1connect.WorkflowServiceCreateWorkflowProcedure))
+		assert.NotContains(t, harness.Frame(), "New workflow name")
+		assert.Empty(t, harness.Sent(workflowv1connect.WorkflowServiceCreateWorkflowProcedure))
 	})
 }
 
@@ -898,39 +900,39 @@ func TestFormsWorkflowHooks(t *testing.T) {
 	t.Run("a picker offers every hook and opens on the one the workflow names", func(t *testing.T) {
 		harness := openHookForm(t, []*workflowv1.WorkflowHook{{Event: config.HookAgentPreLaunch, Script: "copy-env"}}, "install-deps", "copy-env")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "install-deps")
 		assert.Contains(t, frame, "› copy-env")
 	})
 
 	t.Run("a hook still waiting on a chmod is offered", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
-		harness.answer(hookv1connect.HookServiceListHooksProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		harness.Answer(hookv1connect.HookServiceListHooksProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 			return connect.NewResponse(&hookv1.ListHooksResponse{Hooks: []*hookv1.Hook{{Name: "unrunnable"}}}), nil
 		})
 
-		harness.press(append([]string{"space", "E"}, openWorkflowSubformKeys(2)...)...)
+		harness.Press(append([]string{"space", "E"}, openWorkflowSubformKeys(2)...)...)
 
-		assert.Contains(t, harness.readFrame(), "unrunnable")
+		assert.Contains(t, harness.Frame(), "unrunnable")
 	})
 
 	t.Run("a hook the directory no longer holds is still offered", func(t *testing.T) {
 		harness := openHookForm(t, []*workflowv1.WorkflowHook{{Event: config.HookAgentPreLaunch, Script: "copy-env"}}, "install-deps")
 
-		assert.Contains(t, harness.readFrame(), "missing")
+		assert.Contains(t, harness.Frame(), "missing")
 	})
 
 	t.Run("an empty hooks directory says where hooks go", func(t *testing.T) {
 		harness := openHookForm(t, nil)
 
-		assert.Contains(t, harness.readFrame(), "none found in your hooks directory")
+		assert.Contains(t, harness.Frame(), "none found in your hooks directory")
 	})
 
 	t.Run("every moment comes back as it went in", func(t *testing.T) {
 		harness := openHookForm(t, every, "install-deps", "announce", "warm-up", "announce-back", "check-in",
 			"give-back-the-slot", "lock", "unlock", "take-the-stack-down", "say-goodbye")
 
-		harness.press("enter")
+		harness.Press("enter")
 
 		assertSentHooks(t, harness, every)
 	})
@@ -941,7 +943,7 @@ func TestFormsWorkflowHooks(t *testing.T) {
 			{Event: config.HookAgentPreLaunch, Script: "copy-env"},
 		}, "install-deps", "copy-env")
 
-		harness.press("enter")
+		harness.Press("enter")
 
 		assertSentHooks(t, harness, []*workflowv1.WorkflowHook{{Event: config.HookAgentPreLaunch, Script: "install-deps"}})
 	})
@@ -949,10 +951,10 @@ func TestFormsWorkflowHooks(t *testing.T) {
 
 // TestFormsWorkflowEventPrompts pins the workflow form carrying a prompt for each event.
 func TestFormsWorkflowEventPrompts(t *testing.T) {
-	sentEventPrompts := func(t *testing.T, harness *panelHarness) []*workflowv1.WorkflowEventPrompt {
+	sentEventPrompts := func(t *testing.T, harness *paneltest.Panel) []*workflowv1.WorkflowEventPrompt {
 		t.Helper()
 
-		sent := harness.readSent(workflowv1connect.WorkflowServiceUpdateWorkflowProcedure)
+		sent := harness.Sent(workflowv1connect.WorkflowServiceUpdateWorkflowProcedure)
 		require.Len(t, sent, 1)
 		update, ok := sent[0].(*workflowv1.UpdateWorkflowRequest)
 		require.True(t, ok)
@@ -968,7 +970,7 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 		}
 		harness := openForms(t, workflow, newFormAuthor())
 
-		harness.press("space", "E", "enter")
+		harness.Press("space", "E", "enter")
 
 		assert.Empty(t, cmp.Diff([]*workflowv1.WorkflowEventPrompt{
 			{Event: "pull_request.checks_failing", Prompt: "fix the checks"},
@@ -979,11 +981,11 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 	t.Run("a prompt typed under its event is sent with it", func(t *testing.T) {
 		harness := openWideForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(append([]string{"space", "E"}, openWorkflowSubformKeys(3)...)...)
-		frame := harness.readFrame()
+		harness.Press(append([]string{"space", "E"}, openWorkflowSubformKeys(3)...)...)
+		frame := harness.Frame()
 		assert.Contains(t, frame, "when some checks on the head failed while others still run")
 
-		harness.press(slices.Concat(spellKeys("fix the checks"), []string{"enter"})...)
+		harness.Press(slices.Concat(spellKeys("fix the checks"), []string{"enter"})...)
 
 		assert.Empty(t, cmp.Diff([]*workflowv1.WorkflowEventPrompt{
 			{Event: "pull_request.checks_failing_running", Prompt: "fix the checks"},
@@ -998,7 +1000,7 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 		}
 		harness := openForms(t, workflow, newFormAuthor())
 
-		harness.press("space", "E", "enter")
+		harness.Press("space", "E", "enter")
 
 		assert.Empty(t, cmp.Diff(workflow.EventPrompts, sentEventPrompts(t, harness), protocmp.Transform()))
 	})
@@ -1006,12 +1008,12 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 	t.Run("muting an event under its prompt sends it muted", func(t *testing.T) {
 		harness := openWideForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(append([]string{"space", "E"}, openWorkflowSubformKeys(3)...)...)
-		harness.press(slices.Concat(spellKeys("fix the checks"), []string{"tab"})...)
-		frame := harness.readFrame()
+		harness.Press(append([]string{"space", "E"}, openWorkflowSubformKeys(3)...)...)
+		harness.Press(slices.Concat(spellKeys("fix the checks"), []string{"tab"})...)
+		frame := harness.Frame()
 		assert.Contains(t, frame, "komrad sends no mail of its own")
 
-		harness.press("down", "enter")
+		harness.Press("down", "enter")
 
 		assert.Empty(t, cmp.Diff([]*workflowv1.WorkflowEventPrompt{
 			{
@@ -1025,9 +1027,9 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 	t.Run("a new workflow starts with each event's default", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), []string{"enter"})...)
+		harness.Press(slices.Concat([]string{"space", "w"}, spellKeys("web"), []string{"enter"})...)
 
-		sent := harness.readSent(workflowv1connect.WorkflowServiceCreateWorkflowProcedure)
+		sent := harness.Sent(workflowv1connect.WorkflowServiceCreateWorkflowProcedure)
 		require.Len(t, sent, 1)
 		create, ok := sent[0].(*workflowv1.CreateWorkflowRequest)
 		require.True(t, ok)
@@ -1041,9 +1043,11 @@ func TestFormsFieldEditor(t *testing.T) {
 	t.Run("the field under the cursor is written out for the editor", func(t *testing.T) {
 		harness := openFieldEditor(t)
 
-		harness.press("space", "E", "tab", "ctrl+e")
+		harness.Press("space", "E", "tab", "ctrl+e")
 
-		draft, err := os.ReadFile(ui.FormFieldDraftPath("context"))
+		edited := harness.Edited()
+		require.Len(t, edited, 1)
+		draft, err := os.ReadFile(edited[0])
 		require.NoError(t, err)
 		assert.Equal(t, "shared notes", string(draft))
 	})
@@ -1051,10 +1055,9 @@ func TestFormsFieldEditor(t *testing.T) {
 	t.Run("a form with no text field of its own leaves the key to the form", func(t *testing.T) {
 		harness := openFieldEditor(t)
 
-		harness.press("r", "ctrl+e")
+		harness.Press("r", "ctrl+e")
 
-		_, err := os.Stat(ui.FormFieldDraftPath("name"))
-		assert.ErrorIs(t, err, fs.ErrNotExist)
+		assert.Empty(t, harness.Edited())
 	})
 
 	tests := []struct {
@@ -1090,12 +1093,11 @@ func TestFormsFieldEditor(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openFieldEditor(t)
-			harness.press(append(tt.press, "ctrl+e")...)
+			harness.WriteInEditor("what the editor wrote\n")
+			harness.Press(append(tt.press, "ctrl+e")...)
+			harness.Press("!", "enter")
 
-			harness.send(harness.panel.NewFieldEdited(tt.field, "what the editor wrote\n"))
-			harness.press("!", "enter")
-
-			harness.assertSentToWith(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, ignoringEventPrompts, tt.want)
+			harness.AssertSentToWith(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, ignoringEventPrompts, tt.want)
 		})
 	}
 }
@@ -1108,91 +1110,89 @@ func TestFormsLayout(t *testing.T) {
 		t.Parallel()
 
 		harness := openForms(t, newFormWorkflow(), newLiveAuthor())
-		harness.press("j")
-		harness.fireTimers()
+		harness.Press("j")
+		harness.Advance(time.Second)
 
-		harness.press("r", "esc")
+		harness.Press("r", "esc")
 
-		assert.False(t, harness.panel.IsZoomed())
+		assert.False(t, harness.Tmux().IsZoomed())
 	})
 
 	t.Run("a refusal is read in full from inside the form", func(t *testing.T) {
 		t.Parallel()
 
-		harness := newPanelHarness(t, panelHarnessParams{width: 160})
+		harness := paneltest.Start(t, paneltest.Params{Width: 160})
 		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(newFormWorkflow()))
-		harness.refuse(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, connect.NewError(connect.CodeInvalidArgument, errors.New("no such workflow")))
-		harness.press(slices.Concat([]string{"space", "w"}, spellKeys("web"), []string{"enter"})...)
+		harness.Watch(paneltest.Snapshot(newFormWorkflow()))
+		harness.Refuse(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, connect.NewError(connect.CodeInvalidArgument, errors.New("no such workflow")))
+		harness.Press(slices.Concat([]string{"space", "w"}, spellKeys("web"), []string{"enter"})...)
 
-		harness.press("ctrl+g")
-		frame := harness.readFrame()
+		harness.Press("ctrl+g")
+		frame := harness.Frame()
 		assert.Contains(t, frame, "Could not create the workflow")
 		assert.NotContains(t, frame, "New workflow name", "the form gives up what is rendered in its column")
 
-		harness.press("ctrl+g")
-		assert.Contains(t, harness.readFrame(), "New workflow name", "and takes it back")
+		harness.Press("ctrl+g")
+		assert.Contains(t, harness.Frame(), "New workflow name", "and takes it back")
 	})
 }
 
-func openForms(t *testing.T, workflow *workflowv1.Workflow, author *agentv1.Agent) *panelHarness {
+func openForms(t *testing.T, workflow *workflowv1.Workflow, author *agentv1.Agent) *paneltest.Panel {
 	t.Helper()
 
 	harness := openAgents(t, workflow, author)
-	harness.press("g", "g")
+	harness.Press("g", "g")
 
 	return harness
 }
 
-func openTaskForms(t *testing.T, author *agentv1.Agent) *panelHarness {
+func openTaskForms(t *testing.T, author *agentv1.Agent) *paneltest.Panel {
 	t.Helper()
 
 	harness := openAgents(t, newFormWorkflow(), author, newTaskOf(author))
-	harness.press("g", "g")
+	harness.Press("g", "g")
 
 	return harness
 }
 
-func openWideForms(t *testing.T, workflow *workflowv1.Workflow, author *agentv1.Agent) *panelHarness {
+func openWideForms(t *testing.T, workflow *workflowv1.Workflow, author *agentv1.Agent) *paneltest.Panel {
 	t.Helper()
 
-	harness := newPanelHarness(t, panelHarnessParams{width: 220})
+	harness := paneltest.Start(t, paneltest.Params{Width: 220})
 	answerWorktreeReads(harness)
-	harness.watch(buildSnapshot(workflow, author))
-	harness.press("g", "g")
+	harness.Watch(paneltest.Snapshot(workflow, author))
+	harness.Press("g", "g")
 
 	return harness
 }
 
-func openFieldEditor(t *testing.T) *panelHarness {
+func openFieldEditor(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
-	harness := newPanelHarness(t, panelHarnessParams{settings: ui.PanelSettings{Editor: "true"}})
+	harness := paneltest.Start(t, paneltest.Params{})
 	answerWorktreeReads(harness)
-	harness.watch(buildSnapshot(newConfiguredWorkflow(), newFormAuthor()))
-	harness.press("g", "g")
+	harness.Watch(paneltest.Snapshot(newConfiguredWorkflow(), newFormAuthor()))
+	harness.Press("g", "g")
 	t.Cleanup(func() {
-		for _, key := range []string{"context", "name", "worktree_copy_paths"} {
-			_ = os.Remove(ui.FormFieldDraftPath(key))
-		}
+		removeEdited(harness)
 	})
 
 	return harness
 }
 
-func openHookForm(t *testing.T, hooks []*workflowv1.WorkflowHook, available ...string) *panelHarness {
+func openHookForm(t *testing.T, hooks []*workflowv1.WorkflowHook, available ...string) *paneltest.Panel {
 	t.Helper()
 
 	workflow := newFormWorkflow()
 	workflow.Hooks = hooks
 	harness := openWideForms(t, workflow, newFormAuthor())
-	harness.answer(hookv1connect.HookServiceListHooksProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+	harness.Answer(hookv1connect.HookServiceListHooksProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&hookv1.ListHooksResponse{Hooks: xslice.Map(available, func(name string) *hookv1.Hook {
 			return &hookv1.Hook{Name: name, Executable: true}
 		})}), nil
 	})
 
-	harness.press(append([]string{"space", "E"}, openWorkflowSubformKeys(2)...)...)
+	harness.Press(append([]string{"space", "E"}, openWorkflowSubformKeys(2)...)...)
 
 	return harness
 }
@@ -1203,10 +1203,10 @@ func openWorkflowSubformKeys(index int) []string {
 	return slices.Concat(slices.Repeat([]string{"tab"}, workflowTopFieldCount), slices.Repeat([]string{"down"}, index), []string{"enter"})
 }
 
-func assertSentHooks(t *testing.T, harness *panelHarness, want []*workflowv1.WorkflowHook) {
+func assertSentHooks(t *testing.T, harness *paneltest.Panel, want []*workflowv1.WorkflowHook) {
 	t.Helper()
 
-	sent := harness.readSent(workflowv1connect.WorkflowServiceUpdateWorkflowProcedure)
+	sent := harness.Sent(workflowv1connect.WorkflowServiceUpdateWorkflowProcedure)
 	require.Len(t, sent, 1)
 	update, ok := sent[0].(*workflowv1.UpdateWorkflowRequest)
 	require.True(t, ok)
@@ -1254,3 +1254,15 @@ func spellKeys(text string) []string {
 }
 
 var ignoringEventPrompts = []cmp.Option{protocmp.IgnoreFields(&workflowv1.CreateWorkflowRequest{}, "event_prompts")}
+
+func isListed(harness *paneltest.Panel, name string) bool {
+	return slices.ContainsFunc(paneltest.ListRows(harness.Frame()), func(row string) bool {
+		return strings.Contains(row, name)
+	})
+}
+
+func removeEdited(harness *paneltest.Panel) {
+	for _, path := range harness.Edited() {
+		_ = os.Remove(path)
+	}
+}

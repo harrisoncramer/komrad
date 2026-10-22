@@ -199,7 +199,7 @@ func (m *model) applyLogsSources(msg logsSourcesMsg) tea.Cmd {
 			return nil
 		}
 
-		return l.tickCmd()
+		return l.tickCmd(m.clock)
 	}
 
 	hovered := list.KeyAt(l.rows(m), l.Row)
@@ -225,7 +225,7 @@ func (m *model) applyLogsRead(msg logsReadMsg) tea.Cmd {
 
 	l.err = msg.err
 	if msg.err != nil {
-		return l.tickCmd()
+		return l.tickCmd(m.clock)
 	}
 
 	if msg.resp.GetReset_() || l.replacing {
@@ -239,7 +239,7 @@ func (m *model) applyLogsRead(msg logsReadMsg) tea.Cmd {
 		return l.readCmd(m)
 	}
 
-	return l.tickCmd()
+	return l.tickCmd(m.clock)
 }
 
 func (m *model) applyLogsTick(msg logsTickMsg) tea.Cmd {
@@ -254,10 +254,10 @@ func (m *model) applyLogsTick(msg logsTickMsg) tea.Cmd {
 	return tea.Batch(m.logs.listCmd(m), m.logs.readCmd(m))
 }
 
-func (l *logsScreen) tickCmd() tea.Cmd {
+func (l *logsScreen) tickCmd(clock screen.Clock) tea.Cmd {
 	generation := l.generation
 
-	return startTimer(logsPollInterval, func(time.Time) tea.Msg { return logsTickMsg{generation: generation} })
+	return clock.After(logsPollInterval, func(time.Time) tea.Msg { return logsTickMsg{generation: generation} })
 }
 
 // switchSource starts the block over on the source the cursor is on, unless it is the one being read.
@@ -327,7 +327,7 @@ func (l *logsScreen) updateLogFilter(m *model, key tea.KeyPressMsg) tea.Cmd {
 	l.edits++
 	generation, edits := l.generation, l.edits
 
-	return startTimer(logsFilterSettle, func(time.Time) tea.Msg { return logsSettledMsg{generation: generation, edits: edits} })
+	return m.clock.After(logsFilterSettle, func(time.Time) tea.Msg { return logsSettledMsg{generation: generation, edits: edits} })
 }
 
 func (m *model) applyLogsSettled(msg logsSettledMsg) tea.Cmd {

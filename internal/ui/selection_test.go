@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/paneltest"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -40,11 +41,11 @@ func TestSelection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openAgents(t, tt.rows...)
-			harness.press(tt.press...)
-			harness.press("j")
+			harness.Press(tt.press...)
+			harness.Press("j")
 			require.NotContains(t, findRenderedRow(t, harness, "api"), bar)
 
-			harness.press("v", "j")
+			harness.Press("v", "j")
 
 			assert.Contains(t, findRenderedRow(t, harness, "api"), bar)
 			assert.NotContains(t, findRenderedRow(t, harness, "db"), bar, "and only that row")
@@ -53,10 +54,10 @@ func TestSelection(t *testing.T) {
 
 	t.Run("the bar stays while a menu has the keys", func(t *testing.T) {
 		harness := openAgents(t, withTasks(buildSelectable())...)
-		harness.press("j", "v")
+		harness.Press("j", "v")
 
-		harness.press("space", "a")
-		require.Contains(t, harness.readFrame(), "archive all")
+		harness.Press("space", "a")
+		require.Contains(t, harness.Frame(), "archive all")
 
 		assert.Contains(t, findRenderedRow(t, harness, "task-api"), bar)
 	})
@@ -64,20 +65,20 @@ func TestSelection(t *testing.T) {
 	t.Run("a task's row is under the bar while its writer is", func(t *testing.T) {
 		harness := openAgents(t, buildReviewedTasks()...)
 
-		harness.press("j", "j", "v", "j", "v")
+		harness.Press("j", "j", "v", "j", "v")
 		require.Contains(t, findRenderedRow(t, harness, "second-reviewer"), bar)
 		require.Contains(t, findRenderedRow(t, harness, "reviewer"), bar)
 		require.NotContains(t, findRenderedRow(t, harness, "task-writer"), bar, "its reviewers alone")
 
-		harness.press("k", "k", "v")
+		harness.Press("k", "k", "v")
 		require.Contains(t, findRenderedRow(t, harness, "task-writer"), bar, "its writer too")
 
-		harness.press("v")
+		harness.Press("v")
 		assert.NotContains(t, findRenderedRow(t, harness, "task-writer"), bar, "its writer dropped again")
 	})
 }
 
-func findRenderedRow(t *testing.T, harness *panelHarness, name string) string {
+func findRenderedRow(t *testing.T, harness *paneltest.Panel, name string) string {
 	t.Helper()
 
 	lines := findRenderedRows(t, harness, name)
@@ -86,15 +87,15 @@ func findRenderedRow(t *testing.T, harness *panelHarness, name string) string {
 	return lines[0]
 }
 
-func findRenderedRows(t *testing.T, harness *panelHarness, name string) []string {
+func findRenderedRows(t *testing.T, harness *paneltest.Panel, name string) []string {
 	t.Helper()
 
-	raw := harness.readRawFrame()
-	lines := splitLines(raw)
+	raw := harness.RawFrame()
+	lines := paneltest.SplitLines(raw)
 	var found []string
-	for _, line := range readListLines(ansi.Strip(raw)) {
-		if strings.TrimPrefix(strings.TrimLeft(line.row, "│├└─ "), reviewerMark) == name {
-			found = append(found, lines[line.index])
+	for _, line := range paneltest.ListLines(ansi.Strip(raw)) {
+		if strings.TrimPrefix(strings.TrimLeft(line.Row, "│├└─ "), reviewerMark) == name {
+			found = append(found, lines[line.Index])
 		}
 	}
 

@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/paneltest"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -64,10 +66,10 @@ func TestWorktreesOpen(t *testing.T) {
 			harness := openAgents(t, buildWorktrees()...)
 			answerWorktreeReads(harness)
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			frame := harness.readFrame()
-			assert.Equal(t, worktreesScreen, harness.readScreen())
+			frame := harness.Frame()
+			assert.Equal(t, screen.Worktrees, paneltest.Screen(harness.Frame()))
 			assert.Equal(t, tt.wantHovered, readHoveredWorktree(frame))
 		})
 	}
@@ -78,24 +80,24 @@ func TestWorktreesOpen(t *testing.T) {
 		rows := buildWorktrees()
 		rows[1].(*agentv1.Agent).PaneId = "%7"
 		harness := openAgents(t, rows...)
-		harness.press("shift+tab")
+		harness.Press("shift+tab")
 
-		assert.True(t, harness.panel.IsZoomed())
+		assert.True(t, harness.Tmux().IsZoomed())
 	})
 
 	t.Run("the title counts the directories and totals what has been measured", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openWorktrees(t)
-		require.Contains(t, readBelowViews(harness.readFrame())[0], "5 · —")
+		require.Contains(t, paneltest.BelowViews(harness.Frame())[0], "5 · —")
 
-		harness.watch(buildPuts(
+		harness.Watch(paneltest.Puts(
 			newMeasuredWorktree("/trees/live", 49*1024*1024),
 			newMeasuredWorktree("/trees/archived", 49*1024*1024),
 			newMeasuredWorktree("/trees/admin", 1536*1024*1024),
 		))
 
-		assert.Contains(t, readBelowViews(harness.readFrame())[0], "5 · 1.6G")
+		assert.Contains(t, paneltest.BelowViews(harness.Frame())[0], "5 · 1.6G")
 	})
 }
 
@@ -106,27 +108,27 @@ func TestWorktreesJump(t *testing.T) {
 	tests := []struct {
 		name        string
 		row         string
-		wantScreen  string
+		wantScreen  screen.ID
 		wantHovered string
 		wantTaskID  string
 	}{
 		{
 			name:        "a directory nothing answers for stays put",
 			row:         "task/orphan",
-			wantScreen:  worktreesScreen,
+			wantScreen:  screen.Worktrees,
 			wantHovered: "task/orphan",
 		},
 		{
 			name:        "a live task's directory lands on the agents list",
 			row:         "treeview",
-			wantScreen:  agentsScreen,
+			wantScreen:  screen.Agents,
 			wantHovered: "treeview",
 			wantTaskID:  "live",
 		},
 		{
 			name:        "an archived task's directory lands in the archive",
 			row:         "reviewer",
-			wantScreen:  agentsScreen,
+			wantScreen:  screen.Agents,
 			wantHovered: "reviewer",
 			wantTaskID:  "archived",
 		},
@@ -139,12 +141,12 @@ func TestWorktreesJump(t *testing.T) {
 			harness := openWorktrees(t)
 			moveToWorktree(t, harness, tt.row)
 
-			harness.press("space", "J", "t")
+			harness.Press("space", "J", "t")
 
-			frame := harness.readFrame()
-			assert.Equal(t, tt.wantScreen, harness.readScreen())
-			assert.Contains(t, readHoveredRow(frame), tt.wantHovered)
-			assert.Equal(t, tt.wantTaskID, readRecordField(frame, "task_id"))
+			frame := harness.Frame()
+			assert.Equal(t, tt.wantScreen, paneltest.Screen(harness.Frame()))
+			assert.Contains(t, paneltest.HoveredRow(frame), tt.wantHovered)
+			assert.Equal(t, tt.wantTaskID, paneltest.RecordField(frame, "task_id"))
 		})
 	}
 }
@@ -205,10 +207,10 @@ func TestWorktreesDelete(t *testing.T) {
 			harness := openGroupedWorktrees(t)
 			moveToWorktree(t, harness, tt.row)
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			frame := harness.readFrame()
-			prose := readFormProse(frame) + " " + readSidebarProse(frame)
+			frame := harness.Frame()
+			prose := readFormProse(frame) + " " + paneltest.SidebarProse(frame)
 			assert.Contains(t, prose, tt.wantRendered)
 			if tt.wantAbsent != "" {
 				assert.NotContains(t, prose, tt.wantAbsent)
@@ -235,13 +237,13 @@ func TestWorktreesDelete(t *testing.T) {
 		)
 		moveToWorktree(t, harness, "treeview")
 
-		harness.press("space")
-		assert.Regexp(t, readOffEntry("delete unused worktrees", "c"), harness.readRawFrame())
+		harness.Press("space")
+		assert.Regexp(t, readOffEntry("delete unused worktrees", "c"), harness.RawFrame())
 
-		harness.press("c", "y")
+		harness.Press("c", "y")
 
-		assert.NotContains(t, readFormProse(harness.readFrame()), "Delete")
-		harness.assertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure)
+		assert.NotContains(t, readFormProse(harness.Frame()), "Delete")
+		harness.AssertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure)
 	})
 
 	t.Run("chosen task checkouts", func(t *testing.T) {
@@ -292,12 +294,12 @@ func TestWorktreesDelete(t *testing.T) {
 				harness := openWorktrees(t, buildTaskWorktrees()...)
 				moveToWorktree(t, harness, "alpha")
 
-				harness.press(append([]string{"v", "j", "v", "space", "a", "d"}, tt.press...)...)
+				harness.Press(append([]string{"v", "j", "v", "space", "a", "d"}, tt.press...)...)
 
 				if tt.wantRefusal != "" {
-					assert.Contains(t, harness.readFrame(), tt.wantRefusal)
+					assert.Contains(t, harness.Frame(), tt.wantRefusal)
 				}
-				harness.assertSentTo(taskv1connect.TaskServiceDeleteTasksProcedure, tt.wantSent...)
+				harness.AssertSentTo(taskv1connect.TaskServiceDeleteTasksProcedure, tt.wantSent...)
 			})
 		}
 	})
@@ -308,14 +310,14 @@ func TestWorktreesDelete(t *testing.T) {
 		harness := openWorktrees(t, buildTaskWorktrees()...)
 		moveToWorktree(t, harness, "beta")
 
-		harness.press("v", "j", "v", "space", "a", "d")
+		harness.Press("v", "j", "v", "space", "a", "d")
 
-		assert.Contains(t, harness.readFrame(), "Delete 2 worktrees?")
+		assert.Contains(t, harness.Frame(), "Delete 2 worktrees?")
 
-		harness.press("tab", "y")
+		harness.Press("tab", "y")
 
-		harness.assertSentTo(taskv1connect.TaskServiceDeleteTasksProcedure, &taskv1.DeleteTasksRequest{Tasks: []string{"t9"}})
-		harness.assertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure, &worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/zz"}})
+		harness.AssertSentTo(taskv1connect.TaskServiceDeleteTasksProcedure, &taskv1.DeleteTasksRequest{Tasks: []string{"t9"}})
+		harness.AssertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure, &worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/zz"}})
 	})
 }
 
@@ -370,7 +372,7 @@ func TestWorktreesDeleteStanding(t *testing.T) {
 		name         string
 		row          string
 		press        []string
-		answer       answerFunc
+		answer       paneltest.AnswerFunc
 		wantRendered []string
 		wantAbsent   []string
 	}{
@@ -446,12 +448,12 @@ func TestWorktreesDeleteStanding(t *testing.T) {
 			t.Parallel()
 
 			harness := openGroupedWorktrees(t)
-			harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, tt.answer)
+			harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, tt.answer)
 			moveToWorktree(t, harness, tt.row)
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			prose := readFormProse(harness.readFrame())
+			prose := readFormProse(harness.Frame())
 			for _, want := range tt.wantRendered {
 				assert.Contains(t, prose, want)
 			}
@@ -465,17 +467,17 @@ func TestWorktreesDeleteStanding(t *testing.T) {
 		t.Parallel()
 
 		harness := openGroupedWorktrees(t)
-		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(dirty))
-		harness.hold(worktreev1connect.WorktreeServiceGetWorktreeProcedure)
+		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(dirty))
+		harness.Hold(worktreev1connect.WorktreeServiceGetWorktreeProcedure)
 		moveToWorktree(t, harness, "reviewer")
 
-		harness.press("space", "a", "d")
+		harness.Press("space", "a", "d")
 
-		assert.Contains(t, readFormProse(harness.readFrame()), "Komrad is still reading the worktree, so it cannot yet say what is uncommitted or unpushed there.")
+		assert.Contains(t, readFormProse(harness.Frame()), "Komrad is still reading the worktree, so it cannot yet say what is uncommitted or unpushed there.")
 
-		harness.release(worktreev1connect.WorktreeServiceGetWorktreeProcedure)
+		harness.Release(worktreev1connect.WorktreeServiceGetWorktreeProcedure)
 
-		assert.Contains(t, readFormProse(harness.readFrame()), "The worktree has 3 uncommitted files and 2 unpushed commits.")
+		assert.Contains(t, readFormProse(harness.Frame()), "The worktree has 3 uncommitted files and 2 unpushed commits.")
 	})
 }
 
@@ -530,10 +532,10 @@ func TestWorktreesMenu(t *testing.T) {
 			harness := openGroupedWorktrees(t)
 			moveToWorktree(t, harness, tt.row)
 
-			harness.press(append(tt.press, "space", "a")...)
+			harness.Press(append(tt.press, "space", "a")...)
 
 			entry := regexp.MustCompile(`(?m)› ` + regexp.QuoteMeta(tt.label) + ` +` + tt.key + `\s*$`)
-			assert.Regexp(t, entry, harness.readFrame())
+			assert.Regexp(t, entry, harness.Frame())
 		})
 	}
 }
@@ -577,17 +579,17 @@ func TestWorktreesDeleteAnswer(t *testing.T) {
 
 			harness := openWorktrees(t)
 			if tt.refusal != nil {
-				harness.refuse(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure, tt.refusal)
+				harness.Refuse(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure, tt.refusal)
 			}
-			harness.press(widenListPresses...)
+			harness.Press(widenListPresses...)
 
-			harness.press("space", "c", tt.answer)
+			harness.Press("space", "c", tt.answer)
 			if len(tt.gone) > 0 {
-				harness.watch(buildDeletedWorktrees(tt.gone...))
+				harness.Watch(buildDeletedWorktrees(tt.gone...))
 			}
 
-			harness.assertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure, tt.wantSent...)
-			frame := harness.readFrame()
+			harness.AssertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure, tt.wantSent...)
+			frame := harness.Frame()
 			assert.True(t, strings.HasSuffix(readEngineLine(frame), tt.want), readEngineLine(frame))
 			assert.NotContains(t, frame, "Delete 2 worktrees?")
 		})
@@ -603,13 +605,13 @@ func TestWorktreesRecord(t *testing.T) {
 
 		harness := openWorktrees(t)
 		moveToWorktree(t, harness, "broken")
-		harness.press(widenListPresses...)
+		harness.Press(widenListPresses...)
 
-		frame := harness.readFrame()
-		assert.Equal(t, "/var/folders/T/repo", readRecordField(frame, "repository"))
-		assert.Equal(t, "none", readRecordField(frame, "task"))
-		assert.Empty(t, readRecordField(frame, "agents"))
-		assert.Empty(t, readRecordField(frame, "branch"))
+		frame := harness.Frame()
+		assert.Equal(t, "/var/folders/T/repo", paneltest.RecordField(frame, "repository"))
+		assert.Equal(t, "none", paneltest.RecordField(frame, "task"))
+		assert.Empty(t, paneltest.RecordField(frame, "agents"))
+		assert.Empty(t, paneltest.RecordField(frame, "branch"))
 	})
 
 	t.Run("the listing names the task and the agents working in its directory", func(t *testing.T) {
@@ -617,16 +619,16 @@ func TestWorktreesRecord(t *testing.T) {
 
 		harness := openWorktrees(t)
 		moveToWorktree(t, harness, "reviewer")
-		harness.press(widenListPresses...)
+		harness.Press(widenListPresses...)
 
-		frame := harness.readFrame()
-		assert.Equal(t, "reviewer", readRecordField(frame, "name"))
-		assert.Equal(t, "—", readRecordField(frame, "size"))
-		assert.Equal(t, "task/archived", readRecordField(frame, "branch"))
-		assert.Equal(t, "komrad", readRecordField(frame, "workflow"))
-		assert.Equal(t, "reviewer", readRecordField(frame, "task"))
-		assert.Equal(t, "reviewer", readRecordField(frame, "agents"))
-		assert.Empty(t, readRecordField(frame, "base"))
+		frame := harness.Frame()
+		assert.Equal(t, "reviewer", paneltest.RecordField(frame, "name"))
+		assert.Equal(t, "—", paneltest.RecordField(frame, "size"))
+		assert.Equal(t, "task/archived", paneltest.RecordField(frame, "branch"))
+		assert.Equal(t, "komrad", paneltest.RecordField(frame, "workflow"))
+		assert.Equal(t, "reviewer", paneltest.RecordField(frame, "task"))
+		assert.Equal(t, "reviewer", paneltest.RecordField(frame, "agents"))
+		assert.Empty(t, paneltest.RecordField(frame, "base"))
 	})
 
 	t.Run("a directory named after its task names the agents provisioned for the task and those working in it", func(t *testing.T) {
@@ -658,10 +660,10 @@ func TestWorktreesRecord(t *testing.T) {
 			},
 		)
 		moveToWorktree(t, harness, task.GetSlug())
-		harness.press(widenListPresses...)
-		harness.press("pick:record")
+		harness.Press(widenListPresses...)
+		harness.Press("pick:record")
 
-		assert.Equal(t, "writer, reviewer", readRecordField(harness.readFrame(), "agents"))
+		assert.Equal(t, "writer, reviewer", paneltest.RecordField(harness.Frame(), "agents"))
 	})
 
 	t.Run("a live writer is named before a newer archived reviewer", func(t *testing.T) {
@@ -690,10 +692,10 @@ func TestWorktreesRecord(t *testing.T) {
 			},
 		)
 		moveToWorktree(t, harness, task.GetSlug())
-		harness.press(widenListPresses...)
-		harness.press("pick:record")
+		harness.Press(widenListPresses...)
+		harness.Press("pick:record")
 
-		assert.Equal(t, "writer, reviewer", readRecordField(harness.readFrame(), "agents"))
+		assert.Equal(t, "writer, reviewer", paneltest.RecordField(harness.Frame(), "agents"))
 	})
 
 	t.Run("a task's checkout no agent answers for names its task", func(t *testing.T) {
@@ -714,23 +716,23 @@ func TestWorktreesRecord(t *testing.T) {
 			},
 		)
 		moveToWorktree(t, harness, "fix-login")
-		harness.press(widenListPresses...)
+		harness.Press(widenListPresses...)
 
-		frame := harness.readFrame()
-		assert.Equal(t, "fix-login", readRecordField(frame, "task"))
-		assert.Empty(t, readRecordField(frame, "agents"))
+		frame := harness.Frame()
+		assert.Equal(t, "fix-login", paneltest.RecordField(frame, "task"))
+		assert.Empty(t, paneltest.RecordField(frame, "agents"))
 	})
 
 	t.Run("the read of the directory adds where the branch stands and what it changed", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openReadWorktree(t)
-		harness.press(widenListPresses...)
+		harness.Press(widenListPresses...)
 
-		frame := harness.readFrame()
-		assert.Equal(t, "origin/main ↑2 ↓12", readRecordField(frame, "base"))
-		assert.Equal(t, "1 modified, 2 untracked", readRecordField(frame, "changes"))
-		raw := harness.readRawFrame()
+		frame := harness.Frame()
+		assert.Equal(t, "origin/main ↑2 ↓12", paneltest.RecordField(frame, "base"))
+		assert.Equal(t, "1 modified, 2 untracked", paneltest.RecordField(frame, "changes"))
+		raw := harness.RawFrame()
 		assert.Contains(t, raw, paint.Panel.Style(paint.ToneSuccess).Render("↑2"))
 		assert.Contains(t, raw, paint.Panel.Style(paint.ToneWarning).Render("↓12"))
 	})
@@ -739,18 +741,18 @@ func TestWorktreesRecord(t *testing.T) {
 		t.Parallel()
 
 		harness := openReadWorktree(t)
-		harness.press("pick:record", "/", "m", "a", "i", "n", "enter", "y")
+		harness.Press("pick:record", "/", "m", "a", "i", "n", "enter", "y")
 
-		assert.Equal(t, []string{"origin/main"}, harness.panel.ReadCopied())
+		assert.Equal(t, []string{"origin/main"}, harness.Copied())
 	})
 
 	t.Run("a search lights its match in the value", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openReadWorktree(t)
-		harness.press(append([]string{"pick:record", "/", "m", "a", "i", "n", "enter"}, widenListPresses...)...)
+		harness.Press(append([]string{"pick:record", "/", "m", "a", "i", "n", "enter"}, widenListPresses...)...)
 
-		line := findRawLine(harness.readRawFrame(), regexp.MustCompile(`base\s+origin/main`))
+		line := findRawLine(harness.RawFrame(), regexp.MustCompile(`base\s+origin/main`))
 		assert.Contains(t, line, paint.Panel.Match().Render("main"))
 	})
 }
@@ -813,13 +815,13 @@ func TestWorktreesRecordActivity(t *testing.T) {
 			rows := buildWorktrees()
 			rows[3].(*agentv1.Agent).ArchivedAt = xptr.Ptr(formatStampAgo(4 * 24 * time.Hour))
 			harness := openWorktrees(t, rows...)
-			harness.watch(buildPuts(tt.worktree))
+			harness.Watch(paneltest.Puts(tt.worktree))
 			moveToWorktree(t, harness, tt.row)
-			harness.press(widenListPresses...)
+			harness.Press(widenListPresses...)
 
-			frame := harness.readFrame()
-			assert.Equal(t, tt.wantSize, readRecordField(frame, "size"))
-			assert.Equal(t, tt.wantLastActive, readRecordField(frame, "last active"))
+			frame := harness.Frame()
+			assert.Equal(t, tt.wantSize, paneltest.RecordField(frame, "size"))
+			assert.Equal(t, tt.wantLastActive, paneltest.RecordField(frame, "last active"))
 		})
 	}
 }
@@ -877,10 +879,10 @@ func TestWorktreesRecordOccupants(t *testing.T) {
 			rows = append(rows, buildWatchedWorktrees()...)
 			harness := openWorktrees(t, rows...)
 			moveToWorktree(t, harness, tt.row)
-			harness.press(widenListPresses...)
-			harness.press("pick:record")
+			harness.Press(widenListPresses...)
+			harness.Press("pick:record")
 
-			assert.Equal(t, tt.want, readRecordField(harness.readFrame(), "agents"))
+			assert.Equal(t, tt.want, paneltest.RecordField(harness.Frame(), "agents"))
 		})
 	}
 }
@@ -893,32 +895,32 @@ func TestWorktreesDocument(t *testing.T) {
 		t.Parallel()
 
 		harness := openWorktrees(t)
-		harness.refuse(worktreev1connect.WorktreeServiceGetWorktreeProcedure, connect.NewError(connect.CodeInternal, errors.New("git exploded")))
+		harness.Refuse(worktreev1connect.WorktreeServiceGetWorktreeProcedure, connect.NewError(connect.CodeInternal, errors.New("git exploded")))
 		moveToWorktree(t, harness, "task/orphan")
-		harness.fireTimers()
-		asked := len(harness.readSent(worktreev1connect.WorktreeServiceGetWorktreeProcedure))
+		harness.Advance(time.Second)
+		asked := len(harness.Sent(worktreev1connect.WorktreeServiceGetWorktreeProcedure))
 
-		harness.watch(buildPuts(newMeasuredWorktree("/trees/admin", 1024)))
+		harness.Watch(paneltest.Puts(newMeasuredWorktree("/trees/admin", 1024)))
 
-		assert.Contains(t, readStageText(harness.readFrame()), "git exploded")
-		assert.Len(t, harness.readSent(worktreev1connect.WorktreeServiceGetWorktreeProcedure), asked)
+		assert.Contains(t, readStageText(harness.Frame()), "git exploded")
+		assert.Len(t, harness.Sent(worktreev1connect.WorktreeServiceGetWorktreeProcedure), asked)
 	})
 
 	t.Run("a reread refused keeps the last answer beside the refusal", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openWorktrees(t)
-		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
+		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
 			Worktree: &worktreev1.Worktree{Dir: "/trees/live"},
 			BaseRef:  "origin/main",
 		}))
-		harness.fireTimers()
-		harness.refuse(worktreev1connect.WorktreeServiceGetWorktreeProcedure, connect.NewError(connect.CodeInternal, errors.New("git exploded")))
+		harness.Advance(time.Second)
+		harness.Refuse(worktreev1connect.WorktreeServiceGetWorktreeProcedure, connect.NewError(connect.CodeInternal, errors.New("git exploded")))
 
-		harness.press("j", "k")
-		harness.fireTimers()
+		harness.Press("j", "k")
+		harness.Advance(time.Second)
 
-		document := readStageText(harness.readFrame())
+		document := readStageText(harness.Frame())
 		assert.Contains(t, document, "could not read: git exploded")
 		assert.Contains(t, document, "Commits since origin/main")
 	})
@@ -945,7 +947,7 @@ func TestWorktreesDocument(t *testing.T) {
 		t.Parallel()
 
 		harness := openWorktrees(t)
-		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
+		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
 			Worktree:  &worktreev1.Worktree{Dir: "/trees/live"},
 			Entries:   entries,
 			Modified:  []string{"a.go"},
@@ -957,9 +959,9 @@ func TestWorktreesDocument(t *testing.T) {
 				CommittedAt: formatStampAgo(2 * time.Hour),
 			}},
 		}))
-		harness.fireTimers()
+		harness.Advance(time.Second)
 
-		document := readStageText(harness.readFrame())
+		document := readStageText(harness.Frame())
 		for _, want := range []string{
 			"treeview",
 			"local/      40M",
@@ -985,9 +987,9 @@ func TestWorktreesLastScreen(t *testing.T) {
 		answerLastScreens(harness, map[string]string{"archived": "⏺ the reviewer approved"})
 
 		moveToWorktree(t, harness, "reviewer")
-		harness.fireTimers()
+		harness.Advance(time.Second)
 
-		document := readStageText(harness.readFrame())
+		document := readStageText(harness.Frame())
 		assert.Contains(t, document, "saved screen")
 		assert.Contains(t, document, "the reviewer approved")
 	})
@@ -999,9 +1001,9 @@ func TestWorktreesLastScreen(t *testing.T) {
 		answerLastScreens(harness, nil)
 
 		moveToWorktree(t, harness, "task/orphan")
-		harness.fireTimers()
+		harness.Advance(time.Second)
 
-		assert.NotContains(t, readStageText(harness.readFrame()), "saved screen")
+		assert.NotContains(t, readStageText(harness.Frame()), "saved screen")
 	})
 }
 
@@ -1014,11 +1016,11 @@ func TestWorktreesInspection(t *testing.T) {
 
 		harness := openGroupedWorktrees(t)
 
-		harness.press("g", "g", "j", "j", "j")
-		harness.assertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure)
-		harness.fireTimers()
+		harness.Press("g", "g", "j", "j", "j")
+		harness.AssertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure)
+		harness.Advance(time.Second)
 
-		harness.assertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, &worktreev1.GetWorktreeRequest{Dir: "/trees/archived"})
+		harness.AssertSentTo(worktreev1connect.WorktreeServiceGetWorktreeProcedure, &worktreev1.GetWorktreeRequest{Dir: "/trees/archived"})
 	})
 
 	t.Run("a listing that moves leaves the cursor on its row", func(t *testing.T) {
@@ -1027,21 +1029,21 @@ func TestWorktreesInspection(t *testing.T) {
 		harness := openWorktrees(t)
 		moveToWorktree(t, harness, "task/orphan")
 
-		harness.watch(buildSnapshot(append(buildWorktrees()[:5], buildWatchedWorktrees()[1:]...)...))
+		harness.Watch(paneltest.Snapshot(append(buildWorktrees()[:5], buildWatchedWorktrees()[1:]...)...))
 
-		assert.Equal(t, "task/orphan", readHoveredWorktree(harness.readFrame()))
+		assert.Equal(t, "task/orphan", readHoveredWorktree(harness.Frame()))
 	})
 
 	t.Run("a directory whose read is on its way is not asked for again", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openWorktrees(t)
-		harness.hold(worktreev1connect.WorktreeServiceGetWorktreeProcedure)
+		harness.Hold(worktreev1connect.WorktreeServiceGetWorktreeProcedure)
 		moveToWorktree(t, harness, "reviewer")
-		harness.fireTimers()
+		harness.Advance(time.Second)
 
-		harness.press("j", "k")
-		harness.fireTimers()
+		harness.Press("j", "k")
+		harness.Advance(time.Second)
 
 		assert.Len(t, readWorktreeReadsOf(harness, "/trees/archived"), 1)
 	})
@@ -1050,7 +1052,7 @@ func TestWorktreesInspection(t *testing.T) {
 		t.Parallel()
 
 		harness := openWorktrees(t)
-		harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
+		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
 			Worktree: &worktreev1.Worktree{
 				Dir:      "/trees/archived",
 				Readable: true,
@@ -1059,13 +1061,13 @@ func TestWorktreesInspection(t *testing.T) {
 			Ahead:   2,
 		}))
 		moveToWorktree(t, harness, "reviewer")
-		harness.fireTimers()
-		harness.hold(worktreev1connect.WorktreeServiceGetWorktreeProcedure)
+		harness.Advance(time.Second)
+		harness.Hold(worktreev1connect.WorktreeServiceGetWorktreeProcedure)
 
-		harness.press("j", "k")
-		harness.fireTimers()
+		harness.Press("j", "k")
+		harness.Advance(time.Second)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "Commits since origin/main")
 		assert.NotContains(t, frame, "reading the directory")
 	})
@@ -1107,10 +1109,10 @@ func TestWorktreesSort(t *testing.T) {
 
 			harness := openGroupedWorktrees(t, buildMeasuredWorktrees()...)
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			frame := harness.readFrame()
-			assert.Equal(t, tt.want, readListRows(frame))
+			frame := harness.Frame()
+			assert.Equal(t, tt.want, paneltest.ListRows(frame))
 			assert.Equal(t, "treeview", readHoveredWorktree(frame), "the cursor keeps its row")
 		})
 	}
@@ -1119,53 +1121,53 @@ func TestWorktreesSort(t *testing.T) {
 		t.Parallel()
 
 		harness := openGroupedWorktrees(t, buildMeasuredWorktrees()...)
-		harness.press("f", "tab", "j", "f", "k")
+		harness.Press("f", "tab", "j", "f", "k")
 
-		frame := harness.readFrame()
-		assert.Contains(t, readSidebar(frame)[1], "↑ last-accessed", "the focus key is not the way back")
-		assert.Equal(t, "treeview", readRecordField(frame, "name"), "the cursor follows its row as the arrow turns")
+		frame := harness.Frame()
+		assert.Contains(t, paneltest.Sidebar(frame)[1], "↑ last-accessed", "the focus key is not the way back")
+		assert.Equal(t, "treeview", paneltest.RecordField(frame, "name"), "the cursor follows its row as the arrow turns")
 
-		harness.press("esc", "j")
-		assert.Equal(t, "/var/folders/T/repo", readHoveredWorktree(harness.readFrame()))
+		harness.Press("esc", "j")
+		assert.Equal(t, "/var/folders/T/repo", readHoveredWorktree(harness.Frame()))
 	})
 
 	t.Run("the stop flips the headings back and escape keeps what it chose", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openGroupedWorktrees(t, buildMeasuredWorktrees()...)
-		harness.press("f", "tab", "tab", "j")
-		require.Contains(t, readBelowViews(harness.readFrame())[0], "flat")
+		harness.Press("f", "tab", "tab", "j")
+		require.Contains(t, paneltest.BelowViews(harness.Frame())[0], "flat")
 
-		harness.press("k")
-		frame := harness.readFrame()
-		assert.NotContains(t, readBelowViews(frame)[0], "flat")
-		assert.Equal(t, "treeview", readRecordField(frame, "name"))
+		harness.Press("k")
+		frame := harness.Frame()
+		assert.NotContains(t, paneltest.BelowViews(frame)[0], "flat")
+		assert.Equal(t, "treeview", paneltest.RecordField(frame, "name"))
 
-		harness.press("j", "esc")
-		assert.Contains(t, readBelowViews(harness.readFrame())[0], "flat")
+		harness.Press("j", "esc")
+		assert.Contains(t, paneltest.BelowViews(harness.Frame())[0], "flat")
 	})
 
 	t.Run("a cursor on a heading lands on a row once the headings go", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openGroupedWorktrees(t, buildMeasuredWorktrees()...)
-		harness.press("k", "k")
-		require.Equal(t, "/home/h/komrad", readHoveredWorktree(harness.readFrame()))
+		harness.Press("k", "k")
+		require.Equal(t, "/home/h/komrad", readHoveredWorktree(harness.Frame()))
 
-		harness.press("f", "shift+tab", "j", "esc")
+		harness.Press("f", "shift+tab", "j", "esc")
 
-		assert.Equal(t, "treeview", readHoveredWorktree(harness.readFrame()))
+		assert.Equal(t, "treeview", readHoveredWorktree(harness.Frame()))
 	})
 
 	t.Run("the strip left from the stop comes back on its chosen column", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openGroupedWorktrees(t, buildMeasuredWorktrees()...)
-		harness.press("f", "shift+tab", "esc", "f", "k")
+		harness.Press("f", "shift+tab", "esc", "f", "k")
 
-		frame := harness.readFrame()
-		assert.Contains(t, readSidebar(frame)[1], "↑ size")
-		assert.NotContains(t, readBelowViews(frame)[0], "flat")
+		frame := harness.Frame()
+		assert.Contains(t, paneltest.Sidebar(frame)[1], "↑ size")
+		assert.NotContains(t, paneltest.BelowViews(frame)[0], "flat")
 	})
 }
 
@@ -1230,11 +1232,11 @@ func TestWorktreesScope(t *testing.T) {
 			harness := openWorktrees(t, tt.rows...)
 			moveToWorktree(t, harness, "reviewer")
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			frame := harness.readFrame()
-			assert.Equal(t, tt.want, readListRows(frame))
-			assert.True(t, strings.HasPrefix(readBelowViews(frame)[0], tt.wantTally), readBelowViews(frame)[0])
+			frame := harness.Frame()
+			assert.Equal(t, tt.want, paneltest.ListRows(frame))
+			assert.True(t, strings.HasPrefix(paneltest.BelowViews(frame)[0], tt.wantTally), paneltest.BelowViews(frame)[0])
 		})
 	}
 
@@ -1244,40 +1246,38 @@ func TestWorktreesScope(t *testing.T) {
 		harness := openWorktrees(t, buildMeasuredWorktrees()...)
 		moveToWorktree(t, harness, "broken")
 
-		harness.press("F", "tab", "esc")
-		assert.Equal(t, "broken", readHoveredWorktree(harness.readFrame()))
+		harness.Press("F", "tab", "esc")
+		assert.Equal(t, "broken", readHoveredWorktree(harness.Frame()))
 	})
 
 	t.Run("the scope holds while directories are selected", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openWorktrees(t, buildMeasuredWorktrees()...)
-		harness.press(append(widenListPresses, "v", "F", "?")...)
+		harness.Press(append(widenListPresses, "v", "F", "?")...)
 
-		frame := harness.readFrame()
-		assert.NotEmpty(t, readHoveredRow(frame), "the list keeps the keys")
-		assert.NotContains(t, readLegend(frame), "F kind")
+		frame := harness.Frame()
+		assert.NotEmpty(t, paneltest.HoveredRow(frame), "the list keeps the keys")
+		assert.NotContains(t, paneltest.Legend(frame), "F kind")
 	})
 
 	t.Run("a jump to a directory the scope leaves out widens it to every directory", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openWorktrees(t, buildMeasuredWorktrees()...)
-		harness.press("F", "tab", "esc", "tab")
+		harness.Press("F", "tab", "esc", "tab")
 		moveToAgentRow(t, harness, "treeview")
 
-		harness.press("space", "J", "w")
+		harness.Press("space", "J", "w")
 
-		frame := harness.readFrame()
-		assert.Equal(t, worktreesScreen, harness.readScreen())
+		frame := harness.Frame()
+		assert.Equal(t, screen.Worktrees, paneltest.Screen(harness.Frame()))
 		assert.Equal(t, "treeview", readHoveredWorktree(frame))
-		assert.True(t, strings.HasPrefix(readBelowViews(frame)[0], "5 · "), readBelowViews(frame)[0])
+		assert.True(t, strings.HasPrefix(paneltest.BelowViews(frame)[0], "5 · "), paneltest.BelowViews(frame)[0])
 	})
 }
 
-const worktreesScreen = "the worktrees"
-
-func openWorktrees(t *testing.T, rows ...proto.Message) *panelHarness {
+func openWorktrees(t *testing.T, rows ...proto.Message) *paneltest.Panel {
 	t.Helper()
 
 	if len(rows) == 0 {
@@ -1285,16 +1285,16 @@ func openWorktrees(t *testing.T, rows ...proto.Message) *panelHarness {
 	}
 
 	harness := openAgents(t, rows...)
-	harness.press("shift+tab", "esc")
+	harness.Press("shift+tab", "esc")
 
 	return harness
 }
 
-func openReadWorktree(t *testing.T) *panelHarness {
+func openReadWorktree(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
 	harness := openWorktrees(t)
-	harness.answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
+	harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
 		Worktree:  &worktreev1.Worktree{Dir: "/trees/archived"},
 		BaseRef:   "origin/main",
 		Ahead:     2,
@@ -1303,16 +1303,16 @@ func openReadWorktree(t *testing.T) *panelHarness {
 		Untracked: []string{"b.txt", "c.txt"},
 	}))
 	moveToWorktree(t, harness, "reviewer")
-	harness.fireTimers()
+	harness.Advance(time.Second)
 
 	return harness
 }
 
-func openGroupedWorktrees(t *testing.T, rows ...proto.Message) *panelHarness {
+func openGroupedWorktrees(t *testing.T, rows ...proto.Message) *paneltest.Panel {
 	t.Helper()
 
 	harness := openWorktrees(t, rows...)
-	harness.press("f", "shift+tab", "j", "esc")
+	harness.Press("f", "shift+tab", "j", "esc")
 
 	return harness
 }
@@ -1445,22 +1445,22 @@ func newMeasuredWorktree(dir string, size int64) *worktreev1.WatchedWorktree {
 	return nil
 }
 
-func moveToWorktree(t *testing.T, harness *panelHarness, name string) {
+func moveToWorktree(t *testing.T, harness *paneltest.Panel, name string) {
 	t.Helper()
 
-	harness.press("g", "g")
+	harness.Press("g", "g")
 	for range 10 {
-		if readHoveredWorktree(harness.readFrame()) == name {
+		if readHoveredWorktree(harness.Frame()) == name {
 			return
 		}
-		harness.press("j")
+		harness.Press("j")
 	}
 
-	require.Equal(t, name, readHoveredWorktree(harness.readFrame()))
+	require.Equal(t, name, readHoveredWorktree(harness.Frame()))
 }
 
-func readWorktreeReadsOf(harness *panelHarness, dir string) []proto.Message {
-	return slices.DeleteFunc(harness.readSent(worktreev1connect.WorktreeServiceGetWorktreeProcedure), func(sent proto.Message) bool {
+func readWorktreeReadsOf(harness *paneltest.Panel, dir string) []proto.Message {
+	return slices.DeleteFunc(harness.Sent(worktreev1connect.WorktreeServiceGetWorktreeProcedure), func(sent proto.Message) bool {
 		read, _ := sent.(*worktreev1.GetWorktreeRequest)
 
 		return read.GetDir() != dir
@@ -1468,7 +1468,7 @@ func readWorktreeReadsOf(harness *panelHarness, dir string) []proto.Message {
 }
 
 func readHoveredWorktree(frame string) string {
-	return strings.TrimSpace(readHoveredRow(frame))
+	return strings.TrimSpace(paneltest.HoveredRow(frame))
 }
 
 func formatStampAgo(ago time.Duration) string {
@@ -1476,9 +1476,9 @@ func formatStampAgo(ago time.Duration) string {
 }
 
 func readFormProse(frame string) string {
-	lines := xslice.Map(readStage(frame), strings.TrimSpace)
+	lines := xslice.Map(paneltest.Stage(frame), strings.TrimSpace)
 
-	return joinProse(lines)
+	return paneltest.JoinProse(lines)
 }
 
 // newWorktreeTask is the task an agent leads, its id the directory it works in and its slug
@@ -1545,7 +1545,7 @@ func buildFileNames(count int) []string {
 	return names
 }
 
-func answerForDir(dir string, answer, rest answerFunc) answerFunc {
+func answerForDir(dir string, answer, rest paneltest.AnswerFunc) paneltest.AnswerFunc {
 	return func(req connect.AnyRequest) (connect.AnyResponse, error) {
 		if read, _ := req.Any().(*worktreev1.GetWorktreeRequest); read.GetDir() == dir {
 			return answer(req)

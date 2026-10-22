@@ -168,7 +168,10 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				binary = watch
 			}
 
-			return ui.Run(cmd.Context(), ui.Deps{
+			watching, stopWatching := context.WithCancel(cmd.Context())
+			defer stopWatching()
+
+			return ui.Run(ui.Deps{
 				Session:         state.session,
 				Tmux:            state.tmux,
 				Patches:         patchReader(remote, gitv1connect.NewGitServiceClient(httpClient, base)),
@@ -187,7 +190,7 @@ Use ` + "`komrad open`" + ` to bring the panel up.`,
 				PullRequests:    pullRequestClient,
 				Loops:           loopClient,
 				Tasks:           taskClient,
-				Watch:           watchClient,
+				Watcher:         ui.NewWatcher(watching, watchClient),
 				Layout:          state.layout,
 				Engine:          remote,
 				ShellCommand:    shellCommand,

@@ -267,7 +267,7 @@ func (m *model) copyDetailsField() tea.Cmd {
 	cursor := m.detailsCursor(held)
 	m.details.flashed = cursor + 1
 
-	return tea.Batch(m.copyCmd(rows[cursor].field.value), flashRevertTick())
+	return tea.Batch(m.copyCmd(rows[cursor].field.value), m.flashRevertTick())
 }
 
 func (m *model) detailsLines() int {

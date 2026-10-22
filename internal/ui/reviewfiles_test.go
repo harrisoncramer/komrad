@@ -8,8 +8,8 @@ import (
 
 	"komrad/internal/gittest"
 	"komrad/internal/glyph"
-	"komrad/internal/ui"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/paneltest"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -62,11 +62,11 @@ func TestReviewFiles(t *testing.T) {
 				server := newReviewServer(t)
 				server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
 				server.threads = tt.threads
-				harness := openReviewAt(t, server, panelHarnessParams{height: 40})
+				harness := openReviewAt(t, server, paneltest.Params{Height: 40})
 
-				harness.press(tt.keys...)
+				harness.Press(tt.keys...)
 
-				assert.Equal(t, tt.want, readCurrentFile(harness.readFrame()))
+				assert.Equal(t, tt.want, readCurrentFile(harness.Frame()))
 			})
 		}
 	})
@@ -76,7 +76,7 @@ func TestReviewFiles(t *testing.T) {
 		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
 		harness := openReview(t, server)
 
-		frame := harness.readRawFrame()
+		frame := harness.RawFrame()
 		assert.Contains(t, frame, paint.Panel.Style(paint.ToneSuccess).Render("+3"))
 		assert.Contains(t, frame, paint.Panel.Style(paint.ToneDanger).Render("−1"))
 	})
@@ -87,10 +87,10 @@ func TestReviewFiles(t *testing.T) {
 		harness := openReview(t, server)
 
 		for range 15 {
-			harness.press("]")
+			harness.Press("]")
 		}
 
-		block := strings.Join(readFilesBlock(harness.readFrame()), "\n")
+		block := strings.Join(readFilesBlock(harness.Frame()), "\n")
 		assert.Contains(t, block, "▸ f15.go")
 		assert.Regexp(t, `↑ \d+ more`, block)
 		assert.Regexp(t, `↓ \d+ more`, block)
@@ -157,12 +157,12 @@ func TestReviewFiles(t *testing.T) {
 				server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = newPatchOfFiles(4)
 				harness := openReview(t, server)
 
-				harness.press(tt.keys...)
+				harness.Press(tt.keys...)
 
-				frame := harness.readFrame()
+				frame := harness.Frame()
 				assert.Equal(t, tt.want, readFilesBlock(frame))
 				if tt.cursor != "" {
-					assert.Equal(t, tt.cursor, readReviewCursor(frame))
+					assert.Equal(t, tt.cursor, paneltest.ReviewCursor(frame))
 				}
 			})
 		}
@@ -173,35 +173,35 @@ func TestReviewFiles(t *testing.T) {
 		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
 		harness := openReview(t, server)
 
-		harness.press("ctrl+space", "ctrl+space", "j")
-		assert.Contains(t, readFilesBlock(harness.readFrame()), "› second.go +3")
+		harness.Press("ctrl+space", "ctrl+space", "j")
+		assert.Contains(t, readFilesBlock(harness.Frame()), "› second.go +3")
 
-		harness.press("ctrl+space", "ctrl+space")
-		assert.Equal(t, "▸ second.go +3", readCurrentFile(harness.readFrame()), "the diff holds the keys again")
+		harness.Press("ctrl+space", "ctrl+space")
+		assert.Equal(t, "▸ second.go +3", readCurrentFile(harness.Frame()), "the diff holds the keys again")
 
-		harness.press("ctrl+space", "ctrl+space", "k")
-		assert.Contains(t, readFilesBlock(harness.readFrame()), "› greet.go +1 −1")
+		harness.Press("ctrl+space", "ctrl+space", "k")
+		assert.Contains(t, readFilesBlock(harness.Frame()), "› greet.go +1 −1")
 	})
 
 	t.Run("the review opens on the diff, and the back key steps from the diff to the tree and then out", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
-		harness := newPanelHarness(t, panelHarnessParams{
-			width:  reviewWidth,
-			height: reviewHeight,
-			git:    server.repo,
+		harness := paneltest.Start(t, paneltest.Params{
+			Width:  reviewWidth,
+			Height: reviewHeight,
+			Git:    server.repo,
 		})
 		server.serve(harness)
-		harness.watch(server.buildSnapshot())
+		harness.Watch(server.buildSnapshot())
 
-		harness.press("space", "r")
-		assert.Contains(t, readFilesBlock(harness.readFrame()), "▸ greet.go +1 −1", "the diff holds the keys")
+		harness.Press("space", "r")
+		assert.Contains(t, readFilesBlock(harness.Frame()), "▸ greet.go +1 −1", "the diff holds the keys")
 
-		harness.press("esc", "j")
-		assert.Contains(t, readFilesBlock(harness.readFrame()), "› second.go +3", "the back key hands the keys to the tree")
+		harness.Press("esc", "j")
+		assert.Contains(t, readFilesBlock(harness.Frame()), "› second.go +3", "the back key hands the keys to the tree")
 
-		harness.press("esc")
-		assert.Contains(t, readHoveredRow(harness.readFrame()), "auth")
+		harness.Press("esc")
+		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "auth")
 	})
 
 	t.Run("the viewed key on the tree marks the file it is on", func(t *testing.T) {
@@ -209,7 +209,7 @@ func TestReviewFiles(t *testing.T) {
 		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
 		harness := openReview(t, server)
 
-		harness.press("ctrl+space", "ctrl+space", "j", "space", "v")
+		harness.Press("ctrl+space", "ctrl+space", "j", "space", "v")
 
 		require.Len(t, server.viewed, 1)
 		assert.Equal(t, "second.go", server.viewed[0].GetFilePath())
@@ -256,21 +256,21 @@ func TestReviewFiles(t *testing.T) {
 				server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = newPatchOfFiles(30)
 				harness := openReview(t, server)
 
-				harness.press(tt.keys...)
+				harness.Press(tt.keys...)
 
-				assert.Contains(t, readFilesBlock(harness.readFrame()), tt.want)
+				assert.Contains(t, readFilesBlock(harness.Frame()), tt.want)
 			})
 		}
 	})
 
 	t.Run("the top key twice on the first file brings the diff back to its top", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
-		harness.press("j", "j")
-		require.Equal(t, "greet.go:3", readReviewCursor(harness.readFrame()))
+		harness.Press("j", "j")
+		require.Equal(t, "greet.go:3", paneltest.ReviewCursor(harness.Frame()))
 
-		harness.press("ctrl+space", "ctrl+space", "g", "g")
+		harness.Press("ctrl+space", "ctrl+space", "g", "g")
 
-		assert.Equal(t, "greet.go:1", readReviewCursor(harness.readFrame()))
+		assert.Equal(t, "greet.go:1", paneltest.ReviewCursor(harness.Frame()))
 	})
 
 	t.Run("the folder keys on the tree open and close the folder the cursor rests on", func(t *testing.T) {
@@ -362,12 +362,12 @@ func TestReviewFiles(t *testing.T) {
 				server.threads = tt.threads
 				harness := openReview(t, server)
 
-				harness.press(tt.keys...)
+				harness.Press(tt.keys...)
 
-				frame := harness.readFrame()
+				frame := harness.Frame()
 				assert.Equal(t, tt.want, readFilesBlock(frame))
 				if tt.cursor != "" {
-					assert.Equal(t, tt.cursor, readReviewCursor(frame))
+					assert.Equal(t, tt.cursor, paneltest.ReviewCursor(frame))
 				}
 			})
 		}
@@ -378,9 +378,9 @@ func TestReviewFiles(t *testing.T) {
 		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
 		harness := openReview(t, server)
 
-		wheelOverSidebar(harness, "▸ greet.go")
+		wheelOverSidebar(t, harness, "▸ greet.go")
 
-		assert.Equal(t, "▸ second.go +3", readCurrentFile(harness.readFrame()))
+		assert.Equal(t, "▸ second.go +3", readCurrentFile(harness.Frame()))
 	})
 
 	t.Run("the wheel over the tree walks past a folder while the diff holds the keys", func(t *testing.T) {
@@ -388,28 +388,28 @@ func TestReviewFiles(t *testing.T) {
 		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = newPatchOfPaths("a.go", "pkg/b.go")
 		harness := openReview(t, server)
 
-		wheelOverSidebar(harness, "▸ a.go")
+		wheelOverSidebar(t, harness, "▸ a.go")
 
-		assert.Equal(t, "▸ b.go +1 −1", readCurrentFile(harness.readFrame()))
+		assert.Equal(t, "▸ b.go +1 −1", readCurrentFile(harness.Frame()))
 	})
 
 	t.Run("the wheel beside the tree walks the diff while the tree holds the keys", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.repo.Patches[gittest.NamePair(gittest.BaseSHA, gittest.SnapshotSHA)] = gittest.PatchOfBothFiles
 		harness := openReview(t, server)
-		harness.press("ctrl+space", "ctrl+space")
+		harness.Press("ctrl+space", "ctrl+space")
 
-		wheelOverSidebar(harness, "greet.go:1")
+		wheelOverSidebar(t, harness, "greet.go:1")
 
-		frame := harness.readFrame()
-		assert.NotEqual(t, "greet.go:1", readReviewCursor(frame))
+		frame := harness.Frame()
+		assert.NotEqual(t, "greet.go:1", paneltest.ReviewCursor(frame))
 		assert.Contains(t, readFilesBlock(frame), "› greet.go +1 −1")
 	})
 }
 
 func readFilesBlock(frame string) []string {
 	var block []string
-	for _, line := range readSidebar(frame) {
+	for _, line := range paneltest.Sidebar(frame) {
 		if block == nil && (strings.HasPrefix(line, "/") || strings.HasPrefix(line, "▽")) {
 			block = []string{}
 		}
@@ -455,12 +455,12 @@ func newPatchOfPaths(paths ...string) string {
 }
 
 // wheelOverSidebar turns the wheel down over the first sidebar row holding text.
-func wheelOverSidebar(harness *panelHarness, text string) {
-	harness.t.Helper()
+func wheelOverSidebar(t *testing.T, harness *paneltest.Panel, text string) {
+	t.Helper()
 
-	for y, line := range splitLines(harness.readFrame()) {
-		if strings.Contains(ansi.Truncate(line, ui.SidebarCols, ""), text) {
-			harness.send(tea.MouseWheelMsg{
+	for y, line := range paneltest.SplitLines(harness.Frame()) {
+		if strings.Contains(ansi.Truncate(line, paneltest.ListWidth(harness.Frame()), ""), text) {
+			harness.Send(tea.MouseWheelMsg{
 				X:      4,
 				Y:      y,
 				Button: tea.MouseWheelDown,
@@ -470,5 +470,5 @@ func wheelOverSidebar(harness *panelHarness, text string) {
 		}
 	}
 
-	harness.t.Fatalf("no sidebar row holds %q", text)
+	t.Fatalf("no sidebar row holds %q", text)
 }

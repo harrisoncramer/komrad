@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 
+	"komrad/internal/ui/paneltest"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -33,8 +34,8 @@ func TestGitMenu(t *testing.T) {
 
 		harness := openGitMenu(t, buildGitAgent()...)
 
-		frame := harness.readFrame()
-		assert.Equal(t, "agents › task-a1 › git", readTrail(frame))
+		frame := harness.Frame()
+		assert.Equal(t, "agents › task-a1 › git", paneltest.Trail(frame))
 		assert.Contains(t, frame, "  › git ›", "the menu it came from stays rendered with its cursor on git")
 	})
 
@@ -43,16 +44,16 @@ func TestGitMenu(t *testing.T) {
 
 		harness := openGitMenu(t, buildGitAgent()...)
 
-		harness.press("esc")
+		harness.Press("esc")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.NotContains(t, frame, gitMenuEntry)
 		assert.Contains(t, frame, "› git ›")
-		assert.Equal(t, "agents › task-a1", readTrail(frame))
+		assert.Equal(t, "agents › task-a1", paneltest.Trail(frame))
 
-		harness.press("esc")
+		harness.Press("esc")
 
-		frame = harness.readFrame()
+		frame = harness.Frame()
 		assert.NotContains(t, frame, "git ›")
 		assert.NotContains(t, frame, "Could not")
 	})
@@ -62,9 +63,9 @@ func TestGitMenu(t *testing.T) {
 
 		harness := openGitMenu(t, buildGitAgent()...)
 
-		harness.press("k", "enter")
+		harness.Press("k", "enter")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.NotContains(t, frame, gitMenuEntry)
 		assert.Contains(t, frame, "› git ›")
 	})
@@ -72,13 +73,13 @@ func TestGitMenu(t *testing.T) {
 	t.Run("a narrow panel renders only the menu on top", func(t *testing.T) {
 		t.Parallel()
 
-		harness := newPanelHarness(t, panelHarnessParams{width: 36, height: 20})
+		harness := paneltest.Start(t, paneltest.Params{Width: 36, Height: 20})
 		answerWorktreeReads(harness)
-		harness.watch(buildSnapshot(buildGitAgent()...))
+		harness.Watch(paneltest.Snapshot(buildGitAgent()...))
 		moveToAgentRow(t, harness, "task-a1")
-		harness.press("space", "g")
+		harness.Press("space", "g")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, gitMenuEntry)
 		assert.NotContains(t, frame, "documents")
 	})
@@ -88,16 +89,16 @@ func TestGitMenu(t *testing.T) {
 
 		harness := openGitMenu(t, buildGitAgent()...)
 
-		harness.press("r")
+		harness.Press("r")
 
-		assert.NotContains(t, harness.readFrame(), gitMenuEntry)
-		harness.assertSentTo(agentv1connect.AgentServicePlanRebaseProcedure, &agentv1.PlanRebaseRequest{Task: "task-a1"})
+		assert.NotContains(t, harness.Frame(), gitMenuEntry)
+		harness.AssertSentTo(agentv1connect.AgentServicePlanRebaseProcedure, &agentv1.PlanRebaseRequest{Task: "task-a1"})
 	})
 
 	t.Run("abort sits with the worktree entries, ahead of push", func(t *testing.T) {
 		t.Parallel()
 
-		frame := openGitMenu(t, buildGitAgent()...).readFrame()
+		frame := openGitMenu(t, buildGitAgent()...).Frame()
 
 		require.Contains(t, frame, "abort")
 		require.Contains(t, frame, "push")
@@ -109,7 +110,7 @@ func TestGitMenu(t *testing.T) {
 
 		harness := openGitMenu(t, append(buildGitAgent(), onGitLab(newOpenPullRequest()))...)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "open mr")
 		assert.Contains(t, frame, "copy mr url")
 		assert.Contains(t, frame, "merge mr")
@@ -120,23 +121,23 @@ func TestGitMenu(t *testing.T) {
 		t.Parallel()
 
 		harness := openGitMenu(t, buildGitAgent()...)
-		require.NotContains(t, harness.readFrame(), "filter")
+		require.NotContains(t, harness.Frame(), "filter")
 
-		harness.press("/")
+		harness.Press("/")
 
-		assert.Contains(t, harness.readFrame(), "rebase with base")
+		assert.Contains(t, harness.Frame(), "rebase with base")
 	})
 
 	t.Run("an entry picked after its task has left the list says so", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openGitMenu(t, buildGitAgent()...)
-		harness.watch(buildSnapshot(buildGitAgent()[0]))
+		harness.Watch(paneltest.Snapshot(buildGitAgent()[0]))
 
-		harness.press("r")
+		harness.Press("r")
 
 		assert.Contains(t, readOpenMessages(harness), "the task the menu was opened on has left the list")
-		harness.assertSentTo(agentv1connect.AgentServicePlanRebaseProcedure)
+		harness.AssertSentTo(agentv1connect.AgentServicePlanRebaseProcedure)
 	})
 }
 
@@ -145,9 +146,9 @@ func TestGitMenuOnTheReview(t *testing.T) {
 	t.Run("the menu holds the pull request's entries and none that rewrite the worktree", func(t *testing.T) {
 		harness := openReview(t, newPullRequestReviewServer(t))
 
-		harness.press("space", "g")
+		harness.Press("space", "g")
 
-		popup := readPopupProse(harness.readFrame())
+		popup := paneltest.PopupProse(harness.Frame())
 		assert.Contains(t, popup, "push")
 		assert.Contains(t, popup, "toggle draft on")
 		assert.Contains(t, popup, "re-request review")
@@ -160,18 +161,18 @@ func TestGitMenuOnTheReview(t *testing.T) {
 	t.Run("a push asks in the popup, then pushes", func(t *testing.T) {
 		harness := openReview(t, newPullRequestReviewServer(t))
 		planned := &agentv1.PlanPushResponse{Branch: "agent/auth", Commits: 2}
-		harness.answer(agentv1connect.AgentServicePlanPushProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		harness.Answer(agentv1connect.AgentServicePlanPushProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 			return connect.NewResponse(planned), nil
 		})
-		harness.answerPushed(planned)
+		answerPushed(harness, planned)
 
-		harness.press("space", "g", "p")
+		harness.Press("space", "g", "p")
 
-		require.Contains(t, readPopupProse(harness.readFrame()), "Komrad pushes 2 commits")
+		require.Contains(t, paneltest.PopupProse(harness.Frame()), "Komrad pushes 2 commits")
 
-		harness.press("y")
+		harness.Press("y")
 
-		harness.assertSentTo(agentv1connect.AgentServicePushWorktreeProcedure, &agentv1.PushWorktreeRequest{Task: "t1"})
+		harness.AssertSentTo(agentv1connect.AgentServicePushWorktreeProcedure, &agentv1.PushWorktreeRequest{Task: "t1"})
 		assert.Contains(t, readOpenMessages(harness), "auth: pushed agent/auth")
 	})
 }
@@ -290,9 +291,9 @@ func TestGitMenuRefusals(t *testing.T) {
 
 			harness := openGitMenu(t, tt.rows...)
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			assert.NotContains(t, harness.readFrame(), gitMenuEntry)
+			assert.NotContains(t, harness.Frame(), gitMenuEntry)
 			assert.Contains(t, readOpenMessages(harness), tt.wantRefusal)
 		})
 	}
@@ -359,18 +360,18 @@ func TestGitMenuMerges(t *testing.T) {
 			pullRequest.Forge = tt.forge
 			pullRequest.HeadSha = "new"
 			harness := openGitMenu(t, append(buildGitAgent(), pullRequest)...)
-			harness.answerMergePlan(newMergePlan())
+			answerMergePlan(harness, newMergePlan())
 			if tt.refuse != nil {
-				harness.refuse(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.refuse)
+				harness.Refuse(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.refuse)
 			}
 
-			harness.press("m")
-			require.Equal(t, "agents › task-a1 › git › merge", readTrail(harness.readFrame()))
-			harness.press(tt.press...)
+			harness.Press("m")
+			require.Equal(t, "agents › task-a1 › git › merge", paneltest.Trail(harness.Frame()))
+			harness.Press(tt.press...)
 
-			harness.assertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.wantMerges...)
-			harness.assertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, tt.wantArchive...)
-			assert.NotContains(t, harness.readFrame(), "merge and archive")
+			harness.AssertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.wantMerges...)
+			harness.AssertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, tt.wantArchive...)
+			assert.NotContains(t, harness.Frame(), "merge and archive")
 			if tt.wantMessage != "" {
 				assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
 			}
@@ -406,11 +407,11 @@ func TestGitMenuMergesThenRebases(t *testing.T) {
 			t.Parallel()
 
 			harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
-			harness.answerMergePlan(newMergePlan())
+			answerMergePlan(harness, newMergePlan())
 			if tt.refuse != nil {
-				harness.refuse(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.refuse)
+				harness.Refuse(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.refuse)
 			}
-			harness.answer(agentv1connect.AgentServiceRebaseWorktreeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			harness.Answer(agentv1connect.AgentServiceRebaseWorktreeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 				return connect.NewResponse(&agentv1.RebaseWorktreeResponse{
 					BaseRef: "main",
 					BaseSha: "abcdef1234567",
@@ -418,16 +419,16 @@ func TestGitMenuMergesThenRebases(t *testing.T) {
 				}), nil
 			})
 
-			harness.press("m", "r", "enter")
+			harness.Press("m", "r", "enter")
 
-			harness.assertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, &forgev1.MergeForgePullRequestRequest{
+			harness.AssertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, &forgev1.MergeForgePullRequestRequest{
 				Url:     pullRequestURL,
 				Method:  forgev1.MergeMethod_MERGE_METHOD_SQUASH,
 				HeadSha: "planned",
 			})
-			harness.assertSentTo(agentv1connect.AgentServiceRebaseWorktreeProcedure, tt.wantRebases...)
-			harness.assertSentTo(agentv1connect.AgentServicePlanRebaseProcedure)
-			assert.NotContains(t, harness.readFrame(), "merge then rebase")
+			harness.AssertSentTo(agentv1connect.AgentServiceRebaseWorktreeProcedure, tt.wantRebases...)
+			harness.AssertSentTo(agentv1connect.AgentServicePlanRebaseProcedure)
+			assert.NotContains(t, harness.Frame(), "merge then rebase")
 			messages := readOpenMessages(harness)
 			for _, want := range tt.wantMessages {
 				assert.Contains(t, messages, want)
@@ -492,18 +493,18 @@ func TestGitMenuMergesWhenReady(t *testing.T) {
 			t.Parallel()
 
 			harness := openGitMenu(t, append(buildGitAgent(), tt.pullRequest)...)
-			harness.answerMergePlan(newMergePlan())
+			answerMergePlan(harness, newMergePlan())
 			if tt.refuse != nil {
-				harness.refuse(forgev1connect.ForgeServiceSetForgePullRequestAutoMergeProcedure, tt.refuse)
+				harness.Refuse(forgev1connect.ForgeServiceSetForgePullRequestAutoMergeProcedure, tt.refuse)
 			}
-			harness.press("m")
-			require.Contains(t, harness.readFrame(), tt.wantLabel)
+			harness.Press("m")
+			require.Contains(t, harness.Frame(), tt.wantLabel)
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			harness.assertSentTo(forgev1connect.ForgeServicePlanForgePullRequestMergeProcedure, tt.wantPlans...)
-			harness.assertSentTo(forgev1connect.ForgeServiceSetForgePullRequestAutoMergeProcedure, tt.wantSent)
-			frame := harness.readFrame()
+			harness.AssertSentTo(forgev1connect.ForgeServicePlanForgePullRequestMergeProcedure, tt.wantPlans...)
+			harness.AssertSentTo(forgev1connect.ForgeServiceSetForgePullRequestAutoMergeProcedure, tt.wantSent)
+			frame := harness.Frame()
 			assert.NotContains(t, frame, tt.wantLabel)
 			assert.NotContains(t, frame, "Merge #740 when ready")
 			assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
@@ -520,17 +521,17 @@ func TestGitMenuMergeForm(t *testing.T) {
 		t.Parallel()
 
 		harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
-		harness.answerMergePlan(newMergePlan())
+		answerMergePlan(harness, newMergePlan())
 
-		harness.press("m", "m")
+		harness.Press("m", "m")
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "Merge #740")
 		assert.Contains(t, frame, "merge commit  not allowed")
 		assert.Contains(t, frame, "Add the merge form (#740)")
 		assert.Contains(t, frame, "Pick a method before merging.")
-		harness.assertSentTo(forgev1connect.ForgeServicePlanForgePullRequestMergeProcedure, &forgev1.PlanForgePullRequestMergeRequest{Url: pullRequestURL})
-		harness.assertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure)
+		harness.AssertSentTo(forgev1connect.ForgeServicePlanForgePullRequestMergeProcedure, &forgev1.PlanForgePullRequestMergeRequest{Url: pullRequestURL})
+		harness.AssertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure)
 	})
 
 	tests := []struct {
@@ -589,14 +590,14 @@ func TestGitMenuMergeForm(t *testing.T) {
 			t.Parallel()
 
 			harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
-			harness.answerMergePlan(newMergePlan())
-			harness.press("m", "m")
+			answerMergePlan(harness, newMergePlan())
+			harness.Press("m", "m")
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			harness.assertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.wantMerges...)
+			harness.AssertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.wantMerges...)
 			if tt.wantRefusal != "" {
-				assert.Contains(t, harness.readFrame(), tt.wantRefusal)
+				assert.Contains(t, harness.Frame(), tt.wantRefusal)
 			}
 		})
 	}
@@ -605,13 +606,13 @@ func TestGitMenuMergeForm(t *testing.T) {
 		t.Parallel()
 
 		harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
-		harness.refuse(forgev1connect.ForgeServicePlanForgePullRequestMergeProcedure, connect.NewError(connect.CodeUnavailable, errors.New("github is down")))
+		harness.Refuse(forgev1connect.ForgeServicePlanForgePullRequestMergeProcedure, connect.NewError(connect.CodeUnavailable, errors.New("github is down")))
 
-		harness.press("m", "m")
+		harness.Press("m", "m")
 
-		assert.NotContains(t, harness.readFrame(), "Merge #740")
+		assert.NotContains(t, harness.Frame(), "Merge #740")
 		assert.Contains(t, readOpenMessages(harness), "github is down")
-		harness.assertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure)
+		harness.AssertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure)
 	})
 }
 
@@ -731,34 +732,34 @@ func TestGitMenuPushes(t *testing.T) {
 			}
 			harness := openGitMenu(t, rows...)
 			if tt.refusePlan != nil {
-				harness.refuse(agentv1connect.AgentServicePlanPushProcedure, tt.refusePlan)
+				harness.Refuse(agentv1connect.AgentServicePlanPushProcedure, tt.refusePlan)
 			}
 			if tt.planned != nil {
-				harness.answer(agentv1connect.AgentServicePlanPushProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+				harness.Answer(agentv1connect.AgentServicePlanPushProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 					return connect.NewResponse(tt.planned), nil
 				})
 			}
-			harness.answerPushed(tt.planned)
+			answerPushed(harness, tt.planned)
 			if tt.refusePush != nil {
-				harness.refuse(agentv1connect.AgentServicePushWorktreeProcedure, tt.refusePush)
+				harness.Refuse(agentv1connect.AgentServicePushWorktreeProcedure, tt.refusePush)
 			}
 
-			harness.press("p")
+			harness.Press("p")
 
-			harness.assertSentTo(agentv1connect.AgentServicePlanPushProcedure, plan)
+			harness.AssertSentTo(agentv1connect.AgentServicePlanPushProcedure, plan)
 			if tt.wantButton != "" {
-				require.Contains(t, harness.readFrame(), tt.wantButton)
+				require.Contains(t, harness.Frame(), tt.wantButton)
 			}
 			if tt.wantWarning != "" {
-				require.Contains(t, harness.readFrame(), tt.wantWarning)
+				require.Contains(t, harness.Frame(), tt.wantWarning)
 			}
 			if tt.wantUnsaid != "" {
-				require.NotContains(t, harness.readFrame(), tt.wantUnsaid)
+				require.NotContains(t, harness.Frame(), tt.wantUnsaid)
 			}
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			harness.assertSentTo(agentv1connect.AgentServicePushWorktreeProcedure, tt.wantPushes...)
-			assert.NotContains(t, harness.readFrame(), "Push the branch of")
+			harness.AssertSentTo(agentv1connect.AgentServicePushWorktreeProcedure, tt.wantPushes...)
+			assert.NotContains(t, harness.Frame(), "Push the branch of")
 			if tt.wantMessage != "" {
 				assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
 			}
@@ -821,7 +822,7 @@ func TestGitMenuAborts(t *testing.T) {
 			rows[2].(*taskv1.Task).Sequence = sequence
 
 			harness := openGitMenu(t, rows...)
-			harness.answer(agentv1connect.AgentServiceAbortSequenceProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			harness.Answer(agentv1connect.AgentServiceAbortSequenceProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 				return connect.NewResponse(&agentv1.AbortSequenceResponse{
 					Sequence:  sequence,
 					Branch:    "agent/a1",
@@ -829,17 +830,17 @@ func TestGitMenuAborts(t *testing.T) {
 				}), nil
 			})
 			if tt.refuse != nil {
-				harness.refuse(agentv1connect.AgentServiceAbortSequenceProcedure, tt.refuse)
+				harness.Refuse(agentv1connect.AgentServiceAbortSequenceProcedure, tt.refuse)
 			}
-			require.Contains(t, harness.readFrame(), "abort "+noun)
+			require.Contains(t, harness.Frame(), "abort "+noun)
 
-			harness.press("x")
+			harness.Press("x")
 
-			require.Contains(t, harness.readFrame(), "Abort the "+noun+" in the worktree of task-a1?")
-			harness.press(tt.press...)
+			require.Contains(t, harness.Frame(), "Abort the "+noun+" in the worktree of task-a1?")
+			harness.Press(tt.press...)
 
-			harness.assertSentTo(agentv1connect.AgentServiceAbortSequenceProcedure, tt.wantAborts...)
-			assert.NotContains(t, harness.readFrame(), "Abort the "+noun+" in")
+			harness.AssertSentTo(agentv1connect.AgentServiceAbortSequenceProcedure, tt.wantAborts...)
+			assert.NotContains(t, harness.Frame(), "Abort the "+noun+" in")
 			if tt.wantMessage != "" {
 				assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
 			}
@@ -893,14 +894,14 @@ func TestGitMenuTogglesDraft(t *testing.T) {
 
 			harness := openGitMenu(t, append(buildGitAgent(), tt.pullRequest)...)
 			if tt.refuse != nil {
-				harness.refuse(forgev1connect.ForgeServiceSetForgePullRequestDraftProcedure, tt.refuse)
+				harness.Refuse(forgev1connect.ForgeServiceSetForgePullRequestDraftProcedure, tt.refuse)
 			}
-			require.Contains(t, harness.readFrame(), tt.wantLabel)
+			require.Contains(t, harness.Frame(), tt.wantLabel)
 
-			harness.press("d")
+			harness.Press("d")
 
-			harness.assertSentTo(forgev1connect.ForgeServiceSetForgePullRequestDraftProcedure, tt.wantSent)
-			assert.NotContains(t, harness.readFrame(), gitMenuEntry)
+			harness.AssertSentTo(forgev1connect.ForgeServiceSetForgePullRequestDraftProcedure, tt.wantSent)
+			assert.NotContains(t, harness.Frame(), gitMenuEntry)
 			assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
 		})
 	}
@@ -954,15 +955,15 @@ func TestGitMenuRequestsRereview(t *testing.T) {
 
 			harness := openGitMenu(t, append(buildGitAgent(), tt.pullRequest)...)
 			if tt.refuse != nil {
-				harness.refuse(forgev1connect.ForgeServiceRequestForgePullRequestRereviewProcedure, tt.refuse)
+				harness.Refuse(forgev1connect.ForgeServiceRequestForgePullRequestRereviewProcedure, tt.refuse)
 			}
-			require.Contains(t, harness.readFrame(), "re-request review")
+			require.Contains(t, harness.Frame(), "re-request review")
 
-			harness.press("v")
+			harness.Press("v")
 
-			harness.assertSentTo(forgev1connect.ForgeServiceRequestForgePullRequestRereviewProcedure, tt.wantSent...)
+			harness.AssertSentTo(forgev1connect.ForgeServiceRequestForgePullRequestRereviewProcedure, tt.wantSent...)
 			if tt.wantMessage != "" {
-				assert.NotContains(t, harness.readFrame(), gitMenuEntry)
+				assert.NotContains(t, harness.Frame(), gitMenuEntry)
 				assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
 			}
 		})
@@ -993,14 +994,14 @@ func TestGitMenuOpensThePullRequest(t *testing.T) {
 			t.Parallel()
 
 			opener := &recordingOpener{err: tt.refuse}
-			harness := newPanelHarness(t, panelHarnessParams{browser: opener})
+			harness := paneltest.Start(t, paneltest.Params{Browser: opener})
 			answerWorktreeReads(harness)
-			harness.watch(buildSnapshot(append(buildGitAgent(), newOpenPullRequest())...))
+			harness.Watch(paneltest.Snapshot(append(buildGitAgent(), newOpenPullRequest())...))
 			moveToAgentRow(t, harness, "task-a1")
-			harness.press("space", "g", "o")
+			harness.Press("space", "g", "o")
 
 			assert.Equal(t, []string{pullRequestURL}, opener.readTargets())
-			frame := harness.readFrame()
+			frame := harness.Frame()
 			assert.NotContains(t, frame, gitMenuEntry)
 			if tt.wantFrame == "" {
 				assert.NotContains(t, frame, "Could not")
@@ -1019,10 +1020,10 @@ func TestGitMenuCopiesThePullRequestURL(t *testing.T) {
 
 	harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
 
-	harness.press("c")
+	harness.Press("c")
 
-	assert.Equal(t, []string{pullRequestURL}, harness.panel.ReadCopied())
-	frame := harness.readFrame()
+	assert.Equal(t, []string{pullRequestURL}, harness.Copied())
+	frame := harness.Frame()
 	assert.NotContains(t, frame, gitMenuEntry)
 	assert.NotContains(t, frame, "Could not")
 }
@@ -1054,13 +1055,13 @@ func (r *recordingOpener) readTargets() []string {
 	return r.targets
 }
 
-func openGitMenu(t *testing.T, rows ...proto.Message) *panelHarness {
+func openGitMenu(t *testing.T, rows ...proto.Message) *paneltest.Panel {
 	t.Helper()
 
 	harness := openAgents(t, rows...)
 	moveToAgentRow(t, harness, "task-a1")
-	harness.press("space", "g")
-	require.Contains(t, harness.readFrame(), gitMenuEntry)
+	harness.Press("space", "g")
+	require.Contains(t, harness.Frame(), gitMenuEntry)
 
 	return harness
 }
@@ -1126,12 +1127,12 @@ func buildRebasingGitAgent() []proto.Message {
 }
 
 // answerPushed has the push answer with what the plan said it would send.
-func (h *panelHarness) answerPushed(planned *agentv1.PlanPushResponse) {
+func answerPushed(harness *paneltest.Panel, planned *agentv1.PlanPushResponse) {
 	if planned == nil {
 		return
 	}
 
-	h.answer(agentv1connect.AgentServicePushWorktreeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+	harness.Answer(agentv1connect.AgentServicePushWorktreeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&agentv1.PushWorktreeResponse{
 			Branch:  planned.GetBranch(),
 			Commits: planned.GetCommits(),
@@ -1188,8 +1189,8 @@ func newMergePlan() *forgev1.PlanForgePullRequestMergeResponse {
 }
 
 // answerMergePlan has the forge say the pull request could merge the way the plan says.
-func (h *panelHarness) answerMergePlan(plan *forgev1.PlanForgePullRequestMergeResponse) {
-	h.answer(forgev1connect.ForgeServicePlanForgePullRequestMergeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+func answerMergePlan(harness *paneltest.Panel, plan *forgev1.PlanForgePullRequestMergeResponse) {
+	harness.Answer(forgev1connect.ForgeServicePlanForgePullRequestMergeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(plan), nil
 	})
 }

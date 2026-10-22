@@ -3,6 +3,7 @@ package ui_test
 import (
 	"testing"
 
+	"komrad/internal/ui/paneltest"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
@@ -16,33 +17,33 @@ import (
 // person.
 func TestReviewSidebar(t *testing.T) {
 	t.Run("a task on the base branch without children has no stack", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), panelHarnessParams{height: 40})
+		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Height: 40})
 
-		assert.NotContains(t, readSidebar(harness.readFrame()), "stack")
+		assert.NotContains(t, paneltest.Sidebar(harness.Frame()), "stack")
 	})
 
 	t.Run("the stack lists the task's ancestors and descendants", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServerOnAPI(t), panelHarnessParams{height: 40})
+		harness := openReviewAt(t, newReviewServerOnAPI(t), paneltest.Params{Height: 40})
 
-		sidebar := readSidebar(harness.readFrame())
+		sidebar := paneltest.Sidebar(harness.Frame())
 		assert.Subset(t, sidebar, []string{"stack", "  api", "  └ auth", "    └ billing  behind auth, conflicts"})
 	})
 
 	t.Run("choosing a task in the stack opens its review", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServerOnAPI(t), panelHarnessParams{height: 40})
-		require.Contains(t, harness.readFrame(), "api › review")
+		harness := openReviewAt(t, newReviewServerOnAPI(t), paneltest.Params{Height: 40})
+		require.Contains(t, harness.Frame(), "api › review")
 
-		harness.press("ctrl+space", "ctrl+space", "k", "k", "o")
+		harness.Press("ctrl+space", "ctrl+space", "k", "k", "o")
 
-		assert.Contains(t, harness.readFrame(), "auth › review")
+		assert.Contains(t, harness.Frame(), "auth › review")
 	})
 
 	t.Run("choosing a task whose worktree is gone says so and stays", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServerOnAPI(t), panelHarnessParams{height: 40})
+		harness := openReviewAt(t, newReviewServerOnAPI(t), paneltest.Params{Height: 40})
 
-		harness.press("ctrl+space", "ctrl+space", "k", "o")
+		harness.Press("ctrl+space", "ctrl+space", "k", "o")
 
-		assert.Contains(t, harness.readFrame(), "api › review")
+		assert.Contains(t, harness.Frame(), "api › review")
 		assert.Contains(t, readOpenMessages(harness), "its worktree is gone")
 	})
 
@@ -52,16 +53,16 @@ func TestReviewSidebar(t *testing.T) {
 			Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED,
 		}
 		server.threads = []*agentv1.ReviewThread{moveToLastLine(newForgeThread())}
-		harness := openReviewAt(t, server, panelHarnessParams{height: 40})
+		harness := openReviewAt(t, server, paneltest.Params{Height: 40})
 
-		sidebar := readSidebar(harness.readFrame())
+		sidebar := paneltest.Sidebar(harness.Frame())
 		assert.Subset(t, sidebar, []string{"the forge", "  changes requested", "  @dana  1 thread"})
 	})
 
 	t.Run("needs you lists an unread reply and a held forge comment", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServerWithThreads(t), panelHarnessParams{height: 40})
+		harness := openReviewAt(t, newReviewServerWithThreads(t), paneltest.Params{Height: 40})
 
-		sidebar := readSidebar(harness.readFrame())
+		sidebar := paneltest.Sidebar(harness.Frame())
 		assert.Subset(t, sidebar, []string{
 			"needs you",
 			"  forge comment on greet.go:5",
@@ -72,19 +73,19 @@ func TestReviewSidebar(t *testing.T) {
 	t.Run("needs you counts the person's threads waiting on the writer", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.threads = []*agentv1.ReviewThread{newThreadOnLastLine(newReleasedComment("m1"))}
-		harness := openReviewAt(t, server, panelHarnessParams{height: 40})
+		harness := openReviewAt(t, server, paneltest.Params{Height: 40})
 
-		assert.Contains(t, readSidebar(harness.readFrame()), "  1 thread of yours waiting on the writer")
+		assert.Contains(t, paneltest.Sidebar(harness.Frame()), "  1 thread of yours waiting on the writer")
 	})
 
 	t.Run("choosing what needs the person lands on its thread", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServerWithThreads(t), panelHarnessParams{height: 40})
+		harness := openReviewAt(t, newReviewServerWithThreads(t), paneltest.Params{Height: 40})
 
-		harness.press("ctrl+space", "ctrl+space", "k", "o")
+		harness.Press("ctrl+space", "ctrl+space", "k", "o")
 
-		frame := harness.readFrame()
-		assert.Contains(t, readPopupProse(frame), "because")
-		assert.NotContains(t, readPopupProse(frame), "use a map")
+		frame := harness.Frame()
+		assert.Contains(t, paneltest.PopupProse(frame), "because")
+		assert.NotContains(t, paneltest.PopupProse(frame), "use a map")
 	})
 }
 

@@ -24,14 +24,12 @@ const (
 	saidTimeout   = 30 * time.Second
 )
 
-var startTimer = tea.Tick
-
 type tickMsg struct {
 	at time.Time
 }
 
-func tick() tea.Cmd {
-	return startTimer(tickInterval, func(at time.Time) tea.Msg { return tickMsg{at: at} })
+func (m *model) tick() tea.Cmd {
+	return m.clock.After(tickInterval, func(at time.Time) tea.Msg { return tickMsg{at: at} })
 }
 
 // reportUnreachable says the server has stopped answering the first time it is found gone.
@@ -86,7 +84,7 @@ func (m *model) withListing(change func(*panel.Listing)) tea.Cmd {
 	beforeTypes := m.listing.DocumentTypeNames()
 	change(&m.listing)
 
-	now := time.Now()
+	now := m.clock.Now()
 	m.agents.triage.refresh(m.listing.Agents, m.listing.Tasks, now)
 	m.agents.apply(m, treeRow)
 	m.agents.followAwaitingCLI(m)
@@ -111,7 +109,7 @@ func (m *model) withListing(change func(*panel.Listing)) tea.Cmd {
 
 // afterListing asks for what the hovered rows are owed and stages the screen over them.
 func (m *model) afterListing() tea.Cmd {
-	inspect := tea.Batch(m.inspectHoveredWorktreeCmd(), m.inspectTaskWorktreeCmd(time.Now()), m.readDocumentsCmd(), m.readStatusChecksCmd(), m.readMovedLastScreenCmd())
+	inspect := tea.Batch(m.inspectHoveredWorktreeCmd(), m.inspectTaskWorktreeCmd(m.clock.Now()), m.readDocumentsCmd(), m.readStatusChecksCmd(), m.readMovedLastScreenCmd())
 
 	// A screen that renders what it holds beside its own list stages nothing at all.
 	active := m.active()
@@ -398,7 +396,7 @@ func (m *model) beginWrite(doing string) int {
 	if m.writes.inflight == nil {
 		m.writes.inflight = map[int]submitting.Write{}
 	}
-	m.writes.inflight[m.writes.count] = submitting.Write{Doing: doing, Since: time.Now()}
+	m.writes.inflight[m.writes.count] = submitting.Write{Doing: doing, Since: m.clock.Now()}
 
 	return m.writes.count
 }

@@ -9,20 +9,9 @@ import (
 	"komrad/config"
 )
 
-// Probe is the seam for asking which bindings a press reached, and is nil unless a test sets it.
-var Probe func(keys []string)
-
 // IsBound reports whether the press is one of the keys.
 func IsBound(pressed string, keys []string) bool {
-	if !slices.Contains(keys, pressed) {
-		return false
-	}
-
-	if Probe != nil {
-		Probe(keys)
-	}
-
-	return true
+	return slices.Contains(keys, pressed)
 }
 
 // DirectionOf is back for a press of the backward keys and forward for any other.

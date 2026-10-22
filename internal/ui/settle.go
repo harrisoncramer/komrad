@@ -115,7 +115,7 @@ func (m *model) parkWrite(result writeResult) {
 
 	m.writes.parked[result.write] = parkedWrite{
 		result:   result,
-		deadline: time.Now().Add(settleWait),
+		deadline: m.clock.Now().Add(settleWait),
 	}
 }
 
@@ -126,7 +126,7 @@ func (m *model) finishParked() tea.Cmd {
 		return nil
 	}
 
-	now := time.Now()
+	now := m.clock.Now()
 	var ready []int
 	for write, parked := range m.writes.parked {
 		if m.isSettled(parked.result.awaits) || now.After(parked.deadline) {

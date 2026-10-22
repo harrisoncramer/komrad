@@ -3,6 +3,7 @@ package ui_test
 import (
 	"testing"
 
+	"komrad/internal/ui/paneltest"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -48,12 +49,12 @@ func TestReviewForgeAccept(t *testing.T) {
 			harness := openReview(t, server)
 
 			if tt.said != "" {
-				assert.Contains(t, readPopupProse(harness.readFrame()), tt.said)
+				assert.Contains(t, paneltest.PopupProse(harness.Frame()), tt.said)
 			}
 
-			harness.press("space", "A")
+			harness.Press("space", "A")
 
-			harness.assertSentTo(agentv1connect.AgentServiceAcceptForgeMessageProcedure, tt.sent...)
+			harness.AssertSentTo(agentv1connect.AgentServiceAcceptForgeMessageProcedure, tt.sent...)
 		})
 	}
 }

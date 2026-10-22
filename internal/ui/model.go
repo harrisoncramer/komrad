@@ -9,7 +9,6 @@ package ui
 
 import (
 	"cmp"
-	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -36,7 +35,6 @@ import (
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 	schedulev1connect "komrad/proto/gen/schedule/v1/schedulev1connect"
 	"komrad/proto/gen/task/v1/taskv1connect"
-	"komrad/proto/gen/watch/v1/watchv1connect"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
 	"komrad/proto/gen/worktree/v1/worktreev1connect"
 
@@ -58,29 +56,12 @@ type sizeFallbackMsg struct {
 }
 
 // Run launches the panel and blocks for the life of the persistent manager tmux session.
-func Run(ctx context.Context, deps Deps) error {
-	// The panel resizes its own pane by zooming it, and the renderer is told about that the same
-	// way the terminal tells it about any other resize, so a program has to exist before the model
-	// it runs can reach it.
-	post := newPostbox()
+func Run(deps Deps) error {
+	panel := New(deps)
+	program := tea.NewProgram(panel, tea.WithColorProfile(colorprofile.TrueColor), tea.WithFilter(panel.Filter))
+	panel.Attach(program)
 
-	watching, stop := context.WithCancel(ctx)
-	defer stop()
-
-	m := newModel(deps, true, post)
-	m.access.watch = func() context.CancelFunc { return startWatch(watching, deps.Watch, post) }
-	wheel := newWheelFilter(time.Now, func(msg tea.Msg) {
-		time.AfterFunc(wheelFrame, func() { post.send(msg) })
-	})
-	program := tea.NewProgram(&m, tea.WithColorProfile(colorprofile.TrueColor), tea.WithFilter(wheel.filter))
-	post.attach(program)
-
-	defer post.close()
 	defer deps.Session.ReleaseLeader()
-
-	if m.fatal() == nil && !m.isGated() {
-		m.startWatch()
-	}
 
 	if _, err := program.Run(); err != nil {
 		return fmt.Errorf("failed to run panel: %w", err)
@@ -89,30 +70,58 @@ func Run(ctx context.Context, deps Deps) error {
 	return nil
 }
 
-// postbox is how the panel sends itself the size its own pane landed at, held as a pointer so the
+// Panel is the panel's bubbletea model.
+type Panel struct {
+	m     model
+	wheel *wheelFilter
+}
+
+// New builds the panel over its dependencies.
+func New(deps Deps) *Panel {
+	m := newModel(deps, true, &postbox{})
+
+	return &Panel{m: m, wheel: newWheelFilter(m.clock.Now)}
+}
+
+// Init starts the watch and the tick, and hands over a size the frame read back while the panel was built.
+func (p *Panel) Init() tea.Cmd {
+	return tea.Batch(p.m.Init(), p.m.post.readSizeCmd())
+}
+
+// Update hands the panel one message, and hands over a size the frame read back while it ran.
+func (p *Panel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	_, cmd := p.m.Update(msg)
+
+	return p, tea.Batch(cmd, p.m.post.readSizeCmd())
+}
+
+// View is the frame the panel renders.
+func (p *Panel) View() tea.View {
+	return p.m.View()
+}
+
+// Filter adds up the wheel's turns ahead of Update, one message a frame.
+func (p *Panel) Filter(model tea.Model, msg tea.Msg) tea.Msg {
+	return p.wheel.filter(model, msg)
+}
+
+// Attach hands the panel what it sends messages to from off its own loop.
+func (p *Panel) Attach(program sender) {
+	p.m.post.program = program
+}
+
+// sender takes a message from off the program's loop.
+type sender interface {
+	Send(msg tea.Msg)
+}
+
+// postbox is how the panel hands itself messages from off its own loop, held as a pointer so the
 // model can be built before the program that carries it.
 type postbox struct {
-	program *tea.Program
+	program sender
 	mu      sync.Mutex
-	// pending is the size waiting for handover.
+	// pending is the newest size the frame read back that the panel has not yet taken.
 	pending *tea.WindowSizeMsg
-	wake    chan struct{}
-}
-
-func newPostbox() *postbox {
-	return &postbox{wake: make(chan struct{}, 1)}
-}
-
-// attach gives the postbox the program it posts to and starts the one goroutine that does it, so
-// the sizes arrive in the order they were read.
-func (p *postbox) attach(program *tea.Program) {
-	p.program = program
-
-	go p.deliver()
-}
-
-func (p *postbox) close() {
-	close(p.wake)
 }
 
 // resize reports the size the panel's own pane landed at as the resize it is, so a frame is never
@@ -123,15 +132,9 @@ func (p *postbox) resize(width, height int) {
 	}
 
 	p.mu.Lock()
-	p.pending = &tea.WindowSizeMsg{Width: width, Height: height}
-	p.mu.Unlock()
+	defer p.mu.Unlock()
 
-	// The delivery is already owed when the wake is full, and it will read whatever is pending by
-	// the time it runs.
-	select {
-	case p.wake <- struct{}{}:
-	default:
-	}
+	p.pending = &tea.WindowSizeMsg{Width: width, Height: height}
 }
 
 // send hands the program a message from off its own loop.
@@ -143,13 +146,22 @@ func (p *postbox) send(msg tea.Msg) {
 	p.program.Send(msg)
 }
 
-// deliver hands the newest size to the program, off the update the size was read in, which would
-// otherwise block waiting for itself to take the message.
-func (p *postbox) deliver() {
-	for range p.wake {
-		if size := p.takePending(); size != nil {
-			p.program.Send(sizeReadMsg{size: *size})
+// readSizeCmd hands over the newest size waiting when it runs, off the update the size was read in.
+func (p *postbox) readSizeCmd() tea.Cmd {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.pending == nil {
+		return nil
+	}
+
+	return func() tea.Msg {
+		size := p.takePending()
+		if size == nil {
+			return nil
 		}
+
+		return sizeReadMsg{size: *size}
 	}
 }
 
@@ -163,7 +175,8 @@ func (p *postbox) takePending() *tea.WindowSizeMsg {
 	return size
 }
 
-type uiTmux interface {
+// Tmux is the tmux the panel drives.
+type Tmux interface {
 	layout.Tmux
 	ResizeWindow(pane string, width, height int)
 	IsPaneRunningCLI(pane string) bool
@@ -178,9 +191,9 @@ type uiTmux interface {
 	CaptureScreen(pane string) string
 }
 
-// harnessFrameReader tells a harness that has rendered itself in a pane from one that has only
+// HarnessFrameReader tells a harness that has rendered itself in a pane from one that has only
 // started.
-type harnessFrameReader interface {
+type HarnessFrameReader interface {
 	DoesFrameShowHarness(pane, harnessID string) bool
 }
 
@@ -210,10 +223,10 @@ type PanelSettings struct {
 
 type Deps struct {
 	Session         *Session
-	Tmux            uiTmux
+	Tmux            Tmux
 	Patches         diff.Reader
 	Browser         browser.Opener
-	HarnessFrames   harnessFrameReader
+	HarnessFrames   HarnessFrameReader
 	Agents          agentv1connect.AgentServiceClient
 	Workflows       workflowv1connect.WorkflowServiceClient
 	Schedules       schedulev1connect.ScheduleServiceClient
@@ -224,7 +237,10 @@ type Deps struct {
 	PullRequests    pullrequestv1connect.PullRequestServiceClient
 	Loops           loopv1connect.LoopServiceClient
 	Tasks           taskv1connect.TaskServiceClient
-	Watch           watchv1connect.WatchServiceClient
+	Watcher         Watcher
+	Clock           screen.Clock
+	ClipboardWriter clipboardWriter
+	Editor          Editor
 	Keys            config.Keybindings
 	Glyphs          glyph.Set
 	Loader          loader.Style
@@ -245,10 +261,10 @@ type model struct {
 	access          accessState
 	session         *Session
 	api             api
-	tmux            uiTmux
+	tmux            Tmux
 	patches         diff.Reader
 	browser         browser.Opener
-	harnessFrames   harnessFrameReader
+	harnessFrames   HarnessFrameReader
 	binary          BinaryWatcher
 	frame           *layout.Frame
 	settings        PanelSettings
@@ -295,9 +311,12 @@ type model struct {
 	keys         config.Keybindings
 	glyphs       glyph.Set
 	// shell is what tmux starts a pane's process with, read once.
-	shell string
-	clip  clipboardWriter
-	post  *postbox
+	shell   string
+	clip    clipboardWriter
+	post    *postbox
+	clock   screen.Clock
+	watcher Watcher
+	editor  Editor
 
 	// staging counts the cursor moves waiting for the panes to move, so the panes follow the row the
 	// cursor came to rest on rather than every row it passed.
@@ -395,7 +414,10 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 			tasks:        deps.Tasks,
 		},
 		session:         deps.Session,
-		clip:            systemClipboard{},
+		clip:            deps.ClipboardWriter,
+		clock:           deps.Clock,
+		watcher:         deps.Watcher,
+		editor:          deps.Editor,
 		tmux:            deps.Tmux,
 		patches:         deps.Patches,
 		browser:         deps.Browser,
@@ -423,6 +445,16 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		warm:      newWarmupState(),
 		loading:   loadingState{style: cmp.Or(deps.Loader, loader.Braille)},
 		reactors:  newWorldReactors(),
+	}
+
+	if m.clip == nil {
+		m.clip = systemClipboard{}
+	}
+	if m.clock == nil {
+		m.clock = wallClock{}
+	}
+	if m.editor == nil {
+		m.editor = shellEditor{command: deps.Settings.Editor}
 	}
 
 	if m.fatal() != nil {

@@ -88,3 +88,15 @@ func TestActionKeysGoThroughTheMenu(t *testing.T) {
 		assert.Equal(t, want[s], direct, s.String())
 	}
 }
+
+func specsOf(s screen.ID) []keys.Spec[*model] {
+	var specs []keys.Spec[*model]
+
+	for _, table := range actionsOf(s) {
+		if spec, ok := table.(keys.Spec[*model]); ok {
+			specs = append(specs, spec)
+		}
+	}
+
+	return specs
+}

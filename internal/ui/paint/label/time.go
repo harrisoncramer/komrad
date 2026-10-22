@@ -17,12 +17,7 @@ func Friendly(t time.Time) string {
 	return t.Local().Format(friendlyLayout)
 }
 
-// Age is how long ago a time was, in the one unit that fits it: 40s, 5m, 3h, 2d or 6w.
-func Age(t time.Time) string {
-	return AgeAt(t, time.Now())
-}
-
-// AgeAt is Age measured from a given moment.
+// AgeAt is how long before now a time was, in the one unit that fits it: 40s, 5m, 3h, 2d or 6w.
 func AgeAt(t, now time.Time) string {
 	if t.IsZero() {
 		return ""

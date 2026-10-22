@@ -15,8 +15,8 @@ const warmupCap = 4 * time.Second
 
 type warmupTickMsg struct{}
 
-func warmupTick() tea.Cmd {
-	return startTimer(warmupPoll, func(time.Time) tea.Msg { return warmupTickMsg{} })
+func (m *model) warmupTick() tea.Cmd {
+	return m.clock.After(warmupPoll, func(time.Time) tea.Msg { return warmupTickMsg{} })
 }
 
 // warmupState is what the panel knows about panes whose harness may not have started yet: the
@@ -53,12 +53,12 @@ func (m *model) isPaneWarm(pane, harnessID string) bool {
 
 	since, waiting := m.warm.since[pane]
 	if !waiting {
-		m.warm.since[pane] = time.Now()
+		m.warm.since[pane] = m.clock.Now()
 
 		return false
 	}
 
-	if time.Since(since) < warmupCap {
+	if m.clock.Now().Sub(since) < warmupCap {
 		return false
 	}
 
@@ -109,5 +109,5 @@ func (m *model) pollWarmup() tea.Cmd {
 
 	m.warm.polling = true
 
-	return warmupTick()
+	return m.warmupTick()
 }

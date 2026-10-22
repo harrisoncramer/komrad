@@ -9,6 +9,7 @@ import (
 
 	"komrad/internal/ui"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/paneltest"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -37,9 +38,9 @@ func TestEngineLine(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openCrowded(t, panelHarnessParams{sidebarWidth: tt.width, engineStatus: newFakeEngine().on(tt.engine)})
+			harness := openCrowded(t, paneltest.Params{SidebarWidth: tt.width, EngineStatus: newFakeEngine().on(tt.engine)})
 
-			assert.Equal(t, tt.want, readEngineLine(harness.readFrame()))
+			assert.Equal(t, tt.want, readEngineLine(harness.Frame()))
 		})
 	}
 }
@@ -61,22 +62,22 @@ func TestEngineDot(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openCrowded(t, panelHarnessParams{sidebarWidth: 60, engineStatus: newFakeEngine().on("")})
+			harness := openCrowded(t, paneltest.Params{SidebarWidth: 60, EngineStatus: newFakeEngine().on("")})
 			if tt.lost {
-				harness.send(ui.NewWatchLost(errors.New("connection refused")))
+				harness.LoseWatch(errors.New("connection refused"))
 			}
 
-			assert.Contains(t, harness.readRawFrame(), paint.Panel.Style(tt.want).Render("\uf444")+" ")
+			assert.Contains(t, harness.RawFrame(), paint.Panel.Style(tt.want).Render("\uf444")+" ")
 		})
 	}
 
 	t.Run("the dot turns green again when the stream comes back", func(t *testing.T) {
-		harness := openCrowded(t, panelHarnessParams{sidebarWidth: 60, engineStatus: newFakeEngine().on("")})
+		harness := openCrowded(t, paneltest.Params{SidebarWidth: 60, EngineStatus: newFakeEngine().on("")})
 
-		harness.send(ui.NewWatchLost(errors.New("connection refused")))
-		harness.watch(buildCrowdedSnapshot(""))
+		harness.LoseWatch(errors.New("connection refused"))
+		harness.Watch(buildCrowdedSnapshot(""))
 
-		assert.Contains(t, harness.readRawFrame(), paint.Panel.Style(paint.ToneSuccess).Render("\uf444")+" ")
+		assert.Contains(t, harness.RawFrame(), paint.Panel.Style(paint.ToneSuccess).Render("\uf444")+" ")
 	})
 }
 
@@ -108,7 +109,7 @@ func readEngineLine(frame string) string {
 }
 
 func readEngineRow(frame string, row int) string {
-	line, _, _ := strings.Cut(splitLines(frame)[row], "│")
+	line, _, _ := strings.Cut(paneltest.SplitLines(frame)[row], "│")
 
 	return strings.TrimSpace(line)
 }

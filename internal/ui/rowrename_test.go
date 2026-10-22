@@ -5,6 +5,7 @@ import (
 	"slices"
 	"testing"
 
+	"komrad/internal/ui/paneltest"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	workflowv1 "komrad/proto/gen/workflow/v1"
@@ -83,10 +84,10 @@ func TestRenameSends(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-			harness.press(tt.press...)
+			harness.Press(tt.press...)
 
-			harness.assertSentTo(tt.procedure, tt.want...)
-			assert.NotContains(t, readListRows(harness.readFrame()), "  author-v2▏", "the field has closed")
+			harness.AssertSentTo(tt.procedure, tt.want...)
+			assert.NotContains(t, paneltest.ListRows(harness.Frame()), "  author-v2▏", "the field has closed")
 		})
 	}
 }
@@ -96,92 +97,92 @@ func TestRenameField(t *testing.T) {
 	t.Run("the field opens on the name the row had", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press("j", "r")
+		harness.Press("j", "r")
 
-		frame := harness.readFrame()
-		assert.Equal(t, "└─ author▏", readHoveredRow(frame))
-		assert.Contains(t, readLegend(frame), "enter save")
-		assert.Contains(t, readLegend(frame), "esc cancel")
+		frame := harness.Frame()
+		assert.Equal(t, "└─ author▏", paneltest.HoveredRow(frame))
+		assert.Contains(t, paneltest.Legend(frame), "enter save")
+		assert.Contains(t, paneltest.Legend(frame), "esc cancel")
 		assert.NotContains(t, frame, "enter submit", "no form opens")
-		assert.NotContains(t, readLegend(frame), "menu", "space is typed, not the menu")
+		assert.NotContains(t, paneltest.Legend(frame), "menu", "space is typed, not the menu")
 	})
 
 	t.Run("a paste goes in on one line", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press("j", "r")
-		harness.send(tea.PasteMsg{Content: "-a\nb"})
+		harness.Press("j", "r")
+		harness.Send(tea.PasteMsg{Content: "-a\nb"})
 
-		assert.Equal(t, "└─ author-a b▏", readHoveredRow(harness.readFrame()))
+		assert.Equal(t, "└─ author-a b▏", paneltest.HoveredRow(harness.Frame()))
 	})
 
 	t.Run("esc puts the name back and the keys go back to the list", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"esc", "k"})...)
+		harness.Press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"esc", "k"})...)
 
-		assert.Equal(t, "api", readHoveredRow(harness.readFrame()))
-		assert.Contains(t, readListRows(harness.readFrame()), "└─ author")
+		assert.Equal(t, "api", paneltest.HoveredRow(harness.Frame()))
+		assert.Contains(t, paneltest.ListRows(harness.Frame()), "└─ author")
 	})
 
 	t.Run("a row that leaves the list holds the keys until esc or enter and says it is gone", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
-		harness.press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"))...)
+		harness.Press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"))...)
 
-		harness.watch(buildSnapshot(newFormWorkflow()))
-		harness.press("space", "c", "enter")
+		harness.Watch(paneltest.Snapshot(newFormWorkflow()))
+		harness.Press("space", "c", "enter")
 
-		assert.NotContains(t, harness.readFrame(), "enter submit", "no action ran on the row the cursor landed on")
-		assert.Empty(t, harness.readSent(agentv1connect.AgentServiceUpdateAgentProcedure))
+		assert.NotContains(t, harness.Frame(), "enter submit", "no action ran on the row the cursor landed on")
+		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceUpdateAgentProcedure))
 		assert.Contains(t, readOpenMessages(harness), `"author" is gone`)
 
-		harness.press("esc", "space", "c")
-		assert.Contains(t, harness.readFrame(), "enter submit", "the keys are the list's again")
+		harness.Press("esc", "space", "c")
+		assert.Contains(t, harness.Frame(), "enter submit", "the keys are the list's again")
 	})
 
 	t.Run("a listing landing under the field leaves it open", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
-		harness.press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"))...)
+		harness.Press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"))...)
 
-		harness.watch(buildSnapshot(newFormWorkflow(), newFormAuthor(), newAgent("a2", "another", "w1")))
+		harness.Watch(paneltest.Snapshot(newFormWorkflow(), newFormAuthor(), newAgent("a2", "another", "w1")))
 
-		assert.Equal(t, "└─ author-v2▏", readHoveredRow(harness.readFrame()))
+		assert.Equal(t, "└─ author-v2▏", paneltest.HoveredRow(harness.Frame()))
 	})
 
 	t.Run("the field takes no keys while the name is being saved", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
-		harness.hold(agentv1connect.AgentServiceUpdateAgentProcedure)
+		harness.Hold(agentv1connect.AgentServiceUpdateAgentProcedure)
 
-		harness.press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"enter", "x", "k"})...)
-		assert.Equal(t, "└─ author-v2", readHoveredRow(harness.readFrame()), "the typed name stands without a cursor")
+		harness.Press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"enter", "x", "k"})...)
+		assert.Equal(t, "└─ author-v2", paneltest.HoveredRow(harness.Frame()), "the typed name stands without a cursor")
 
-		harness.release(agentv1connect.AgentServiceUpdateAgentProcedure)
-		harness.press("k")
-		assert.Equal(t, "api", readHoveredRow(harness.readFrame()), "and the keys go back to the list once it lands")
+		harness.Release(agentv1connect.AgentServiceUpdateAgentProcedure)
+		harness.Press("k")
+		assert.Equal(t, "api", paneltest.HoveredRow(harness.Frame()), "and the keys go back to the list once it lands")
 	})
 
 	t.Run("a saved name stands until the listing shows it", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"enter"})...)
-		assert.Equal(t, "└─ author-v2", readHoveredRow(harness.readFrame()), "not the old name before the watch catches up")
+		harness.Press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"enter"})...)
+		assert.Equal(t, "└─ author-v2", paneltest.HoveredRow(harness.Frame()), "not the old name before the watch catches up")
 
-		harness.watch(buildSnapshot(newFormWorkflow(), newAgent("a1", "author-v2", "w1")))
-		harness.watch(buildSnapshot(newFormWorkflow(), newAgent("a1", "author-v3", "w1")))
-		assert.Equal(t, "└─ author-v3", readHoveredRow(harness.readFrame()), "the listing renders the name once it has caught up")
+		harness.Watch(paneltest.Snapshot(newFormWorkflow(), newAgent("a1", "author-v2", "w1")))
+		harness.Watch(paneltest.Snapshot(newFormWorkflow(), newAgent("a1", "author-v3", "w1")))
+		assert.Equal(t, "└─ author-v3", paneltest.HoveredRow(harness.Frame()), "the listing renders the name once it has caught up")
 	})
 
 	t.Run("a refused name opens the field again holding it", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
-		harness.refuse(agentv1connect.AgentServiceUpdateAgentProcedure, connect.NewError(connect.CodeAlreadyExists, errors.New("name taken")))
+		harness.Refuse(agentv1connect.AgentServiceUpdateAgentProcedure, connect.NewError(connect.CodeAlreadyExists, errors.New("name taken")))
 
-		harness.press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"enter"})...)
+		harness.Press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"enter"})...)
 
-		frame := harness.readFrame()
+		frame := harness.Frame()
 		assert.Contains(t, frame, "Could not rename agent")
-		require.Equal(t, "└─ author-v2▏", readHoveredRow(frame))
+		require.Equal(t, "└─ author-v2▏", paneltest.HoveredRow(frame))
 
-		harness.press("!")
-		assert.Equal(t, "└─ author-v2!▏", readHoveredRow(harness.readFrame()))
+		harness.Press("!")
+		assert.Equal(t, "└─ author-v2!▏", paneltest.HoveredRow(harness.Frame()))
 	})
 }

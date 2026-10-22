@@ -155,7 +155,7 @@ func (m *model) saysCmd() tea.Cmd {
 	said.queued = false
 	text := said.text
 
-	return startTimer(saysWait, func(time.Time) tea.Msg { return saysSettledMsg{text: text} })
+	return m.clock.After(saysWait, func(time.Time) tea.Msg { return saysSettledMsg{text: text} })
 }
 
 func (m *model) applySaysSettled(msg saysSettledMsg) tea.Cmd {
