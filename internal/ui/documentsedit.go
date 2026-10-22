@@ -122,7 +122,13 @@ func (d *documentsScreen) closeEdit(m *model) screen.Request {
 	}
 
 	return d.deps.clients.Write("saving "+edit.item.name, summary, func(a api.Clients) error {
-		if err := a.WriteDocument(api.WriteDocumentParams{ID: edit.item.id, Version: edit.version, Name: edit.item.name, Type: edit.item.typeName, Body: body}); err != nil {
+		if err := a.WriteDocument(api.WriteDocumentParams{
+			ID:      edit.item.id,
+			Version: edit.version,
+			Name:    edit.item.name,
+			Type:    edit.item.typeName,
+			Body:    body,
+		}); err != nil {
 			return fmt.Errorf("failed to save, so your copy is left at %s: %w", edit.path, err)
 		}
 
