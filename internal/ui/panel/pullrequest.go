@@ -52,6 +52,15 @@ func (s PullRequestStanding) Abbrev() string {
 	return forge.Abbrev(s.Forge)
 }
 
+// Describe says something of a task's pull request in its forge's words.
+func (s PullRequestStanding) Describe(said string) string {
+	if said == "" {
+		return ""
+	}
+
+	return "its " + s.Noun() + " " + said
+}
+
 // Ref names it the way its forge writes it, such as #12 or !12.
 func (p PullRequest) Ref() string {
 	return forge.Ref(p.Forge, int(p.Number))
@@ -60,20 +69,6 @@ func (p PullRequest) Ref() string {
 // Noun is what its forge calls a pull request.
 func (p PullRequest) Noun() string {
 	return forge.Noun(p.Forge)
-}
-
-// MergeReadiness is how close a pull request is to merging, as komrad shows it for its head.
-type MergeReadiness struct {
-	Decision     pullrequestv1.ReviewDecision
-	Checks       pullrequestv1.Checks
-	Mergeability pullrequestv1.Mergeability
-	// MergeabilityUnconfirmed says Mergeability is the forge's last answer for this head while it
-	// works it out again.
-	MergeabilityUnconfirmed bool
-	// AutoMerge says the forge will merge it on its own once its checks and reviews pass.
-	AutoMerge bool
-	// AutoMergeable says the forge would let komrad turn auto-merge on for it now.
-	AutoMergeable bool
 }
 
 // Words is the state word with what is still in the way beside it: a run in
@@ -123,13 +118,18 @@ func (p PullRequest) Words() string {
 	return word
 }
 
-// Describe says something of a task's pull request in its forge's words.
-func (s PullRequestStanding) Describe(said string) string {
-	if said == "" {
-		return ""
-	}
-
-	return "its " + s.Noun() + " " + said
+// MergeReadiness is how close a pull request is to merging, as komrad shows it for its head.
+type MergeReadiness struct {
+	Decision     pullrequestv1.ReviewDecision
+	Checks       pullrequestv1.Checks
+	Mergeability pullrequestv1.Mergeability
+	// MergeabilityUnconfirmed says Mergeability is the forge's last answer for this head while it
+	// works it out again.
+	MergeabilityUnconfirmed bool
+	// AutoMerge says the forge will merge it on its own once its checks and reviews pass.
+	AutoMerge bool
+	// AutoMergeable says the forge would let komrad turn auto-merge on for it now.
+	AutoMergeable bool
 }
 
 // stateWord is the one word the record uses for a state.
