@@ -500,6 +500,11 @@
     color: var(--color-app-gray-dim);
   }
 
+  .doc-content .type-cell p.rules {
+    display: inline;
+    margin: 0 0 0 0.75rem;
+  }
+
   .doc-content td.default-cell {
     max-width: none;
   }
@@ -611,4 +616,56 @@
   text-transform: uppercase;
   color: var(--color-app-blue);
   opacity: 0.7;
+}
+
+.ref {
+  position: relative;
+  text-decoration: none;
+}
+
+.ref-card {
+  display: none;
+}
+
+.ref-detail {
+  color: var(--color-app-gray);
+  font-size: 0.9em;
+}
+
+@media (hover: hover) {
+  .ref:hover .ref-card {
+    position: absolute;
+    bottom: calc(100% + 0.4rem);
+    left: 0;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    width: max-content;
+    max-width: 22rem;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid var(--color-app-background-medium);
+    border-radius: 6px;
+    background: var(--color-app-background-medium-dark);
+    color: var(--color-app-gray-light);
+    font-size: 0.85rem;
+    font-weight: normal;
+    line-height: 1.4;
+    white-space: normal;
+  }
+
+  @supports (anchor-name: --ref) {
+    .ref:hover {
+      anchor-name: --ref;
+    }
+
+    .ref:hover .ref-card {
+      position: fixed;
+      position-anchor: --ref;
+      position-area: block-start span-inline-end;
+      position-try-fallbacks: flip-block, flip-inline;
+      inset: auto;
+      margin-block: 0.4rem;
+    }
+  }
 }

@@ -183,6 +183,36 @@ X-Request-Id: 019991a6-8b0e-7c3d-9e1f-2a3b4c5d6e7f
     </p>
   </section>
 
+  <section class="convention">
+    <Heading id="events">Events</Heading>
+    <p>
+      Komrad mails an agent when something happens to its work. Each event has a name, and a workflow's event prompts
+      add text to that mail by naming the event. A workflow that sets no prompts adds the default prompt below.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Event</th>
+          <th>Sent when</th>
+          <th>Default prompt</th>
+        </tr>
+      </thead>
+      <tbody>
+        {api.events.map((event) => (
+          <tr id={`event-${event.name}`}>
+            <td>
+              <a class="row-anchor" href={`#event-${event.name}`}>
+                <code>{event.name}</code>
+              </a>
+            </td>
+            <td>{event.description}</td>
+            <td>{event.prompt}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </section>
+
   <div class="lg:hidden">
     <section class="convention">
       <Heading id="services">Services</Heading>

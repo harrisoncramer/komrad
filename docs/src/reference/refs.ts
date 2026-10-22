@@ -1,4 +1,4 @@
-import { anchor, api, commandBySlug, commandHref, config, referencedTypes } from ".";
+import { anchor, api, commandBySlug, commandHref, config, escape, referencedTypes } from ".";
 import { link } from "../site";
 import type { Section, Setting } from "./types";
 
@@ -68,3 +68,75 @@ export function commandOf(path: string): Ref {
     detail: command.usage,
   };
 }
+
+export const refLink = (target: Ref, inner: string) =>
+  `<a class="ref" href="${escape(target.href)}">${inner}<span class="ref-card" aria-hidden="true">` +
+  `<code>${escape(target.title)}</code>` +
+  (target.description ? `<span>${escape(target.description)}</span>` : "") +
+  (target.detail ? `<span class="ref-detail">${escape(target.detail)}</span>` : "") +
+  `</span></a>`;
+
+export type Scope = {
+  messages?: string[];
+  enum?: string;
+};
+
+const methods = new Map(
+  api.services.flatMap((service) =>
+    service.methods.map((method): [string, Ref] => [
+      method.tool,
+      {
+        href: link(`/api/${service.slug}/${method.slug}`),
+        title: method.tool,
+        description: method.summary,
+        detail: method.path,
+      },
+    ]),
+  ),
+);
+
+const hookMoment = /^(agent|task)\.(pre|post)-[a-z]+$/;
+
+function codeRef({ messages = [], enum: enumName }: Scope, code: string): Ref | undefined {
+  for (const message of messages) {
+    const field = api.messages[message]?.fields.find((candidate) => candidate.name === code);
+    if (field) {
+      return {
+        href: `#${anchor(message)}-${code}`,
+        title: `${message.split(".").pop() ?? message}.${code}`,
+        description: field.description,
+        detail: `${field.type}${field.repeated ? "[]" : ""}`,
+      };
+    }
+  }
+
+  const value = enumName
+    ? api.enums[enumName]?.values.find(({ name }) => name === code || name.endsWith(`_${code}`))
+    : undefined;
+  if (enumName && value) {
+    return {
+      href: `#${anchor(enumName)}-${value.name}`,
+      title: value.name,
+      description: value.description,
+      detail: "",
+    };
+  }
+
+  const method = methods.get(code);
+  if (method) return method;
+
+  const event = api.events.find((candidate) => candidate.name === code);
+  if (event) return { href: link(`/api#event-${code}`), title: code, description: event.description, detail: "" };
+
+  if (code.includes(".") && settings.has(code)) return settingOf(code);
+
+  const moment = hookMoment.exec(code);
+  if (moment) return { href: link(`/guides/hooks#${moment[1]}-lifecycle`), title: code, description: "", detail: "" };
+
+  return undefined;
+}
+
+export const codeLink = (scope: Scope) => (code: string) => {
+  const target = codeRef(scope, code);
+  return target && refLink(target, `<code>${code}</code>`);
+};

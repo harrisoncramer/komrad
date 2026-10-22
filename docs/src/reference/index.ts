@@ -50,14 +50,17 @@ export function referencedTypes(roots: string[]) {
 
 export const anchor = (name: string) => name.replaceAll(".", "-");
 
-const escape = (text: string) =>
+export const escape = (text: string) =>
   text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 
-const inline = (text: string) => escape(text).replace(/`([^`]+)`/g, "<code>$1</code>");
+type CodeLink = (code: string) => string | undefined;
+
+const inline = (text: string, codeLink: CodeLink) =>
+  escape(text).replace(/`([^`]+)`/g, (_, code: string) => codeLink(code) ?? `<code>${code}</code>`);
 
 const indented = (line: string) => /^(\t| {2,})/.test(line);
 
-export const prose = (text: string) =>
+export const prose = (text: string, codeLink: CodeLink) =>
   text
     .split(/\n\s*\n/)
     .filter((block) => block.trim() !== "")
@@ -68,7 +71,7 @@ export const prose = (text: string) =>
         return `<pre class="plain-code"><code>${escape(code)}</code></pre>`;
       }
 
-      return `<p>${inline(block.trim())}</p>`;
+      return `<p>${inline(block.trim(), codeLink)}</p>`;
     })
     .join("");
 

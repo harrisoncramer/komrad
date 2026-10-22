@@ -1,7 +1,8 @@
 ---
 import Heading from "./Heading.astro";
 import Required from "./Required.astro";
-import { anchor, prose } from "../../reference";
+import { anchor, api, prose } from "../../reference";
+import { codeLink } from "../../reference/refs";
 import type { Field, Message, Oneof } from "../../reference/types";
 
 type Props = {
@@ -16,6 +17,8 @@ const id = anchor(name);
 const tone = (type: string) => (/int|fixed|float|double/.test(type) ? "number" : type);
 const typeName = (field: Field) => (field.repeated && !field.map ? `${field.type}[]` : field.type);
 const rules = (field: Field) => field.rules.filter((rule) => rule !== "required");
+const inMessage = codeLink({ messages: [name] });
+const forField = (field: Field) => codeLink({ messages: [name], enum: api.enums[field.ref] ? field.ref : undefined });
 
 const rows: Row[] = [];
 const drawn = new Set<string>();
@@ -40,7 +43,7 @@ for (const field of message.fields) {
   <Heading id={id} level={3}>
     {message.name}
   </Heading>
-  {message.description && <div class="type-description" set:html={prose(message.description)} />}
+  {message.description && <div class="type-description" set:html={prose(message.description, inMessage)} />}
   {message.fields.length === 0 ? (
     <p class="empty">No fields.</p>
   ) : (
@@ -64,7 +67,7 @@ for (const field of message.fields) {
                   {row.oneof.required && <Required />}
                 </td>
                 <td></td>
-                <td>{row.oneof.description && <Fragment set:html={prose(row.oneof.description)} />}</td>
+                <td>{row.oneof.description && <Fragment set:html={prose(row.oneof.description, inMessage)} />}</td>
               </tr>
             ) : (
               <tr id={`${id}-${row.field.name}`} class={row.member ? "oneof-member" : undefined}>
@@ -73,7 +76,7 @@ for (const field of message.fields) {
                     <code>{row.field.name}</code>
                   </a>
                 </td>
-                <td class="type-cell" data-sep=":">
+                <td class="type-cell" data-sep="">
                   {row.field.map && "map of "}
                   {row.field.ref ? (
                     <a href={`#${anchor(row.field.ref)}`}>{typeName(row.field)}</a>
@@ -83,10 +86,12 @@ for (const field of message.fields) {
                     </span>
                   )}
                   {row.field.rules.includes("required") && <Required />}
+                  {rules(row.field).map((rule) => (
+                    <p class="rules">{rule}</p>
+                  ))}
                 </td>
                 <td>
-                  {row.field.description && <Fragment set:html={prose(row.field.description)} />}
-                  {rules(row.field).length > 0 && <p class="rules">{rules(row.field).join(", ")}</p>}
+                  {row.field.description && <Fragment set:html={prose(row.field.description, forField(row.field))} />}
                 </td>
               </tr>
             ),

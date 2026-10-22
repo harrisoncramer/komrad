@@ -3,6 +3,7 @@ import DocPage from "../../../layouts/DocPage.astro";
 import IndexList from "../../../components/reference/IndexList.astro";
 import Sidebar from "../../../components/Sidebar.astro";
 import { api, prose } from "../../../reference";
+import { codeLink } from "../../../reference/refs";
 import { link } from "../../../site";
 import { apiSidebar } from "../../../sidebar";
 
@@ -22,7 +23,7 @@ const summary = service.description
 
 <DocPage title={service.title} summary={summary}>
   <Sidebar slot="sidebar" label="API" groups={apiSidebar({ service: service.slug })} />
-  <div class="service-description" set:html={prose(service.description)} />
+  <div class="service-description" set:html={prose(service.description, codeLink({}))} />
   <p>
     <code>{service.name}</code>
   </p>

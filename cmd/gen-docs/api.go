@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 
+	"komrad/internal/eventprompts"
 	"komrad/internal/rpcapi"
 	"komrad/lib/xslice"
 	annotationv1 "komrad/proto/gen/annotation/v1"
@@ -15,6 +16,7 @@ type apiDoc struct {
 	Services []serviceDoc          `json:"services"`
 	Messages map[string]messageDoc `json:"messages"`
 	Enums    map[string]enumDoc    `json:"enums"`
+	Events   []eventDoc            `json:"events"`
 }
 
 type serviceDoc struct {
@@ -77,6 +79,12 @@ type enumValueDoc struct {
 	Description string `json:"description"`
 }
 
+type eventDoc struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Prompt      string `json:"prompt"`
+}
+
 var firstSentence = regexp.MustCompile(`^.*?[.!?](\s|$)`)
 
 func buildAPI(notes comments) apiDoc {
@@ -84,6 +92,9 @@ func buildAPI(notes comments) apiDoc {
 		Services: []serviceDoc{},
 		Messages: map[string]messageDoc{},
 		Enums:    map[string]enumDoc{},
+		Events: xslice.Map(eventprompts.All(), func(event eventprompts.Event) eventDoc {
+			return eventDoc{Name: event.Name, Description: event.Description, Prompt: event.DefaultPrompt}
+		}),
 	}
 	index := map[protoreflect.FullName]int{}
 

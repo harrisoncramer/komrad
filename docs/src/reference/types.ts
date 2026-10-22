@@ -53,10 +53,17 @@ export type Service = {
   methods: Method[];
 };
 
+export type Event = {
+  name: string;
+  description: string;
+  prompt: string;
+};
+
 export type API = {
   services: Service[];
   messages: Record<string, Message>;
   enums: Record<string, Enum>;
+  events: Event[];
 };
 
 export type Flag = {

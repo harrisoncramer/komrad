@@ -8,6 +8,7 @@ import IndexList from "./IndexList.astro";
 import Sidebar from "../Sidebar.astro";
 import ParentLink from "./ParentLink.astro";
 import { commandBySlug, commandHref, prose } from "../../reference";
+import { codeLink } from "../../reference/refs";
 import { link } from "../../site";
 import { cliSidebar } from "../../sidebar";
 import type { Command } from "../../reference/types";
@@ -35,7 +36,7 @@ const children = command.children.flatMap((slug) => commandBySlug.get(slug) ?? [
 
   <Code code={command.usage} lang="bash" theme={codeTheme} />
 
-  {long && <div set:html={prose(long)} />}
+  {long && <div set:html={prose(long, codeLink({}))} />}
 
   {command.slug === "rpc" && (
     <p>

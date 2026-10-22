@@ -7,6 +7,7 @@ import MessageTable from "../../../components/reference/MessageTable.astro";
 import Sidebar from "../../../components/Sidebar.astro";
 import ParentLink from "../../../components/reference/ParentLink.astro";
 import { anchor, api, kebab, messageOf, prose, referencedTypes } from "../../../reference";
+import { codeLink } from "../../../reference/refs";
 import type { Field } from "../../../reference/types";
 import { link } from "../../../site";
 import { apiSidebar } from "../../../sidebar";
@@ -84,7 +85,7 @@ const traits = [
     <ParentLink href={link(`/api/${service.slug}`)}>{service.title}</ParentLink>
   </p>
 
-  {details && <div set:html={prose(details)} />}
+  {details && <div set:html={prose(details, codeLink({ messages: [method.request, method.response] }))} />}
 
   <Heading id="calling-it">Calling it</Heading>
   <CallTabs tabs={tabs} />
