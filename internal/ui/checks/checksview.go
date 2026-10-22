@@ -1,4 +1,4 @@
-package ui
+package checks
 
 import (
 	"slices"
@@ -18,11 +18,11 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-func (c *statusChecksScreen) emptyLine(in screen.Inputs) string {
+func (c *Screen) emptyLine(in screen.Inputs) string {
 	switch {
 	case c.err != nil:
 		return "could not list: " + errui.GetReason(c.err)
-	case statusChecksPullRequestID(in.Listing, c.agentID) == "":
+	case pullRequestOf(in.Listing, c.agentID) == "":
 		return "no pull request"
 	case !c.listed:
 		return "reading…"
@@ -30,29 +30,29 @@ func (c *statusChecksScreen) emptyLine(in screen.Inputs) string {
 		return "no status checks yet"
 	}
 
-	switch scope := c.shownScope(); scope {
-	case statusCheckScopeNotPassing:
+	switch shown := c.shownScope(); shown {
+	case scopeNotPassing:
 		return "every status check passes"
-	case statusCheckScopeActive, statusCheckScopeFailing:
-		return "no " + statusCheckScopeLabels[scope] + " status checks"
-	case statusCheckScopeAll:
+	case scopeActive, scopeFailing:
+		return "no " + scopeLabels[shown] + " status checks"
+	case scopeAll:
 	}
 
 	return "no status checks yet"
 }
 
-// statusCheckColumns is the gutter of the status checks list: the icon of where each status check stands.
-func statusCheckColumns() view.Columns {
+// columns is the gutter of the status checks list: the icon of where each status check stands.
+func columns() view.Columns {
 	return view.Columns{
 		{Kind: view.ColumnText, Width: glyph.Columns},
 	}
 }
 
-func (c *statusChecksScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
+func (c *Screen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
 	rows := c.rows(in)
 
 	return view.Snapshot{
-		Rows: xslice.Map(rows, func(r statusCheckRow) view.Row {
+		Rows: xslice.Map(rows, func(r checkRow) view.Row {
 			return view.Row{
 				Key:     r.Key(),
 				Kind:    view.KindResult,
@@ -60,24 +60,24 @@ func (c *statusChecksScreen) snapshot(in screen.Inputs, pane list.Pane) view.Sna
 				Matches: list.Matches(in.Room.Pattern.Regexp, r.item.name),
 				Process: view.ProcessNone,
 				Cells: []view.Cell{
-					statusCheckIcon(r.item, in.Room.Spinner),
+					checkIcon(r.item, in.Room.Spinner),
 				},
 			}
 		}),
 		Caret:   pane.Caret,
 		Focused: list.KeyAt(rows, c.Row),
 		Pane:    pane.Width,
-		Columns: statusCheckColumns(),
+		Columns: columns(),
 	}
 }
 
-// statusCheckIcon is the icon rendered beside a check, in the glyphs and tones the forge column of
+// checkIcon is the icon rendered beside a check, in the glyphs and tones the forge column of
 // the sidebar renders a pull request's checks with.
-func statusCheckIcon(item statusCheckItem, loaderFrame string) view.Cell {
+func checkIcon(item check, loaderFrame string) view.Cell {
 	switch {
-	case isStatusCheckUnknown(item):
+	case isUnknown(item):
 		return view.Cell{Glyph: glyph.StatusCheckUnknown, Tone: paint.ToneMuted}
-	case isStatusCheckInFlight(item):
+	case isInFlight(item):
 		return view.Cell{Text: loaderFrame, Tone: paint.ToneWarning}
 	case item.passed && strings.EqualFold(item.conclusion, "success"):
 		return view.Cell{Glyph: glyph.StatusCheckPassing, Tone: paint.ToneSuccess}
@@ -88,19 +88,18 @@ func statusCheckIcon(item statusCheckItem, loaderFrame string) view.Cell {
 	return view.Cell{Glyph: glyph.StatusCheckFailing, Tone: paint.ToneDanger}
 }
 
-func (c *statusChecksScreen) docRows(in screen.Inputs, width int) []string {
+func (c *Screen) docRows(in screen.Inputs, width int) []string {
 	rows := c.rows(in)
 	if c.Row < 0 || c.Row >= len(rows) {
 		return nil
 	}
 
 	item := rows[c.Row].item
-	indent := strings.Repeat(" ", docMargin())
-	icon := func(item statusCheckItem) string {
-		cell := statusCheckIcon(item, in.Room.Spinner)
+	icon := func(item check) string {
+		cell := checkIcon(item, in.Room.Spinner)
 		text := cell.Text
 		if text == "" {
-			text = c.deps.glyphs.Spell(cell.Glyph)
+			text = c.deps.Glyphs.Spell(cell.Glyph)
 		}
 
 		return paint.Panel.Style(cell.Tone).Render(text)
@@ -108,7 +107,7 @@ func (c *statusChecksScreen) docRows(in screen.Inputs, width int) []string {
 
 	var notice []string
 	switch duration := dates.Between(item.startedAt, item.finishedAt); {
-	case isStatusCheckUnknown(item):
+	case isUnknown(item):
 		notice = append(notice, "unknown")
 	case duration != "":
 		notice = append(notice, duration)
@@ -117,26 +116,26 @@ func (c *statusChecksScreen) docRows(in screen.Inputs, width int) []string {
 		notice = append(notice, label.Count(len(item.steps), "step", "steps"))
 	}
 
-	out := []string{paint.FitRow(indent+icon(item)+" "+lipgloss.NewStyle().Bold(true).Render(item.name), width)}
+	out := []string{paint.FitRow(icon(item)+" "+lipgloss.NewStyle().Bold(true).Render(item.name), width)}
 	if len(notice) > 0 {
-		out = append(out, paint.FitRow(indent+paint.Panel.Style(paint.ToneMuted).Render(strings.Join(notice, separated)), width))
+		out = append(out, paint.FitRow(paint.Panel.Style(paint.ToneMuted).Render(strings.Join(notice, separated)), width))
 	}
 	out = append(out, "")
 	if len(item.steps) == 0 {
-		return append(out, paint.FitRow(indent+paint.Panel.Style(paint.ToneMuted).Render("no steps reported"), width))
+		return append(out, paint.FitRow(paint.Panel.Style(paint.ToneMuted).Render("no steps reported"), width))
 	}
 
-	focal := slices.IndexFunc(item.steps, func(step statusCheckItem) bool { return !step.passed })
+	focal := slices.IndexFunc(item.steps, func(step check) bool { return !step.passed })
 	for i, step := range item.steps {
-		lead := indent + icon(step) + " "
+		lead := icon(step) + " "
 		duration := dates.Between(step.startedAt, step.finishedAt)
-		name := ansi.Truncate(step.name, max(width-lipgloss.Width(lead)-lipgloss.Width(duration)-docMargin()-1, 0), "…")
+		name := ansi.Truncate(step.name, max(width-lipgloss.Width(lead)-lipgloss.Width(duration)-1, 0), "…")
 		if i == focal {
 			name = lipgloss.NewStyle().Bold(true).Render(name)
 		}
 
 		left := lead + name
-		gap := max(width-lipgloss.Width(left)-lipgloss.Width(duration)-docMargin(), 1)
+		gap := max(width-lipgloss.Width(left)-lipgloss.Width(duration), 1)
 		out = append(out, paint.FitRow(left+strings.Repeat(" ", gap)+paint.Panel.Style(paint.ToneMuted).Render(duration), width))
 	}
 

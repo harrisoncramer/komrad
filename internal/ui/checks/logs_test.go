@@ -1,4 +1,4 @@
-package ui_test
+package checks_test
 
 import (
 	"fmt"

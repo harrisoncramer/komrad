@@ -230,21 +230,19 @@ func (h *documentHistory) renamedFrom() string {
 
 // changeRows is what stands in place of the diff while the change is not rendered as one.
 func (h *documentHistory) changeRows(width int) []string {
-	indent := strings.Repeat(" ", docMargin())
-
 	before, after, ok := h.readChange()
 	switch {
 	case !ok:
-		return []string{paint.FitRow(indent+paint.Panel.Style(paint.ToneMuted).Render("reading…"), width)}
+		return []string{paint.FitRow(paint.Panel.Style(paint.ToneMuted).Render("reading…"), width)}
 	case after.err != nil:
-		return []string{paint.FitRow(indent+"could not read: "+errui.GetReason(after.err), width)}
+		return []string{paint.FitRow("could not read: "+errui.GetReason(after.err), width)}
 	case before.err != nil:
-		return []string{paint.FitRow(indent+"could not read: "+errui.GetReason(before.err), width)}
+		return []string{paint.FitRow("could not read: "+errui.GetReason(before.err), width)}
 	case h.isOldestKeptLate():
 		return paint.DocStyledRows(after.body+"\n", width, columnStyle())
 	}
 
-	return []string{paint.FitRow(indent+paint.Panel.Style(paint.ToneMuted).Render("no change to the text"), width)}
+	return []string{paint.FitRow(paint.Panel.Style(paint.ToneMuted).Render("no change to the text"), width)}
 }
 
 // documentTypeFrom is a type's context as the panel renders it beside the list.

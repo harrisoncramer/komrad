@@ -1,4 +1,4 @@
-package ui
+package checks
 
 import (
 	"cmp"
@@ -20,23 +20,23 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-func (c statusCheckLogsScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
+func (c Logs) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
 	rows := c.rows(in)
 
 	return view.Snapshot{
-		Rows: xslice.Map(rows, func(r statusCheckLogRow) view.Row {
-			name := statusCheckLogRowName(r)
+		Rows: xslice.Map(rows, func(r logRow) view.Row {
+			name := logRowName(r)
 			row := view.Row{
 				Key:     r.Key(),
 				Kind:    view.KindResult,
 				Name:    name,
 				Matches: list.Matches(in.Room.Pattern.Regexp, name),
 				Process: view.ProcessNone,
-				Cells:   []view.Cell{statusCheckIcon(r.item, in.Room.Spinner)},
+				Cells:   []view.Cell{checkIcon(r.item, in.Room.Spinner)},
 			}
 			if r.step != nil {
 				row.Kind = view.KindChild
-				row.Cells = []view.Cell{statusCheckLogStepIcon(r.step)}
+				row.Cells = []view.Cell{stepIcon(r.step)}
 			}
 
 			return row
@@ -44,17 +44,17 @@ func (c statusCheckLogsScreen) snapshot(in screen.Inputs, pane list.Pane) view.S
 		Caret:   pane.Caret,
 		Focused: list.KeyAt(rows, c.Row),
 		Pane:    pane.Width,
-		Columns: statusCheckColumns(),
+		Columns: columns(),
 	}
 }
 
-// statusCheckLogStepIcon is the icon of a step of a log, blank for a step that reported no conclusion.
-func statusCheckLogStepIcon(step *pullrequestv1.CheckLogStep) view.Cell {
+// stepIcon is the icon of a step of a log, blank for a step that reported no conclusion.
+func stepIcon(step *pullrequestv1.CheckLogStep) view.Cell {
 	if step.GetConclusion() == "" {
 		return view.Cell{}
 	}
 
-	return statusCheckIcon(statusCheckItem{
+	return checkIcon(check{
 		state:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 		conclusion: step.GetConclusion(),
 		passed:     step.GetPassed(),
@@ -62,20 +62,19 @@ func statusCheckLogStepIcon(step *pullrequestv1.CheckLogStep) view.Cell {
 }
 
 // doc is the logs of the shown checks rendered at a width, with the row each list row's header is rendered on.
-func (c statusCheckLogsScreen) doc(width int) statusCheckLogsRendered {
+func (c Logs) doc(width int) logsRendered {
 	shown := c.shown()
 	shape := c.docShape(shown, width)
 	if c.rendered.shape == shape {
 		return c.rendered
 	}
 
-	indent := strings.Repeat(" ", docMargin())
-	wrap := max(width-2*docMargin(), 1)
+	wrap := max(width, 1)
 	var rows []string
 	anchors := map[string]int{}
 	line := func(text string, style lipgloss.Style) {
 		rows = append(rows, xslice.Map(strings.Split(ansi.Wrap(text, wrap, ""), "\n"), func(part string) string {
-			return paint.FitRow(indent+style.Render(part), width)
+			return paint.FitRow(style.Render(part), width)
 		})...)
 	}
 
@@ -84,9 +83,9 @@ func (c statusCheckLogsScreen) doc(width int) statusCheckLogsRendered {
 			rows = append(rows, "")
 		}
 
-		anchors[statusCheckLogRow{item: item}.Key()] = len(rows)
+		anchors[logRow{item: item}.Key()] = len(rows)
 		title := "═ " + item.name + " "
-		rows = append(rows, paint.FitRow(indent+lipgloss.NewStyle().Bold(true).Render(title+strings.Repeat("═", max(wrap-lipgloss.Width(title), 0))), width))
+		rows = append(rows, paint.FitRow(lipgloss.NewStyle().Bold(true).Render(title+strings.Repeat("═", max(wrap-lipgloss.Width(title), 0))), width))
 
 		if notice := c.logNotice(item); notice != "" {
 			line(notice, paint.Panel.Style(paint.ToneMuted))
@@ -99,7 +98,7 @@ func (c statusCheckLogsScreen) doc(width int) statusCheckLogsRendered {
 		})
 		header := func(upTo int) {
 			for len(steps) > 0 && int(steps[0].GetFirstLine()) <= upTo {
-				anchors[statusCheckLogRow{item: item, step: steps[0]}.Key()] = len(rows)
+				anchors[logRow{item: item, step: steps[0]}.Key()] = len(rows)
 				line(glyph.Step+" "+steps[0].GetName(), lipgloss.NewStyle().Bold(true))
 				steps = steps[1:]
 			}
@@ -110,7 +109,7 @@ func (c statusCheckLogsScreen) doc(width int) statusCheckLogsRendered {
 			header(n + 1)
 
 			style := lipgloss.NewStyle()
-			if strings.HasPrefix(text, statusCheckLogErrorMarker) {
+			if strings.HasPrefix(text, logErrorMarker) {
 				style = paint.Panel.Style(paint.ToneDanger)
 			}
 			line(strings.ReplaceAll(text, "\t", "    "), style)
@@ -120,7 +119,7 @@ func (c statusCheckLogsScreen) doc(width int) statusCheckLogsRendered {
 		}
 	}
 
-	return statusCheckLogsRendered{
+	return logsRendered{
 		shape:   shape,
 		rows:    rows,
 		anchors: anchors,
@@ -128,7 +127,7 @@ func (c statusCheckLogsScreen) doc(width int) statusCheckLogsRendered {
 }
 
 // docShape names everything the document is rendered from, so it is rendered again only once that changes.
-func (c statusCheckLogsScreen) docShape(shown []statusCheckItem, width int) string {
+func (c Logs) docShape(shown []check, width int) string {
 	var shape strings.Builder
 	fmt.Fprintf(&shape, "%d/%d", c.generation, width)
 	for _, item := range shown {
@@ -144,7 +143,7 @@ func (c statusCheckLogsScreen) docShape(shown []statusCheckItem, width int) stri
 }
 
 // logNotice is what is rendered under a check in place of its log, empty while there are lines to render.
-func (c statusCheckLogsScreen) logNotice(item statusCheckItem) string {
+func (c Logs) logNotice(item check) string {
 	read := c.reads[item.checkID]
 	switch {
 	case read != nil && read.err != nil:
