@@ -53,7 +53,7 @@ func (d *documentsScreen) documentTypeTable() []keys.Action[*model] {
 		keys.Action[*model]{
 			ID:   actionDocumentsBack,
 			Keys: keys.FixedBack,
-			Nav:  func(m *model, _ string) screen.Request { return d.back(m, m.inputs()) },
+			Nav:  func(m *model, _ string) screen.Request { return d.back(m) },
 		},
 	)
 }
@@ -78,7 +78,7 @@ func (d *documentsScreen) documentTable() []keys.Action[*model] {
 			ID:   actionDocumentsBack,
 			Keys: keys.FixedBack,
 			Nav: func(m *model, _ string) screen.Request {
-				return d.back(m, m.inputs())
+				return d.back(m)
 			},
 		},
 	})

@@ -353,7 +353,7 @@ func (d *documentsScreen) crumbs(m *model, in screen.Inputs) crumbs {
 	return trail
 }
 
-func (d *documentsScreen) back(m *model, in screen.Inputs) screen.Request {
+func (d *documentsScreen) back(*model) screen.Request {
 	return screen.PickView{}
 }
 
