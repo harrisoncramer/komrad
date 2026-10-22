@@ -82,7 +82,7 @@ func (a *agentsScreen) StepKind(_ screen.Inputs, delta int) screen.Request {
 	return screen.Leave{Then: func() screen.Request {
 		a.kind = agentsKind(tabs.StepStop(int(a.kind), delta, len(a.Kinds().Labels)))
 		var staged screen.Request
-		if shown := a.shownArchive(); shown != nil {
+		if shown := a.archiveOfKind(); shown != nil {
 			shown.Selected = list.Selection{}
 			staged = shown.Stage()
 		} else {
@@ -94,8 +94,8 @@ func (a *agentsScreen) StepKind(_ screen.Inputs, delta int) screen.Request {
 	}}
 }
 
-// shownArchive is the archived or deleted agents the agents view is on, and nil on the live kind.
-func (a *agentsScreen) shownArchive() *archivedAgents {
+// archiveOfKind is the archived or deleted agents the agents view is on, and nil on the live kind.
+func (a *agentsScreen) archiveOfKind() *archivedAgents {
 	switch a.kind {
 	case agentsArchived:
 		return &a.archived
@@ -110,7 +110,7 @@ func (a *agentsScreen) shownArchive() *archivedAgents {
 // ShownArchive is the archived or deleted agents the agents view is on, as the screen that renders
 // them, and false on the live kind.
 func (a *agentsScreen) ShownArchive() (archivedAgentsScreen, bool) {
-	shown := a.shownArchive()
+	shown := a.archiveOfKind()
 	if shown == nil {
 		return archivedAgentsScreen{}, false
 	}

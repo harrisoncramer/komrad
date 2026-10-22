@@ -74,7 +74,7 @@ func (m *model) isPopupForm() bool {
 
 // MeasurePopup is the columns inside the popup over the review and the rows inside the tallest popup
 // it has room for beside the cursor.
-func (r reviewScreen) MeasurePopup(in screen.Inputs, chrome screen.Chrome) (int, int) {
+func (r reviewScreen) MeasurePopup(in screen.Inputs, chrome screen.Chrome) (width, height int) {
 	return r.measurePopupInner(in), placePopup(r.popupAnchor(in), r.measurePopupStage(in, chrome), popupHeight).room()
 }
 

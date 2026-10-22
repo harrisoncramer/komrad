@@ -186,7 +186,7 @@ func (a *agentsScreen) relist(in screen.Inputs, relisted screen.Relisted) screen
 	before := relisted.Before(in)
 	treeRow := a.list().Hovered(before)
 	triageSlot := a.findZoneSlot(before)
-	archiveShown := a.shownArchive()
+	archiveShown := a.archiveOfKind()
 	var archivedRow string
 	if archiveShown != nil {
 		archivedRow = archiveShown.list().Hovered(before)
