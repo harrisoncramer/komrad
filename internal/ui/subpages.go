@@ -4,6 +4,7 @@ import (
 	"errors"
 	"slices"
 
+	"komrad/config"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
@@ -28,25 +29,25 @@ var (
 )
 
 // agentMenu is the band of the menu that acts on an agent, with the entries a screen adds of its own before git.
-func agentMenu(m *model, item panel.AgentRow, own ...menu.Entry) menu.Menu {
+func agentMenu(m *model, bindings config.Keybindings, item panel.AgentRow, own ...menu.Entry) menu.Menu {
 	agent := item.Agent
 	task := m.listing.Tasks.FindForAgent(agent)
 
-	entries := slices.Concat(subpageEntries(m, item, agentSubpages(agent)), own)
+	entries := slices.Concat(subpageEntries(m, bindings, item, agentSubpages(agent)), own)
 	if agent.ArchivedAt == nil || task.ArchivedAt != nil {
-		entries = append(entries, menu.Nested("git", m.keys.Menu.Git, gitMenu(m, task)))
+		entries = append(entries, menu.Nested("git", bindings.Menu.Git, gitMenu(m, task)))
 	}
 
 	return menu.Menu{
 		Title:   m.listing.AgentName(agent),
-		Entries: append(entries, menu.Nested("jump", m.keys.Menu.Jump, jumpMenu(m, screen.Agents, screen.Target{AgentID: agent.ID}))),
+		Entries: append(entries, menu.Nested("jump", bindings.Menu.Jump, jumpMenu(m, bindings, screen.Agents, screen.Target{AgentID: agent.ID}))),
 	}
 }
 
 // subpageEntries are the entries that open the agent's pages from the agents list.
-func subpageEntries(m *model, item panel.AgentRow, pages []subpage) []menu.Entry {
+func subpageEntries(m *model, bindings config.Keybindings, item panel.AgentRow, pages []subpage) []menu.Entry {
 	return xslice.Map(pages, func(page subpage) menu.Entry {
-		entry := subpageEntry(m, screen.Agents, item, page)
+		entry := page.entry(m, bindings, screen.Agents, item)
 		if entry.Opens == nil {
 			entry.Pick = func() screen.Request { return m.enterSubpage(screen.Agents, item.Agent.ID, page) }
 		}
@@ -67,23 +68,23 @@ func agentSubpages(agent panel.Agent) []subpage {
 	return []subpage{subpageReview, subpageLogs, subpageChecks, subpageTerminal}
 }
 
-// subpageEntry is how a subpage is rendered in an agent's menu.
-func subpageEntry(m *model, openedFrom screen.ID, item panel.AgentRow, page subpage) menu.Entry {
-	switch page {
+// entry is how the subpage is rendered in an agent's menu.
+func (p subpage) entry(m *model, bindings config.Keybindings, openedFrom screen.ID, item panel.AgentRow) menu.Entry {
+	switch p {
 	case subpageReview:
 		return menu.Entry{
 			Label: "review",
-			Keys:  m.keys.Menu.Review,
+			Keys:  bindings.Menu.Review,
 			Off:   reviewRefusal(m.listing, item.Agent) != nil,
 		}
 	case subpageLogs:
-		return menu.Entry{Label: "logs", Keys: m.keys.Menu.Logs}
+		return menu.Entry{Label: "logs", Keys: bindings.Menu.Logs}
 	case subpageChecks:
-		return menu.Entry{Label: "status checks", Keys: m.keys.Menu.StatusChecks}
+		return menu.Entry{Label: "status checks", Keys: bindings.Menu.StatusChecks}
 	case subpageTerminal:
 		return menu.Entry{
 			Label: "terminal",
-			Keys:  m.keys.Menu.Terminal,
+			Keys:  bindings.Menu.Terminal,
 			Off:   terminalRefusal(openedFrom, item.Agent) != nil,
 		}
 	}

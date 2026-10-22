@@ -2,8 +2,8 @@ package ui
 
 import (
 	"errors"
-	"time"
 
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
@@ -12,8 +12,6 @@ import (
 
 	"charm.land/huh/v2"
 )
-
-const mergeTimeout = 30 * time.Second
 
 // mergeChoice is one entry of the merge menu.
 type mergeChoice int
@@ -96,7 +94,7 @@ func (m *model) runMerge(taskID string, choice mergeChoice) screen.Request {
 			return screen.Report{Summary: "Could not change auto-merge on the " + task.PullRequest.Noun() + " of " + task.Slug, Err: err}
 		}
 		if task.PullRequest.MergeReadiness.AutoMerge {
-			return m.autoMergeWrite(task, mergeParams{url: task.PullRequest.URL, headSHA: task.PullRequest.HeadSHA}, false)
+			return m.autoMergeWrite(task, api.MergeParams{URL: task.PullRequest.URL, HeadSHA: task.PullRequest.HeadSHA}, false)
 		}
 	case mergeChoiceMergeRebase:
 		if err := mergeRebaseRefusal(m.listing, task); err != nil {
@@ -121,7 +119,7 @@ func (m *model) planMerge(task panel.Task, choice mergeChoice) screen.Request {
 	return screen.Write{
 		Doing: "planning the merge of " + task.PullRequest.Ref(),
 		Send: func() screen.Landed {
-			plan, err := clients.planPullRequestMerge(task.PullRequest.URL)
+			plan, err := clients.PlanPullRequestMerge(task.PullRequest.URL)
 
 			return screen.Landed{
 				Replaces: err == nil,
@@ -185,7 +183,7 @@ func mergeOptionOf(plan *forgev1.PlanForgePullRequestMergeResponse, method forge
 }
 
 // mergeWrite is the write that does what the merge menu entry asked for, the way the form says.
-func (m *model) mergeWrite(task panel.Task, choice mergeChoice, params mergeParams) screen.Write {
+func (m *model) mergeWrite(task panel.Task, choice mergeChoice, params api.MergeParams) screen.Write {
 	switch choice {
 	case mergeChoiceAutoMerge:
 		return m.autoMergeWrite(task, params, true)
@@ -197,11 +195,11 @@ func (m *model) mergeWrite(task panel.Task, choice mergeChoice, params mergePara
 	return m.gitOpWrite(mergeOp(task, choice == mergeChoiceMergeArchive, params))
 }
 
-func mergeOp(task panel.Task, archive bool, params mergeParams) gitOp {
+func mergeOp(task panel.Task, archive bool, params api.MergeParams) gitOp {
 	return gitOp{
 		running: "merging " + task.PullRequest.Ref(),
-		run: func(clients api) gitReport {
-			err := clients.mergePullRequest(params)
+		run: func(clients api.Clients) gitReport {
+			err := clients.MergePullRequest(params)
 
 			return func(m *model) screen.Request {
 				return m.reportMerged(task, archive, err)
@@ -225,22 +223,24 @@ func (m *model) reportMerged(task panel.Task, archive bool, err error) screen.Re
 		return merged
 	}
 
-	return screen.Batch{merged, m.archiveTasks([]panel.Task{task})}
+	tasks := []panel.Task{task}
+
+	return screen.Batch{merged, m.api.ArchiveTasksWrite(tasks, m.listing.AgentsOnTasks(tasks))}
 }
 
-func mergeRebaseOp(task panel.Task, params mergeParams) gitOp {
+func mergeRebaseOp(task panel.Task, params api.MergeParams) gitOp {
 	taskID, name := task.ID, task.Slug
 
 	return gitOp{
 		running: "merging " + task.PullRequest.Ref() + " and rebasing " + name,
-		run: func(clients api) gitReport {
-			if err := clients.mergePullRequest(params); err != nil {
+		run: func(clients api.Clients) gitReport {
+			if err := clients.MergePullRequest(params); err != nil {
 				return func(m *model) screen.Request {
 					return m.reportMerged(task, false, err)
 				}
 			}
 
-			result, err := clients.rebaseWorktree(taskID, false)
+			result, err := clients.RebaseWorktree(taskID, false)
 
 			return func(m *model) screen.Request {
 				return screen.Batch{m.reportMerged(task, false, nil), reportRebased(name, result, err)}

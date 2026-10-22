@@ -1,6 +1,7 @@
 package panel
 
 import (
+	"errors"
 	"time"
 
 	schedulev1 "komrad/proto/gen/schedule/v1"
@@ -46,4 +47,19 @@ type ScheduleConfig struct {
 	WorkflowID     string
 	Kind           schedulev1.ScheduleKind
 	OrchestratorID string
+}
+
+// ErrUnknownScheduleKind refuses a schedule whose kind this build does not know.
+var ErrUnknownScheduleKind = errors.New("this build of komrad does not know the schedule's kind, so update it first")
+
+// IsKnownScheduleKind reports whether this build knows what a schedule of this kind targets.
+func IsKnownScheduleKind(kind schedulev1.ScheduleKind) bool {
+	switch kind {
+	case schedulev1.ScheduleKind_SCHEDULE_KIND_UNSPECIFIED,
+		schedulev1.ScheduleKind_SCHEDULE_KIND_TASK,
+		schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR:
+		return true
+	}
+
+	return false
 }

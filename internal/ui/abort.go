@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
@@ -16,8 +17,8 @@ import (
 func abortOp(taskID, name string, sequence panel.Sequence) gitOp {
 	return gitOp{
 		running: "aborting the " + string(sequence) + " of " + name,
-		run: func(clients api) gitReport {
-			result, err := clients.abortSequence(taskID)
+		run: func(clients api.Clients) gitReport {
+			result, err := clients.AbortSequence(taskID)
 
 			return func(*model) screen.Request { return reportAborted(name, sequence, result, err) }
 		},

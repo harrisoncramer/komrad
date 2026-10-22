@@ -3,7 +3,10 @@ package ui
 import (
 	"slices"
 
+	"komrad/config"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
@@ -38,9 +41,17 @@ func (s worktreeScope) listsAgent(items []panel.Worktree, id string) bool {
 	return slices.ContainsFunc(items, func(item panel.Worktree) bool { return s.holds(item) && item.HoldsAgent(id) })
 }
 
+// worktreesDeps is what the worktrees screen is given at launch.
+type worktreesDeps struct {
+	keys    config.Keybindings
+	clients api.Clients
+	top     *keys.Top
+}
+
 // worktreesScreen is the worktrees screen: the directories the listing holds, the cursor in
 // them, which of them are listed, and how they are ordered.
 type worktreesScreen struct {
+	deps worktreesDeps
 	list.Cursor
 	// focus is the agent whose directory the next listing puts the cursor on.
 	focus      string

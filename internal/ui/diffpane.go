@@ -8,6 +8,7 @@ import (
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/screen"
+	"komrad/internal/vim"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -24,8 +25,10 @@ const diffFloor = diffview.GutterWidth + 20
 
 // diffKeys is the keys that walk a diff pane.
 type diffKeys struct {
-	pane   *diffview.Pane
-	filter *filterState
+	keys     config.Keybindings
+	register *vim.Register
+	pane     *diffview.Pane
+	filter   *filterState
 	// window is the size the panel renders the pane at.
 	window func(*model) diffview.Window
 	// moved is what the screen does once the reader lands somewhere new, and is nil on a screen
@@ -42,7 +45,7 @@ func (k diffKeys) table() []keys.Action[*model] {
 			ID:   actionDiffFile,
 			Keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.NextFile, b.Diff.PrevFile) },
 			Nav: func(m *model, pressed string) screen.Request {
-				if !k.pane.JumpFile(keys.DirectionOf(pressed, m.keys.Diff.PrevFile), k.window(m)) {
+				if !k.pane.JumpFile(keys.DirectionOf(pressed, k.keys.Diff.PrevFile), k.window(m)) {
 					return nil
 				}
 
@@ -63,7 +66,7 @@ func (k diffKeys) table() []keys.Action[*model] {
 			ID:   actionDiffMatch,
 			Keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.NextMatch, b.Diff.PrevMatch) },
 			Nav: func(m *model, pressed string) screen.Request {
-				return k.jumpMatch(m, keys.DirectionOf(pressed, m.keys.Diff.PrevMatch))
+				return k.jumpMatch(m, keys.DirectionOf(pressed, k.keys.Diff.PrevMatch))
 			},
 		},
 		{
@@ -71,7 +74,7 @@ func (k diffKeys) table() []keys.Action[*model] {
 			Keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.PanLeft, b.Diff.PanRight) },
 			When: isPanning,
 			Nav: func(m *model, pressed string) screen.Request {
-				k.pane.PanBy(keys.DirectionOf(pressed, m.keys.Diff.PanLeft) * panStep(m))
+				k.pane.PanBy(keys.DirectionOf(pressed, k.keys.Diff.PanLeft) * panStep(m))
 
 				return nil
 			},
@@ -203,7 +206,7 @@ func (k diffKeys) updateFilter(m *model, key tea.KeyPressMsg) screen.Request {
 		return screen.Hide{}
 	}
 
-	if k.filter.takeKey(key, m.register) {
+	if k.filter.takeKey(key, k.register) {
 		k.search(m)
 	}
 

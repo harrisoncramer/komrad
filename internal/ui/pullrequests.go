@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
@@ -75,7 +76,7 @@ func (m *model) openURLCmd(target string) tea.Cmd {
 	opener := m.browser
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), api.RequestTimeout)
 		defer cancel()
 
 		return urlOpenedMsg{target: target, err: opener.OpenURL(ctx, target)}

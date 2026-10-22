@@ -2,13 +2,11 @@ package ui
 
 import (
 	"errors"
-	"time"
 
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 )
-
-const autoMergeTimeout = 30 * time.Second
 
 var errNoAutoMerge = errors.New("the forge refused to queue it, so merge it now if nothing is left to wait for, or check that the repository allows auto-merge")
 
@@ -42,7 +40,7 @@ func autoMergeRefusal(task panel.Task) error {
 
 // autoMergeWrite is the write that asks the forge to merge the task's pull request once its
 // checks and reviews pass, or to stop waiting to.
-func (m *model) autoMergeWrite(task panel.Task, params mergeParams, on bool) screen.Write {
+func (m *model) autoMergeWrite(task panel.Task, params api.MergeParams, on bool) screen.Write {
 	clients := m.api
 	ref := task.PullRequest.Ref()
 	doing, said := "cancelling auto-merge on "+ref, " no longer merges on its own"
@@ -55,7 +53,7 @@ func (m *model) autoMergeWrite(task panel.Task, params mergeParams, on bool) scr
 		Summary: "Could not change auto-merge on " + ref + " of " + task.Slug,
 		Send: func() screen.Landed {
 			return screen.Landed{
-				Err:    clients.setPullRequestAutoMerge(params, on),
+				Err:    clients.SetPullRequestAutoMerge(params, on),
 				Notice: &screen.Notice{Summary: task.Slug + ": " + ref + said, Detail: task.PullRequest.Title},
 			}
 		},

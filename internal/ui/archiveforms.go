@@ -14,7 +14,7 @@ import (
 // deleteChosenConfirm asks what goes when the tasks of chosen agents are deleted.
 func deleteChosenConfirm(work chosenWork, offersWorktree bool) worktreeConfirm {
 	return worktreeConfirm{
-		title:           "Delete " + describeTasks(work.wholeTasks) + "?",
+		title:           "Delete " + panel.DescribeTasks(work.wholeTasks) + "?",
 		dirs:            taskDirs(work.wholeTasks),
 		startsConfirmed: true,
 		values:          newDeleteFormValues(offersWorktree),
@@ -47,7 +47,7 @@ func deleteTasksConfirm(tasks []panel.Task, agentCount int, offersWorktree bool)
 	}
 
 	return worktreeConfirm{
-		title:           "Delete " + describeTasks(tasks) + "?",
+		title:           "Delete " + panel.DescribeTasks(tasks) + "?",
 		warning:         warning,
 		dirs:            taskDirs(tasks),
 		startsConfirmed: true,

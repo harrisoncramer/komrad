@@ -82,7 +82,7 @@ func (l *logsScreen) block(m *model, width int) []string {
 		rows = append(rows, "")
 	}
 
-	return append(rows, m.markSearch(stopBlock, width, fitRow(list.Blank+l.logFilterLine(m.glyphs), width)))
+	return append(rows, m.markSearch(stopBlock, width, fitRow(list.Blank+l.logFilterLine(l.deps.glyphs), width)))
 }
 
 // logFilterLine is the prompt at the foot of the log, gray while it does not hold the keys.

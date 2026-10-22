@@ -7,19 +7,23 @@ import (
 	"time"
 
 	"komrad/internal/searchsyntax"
+	"komrad/internal/ui/api"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"connectrpc.com/connect"
 )
 
-var documentsQuery = queryGrammar{
-	syntax: searchsyntax.Documents,
-	check:  checkDocumentsClause,
-	search: searchDocumentsSaid,
-}
-
 func (d *documentsScreen) queryGrammar() (queryGrammar, bool) {
-	return documentsQuery, d.kind == documentKindDocuments
+	agents := d.deps.clients.Agents
+	grammar := queryGrammar{
+		syntax: searchsyntax.Documents,
+		check:  checkDocumentsClause,
+		search: func(ctx context.Context, text string) (map[string][]saidHit, error) {
+			return searchDocumentsSaid(ctx, agents, text)
+		},
+	}
+
+	return grammar, d.kind == documentKindDocuments
 }
 
 func checkDocumentsClause(clause searchsyntax.Clause, now time.Time) error {
@@ -166,7 +170,7 @@ func (m *model) openedForTask(slug string) (string, bool) {
 }
 
 // searchDocumentsSaid asks the server which documents hold the text as they stand now, with the passages it was found in keyed by document id.
-func searchDocumentsSaid(ctx context.Context, client agentReads, text string) (map[string][]saidHit, error) {
+func searchDocumentsSaid(ctx context.Context, client api.AgentReads, text string) (map[string][]saidHit, error) {
 	resp, err := client.SearchDocuments(ctx, connect.NewRequest(&agentv1.SearchDocumentsRequest{
 		Query: phrase(text),
 		Limit: saysLimit,

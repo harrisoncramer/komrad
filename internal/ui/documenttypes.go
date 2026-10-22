@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"komrad/config"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/screen"
@@ -25,31 +26,36 @@ type documentTypeFormValues struct {
 }
 
 // newTypeForm is the form that defines a document type, asking its name and its context.
-func newTypeForm(m *model) form.Form {
+func (d *documentsScreen) newTypeForm() form.Form {
 	values := &documentTypeFormValues{}
 
-	return documentTypeFormOf(m, documentTypeFormOfParams{
+	return d.documentTypeFormOf(documentTypeFormOfParams{
 		values:  values,
 		title:   "New document type",
 		doing:   "defining",
 		refused: "Could not define",
-		write: func(a api) error {
-			return a.createDocumentType(strings.TrimSpace(values.Name), values.Context)
+		write: func(a api.Clients) error {
+			return a.CreateDocumentType(strings.TrimSpace(values.Name), values.Context)
 		},
 	})
 }
 
 // editTypeForm is the form that writes a document type's name and context over the ones it has.
-func editTypeForm(m *model, t *agentv1.DocumentType) form.Form {
+func (d *documentsScreen) editTypeForm(t *agentv1.DocumentType) form.Form {
 	values := &documentTypeFormValues{Name: t.GetName(), Context: t.GetContext()}
 
-	return documentTypeFormOf(m, documentTypeFormOfParams{
+	return d.documentTypeFormOf(documentTypeFormOfParams{
 		values:  values,
 		title:   "Edit document type",
 		doing:   "editing",
 		refused: "Could not edit",
-		write: func(a api) error {
-			return a.writeDocumentType(documentTypeItem(t), t.GetVersion(), strings.TrimSpace(values.Name), values.Context)
+		write: func(a api.Clients) error {
+			return a.WriteDocumentType(api.WriteDocumentTypeParams{
+				ID:      t.GetId(),
+				Version: t.GetVersion(),
+				Name:    strings.TrimSpace(values.Name),
+				Context: values.Context,
+			})
 		},
 	})
 }
@@ -60,10 +66,10 @@ type documentTypeFormOfParams struct {
 	title   string
 	doing   string
 	refused string
-	write   func(api) error
+	write   func(api.Clients) error
 }
 
-func documentTypeFormOf(m *model, params documentTypeFormOfParams) form.Form {
+func (d *documentsScreen) documentTypeFormOf(params documentTypeFormOfParams) form.Form {
 	values := params.values
 
 	return form.Form{
@@ -76,10 +82,10 @@ func documentTypeFormOf(m *model, params documentTypeFormOfParams) form.Form {
 				doing, summary = params.doing+" "+name, fmt.Sprintf("%s document type %q", params.refused, name)
 			}
 
-			return m.write(
+			return d.deps.clients.Write(
 				doing,
 				summary,
-				func(a api) error {
+				func(a api.Clients) error {
 					if err := errors.Join(checkDocumentTypeName(name), checkDocumentTypeContext(typeContext)); err != nil {
 						return err
 					}
@@ -101,7 +107,7 @@ func documentTypeForm(values *documentTypeFormValues, title string, fixed config
 }
 
 // deleteTypeForm asks before it deletes a document type.
-func deleteTypeForm(m *model, item documentItem) form.Form {
+func (d *documentsScreen) deleteTypeForm(item documentItem) form.Form {
 	built, confirmed := form.Confirm(
 		fmt.Sprintf("Delete document type %q?", item.name),
 		"Agents can no longer write documents of this type. Komrad refuses the delete while any document still uses it.",
@@ -116,10 +122,10 @@ func deleteTypeForm(m *model, item documentItem) form.Form {
 				return nil
 			}
 
-			return m.write(
+			return d.deps.clients.Write(
 				"deleting "+item.name,
 				fmt.Sprintf("Could not delete document type %q", item.name),
-				func(a api) error { return a.deleteDocumentType(item.id) },
+				func(a api.Clients) error { return a.DeleteDocumentType(item.id) },
 			)
 		},
 		Narrow:          true,

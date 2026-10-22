@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"komrad/internal/client"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/paint"
 
 	tea "charm.land/bubbletea/v2"
@@ -60,10 +61,10 @@ func (m *model) readSaidCmd() tea.Cmd {
 	}
 
 	m.said = saidTranscript{agentID: agentID, text: text}
-	agents := m.api.reads().agents
+	agents := m.api.Agents
 
 	return func() tea.Msg {
-		content, err := call(saidTimeout, func(ctx context.Context) (string, error) {
+		content, err := api.Call(saidTimeout, func(ctx context.Context) (string, error) {
 			return client.GetFullTranscript(ctx, agents, agentID)
 		})
 

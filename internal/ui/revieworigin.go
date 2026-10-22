@@ -27,9 +27,9 @@ type reviewOrigin struct {
 	place *diffview.Place
 }
 
-func (r *reviewScreen) toggleJump(m *model) screen.Request {
+func (r *reviewScreen) toggleJump() screen.Request {
 	if r.diff.spec.origin != nil {
-		return r.leaveOrigin(m)
+		return r.leaveOrigin()
 	}
 
 	thread, ok := r.diff.threadAtCursor()
@@ -55,14 +55,14 @@ func (r *reviewScreen) toggleJump(m *model) screen.Request {
 
 	r.diff.spec = originSpec(origin)
 
-	return r.reload(m)
+	return r.reload()
 }
 
-func (r *reviewScreen) leaveOrigin(m *model) screen.Request {
+func (r *reviewScreen) leaveOrigin() screen.Request {
 	origin := r.diff.spec.origin
 	r.diff.spec = origin.held
 
-	cmd := r.reload(m)
+	cmd := r.reload()
 	r.diff.restore = origin.place
 
 	return cmd

@@ -1,107 +1,11 @@
 package ui
 
 import (
-	"fmt"
-	"path/filepath"
-	"strings"
-
-	"komrad/internal/ui/layout"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 )
-
-// defaultEditor is what the file is opened in when nothing said otherwise.
-const defaultEditor = "vi"
-
-// editorShell is the shell line that runs the user's editor on a file, on one line of it.
-func editorShell(editor, path string, line int) string {
-	command := editorCommand(editor)
-
-	// The editor is left unquoted so an EDITOR of several words stays several words.
-	return "exec " + command + " " + strings.Join(editorLineArgs(command, path, line), " ")
-}
-
-func editorCommand(editor string) string {
-	command := strings.TrimSpace(editor)
-	if command == "" {
-		return defaultEditor
-	}
-
-	return command
-}
-
-// editorLineArgs is how one editor is told which line to open a file on, defaulting to the +line
-// argument every terminal editor in the vi and emacs line takes.
-func editorLineArgs(command, path string, line int) []string {
-	at := shellQuote(fmt.Sprintf("%s:%d", path, line))
-
-	switch name := editorName(command); {
-	case isVSCodeEditor(name):
-		return []string{"--wait", "--goto", at}
-	case name == "subl", name == "sublime_text", name == "zed":
-		return []string{"--wait", at}
-	case name == "hx", name == "helix":
-		return []string{at}
-	case isJetBrainsEditor(name):
-		return []string{"--wait", "--line", fmt.Sprint(line), shellQuote(path)}
-	}
-
-	return []string{fmt.Sprintf("+%d", line), shellQuote(path)}
-}
-
-// editorName is the program an EDITOR of several words runs.
-func editorName(command string) string {
-	fields := strings.Fields(command)
-	if len(fields) == 0 {
-		return ""
-	}
-
-	return filepath.Base(fields[0])
-}
-
-// isVSCodeEditor reports whether the editor is VS Code or one built from it.
-func isVSCodeEditor(name string) bool {
-	switch name {
-	case "code", "code-insiders", "codium", "vscodium", "cursor", "windsurf":
-		return true
-	}
-
-	return false
-}
-
-// isJetBrainsEditor reports whether the editor is one of the JetBrains IDEs.
-func isJetBrainsEditor(name string) bool {
-	switch name {
-	case "goland", "idea", "pycharm", "webstorm", "phpstorm", "rubymine", "clion", "rider", "rustrover",
-		"datagrip":
-		return true
-	}
-
-	return false
-}
-
-// editorContent opens a file in the user's editor, on one line of it.
-func editorContent(editor, dir, path string, line int) layout.Content {
-	open := editorShell(editor, path, line)
-
-	return layout.Content{
-		Key:    fmt.Sprintf("edit:%s:%d", path, line),
-		Dir:    dir,
-		Render: func(layout.Target) ([]string, bool) { return []string{"sh", "-c", open}, true },
-	}
-}
-
-func dirEditorContent(editor, dir string) layout.Content {
-	open := "exec " + editorCommand(editor) + " " + shellQuote(dir)
-
-	return layout.Content{
-		Key:    "edit:" + dir,
-		Dir:    dir,
-		Render: func(layout.Target) ([]string, bool) { return []string{"sh", "-c", open}, true },
-	}
-}
 
 // pressEdit is the edit key, which stops the agent before it opens the editor and closes one
 // already open.
@@ -142,7 +46,7 @@ func (r reviewScreen) isEditRefused(m *model) (string, bool) {
 		return reason, true
 	}
 
-	if reason, refused := m.isRemoteEditRefused(); refused {
+	if reason, refused := r.deps.editorSettings.IsRemoteEditRefused(); refused {
 		return reason, true
 	}
 
@@ -173,7 +77,7 @@ func (r *reviewScreen) editFile(m *model) screen.Request {
 	}
 
 	return screen.Stage{
-		Content: m.fileEditorContent(r.root, path, line),
+		Content: r.deps.editorSettings.FileContent(r.root, path, line),
 		Staged:  func(pane string) tea.Msg { return reviewEditorStaged{path: path, pane: pane} },
 	}
 }
@@ -198,7 +102,7 @@ func (r *reviewScreen) applyEditorStaged(m *model, staged reviewEditorStaged) sc
 	return screen.Note{
 		Kind:    screen.Info,
 		Summary: "editing " + path,
-		Detail:  m.menuChordLabel(m.keys.Review.EditFile) + " to come back",
+		Detail:  m.menuChordLabel(r.deps.keys.Review.EditFile) + " to come back",
 	}
 }
 
@@ -238,7 +142,7 @@ func (r reviewScreen) agentRow(m *model) (panel.AgentRow, bool) {
 // closeEdit gives the stage back to the diff, lets the agent go, and reads the worktree again with
 // the reader's own writing in it.
 func (r *reviewScreen) closeEdit(m *model) screen.Request {
-	return screen.Batch{screen.Unstage{}, r.endHold(m, editedSaid), screen.Restage{}, r.catchUp(m)}
+	return screen.Batch{screen.Unstage{}, r.endHold(m, editedSaid), screen.Restage{}, r.catchUp()}
 }
 
 // reconcileEditor catches the editor pane going away on its own and takes the window back for the
@@ -250,7 +154,7 @@ func (r *reviewScreen) reconcileEditor(m *model) screen.Request {
 
 	// A pane the split refused is not one that can go away, so nothing here reports it as the
 	// editor closing.
-	if r.hold.editorPane == "" || m.isPaneAlive(r.hold.editorPane) {
+	if r.hold.editorPane == "" || r.deps.panes.IsPaneAlive(r.hold.editorPane) {
 		return nil
 	}
 
@@ -264,8 +168,4 @@ func (p reviewHold) editorDesc() string {
 	}
 
 	return "open in your editor"
-}
-
-func shellQuote(value string) string {
-	return "'" + strings.ReplaceAll(value, "'", `'\''`) + "'"
 }

@@ -1,6 +1,7 @@
 package panel
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"time"
@@ -141,4 +142,13 @@ func (t Tasks) ChildrenOf(id string) []Task {
 // TaskIDs is the id of each task, in the order the caller gave them.
 func TaskIDs(tasks []Task) []string {
 	return xslice.Map(tasks, func(task Task) string { return task.ID })
+}
+
+// DescribeTasks names the tasks the way a message about them does.
+func DescribeTasks(tasks []Task) string {
+	if len(tasks) == 1 {
+		return fmt.Sprintf("task %q", tasks[0].Slug)
+	}
+
+	return fmt.Sprintf("%d tasks", len(tasks))
 }

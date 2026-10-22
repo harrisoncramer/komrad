@@ -43,6 +43,8 @@ func (w *worktreesScreen) receive(*model, tea.Msg) (screen.Request, bool) {
 
 func (w *worktreesScreen) list() screenList[worktreeRow] {
 	return screenList[worktreeRow]{
+		keys:   w.deps.keys,
+		top:    w.deps.top,
 		cursor: func() *list.Cursor { return &w.Cursor },
 		rows:   w.rows,
 		name:   worktreeRow.name,
@@ -89,7 +91,7 @@ func (m *model) readWorktreeCmd(dir string) tea.Cmd {
 	clients, clock := m.api, m.clock
 
 	return func() tea.Msg {
-		read, err := clients.getWorktree(dir)
+		read, err := clients.GetWorktree(dir)
 		if err != nil {
 			// The last answer stays on the row with the refusal beside it.
 			last.Answered, last.ReadAt, last.Err = true, clock.Now(), err

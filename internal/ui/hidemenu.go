@@ -11,10 +11,10 @@ func (a *agentsScreen) hideMenu(m *model, tasks []panel.Task) menu.Menu {
 	return menu.Menu{
 		Title: "hide",
 		Entries: []menu.Entry{
-			hideEntry(m, tasks),
+			a.hideEntry(tasks),
 			{
 				Label: a.showHiddenDesc(),
-				Keys:  m.keys.HideMenu.ShowHidden,
+				Keys:  a.deps.keys.HideMenu.ShowHidden,
 				Pick:  m.toggleHidden,
 			},
 		},
@@ -22,11 +22,11 @@ func (a *agentsScreen) hideMenu(m *model, tasks []panel.Task) menu.Menu {
 }
 
 // hideEntry hides or unhides the tasks, and is gray on a row that is no task.
-func hideEntry(m *model, tasks []panel.Task) menu.Entry {
+func (a *agentsScreen) hideEntry(tasks []panel.Task) menu.Entry {
 	if len(tasks) == 0 {
 		return menu.Entry{
 			Label: "hide",
-			Keys:  m.keys.HideMenu.Hide,
+			Keys:  a.deps.keys.HideMenu.Hide,
 			Off:   true,
 		}
 	}
@@ -36,7 +36,7 @@ func hideEntry(m *model, tasks []panel.Task) menu.Entry {
 		label = "unhide"
 	}
 
-	return menu.Holding(label, m.keys.HideMenu.Hide, func() screen.Request { return hideTasks(m, tasks) })
+	return menu.Holding(label, a.deps.keys.HideMenu.Hide, func() screen.Request { return a.hideTasks(tasks) })
 }
 
 // toggleHidden shows the hidden tasks, or puts them away.

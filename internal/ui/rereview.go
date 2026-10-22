@@ -2,14 +2,11 @@ package ui
 
 import (
 	"errors"
-	"time"
 
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
-
-const rereviewTimeout = 30 * time.Second
 
 // rereviewRefusal is why the task's pull request has nobody to ask for another review, nil when
 // it has.
@@ -41,7 +38,7 @@ func (m *model) requestRereview(task panel.Task) screen.Request {
 		Summary: "Could not ask for another review of " + standing.Ref() + " of " + task.Slug,
 		Send: func() screen.Landed {
 			return screen.Landed{
-				Err:    clients.requestPullRequestRereview(standing.URL),
+				Err:    clients.RequestPullRequestRereview(standing.URL),
 				Notice: &screen.Notice{Summary: task.Slug + ": " + standing.Ref() + " is waiting on another review", Detail: standing.Title},
 			}
 		},

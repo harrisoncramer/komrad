@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
@@ -29,6 +30,7 @@ const (
 // archivedAgents is the agents view on its archived or deleted kind, holding the cursor in the agents
 // that kind lists and how they sort.
 type archivedAgents struct {
+	deps agentsDeps
 	kind agentsKind
 	list.Cursor
 	sort  tabsState
@@ -120,7 +122,7 @@ func (a *archivedAgents) enter(m *model, target screen.Target) screen.Request {
 
 func (a *archivedAgents) update(m *model, msg tea.Msg) screen.Request {
 	if _, ok := msg.(tea.PasteMsg); ok && a.isRenaming() {
-		return a.updateRename(m, msg)
+		return a.updateRename(a.deps.register, a.deps.clients, msg)
 	}
 
 	key, ok := msg.(tea.KeyPressMsg)
@@ -130,19 +132,19 @@ func (a *archivedAgents) update(m *model, msg tea.Msg) screen.Request {
 
 	a.reconcileRename(m)
 	if a.isRenaming() {
-		return a.updateRename(m, msg)
+		return a.updateRename(a.deps.register, a.deps.clients, msg)
 	}
 
 	return a.list().update(m, key, a.actions())
 }
 
 func (a *archivedAgents) receive(m *model, msg tea.Msg) (screen.Request, bool) {
-	settled, ok := msg.(renameSettled)
+	settled, ok := msg.(api.RenameSettled)
 	if !ok {
 		return nil, false
 	}
 
-	a.settleRename(m, settled.row, settled.err)
+	a.settleRename(m, settled.Row, settled.Err)
 
 	return nil, true
 }
@@ -170,6 +172,8 @@ func (a *archivedAgents) stepKind(m *model, delta int) screen.Request {
 
 func (a *archivedAgents) list() screenList[agentRow] {
 	return screenList[agentRow]{
+		keys:   a.deps.keys,
+		top:    a.deps.top,
 		cursor: func() *list.Cursor { return &a.Cursor },
 		rows:   a.listRows,
 		name:   agentRowName,
@@ -350,7 +354,7 @@ func (a *archivedAgents) isLoading(m *model) bool {
 }
 
 func (a *archivedAgents) stageResting(m *model) screen.Request {
-	return screen.Batch{a.stage(m), screen.ReadLastScreen{}, m.inspectTaskWorktree(m.clock.Now())}
+	return screen.Batch{a.stage(m), screen.ReadLastScreen{}, m.inspectTaskWorktree(a.deps.clock.Now())}
 }
 
 // menuTarget is what the archive menu would act on, and none on the folder of a live workflow
@@ -422,53 +426,53 @@ func (a *archivedAgents) buildItemMenu(m *model) (menu.Menu, bool) {
 	band := rowMenu(target.name())
 	if row, ok := list.At(a.listRows(m), a.Row); ok && a.holdsAnAgent(m) {
 		item, _ := row.paneItem()
-		band = agentMenu(m, item)
+		band = agentMenu(m, a.deps.keys, item)
 	}
 
 	if a.kind == agentsDeleted {
-		band.Entries = append(band.Entries, deletedEntries(m, target)...)
+		band.Entries = append(band.Entries, deletedEntries(m, a.deps.keys, a.deps.clients, target)...)
 
 		return band, true
 	}
 
-	return menu.WithNested(band, "archive", m.keys.Menu.Archive, archiveMenu(m, target)), true
+	return menu.WithNested(band, "archive", a.deps.keys.Menu.Archive, archiveMenu(m, a.deps.keys, a.deps.clients, target)), true
 }
 
 // restoreAndResume takes the agents out of the archive and puts the resumed agent's conversation back in a pane.
-func restoreAndResume(m *model, agents []panel.Agent, resumed panel.Agent) screen.Request {
-	return m.openingWrite("restoring "+resumed.Name, fmt.Sprintf("Could not restore and open agent %q", resumed.Name), func(a api) (*agentv1.Agent, error) {
-		if err := a.restoreAgents(panel.IDs(agents)); err != nil {
+func restoreAndResume(clients api.Clients, agents []panel.Agent, resumed panel.Agent) screen.Request {
+	return openingWrite(clients, "restoring "+resumed.Name, fmt.Sprintf("Could not restore and open agent %q", resumed.Name), func(a api.Clients) (*agentv1.Agent, error) {
+		if err := a.RestoreAgents(panel.IDs(agents)); err != nil {
 			return nil, err
 		}
 
-		return a.resumeAgent(resumed.ID)
+		return a.ResumeAgent(resumed.ID)
 	})
 }
 
-func restoreAgents(m *model, agents []panel.Agent) screen.Request {
+func restoreAgents(clients api.Clients, agents []panel.Agent) screen.Request {
 	if len(agents) == 0 {
 		return nil
 	}
 
-	return m.awaitingWrite(
-		"restoring "+describeAgents(agents),
-		fmt.Sprintf("Could not restore %s", describeAgents(agents)),
-		screen.Awaits{Shown: screen.RowsIn(screen.ListAgents, panel.IDs(agents)...)},
-		func(a api) error { return a.restoreAgents(panel.IDs(agents)) },
-	)
+	return clients.AwaitingWrite(api.AwaitingWriteParams{
+		Doing:   "restoring " + describeAgents(agents),
+		Summary: fmt.Sprintf("Could not restore %s", describeAgents(agents)),
+		Awaits:  screen.Awaits{Shown: screen.RowsIn(screen.ListAgents, panel.IDs(agents)...)},
+		Write:   func(a api.Clients) error { return a.RestoreAgents(panel.IDs(agents)) },
+	})
 }
 
 // confirmDeleteWorkflow asks what goes before it deletes an archived workflow.
-func confirmDeleteWorkflow(m *model, workflow panel.Workflow) screen.Request {
+func confirmDeleteWorkflow(m *model, clients api.Clients, workflow panel.Workflow) screen.Request {
 	confirm := deleteWorkflowConfirm(workflow, workflow.Worktree.Enabled && !isWorkflowOnDeletedList(m.listing, workflow.ID))
 
 	return confirm.open(m, func() screen.Request {
-		return m.awaitingWrite(
-			"deleting "+workflow.Name,
-			fmt.Sprintf("Could not delete workflow %q", workflow.Name),
-			awaitDeleted(confirm.values.deletesRecords(), screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)),
-			func(a api) error { return a.deleteWorkflow(workflow.ID, confirm.values.deletesRecords()) },
-		)
+		return clients.AwaitingWrite(api.AwaitingWriteParams{
+			Doing:   "deleting " + workflow.Name,
+			Summary: fmt.Sprintf("Could not delete workflow %q", workflow.Name),
+			Awaits:  awaitDeleted(confirm.values.deletesRecords(), screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)),
+			Write:   func(a api.Clients) error { return a.DeleteWorkflow(workflow.ID, confirm.values.deletesRecords()) },
+		})
 	})
 }
 

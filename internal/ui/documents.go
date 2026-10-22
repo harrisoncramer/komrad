@@ -5,10 +5,13 @@ import (
 	"slices"
 	"time"
 
+	"komrad/config"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/screen"
 	"komrad/internal/view"
+	"komrad/internal/vim"
 	"komrad/lib/dates"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -43,8 +46,20 @@ const (
 	documentKindTypes
 )
 
+// documentsDeps is what the documents screen is given at launch.
+type documentsDeps struct {
+	keys          config.Keybindings
+	register      *vim.Register
+	clients       api.Clients
+	panes         screen.Panes
+	top           *keys.Top
+	editorCommand string
+	draftDir      string
+}
+
 // documentsScreen lists every agent's documents and renders the one under the cursor beside the list.
 type documentsScreen struct {
+	deps documentsDeps
 	list.Cursor
 	kind          documentKind
 	kindFocus     bool
@@ -113,7 +128,7 @@ func (d *documentsScreen) enter(m *model, target screen.Target) screen.Request {
 func (d *documentsScreen) update(m *model, msg tea.Msg) screen.Request {
 	d.reconcileRename(m)
 	if d.isRenaming() {
-		return d.updateRename(m, msg)
+		return d.updateRename(msg)
 	}
 
 	key, ok := msg.(tea.KeyPressMsg)
@@ -152,8 +167,8 @@ func (d *documentsScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) 
 		return nil, true
 	case documentEditorStaged:
 		return d.applyEditorStaged(msg), true
-	case renameSettled:
-		d.settleRename(m, msg.row, msg.err)
+	case api.RenameSettled:
+		d.settleRename(m, msg.Row, msg.Err)
 
 		return nil, true
 	}
@@ -200,6 +215,8 @@ func (d *documentsScreen) stepKind(m *model, delta int) screen.Request {
 
 func (d *documentsScreen) list() screenList[documentRow] {
 	return screenList[documentRow]{
+		keys:   d.deps.keys,
+		top:    d.deps.top,
 		cursor: func() *list.Cursor { return &d.Cursor },
 		rows:   d.rows,
 		name:   documentRowName,
@@ -215,6 +232,8 @@ func (d *documentsScreen) list() screenList[documentRow] {
 
 func (d *documentsScreen) documentTypeList() screenList[documentTypeRow] {
 	return screenList[documentTypeRow]{
+		keys:   d.deps.keys,
+		top:    d.deps.top,
 		cursor: func() *list.Cursor { return &d.documentTypes },
 		rows:   d.documentTypeRows,
 		name:   documentTypeRowName,
@@ -415,10 +434,10 @@ func (m *model) listDocumentsCmd(written documentsWritten) tea.Cmd {
 	}
 
 	d.listing = true
-	clients := m.api
+	clients := d.deps.clients
 
 	return func() tea.Msg {
-		documents, err := clients.listDocuments()
+		documents, err := clients.ListDocuments()
 		if err != nil {
 			return documentsListedMsg{
 				written: written,
@@ -478,10 +497,10 @@ func (m *model) readHoveredDocumentCmd() tea.Cmd {
 	pending := last
 	pending.pending = true
 	d.bodies[item.id] = pending
-	clients := m.api
+	clients := d.deps.clients
 
 	return func() tea.Msg {
-		document, err := clients.getDocument(item.id)
+		document, err := clients.GetDocument(item.id)
 		if err != nil {
 			return documentReadMsg{
 				id:   item.id,

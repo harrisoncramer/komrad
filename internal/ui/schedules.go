@@ -1,9 +1,10 @@
 package ui
 
 import (
-	"errors"
 	"fmt"
 
+	"komrad/config"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
@@ -11,6 +12,7 @@ import (
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	"komrad/internal/view"
+	"komrad/internal/vim"
 	"komrad/lib/xslice"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 
@@ -18,10 +20,17 @@ import (
 	"charm.land/huh/v2"
 )
 
-var errUnknownScheduleKind = errors.New("this build of komrad does not know the schedule's kind, so update it first")
+// schedulesDeps is what the schedules screens are given at launch.
+type schedulesDeps struct {
+	keys     config.Keybindings
+	register *vim.Register
+	clients  api.Clients
+	top      *keys.Top
+}
 
 // schedulesScreen is the schedules screen, holding its own cursor behind the panel's one door.
 type schedulesScreen struct {
+	deps schedulesDeps
 	list.Cursor
 	built derived[listingKey, []scheduleItem]
 	renameSlot
@@ -55,7 +64,7 @@ func (w *schedulesScreen) enter(m *model, _ screen.Target) screen.Request {
 
 func (w *schedulesScreen) update(m *model, msg tea.Msg) screen.Request {
 	if _, ok := msg.(tea.PasteMsg); ok && w.isRenaming() {
-		return w.updateRename(m, msg)
+		return w.updateRename(w.deps.register, w.deps.clients, msg)
 	}
 
 	key, ok := msg.(tea.KeyPressMsg)
@@ -65,25 +74,27 @@ func (w *schedulesScreen) update(m *model, msg tea.Msg) screen.Request {
 
 	w.reconcileRename(m)
 	if w.isRenaming() {
-		return w.updateRename(m, msg)
+		return w.updateRename(w.deps.register, w.deps.clients, msg)
 	}
 
-	return m.dispatchTop(w.actions(), key.String())
+	return w.actions().DispatchTop(w.deps.top, m, w.deps.keys, key.String())
 }
 
 func (w *schedulesScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) {
-	settled, ok := msg.(renameSettled)
+	settled, ok := msg.(api.RenameSettled)
 	if !ok {
 		return nil, false
 	}
 
-	w.settleRename(m, settled.row, settled.err)
+	w.settleRename(m, settled.Row, settled.Err)
 
 	return nil, true
 }
 
 func (w *schedulesScreen) list() screenList[scheduleItem] {
 	return screenList[scheduleItem]{
+		keys:   w.deps.keys,
+		top:    w.deps.top,
 		cursor: func() *list.Cursor { return &w.Cursor },
 		rows:   w.listRows,
 		name:   scheduleItemName,
@@ -141,19 +152,19 @@ func workflowByID(workflows []panel.Workflow, id string) *panel.Workflow {
 }
 
 // toggleSchedule pauses the schedule, or resumes it when it is paused.
-func toggleSchedule(m *model, schedule panel.Schedule) screen.Request {
+func (w *schedulesScreen) toggleSchedule(schedule panel.Schedule) screen.Request {
 	doing, failure := "pausing "+schedule.Name, fmt.Sprintf("Could not pause schedule %q", schedule.Name)
 	if !schedule.Enabled {
 		doing, failure = "resuming "+schedule.Name, fmt.Sprintf("Could not resume schedule %q", schedule.Name)
 	}
 
-	return m.write(doing, failure, func(a api) error {
-		return a.setScheduleEnabled(schedule.ID, !schedule.Enabled)
+	return w.deps.clients.Write(doing, failure, func(a api.Clients) error {
+		return a.SetScheduleEnabled(schedule.ID, !schedule.Enabled)
 	})
 }
 
 // newScheduleForm puts up the form for a new schedule.
-func newScheduleForm(m *model) screen.Request {
+func (w *schedulesScreen) newScheduleForm(m *model) screen.Request {
 	if len(m.listing.Workflows) == 0 {
 		return screen.Report{Summary: "Could not create a schedule", Err: errNoWorkflow}
 	}
@@ -167,12 +178,12 @@ func newScheduleForm(m *model) screen.Request {
 		values.OrchestratorID = orchestrators[0].ID
 	}
 
-	return openScheduleForm(m, &values, nil)
+	return w.openScheduleForm(&values, nil)
 }
 
 // openScheduleForm puts up the schedule form, creating a schedule when target is nil and saving
 // over the one it names otherwise.
-func openScheduleForm(m *model, values *panel.ScheduleConfig, target *panel.Schedule) screen.Request {
+func (w *schedulesScreen) openScheduleForm(values *panel.ScheduleConfig, target *panel.Schedule) screen.Request {
 	renderedKind := values.Kind
 
 	return form.Open{Form: form.Form{
@@ -190,39 +201,27 @@ func openScheduleForm(m *model, values *panel.ScheduleConfig, target *panel.Sche
 		Editable: []form.Editable{{Key: "prompt", Value: &values.Prompt}},
 		Submit: func(form.Inputs) screen.Request {
 			if target == nil {
-				return m.write("creating schedule "+values.Name, "Could not create the schedule", func(a api) error { return a.createSchedule(*values) })
+				return w.deps.clients.Write("creating schedule "+values.Name, "Could not create the schedule", func(a api.Clients) error { return a.CreateSchedule(*values) })
 			}
 
-			return m.write(
+			return w.deps.clients.Write(
 				"saving "+target.Name,
 				fmt.Sprintf("Could not save schedule %q", target.Name),
-				func(a api) error { return a.updateSchedule(target.ID, *values) },
+				func(a api.Clients) error { return a.UpdateSchedule(target.ID, *values) },
 			)
 		},
 	}}
 }
 
 // editScheduleForm puts up the form over a stored schedule.
-func editScheduleForm(m *model, schedule panel.Schedule) screen.Request {
-	if !knownScheduleKind(schedule.Kind) {
-		return screen.Report{Summary: fmt.Sprintf("Could not edit schedule %q", schedule.Name), Err: errUnknownScheduleKind}
+func (w *schedulesScreen) editScheduleForm(schedule panel.Schedule) screen.Request {
+	if !panel.IsKnownScheduleKind(schedule.Kind) {
+		return screen.Report{Summary: fmt.Sprintf("Could not edit schedule %q", schedule.Name), Err: panel.ErrUnknownScheduleKind}
 	}
 
 	values := schedulePrefill(schedule)
 
-	return openScheduleForm(m, &values, &schedule)
-}
-
-// knownScheduleKind reports whether this build knows what a schedule of this kind targets.
-func knownScheduleKind(kind schedulev1.ScheduleKind) bool {
-	switch kind {
-	case schedulev1.ScheduleKind_SCHEDULE_KIND_UNSPECIFIED,
-		schedulev1.ScheduleKind_SCHEDULE_KIND_TASK,
-		schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR:
-		return true
-	}
-
-	return false
+	return w.openScheduleForm(&values, &schedule)
 }
 
 // schedulePrefill is the schedule form as the stored schedule leaves it.
@@ -240,13 +239,13 @@ func schedulePrefill(schedule panel.Schedule) panel.ScheduleConfig {
 	}
 }
 
-func (m *model) archiveSchedule(schedule panel.Schedule) screen.Request {
-	return m.awaitingWrite(
-		"archiving "+schedule.Name,
-		fmt.Sprintf("Could not archive schedule %q", schedule.Name),
-		screen.Awaits{Gone: screen.RowsIn(screen.ListSchedules, schedule.ID)},
-		func(a api) error { return a.archiveSchedule(schedule.ID) },
-	)
+func (w *schedulesScreen) archiveSchedule(schedule panel.Schedule) screen.Request {
+	return w.deps.clients.AwaitingWrite(api.AwaitingWriteParams{
+		Doing:   "archiving " + schedule.Name,
+		Summary: fmt.Sprintf("Could not archive schedule %q", schedule.Name),
+		Awaits:  screen.Awaits{Gone: screen.RowsIn(screen.ListSchedules, schedule.ID)},
+		Write:   func(a api.Clients) error { return a.ArchiveSchedule(schedule.ID) },
+	})
 }
 
 func (w *schedulesScreen) listParams(m *model) screenListParams {

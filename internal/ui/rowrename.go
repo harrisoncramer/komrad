@@ -3,10 +3,12 @@ package ui
 import (
 	"fmt"
 
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
+	"komrad/internal/vim"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -43,7 +45,7 @@ func renameScheduleRow(item scheduleItem) *rowRename {
 }
 
 // save sends the typed name, or says there is nothing to send.
-func (r *rowRename) save(m *model) (screen.Request, bool) {
+func (r *rowRename) save(clients api.Clients) (screen.Request, bool) {
 	name, ok := r.Submit()
 	if !ok {
 		return nil, false
@@ -55,41 +57,41 @@ func (r *rowRename) save(m *model) (screen.Request, bool) {
 		renamed.Name = name
 		id := r.schedule.ID
 
-		return m.rename(
-			"renaming "+r.Was(),
-			fmt.Sprintf("Could not rename schedule %q", r.Was()),
-			r.Key(),
-			func(a api) error { return a.updateSchedule(id, renamed) },
-		), true
+		return clients.RenameWrite(api.RenameWriteParams{
+			Doing:   "renaming " + r.Was(),
+			Summary: fmt.Sprintf("Could not rename schedule %q", r.Was()),
+			Row:     r.Key(),
+			Write:   func(a api.Clients) error { return a.UpdateSchedule(id, renamed) },
+		}), true
 	case r.task != nil:
 		id := r.task.ID
 
-		return m.rename(
-			"renaming "+r.Was(),
-			fmt.Sprintf("Could not rename task %q", r.Was()),
-			r.Key(),
-			func(a api) error { return a.updateTask(updateTaskParams{id: id, slug: &name}) },
-		), true
+		return clients.RenameWrite(api.RenameWriteParams{
+			Doing:   "renaming " + r.Was(),
+			Summary: fmt.Sprintf("Could not rename task %q", r.Was()),
+			Row:     r.Key(),
+			Write:   func(a api.Clients) error { return a.UpdateTask(api.UpdateTaskParams{ID: id, Slug: &name}) },
+		}), true
 	case r.workflow != nil:
 		renamed := *r.workflow
 		renamed.Name = name
 
-		return m.rename(
-			"renaming "+r.Was(),
-			fmt.Sprintf("Could not rename workflow %q", r.Was()),
-			r.Key(),
-			func(a api) error { return a.updateWorkflow(renamed) },
-		), true
+		return clients.RenameWrite(api.RenameWriteParams{
+			Doing:   "renaming " + r.Was(),
+			Summary: fmt.Sprintf("Could not rename workflow %q", r.Was()),
+			Row:     r.Key(),
+			Write:   func(a api.Clients) error { return a.UpdateWorkflow(renamed) },
+		}), true
 	}
 
 	agent := r.agent
 
-	return m.rename(
-		"renaming "+r.Was(),
-		fmt.Sprintf("Could not rename agent %q", r.Was()),
-		r.Key(),
-		func(a api) error { return a.renameAgent(agent, name) },
-	), true
+	return clients.RenameWrite(api.RenameWriteParams{
+		Doing:   "renaming " + r.Was(),
+		Summary: fmt.Sprintf("Could not rename agent %q", r.Was()),
+		Row:     r.Key(),
+		Write:   func(a api.Clients) error { return a.RenameAgent(agent, name) },
+	}), true
 }
 
 // renameSlot is the rename a list screen has open, nil when none is.
@@ -116,8 +118,8 @@ func reconcileRename[T list.Keyed](r *renameSlot, rows []T, hovered string, name
 	}
 }
 
-func (r *renameSlot) updateRename(m *model, msg tea.Msg) screen.Request {
-	switch r.renaming.Take(msg, m.register) {
+func (r *renameSlot) updateRename(register *vim.Register, clients api.Clients, msg tea.Msg) screen.Request {
+	switch r.renaming.Take(msg, register) {
 	case field.NameGone:
 		return screen.NewNote(screen.Warning, r.renaming.GoneWarning())
 	case field.NameHidden:
@@ -125,7 +127,7 @@ func (r *renameSlot) updateRename(m *model, msg tea.Msg) screen.Request {
 	case field.NameCancelled:
 		r.renaming = nil
 	case field.NameSubmitted:
-		request, ok := r.renaming.save(m)
+		request, ok := r.renaming.save(clients)
 		if !ok {
 			r.renaming = nil
 		}

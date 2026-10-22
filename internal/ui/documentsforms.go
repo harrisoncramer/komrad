@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
@@ -24,7 +25,7 @@ type documentFormValues struct {
 }
 
 // newDocumentForm puts up the form for a document written for an agent.
-func newDocumentForm(m *model, agentID string) screen.Request {
+func (d *documentsScreen) newDocumentForm(m *model, agentID string) screen.Request {
 	owner, types := agentID, m.listing.DocumentTypeNames()
 	if item, ok := m.listing.AnyAgent(agentID); ok {
 		owner = item.Agent.Name
@@ -42,15 +43,15 @@ func newDocumentForm(m *model, agentID string) screen.Request {
 				doing = "writing " + name
 			}
 
-			return m.write(
+			return d.deps.clients.Write(
 				doing,
 				fmt.Sprintf("Could not write a document for %s", owner),
-				func(a api) error {
+				func(a api.Clients) error {
 					if err := checkDocumentName(name); err != nil {
 						return err
 					}
 
-					return a.createDocument(agentID, name, typeName, documentPlaceholder(typeName))
+					return a.CreateDocument(agentID, name, typeName, documentPlaceholder(typeName))
 				},
 			)
 		},
@@ -100,5 +101,5 @@ func (d *documentsScreen) pressNew(m *model) screen.Request {
 		return nil
 	}
 
-	return newDocumentForm(m, agentID)
+	return d.newDocumentForm(m, agentID)
 }

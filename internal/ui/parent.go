@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
@@ -48,7 +49,7 @@ func cascadeBlockSaid(block taskv1.CascadeBlock, parent string) string {
 }
 
 // openPickForkPoint opens the form that picks an orphaned child's fork point.
-func openPickForkPoint(m *model, task panel.Task) screen.Request {
+func (a *agentsScreen) openPickForkPoint(m *model, task panel.Task) screen.Request {
 	values := &pickForkPointValues{}
 	parent := m.listing.Tasks[task.Parent.GetTaskId()].Slug
 
@@ -59,10 +60,10 @@ func openPickForkPoint(m *model, task panel.Task) screen.Request {
 		Submit: func(form.Inputs) screen.Request {
 			commit := strings.TrimSpace(values.Commit)
 
-			return m.write(
+			return a.deps.clients.Write(
 				"picking the fork point of "+task.Slug,
 				fmt.Sprintf("Could not pick the fork point of task %q on %s", task.Slug, parent),
-				func(a api) error { return a.pickForkPoint(task.ID, commit) },
+				func(clients api.Clients) error { return clients.PickForkPoint(task.ID, commit) },
 			)
 		},
 	}}

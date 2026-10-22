@@ -74,7 +74,7 @@ func (r *reviewScreen) acceptForge(m *model) screen.Request {
 		return nil
 	}
 
-	agents, id := m.clients().agents, target.GetId()
+	agents, id := r.deps.clients.Agents, target.GetId()
 
 	return r.write(m, "accepting the comment", "comment accepted", func(ctx context.Context) error {
 		_, err := agents.AcceptForgeMessage(ctx, connect.NewRequest(&agentv1.AcceptForgeMessageRequest{

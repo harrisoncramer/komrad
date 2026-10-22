@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"komrad/internal/ui/api"
+	"komrad/internal/ui/editor"
 	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
@@ -41,13 +43,13 @@ func (d *documentsScreen) pressEdit(m *model) screen.Request {
 		}
 	}
 
-	path, err := writeDocumentCopy(m.settings.DraftDir, read.body)
+	path, err := writeDocumentCopy(d.deps.draftDir, read.body)
 	if err != nil {
 		return screen.Report{Summary: "could not edit " + item.name, Err: err}
 	}
 
 	return screen.Stage{
-		Content: editorContent(m.settings.Editor, filepath.Dir(path), path, 1),
+		Content: editor.Content(d.deps.editorCommand, filepath.Dir(path), path, 1),
 		Staged: func(pane string) tea.Msg {
 			return documentEditorStaged{item: item, read: read, path: path, pane: pane}
 		},
@@ -119,8 +121,14 @@ func (d *documentsScreen) closeEdit(m *model) screen.Request {
 		return screen.Report{Summary: summary, Err: removeDocumentCopy(edit.path)}
 	}
 
-	return m.write("saving "+edit.item.name, summary, func(a api) error {
-		if err := a.writeDocument(edit.item, edit.version, body); err != nil {
+	return d.deps.clients.Write("saving "+edit.item.name, summary, func(a api.Clients) error {
+		if err := a.WriteDocument(api.WriteDocumentParams{
+			ID:      edit.item.id,
+			Version: edit.version,
+			Name:    edit.item.name,
+			Type:    edit.item.typeName,
+			Body:    body,
+		}); err != nil {
 			return fmt.Errorf("failed to save, so your copy is left at %s: %w", edit.path, err)
 		}
 
@@ -130,7 +138,7 @@ func (d *documentsScreen) closeEdit(m *model) screen.Request {
 
 // reconcileEditor catches the editor pane going away on its own and saves what it wrote.
 func (d *documentsScreen) reconcileEditor(m *model) screen.Request {
-	if d.editing == nil || m.isPaneAlive(d.editing.pane) {
+	if d.editing == nil || d.deps.panes.IsPaneAlive(d.editing.pane) {
 		return nil
 	}
 

@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
@@ -35,14 +36,14 @@ func (a *agentsScreen) update(m *model, msg tea.Msg) screen.Request {
 	switch msg := msg.(type) {
 	case tea.PasteMsg:
 		if a.isRenaming() {
-			return a.updateRename(m, msg)
+			return a.updateRename(a.deps.register, a.deps.clients, msg)
 		}
 	case reviewPausedMsg:
-		return a.applyPaused(m, msg)
+		return a.applyPaused(msg)
 	case tea.KeyPressMsg:
 		a.reconcileRename(m)
 		if a.isRenaming() {
-			return a.updateRename(m, msg)
+			return a.updateRename(a.deps.register, a.deps.clients, msg)
 		}
 
 		return a.list().update(m, msg, a.actions())
@@ -57,8 +58,8 @@ func (a *agentsScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) {
 		return a.applyEditorStaged(m, msg), true
 	case resumeSettled:
 		return a.settleResume(m, msg.agentID, msg.err), true
-	case renameSettled:
-		a.settleRename(m, msg.row, msg.err)
+	case api.RenameSettled:
+		a.settleRename(m, msg.Row, msg.Err)
 
 		return nil, true
 	}
@@ -68,6 +69,8 @@ func (a *agentsScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) {
 
 func (a *agentsScreen) list() screenList[agentRow] {
 	return screenList[agentRow]{
+		keys:   a.deps.keys,
+		top:    a.deps.top,
 		cursor: func() *list.Cursor { return &a.Cursor },
 		rows:   a.rows,
 		name:   agentRowName,
@@ -84,17 +87,17 @@ func (a *agentsScreen) stage(*model) screen.Request {
 	return screen.Restage{}
 }
 
-func (m *model) archiveAgents(agents []panel.Agent) screen.Request {
+func (a *agentsScreen) archiveAgents(agents []panel.Agent) screen.Request {
 	if len(agents) == 0 {
 		return nil
 	}
 
-	return m.archivingWrite(archivingWriteParams{
-		doing:   "archiving " + describeAgents(agents),
-		summary: fmt.Sprintf("Could not archive %s", describeAgents(agents)),
-		agents:  agents,
-		write: func(a api) error {
-			return a.archiveAgents(panel.IDs(agents))
+	return a.deps.clients.ArchivingWrite(api.ArchivingWriteParams{
+		Doing:   "archiving " + describeAgents(agents),
+		Summary: fmt.Sprintf("Could not archive %s", describeAgents(agents)),
+		Agents:  agents,
+		Write: func(clients api.Clients) error {
+			return clients.ArchiveAgents(panel.IDs(agents))
 		},
 	})
 }
@@ -103,7 +106,7 @@ func (m *model) archiveAgents(agents []panel.Agent) screen.Request {
 // standing behind it and for a task its writer.
 func (a *agentsScreen) openHovered(m *model) screen.Request {
 	if workflow, ok := a.hoveredWorkflow(m); ok {
-		return startOrchestrator(m, workflow)
+		return a.startOrchestrator(workflow)
 	}
 
 	item, ok := a.hoveredPaneItem(m)
@@ -136,23 +139,23 @@ func (a *agentsScreen) openAgent(m *model, item panel.AgentRow) screen.Request {
 		return nil
 	}
 
-	return a.resume(m, item.Agent)
+	return a.resume(item.Agent)
 }
 
 // resume wakes a dormant agent in the background.
-func (a *agentsScreen) resume(m *model, agent panel.Agent) screen.Request {
+func (a *agentsScreen) resume(agent panel.Agent) screen.Request {
 	if a.resuming == nil {
 		a.resuming = map[string]struct{}{}
 	}
 	a.resuming[agent.ID] = struct{}{}
 
-	clients := m.api
+	clients := a.deps.clients
 
 	return screen.Write{
 		Doing:   "resuming " + agent.Name,
 		Summary: fmt.Sprintf("Could not resume agent %q", agent.Name),
 		Send: func() screen.Landed {
-			_, err := clients.resumeAgent(agent.ID)
+			_, err := clients.ResumeAgent(agent.ID)
 
 			return screen.Landed{Err: err, Then: resumeSettled{agentID: agent.ID, err: err}}
 		},
@@ -283,12 +286,12 @@ func (a *agentsScreen) help(m *model) keyMap {
 }
 
 // startOrchestrator brings the workflow's orchestrator back and puts the keyboard in its pane.
-func startOrchestrator(m *model, workflow panel.Workflow) screen.Request {
-	return m.rowWrite(
+func (a *agentsScreen) startOrchestrator(workflow panel.Workflow) screen.Request {
+	return rowWrite(a.deps.clients,
 		"starting the orchestrator of "+workflow.Name,
 		fmt.Sprintf("Could not reach the orchestrator of workflow %q", workflow.Name),
-		func(a api) (*screen.Made, error) {
-			agent, err := a.startOrchestrator(workflow.ID)
+		func(clients api.Clients) (*screen.Made, error) {
+			agent, err := clients.StartOrchestrator(workflow.ID)
 			if err != nil {
 				return nil, err
 			}

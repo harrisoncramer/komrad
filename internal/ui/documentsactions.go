@@ -185,15 +185,17 @@ func (d *documentsScreen) diffKeys() diffKeys {
 	}
 
 	return diffKeys{
-		pane:   &h.pane,
-		filter: &h.filter,
-		window: d.diffWindow,
+		keys:     d.deps.keys,
+		register: d.deps.register,
+		pane:     &h.pane,
+		filter:   &h.filter,
+		window:   d.diffWindow,
 	}
 }
 
 // updateDiff is the diff taking the keys.
 func (d *documentsScreen) updateDiff(m *model, key tea.KeyPressMsg) screen.Request {
-	return m.dispatchTop(d.actions(m), key.String())
+	return d.actions(m).DispatchTop(d.deps.top, m, d.deps.keys, key.String())
 }
 
 // isDiffRendered reports whether the panel renders a write's change as a diff beside the list.

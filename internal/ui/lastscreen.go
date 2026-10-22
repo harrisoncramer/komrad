@@ -1,16 +1,11 @@
 package ui
 
 import (
-	"errors"
-
 	"komrad/internal/ui/keys"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 )
-
-// errNoSavedScreen is an agent whose pane was never saved.
-var errNoSavedScreen = errors.New("no saved screen")
 
 // lastScreen is the saved screen of the agent the column renders for.
 type lastScreen struct {
@@ -93,7 +88,7 @@ func (m *model) readLastScreenCmd() tea.Cmd {
 	clients := m.api
 
 	return func() tea.Msg {
-		screen, err := clients.getLastScreen(agentID)
+		screen, err := clients.GetLastScreen(agentID)
 
 		return lastScreenMsg{
 			agentID: agentID,
@@ -141,14 +136,14 @@ func (m *model) screenNotice() string {
 }
 
 func (a *archivedAgents) screenNotice(m *model) string {
-	restore := m.keys.ArchiveMenu.Restore
+	restore := a.deps.keys.ArchiveMenu.Restore
 	if target, ok := a.menuTarget(m); ok {
 		if _, err := target.opensAgent(m.listing); err == nil {
-			restore = m.keys.ArchiveMenu.RestoreOpen
+			restore = a.deps.keys.ArchiveMenu.RestoreOpen
 		}
 	}
 
-	return "archived" + separated + "press " + m.menuChordLabel(m.keys.Menu.Archive, restore) + " to restore"
+	return "archived" + separated + "press " + m.menuChordLabel(a.deps.keys.Menu.Archive, restore) + " to restore"
 }
 
 func (a *agentsScreen) screenNotice(m *model) string {

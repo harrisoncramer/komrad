@@ -88,6 +88,7 @@ func (m *model) detailsCursor(held details) int {
 
 func (m *model) detailsList() screenList[detailsRow] {
 	return screenList[detailsRow]{
+		keys:   m.keys,
 		cursor: m.detailsRowCursor,
 		rows:   func(m *model) []detailsRow { return m.detailsRows(m.hoveredDetails()) },
 		name:   func(row detailsRow) string { return row.text },

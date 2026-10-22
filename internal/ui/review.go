@@ -3,10 +3,16 @@ package ui
 import (
 	"time"
 
+	"komrad/config"
+	"komrad/internal/diff"
+	"komrad/internal/glyph"
+	"komrad/internal/ui/api"
+	"komrad/internal/ui/editor"
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
+	"komrad/internal/vim"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -14,8 +20,22 @@ import (
 
 const reviewTimeout = 30 * time.Second
 
+// reviewDeps is what the review screen is given at launch.
+type reviewDeps struct {
+	keys           config.Keybindings
+	glyphs         glyph.Set
+	register       *vim.Register
+	clients        api.Clients
+	patches        diff.Reader
+	panes          screen.Panes
+	top            *keys.Top
+	editor         editor.Editor
+	editorSettings editor.Settings
+}
+
 // reviewScreen is the review of one agent's diff, while that screen is up.
 type reviewScreen struct {
+	deps      reviewDeps
 	agentID   string
 	taskID    string
 	agentName string

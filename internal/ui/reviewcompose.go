@@ -68,7 +68,7 @@ func reviewInputHint(editor, submit []string, said string) string {
 func (r *reviewScreen) openInput(m *model, params newReviewInputParams) screen.Request {
 	params.Width = reviewInputWidth(r.measurePopupInner(m))
 	params.Keys = fixedKeys()
-	params.Register = m.register
+	params.Register = r.deps.register
 
 	input, cmd := newReviewInput(params)
 	r.threads.editor = input
@@ -94,7 +94,7 @@ func (r *reviewScreen) updateComposer(m *model, key tea.KeyPressMsg) screen.Requ
 	case keys.IsBound(k, fixedKeys().Quit):
 		return screen.Hide{}
 	case keys.IsBound(k, fixedKeys().Editor):
-		return r.openMessageEditor(m)
+		return r.openMessageEditor()
 	case keys.IsBound(k, fixedKeys().Submit):
 		return r.saveMessage(m)
 	}
@@ -113,7 +113,7 @@ type messageEditedMsg struct {
 }
 
 // openMessageEditor hands what has been typed so far to the reviewer's editor.
-func (r reviewScreen) openMessageEditor(m *model) screen.Request {
+func (r reviewScreen) openMessageEditor() screen.Request {
 	agentID := r.agentID
 	path := messageDraftPath(agentID)
 
@@ -121,7 +121,7 @@ func (r reviewScreen) openMessageEditor(m *model) screen.Request {
 		return screen.Report{Summary: "Your editor could not be opened on that message", Err: err}
 	}
 
-	return screen.Cmd(m.editor.Edit(path, func(err error) tea.Msg {
+	return screen.Cmd(r.deps.editor.Edit(path, func(err error) tea.Msg {
 		if err != nil {
 			return messageEditedMsg{agentID: agentID, err: err}
 		}
@@ -179,7 +179,7 @@ func (r *reviewScreen) saveMessage(m *model) screen.Request {
 		return r.saveForgeReply(m, forge, body)
 	}
 
-	agents, threadID := m.clients().agents, r.threads.editing
+	agents, threadID := r.deps.clients.Agents, r.threads.editing
 	kept := reviewUnsent{editing: threadID, body: body}
 	if threadID != "" {
 		// Nothing is said back: the reply is rendered in the thread it went into.
@@ -273,7 +273,7 @@ func (t *reviewThreads) cancelMessage() {
 }
 
 func (r reviewScreen) createThread(m *model, place reviewPlace, kept reviewUnsent) screen.Request {
-	agents, taskID, body := m.clients().agents, r.taskID, kept.body
+	agents, taskID, body := r.deps.clients.Agents, r.taskID, kept.body
 	anchor := place.anchor
 
 	return r.writeMsg(m, "opening a thread", &kept, func(ctx context.Context) (string, error) {
@@ -301,7 +301,7 @@ func (r reviewScreen) resolveThread(m *model) screen.Request {
 		return nil
 	}
 
-	agents, id, settling := m.clients().agents, thread.GetId(), thread.GetResolvedAt() == ""
+	agents, id, settling := r.deps.clients.Agents, thread.GetId(), thread.GetResolvedAt() == ""
 
 	doing, notice := "reopening the thread", "thread reopened"
 	if settling {
@@ -346,7 +346,7 @@ func (r *reviewScreen) toggleViewed(m *model) screen.Request {
 
 	r.scrollToCursor(m)
 
-	agents, taskID := m.clients().agents, r.taskID
+	agents, taskID := r.deps.clients.Agents, r.taskID
 	fingerprint := file.Fingerprint()
 
 	return r.write(m, doing, notice, func(ctx context.Context) error {
@@ -368,7 +368,7 @@ func (r reviewScreen) markThreadRead(m *model) screen.Request {
 		return nil
 	}
 
-	agents, id := m.clients().agents, thread.GetId()
+	agents, id := r.deps.clients.Agents, thread.GetId()
 
 	return r.quietWrite(m, func(ctx context.Context) error {
 		_, err := agents.MarkReviewThreadRead(ctx, connect.NewRequest(&agentv1.MarkReviewThreadReadRequest{Id: id}))
@@ -392,7 +392,7 @@ func (r reviewScreen) quietWrite(m *model, write func(context.Context) error) sc
 // writeMsg runs one write, marking whose answer it is, handing back the message a refused write
 // carried, and reading an archived agent's threads back.
 func (r reviewScreen) writeMsg(m *model, doing string, unsent *reviewUnsent, write func(context.Context) (string, error)) screen.Request {
-	agents, agentID, taskID := m.api.reads().agents, r.agentID, r.taskID
+	agents, agentID, taskID := r.deps.clients.Agents, r.agentID, r.taskID
 	_, live := r.agentRow(m)
 
 	return screen.Write{

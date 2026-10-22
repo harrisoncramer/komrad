@@ -29,11 +29,11 @@ func (r reviewScreen) filesView(m *model, lines int) string {
 	tree := r.readFilesTree()
 	_, onSide := r.findSide(m)
 	focused := r.isBlockFocused(m) && !onSide
-	columns := measureStatColumns(m.glyphs, tree.rows)
+	columns := measureStatColumns(r.deps.glyphs, tree.rows)
 	rows := make([]string, 0, len(tree.rows))
 	keys := make([]string, 0, len(tree.rows))
 	for at, row := range tree.rows {
-		rows = append(rows, renderTreeRow(m, renderTreeRowParams{
+		rows = append(rows, r.renderTreeRow(m, renderTreeRowParams{
 			Row:     row,
 			Current: at == tree.current,
 			Closed:  r.closedFolders[row.Path],
@@ -55,7 +55,7 @@ func (r reviewScreen) filesView(m *model, lines int) string {
 		rows = append(rows, dimStyle().Render(strings.Repeat(" ", filesGutter)+reviewNoFileWord))
 	}
 
-	header := m.markSearch(stopBlock, width, ansi.Truncate(r.filesFilter.line(m.glyphs), max(width, 0), "…")) + "\n"
+	header := m.markSearch(stopBlock, width, ansi.Truncate(r.filesFilter.line(r.deps.glyphs), max(width, 0), "…")) + "\n"
 	if lines < 0 {
 		return header + strings.Join(rows, "\n") + "\n"
 	}
@@ -85,14 +85,14 @@ type renderTreeRowParams struct {
 
 // renderTreeRow renders one row of the tree: its mark, its place in the tree, its name, and what it
 // holds.
-func renderTreeRow(m *model, params renderTreeRowParams) string {
+func (r reviewScreen) renderTreeRow(m *model, params renderTreeRowParams) string {
 	row, width := params.Row, params.Width
 	style := lipgloss.NewStyle()
 	mark := " "
 
 	switch {
 	case params.Current:
-		mark = m.glyphs.Spell(glyph.FileCurrent)
+		mark = r.deps.glyphs.Spell(glyph.FileCurrent)
 		style = paint.Panel.Style(paint.TonePrimary).Bold(true)
 	case row.Viewed:
 		style = dimStyle()
@@ -112,11 +112,11 @@ func renderTreeRow(m *model, params renderTreeRowParams) string {
 		if params.Closed {
 			folder = glyph.FolderClosed
 		}
-		fit.Left = style.Render(m.glyphs.Spell(folder)) + " " + fit.Left
+		fit.Left = style.Render(r.deps.glyphs.Spell(folder)) + " " + fit.Left
 	} else {
 		fit.Stat = formatStatColumns(row.Stat, params.Columns)
 	}
-	if badge := formatThreadMark(m.glyphs, row.Counts); badge != "" || !row.Folder {
+	if badge := formatThreadMark(r.deps.glyphs, row.Counts); badge != "" || !row.Folder {
 		fit.Badges = padLeft(badge, params.Columns.Badge)
 	}
 

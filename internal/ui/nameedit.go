@@ -5,7 +5,6 @@ import (
 
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/list"
-	"komrad/internal/ui/screen"
 
 	"charm.land/bubbles/v2/key"
 )
@@ -18,27 +17,6 @@ func reconcileNameEdit[T list.Keyed](e *field.NameEdit, rows []T, hovered string
 	}
 
 	return e.Reconcile(hovered, name(rows[at]), true)
-}
-
-// renameSettled is a rename landed, for the screens that typed it.
-type renameSettled struct {
-	row string
-	err error
-}
-
-// rename sends a name typed over a row, handing the outcome to the screens that type names.
-func (m *model) rename(doing, summary, row string, write func(api) error) screen.Request {
-	clients := m.api
-
-	return screen.Write{
-		Doing:   doing,
-		Summary: summary,
-		Send: func() screen.Landed {
-			err := write(clients)
-
-			return screen.Landed{Err: err, Then: renameSettled{row: row, err: err}}
-		},
-	}
 }
 
 func renameHelp() keyMap {

@@ -196,7 +196,7 @@ func (m *model) readHistoryCmd() tea.Cmd {
 		return nil
 	}
 
-	h, clients := d.history, m.api
+	h, clients := d.history, d.deps.clients
 	if h.versions == nil {
 		if h.listing || h.err != nil {
 			return nil
@@ -229,7 +229,7 @@ func (m *model) readHistoryCmd() tea.Cmd {
 // readVersionCmd reads one write of the document being stepped through, once.
 func (m *model) readVersionCmd(version int32) tea.Cmd {
 	d := &m.documents
-	h, clients := d.history, m.api
+	h, clients := d.history, d.deps.clients
 	if _, asked := h.reads[version]; asked {
 		return nil
 	}

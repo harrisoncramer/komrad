@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"komrad/internal/engine"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/keys"
 
 	tea "charm.land/bubbletea/v2"
@@ -59,7 +60,7 @@ func (m *model) checkAccessCmd() tea.Cmd {
 	signIn := m.access.signIn
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), api.RequestTimeout)
 		defer cancel()
 
 		return accessCheckedMsg{err: signIn.CheckAccess(ctx)}

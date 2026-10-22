@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/menu"
@@ -72,12 +73,12 @@ func (a *agentsScreen) isShowingNotes(r agentRow) bool {
 }
 
 // notesEntry swaps the pane beside the list between the task's notes and its writer's pane.
-func (a *agentsScreen) notesEntry(m *model, row agentRow) menu.Entry {
+func (a *agentsScreen) notesEntry(row agentRow) menu.Entry {
 	if a.notes == row.task.ID {
-		return menu.Leaving("close the notes", m.keys.Menu.Notes, func() screen.Request { return a.closeNotes() })
+		return menu.Leaving("close the notes", a.deps.keys.Menu.Notes, func() screen.Request { return a.closeNotes() })
 	}
 
-	return menu.Leaving("notes", m.keys.Menu.Notes, func() screen.Request {
+	return menu.Leaving("notes", a.deps.keys.Menu.Notes, func() screen.Request {
 		a.notes = row.task.ID
 
 		return screen.Restage{}
@@ -97,56 +98,17 @@ func isLiveWriter(agent panel.Agent) bool {
 		agent.State != panel.StateFailedToCreate
 }
 
-func describeTasks(tasks []panel.Task) string {
-	if len(tasks) == 1 {
-		return fmt.Sprintf("task %q", tasks[0].Slug)
-	}
-
-	return fmt.Sprintf("%d tasks", len(tasks))
-}
-
 // taskDirs is the directories of the tasks that have one still on disk.
 func taskDirs(tasks []panel.Task) []string {
 	return xslice.Map(xslice.Filter(tasks, func(task panel.Task) bool { return task.Cwd != "" && !task.IsWorktreeRemoved() }), func(task panel.Task) string { return task.Cwd })
 }
 
-// archiveTasks archives the tasks along with the live agents on them.
-func (m *model) archiveTasks(tasks []panel.Task) screen.Request {
-	return m.archivingWrite(archivingWriteParams{
-		doing:   "archiving " + describeTasks(tasks),
-		summary: "Could not archive " + describeTasks(tasks),
-		agents:  m.listing.AgentsOnTasks(tasks),
-		write: func(a api) error {
-			for _, task := range tasks {
-				if err := a.archiveTask(task.ID); err != nil {
-					return err
-				}
-			}
-
-			return nil
-		},
-	})
-}
-
-// deleteTasksWrite is the write that deletes the tasks' worktrees, and with records the tasks for
-// good with everything on them.
-func (m *model) deleteTasksWrite(tasks []panel.Task, records bool) screen.Write {
-	return m.archivingWrite(archivingWriteParams{
-		doing:   "deleting " + describeTasks(tasks),
-		summary: "Could not delete " + describeTasks(tasks),
-		agents:  m.listing.AgentsOnTasks(tasks),
-		write: func(a api) error {
-			return a.deleteTasks(panel.TaskIDs(tasks), records)
-		},
-	})
-}
-
 // confirmDeleteTasks asks what goes before the tasks are deleted.
-func confirmDeleteTasks(m *model, tasks []panel.Task) screen.Request {
+func confirmDeleteTasks(m *model, clients api.Clients, tasks []panel.Task) screen.Request {
 	confirm := deleteTasksConfirm(tasks, len(m.listing.AgentsOnTasks(tasks)), m.listing.HasAnyWorktreeToDelete(tasks))
 
 	return confirm.open(m, func() screen.Request {
-		return m.deleteTasksWrite(tasks, confirm.values.deletesRecords())
+		return clients.DeleteTasksWrite(tasks, m.listing.AgentsOnTasks(tasks), confirm.values.deletesRecords())
 	})
 }
 
@@ -156,18 +118,18 @@ func isEveryTaskHidden(tasks []panel.Task) bool {
 }
 
 // hideTasks hides the tasks, or unhides them when they are all hidden.
-func hideTasks(m *model, tasks []panel.Task) screen.Request {
+func (a *agentsScreen) hideTasks(tasks []panel.Task) screen.Request {
 	hidden := !isEveryTaskHidden(tasks)
 	changed := xslice.Filter(tasks, func(task panel.Task) bool { return task.Hidden != hidden })
 
-	doing, failure := "hiding "+describeTasks(tasks), "Could not hide "+describeTasks(tasks)
+	doing, failure := "hiding "+panel.DescribeTasks(tasks), "Could not hide "+panel.DescribeTasks(tasks)
 	if !hidden {
-		doing, failure = "unhiding "+describeTasks(tasks), "Could not unhide "+describeTasks(tasks)
+		doing, failure = "unhiding "+panel.DescribeTasks(tasks), "Could not unhide "+panel.DescribeTasks(tasks)
 	}
 
-	return m.write(doing, failure, func(a api) error {
+	return a.deps.clients.Write(doing, failure, func(clients api.Clients) error {
 		for _, task := range changed {
-			if err := a.setTaskHidden(task.ID, hidden); err != nil {
+			if err := clients.SetTaskHidden(task.ID, hidden); err != nil {
 				return err
 			}
 		}
@@ -186,7 +148,7 @@ type taskEditValues struct {
 }
 
 // openEditTask opens the form that edits a task's title, goal and notes.
-func openEditTask(m *model, task panel.Task) screen.Request {
+func (a *agentsScreen) openEditTask(task panel.Task) screen.Request {
 	values := &taskEditValues{
 		Title: task.Title,
 		Goal:  task.Goal,
@@ -204,19 +166,19 @@ func openEditTask(m *model, task panel.Task) screen.Request {
 				return form.Refuse{Err: err}
 			}
 
-			params := updateTaskParams{
-				id:    task.ID,
-				title: &title,
-				goal:  &goal,
+			params := api.UpdateTaskParams{
+				ID:    task.ID,
+				Title: &title,
+				Goal:  &goal,
 			}
 			if notes := strings.TrimSpace(values.Notes); notes != strings.TrimSpace(task.Notes) {
-				params.notes, params.notesUpdatedAt = &notes, task.NotesUpdatedAt
+				params.Notes, params.NotesUpdatedAt = &notes, task.NotesUpdatedAt
 			}
 
-			return m.write(
+			return a.deps.clients.Write(
 				"saving "+task.Slug,
 				fmt.Sprintf("Could not save task %q", task.Slug),
-				func(a api) error { return a.updateTask(params) },
+				func(clients api.Clients) error { return clients.UpdateTask(params) },
 			)
 		},
 	}}

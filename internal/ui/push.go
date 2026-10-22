@@ -3,9 +3,9 @@ package ui
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"komrad/config"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
@@ -15,9 +15,6 @@ import (
 
 	"charm.land/huh/v2"
 )
-
-// pushTimeout outlasts the server's own limit on git, so the server is the one to give up.
-const pushTimeout = 11 * time.Minute
 
 // pushPlan is what a push would do, carried from the server to the confirmation.
 type pushPlan struct {
@@ -37,8 +34,8 @@ func pushOp(task panel.Task) gitOp {
 	return gitOp{
 		planning:   "planning the push of " + name,
 		planFailed: "Could not work out what a push would do",
-		plan: func(clients api) (gitConfirmForm, error) {
-			response, err := clients.planPush(taskID)
+		plan: func(clients api.Clients) (gitConfirmForm, error) {
+			response, err := clients.PlanPush(taskID)
 			if err != nil {
 				return nil, err
 			}
@@ -58,8 +55,8 @@ func pushOp(task panel.Task) gitOp {
 			return pushForm(plan), nil
 		},
 		running: "pushing " + name,
-		run: func(clients api) gitReport {
-			result, err := clients.pushWorktree(taskID)
+		run: func(clients api.Clients) gitReport {
+			result, err := clients.PushWorktree(taskID)
 
 			return func(*model) screen.Request { return reportPushed(name, result, err) }
 		},

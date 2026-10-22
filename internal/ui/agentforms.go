@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/paint/label"
@@ -19,14 +20,14 @@ import (
 
 var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one first")
 
-func openNewTask(m *model, workflow *panel.Workflow) screen.Request {
+func (a *agentsScreen) openNewTask(workflow *panel.Workflow) screen.Request {
 	if workflow == nil {
 		return screen.Report{Summary: "Could not start a task", Err: errNoWorkflow}
 	}
 
 	values := taskPrefill(*workflow)
 
-	return openTaskForm(m, *workflow, &values)
+	return a.openTaskForm(*workflow, &values)
 }
 
 // taskPrefill is the new-task form as the workflow leaves it, before the user types anything.
@@ -37,23 +38,23 @@ func taskPrefill(workflow panel.Workflow) taskFormValues {
 	}
 }
 
-func openTaskForm(m *model, workflow panel.Workflow, values *taskFormValues) screen.Request {
+func (a *agentsScreen) openTaskForm(workflow panel.Workflow, values *taskFormValues) screen.Request {
 	return form.Open{Form: form.Form{
 		Build: func(in form.Inputs) (*huh.Form, []string) {
 			return newTaskForm(fixedKeys(), values, workflow.Worktree.Enabled, in.Listing.Tasks.PossibleParents(workflow.ID))
 		},
 		Editable: []form.Editable{{Key: "prompt", Value: &values.Prompt}},
-		Submit:   func(form.Inputs) screen.Request { return m.submitTask(workflow, *values) },
+		Submit:   func(form.Inputs) screen.Request { return a.submitTask(workflow, *values) },
 	}}
 }
 
 // openNewAgentOnTask opens the form that starts an agent on a task: a reviewer when it has a
 // writer, or else its writer.
-func openNewAgentOnTask(m *model, workflow panel.Workflow, task panel.Task) screen.Request {
+func (a *agentsScreen) openNewAgentOnTask(m *model, workflow panel.Workflow, task panel.Task) screen.Request {
 	if writer, ok := m.listing.FindTaskWriter(task); ok {
 		values := reviewerPrefill(writer.Agent)
 
-		return openReviewerForm(m, writer.Agent, task, &values)
+		return a.openReviewerForm(writer.Agent, task, &values)
 	}
 
 	values := &agentFormValues{Harness: workflow.Harness}
@@ -63,7 +64,7 @@ func openNewAgentOnTask(m *model, workflow panel.Workflow, task panel.Task) scre
 			return taskAgentForm(fixedKeys(), values, task.Slug, describeNewWriter(workflow, task))
 		},
 		Editable: []form.Editable{{Key: "prompt", Value: &values.Prompt}},
-		Submit:   func(form.Inputs) screen.Request { return m.submitAgentOnTask(workflow, task, *values) },
+		Submit:   func(form.Inputs) screen.Request { return a.submitAgentOnTask(workflow, task, *values) },
 	}}
 }
 
@@ -72,17 +73,17 @@ func reviewerPrefill(writer panel.Agent) agentFormValues {
 	return agentFormValues{Harness: writer.Harness}
 }
 
-func openReviewerForm(m *model, writer panel.Agent, task panel.Task, values *agentFormValues) screen.Request {
+func (a *agentsScreen) openReviewerForm(writer panel.Agent, task panel.Task, values *agentFormValues) screen.Request {
 	return form.Open{Form: form.Form{
 		Build:    func(form.Inputs) (*huh.Form, []string) { return reviewerAgentForm(fixedKeys(), values, writer, task) },
 		Editable: []form.Editable{{Key: "prompt", Value: &values.Prompt}},
-		Submit:   func(form.Inputs) screen.Request { return m.submitReviewer(writer, task, *values) },
+		Submit:   func(form.Inputs) screen.Request { return a.submitReviewer(writer, task, *values) },
 	}}
 }
 
 // submitReviewer launches a reviewer onto the writer's task.
-func (m *model) submitReviewer(writer panel.Agent, task panel.Task, values agentFormValues) screen.Write {
-	return m.createWrite(createAgentParams{
+func (a *agentsScreen) submitReviewer(writer panel.Agent, task panel.Task, values agentFormValues) screen.Write {
+	return createWrite(a.deps.clients, api.CreateAgentParams{
 		Prompt:     values.Prompt,
 		Title:      values.Title,
 		Harness:    values.Harness,
@@ -92,7 +93,7 @@ func (m *model) submitReviewer(writer panel.Agent, task panel.Task, values agent
 	})
 }
 
-func openRetryForm(m *model, agent panel.Agent) screen.Request {
+func (a *agentsScreen) openRetryForm(agent panel.Agent) screen.Request {
 	values := retryFormValues{
 		Prompt:  agent.Prompt,
 		Harness: agent.Harness,
@@ -102,18 +103,18 @@ func openRetryForm(m *model, agent panel.Agent) screen.Request {
 	return form.Open{Form: form.Form{
 		Build:    func(form.Inputs) (*huh.Form, []string) { return retryAgentForm(fixedKeys(), &values) },
 		Editable: []form.Editable{{Key: "prompt", Value: &values.Prompt}},
-		Submit:   func(form.Inputs) screen.Request { return m.retryWrite(agent, values) },
+		Submit:   func(form.Inputs) screen.Request { return retryWrite(a.deps.clients, agent, values) },
 	}}
 }
 
-func openAdopt(m *model, workflow *panel.Workflow) screen.Request {
+func (a *agentsScreen) openAdopt(workflow *panel.Workflow) screen.Request {
 	if workflow == nil {
 		return screen.Report{Summary: "Could not adopt", Err: errNoWorkflow}
 	}
 
 	values := adoptPrefill(*workflow)
 
-	return openAdoptForm(m, *workflow, &values)
+	return a.openAdoptForm(*workflow, &values)
 }
 
 // adoptPrefill is the adopt form as the workflow leaves it, before the user types anything.
@@ -121,16 +122,16 @@ func adoptPrefill(workflow panel.Workflow) adoptFormValues {
 	return adoptFormValues{Harness: workflow.Harness}
 }
 
-func openAdoptForm(m *model, workflow panel.Workflow, values *adoptFormValues) screen.Request {
+func (a *agentsScreen) openAdoptForm(workflow panel.Workflow, values *adoptFormValues) screen.Request {
 	return form.Open{Form: form.Form{
 		Build:    func(form.Inputs) (*huh.Form, []string) { return adoptAgentForm(fixedKeys(), values) },
 		Editable: []form.Editable{{Key: "prompt", Value: &values.Prompt}},
-		Submit:   func(form.Inputs) screen.Request { return m.submitAdopt(workflow, *values) },
+		Submit:   func(form.Inputs) screen.Request { return a.submitAdopt(workflow, *values) },
 	}}
 }
 
-func (m *model) submitAdopt(workflow panel.Workflow, values adoptFormValues) screen.Write {
-	return m.adoptWrite(adoptParams{
+func (a *agentsScreen) submitAdopt(workflow panel.Workflow, values adoptFormValues) screen.Write {
+	return adoptWrite(a.deps.clients, api.AdoptParams{
 		Ref:        values.Ref,
 		Prompt:     values.Prompt,
 		Title:      values.Title,
@@ -141,8 +142,8 @@ func (m *model) submitAdopt(workflow panel.Workflow, values adoptFormValues) scr
 }
 
 // submitTask starts the agent along with the task it works on.
-func (m *model) submitTask(workflow panel.Workflow, values taskFormValues) screen.Write {
-	return m.createWrite(createAgentParams{
+func (a *agentsScreen) submitTask(workflow panel.Workflow, values taskFormValues) screen.Write {
+	return createWrite(a.deps.clients, api.CreateAgentParams{
 		Prompt:           values.Prompt,
 		Harness:          values.Harness,
 		Flags:            values.Flags,
@@ -153,8 +154,8 @@ func (m *model) submitTask(workflow panel.Workflow, values taskFormValues) scree
 }
 
 // submitAgentOnTask starts a task's writer.
-func (m *model) submitAgentOnTask(workflow panel.Workflow, task panel.Task, values agentFormValues) screen.Write {
-	return m.createWrite(createAgentParams{
+func (a *agentsScreen) submitAgentOnTask(workflow panel.Workflow, task panel.Task, values agentFormValues) screen.Write {
+	return createWrite(a.deps.clients, api.CreateAgentParams{
 		Prompt:     values.Prompt,
 		Title:      values.Title,
 		Harness:    values.Harness,

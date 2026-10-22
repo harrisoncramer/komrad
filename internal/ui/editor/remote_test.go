@@ -1,4 +1,4 @@
-package ui
+package editor
 
 import (
 	"testing"
@@ -42,8 +42,8 @@ func TestRemoteEditorShell(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			settings := PanelSettings{
-				Editor:    tt.editor,
+			settings := Settings{
+				Command:   tt.editor,
 				SSHHost:   "komrad-remote",
 				SSHConfig: "/home/me/.ssh/komrad/komrad-remote.conf",
 			}

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"komrad/internal/searchsyntax"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -16,14 +17,19 @@ import (
 	"connectrpc.com/connect"
 )
 
-var agentsQuery = queryGrammar{
-	syntax: searchsyntax.Agents,
-	check:  checkAgentsClause,
-	search: searchTranscriptsSaid,
+// agentsQueryOf is the agents lists' grammar, its says: qualifier searching the transcripts the client reads.
+func agentsQueryOf(agents api.AgentReads) queryGrammar {
+	return queryGrammar{
+		syntax: searchsyntax.Agents,
+		check:  checkAgentsClause,
+		search: func(ctx context.Context, text string) (map[string][]saidHit, error) {
+			return searchTranscriptsSaid(ctx, agents, text)
+		},
+	}
 }
 
 func (a *agentsScreen) queryGrammar() (queryGrammar, bool) {
-	return agentsQuery, true
+	return agentsQueryOf(a.deps.clients.Agents), true
 }
 
 func checkAgentsClause(clause searchsyntax.Clause, now time.Time) error {
@@ -115,11 +121,11 @@ func containsFold(s, sub string) bool {
 }
 
 func (a *archivedAgents) queryGrammar() (queryGrammar, bool) {
-	return agentsQuery, true
+	return agentsQueryOf(a.deps.clients.Agents), true
 }
 
 // searchTranscriptsSaid asks the server which agents' transcripts hold the text, with the turns it was found in keyed by agent id.
-func searchTranscriptsSaid(ctx context.Context, client agentReads, text string) (map[string][]saidHit, error) {
+func searchTranscriptsSaid(ctx context.Context, client api.AgentReads, text string) (map[string][]saidHit, error) {
 	resp, err := client.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
 		Query:      phrase(text),
 		Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](saysLimit)},

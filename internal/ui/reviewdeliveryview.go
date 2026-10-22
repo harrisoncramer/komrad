@@ -8,7 +8,7 @@ import (
 
 // reviewDeliveryBadge is where one comment stands with the writer, rendered under the comment
 // itself and not at all for what an agent wrote.
-func (r reviewScreen) reviewDeliveryBadge(m *model, thread *agentv1.ReviewThread, message *agentv1.ReviewMessage) string {
+func (r reviewScreen) reviewDeliveryBadge(thread *agentv1.ReviewThread, message *agentv1.ReviewMessage) string {
 	rendered := reviewDeliveryOf(reviewDeliveryParams{thread: thread, message: message, writerID: r.agentID})
 	if rendered.word == "" {
 		return ""
@@ -16,7 +16,7 @@ func (r reviewScreen) reviewDeliveryBadge(m *model, thread *agentv1.ReviewThread
 
 	mark := glyph.Right
 	if rendered.mark != glyph.None {
-		mark = m.glyphs.Spell(rendered.mark)
+		mark = r.deps.glyphs.Spell(rendered.mark)
 	}
 
 	badge := mark + " " + rendered.word

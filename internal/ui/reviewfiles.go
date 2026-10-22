@@ -354,7 +354,7 @@ func (r *reviewScreen) updateFilesFilter(m *model, key tea.KeyPressMsg) screen.R
 		return r.settleFilesFilter(m)
 	}
 
-	filter.takeKey(key, m.register)
+	filter.takeKey(key, r.deps.register)
 
 	return nil
 }

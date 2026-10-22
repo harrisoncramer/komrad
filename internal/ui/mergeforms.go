@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/panel"
@@ -37,11 +38,11 @@ func (v *mergeFormValues) fill(option *forgev1.MergeOption, filled *forgev1.Comm
 
 // buildMergeParams is the merge the form asks for at the head the panel showed, carrying each part
 // of the message only when the person changed the forge's own.
-func (v mergeFormValues) buildMergeParams(pullRequest panel.PullRequestStanding, plan *forgev1.PlanForgePullRequestMergeResponse) (*mergeParams, error) {
-	params := &mergeParams{
-		url:     pullRequest.URL,
-		method:  v.Method,
-		headSHA: cmp.Or(pullRequest.HeadSHA, plan.GetHeadSha()),
+func (v mergeFormValues) buildMergeParams(pullRequest panel.PullRequestStanding, plan *forgev1.PlanForgePullRequestMergeResponse) (*api.MergeParams, error) {
+	params := &api.MergeParams{
+		URL:     pullRequest.URL,
+		Method:  v.Method,
+		HeadSHA: cmp.Or(pullRequest.HeadSHA, plan.GetHeadSha()),
 	}
 	message := mergeOptionOf(plan, v.Method).GetMessage()
 	if message == nil {
@@ -52,10 +53,10 @@ func (v mergeFormValues) buildMergeParams(pullRequest panel.PullRequestStanding,
 			return nil, errNoHeadline
 		}
 
-		params.headline = &v.Headline
+		params.Headline = &v.Headline
 	}
 	if v.Body != message.GetBody() {
-		params.body = &v.Body
+		params.Body = &v.Body
 	}
 
 	return params, nil

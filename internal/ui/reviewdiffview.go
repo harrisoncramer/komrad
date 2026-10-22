@@ -40,7 +40,7 @@ func reviewColumn() columnSpec {
 // bandView is what stands over the diff: the range it runs over and the pattern it is searched for.
 func (r reviewScreen) bandView(m *model) string {
 	return r.rangeView(m) +
-		m.markSearch(stopList, r.measureBandWidth(m), r.diff.filter.view(m.glyphs)) + diffMatchCount(&r.diff.Pane, r.diff.filter)
+		m.markSearch(stopList, r.measureBandWidth(m), r.diff.filter.view(r.deps.glyphs)) + diffMatchCount(&r.diff.Pane, r.diff.filter)
 }
 
 // rangeView names both ends of the range on screen and, past its end, the snapshot new comments go on.

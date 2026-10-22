@@ -2,9 +2,9 @@ package ui
 
 import (
 	"context"
-	"fmt"
 	"slices"
 
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -94,13 +94,13 @@ func (r *reviewScreen) startHold(m *model) screen.Request {
 			Summary: "stopping the agent",
 			Detail:  "the editor opens once it stops",
 		},
-		holdAgent(m, r.agentID, r.agentName),
+		holdAgent(r.deps.clients, r.agentID, r.agentName),
 	}
 }
 
 // holdAgent asks for the agent to stop and reports what came back.
-func holdAgent(m *model, agentID, name string) screen.Request {
-	agents := m.clients().agents
+func holdAgent(clients api.Clients, agentID, name string) screen.Request {
+	agents := clients.Agents
 
 	return screen.Write{
 		Doing: "pausing " + name,
@@ -153,7 +153,12 @@ func (m *model) releaseAbandonedPause(msg reviewPausedMsg) screen.Request {
 		return nil
 	}
 
-	return m.releaseWrite("Could not let "+item.Agent.Name+" go", item.Agent, abandonedSaid)
+	return m.api.ReleaseWrite(api.ReleaseWriteParams{
+		Summary: "Could not let " + item.Agent.Name + " go",
+		Agent:   item.Agent,
+		Said:    abandonedSaid,
+		Edited:  m.edited[item.Agent.ID],
+	})
 }
 
 // endHold lets the agent go and tells it which files the reader opened while it was stopped.
@@ -174,36 +179,10 @@ func (r *reviewScreen) endHold(m *model, said string) screen.Request {
 
 	agent, name := item.Agent, r.agentName
 
-	return m.releaseWrite("Could not let "+name+" go", agent, said)
-}
-
-// touchedSaid names the files the reader opened an editor on.
-func touchedSaid(touched []string) string {
-	if len(touched) == 0 {
-		return ""
-	}
-
-	return fmt.Sprintf(" I had these files open in an editor while you were paused, so read them "+
-		"before you trust what you remember of them: %s.", joinList(touched))
-}
-
-// joinList is a list of paths as a sentence rather than as a slice.
-func joinList(items []string) string {
-	switch len(items) {
-	case 1:
-		return items[0]
-	case 2:
-		return items[0] + " and " + items[1]
-	}
-
-	said := ""
-	for i, item := range items[:len(items)-1] {
-		if i > 0 {
-			said += ", "
-		}
-
-		said += item
-	}
-
-	return said + " and " + items[len(items)-1]
+	return r.deps.clients.ReleaseWrite(api.ReleaseWriteParams{
+		Summary: "Could not let " + name + " go",
+		Agent:   agent,
+		Said:    said,
+		Edited:  m.edited[agent.ID],
+	})
 }

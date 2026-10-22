@@ -2,15 +2,13 @@ package ui
 
 import (
 	"fmt"
-	"time"
 
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xsha"
 	agentv1 "komrad/proto/gen/agent/v1"
 )
-
-const rebaseTimeout = 30 * time.Second
 
 // rebasePlan is what a rebase would do, carried from the server to the picker.
 type rebasePlan struct {
@@ -32,8 +30,8 @@ func rebaseOp(taskID, name string, ontoBase bool) gitOp {
 	return gitOp{
 		planning:   "planning the rebase of " + name,
 		planFailed: "Could not work out what a rebase would do",
-		plan: func(clients api) (gitConfirmForm, error) {
-			response, err := clients.planRebase(taskID, ontoBase)
+		plan: func(clients api.Clients) (gitConfirmForm, error) {
+			response, err := clients.PlanRebase(taskID, ontoBase)
 			if err != nil {
 				return nil, err
 			}
@@ -52,8 +50,8 @@ func rebaseOp(taskID, name string, ontoBase bool) gitOp {
 			return rebaseForm(plan), nil
 		},
 		running: "rebasing " + name,
-		run: func(clients api) gitReport {
-			result, err := clients.rebaseWorktree(taskID, ontoBase)
+		run: func(clients api.Clients) gitReport {
+			result, err := clients.RebaseWorktree(taskID, ontoBase)
 
 			return func(*model) screen.Request { return reportRebased(name, result, err) }
 		},
