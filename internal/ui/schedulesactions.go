@@ -4,109 +4,94 @@ import (
 	"slices"
 
 	"komrad/config"
+	"komrad/internal/ui/keys"
 
 	tea "charm.land/bubbletea/v2"
 )
 
 // actions is the schedules screen as one table, walked in precedence order by the dispatch and
 // named in reading order by a legend of the same ids.
-func (w *schedulesScreen) actions() screenActionSpec {
+func (w *schedulesScreen) actions() keys.Spec[*model] {
 	list := w.list()
 	standing := func(m *model) bool { return m.filter.isStanding() }
 
-	return screenActionSpec{
-		table: append([]screenAction{
+	return keys.Spec[*model]{
+		Table: append([]keys.Action[*model]{
 			{
-				id:   actionFilterOpen,
-				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				nav: func(m *model, _ string) tea.Cmd {
+				ID:   keys.FilterOpen,
+				Keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
+				Nav: func(m *model, _ string) tea.Cmd {
 					m.beginFilter()
 
 					return nil
 				},
 			},
 			{
-				id:   actionQuit,
-				keys: fixedQuit,
-				nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
+				ID:   keys.Quit,
+				Keys: keys.FixedQuit,
+				Nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 			},
 			{
-				id:   actionFilterMatch,
-				keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
-				when: standing,
-				nav:  func(m *model, pressed string) tea.Cmd { return m.jumpToFilterMatch(pressed) },
+				ID:   keys.FilterMatch,
+				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
+				When: standing,
+				Nav:  func(m *model, pressed string) tea.Cmd { return m.jumpToFilterMatch(pressed) },
 			},
 			{
-				id:   actionFilterClear,
-				keys: fixedBack,
-				when: standing,
-				nav: func(m *model, _ string) tea.Cmd {
+				ID:   keys.FilterClear,
+				Keys: keys.FixedBack,
+				When: standing,
+				Nav: func(m *model, _ string) tea.Cmd {
 					m.clearFilter()
 
 					return m.waitToStage()
 				},
 			},
 			{
-				id:   actionScheduleBack,
-				keys: fixedBack,
-				nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
+				ID:   actionScheduleBack,
+				Keys: keys.FixedBack,
+				Nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
 			},
 			{
-				id:     actionScheduleRename,
-				keys:   func(k config.Keybindings) []string { return k.Schedules.Rename },
-				direct: directly(notInMenu, func(m *model, _ string) tea.Cmd { return w.openRename(m) }),
+				ID:     actionScheduleRename,
+				Keys:   func(k config.Keybindings) []string { return k.Schedules.Rename },
+				Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) tea.Cmd { return w.openRename(m) }),
 			},
 		}, navActions(list, navSteps{page: navPageStep, scroll: 1})...),
-		legend: []screenLegendRow{
+		Legend: []keys.LegendRow[*model]{
 			{
-				of:   []actionID{actionScheduleRename},
-				desc: func(*model) string { return "rename" },
+				Of:   []keys.ID{actionScheduleRename},
+				Desc: func(*model) string { return "rename" },
 			},
 			{
-				of:   []actionID{actionFilterOpen},
-				desc: filterDescOf,
+				Of:   []keys.ID{keys.FilterOpen},
+				Desc: filterDescOf,
 			},
 			{
-				of:   []actionID{actionFilterMatch},
-				desc: func(*model) string { return "next/prev match" },
+				Of:   []keys.ID{keys.FilterMatch},
+				Desc: func(*model) string { return "next/prev match" },
 			},
 			{
-				of:    []actionID{actionMove},
-				desc:  func(*model) string { return "move" },
-				label: moveLabel,
+				Of:    []keys.ID{keys.Move},
+				Desc:  func(*model) string { return "move" },
+				Label: keys.MoveLabel,
 			},
-			navPageRow(),
-			navJumpRow(),
+			keys.NavPageRow[*model](),
+			keys.JumpRow[*model](),
 			{
-				of:    []actionID{actionColumnScroll},
-				desc:  func(*model) string { return "scroll" },
-				label: columnScrollLabel,
-			},
-			{
-				of:   []actionID{actionScheduleBack},
-				desc: func(*model) string { return "back" },
+				Of:    []keys.ID{keys.ColumnScroll},
+				Desc:  func(*model) string { return "scroll" },
+				Label: keys.ColumnScrollLabel,
 			},
 			{
-				of:    []actionID{actionFilterClear},
-				desc:  filterClearDescOf,
-				strip: true,
+				Of:   []keys.ID{actionScheduleBack},
+				Desc: func(*model) string { return "back" },
+			},
+			{
+				Of:    []keys.ID{keys.FilterClear},
+				Desc:  filterClearDescOf,
+				Strip: true,
 			},
 		},
 	}
-}
-
-func jumpLabel(k config.Keybindings) string {
-	return doubledLabel(k.Nav.Top) + "/" + keyLabel(k.Nav.Bottom)
-}
-
-func moveLabel(k config.Keybindings) string {
-	return keyLabel(k.Nav.Up) + "/" + keyLabel(k.Nav.Down)
-}
-
-func navPageLabel(k config.Keybindings) string {
-	return keyLabel(k.Nav.PageUp) + "/" + keyLabel(k.Nav.PageDown)
-}
-
-func columnScrollLabel(k config.Keybindings) string {
-	return keyLabel(k.Column.ScrollDown) + "/" + keyLabel(k.Column.ScrollUp)
 }

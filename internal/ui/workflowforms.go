@@ -8,6 +8,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/eventprompts"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
 
@@ -343,7 +344,7 @@ func workflowTopFields(nameTitle string, values *workflowFormValues) []huh.Field
 	return []huh.Field{
 		huh.NewInput().Key("name").Title(nameTitle).Value(&values.Name),
 		textField("context").Title("Context").
-			Description(fmt.Sprintf("shared notes for this workflow; %s opens $EDITOR", keyLabel(fixedKeys().Editor))).
+			Description(fmt.Sprintf("shared notes for this workflow; %s opens $EDITOR", keys.Label(fixedKeys().Editor))).
 			Lines(2).Value(&values.Context),
 		huh.NewInput().Key("dir").Title("Default Directory").
 			Description("agents start here, and worktrees come from this checkout").
@@ -485,9 +486,9 @@ func eventMuteKey(event string) string {
 }
 
 // eventPromptFields are what the workflow asks of its agents on each event, under a heading of their own.
-func eventPromptFields(values *workflowFormValues, keys config.FixedKeys) []huh.Field {
+func eventPromptFields(values *workflowFormValues, fixed config.FixedKeys) []huh.Field {
 	heading := huh.NewNote().Title("Event prompts").
-		Description(fmt.Sprintf("komrad adds this to the mail it sends an agent on each event, and the agent follows it over komrad's own words; %s opens $EDITOR", keyLabel(keys.Editor)))
+		Description(fmt.Sprintf("komrad adds this to the mail it sends an agent on each event, and the agent follows it over komrad's own words; %s opens $EDITOR", keys.Label(fixed.Editor)))
 
 	fields := []huh.Field{heading}
 	for _, event := range eventprompts.All() {

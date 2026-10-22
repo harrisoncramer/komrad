@@ -12,6 +12,7 @@ import (
 	"komrad/internal/glyph"
 	"komrad/internal/searchsyntax"
 	"komrad/internal/ui/field"
+	"komrad/internal/ui/keys"
 	"komrad/internal/vim"
 
 	tea "charm.land/bubbletea/v2"
@@ -569,7 +570,7 @@ func narrowed[T any](filter filterState, params narrowedParams[T]) []T {
 // jumpToFilterMatch walks the cursor to the next row the search matches, the way the key says.
 func (m *model) jumpToFilterMatch(pressed string) tea.Cmd {
 	delta := 1
-	if isBound(pressed, m.keys.Filter.PrevMatch) {
+	if keys.IsBound(pressed, m.keys.Filter.PrevMatch) {
 		delta = -1
 	}
 
@@ -639,5 +640,5 @@ func (m *model) clickSearch(key string) tea.Cmd {
 		return entered
 	}
 
-	return tea.Batch(entered, m.route(keyMsg(filterOpenKey)))
+	return tea.Batch(entered, m.route(keys.Press(filterOpenKey)))
 }

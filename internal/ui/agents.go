@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
@@ -279,7 +280,7 @@ func (a *agentsScreen) listParams(m *model) screenListParams {
 }
 
 func (a *agentsScreen) help(m *model) keyMap {
-	return a.actions().help(m)
+	return m.helpOf(a.actions())
 }
 
 // scheduledWorkflows is the workflows at least one schedule launches into.
@@ -425,6 +426,6 @@ func (a *agentsScreen) settleRename(m *model, row string, err error) {
 	}
 }
 
-func (a *agentsScreen) dispatches(*model) []dispatching {
-	return []dispatching{a.actions(), a.archived.actions()}
+func (a *agentsScreen) dispatches(*model) []keys.Table {
+	return []keys.Table{a.actions(), a.archived.actions()}
 }

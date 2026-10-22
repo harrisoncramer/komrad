@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"komrad/config"
+	"komrad/internal/ui/keys"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -91,11 +92,11 @@ func documentTypeFormState(params documentTypeFormStateParams) formState {
 	})
 }
 
-func documentTypeForm(values *documentTypeFormValues, title string, keys config.FixedKeys) (*huh.Form, []string) {
-	return formOf(keys,
+func documentTypeForm(values *documentTypeFormValues, title string, fixed config.FixedKeys) (*huh.Form, []string) {
+	return formOf(fixed,
 		huh.NewInput().Key("name").Title(title).Value(&values.Name).Validate(checkDocumentTypeName),
 		textField("context").Title("Context").
-			Description(fmt.Sprintf("what an agent reads before writing one; %s opens $EDITOR", keyLabel(keys.Editor))).
+			Description(fmt.Sprintf("what an agent reads before writing one; %s opens $EDITOR", keys.Label(fixed.Editor))).
 			Lines(6).Value(&values.Context).Validate(checkDocumentTypeContext),
 	)
 }

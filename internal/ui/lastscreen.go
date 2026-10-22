@@ -3,6 +3,7 @@ package ui
 import (
 	"errors"
 
+	"komrad/internal/ui/keys"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -156,7 +157,7 @@ func (a *agentsScreen) screenNotice(m *model) string {
 		return "paused"
 	}
 
-	return "dormant" + separated + "press " + keyLabel(fixedKeys().Open) + " to restore"
+	return "dormant" + separated + "press " + keys.Label(fixedKeys().Open) + " to restore"
 }
 
 func (w *worktreesScreen) screenNotice(*model) string {

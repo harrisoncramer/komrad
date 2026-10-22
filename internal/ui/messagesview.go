@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"komrad/internal/glyph"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
@@ -44,7 +45,7 @@ func (m *model) renderMessagesTally() string {
 
 	tally := paint.Panel.Style(kindTone(worst)).Render(kindIcon(m.glyphs, worst) + " " + strconv.Itoa(count))
 
-	return tally + "  " + dimStyle().Render(headLabel(m.keys.Messages.Open))
+	return tally + "  " + dimStyle().Render(keys.HeadLabel(m.keys.Messages.Open))
 }
 
 func (m *model) renderMessagesWindow(width, rows int) docWindow {

@@ -3,6 +3,7 @@ package ui
 import (
 	"slices"
 
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
@@ -12,53 +13,53 @@ import (
 )
 
 // actions is the worktrees screen as one table and the legend that names it.
-func (w *worktreesScreen) actions() screenActionSpec {
-	return screenActionSpec{
-		table:  w.table(),
-		legend: w.legend(),
+func (w *worktreesScreen) actions() keys.Spec[*model] {
+	return keys.Spec[*model]{
+		Table:  w.table(),
+		Legend: w.legend(),
 	}
 }
 
-func (w *worktreesScreen) table() []screenAction {
+func (w *worktreesScreen) table() []keys.Action[*model] {
 	list := w.list()
 
 	return append(list.actions(),
-		screenAction{
-			id:   actionWorktreesBack,
-			keys: fixedBack,
-			when: list.isBrowsing,
-			nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
+		keys.Action[*model]{
+			ID:   actionWorktreesBack,
+			Keys: keys.FixedBack,
+			When: list.isBrowsing,
+			Nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
 		},
 	)
 }
 
-func (w *worktreesScreen) legend() []screenLegendRow {
+func (w *worktreesScreen) legend() []keys.LegendRow[*model] {
 	list := w.list()
 
-	return slices.Concat(list.selectionLegend(), []screenLegendRow{
+	return slices.Concat(list.selectionLegend(), []keys.LegendRow[*model]{
 		{
-			of:   []actionID{actionSelectToggle},
-			desc: list.toggleDesc,
-			show: w.holdsARow,
+			Of:   []keys.ID{keys.SelectToggle},
+			Desc: list.toggleDesc,
+			Show: w.holdsARow,
 		},
 		{
-			of:   []actionID{actionFilterOpen},
-			desc: filterDescOf,
+			Of:   []keys.ID{keys.FilterOpen},
+			Desc: filterDescOf,
 		},
-	}, screenNavLegend(), []screenLegendRow{
+	}, keys.NavLegend[*model](), []keys.LegendRow[*model]{
 		{
-			of:   []actionID{actionWorktreesBack},
-			desc: func(*model) string { return "back" },
-		},
-		{
-			of:    []actionID{actionFilterClear},
-			desc:  filterClearDescOf,
-			strip: true,
+			Of:   []keys.ID{actionWorktreesBack},
+			Desc: func(*model) string { return "back" },
 		},
 		{
-			of:    []actionID{actionFilterMatch},
-			desc:  func(*model) string { return "next/prev match" },
-			strip: true,
+			Of:    []keys.ID{keys.FilterClear},
+			Desc:  filterClearDescOf,
+			Strip: true,
+		},
+		{
+			Of:    []keys.ID{keys.FilterMatch},
+			Desc:  func(*model) string { return "next/prev match" },
+			Strip: true,
 		},
 	})
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"komrad/internal/engine"
+	"komrad/internal/ui/keys"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -105,11 +106,11 @@ func (m *model) routeSignIn(msg tea.Msg) tea.Cmd {
 func (m *model) updateSignIn(key tea.KeyPressMsg) tea.Cmd {
 	pressed := key.String()
 
-	if isBound(pressed, fixedKeys().Quit) {
+	if keys.IsBound(pressed, fixedKeys().Quit) {
 		return tea.Quit
 	}
 
-	if !isBound(pressed, fixedKeys().Submit) {
+	if !keys.IsBound(pressed, fixedKeys().Submit) {
 		return nil
 	}
 

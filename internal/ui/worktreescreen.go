@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
@@ -211,7 +212,7 @@ func (w *worktreesScreen) listParams(m *model) screenListParams {
 }
 
 func (w *worktreesScreen) help(m *model) keyMap {
-	return w.actions().help(m)
+	return m.helpOf(w.actions())
 }
 
 func (w *worktreesScreen) countUnder(repo string) int {
@@ -275,6 +276,6 @@ func (w *worktreesScreen) column() columnSpec {
 	}
 }
 
-func (w *worktreesScreen) dispatches(*model) []dispatching {
-	return []dispatching{w.actions()}
+func (w *worktreesScreen) dispatches(*model) []keys.Table {
+	return []keys.Table{w.actions()}
 }

@@ -2,10 +2,10 @@ package field
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/ui/keys"
 	"komrad/internal/view"
 	"komrad/internal/vim"
 
@@ -110,7 +110,7 @@ func (e *NameEdit) takeGone(msg tea.Msg) nameStep {
 	switch k := key.String(); {
 	case k == "ctrl+c":
 		return NameHidden
-	case k == "esc" || slices.Contains(config.Fixed().Submit, k):
+	case k == "esc" || keys.IsBound(k, config.Fixed().Submit):
 		return NameCancelled
 	}
 

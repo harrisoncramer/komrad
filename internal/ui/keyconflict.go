@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"komrad/config"
+	"komrad/internal/ui/keys"
 )
 
 // screenNames are the screens as an error names them.
@@ -19,22 +20,9 @@ var screenNames = map[screen]string{
 	screenStatusCheckLogs: "the status check logs",
 }
 
-// dispatchArm is one arm of the order a press is offered to, described for the error it would be
-// named in and guarded where it answers only some of the presses that reach it.
-type dispatchArm struct {
-	describe string
-	keys     []string
-	guarded  bool
-}
-
-// dispatching is a screen's table as the keybinding check walks it.
-type dispatching interface {
-	dispatchArms(keys config.Keybindings) []dispatchArm
-}
-
 // actionsOf is the tables each screen dispatches through, one at a time, walked behind the global
 // keys.
-func actionsOf(s screen) []dispatching {
+func actionsOf(s screen) []keys.Table {
 	var zero model
 
 	return zero.screenOf(s).dispatches(&zero)
@@ -241,14 +229,14 @@ func validateSubmenuKeys(menu string, entries []submenuKeys) error {
 
 // validateScreenKeys walks each of one screen's tables in dispatch order and finds a key an
 // earlier unguarded arm answers ahead of a later one.
-func validateScreenKeys(s screen, keys config.Keybindings) error {
+func validateScreenKeys(s screen, bindings config.Keybindings) error {
 	tables := actionsOf(s)
 	if len(tables) == 0 {
-		return validateArms(s, globalArms(s, keys))
+		return validateArms(s, globalArms(s, bindings))
 	}
 
 	for _, table := range tables {
-		if err := validateArms(s, append(globalArms(s, keys), table.dispatchArms(keys)...)); err != nil {
+		if err := validateArms(s, append(globalArms(s, bindings), table.Arms(bindings)...)); err != nil {
 			return err
 		}
 	}
@@ -257,7 +245,7 @@ func validateScreenKeys(s screen, keys config.Keybindings) error {
 }
 
 // validateArms finds a key an earlier unguarded arm answers ahead of a later one.
-func validateArms(s screen, arms []dispatchArm) error {
+func validateArms(s screen, arms []keys.Arm) error {
 	// answered holds, per key, the arm that takes every press of it and the arm's own place in the
 	// order, so an arm is not read as shadowing itself.
 	type shadow struct {
@@ -268,19 +256,19 @@ func validateArms(s screen, arms []dispatchArm) error {
 	answered := map[string]shadow{}
 
 	for at, arm := range arms {
-		for _, key := range arm.keys {
+		for _, key := range arm.Keys {
 			if taken, ok := answered[key]; ok && taken.at != at {
-				if taken.describe == arm.describe {
+				if taken.describe == arm.Describe {
 					return fmt.Errorf("keybindings: on %s, %q is bound to two of the screen's own actions, and the first answers every press of it, so the second never runs",
 						screenNames[s], key)
 				}
 
 				return fmt.Errorf("keybindings: on %s, %q is bound to both %s and %s, and %s answers every press of it, so the other never runs",
-					screenNames[s], key, taken.describe, arm.describe, taken.describe)
+					screenNames[s], key, taken.describe, arm.Describe, taken.describe)
 			}
 
-			if !arm.guarded {
-				answered[key] = shadow{describe: arm.describe, at: at}
+			if !arm.Guarded {
+				answered[key] = shadow{describe: arm.Describe, at: at}
 			}
 		}
 	}
@@ -290,37 +278,37 @@ func validateArms(s screen, arms []dispatchArm) error {
 
 // globalArms are the keys the panel answers on one screen ahead of that screen's own table, in
 // the order it reads them.
-func globalArms(s screen, keys config.Keybindings) []dispatchArm {
-	arms := []dispatchArm{{describe: "the leader", keys: []string{leaderKey}}}
+func globalArms(s screen, bindings config.Keybindings) []keys.Arm {
+	arms := []keys.Arm{{Describe: "the leader", Keys: []string{leaderKey}}}
 	var zero model
 
 	if rendersSwitcher(s) {
-		arms = append(arms, dispatchArm{describe: "the view switcher", keys: slices.Concat(keys.Views.Next, keys.Views.Previous)})
+		arms = append(arms, keys.Arm{Describe: "the view switcher", Keys: slices.Concat(bindings.Views.Next, bindings.Views.Previous)})
 	}
 
 	arms = append(arms,
-		dispatchArm{describe: "the key that reads the messages", keys: keys.Messages.Open},
-		dispatchArm{describe: "the help toggle", keys: keys.Help.Toggle},
-		dispatchArm{describe: "the sidebar narrowing", keys: keys.Sidebar.Narrow},
-		dispatchArm{describe: "the sidebar widening", keys: keys.Sidebar.Widen},
+		keys.Arm{Describe: "the key that reads the messages", Keys: bindings.Messages.Open},
+		keys.Arm{Describe: "the help toggle", Keys: bindings.Help.Toggle},
+		keys.Arm{Describe: "the sidebar narrowing", Keys: bindings.Sidebar.Narrow},
+		keys.Arm{Describe: "the sidebar widening", Keys: bindings.Sidebar.Widen},
 	)
 
 	if _, ok := zero.screenOf(s).(tabSwitcher); ok {
-		arms = append(arms, dispatchArm{describe: "the tabs focus", keys: keys.Tabs.Focus})
+		arms = append(arms, keys.Arm{Describe: "the tabs focus", Keys: bindings.Tabs.Focus})
 	}
 
 	if _, ok := zero.screenOf(s).(kindSwitcher); ok {
-		arms = append(arms, dispatchArm{describe: "the kinds focus", keys: keys.Kinds.Focus})
+		arms = append(arms, keys.Arm{Describe: "the kinds focus", Keys: bindings.Kinds.Focus})
 	}
 
-	arms = append(arms, dispatchArm{describe: "the menu", keys: keys.Menu.Open})
+	arms = append(arms, keys.Arm{Describe: "the menu", Keys: bindings.Menu.Open})
 
 	if _, ok := zero.screenOf(s).(recordRenderer); ok {
 		// The copy key answers only while the details hold the cursor.
-		arms = append(arms, dispatchArm{
-			describe: "the details copy",
-			keys:     keys.Details.Copy,
-			guarded:  true,
+		arms = append(arms, keys.Arm{
+			Describe: "the details copy",
+			Keys:     bindings.Details.Copy,
+			Guarded:  true,
 		})
 	}
 

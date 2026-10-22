@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
@@ -192,7 +193,7 @@ func (a *archivedSchedules) listParams(m *model) screenListParams {
 }
 
 func (a *archivedSchedules) help(m *model) keyMap {
-	return a.actions().help(m)
+	return m.helpOf(a.actions())
 }
 
 var (
@@ -238,8 +239,8 @@ func (a *archivedSchedules) column() columnSpec {
 	}
 }
 
-func (a *archivedSchedules) dispatches(*model) []dispatching {
-	return []dispatching{a.actions()}
+func (a *archivedSchedules) dispatches(*model) []keys.Table {
+	return []keys.Table{a.actions()}
 }
 
 func (a *archivedSchedules) stageResting(m *model) tea.Cmd {

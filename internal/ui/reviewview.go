@@ -210,7 +210,7 @@ func cutNotes(notes string, rows int) string {
 
 // help keeps the strip to what the screen is for.
 func (r reviewScreen) help(m *model) keyMap {
-	own := r.actions(m).help(m)
+	own := m.helpOf(r.actions(m))
 
 	return keyMap{
 		short: slices.Concat(own.short, m.globalHelp()),

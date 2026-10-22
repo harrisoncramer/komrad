@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"komrad/config"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/reader"
 
 	tea "charm.land/bubbletea/v2"
@@ -179,7 +180,7 @@ func (m *model) jumpDocMatch(pressed string) {
 		return
 	}
 
-	line, found := reader.Jump(reader.Matches(r.filter.pattern, rows), r.Line, directionOf(pressed, m.keys.Filter.PrevMatch))
+	line, found := reader.Jump(reader.Matches(r.filter.pattern, rows), r.Line, keys.DirectionOf(pressed, m.keys.Filter.PrevMatch))
 	if !found {
 		r.said = "nothing to search for yet"
 		if r.filter.isSearched() {
@@ -199,68 +200,68 @@ func (m *model) updateDoc(key tea.KeyPressMsg) tea.Cmd {
 	m.reading.said = ""
 
 	k := key.String()
-	if _, ok := m.active().(recordRenderer); ok && isBound(k, fixedKeys().Quit) {
+	if _, ok := m.active().(recordRenderer); ok && keys.IsBound(k, fixedKeys().Quit) {
 		return m.hide()
 	}
 
 	own := m.docActions()
-	if slices.ContainsFunc(own.table, func(a screenAction) bool { return isBound(k, a.keys(m.keys)) }) {
-		return own.dispatch(m, k)
+	if slices.ContainsFunc(own.Table, func(a keys.Action[*model]) bool { return keys.IsBound(k, a.Keys(m.keys)) }) {
+		return own.Dispatch(m, m.keys, k)
 	}
 
 	if m.screen == screenDocuments {
-		return m.documents.docKeys().dispatch(m, k)
+		return m.documents.docKeys().Dispatch(m, m.keys, k)
 	}
 
 	return nil
 }
 
 // docActions is the keys on the document beside the list once the picker has handed them to it.
-func (m *model) docActions() screenActionSpec {
-	return screenActionSpec{
-		table: []screenAction{
+func (m *model) docActions() keys.Spec[*model] {
+	return keys.Spec[*model]{
+		Table: []keys.Action[*model]{
 			{
-				id:   actionColumnBack,
-				keys: fixedBack,
-				nav: func(*model, string) tea.Cmd {
+				ID:   keys.ColumnBack,
+				Keys: keys.FixedBack,
+				Nav: func(*model, string) tea.Cmd {
 					m.reading.focused = false
 
 					return nil
 				},
 			},
 			{
-				id:   actionMove,
-				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
-				nav: func(_ *model, pressed string) tea.Cmd {
-					m.moveDocTo(m.reading.Line + directionOf(pressed, m.keys.Nav.Up))
+				ID:   keys.Move,
+				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
+				Nav: func(_ *model, pressed string) tea.Cmd {
+					m.moveDocTo(m.reading.Line + keys.DirectionOf(pressed, m.keys.Nav.Up))
 
 					return nil
 				},
 			},
 			{
-				id:   actionNavPage,
-				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
-				nav: func(_ *model, pressed string) tea.Cmd {
-					m.moveDocTo(m.reading.Line + directionOf(pressed, m.keys.Nav.PageUp)*navPageStep)
+				ID:   keys.NavPage,
+				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
+				Nav: func(_ *model, pressed string) tea.Cmd {
+					m.moveDocTo(m.reading.Line + keys.DirectionOf(pressed, m.keys.Nav.PageUp)*navPageStep)
 
 					return nil
 				},
 			},
 			{
-				id:   actionColumnScroll,
-				keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
-				nav: func(_ *model, pressed string) tea.Cmd {
-					m.scrollDoc(directionOf(pressed, m.keys.Column.ScrollUp) * columnWheelStep)
+				ID:   keys.ColumnScroll,
+				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
+				Nav: func(_ *model, pressed string) tea.Cmd {
+					m.scrollDoc(keys.DirectionOf(pressed, m.keys.Column.ScrollUp) * columnWheelStep)
 
 					return nil
 				},
 			},
 			{
-				id:   actionJump,
-				keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Top, k.Nav.Bottom) },
-				nav: func(_ *model, pressed string) tea.Cmd {
+				ID:   keys.Jump,
+				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Top, k.Nav.Bottom) },
+				Nav: func(_ *model, pressed string) tea.Cmd {
 					line := 0
-					if rows, _, ok := m.docLayout(); ok && isBound(pressed, m.keys.Nav.Bottom) {
+					if rows, _, ok := m.docLayout(); ok && keys.IsBound(pressed, m.keys.Nav.Bottom) {
 						line = len(rows) - 1
 					}
 					m.moveDocTo(line)
@@ -269,9 +270,9 @@ func (m *model) docActions() screenActionSpec {
 				},
 			},
 			{
-				id:   actionFilterOpen,
-				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				nav: func(*model, string) tea.Cmd {
+				ID:   keys.FilterOpen,
+				Keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
+				Nav: func(*model, string) tea.Cmd {
 					m.settleTail()
 					spec, _ := m.columnOf()
 					m.reading.filter.open(spec.searchOptions...)
@@ -281,47 +282,47 @@ func (m *model) docActions() screenActionSpec {
 				},
 			},
 			{
-				id:   actionFilterMatch,
-				keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
-				nav: func(_ *model, pressed string) tea.Cmd {
+				ID:   keys.FilterMatch,
+				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
+				Nav: func(_ *model, pressed string) tea.Cmd {
 					m.jumpDocMatch(pressed)
 
 					return nil
 				},
 			},
 		},
-		legend: []screenLegendRow{
+		Legend: []keys.LegendRow[*model]{
 			{
-				of:    []actionID{actionMove},
-				desc:  func(*model) string { return "move" },
-				label: moveLabel,
-				strip: true,
+				Of:    []keys.ID{keys.Move},
+				Desc:  func(*model) string { return "move" },
+				Label: keys.MoveLabel,
+				Strip: true,
 			},
 			{
-				of:    []actionID{actionNavPage},
-				desc:  func(*model) string { return "page" },
-				label: navPageLabel,
+				Of:    []keys.ID{keys.NavPage},
+				Desc:  func(*model) string { return "page" },
+				Label: keys.NavPageLabel,
 			},
 			{
-				of:   []actionID{actionFilterOpen},
-				desc: func(*model) string { return "search" },
+				Of:   []keys.ID{keys.FilterOpen},
+				Desc: func(*model) string { return "search" },
 			},
 			{
-				of:   []actionID{actionFilterMatch},
-				desc: func(*model) string { return "next/previous match" },
-				label: func(k config.Keybindings) string {
-					return headLabel(k.Filter.NextMatch) + "/" + headLabel(k.Filter.PrevMatch)
+				Of:   []keys.ID{keys.FilterMatch},
+				Desc: func(*model) string { return "next/previous match" },
+				Label: func(k config.Keybindings) string {
+					return keys.HeadLabel(k.Filter.NextMatch) + "/" + keys.HeadLabel(k.Filter.PrevMatch)
 				},
 			},
 			{
-				of:    []actionID{actionJump},
-				desc:  func(*model) string { return "top/bottom" },
-				label: jumpLabel,
+				Of:    []keys.ID{keys.Jump},
+				Desc:  func(*model) string { return "top/bottom" },
+				Label: keys.JumpLabel,
 			},
 			{
-				of:    []actionID{actionColumnBack},
-				desc:  func(*model) string { return "back to the list" },
-				strip: true,
+				Of:    []keys.ID{keys.ColumnBack},
+				Desc:  func(*model) string { return "back to the list" },
+				Strip: true,
 			},
 		},
 	}
@@ -329,9 +330,9 @@ func (m *model) docActions() screenActionSpec {
 
 // docHelp is the legend while the document beside the list holds the keys.
 func (m *model) docHelp() keyMap {
-	own := m.docActions().help(m)
+	own := m.helpOf(m.docActions())
 	if m.screen == screenDocuments {
-		screen := m.documents.docKeys().help(m)
+		screen := m.helpOf(m.documents.docKeys())
 		own = keyMap{
 			short: slices.Concat(own.short, screen.short),
 			full:  slices.Concat(own.full, screen.full),

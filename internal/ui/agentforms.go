@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xptr"
@@ -220,16 +221,16 @@ type taskFormValues struct {
 }
 
 // newTaskForm asks for the brief, and asks about the worktree and the parent only in a workflow that makes worktrees.
-func newTaskForm(keys config.FixedKeys, values *taskFormValues, worktree bool, possibleParents []panel.Task) (*huh.Form, []string) {
+func newTaskForm(fixed config.FixedKeys, values *taskFormValues, worktree bool, possibleParents []panel.Task) (*huh.Form, []string) {
 	fields := []huh.Field{
-		textField("prompt").Title("Brief").Description(fmt.Sprintf("what the agent is told; %s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
+		textField("prompt").Title("Brief").Description(fmt.Sprintf("what the agent is told; %s opens $EDITOR; %s submits", keys.Label(fixed.Editor), keys.Label(fixed.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 	}
 
 	fields = append(fields, worktreeChoice(&values.Worktree, worktree)...)
 
-	return formOf(keys, append(fields, parentChoice(&values.DependsOn, worktree, possibleParents)...)...)
+	return formOf(fixed, append(fields, parentChoice(&values.DependsOn, worktree, possibleParents)...)...)
 }
 
 // worktreeChoice asks whether an agent takes a worktree of its own, and asks nothing in a workflow
@@ -260,17 +261,17 @@ func parentChoice(selected *string, worktree bool, possibleParents []panel.Task)
 }
 
 // taskAgentForm asks for the work a task's writer does, saying where it will run.
-func taskAgentForm(keys config.FixedKeys, values *agentFormValues, task, where string) (*huh.Form, []string) {
+func taskAgentForm(fixed config.FixedKeys, values *agentFormValues, task, where string) (*huh.Form, []string) {
 	fields := []huh.Field{
 		textField("prompt").Title(fmt.Sprintf("On task %q", task)).
-			Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
+			Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keys.Label(fixed.Editor), keys.Label(fixed.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("title").Title("Title").Value(&values.Title),
 		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 		huh.NewNote().Description(where),
 	}
 
-	return formOf(keys, fields...)
+	return formOf(fixed, fields...)
 }
 
 // describeNewWriter says where a new writer on a task with no live one will run.
@@ -286,10 +287,10 @@ func describeNewWriter(workflow panel.Workflow, task panel.Task) string {
 }
 
 // reviewerAgentForm asks for the work and little else.
-func reviewerAgentForm(keys config.FixedKeys, values *agentFormValues, writer panel.Agent, task panel.Task) (*huh.Form, []string) {
+func reviewerAgentForm(fixed config.FixedKeys, values *agentFormValues, writer panel.Agent, task panel.Task) (*huh.Form, []string) {
 	fields := []huh.Field{
 		textField("prompt").Title(fmt.Sprintf("Reviewer on %q", task.Slug)).
-			Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
+			Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keys.Label(fixed.Editor), keys.Label(fixed.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("title").Title("Title").Value(&values.Title),
 		huh.NewInput().Key("harness").Title("Agent").Placeholder(label.OrDash(writer.Harness)).Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
@@ -297,23 +298,23 @@ func reviewerAgentForm(keys config.FixedKeys, values *agentFormValues, writer pa
 			"The reviewer runs in %s, the writer's checkout. Komrad provisions no worktree for it and archives it with its task.", writer.Cwd)),
 	}
 
-	return formOf(keys, fields...)
+	return formOf(fixed, fields...)
 }
 
 // adoptAgentForm asks for the work to pick up and little else.
-func adoptAgentForm(keys config.FixedKeys, values *adoptFormValues) (*huh.Form, []string) {
+func adoptAgentForm(fixed config.FixedKeys, values *adoptFormValues) (*huh.Form, []string) {
 	fields := []huh.Field{
 		huh.NewInput().Key("ref").Title("Adopt").
 			Description("a branch already pushed or on disk").Value(&values.Ref),
 		textField("prompt").Title("Prompt").
 			Description(fmt.Sprintf("what to do with it; leave blank to have it report in and wait. %s opens $EDITOR; %s submits",
-				keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
+				keys.Label(fixed.Editor), keys.Label(fixed.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("title").Title("Title").Description("leave blank to name it after the branch").Value(&values.Title),
 		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 	}
 
-	return formOf(keys, fields...)
+	return formOf(fixed, fields...)
 }
 
 type retryFormValues struct {
@@ -322,9 +323,9 @@ type retryFormValues struct {
 	Flags   string
 }
 
-func retryAgentForm(keys config.FixedKeys, values *retryFormValues) (*huh.Form, []string) {
-	return formOf(keys,
-		textField("prompt").Title("Prompt").Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
+func retryAgentForm(fixed config.FixedKeys, values *retryFormValues) (*huh.Form, []string) {
+	return formOf(fixed,
+		textField("prompt").Title("Prompt").Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keys.Label(fixed.Editor), keys.Label(fixed.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 	)
@@ -333,12 +334,12 @@ func retryAgentForm(keys config.FixedKeys, values *retryFormValues) (*huh.Form, 
 // rebaseForm asks before a worktree is brought up to date, saying what will happen to the
 // branch and to the files.
 func rebaseForm(plan rebasePlan) gitConfirmForm {
-	return func(keys config.FixedKeys) (*huh.Form, *bool) {
+	return func(fixed config.FixedKeys) (*huh.Form, *bool) {
 		return confirmForm(
 			"Bring the worktree of "+plan.name+" up to date?",
 			rebaseDescription(plan),
 			rebaseAffirmative(plan),
-			keys,
+			fixed,
 		)
 	}
 }

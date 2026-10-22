@@ -4,81 +4,82 @@ import (
 	"slices"
 
 	"komrad/config"
+	"komrad/internal/ui/keys"
 
 	tea "charm.land/bubbletea/v2"
 )
 
 // actions is the agents list as one table and the legend that names it.
-func (a *agentsScreen) actions() screenActionSpec {
-	return screenActionSpec{
-		table:  a.table(),
-		legend: a.legend(),
+func (a *agentsScreen) actions() keys.Spec[*model] {
+	return keys.Spec[*model]{
+		Table:  a.table(),
+		Legend: a.legend(),
 	}
 }
 
-func (a *agentsScreen) table() []screenAction {
+func (a *agentsScreen) table() []keys.Action[*model] {
 	return append(a.modeActions(), a.rowActions()...)
 }
 
 // modeActions are the keys that answer whatever the cursor is on.
-func (a *agentsScreen) modeActions() []screenAction {
+func (a *agentsScreen) modeActions() []keys.Action[*model] {
 	list := a.list()
 
 	return append(list.actions(),
-		screenAction{
-			id:   actionAgentTriage,
-			keys: func(k config.Keybindings) []string { return k.Agents.Triage },
-			when: a.isTriageReachable,
-			nav: func(m *model, _ string) tea.Cmd {
+		keys.Action[*model]{
+			ID:   actionAgentTriage,
+			Keys: func(k config.Keybindings) []string { return k.Agents.Triage },
+			When: a.isTriageReachable,
+			Nav: func(m *model, _ string) tea.Cmd {
 				a.jumpToTriage(m)
 
 				return nil
 			},
 		},
-		screenAction{
-			id:   actionTaskNotesBack,
-			keys: fixedBack,
-			when: a.isHoveringNotes,
-			nav:  func(m *model, _ string) tea.Cmd { return a.closeNotes(m) },
+		keys.Action[*model]{
+			ID:   actionTaskNotesBack,
+			Keys: keys.FixedBack,
+			When: a.isHoveringNotes,
+			Nav:  func(m *model, _ string) tea.Cmd { return a.closeNotes(m) },
 		},
-		screenAction{
-			id:   actionAgentsBack,
-			keys: fixedBack,
-			when: list.isBrowsing,
-			nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
+		keys.Action[*model]{
+			ID:   actionAgentsBack,
+			Keys: keys.FixedBack,
+			When: list.isBrowsing,
+			Nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
 		},
 	)
 }
 
 // rowActions are the keys that act on the row the cursor is on, a workflow or an agent and never
 // both.
-func (a *agentsScreen) rowActions() []screenAction {
+func (a *agentsScreen) rowActions() []keys.Action[*model] {
 	list := a.list()
 
-	return []screenAction{
+	return []keys.Action[*model]{
 		{
-			id:     actionWorkflowRename,
-			keys:   func(k config.Keybindings) []string { return k.Workflows.Rename },
-			when:   a.isHoveringWorkflow,
-			direct: directly(notInMenu, func(m *model, _ string) tea.Cmd { return a.openRename(m) }),
+			ID:     actionWorkflowRename,
+			Keys:   func(k config.Keybindings) []string { return k.Workflows.Rename },
+			When:   a.isHoveringWorkflow,
+			Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) tea.Cmd { return a.openRename(m) }),
 		},
 		{
-			id:     actionAgentOpen,
-			keys:   fixedOpen,
-			when:   list.isBrowsing,
-			direct: directly("enter is how a person reaches an agent, and the resume is incidental to that", func(m *model, _ string) tea.Cmd { return a.openHovered(m) }),
+			ID:     actionAgentOpen,
+			Keys:   keys.FixedOpen,
+			When:   list.isBrowsing,
+			Direct: keys.Directly("enter is how a person reaches an agent, and the resume is incidental to that", func(m *model, _ string) tea.Cmd { return a.openHovered(m) }),
 		},
 		{
-			id:     actionAgentRename,
-			keys:   func(k config.Keybindings) []string { return k.Agents.Rename },
-			when:   a.isHoveringAgent,
-			direct: directly(notInMenu, func(m *model, _ string) tea.Cmd { return a.openRename(m) }),
+			ID:     actionAgentRename,
+			Keys:   func(k config.Keybindings) []string { return k.Agents.Rename },
+			When:   a.isHoveringAgent,
+			Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) tea.Cmd { return a.openRename(m) }),
 		},
 		{
-			id:     actionTaskRename,
-			keys:   func(k config.Keybindings) []string { return k.Agents.Rename },
-			when:   a.isHoveringTask,
-			direct: directly(notInMenu, func(m *model, _ string) tea.Cmd { return a.openRename(m) }),
+			ID:     actionTaskRename,
+			Keys:   func(k config.Keybindings) []string { return k.Agents.Rename },
+			When:   a.isHoveringTask,
+			Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) tea.Cmd { return a.openRename(m) }),
 		},
 	}
 }
@@ -117,62 +118,62 @@ func (a *agentsScreen) isHoveringAgent(m *model) bool {
 	return a.isBrowsing(m) && (!ok || !row.header)
 }
 
-func (a *agentsScreen) legend() []screenLegendRow {
+func (a *agentsScreen) legend() []keys.LegendRow[*model] {
 	return append(a.list().selectionLegend(), a.browsingLegend()...)
 }
 
 // browsingLegend is the ordinary legend, in reading order.
-func (a *agentsScreen) browsingLegend() []screenLegendRow {
-	return slices.Concat([]screenLegendRow{
+func (a *agentsScreen) browsingLegend() []keys.LegendRow[*model] {
+	return slices.Concat([]keys.LegendRow[*model]{
 		{
-			of:    []actionID{actionAgentOpen},
-			desc:  func(*model) string { return "open" },
-			show:  a.isBrowsing,
-			strip: true,
+			Of:    []keys.ID{actionAgentOpen},
+			Desc:  func(*model) string { return "open" },
+			Show:  a.isBrowsing,
+			Strip: true,
 		},
 		{
-			of:   []actionID{actionSelectToggle},
-			desc: a.list().toggleDesc,
-			show: a.isBrowsing,
+			Of:   []keys.ID{keys.SelectToggle},
+			Desc: a.list().toggleDesc,
+			Show: a.isBrowsing,
 		},
 		{
-			of:   []actionID{actionAgentTriage},
-			desc: func(*model) string { return "triage" },
-			show: a.isTriageReachable,
+			Of:   []keys.ID{actionAgentTriage},
+			Desc: func(*model) string { return "triage" },
+			Show: a.isTriageReachable,
 		},
 		{
-			of:   []actionID{actionWorkflowRename},
-			desc: func(*model) string { return "rename" },
+			Of:   []keys.ID{actionWorkflowRename},
+			Desc: func(*model) string { return "rename" },
 		},
 		{
-			of:   []actionID{actionAgentRename},
-			desc: func(*model) string { return "rename" },
-			show: a.isHoveringAgent,
+			Of:   []keys.ID{actionAgentRename},
+			Desc: func(*model) string { return "rename" },
+			Show: a.isHoveringAgent,
 		},
 		{
-			of:   []actionID{actionTaskRename},
-			desc: func(*model) string { return "rename" },
-			show: a.isHoveringTask,
+			Of:   []keys.ID{actionTaskRename},
+			Desc: func(*model) string { return "rename" },
+			Show: a.isHoveringTask,
 		},
 		{
-			of:   []actionID{actionTaskNotesBack},
-			desc: func(*model) string { return "close the notes" },
-			show: a.isHoveringNotes,
+			Of:   []keys.ID{actionTaskNotesBack},
+			Desc: func(*model) string { return "close the notes" },
+			Show: a.isHoveringNotes,
 		},
 		{
-			of:   []actionID{actionFilterOpen},
-			desc: filterDescOf,
-			show: a.isBrowsing,
+			Of:   []keys.ID{keys.FilterOpen},
+			Desc: filterDescOf,
+			Show: a.isBrowsing,
 		},
 		{
-			of:   []actionID{actionFilterMatch},
-			desc: func(*model) string { return "next/prev match" },
+			Of:   []keys.ID{keys.FilterMatch},
+			Desc: func(*model) string { return "next/prev match" },
 		},
 		{
-			of:   []actionID{actionFilterClear},
-			desc: filterClearDescOf,
+			Of:   []keys.ID{keys.FilterClear},
+			Desc: filterClearDescOf,
 		},
-	}, screenNavLegend())
+	}, keys.NavLegend[*model]())
 }
 
 func (a *agentsScreen) showHiddenDesc() string {

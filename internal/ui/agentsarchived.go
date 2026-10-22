@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
@@ -486,7 +487,7 @@ func (a *archivedAgents) listParams(m *model) screenListParams {
 }
 
 func (a *archivedAgents) help(m *model) keyMap {
-	return a.actions().help(m)
+	return m.helpOf(a.actions())
 }
 
 func archivedAgentTabs() tabStrip {
@@ -600,6 +601,6 @@ func (a *archivedAgents) settleRename(m *model, row string, err error) {
 	}
 }
 
-func (a *archivedAgents) dispatches(*model) []dispatching {
-	return []dispatching{a.actions()}
+func (a *archivedAgents) dispatches(*model) []keys.Table {
+	return []keys.Table{a.actions()}
 }

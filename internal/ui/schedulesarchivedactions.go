@@ -3,49 +3,51 @@ package ui
 import (
 	"slices"
 
+	"komrad/internal/ui/keys"
+
 	tea "charm.land/bubbletea/v2"
 )
 
 // actions is the archived schedules as one table and the legend that names it.
-func (a *archivedSchedules) actions() screenActionSpec {
-	return screenActionSpec{
-		table:  a.table(),
-		legend: a.legend(),
+func (a *archivedSchedules) actions() keys.Spec[*model] {
+	return keys.Spec[*model]{
+		Table:  a.table(),
+		Legend: a.legend(),
 	}
 }
 
-func (a *archivedSchedules) table() []screenAction {
+func (a *archivedSchedules) table() []keys.Action[*model] {
 	list := a.list()
 
 	return append(list.actions(),
-		screenAction{
-			id:   actionArchiveBack,
-			keys: fixedBack,
-			nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
+		keys.Action[*model]{
+			ID:   actionArchiveBack,
+			Keys: keys.FixedBack,
+			Nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
 		},
 	)
 }
 
-func (a *archivedSchedules) legend() []screenLegendRow {
-	return slices.Concat([]screenLegendRow{
+func (a *archivedSchedules) legend() []keys.LegendRow[*model] {
+	return slices.Concat([]keys.LegendRow[*model]{
 		{
-			of:   []actionID{actionFilterOpen},
-			desc: filterDescOf,
+			Of:   []keys.ID{keys.FilterOpen},
+			Desc: filterDescOf,
 		},
-	}, screenNavLegend(), []screenLegendRow{
+	}, keys.NavLegend[*model](), []keys.LegendRow[*model]{
 		{
-			of:   []actionID{actionArchiveBack},
-			desc: func(*model) string { return "back" },
-		},
-		{
-			of:    []actionID{actionFilterClear},
-			desc:  filterClearDescOf,
-			strip: true,
+			Of:   []keys.ID{actionArchiveBack},
+			Desc: func(*model) string { return "back" },
 		},
 		{
-			of:    []actionID{actionFilterMatch},
-			desc:  func(*model) string { return "next/prev match" },
-			strip: true,
+			Of:    []keys.ID{keys.FilterClear},
+			Desc:  filterClearDescOf,
+			Strip: true,
+		},
+		{
+			Of:    []keys.ID{keys.FilterMatch},
+			Desc:  func(*model) string { return "next/prev match" },
+			Strip: true,
 		},
 	})
 }

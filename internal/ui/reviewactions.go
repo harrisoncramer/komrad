@@ -5,12 +5,13 @@ import (
 	"slices"
 
 	"komrad/config"
+	"komrad/internal/ui/keys"
 
 	tea "charm.land/bubbletea/v2"
 )
 
 // actions is the keys of whichever of the diff and the sidebar holds them.
-func (r *reviewScreen) actions(m *model) screenActionSpec {
+func (r *reviewScreen) actions(m *model) keys.Spec[*model] {
 	if r.isBlockFocused(m) {
 		return r.filesActions()
 	}
@@ -20,53 +21,53 @@ func (r *reviewScreen) actions(m *model) screenActionSpec {
 
 // diffActions is the review screen as one table, walked in precedence order by the dispatch and
 // named in reading order by a legend of the same ids.
-func (r *reviewScreen) diffActions() screenActionSpec {
-	return screenActionSpec{
-		table:  r.table(),
-		legend: r.legend(),
+func (r *reviewScreen) diffActions() keys.Spec[*model] {
+	return keys.Spec[*model]{
+		Table:  r.table(),
+		Legend: r.legend(),
 	}
 }
 
-func (r *reviewScreen) table() []screenAction {
+func (r *reviewScreen) table() []keys.Action[*model] {
 	return slices.Concat(r.ownTable(), r.diffKeys().table())
 }
 
 // ownTable is the review's keys past the ones every diff pane shares.
-func (r *reviewScreen) ownTable() []screenAction {
-	return []screenAction{
+func (r *reviewScreen) ownTable() []keys.Action[*model] {
+	return []keys.Action[*model]{
 		{
-			id:     actionReviewBack,
-			keys:   fixedBack,
-			direct: directly(editorRelease, func(m *model, _ string) tea.Cmd { return r.backFromDiff(m) }),
+			ID:     actionReviewBack,
+			Keys:   keys.FixedBack,
+			Direct: keys.Directly(editorRelease, func(m *model, _ string) tea.Cmd { return r.backFromDiff(m) }),
 		},
 		{
-			id:   actionQuit,
-			keys: fixedQuit,
-			nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
+			ID:   keys.Quit,
+			Keys: keys.FixedQuit,
+			Nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 		},
 		{
-			id:   actionReviewThread,
-			keys: func(k config.Keybindings) []string { return slices.Concat(k.Review.NextThread, k.Review.PrevThread) },
-			nav:  r.stepThread,
+			ID:   actionReviewThread,
+			Keys: func(k config.Keybindings) []string { return slices.Concat(k.Review.NextThread, k.Review.PrevThread) },
+			Nav:  r.stepThread,
 		},
 		{
-			id: actionReviewOpenThread,
-			keys: func(k config.Keybindings) []string {
+			ID: actionReviewOpenThread,
+			Keys: func(k config.Keybindings) []string {
 				return slices.Concat(k.Review.NextOpenThread, k.Review.PrevOpenThread)
 			},
-			nav: r.stepOpenThread,
+			Nav: r.stepOpenThread,
 		},
 		{
-			id:   actionReviewBase,
-			keys: func(k config.Keybindings) []string { return k.Review.Base },
-			when: func(*model) bool { return r.doesWalk() },
-			nav:  func(m *model, _ string) tea.Cmd { return r.stepBase(m) },
+			ID:   actionReviewBase,
+			Keys: func(k config.Keybindings) []string { return k.Review.Base },
+			When: func(*model) bool { return r.doesWalk() },
+			Nav:  func(m *model, _ string) tea.Cmd { return r.stepBase(m) },
 		},
 		{
-			id:   actionReviewBaseForward,
-			keys: func(k config.Keybindings) []string { return k.Review.BaseForward },
-			when: func(*model) bool { return r.doesWalk() },
-			nav:  func(m *model, _ string) tea.Cmd { return r.stepBaseForward(m) },
+			ID:   actionReviewBaseForward,
+			Keys: func(k config.Keybindings) []string { return k.Review.BaseForward },
+			When: func(*model) bool { return r.doesWalk() },
+			Nav:  func(m *model, _ string) tea.Cmd { return r.stepBaseForward(m) },
 		},
 	}
 }
@@ -83,43 +84,43 @@ func (r *reviewScreen) orRefuseWrite(m *model, fn func(*model) tea.Cmd) tea.Cmd 
 	return fn(m)
 }
 
-func (r *reviewScreen) legend() []screenLegendRow {
-	return []screenLegendRow{
-		navMoveRow(),
-		navPageRow(),
+func (r *reviewScreen) legend() []keys.LegendRow[*model] {
+	return []keys.LegendRow[*model]{
+		keys.MoveRow[*model](),
+		keys.NavPageRow[*model](),
 		diffFileRow(),
 		{
-			of:   []actionID{actionReviewThread, actionReviewOpenThread},
-			desc: func(*model) string { return r.diff.threadStepDesc() },
-			label: func(k config.Keybindings) string {
-				return headLabel(k.Review.NextThread) + "/" + headLabel(k.Review.PrevThread) +
-					"/" + headLabel(k.Review.NextOpenThread) + "/" + headLabel(k.Review.PrevOpenThread)
+			Of:   []keys.ID{actionReviewThread, actionReviewOpenThread},
+			Desc: func(*model) string { return r.diff.threadStepDesc() },
+			Label: func(k config.Keybindings) string {
+				return keys.HeadLabel(k.Review.NextThread) + "/" + keys.HeadLabel(k.Review.PrevThread) +
+					"/" + keys.HeadLabel(k.Review.NextOpenThread) + "/" + keys.HeadLabel(k.Review.PrevOpenThread)
 			},
 		},
 		diffSearchRow(),
 		diffMatchRow(),
 		diffPanRow(),
-		navJumpRow(),
+		keys.JumpRow[*model](),
 		{
-			of:   []actionID{actionReviewBase},
-			desc: func(*model) string { return "an earlier review" },
-			show: r.doesFitBaseLegend,
+			Of:   []keys.ID{actionReviewBase},
+			Desc: func(*model) string { return "an earlier review" },
+			Show: r.doesFitBaseLegend,
 		},
 		{
-			of:   []actionID{actionReviewBaseForward},
-			desc: func(*model) string { return "a later review" },
-			show: r.doesFitBaseLegend,
+			Of:   []keys.ID{actionReviewBaseForward},
+			Desc: func(*model) string { return "a later review" },
+			Show: r.doesFitBaseLegend,
 		},
 		{
-			of:   []actionID{actionReviewBack},
-			desc: func(m *model) string { return r.diffBackDesc(m) },
+			Of:   []keys.ID{actionReviewBack},
+			Desc: func(m *model) string { return r.diffBackDesc(m) },
 		},
 	}
 }
 
 // stepOpenThread walks the comments nobody has settled.
 func (r *reviewScreen) stepOpenThread(m *model, pressed string) tea.Cmd {
-	if isBound(pressed, m.keys.Review.PrevOpenThread) {
+	if keys.IsBound(pressed, m.keys.Review.PrevOpenThread) {
 		return r.jumpOpenThread(m, -1)
 	}
 
@@ -127,7 +128,7 @@ func (r *reviewScreen) stepOpenThread(m *model, pressed string) tea.Cmd {
 }
 
 func (r *reviewScreen) stepThread(m *model, pressed string) tea.Cmd {
-	if isBound(pressed, m.keys.Review.PrevThread) {
+	if keys.IsBound(pressed, m.keys.Review.PrevThread) {
 		return r.moveCursor(m, r.diff.View().JumpThread(r.diff.Cursor(), -1))
 	}
 
@@ -135,24 +136,24 @@ func (r *reviewScreen) stepThread(m *model, pressed string) tea.Cmd {
 }
 
 // filesActions is the keys on the file tree, which walk it a row at a time with the diff following.
-func (r *reviewScreen) filesActions() screenActionSpec {
+func (r *reviewScreen) filesActions() keys.Spec[*model] {
 	standing := func(*model) bool { return r.filesFilter.isStanding() }
 
-	return screenActionSpec{
-		table: append(navActions(filesNav{r}, navSteps{page: navPageStep, scroll: 1}), []screenAction{
+	return keys.Spec[*model]{
+		Table: append(navActions(filesNav{r}, navSteps{page: navPageStep, scroll: 1}), []keys.Action[*model]{
 			{
-				id:   actionDiffFile,
-				keys: func(k config.Keybindings) []string { return slices.Concat(k.Diff.NextFile, k.Diff.PrevFile) },
-				nav: func(m *model, pressed string) tea.Cmd {
-					return r.stepFile(m, directionOf(pressed, m.keys.Diff.PrevFile))
+				ID:   actionDiffFile,
+				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Diff.NextFile, k.Diff.PrevFile) },
+				Nav: func(m *model, pressed string) tea.Cmd {
+					return r.stepFile(m, keys.DirectionOf(pressed, m.keys.Diff.PrevFile))
 				},
 			},
 			{
-				id: actionReviewFolder,
-				keys: func(k config.Keybindings) []string {
-					return slices.Concat(fixedOpen(k), k.Review.ToggleFolder)
+				ID: actionReviewFolder,
+				Keys: func(k config.Keybindings) []string {
+					return slices.Concat(keys.FixedOpen(k), k.Review.ToggleFolder)
 				},
-				nav: func(m *model, _ string) tea.Cmd {
+				Nav: func(m *model, _ string) tea.Cmd {
 					if cmd, chosen := r.chooseSide(m); chosen {
 						return cmd
 					}
@@ -163,70 +164,70 @@ func (r *reviewScreen) filesActions() screenActionSpec {
 				},
 			},
 			{
-				id:   actionFilterOpen,
-				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				nav: func(*model, string) tea.Cmd {
+				ID:   keys.FilterOpen,
+				Keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
+				Nav: func(*model, string) tea.Cmd {
 					r.openFilesFilter()
 
 					return nil
 				},
 			},
 			{
-				id:   actionFilterMatch,
-				keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
-				when: standing,
-				nav: func(m *model, pressed string) tea.Cmd {
-					return r.jumpFilesMatch(m, directionOf(pressed, m.keys.Filter.PrevMatch))
+				ID:   keys.FilterMatch,
+				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
+				When: standing,
+				Nav: func(m *model, pressed string) tea.Cmd {
+					return r.jumpFilesMatch(m, keys.DirectionOf(pressed, m.keys.Filter.PrevMatch))
 				},
 			},
 			{
-				id:   actionFilterClear,
-				keys: fixedBack,
-				when: standing,
-				nav: func(*model, string) tea.Cmd {
+				ID:   keys.FilterClear,
+				Keys: keys.FixedBack,
+				When: standing,
+				Nav: func(*model, string) tea.Cmd {
 					r.filesFilter.abandon()
 
 					return nil
 				},
 			},
 			{
-				id:     actionReviewBack,
-				keys:   fixedBack,
-				direct: directly(editorRelease, func(m *model, _ string) tea.Cmd { return r.back(m) }),
+				ID:     actionReviewBack,
+				Keys:   keys.FixedBack,
+				Direct: keys.Directly(editorRelease, func(m *model, _ string) tea.Cmd { return r.back(m) }),
 			},
 			{
-				id:   actionQuit,
-				keys: fixedQuit,
-				nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
+				ID:   keys.Quit,
+				Keys: keys.FixedQuit,
+				Nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 			},
 		}...),
-		legend: []screenLegendRow{
-			navMoveRow(),
-			navPageRow(),
-			navJumpRow(),
+		Legend: []keys.LegendRow[*model]{
+			keys.MoveRow[*model](),
+			keys.NavPageRow[*model](),
+			keys.JumpRow[*model](),
 			diffFileRow(),
 			{
-				of:   []actionID{actionReviewFolder},
-				desc: func(m *model) string { return r.chooseDesc(m) },
-				show: func(m *model) bool { return r.doesChoose(m) },
+				Of:   []keys.ID{actionReviewFolder},
+				Desc: func(m *model) string { return r.chooseDesc(m) },
+				Show: func(m *model) bool { return r.doesChoose(m) },
 			},
 			{
-				of:   []actionID{actionFilterOpen},
-				desc: func(*model) string { return r.filesFilter.openDesc() },
+				Of:   []keys.ID{keys.FilterOpen},
+				Desc: func(*model) string { return r.filesFilter.openDesc() },
 			},
 			{
-				of:   []actionID{actionFilterMatch},
-				desc: func(*model) string { return "next/prev match" },
+				Of:   []keys.ID{keys.FilterMatch},
+				Desc: func(*model) string { return "next/prev match" },
 			},
 			{
-				of:   []actionID{actionFilterClear},
-				desc: func(*model) string { return r.filesFilter.clearDesc() },
+				Of:   []keys.ID{keys.FilterClear},
+				Desc: func(*model) string { return r.filesFilter.clearDesc() },
 			},
 			{
-				of:    []actionID{actionReviewBack},
-				desc:  func(*model) string { return r.backDesc() },
-				show:  func(*model) bool { return !r.filesFilter.isStanding() },
-				strip: true,
+				Of:    []keys.ID{actionReviewBack},
+				Desc:  func(*model) string { return r.backDesc() },
+				Show:  func(*model) bool { return !r.filesFilter.isStanding() },
+				Strip: true,
 			},
 		},
 	}

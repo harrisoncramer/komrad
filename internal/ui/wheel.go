@@ -4,6 +4,8 @@ import (
 	"slices"
 	"time"
 
+	"komrad/internal/ui/keys"
+
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -179,7 +181,7 @@ func (m *model) wheelList(rows int) tea.Cmd {
 
 // pressWheel presses the scroll key once for every row.
 func (m *model) pressWheel(rows int) tea.Cmd {
-	pressed := keyMsg(m.wheelKeys(rows)[0])
+	pressed := keys.Press(m.wheelKeys(rows)[0])
 
 	var cmds []tea.Cmd
 	for range max(rows, -rows) {

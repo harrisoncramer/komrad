@@ -18,6 +18,7 @@ import (
 	"komrad/internal/engine"
 	"komrad/internal/loader"
 	"komrad/internal/panes"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/layout"
 	"komrad/lib/xslice"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -291,7 +292,7 @@ func NewSizeRead(width, height int) tea.Msg {
 
 // NewKeyPress is the press bubbletea delivers for a key as a binding spells it.
 func NewKeyPress(key string) tea.KeyPressMsg {
-	return keyMsg(key)
+	return keys.Press(key)
 }
 
 // IsPulse reports whether msg is a pulse tick.
@@ -478,7 +479,7 @@ func (p *Panel) ReadRootUnbinds() []string {
 func (p *Panel) ReadGlobalArmKeys() []string {
 	var keys []string
 	for _, arm := range globalArms(p.model.screen, p.model.keys) {
-		keys = append(keys, arm.keys...)
+		keys = append(keys, arm.Keys...)
 	}
 
 	return keys
@@ -573,15 +574,15 @@ func (p *Panel) ReadMoveBatches() [][]panes.Kind {
 // IsKeyTaken reports whether a press of the key reaches any binding the panel dispatches on.
 func (p *Panel) IsKeyTaken(key string) bool {
 	isTaken := false
-	keyProbe = func([]string) {
+	keys.Probe = func([]string) {
 		isTaken = true
 	}
 	defer func() {
-		keyProbe = nil
+		keys.Probe = nil
 	}()
 
 	probe := p.model
-	probe.route(keyMsg(key))
+	probe.route(keys.Press(key))
 
 	return isTaken
 }
@@ -589,7 +590,7 @@ func (p *Panel) IsKeyTaken(key string) bool {
 // IsGlobalKey reports whether the router answers a press of the key ahead of the screen that is up.
 func (p *Panel) IsGlobalKey(key string) bool {
 	probe := p.model
-	_, isTaken := probe.routeGlobalKey(keyMsg(key))
+	_, isTaken := probe.routeGlobalKey(keys.Press(key))
 
 	return isTaken
 }
@@ -1006,4 +1007,17 @@ func (t *recordingTmux) CaptureScreen(pane string) string {
 // IsWatching reports whether the panel holds the watch stream open.
 func (p *Panel) IsWatching() bool {
 	return p.watching
+}
+
+// specsOf is the key specs among the tables a screen dispatches through.
+func specsOf(s screen) []keys.Spec[*model] {
+	var specs []keys.Spec[*model]
+
+	for _, table := range actionsOf(s) {
+		if spec, ok := table.(keys.Spec[*model]); ok {
+			specs = append(specs, spec)
+		}
+	}
+
+	return specs
 }

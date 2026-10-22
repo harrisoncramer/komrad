@@ -1,4 +1,4 @@
-package ui
+package keys
 
 import (
 	"strings"
@@ -7,8 +7,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// keyMsg is the press bubbletea delivers for a key as a binding spells it.
-func keyMsg(key string) tea.KeyPressMsg {
+// Press is the press bubbletea delivers for a key as a binding spells it.
+func Press(key string) tea.KeyPressMsg {
 	var msg tea.KeyPressMsg
 
 	rest := key

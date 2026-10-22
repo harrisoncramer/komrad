@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"komrad/internal/glyph"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/paint"
 
 	"github.com/stretchr/testify/assert"
@@ -148,7 +149,7 @@ func TestFilterHelpNamesTheOtherMode(t *testing.T) {
 func TestReviewSearchIgnoresTab(t *testing.T) {
 	filter := filterState{typing: true}
 
-	assert.False(t, filter.takeKey(keyMsg("tab"), nil))
+	assert.False(t, filter.takeKey(keys.Press("tab"), nil))
 	assert.Equal(t, filterModeSearch, filter.mode)
 	assert.Equal(t, "/", filter.mode.glyph(glyph.Defaults()))
 }

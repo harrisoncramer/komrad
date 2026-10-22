@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strconv"
 
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/zone"
 
 	tea "charm.land/bubbletea/v2"
@@ -56,7 +57,7 @@ func (m *model) settleSearch() tea.Cmd {
 		return nil
 	}
 
-	return m.route(keyMsg("enter"))
+	return m.route(keys.Press("enter"))
 }
 
 func (m *model) clickerOf(name zone.Name) (clicker, bool) {

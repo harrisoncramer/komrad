@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
@@ -182,41 +183,41 @@ func (c *statusChecksScreen) stepKind(m *model, delta int) tea.Cmd {
 	return m.waitToStage()
 }
 
-func (c *statusChecksScreen) listActions() screenActionSpec {
-	return screenActionSpec{
-		table: append(c.list().actions(),
-			screenAction{
-				id:   actionStatusChecksBack,
-				keys: fixedBack,
-				nav: func(m *model, _ string) tea.Cmd {
+func (c *statusChecksScreen) listActions() keys.Spec[*model] {
+	return keys.Spec[*model]{
+		Table: append(c.list().actions(),
+			keys.Action[*model]{
+				ID:   actionStatusChecksBack,
+				Keys: keys.FixedBack,
+				Nav: func(m *model, _ string) tea.Cmd {
 					return m.enter(c.openedFrom, screenTarget{agentID: c.agentID})
 				},
 			},
-			screenAction{
-				id:   actionStatusChecksLogs,
-				keys: fixedOpen,
-				nav: func(m *model, _ string) tea.Cmd {
+			keys.Action[*model]{
+				ID:   actionStatusChecksLogs,
+				Keys: keys.FixedOpen,
+				Nav: func(m *model, _ string) tea.Cmd {
 					return m.enter(screenStatusCheckLogs, screenTarget{agentID: c.agentID, openedFrom: screenStatusChecks})
 				},
 			},
 		),
-		legend: slices.Concat(screenNavLegend(), []screenLegendRow{
+		Legend: slices.Concat(keys.NavLegend[*model](), []keys.LegendRow[*model]{
 			{
-				of:    []actionID{actionStatusChecksBack},
-				desc:  func(*model) string { return "back" },
-				strip: true,
+				Of:    []keys.ID{actionStatusChecksBack},
+				Desc:  func(*model) string { return "back" },
+				Strip: true,
 			},
 			{
-				of:    []actionID{actionStatusChecksLogs},
-				desc:  func(*model) string { return "logs" },
-				strip: true,
+				Of:    []keys.ID{actionStatusChecksLogs},
+				Desc:  func(*model) string { return "logs" },
+				Strip: true,
 			},
 		}),
 	}
 }
 
 func (c *statusChecksScreen) help(m *model) keyMap {
-	return c.listActions().help(m)
+	return m.helpOf(c.listActions())
 }
 
 func (c *statusChecksScreen) parent() screen {
@@ -251,8 +252,8 @@ func (c *statusChecksScreen) stageResting(*model) tea.Cmd {
 	return nil
 }
 
-func (c *statusChecksScreen) dispatches(*model) []dispatching {
-	return []dispatching{c.listActions()}
+func (c *statusChecksScreen) dispatches(*model) []keys.Table {
+	return []keys.Table{c.listActions()}
 }
 
 var (

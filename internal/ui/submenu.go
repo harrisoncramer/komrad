@@ -6,6 +6,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/glyph"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/paint"
 	"komrad/lib/xslice"
 
@@ -256,16 +257,16 @@ func (m *model) updateSubmenu(msg tea.Msg, parents []submenuLevel, level submenu
 		return m.updateForm(msg)
 	}
 
-	if len(parents) > 0 && isBound(press.String(), fixedKeys().Back) {
+	if len(parents) > 0 && keys.IsBound(press.String(), fixedKeys().Back) {
 		return m.backSubmenu(parents)
 	}
 
-	if level.menu.isList() && isBound(press.String(), m.keys.Menu.Open) {
+	if level.menu.isList() && keys.IsBound(press.String(), m.keys.Menu.Open) {
 		return m.openListActions(slices.Concat(parents, []submenuLevel{level}), level)
 	}
 
 	for i, entry := range level.menu.entries {
-		if isBound(press.String(), entry.keys) {
+		if keys.IsBound(press.String(), entry.keys) {
 			*level.choice = i
 
 			return m.answerForm()

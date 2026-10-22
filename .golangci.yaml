@@ -457,8 +457,8 @@ linters:
               - type: komrad/config.FixedKeys
                 prefix: Fixed
             matchers:
-              - komrad/internal/ui.isBound
-              - komrad/internal/ui.directionOf
+              - komrad/internal/ui/keys.IsBound
+              - komrad/internal/ui/keys.DirectionOf
             compares:
               - slices.Contains
             navigation:
@@ -479,8 +479,7 @@ linters:
               - Fixed.Quit
               - Fixed.Editor
             dispatchers:
-              - komrad/internal/ui.actionSpec.dispatch
-              - komrad/internal/ui.screenActionSpec.dispatch
+              - komrad/internal/ui/keys.Spec.Dispatch
               - komrad/internal/ui.model.updateDoc
               - komrad/internal/ui.model.updateSubmenu
             inputs:

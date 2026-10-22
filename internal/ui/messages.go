@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/keys"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -223,27 +224,27 @@ func (m *model) updateMessages(key tea.KeyPressMsg) tea.Cmd {
 	k := key.String()
 
 	switch {
-	case isBound(k, m.keys.Messages.Open), k == "esc":
+	case keys.IsBound(k, m.keys.Messages.Open), k == "esc":
 		m.toggleMessagesFocus()
 
 		return nil
-	case isBound(k, m.keys.Messages.Dismiss):
+	case keys.IsBound(k, m.keys.Messages.Dismiss):
 		m.dismissMessage()
 
 		return nil
-	case isBound(k, m.keys.Messages.DismissAll):
+	case keys.IsBound(k, m.keys.Messages.DismissAll):
 		m.dismissAllMessages()
 
 		return nil
-	case isBound(k, m.keys.Details.Copy):
+	case keys.IsBound(k, m.keys.Details.Copy):
 		return m.copyMessage()
-	case isBound(k, m.keys.Nav.Up):
+	case keys.IsBound(k, m.keys.Nav.Up):
 		m.messages.cursor = cursor.Clamp(m.messages.clampedCursor()-1, len(m.messages.items))
-	case isBound(k, m.keys.Nav.Down):
+	case keys.IsBound(k, m.keys.Nav.Down):
 		m.messages.cursor = cursor.Clamp(m.messages.clampedCursor()+1, len(m.messages.items))
-	case isBound(k, m.keys.Nav.Top):
+	case keys.IsBound(k, m.keys.Nav.Top):
 		m.messages.cursor = 0
-	case isBound(k, m.keys.Nav.Bottom):
+	case keys.IsBound(k, m.keys.Nav.Bottom):
 		m.messages.cursor = len(m.messages.items) - 1
 	}
 

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
 	forgev1 "komrad/proto/gen/forge/v1"
@@ -74,7 +75,7 @@ func mergeForm(params mergeFormParams) (*huh.Form, []string) {
 	})
 	hasMessage := mergeOptionOf(params.plan, params.values.Method).GetMessage() != nil
 
-	description := fmt.Sprintf("writes no commit of its own; %s merges", keyLabel(params.keys.Submit))
+	description := fmt.Sprintf("writes no commit of its own; %s merges", keys.Label(params.keys.Submit))
 	if hasMessage {
 		description = "how the commits land on the base"
 	}
@@ -88,7 +89,7 @@ func mergeForm(params mergeFormParams) (*huh.Form, []string) {
 		fields = append(fields,
 			huh.NewInput().Key("headline").Title("Headline").Value(&params.values.Headline),
 			textField("body").Title("Body").
-				Description(fmt.Sprintf("%s opens $EDITOR; %s merges", keyLabel(params.keys.Editor), keyLabel(params.keys.Submit))).
+				Description(fmt.Sprintf("%s opens $EDITOR; %s merges", keys.Label(params.keys.Editor), keys.Label(params.keys.Submit))).
 				Value(&params.values.Body),
 		)
 	}

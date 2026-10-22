@@ -1,59 +1,39 @@
 package ui
 
-// actionID names one thing a screen does with a key.
-type actionID int
+import "komrad/internal/ui/keys"
 
+// The actions the root's screens declare of their own.
 const (
-	actionNone actionID = iota
-	actionHelp
-	actionMove
-	actionJump
-	actionNavPage
-	actionColumnScroll
-	actionColumnBack
-	actionDetails
-	actionDetailsCopy
-	actionMessages
-	actionFilterOpen
-	actionFilterClear
-	actionFilterMatch
-	actionQuit
-	actionAgentsBack
-	actionAgentTriage
-	actionAgentOpen
-	actionAgentRename
-	actionTaskRename
-	actionTaskNotesBack
-	actionSearchOpen
-	actionSearchEdit
-	actionSearchBack
-	actionWorkflowRename
-	actionSelectToggle
-	actionSelectRange
-	actionSelectClear
-	actionScheduleRename
-	actionScheduleBack
-	actionArchiveRename
-	actionArchiveBack
-	actionWorktreesBack
-	actionDocumentsBack
-	actionDocumentsOlder
-	actionDocumentsNewer
-	actionLogsBack
-	actionLogsCopy
-	actionStatusChecksBack
-	actionStatusChecksLogs
-	actionStatusCheckLogsBack
-	actionDiffFile
-	actionDiffMatch
-	actionDiffPan
-	actionDiffPanReset
-	actionDiffWrap
-	actionDiffExpand
-	actionReviewBack
-	actionReviewThread
-	actionReviewOpenThread
-	actionReviewBase
-	actionReviewBaseForward
-	actionReviewFolder
+	actionAgentsBack          keys.ID = "agents back"
+	actionAgentTriage         keys.ID = "agent triage"
+	actionAgentOpen           keys.ID = "agent open"
+	actionAgentRename         keys.ID = "agent rename"
+	actionTaskRename          keys.ID = "task rename"
+	actionTaskNotesBack       keys.ID = "task notes back"
+	actionWorkflowRename      keys.ID = "workflow rename"
+	actionScheduleRename      keys.ID = "schedule rename"
+	actionScheduleBack        keys.ID = "schedule back"
+	actionArchiveRename       keys.ID = "archive rename"
+	actionArchiveBack         keys.ID = "archive back"
+	actionWorktreesBack       keys.ID = "worktrees back"
+	actionDocumentsBack       keys.ID = "documents back"
+	actionDocumentsOlder      keys.ID = "documents older"
+	actionDocumentsNewer      keys.ID = "documents newer"
+	actionLogsBack            keys.ID = "logs back"
+	actionLogsCopy            keys.ID = "logs copy"
+	actionStatusChecksBack    keys.ID = "status checks back"
+	actionStatusChecksLogs    keys.ID = "status checks logs"
+	actionStatusCheckLogsBack keys.ID = "status check logs back"
+	actionDiffFile            keys.ID = "diff file"
+	actionDiffMatch           keys.ID = "diff match"
+	actionDiffPan             keys.ID = "diff pan"
+	actionDiffPanReset        keys.ID = "diff pan reset"
+	actionDiffWrap            keys.ID = "diff wrap"
+	actionDiffExpand          keys.ID = "diff expand"
+	actionReviewBack          keys.ID = "review back"
+	actionReviewThread        keys.ID = "review thread"
+	actionReviewOpenThread    keys.ID = "review open thread"
+	actionReviewBase          keys.ID = "review base"
+	actionReviewBaseForward   keys.ID = "review base forward"
+	actionReviewFolder        keys.ID = "review folder"
 )
