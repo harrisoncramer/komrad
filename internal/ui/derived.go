@@ -48,5 +48,5 @@ type listingKey struct {
 }
 
 func (m *model) listingKey() listingKey {
-	return listingKey{generation: m.listing.generation, filter: m.filter.key()}
+	return listingKey{generation: m.listing.Generation, filter: m.filter.key()}
 }

@@ -23,7 +23,7 @@ func (a *agentsScreen) details(m *model) details {
 	if r.header {
 		return details{
 			id:     r.workflow.ID,
-			fields: workflowFields(r.workflow, m.listing.agentCount(r.workflow.ID)),
+			fields: workflowFields(r.workflow, m.listing.AgentCount(r.workflow.ID)),
 		}
 	}
 
@@ -39,12 +39,12 @@ func taskDetails(m *model, r agentRow) details {
 	var writerFields []recordField
 	if writer, ok := r.writer(); ok {
 		writerFields = append([]recordField{{label: "agent", value: label.OrDash(writer.Agent.Harness)}},
-			sessionFields(writer.Agent, m.listing.scheduleName(writer.Agent))...)
+			sessionFields(writer.Agent, m.listing.ScheduleName(writer.Agent))...)
 	}
 
 	return details{
 		id:      r.task.ID,
-		notices: agentNotices(m.glyphs, m.loading.frame(), m.listing.tasks, r),
+		notices: agentNotices(m.glyphs, m.loading.frame(), m.listing.Tasks, r),
 		fields:  taskFields(m.buildCheckoutParams(*r.task), writerFields),
 		tags:    tags,
 	}
@@ -53,11 +53,11 @@ func taskDetails(m *model, r agentRow) details {
 // agentDetails is the record for an agent's row, carrying its task's checkout where no task
 // header stands over it and the rule's tags too while the agent is live.
 func agentDetails(m *model, r agentRow) details {
-	task := m.listing.tasks.findForAgent(r.item.Agent)
+	task := m.listing.Tasks.FindForAgent(r.item.Agent)
 	params := agentFieldsParams{
 		agent:    r.item.Agent,
 		task:     task.Slug,
-		schedule: m.listing.scheduleName(r.item.Agent),
+		schedule: m.listing.ScheduleName(r.item.Agent),
 	}
 	var tags []string
 	if r.underTask {
@@ -71,7 +71,7 @@ func agentDetails(m *model, r agentRow) details {
 
 	return details{
 		id:      r.item.Agent.ID,
-		notices: agentNotices(m.glyphs, m.loading.frame(), m.listing.tasks, r),
+		notices: agentNotices(m.glyphs, m.loading.frame(), m.listing.Tasks, r),
 		fields:  agentFields(params),
 		tags:    tags,
 	}
@@ -86,7 +86,7 @@ func (a *agentsScreen) doc(m *model) string {
 	case !ok:
 		return ""
 	case a.isShowingNotes(r):
-		return taskMarkdown(m.listing.tasks[a.notes])
+		return taskMarkdown(m.listing.Tasks[a.notes])
 	case r.isTask() && !held:
 		return taskMarkdown(*r.task)
 	case r.header && !held:
@@ -139,7 +139,7 @@ func failedPlaceholder(agent panel.Agent) string {
 }
 
 func (a *agentsScreen) view(m *model) string {
-	if m.listing.isEmpty() {
+	if m.listing.IsEmpty() {
 		return m.welcomeView(a.listParams(m), welcomeText(m.keys))
 	}
 
@@ -158,15 +158,15 @@ func (a *agentsScreen) snapshot(m *model, pane list.Pane) view.Snapshot {
 			waiting: layout.waiting,
 		},
 		selected:     a.Selected,
-		wholeTasks:   taskIDs(work.wholeTasks),
-		scheduled:    m.listing.scheduledWorkflows(),
-		workflowDirs: m.listing.workflowDirs(),
+		wholeTasks:   panel.TaskIDs(work.wholeTasks),
+		scheduled:    m.listing.ScheduledWorkflows(),
+		workflowDirs: m.listing.WorkflowDirs(),
 		focused:      list.KeyAt(layout.cursorRows(), a.Row),
 		caret:        pane.Caret,
 		loaderFrame:  m.loading.frame(),
 		matcher:      m.filter.pattern,
 		picked:       pickedRows(m.filter, layout.cursorRows(), m.agentRowFits),
-		tasks:        m.listing.tasks,
+		tasks:        m.listing.Tasks,
 		renaming:     a.renamingField(),
 		showHidden:   a.showHidden,
 		flat:         a.sort.flat,

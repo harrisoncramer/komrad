@@ -148,7 +148,7 @@ func (m *model) releaseAbandonedPause(msg reviewPausedMsg) tea.Cmd {
 		return nil
 	}
 
-	item, ok := m.listing.liveAgent(msg.agentID)
+	item, ok := m.listing.LiveAgent(msg.agentID)
 	if !ok {
 		return nil
 	}

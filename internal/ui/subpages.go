@@ -29,7 +29,7 @@ var (
 // agentMenu is the band of the menu that acts on an agent, with the entries a screen adds of its own before git.
 func agentMenu(m *model, item panel.AgentRow, own ...submenuEntry) submenu {
 	agent := item.Agent
-	task := m.listing.tasks.findForAgent(agent)
+	task := m.listing.Tasks.FindForAgent(agent)
 
 	entries := slices.Concat(subpageEntries(m, item, agentSubpages(agent)), own)
 	if agent.ArchivedAt == nil || task.ArchivedAt != nil {
@@ -38,7 +38,7 @@ func agentMenu(m *model, item panel.AgentRow, own ...submenuEntry) submenu {
 
 	return submenu{
 		kind:    formMenu,
-		title:   m.listing.agentName(agent),
+		title:   m.listing.AgentName(agent),
 		entries: append(entries, nestedEntry("jump", m.keys.Menu.Jump, jumpMenu(m, screenAgents, screenTarget{agentID: agent.ID}))),
 	}
 }
@@ -74,7 +74,7 @@ func subpageEntry(m *model, openedFrom screen, item panel.AgentRow, page subpage
 		return submenuEntry{
 			label: "review",
 			keys:  m.keys.Menu.Review,
-			isOff: m.listing.reviewRefusal(item.Agent) != nil,
+			isOff: reviewRefusal(m.listing, item.Agent) != nil,
 		}
 	case subpageLogs:
 		return submenuEntry{label: "logs", keys: m.keys.Menu.Logs}
@@ -92,11 +92,11 @@ func subpageEntry(m *model, openedFrom screen, item panel.AgentRow, page subpage
 }
 
 // reviewRefusal is why an agent's work cannot be reviewed, nil when it can.
-func (l listing) reviewRefusal(agent panel.Agent) error {
+func reviewRefusal(l panel.Listing, agent panel.Agent) error {
 	switch {
 	case agent.Role == panel.RoleReviewer:
 		return errReviewReviewer
-	case !l.isReviewable(agent):
+	case !l.IsReviewable(agent):
 		return errReviewNoCheckout
 	}
 
@@ -119,7 +119,7 @@ func terminalRefusal(openedFrom screen, agent panel.Agent) error {
 // enterSubpage goes from the menu to the subpage picked, or closes it and says why the agent has
 // nothing there.
 func (m *model) enterSubpage(openedFrom screen, agentID string, picked subpage) tea.Cmd {
-	item, ok := m.listing.anyAgent(agentID)
+	item, ok := m.listing.AnyAgent(agentID)
 	if !ok {
 		return m.refuseSubpage("Could not open the subpage", errAgentGone)
 	}
@@ -128,7 +128,7 @@ func (m *model) enterSubpage(openedFrom screen, agentID string, picked subpage) 
 
 	switch picked {
 	case subpageReview:
-		if err := m.listing.reviewRefusal(item.Agent); err != nil {
+		if err := reviewRefusal(m.listing, item.Agent); err != nil {
 			return m.refuseSubpage("Could not open the review of "+name, err)
 		}
 

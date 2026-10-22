@@ -70,7 +70,7 @@ func newAgentEntries(m *model, workflow panel.Workflow, task panel.Task) []subme
 // worktree is gone, once the task has left the listing as one being deleted does, or once it is
 // archived with no checkout to join.
 func isTaskStartable(m *model, task panel.Task) bool {
-	if _, listed := m.listing.tasks[task.ID]; !listed {
+	if _, listed := m.listing.Tasks[task.ID]; !listed {
 		return false
 	}
 
@@ -129,13 +129,13 @@ func taskDir(task panel.Task, workflow panel.Workflow) string {
 // taskReviewEntry opens the review of a task through the agent it wears, archived or not.
 func taskReviewEntry(m *model, writer panel.Agent) submenuEntry {
 	entry := openEntry("review", m.keys.Menu.Review, func(m *model) tea.Cmd {
-		if !m.listing.isReviewable(writer) {
-			return m.refuseSubpage("Could not open the review of "+m.listing.tasks.findForAgent(writer).Slug, errReviewNoCheckout)
+		if !m.listing.IsReviewable(writer) {
+			return m.refuseSubpage("Could not open the review of "+m.listing.Tasks.FindForAgent(writer).Slug, errReviewNoCheckout)
 		}
 
 		return m.enterReview(writer)
 	})
-	entry.isOff = !m.listing.isReviewable(writer)
+	entry.isOff = !m.listing.IsReviewable(writer)
 
 	return entry
 }
@@ -151,7 +151,7 @@ func (a *agentsScreen) agentRowMenu(m *model, item panel.AgentRow) submenu {
 
 	menu := submenu{
 		kind:    formMenu,
-		title:   m.listing.agentName(item.Agent),
+		title:   m.listing.AgentName(item.Agent),
 		entries: slices.Concat(pages, own),
 	}
 	if item.Agent.Role == panel.RoleWriter {
@@ -175,7 +175,7 @@ func retryEntries(m *model, item panel.AgentRow) []submenuEntry {
 // snoozeEntries is the entry that snoozes or wakes the agent's task in triage, and none when it
 // is not in triage.
 func (a *agentsScreen) snoozeEntries(m *model, item panel.AgentRow) []submenuEntry {
-	triaged, ok := a.triage.findTask(item, m.listing.agents)
+	triaged, ok := a.triage.findTask(item, m.listing.Agents)
 	if !ok {
 		return nil
 	}

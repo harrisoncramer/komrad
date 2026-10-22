@@ -8,6 +8,7 @@ import (
 	"komrad/internal/assemble"
 	"komrad/internal/client"
 	"komrad/internal/logging"
+	"komrad/internal/ui/panel"
 	watchv1 "komrad/proto/gen/watch/v1"
 	"komrad/proto/gen/watch/v1/watchv1connect"
 
@@ -64,16 +65,16 @@ func (m *model) takeWatch(batch client.WatchBatch) tea.Cmd {
 		reread = m.readEngineBuildCmd()
 	}
 
-	listed := m.withListing(func(l *listing) {
+	listed := m.withListing(func(l *panel.Listing) {
 		for _, event := range batch {
 			if _, snapshot := event.GetEvent().(*watchv1.WatchEvent_Snapshot); snapshot {
 				m.reportUnreachable(nil)
 			}
 
-			changed.Merge(l.world.Apply(event))
+			changed.Merge(l.World.Apply(event))
 		}
 
-		l.assemble(time.Now())
+		l.Assemble(time.Now())
 	})
 
 	return tea.Batch(listed, m.react(changed), reread)

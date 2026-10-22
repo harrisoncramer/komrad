@@ -26,8 +26,8 @@ func scheduleDetails(m *model, item scheduleItem) details {
 	return details{
 		id: item.schedule.ID,
 		fields: scheduleFields(item.schedule, scheduleTarget{
-			workflow:     workflowByID(m.listing.workflows, item.schedule.WorkflowID),
-			orchestrator: m.listing.orchestratorLabel(item.schedule.OrchestratorID),
+			workflow:     workflowByID(m.listing.Workflows, item.schedule.WorkflowID),
+			orchestrator: orchestratorLabel(m.listing, item.schedule.OrchestratorID),
 		}),
 	}
 }
@@ -104,7 +104,7 @@ func scheduleDocRows(item scheduleItem, width int) []string {
 	case sched.ArchivedAt != nil:
 		notice = "_archived — kept until deleted_"
 	case sched.Enabled:
-		notice = fmt.Sprintf("_next run %s_", label.OrDash(label.Friendly(item.nextRun)))
+		notice = fmt.Sprintf("_next run %s_", label.OrDash(label.Friendly(item.schedule.NextRun)))
 	}
 
 	prose := "_no prompt set_"

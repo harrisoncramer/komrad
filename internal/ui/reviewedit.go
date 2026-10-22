@@ -226,7 +226,7 @@ func (r reviewScreen) isAgentBusy(m *model) (string, bool) {
 
 // agentRow hands back the listing's row for the agent whose diff is on screen.
 func (r reviewScreen) agentRow(m *model) (panel.AgentRow, bool) {
-	return m.listing.liveAgent(r.agentID)
+	return m.listing.LiveAgent(r.agentID)
 }
 
 // closeEdit gives the stage back to the diff, lets the agent go, and reads the worktree again with

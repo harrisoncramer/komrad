@@ -8,7 +8,7 @@ const worktreeRemovedSaid = "the worktree was removed, so there is no checkout t
 
 // isWorktreeRemoved reports whether the worktree of the task on screen was removed.
 func (r reviewScreen) isWorktreeRemoved(m *model) bool {
-	return m.listing.tasks[r.taskID].IsWorktreeRemoved()
+	return m.listing.Tasks[r.taskID].IsWorktreeRemoved()
 }
 
 // isArchived reports whether the agent has left the listing and can take no writes.

@@ -23,7 +23,7 @@ type worktreeRow struct {
 	header bool
 	// repo is the repository the row sits under, which is the header's own name.
 	repo string
-	item worktreeItem
+	item panel.Worktree
 }
 
 // worktreeColumns is the gutter of the worktrees list: a directory's size, its age, then where
@@ -50,7 +50,7 @@ func (r worktreeRow) Key() string {
 		return repoRowKey(r.repo)
 	}
 
-	return treeRowKey(r.item.dir)
+	return treeRowKey(r.item.Dir)
 }
 
 func repoRowKey(repo string) string {
@@ -66,39 +66,39 @@ func (r worktreeRow) name() string {
 	switch {
 	case r.header:
 		return label.Path(r.repo, homeDir())
-	case r.item.task != nil:
-		return r.item.task.Slug
-	case r.item.branch != "":
-		return r.item.branch
+	case r.item.Task != nil:
+		return r.item.Task.Slug
+	case r.item.Branch != "":
+		return r.item.Branch
 	}
 
-	return filepath.Base(r.item.dir)
+	return filepath.Base(r.item.Dir)
 }
 
 // worktreeSorts is every column the worktrees list can be ordered by.
-var worktreeSorts = []sortColumn[worktreeItem]{
+var worktreeSorts = []sortColumn[panel.Worktree]{
 	{
 		id:    "size",
 		label: "size",
-		has:   worktreeItem.isMeasured,
-		compare: func(a, b worktreeItem) int {
-			return cmp.Compare(a.size.bytes, b.size.bytes)
+		has:   panel.Worktree.IsMeasured,
+		compare: func(a, b panel.Worktree) int {
+			return cmp.Compare(a.Size.Bytes, b.Size.Bytes)
 		},
 	},
 	{
 		id:    "last-accessed",
 		label: "last-accessed",
-		has: func(item worktreeItem) bool {
-			return !item.lastActiveAt.IsZero()
+		has: func(item panel.Worktree) bool {
+			return !item.LastActiveAt.IsZero()
 		},
-		compare: func(a, b worktreeItem) int {
-			return a.lastActiveAt.Compare(b.lastActiveAt)
+		compare: func(a, b panel.Worktree) int {
+			return a.LastActiveAt.Compare(b.LastActiveAt)
 		},
 	},
 }
 
 type worktreeRowsParams struct {
-	items []worktreeItem
+	items []panel.Worktree
 	order sortOrder
 	// flat orders the whole listing as one list.
 	flat bool
@@ -111,14 +111,14 @@ func worktreeRows(params worktreeRowsParams) []worktreeRow {
 		members := slices.Clone(items)
 		sortWorktreeItems(members, order)
 
-		return xslice.Map(members, func(item worktreeItem) worktreeRow {
+		return xslice.Map(members, func(item panel.Worktree) worktreeRow {
 			return worktreeRow{item: item}
 		})
 	}
 
-	byRepo := map[string][]worktreeItem{}
+	byRepo := map[string][]panel.Worktree{}
 	for _, item := range items {
-		byRepo[item.repoDir] = append(byRepo[item.repoDir], item)
+		byRepo[item.RepoDir] = append(byRepo[item.RepoDir], item)
 	}
 
 	repos := make([]string, 0, len(byRepo))
@@ -134,7 +134,7 @@ func worktreeRows(params worktreeRowsParams) []worktreeRow {
 		rows = append(rows, worktreeRow{header: true, repo: heading})
 
 		sortWorktreeItems(members, order)
-		rows = append(rows, xslice.Map(members, func(item worktreeItem) worktreeRow {
+		rows = append(rows, xslice.Map(members, func(item panel.Worktree) worktreeRow {
 			return worktreeRow{repo: heading, item: item}
 		})...)
 	}
@@ -143,13 +143,13 @@ func worktreeRows(params worktreeRowsParams) []worktreeRow {
 }
 
 // sortWorktreeItems orders the directories by the column, the path settling a tie.
-func sortWorktreeItems(items []worktreeItem, order sortOrder) {
-	sortRows(sortRowsParams[worktreeItem]{
+func sortWorktreeItems(items []panel.Worktree, order sortOrder) {
+	sortRows(sortRowsParams[panel.Worktree]{
 		rows:    items,
 		columns: worktreeSorts,
 		order:   order,
-		tiebreak: func(a, b worktreeItem) int {
-			return strings.Compare(a.dir, b.dir)
+		tiebreak: func(a, b panel.Worktree) int {
+			return strings.Compare(a.Dir, b.Dir)
 		},
 	})
 }
@@ -194,18 +194,18 @@ func worktreeRowDepth(row worktreeRow) int {
 }
 
 // itemsUnder is the directories a repository heads, read off the whole listing.
-func itemsUnder(items []worktreeItem, repo string) []worktreeItem {
-	return xslice.Filter(items, func(item worktreeItem) bool {
+func itemsUnder(items []panel.Worktree, repo string) []panel.Worktree {
+	return xslice.Filter(items, func(item panel.Worktree) bool {
 		return repoHeading(item) == repo
 	})
 }
 
-func repoHeading(item worktreeItem) string {
-	if item.repoDir == "" {
+func repoHeading(item panel.Worktree) string {
+	if item.RepoDir == "" {
 		return noRepository
 	}
 
-	return item.repoDir
+	return item.RepoDir
 }
 
 // worktreeRefs is the worktrees list as the selection sees it.
@@ -229,7 +229,7 @@ func rowIndexOfWorktreeAgent(rows []worktreeRow, id string) int {
 		if r.header {
 			continue
 		}
-		if r.item.holdsAgent(id) {
+		if r.item.HoldsAgent(id) {
 			return i
 		}
 	}
@@ -241,7 +241,7 @@ func rowIndexOfWorktreeAgent(rows []worktreeRow, id string) int {
 type worktreesSnapshotParams struct {
 	rows []worktreeRow
 	// items is the whole listing, which is what a repository's own figures are read off.
-	items    []worktreeItem
+	items    []panel.Worktree
 	selected list.Selection
 	focused  string
 	// live are the agents the agents listing holds, whose marks a row with one of them renders.
@@ -277,7 +277,7 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 				row.Kind = view.KindResult
 			}
 			row.Cells = rowCells(r.item, params.now)
-			if occupant, ok := r.item.firstOccupant(); ok {
+			if occupant, ok := r.item.FirstOccupant(); ok {
 				row = worktreeAgentFacts(row, occupant, live)
 			} else {
 				row.Process = view.ProcessStopped
@@ -298,14 +298,14 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 }
 
 // worktreeAgentFacts is what a row says about the agent behind it.
-func worktreeAgentFacts(row view.Row, agent worktreeAgent, live map[string]panel.AgentRow) view.Row {
-	item, ok := live[agent.id]
+func worktreeAgentFacts(row view.Row, agent panel.WorktreeAgent, live map[string]panel.AgentRow) view.Row {
+	item, ok := live[agent.ID]
 	if !ok {
 		item = panel.AgentRow{Agent: panel.Agent{
-			ID:         agent.id,
-			Name:       agent.name,
-			State:      agent.state,
-			ArchivedAt: agent.archivedAt,
+			ID:         agent.ID,
+			Name:       agent.Name,
+			State:      agent.State,
+			ArchivedAt: agent.ArchivedAt,
 		}}
 	}
 
@@ -313,16 +313,16 @@ func worktreeAgentFacts(row view.Row, agent worktreeAgent, live map[string]panel
 }
 
 // rowCells are a directory's size, its age, then where it stands.
-func rowCells(item worktreeItem, now time.Time) []view.Cell {
+func rowCells(item panel.Worktree, now time.Time) []view.Cell {
 	return []view.Cell{
 		mutedCell(sizeLabel(item)),
-		mutedCell(label.AgeAt(item.lastActiveAt, now)),
+		mutedCell(label.AgeAt(item.LastActiveAt, now)),
 		standingCell(item),
 	}
 }
 
 // groupCells are the total of the measured directories under a header, over the size column.
-func groupCells(items []worktreeItem, repo string) []view.Cell {
+func groupCells(items []panel.Worktree, repo string) []view.Cell {
 	return []view.Cell{mutedCell(totalLabel(itemsUnder(items, repo)))}
 }
 
@@ -331,25 +331,25 @@ func mutedCell(text string) view.Cell {
 }
 
 // sizeLabel is what a directory takes, or a dash while it is unmeasured.
-func sizeLabel(item worktreeItem) string {
-	if !item.isMeasured() {
+func sizeLabel(item panel.Worktree) string {
+	if !item.IsMeasured() {
 		return label.Dash
 	}
 
-	return label.Bytes(item.size.bytes)
+	return label.Bytes(item.Size.Bytes)
 }
 
 // standingCell is where a directory stands against its base, or a dash while git has not said.
-func standingCell(item worktreeItem) view.Cell {
-	standing := item.standing
+func standingCell(item panel.Worktree) view.Cell {
+	standing := item.Standing
 	switch {
-	case !item.readable:
+	case !item.Readable:
 		return view.Cell{Glyph: glyph.WorktreeGone, Tone: paint.ToneDanger}
-	case standing == nil || standing.err != "":
+	case standing == nil || standing.Err != "":
 		return mutedCell(label.Dash)
-	case standing.dirty || standing.sequencing:
+	case standing.Dirty || standing.Sequencing:
 		return view.Cell{Glyph: glyph.Worktree, Tone: paint.ToneWarning}
-	case standing.unlanded > 0:
+	case standing.Unlanded > 0:
 		return view.Cell{Glyph: glyph.Worktree, Tone: paint.ToneMuted}
 	}
 
@@ -357,15 +357,15 @@ func standingCell(item worktreeItem) view.Cell {
 }
 
 // totalLabel is what the measured directories take together.
-func totalLabel(items []worktreeItem) string {
+func totalLabel(items []panel.Worktree) string {
 	var total int64
 	measured := false
 	for _, item := range items {
-		if !item.isMeasured() {
+		if !item.IsMeasured() {
 			continue
 		}
 
-		total += item.size.share
+		total += item.Size.Share
 		measured = true
 	}
 

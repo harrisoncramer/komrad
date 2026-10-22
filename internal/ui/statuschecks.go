@@ -225,8 +225,8 @@ func (c *statusChecksScreen) parent() screen {
 
 func (c *statusChecksScreen) crumbs(m *model) crumbs {
 	name := c.agentID
-	if item, ok := m.listing.anyAgent(c.agentID); ok {
-		name = m.listing.agentName(item.Agent)
+	if item, ok := m.listing.AnyAgent(c.agentID); ok {
+		name = m.listing.AgentName(item.Agent)
 	}
 
 	return crumbs{trail: []string{name, "status checks"}}
@@ -278,12 +278,12 @@ type statusChecksListedMsg struct {
 
 // statusChecksPullRequestID is the pull request the agent's row stands for, empty when it has none.
 func (m *model) statusChecksPullRequestID(agentID string) string {
-	item, ok := m.listing.anyAgent(agentID)
+	item, ok := m.listing.AnyAgent(agentID)
 	if !ok {
 		return ""
 	}
 
-	pullRequests := m.listing.tasks.findForAgent(item.Agent).PullRequests
+	pullRequests := m.listing.Tasks.FindForAgent(item.Agent).PullRequests
 	if len(pullRequests) == 0 {
 		return ""
 	}
@@ -304,8 +304,8 @@ func (m *model) readStatusChecksCmd() tea.Cmd {
 		return nil
 	}
 
-	item, _ := m.listing.anyAgent(c.agentID)
-	head := m.listing.tasks.findForAgent(item.Agent).PullRequest.HeadSHA
+	item, _ := m.listing.AnyAgent(c.agentID)
+	head := m.listing.Tasks.FindForAgent(item.Agent).PullRequest.HeadSHA
 	if c.listed && c.listedPullRequest == pullRequestID && c.listedHead == head {
 		return nil
 	}

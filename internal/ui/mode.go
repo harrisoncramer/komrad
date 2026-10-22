@@ -16,7 +16,7 @@ const (
 // findModeEnd is the column of the pane the mode's label ends at, the last of the sidebar's own
 // cells short of a gutter, and never in the block rendered beside the sidebar.
 func (m *model) findModeEnd() int {
-	if m.screen == screenAgents && m.listing.isEmpty() {
+	if m.screen == screenAgents && m.listing.IsEmpty() {
 		return gutter + m.term.width
 	}
 

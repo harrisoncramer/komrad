@@ -66,9 +66,9 @@ var (
 
 // agentNotices orders the marks by how much each wants a person's attention, reading the row the
 // list would render so a column the row leaves empty is a column the record says nothing about.
-func agentNotices(glyphs glyph.Set, loaderFrame string, tasks taskIndex, r agentRow) []notice {
+func agentNotices(glyphs glyph.Set, loaderFrame string, tasks panel.Tasks, r agentRow) []notice {
 	item, row := r.item, snapshotRow(r, snapshotParams{loaderFrame: loaderFrame, tasks: tasks})
-	standing, failure := tasks.findForAgent(item.Agent).PullRequest, describeFailure(item)
+	standing, failure := tasks.FindForAgent(item.Agent).PullRequest, describeFailure(item)
 	if r.isTask() {
 		standing = r.task.PullRequest
 	}
@@ -82,14 +82,14 @@ func agentNotices(glyphs glyph.Set, loaderFrame string, tasks taskIndex, r agent
 		})
 	}
 	notices = appendCellNotice(notices, glyphs, view.AlertCell(row), failedRunNotice)
-	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), describePullRequest(standing, forgeAlertSaid[row.Forge]))
+	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), standing.Describe(forgeAlertSaid[row.Forge]))
 	notices = appendCellNotice(notices, glyphs, view.MailCell(row), unreadMailNotice)
-	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), describePullRequest(standing, forgeReviewSaid[row.Forge]))
+	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), standing.Describe(forgeReviewSaid[row.Forge]))
 	notices = appendCellNotice(notices, glyphs, view.RepoCell(row), repoSaid[row.Repo])
 	notices = appendCellNotice(notices, glyphs, view.HeldCell(row), heldNoticeText(item))
 	notices = appendCellNotice(notices, glyphs, view.HiddenCell(row), hiddenNotice)
 	notices = appendCellNotice(notices, glyphs, view.DocumentCell(row), documentsNotice)
-	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), describePullRequest(standing, forgeSaid[row.Forge]))
+	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), standing.Describe(forgeSaid[row.Forge]))
 
 	return appendUnreadNotice(notices, glyphs, row)
 }

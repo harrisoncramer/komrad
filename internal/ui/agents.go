@@ -172,7 +172,7 @@ func (a *agentsScreen) settleResume(m *model, id string, err error) {
 
 func (a *agentsScreen) followAwaitingCLI(m *model) {
 	for id, paneSeen := range a.awaitingCLI {
-		item, ok := m.listing.liveAgent(id)
+		item, ok := m.listing.LiveAgent(id)
 
 		switch {
 		case !ok:
@@ -211,7 +211,7 @@ func (a *agentsScreen) seeFinished(m *model, item panel.AgentRow) {
 		return
 	}
 
-	a.triage.seeFinished(item, m.listing.agents)
+	a.triage.seeFinished(item, m.listing.Agents)
 
 	rows := a.rows(m)
 	a.Row = cursor.Place(list.IndexOf(rows, treeKey), a.Row, len(rows))
@@ -221,7 +221,7 @@ func (a *agentsScreen) seeFinished(m *model, item panel.AgentRow) {
 func (a *agentsScreen) toggleSnooze(m *model, key string) {
 	selected := a.list().hovered(m)
 	slot := a.findZoneSlot(m)
-	if !a.triage.toggleSnooze(key, m.listing.agents) {
+	if !a.triage.toggleSnooze(key, m.listing.Agents) {
 		return
 	}
 
@@ -240,20 +240,6 @@ func hasPane(item panel.AgentRow) bool {
 		item.Agent.HeldAt == nil &&
 		item.Agent.State != panel.StateSettingUp &&
 		!item.Agent.State.IsFailed()
-}
-
-func (l listing) scheduleName(agent panel.Agent) string {
-	if agent.ScheduleID == nil {
-		return ""
-	}
-
-	for _, item := range l.schedules {
-		if item.schedule.ID == *agent.ScheduleID {
-			return item.schedule.Name
-		}
-	}
-
-	return ""
 }
 
 const heldPlaceholder = "Paused."
@@ -280,26 +266,6 @@ func (a *agentsScreen) listParams(m *model) screenListParams {
 
 func (a *agentsScreen) help(m *model) keyMap {
 	return a.actions().help(m)
-}
-
-// scheduledWorkflows is the workflows at least one schedule launches into.
-func (l listing) scheduledWorkflows() map[string]bool {
-	scheduled := make(map[string]bool, len(l.schedules))
-	for _, item := range l.schedules {
-		scheduled[item.schedule.WorkflowID] = true
-	}
-
-	return scheduled
-}
-
-// workflowDirs is the directory each workflow launches its agents in, keyed by workflow id.
-func (l listing) workflowDirs() map[string]string {
-	dirs := make(map[string]string, len(l.workflows))
-	for _, w := range l.workflows {
-		dirs[w.ID] = w.Cwd
-	}
-
-	return dirs
 }
 
 // startOrchestrator brings the workflow's orchestrator back and puts the keyboard in its pane.
@@ -397,11 +363,6 @@ func (a *agentsScreen) column() columnSpec {
 			return !m.agents.isEditorOpen() && (m.agents.hasNoAgentPane(m) || m.filter.hasSaid(m.agents.hoveredAgentID(m)))
 		},
 	}
-}
-
-// isEmpty reports whether there is no workflow and no agent to list.
-func (l listing) isEmpty() bool {
-	return len(l.workflows) == 0 && len(l.agents) == 0
 }
 
 func (a *agentsScreen) openRename(m *model) tea.Cmd {

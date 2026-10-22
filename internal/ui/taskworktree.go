@@ -136,7 +136,7 @@ func worktreeStandingFields(read worktreeInspection, now time.Time) []recordFiel
 		return fields
 	}
 
-	if read.item.readable {
+	if read.item.Readable {
 		fields = append(fields, recordField{label: "changes", value: changesField(read)})
 		if read.landed > 0 {
 			fields = append(fields, recordField{label: "landed", value: fmt.Sprintf("%s the base already holds", label.Count(read.landed, "commit", "commits"))})
@@ -162,7 +162,7 @@ func (m *model) hoveredRecordAgent() (panel.AgentRow, bool) {
 		return panel.AgentRow{}, false
 	}
 	if row.isTask() {
-		return m.listing.findWriterInCheckout(*row.task)
+		return m.listing.FindWriterInCheckout(*row.task)
 	}
 	if row.header {
 		return panel.AgentRow{}, false
@@ -189,5 +189,5 @@ func (m *model) hoveredRecordTask() (panel.Task, bool) {
 		return panel.Task{}, false
 	}
 
-	return m.listing.tasks.findForAgent(row.item.Agent), true
+	return m.listing.Tasks.FindForAgent(row.item.Agent), true
 }

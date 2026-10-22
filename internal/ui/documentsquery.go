@@ -53,13 +53,13 @@ func (m *model) documentRowFits(r documentRow) clauseFits {
 			if taskID, ok := m.openedForTask(clause.Value); ok {
 				return item.taskID == taskID
 			}
-			task, ok := m.listing.tasks[item.taskID]
+			task, ok := m.listing.Tasks[item.taskID]
 
 			return ok && containsFold(task.Slug, clause.Value)
 		case searchsyntax.KeyWorkflow:
-			agent, ok := m.listing.anyAgent(item.agentID)
+			agent, ok := m.listing.AnyAgent(item.agentID)
 
-			return ok && containsFold(m.listing.workflowName(agent.Agent.WorkflowID), clause.Value)
+			return ok && containsFold(m.listing.WorkflowName(agent.Agent.WorkflowID), clause.Value)
 		case searchsyntax.KeyType:
 			return strings.EqualFold(item.typeName, clause.Value)
 		case searchsyntax.KeySince:
@@ -117,7 +117,7 @@ func (m *model) namedAgentID() (string, bool) {
 	}
 
 	var ids []string
-	for _, item := range slices.Concat(m.listing.agents, m.listing.archivedAgents) {
+	for _, item := range slices.Concat(m.listing.Agents, m.listing.ArchivedAgents) {
 		if strings.EqualFold(item.Agent.Name, names[0]) {
 			ids = append(ids, item.Agent.ID)
 		}
@@ -157,7 +157,7 @@ func (m *model) openedTaskWriter() (string, bool) {
 // openedForTask is the task the documents were opened for, when the slug given is its slug.
 func (m *model) openedForTask(slug string) (string, bool) {
 	taskID := m.documents.taskID
-	task, ok := m.listing.tasks[taskID]
+	task, ok := m.listing.Tasks[taskID]
 	if taskID == "" || !ok || !strings.EqualFold(task.Slug, slug) {
 		return "", false
 	}

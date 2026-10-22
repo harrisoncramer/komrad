@@ -82,34 +82,34 @@ func (w written) awaitShown() *awaits {
 
 // isSettled reports whether the panel shows everything a write waits on.
 func (a *awaits) isSettled(m *model) bool {
-	if slices.ContainsFunc(a.shown, func(row listedRow) bool { return !m.listing.holds(row) }) {
+	if slices.ContainsFunc(a.shown, func(row listedRow) bool { return !isListed(m.listing, row) }) {
 		return false
 	}
 
-	if slices.ContainsFunc(a.gone, m.listing.holds) {
+	if slices.ContainsFunc(a.gone, func(row listedRow) bool { return isListed(m.listing, row) }) {
 		return false
 	}
 
 	return a.pane == "" || m.isPaneWarm(a.pane, a.harness)
 }
 
-// holds reports whether the listing has a row.
-func (l listing) holds(row listedRow) bool {
+// isListed reports whether the listing has a row.
+func isListed(l panel.Listing, row listedRow) bool {
 	switch row.list {
 	case listAgents:
-		return hasAgentRow(l.agents, row.id)
+		return hasAgentRow(l.Agents, row.id)
 	case listArchivedAgents:
-		return hasAgentRow(l.archivedAgents, row.id)
+		return hasAgentRow(l.ArchivedAgents, row.id)
 	case listWorkflows:
-		return hasWorkflow(l.workflows, row.id)
+		return hasWorkflow(l.Workflows, row.id)
 	case listArchivedWorkflows:
-		return hasWorkflow(l.archivedWorkflows, row.id)
+		return hasWorkflow(l.ArchivedWorkflows, row.id)
 	case listSchedules:
-		return hasSchedule(l.schedules, row.id)
+		return hasSchedule(l.Schedules, row.id)
 	case listArchivedSchedules:
-		return hasSchedule(l.archivedSchedules, row.id)
+		return hasSchedule(l.ArchivedSchedules, row.id)
 	case listWorktrees:
-		return slices.ContainsFunc(l.worktrees, func(item worktreeItem) bool { return item.dir == row.id })
+		return slices.ContainsFunc(l.Worktrees, func(item panel.Worktree) bool { return item.Dir == row.id })
 	}
 
 	return false
@@ -123,8 +123,8 @@ func hasWorkflow(workflows []panel.Workflow, id string) bool {
 	return slices.ContainsFunc(workflows, func(workflow panel.Workflow) bool { return workflow.ID == id })
 }
 
-func hasSchedule(items []scheduleItem, id string) bool {
-	return slices.ContainsFunc(items, func(item scheduleItem) bool { return item.Key() == id })
+func hasSchedule(schedules []panel.Schedule, id string) bool {
+	return slices.ContainsFunc(schedules, func(schedule panel.Schedule) bool { return schedule.ID == id })
 }
 
 // parkWrite keeps an answered write in flight, and its form up, until the panel shows what it did.

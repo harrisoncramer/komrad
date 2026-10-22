@@ -66,7 +66,7 @@ func (m *model) unreachableHint() string {
 }
 
 // withListing changes the listing the screens read from and puts each cursor back where it was.
-func (m *model) withListing(change func(*listing)) tea.Cmd {
+func (m *model) withListing(change func(*panel.Listing)) tea.Cmd {
 	m.frame.Begin()
 	defer m.frame.Flush()
 
@@ -81,12 +81,12 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 	archivedScheduleRow := m.schedules.archived.list().hovered(m)
 	worktreeRow := m.worktrees.list().hovered(m)
 
-	before := slices.Clone(m.listing.workflows)
-	beforeTypes := m.listing.documentTypeNames()
+	before := slices.Clone(m.listing.Workflows)
+	beforeTypes := m.listing.DocumentTypeNames()
 	change(&m.listing)
 
 	now := time.Now()
-	m.agents.triage.refresh(m.listing.agents, m.listing.tasks, now)
+	m.agents.triage.refresh(m.listing.Agents, m.listing.Tasks, now)
 	m.agents.apply(m, treeRow)
 	m.agents.followAwaitingCLI(m)
 	m.agents.landInTriage(m, treeRow, triageSlot)
@@ -95,13 +95,13 @@ func (m *model) withListing(change func(*listing)) tea.Cmd {
 		archiveShown.place(m, archivedAgentRow)
 	}
 	m.schedules.archived.place(m, archivedScheduleRow)
-	m.applyWorktrees(m.listing.worktrees, worktreeRow)
+	m.applyWorktrees(m.listing.Worktrees, worktreeRow)
 	m.sizeAgentWindows()
 
 	// A form renders its options from the listing it was built over, so it is rendered again when
 	// that listing moves under it.
 	var rerendered tea.Cmd
-	if !reflect.DeepEqual(before, m.listing.workflows) || !slices.Equal(beforeTypes, m.listing.documentTypeNames()) {
+	if !reflect.DeepEqual(before, m.listing.Workflows) || !slices.Equal(beforeTypes, m.listing.DocumentTypeNames()) {
 		rerendered = m.rerenderOpenForm()
 	}
 

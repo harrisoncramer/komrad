@@ -20,6 +20,7 @@ type Schedule struct {
 	OrchestratorID string
 	LatestRun      *ScheduleRun
 	RecentRuns     []ScheduleRun
+	NextRun        time.Time
 	ArchivedAt     *time.Time
 }
 

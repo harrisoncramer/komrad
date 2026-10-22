@@ -12,7 +12,7 @@ func (r reviewScreen) findMovedSnapshot(m *model) string {
 		return ""
 	}
 
-	moved := m.listing.tasks.findForAgent(item.Agent).MovedSinceSnapshot
+	moved := m.listing.Tasks.FindForAgent(item.Agent).MovedSinceSnapshot
 	if moved == "" || moved != r.snapshot.GetSha() {
 		return ""
 	}

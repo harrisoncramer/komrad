@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	"komrad/lib/xsha"
 	"komrad/lib/xslice"
@@ -27,7 +28,7 @@ func (w *worktreesScreen) snapshot(m *model, pane list.Pane) view.Snapshot {
 		items:    w.shown(),
 		selected: w.Selected,
 		focused:  list.KeyAt(rows, w.Row),
-		live:     m.listing.agents,
+		live:     m.listing.Agents,
 		flat:     w.sort.flat,
 		caret:    pane.Caret,
 		matcher:  m.filter.pattern,
@@ -52,25 +53,25 @@ func (w *worktreesScreen) details(m *model) details {
 	return details{id: row.Key(), fields: worktreeFields(m, row.item, time.Now())}
 }
 
-func worktreeFields(m *model, item worktreeItem, now time.Time) []recordField {
+func worktreeFields(m *model, item panel.Worktree, now time.Time) []recordField {
 	fields := []recordField{
 		{label: "name", value: worktreeRow{item: item}.name()},
-		{label: "directory", value: item.dir},
+		{label: "directory", value: item.Dir},
 		{label: "size", value: sizeField(item, now)},
 		{label: "last active", value: lastActiveField(item, now)},
 	}
 
-	if !item.readable {
-		fields = append(fields, recordField{label: "repository", value: label.OrDash(item.repoDir)}, worktreeTaskField(item))
+	if !item.Readable {
+		fields = append(fields, recordField{label: "repository", value: label.OrDash(item.RepoDir)}, worktreeTaskField(item))
 
-		return appendOccupantsField(fields, "agents", item.occupants)
+		return appendOccupantsField(fields, "agents", item.Occupants)
 	}
 
 	fields = append(fields,
-		recordField{label: "branch", value: label.OrDash(item.branch)},
-		recordField{label: "repository", value: label.OrDash(label.Path(item.repoDir, homeDir()))},
+		recordField{label: "branch", value: label.OrDash(item.Branch)},
+		recordField{label: "repository", value: label.OrDash(label.Path(item.RepoDir, homeDir()))},
 	)
-	read := m.inspections[item.dir]
+	read := m.inspections[item.Dir]
 	if read.answered && read.err != nil {
 		fields = append(fields, recordField{label: "worktree", value: "could not read: " + errui.GetReason(read.err)})
 	}
@@ -83,47 +84,47 @@ func worktreeFields(m *model, item worktreeItem, now time.Time) []recordField {
 
 	fields = append(fields, worktreeTaskField(item), recordField{label: "workflow", value: worktreeWorkflowField(m.listing, item)})
 
-	return appendOccupantsField(fields, "agents", item.occupants)
+	return appendOccupantsField(fields, "agents", item.Occupants)
 }
 
 // worktreeTaskField names the task a directory is the checkout of.
-func worktreeTaskField(item worktreeItem) recordField {
-	if item.task == nil {
+func worktreeTaskField(item panel.Worktree) recordField {
+	if item.Task == nil {
 		return recordField{label: "task", value: "none"}
 	}
 
-	return recordField{label: "task", value: item.task.Slug}
+	return recordField{label: "task", value: item.Task.Slug}
 }
 
 // appendOccupantsField names the agents under the label when there are any.
-func appendOccupantsField(fields []recordField, name string, occupants []worktreeAgent) []recordField {
+func appendOccupantsField(fields []recordField, name string, occupants []panel.WorktreeAgent) []recordField {
 	if len(occupants) == 0 {
 		return fields
 	}
 
-	return append(fields, recordField{label: name, value: strings.Join(xslice.Map(occupants, func(occupant worktreeAgent) string { return occupant.name }), ", ")})
+	return append(fields, recordField{label: name, value: strings.Join(xslice.Map(occupants, func(occupant panel.WorktreeAgent) string { return occupant.Name }), ", ")})
 }
 
 // sizeField is what the directory takes and when that was measured, or why it could not be.
-func sizeField(item worktreeItem, now time.Time) string {
+func sizeField(item panel.Worktree, now time.Time) string {
 	switch {
-	case item.size == nil:
+	case item.Size == nil:
 		return label.Dash
-	case item.size.err != "":
-		return label.Dash + ", could not measure: " + item.size.err
+	case item.Size.Err != "":
+		return label.Dash + ", could not measure: " + item.Size.Err
 	}
 
-	return fmt.Sprintf("%s, measured %s ago", label.Bytes(item.size.bytes), label.AgeAt(item.size.measuredAt, now))
+	return fmt.Sprintf("%s, measured %s ago", label.Bytes(item.Size.Bytes), label.AgeAt(item.Size.MeasuredAt, now))
 }
 
 // lastActiveField is how long ago the directory was last touched.
-func lastActiveField(item worktreeItem, now time.Time) string {
-	if item.lastActiveAt.IsZero() {
+func lastActiveField(item panel.Worktree, now time.Time) string {
+	if item.LastActiveAt.IsZero() {
 		return label.Dash
 	}
 
-	field := label.AgeAt(item.lastActiveAt, now) + " ago"
-	if item.task != nil && item.task.ArchivedAt != nil {
+	field := label.AgeAt(item.LastActiveAt, now) + " ago"
+	if item.Task != nil && item.Task.ArchivedAt != nil {
 		field += ", archived"
 	}
 
@@ -180,12 +181,12 @@ func changesField(read worktreeInspection) string {
 	return strings.Join(parts, ", ")
 }
 
-func worktreeWorkflowField(l listing, item worktreeItem) string {
-	if item.task == nil {
+func worktreeWorkflowField(l panel.Listing, item panel.Worktree) string {
+	if item.Task == nil {
 		return label.Dash
 	}
 
-	return l.workflowName(item.task.WorkflowID)
+	return l.WorkflowName(item.Task.WorkflowID)
 }
 
 // doc is the markdown rendered beside the list for the row the cursor is on.
@@ -202,27 +203,27 @@ func (w *worktreesScreen) gitDoc(m *model) string {
 		return renderDocument(label.Path(row.repo, homeDir()), fmt.Sprintf("_%s_", label.Count(w.countUnder(row.repo), "worktree", "worktrees")), "", "")
 	}
 
-	read, ok := m.inspections[row.item.dir]
+	read, ok := m.inspections[row.item.Dir]
 	switch {
 	case !ok || !read.answered:
-		return renderDocument(row.name(), "_"+row.item.dir+"_", "_reading the directory…_", "")
+		return renderDocument(row.name(), "_"+row.item.Dir+"_", "_reading the directory…_", "")
 	case read.err != nil && !read.isRead():
-		return renderDocument(row.name(), "_"+row.item.dir+"_", "could not read: "+errui.GetReason(read.err), "")
+		return renderDocument(row.name(), "_"+row.item.Dir+"_", "could not read: "+errui.GetReason(read.err), "")
 	case read.err != nil:
-		return renderDocument(row.name(), "_"+row.item.dir+"_", "_could not read: "+errui.GetReason(read.err)+"_\n\n"+worktreeProse(row.item, read), "")
+		return renderDocument(row.name(), "_"+row.item.Dir+"_", "_could not read: "+errui.GetReason(read.err)+"_\n\n"+worktreeProse(row.item, read), "")
 	}
 
-	return renderDocument(row.name(), "_"+row.item.dir+"_", worktreeProse(row.item, read), "")
+	return renderDocument(row.name(), "_"+row.item.Dir+"_", worktreeProse(row.item, read), "")
 }
 
 // worktreeProse is the three blocks the document renders, each fenced.
-func worktreeProse(item worktreeItem, read worktreeInspection) string {
+func worktreeProse(item panel.Worktree, read worktreeInspection) string {
 	var b strings.Builder
 
 	b.WriteString("## Contents\n\n")
 	fenced(&b, entryLines(read.entries))
 
-	if !item.readable {
+	if !item.Readable {
 		b.WriteString("\n_git cannot read this directory; its registration names a repository that is gone_\n")
 
 		return b.String()

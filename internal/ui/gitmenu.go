@@ -126,11 +126,11 @@ func gitWrite(taskID string, choice gitChoice) func(*model) tea.Cmd {
 }
 
 // worktreeRefusal returns the reason a task's worktree refuses an action, or nil when it allows one.
-func worktreeRefusal(l listing, task panel.Task) error {
+func worktreeRefusal(l panel.Listing, task panel.Task) error {
 	switch {
 	case task.ArchivedAt != nil:
 		return errArchivedWorktree
-	case !l.hasOwnWorktree(task):
+	case !l.HasOwnWorktree(task):
 		return errNoWorktree
 	}
 
@@ -138,16 +138,16 @@ func worktreeRefusal(l listing, task panel.Task) error {
 }
 
 // rebaseLabel names the rebase entry for the branch it moves onto.
-func rebaseLabel(l listing, task panel.Task) string {
+func rebaseLabel(l panel.Listing, task panel.Task) string {
 	if task.Parent == nil {
 		return "rebase with base"
 	}
 
-	return "rebase onto " + l.tasks[task.Parent.GetTaskId()].Slug
+	return "rebase onto " + l.Tasks[task.Parent.GetTaskId()].Slug
 }
 
 // rebaseOntoBaseRefusal returns the reason a task refuses a re-target onto the base branch, or nil when it allows one.
-func rebaseOntoBaseRefusal(l listing, task panel.Task) error {
+func rebaseOntoBaseRefusal(l panel.Listing, task panel.Task) error {
 	if err := worktreeRefusal(l, task); err != nil {
 		return err
 	}
@@ -159,7 +159,7 @@ func rebaseOntoBaseRefusal(l listing, task panel.Task) error {
 }
 
 // pushRefusal returns the reason a task's branch refuses a push, or nil when it allows one.
-func pushRefusal(l listing, task panel.Task) error {
+func pushRefusal(l panel.Listing, task panel.Task) error {
 	if err := worktreeRefusal(l, task); err != nil {
 		return err
 	}
@@ -172,7 +172,7 @@ func pushRefusal(l listing, task panel.Task) error {
 
 // mergeRebaseRefusal returns the reason a task refuses a merge or a rebase, or nil when it allows
 // both.
-func mergeRebaseRefusal(l listing, task panel.Task) error {
+func mergeRebaseRefusal(l panel.Listing, task panel.Task) error {
 	if err := pushRefusal(l, task); err != nil {
 		return err
 	}
@@ -182,7 +182,7 @@ func mergeRebaseRefusal(l listing, task panel.Task) error {
 
 // abortRefusal returns the reason a task refuses an abort, or nil when its worktree has an
 // operation to abort.
-func abortRefusal(l listing, task panel.Task) error {
+func abortRefusal(l panel.Listing, task panel.Task) error {
 	if err := worktreeRefusal(l, task); err != nil {
 		return err
 	}
@@ -217,10 +217,10 @@ func pullRequestRefusal(task panel.Task) error {
 // openPullRequestRefusal is why a task has no open pull request to act on, nil when it has one.
 func openPullRequestRefusal(task panel.Task) error {
 	if task.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED {
-		return errors.New(describePullRequest(task.PullRequest, "has already merged"))
+		return errors.New(task.PullRequest.Describe("has already merged"))
 	}
 	if task.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED {
-		return errors.New(describePullRequest(task.PullRequest, "was closed without merging"))
+		return errors.New(task.PullRequest.Describe("was closed without merging"))
 	}
 
 	if task.PullRequest.URL == "" {
@@ -277,30 +277,10 @@ func (m *model) runGitChoice(taskID string, choice gitChoice) tea.Cmd {
 	return nil
 }
 
-// hasOwnWorktree reports whether a task sits in a worktree komrad cut for it that is still on disk.
-func (l listing) hasOwnWorktree(task panel.Task) bool {
-	return !task.IsWorktreeRemoved() && l.hasWorktreeToDelete(task)
-}
-
-// hasWorktreeToDelete reports whether komrad cut a worktree for a task that no delete has removed yet.
-func (l listing) hasWorktreeToDelete(task panel.Task) bool {
-	if task.Cwd == "" || task.WorktreeRemovalReason == panel.WorktreeDeleted {
-		return false
-	}
-
-	workflows := slices.Concat(l.workflows, l.archivedWorkflows)
-	index := slices.IndexFunc(workflows, func(w panel.Workflow) bool { return w.ID == task.WorkflowID })
-	if index < 0 {
-		return false
-	}
-
-	return workflows[index].Worktree.Enabled
-}
-
 // findGitTask returns the task the menu opened on, as the list holds it now.
 func (m *model) findGitTask(taskID string) (panel.Task, bool) {
 	// The list may have moved under the open menu.
-	task, ok := m.listing.tasks[taskID]
+	task, ok := m.listing.Tasks[taskID]
 
 	return task, ok
 }

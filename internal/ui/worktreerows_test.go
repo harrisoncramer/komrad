@@ -21,11 +21,11 @@ import (
 func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 	items := measuredFixture(now)
-	items[0].size.bytes = 60 * 1024 * 1024
+	items[0].Size.Bytes = 60 * 1024 * 1024
 
 	tests := []struct {
 		name  string
-		items []worktreeItem
+		items []panel.Worktree
 		state tabsState
 		want  []string
 	}{
@@ -121,7 +121,7 @@ func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 func TestWorktreeRowsFlatOrderTheWholeListing(t *testing.T) {
 	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 	items := measuredFixture(now)
-	items[0].size.bytes = 60 * 1024 * 1024
+	items[0].Size.Bytes = 60 * 1024 * 1024
 
 	tests := []struct {
 		name  string
@@ -221,7 +221,7 @@ func TestWorktreeRowNames(t *testing.T) {
 // TestWorktreeRowsHeadTheDirectoriesWithNoRepository covers a directory whose .git file names
 // nothing sitting under a heading of its own.
 func TestWorktreeRowsHeadTheDirectoriesWithNoRepository(t *testing.T) {
-	rows := worktreeRows(worktreeRowsParams{items: []worktreeItem{{dir: "/trees/stray"}}, order: worktreesOrder(tabsState{})})
+	rows := worktreeRows(worktreeRowsParams{items: []panel.Worktree{{Dir: "/trees/stray"}}, order: worktreesOrder(tabsState{})})
 
 	require.Len(t, rows, 2)
 	assert.Equal(t, noRepository, rows[0].name())
@@ -372,10 +372,10 @@ func TestWorktreeAgentFactsOffTheWorktreeListing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row := worktreeAgentFacts(view.Row{}, worktreeAgent{
-				id:         "gone",
-				state:      tt.state,
-				archivedAt: tt.archivedAt,
+			row := worktreeAgentFacts(view.Row{}, panel.WorktreeAgent{
+				ID:         "gone",
+				State:      tt.state,
+				ArchivedAt: tt.archivedAt,
 			}, map[string]panel.AgentRow{})
 
 			assert.Equal(t, tt.wantStatus, row.Status)
@@ -418,78 +418,78 @@ func TestWorktreesSnapshotCellsAreSizeAgeThenStanding(t *testing.T) {
 // worktreeFixture is two repositories' worth of directories: a live task with an agent and a
 // reviewer in it, one archived with an agent stopped mid-turn still stored, a directory nothing
 // answers for, an unreadable one, and another archived task's.
-func worktreeFixture() []worktreeItem {
+func worktreeFixture() []panel.Worktree {
 	archived := time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)
 
-	return []worktreeItem{
+	return []panel.Worktree{
 		{
-			dir:      "/trees/live",
-			repoDir:  "/home/h/komrad",
-			branch:   "agent/live",
-			readable: true,
-			task: &panel.Task{
+			Dir:      "/trees/live",
+			RepoDir:  "/home/h/komrad",
+			Branch:   "agent/live",
+			Readable: true,
+			Task: &panel.Task{
 				ID:   "live",
 				Slug: "worktree-view",
 			},
-			occupants: []worktreeAgent{
+			Occupants: []panel.WorktreeAgent{
 				{
-					id:    "live",
-					name:  "worktree-view",
-					state: panel.StateThinking,
+					ID:    "live",
+					Name:  "worktree-view",
+					State: panel.StateThinking,
 				},
 				{
-					id:    "occ",
-					name:  "review-607",
-					state: panel.StateIdle,
+					ID:    "occ",
+					Name:  "review-607",
+					State: panel.StateIdle,
 				},
 			},
-			fate: fateLive,
+			Fate: panel.FateLive,
 		},
 		{
-			dir:      "/trees/archived",
-			repoDir:  "/home/h/komrad",
-			branch:   "agent/archived",
-			readable: true,
-			task: &panel.Task{
+			Dir:      "/trees/archived",
+			RepoDir:  "/home/h/komrad",
+			Branch:   "agent/archived",
+			Readable: true,
+			Task: &panel.Task{
 				ID:         "archived",
 				Slug:       "review-column",
 				ArchivedAt: &archived,
 			},
-			occupants: []worktreeAgent{{
-				id:         "archived",
-				name:       "review-column",
-				state:      panel.StateThinking,
-				archivedAt: &archived,
+			Occupants: []panel.WorktreeAgent{{
+				ID:         "archived",
+				Name:       "review-column",
+				State:      panel.StateThinking,
+				ArchivedAt: &archived,
 			}},
-			fate: fateArchived,
+			Fate: panel.FateArchived,
 		},
 		{
-			dir:      "/trees/orphan",
-			repoDir:  "/home/h/komrad",
-			branch:   "agent/orphan",
-			readable: true,
+			Dir:      "/trees/orphan",
+			RepoDir:  "/home/h/komrad",
+			Branch:   "agent/orphan",
+			Readable: true,
 		},
 		{
-			dir:     "/trees/broken",
-			repoDir: "/var/folders/T/repo",
+			Dir:     "/trees/broken",
+			RepoDir: "/var/folders/T/repo",
 		},
 		{
-			dir:      "/trees/admin",
-			repoDir:  "/home/h/gadgets/admin",
-			branch:   "agent/admin",
-			readable: true,
-			task: &panel.Task{
+			Dir:      "/trees/admin",
+			RepoDir:  "/home/h/gadgets/admin",
+			Branch:   "agent/admin",
+			Readable: true,
+			Task: &panel.Task{
 				ID:         "admin",
 				Slug:       "custom-cargo-fixes",
 				ArchivedAt: &archived,
 			},
-			occupants: []worktreeAgent{{
-				id:         "admin",
-				name:       "custom-cargo-fixes",
-				state:      panel.StateIdle,
-				archivedAt: &archived,
+			Occupants: []panel.WorktreeAgent{{
+				ID:         "admin",
+				Name:       "custom-cargo-fixes",
+				State:      panel.StateIdle,
+				ArchivedAt: &archived,
 			}},
-			fate: fateArchived,
+			Fate: panel.FateArchived,
 		},
 	}
 }
@@ -502,33 +502,33 @@ func worktreesOrder(state tabsState) sortOrder {
 // measuredFixture is the fixture with the loop having been round: the live and archived
 // directories under komrad measured, the orphan's walk failed, the admin one measured under its
 // own repository, and each with a last activity behind the given moment.
-func measuredFixture(now time.Time) []worktreeItem {
+func measuredFixture(now time.Time) []panel.Worktree {
 	items := worktreeFixture()
-	items[0].size = &worktreeSize{
-		bytes:      49 * 1024 * 1024,
-		share:      30 * 1024 * 1024,
-		measuredAt: now.Add(-time.Minute),
+	items[0].Size = &panel.WorktreeSize{
+		Bytes:      49 * 1024 * 1024,
+		Share:      30 * 1024 * 1024,
+		MeasuredAt: now.Add(-time.Minute),
 	}
-	items[0].lastActiveAt = now.Add(-30 * time.Second)
-	items[1].size = &worktreeSize{
-		bytes:      49 * 1024 * 1024,
-		share:      30 * 1024 * 1024,
-		measuredAt: now.Add(-time.Hour),
+	items[0].LastActiveAt = now.Add(-30 * time.Second)
+	items[1].Size = &panel.WorktreeSize{
+		Bytes:      49 * 1024 * 1024,
+		Share:      30 * 1024 * 1024,
+		MeasuredAt: now.Add(-time.Hour),
 	}
-	items[1].lastActiveAt = now.Add(-4 * 24 * time.Hour)
-	items[2].size = &worktreeSize{measuredAt: now.Add(-time.Hour), err: "permission denied"}
-	items[2].lastActiveAt = now.Add(-3 * time.Hour)
-	items[3].lastActiveAt = now.Add(-2 * 7 * 24 * time.Hour)
-	items[4].size = &worktreeSize{
-		bytes:      1536 * 1024 * 1024,
-		share:      1536 * 1024 * 1024,
-		measuredAt: now.Add(-time.Hour),
+	items[1].LastActiveAt = now.Add(-4 * 24 * time.Hour)
+	items[2].Size = &panel.WorktreeSize{MeasuredAt: now.Add(-time.Hour), Err: "permission denied"}
+	items[2].LastActiveAt = now.Add(-3 * time.Hour)
+	items[3].LastActiveAt = now.Add(-2 * 7 * 24 * time.Hour)
+	items[4].Size = &panel.WorktreeSize{
+		Bytes:      1536 * 1024 * 1024,
+		Share:      1536 * 1024 * 1024,
+		MeasuredAt: now.Add(-time.Hour),
 	}
-	items[4].lastActiveAt = now.Add(-12 * time.Hour)
-	items[0].standing = &worktreeStanding{dirty: true}
-	items[1].standing = &worktreeStanding{unlanded: 3}
-	items[2].standing = &worktreeStanding{err: "git cannot read the directory"}
-	items[4].standing = &worktreeStanding{}
+	items[4].LastActiveAt = now.Add(-12 * time.Hour)
+	items[0].Standing = &panel.WorktreeStanding{Dirty: true}
+	items[1].Standing = &panel.WorktreeStanding{Unlanded: 3}
+	items[2].Standing = &panel.WorktreeStanding{Err: "git cannot read the directory"}
+	items[4].Standing = &panel.WorktreeStanding{}
 
 	return items
 }

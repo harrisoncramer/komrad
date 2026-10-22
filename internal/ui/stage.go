@@ -80,12 +80,12 @@ func (m *model) settleUnstaged(pending *unstaged) {
 
 	if pending.archived {
 		for _, agent := range pending.agents {
-			if held, ok := m.listing.world.Agents[agent.ID]; ok {
+			if held, ok := m.listing.World.Agents[agent.ID]; ok {
 				held.Alive = xptr.Ptr(false)
 			}
 		}
 
-		m.listing.assemble(time.Now())
+		m.listing.Assemble(time.Now())
 	}
 
 	if stager, ok := m.active().(rowStager); ok {
@@ -160,7 +160,7 @@ const paneStatusRows = 1
 
 // sizeAgentWindows keeps every agent's own window at the size of the pane it is shown in.
 func (m *model) sizeAgentWindows() {
-	for _, item := range m.listing.agents {
+	for _, item := range m.listing.Agents {
 		m.sizeAgentWindow(item.Agent.Pane)
 	}
 }
@@ -272,7 +272,7 @@ func (m *model) isGuestLive() bool {
 		return true
 	}
 
-	for _, item := range m.listing.agents {
+	for _, item := range m.listing.Agents {
 		if item.Agent.Pane == guest {
 			return item.Alive
 		}
