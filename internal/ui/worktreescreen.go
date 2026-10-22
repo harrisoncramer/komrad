@@ -51,17 +51,16 @@ func (w *worktreesScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request
 	return nil, true
 }
 
-func (w *worktreesScreen) list() screenList[worktreeRow] {
-	return screenList[worktreeRow]{
-		keys:   w.deps.keys,
-		top:    w.deps.top,
-		cursor: func() *list.Cursor { return &w.Cursor },
-		rows:   w.rows,
-		name:   worktreeRow.name,
-		refs:   worktreeRefs,
-		header: "repository",
-		placed: func(screen.Inputs) screen.Request { return w.Stage() },
-		moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
+func (w *worktreesScreen) list() keys.ScreenList[worktreeRow] {
+	return keys.ScreenList[worktreeRow]{
+		Keys:   w.deps.keys,
+		Cursor: func() *list.Cursor { return &w.Cursor },
+		Rows:   w.rows,
+		Name:   worktreeRow.name,
+		Refs:   worktreeRefs,
+		Header: "repository",
+		Placed: func(screen.Inputs) screen.Request { return w.Stage() },
+		Moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
 	}
 }
 
@@ -243,12 +242,12 @@ func (w *worktreesScreen) TakesEveryKey() bool {
 	return false
 }
 
-func (w *worktreesScreen) ActiveList() keyedList {
+func (w *worktreesScreen) ActiveList() keys.KeyedList {
 	return w.list()
 }
 
 func (w *worktreesScreen) HoveredName(in screen.Inputs) string {
-	return w.list().hoveredName(in)
+	return w.list().HoveredName(in)
 }
 
 func (w *worktreesScreen) Tabs() tabs.Strip {

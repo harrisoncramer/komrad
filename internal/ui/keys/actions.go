@@ -30,9 +30,9 @@ const (
 	FilterMatch
 	Quit
 	SelectToggle
-	SelectRange
-	SelectClear
-	// Own is the first ID a package declares of its own.
+	selectRange
+	selectClear
+	// Own is where each package starts the IDs it declares of its own.
 	Own
 )
 

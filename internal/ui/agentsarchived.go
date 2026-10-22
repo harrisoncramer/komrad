@@ -191,18 +191,17 @@ func (a *archivedAgents) KindsSwitch() bool {
 	return !a.Selected.IsActive()
 }
 
-func (a *archivedAgents) list() screenList[agentRow] {
-	return screenList[agentRow]{
-		keys:   a.deps.keys,
-		top:    a.deps.top,
-		cursor: func() *list.Cursor { return &a.Cursor },
-		rows:   a.listRows,
-		name:   agentRowName,
-		fits:   agentRowFits,
-		refs:   refsOf,
-		header: "folder",
-		placed: func(screen.Inputs) screen.Request { return a.Stage() },
-		moved:  func(screen.Inputs) screen.Request { return screen.Batch{a.Stage(), screen.Settle{}} },
+func (a *archivedAgents) list() keys.ScreenList[agentRow] {
+	return keys.ScreenList[agentRow]{
+		Keys:   a.deps.keys,
+		Cursor: func() *list.Cursor { return &a.Cursor },
+		Rows:   a.listRows,
+		Name:   agentRowName,
+		Fits:   agentRowFits,
+		Refs:   refsOf,
+		Header: "folder",
+		Placed: func(screen.Inputs) screen.Request { return a.Stage() },
+		Moved:  func(screen.Inputs) screen.Request { return screen.Batch{a.Stage(), screen.Settle{}} },
 	}
 }
 
@@ -552,12 +551,12 @@ func (a *archivedAgents) TakesEveryKey() bool {
 	return a.IsRenaming()
 }
 
-func (a *archivedAgents) ActiveList() keyedList {
+func (a *archivedAgents) ActiveList() keys.KeyedList {
 	return a.list()
 }
 
 func (a *archivedAgents) HoveredName(in screen.Inputs) string {
-	return a.list().hoveredName(in)
+	return a.list().HoveredName(in)
 }
 
 func (a *archivedAgents) Tabs() tabs.Strip {

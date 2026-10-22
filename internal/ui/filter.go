@@ -22,7 +22,7 @@ func (m *model) filteredRows() ([]list.Row, bool) {
 	return l.FilterRows(m.inputs()), true
 }
 
-func (m *model) filteredList() (keyedList, bool) {
+func (m *model) filteredList() (keys.KeyedList, bool) {
 	if m.isDetailsFocused(m.inputs()) {
 		return m.detailsList(), true
 	}

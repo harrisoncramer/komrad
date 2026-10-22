@@ -36,7 +36,7 @@ func (m *model) buildMenu() (menu.Menu, bool) {
 }
 
 func (a *agentsScreen) BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
-	if a.list().isSelecting() {
+	if a.list().IsSelecting() {
 		chosen := chosenAgents(a.Selected, a.rows(in))
 		if len(chosen) == 0 {
 			return menu.Menu{}, false

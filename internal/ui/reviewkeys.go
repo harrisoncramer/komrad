@@ -183,7 +183,7 @@ func (r *reviewScreen) ScrollColumn(in screen.Inputs, rows int) screen.Request {
 		return nil
 	}
 
-	return r.diffKeys().moveBy(in, rows)
+	return r.diffKeys().MoveBy(in, rows)
 }
 
 // ScrollList presses the scroll key once for every row, past the popup.
@@ -253,11 +253,11 @@ func (r *reviewScreen) ScrollSidebarAt(in screen.Inputs, chrome screen.Chrome, y
 		return nil, true
 	}
 
-	return section.moveBy(in, rows), true
+	return section.MoveBy(in, rows), true
 }
 
 // sidebarNavAt is the sidebar section rendered on row y, and false for a row the wheel leaves alone.
-func (r *reviewScreen) sidebarNavAt(in screen.Inputs, chrome screen.Chrome, y int) (navigable, bool) {
+func (r *reviewScreen) sidebarNavAt(in screen.Inputs, chrome screen.Chrome, y int) (keys.Navigable, bool) {
 	if !in.Room.Split.On {
 		return nil, false
 	}

@@ -155,14 +155,13 @@ func (c statusCheckLogsScreen) applyListed(in screen.Inputs, msg statusChecksLis
 	return append(requests, screen.Cmd(c.checks.readStatusChecksCmd(in)))
 }
 
-func (c statusCheckLogsScreen) list() screenList[statusCheckLogRow] {
-	return screenList[statusCheckLogRow]{
-		keys:   c.checks.deps.keys,
-		top:    c.checks.deps.top,
-		cursor: func() *list.Cursor { return &c.Cursor },
-		rows:   c.rows,
-		name:   statusCheckLogRowName,
-		moved:  c.anchor,
+func (c statusCheckLogsScreen) list() keys.ScreenList[statusCheckLogRow] {
+	return keys.ScreenList[statusCheckLogRow]{
+		Keys:   c.checks.deps.keys,
+		Cursor: func() *list.Cursor { return &c.Cursor },
+		Rows:   c.rows,
+		Name:   statusCheckLogRowName,
+		Moved:  c.anchor,
 	}
 }
 
@@ -258,7 +257,7 @@ func (c statusCheckLogsScreen) StepKind(in screen.Inputs, delta int) screen.Requ
 
 func (c statusCheckLogsScreen) listActions(in screen.Inputs) keys.Spec[statusCheckLogsScreen] {
 	return keys.Spec[statusCheckLogsScreen]{
-		Table: append(listActions[statusCheckLogsScreen](c.list(), in),
+		Table: append(keys.ListActions[statusCheckLogsScreen](c.list(), in),
 			keys.Action[statusCheckLogsScreen]{
 				ID:   actionStatusCheckLogsBack,
 				Keys: keys.FixedBack,
@@ -270,11 +269,11 @@ func (c statusCheckLogsScreen) listActions(in screen.Inputs) keys.Spec[statusChe
 		Legend: slices.Concat(keys.NavLegend[statusCheckLogsScreen](), []keys.LegendRow[statusCheckLogsScreen]{
 			{
 				Of:   []keys.ID{keys.FilterOpen},
-				Desc: filterDescOf[statusCheckLogsScreen](in),
+				Desc: keys.FilterDescOf[statusCheckLogsScreen](in),
 			},
 			{
 				Of:    []keys.ID{keys.FilterClear},
-				Desc:  filterClearDescOf[statusCheckLogsScreen](in),
+				Desc:  keys.FilterClearDescOf[statusCheckLogsScreen](in),
 				Strip: true,
 			},
 			{
@@ -345,7 +344,7 @@ var (
 	_ docNamer        = statusCheckLogsScreen{}
 )
 
-func (c statusCheckLogsScreen) ActiveList() keyedList {
+func (c statusCheckLogsScreen) ActiveList() keys.KeyedList {
 	return c.list()
 }
 

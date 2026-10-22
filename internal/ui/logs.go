@@ -410,14 +410,13 @@ func (l *logsScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, boo
 	return nil, false
 }
 
-func (l *logsScreen) list() screenList[logSourceRow] {
-	return screenList[logSourceRow]{
-		keys:   l.deps.keys,
-		top:    l.deps.top,
-		cursor: func() *list.Cursor { return &l.Cursor },
-		rows:   l.rows,
-		name:   logSourceRowName,
-		moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
+func (l *logsScreen) list() keys.ScreenList[logSourceRow] {
+	return keys.ScreenList[logSourceRow]{
+		Keys:   l.deps.keys,
+		Cursor: func() *list.Cursor { return &l.Cursor },
+		Rows:   l.rows,
+		Name:   logSourceRowName,
+		Moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
 	}
 }
 
@@ -584,7 +583,7 @@ var (
 	_ kindSwitcher  = (*logsScreen)(nil)
 )
 
-func (l *logsScreen) ActiveList() keyedList {
+func (l *logsScreen) ActiveList() keys.KeyedList {
 	return l.list()
 }
 
@@ -596,11 +595,11 @@ func (l *logsScreen) Dispatches() []keys.Table {
 	return []keys.Table{l.listActions(screen.Inputs{}), l.logActions(screen.Inputs{})}
 }
 
-func (l *logsScreen) moveBy(_ screen.Inputs, rows int) screen.Request {
+func (l *logsScreen) MoveBy(_ screen.Inputs, rows int) screen.Request {
 	return l.move(rows)
 }
 
-func (l *logsScreen) moveToEnd(_ screen.Inputs, direction int) screen.Request {
+func (l *logsScreen) MoveToEnd(_ screen.Inputs, direction int) screen.Request {
 	return l.move(direction * l.viewer.Len())
 }
 

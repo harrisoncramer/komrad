@@ -472,6 +472,3 @@ func (m *model) isSearchTyping() bool {
 
 	return ok && s.IsSearchTyping()
 }
-
-// columnWheelStep is how many rows one turn of the wheel moves the block beside the list.
-const columnWheelStep = 3

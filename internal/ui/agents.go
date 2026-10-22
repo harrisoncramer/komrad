@@ -70,18 +70,17 @@ func (a *agentsScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, b
 	return nil, false
 }
 
-func (a *agentsScreen) list() screenList[agentRow] {
-	return screenList[agentRow]{
-		keys:   a.deps.keys,
-		top:    a.deps.top,
-		cursor: func() *list.Cursor { return &a.Cursor },
-		rows:   a.rows,
-		name:   agentRowName,
-		fits:   agentRowFits,
-		refs:   refsOf,
-		header: "folder",
-		placed: func(screen.Inputs) screen.Request { return a.Stage() },
-		moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
+func (a *agentsScreen) list() keys.ScreenList[agentRow] {
+	return keys.ScreenList[agentRow]{
+		Keys:   a.deps.keys,
+		Cursor: func() *list.Cursor { return &a.Cursor },
+		Rows:   a.rows,
+		Name:   agentRowName,
+		Fits:   agentRowFits,
+		Refs:   refsOf,
+		Header: "folder",
+		Placed: func(screen.Inputs) screen.Request { return a.Stage() },
+		Moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
 	}
 }
 
@@ -355,12 +354,12 @@ func (a *agentsScreen) TakesEveryKey() bool {
 	return a.IsRenaming()
 }
 
-func (a *agentsScreen) ActiveList() keyedList {
+func (a *agentsScreen) ActiveList() keys.KeyedList {
 	return a.list()
 }
 
 func (a *agentsScreen) HoveredName(in screen.Inputs) string {
-	return a.list().hoveredName(in)
+	return a.list().HoveredName(in)
 }
 
 func (a *agentsScreen) Tabs() tabs.Strip {

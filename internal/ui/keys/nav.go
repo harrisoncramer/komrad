@@ -1,6 +1,27 @@
 package keys
 
-import "komrad/config"
+import (
+	"slices"
+
+	"komrad/config"
+	"komrad/internal/ui/screen"
+)
+
+const (
+	// NavPageStep is how many rows a page key moves the cursor.
+	NavPageStep = 10
+	// ColumnWheelStep is how many rows one turn of the wheel moves the block beside the list.
+	ColumnWheelStep = 3
+)
+
+// Navigable is a section the movement keys walk, some rows at a time or to either end.
+type Navigable interface {
+	// MoveBy walks down the section by rows, up it when rows is negative.
+	MoveBy(in screen.Inputs, rows int) screen.Request
+	// MoveToEnd lands on the top of the section for a negative direction and the bottom for a
+	// positive one.
+	MoveToEnd(in screen.Inputs, direction int) screen.Request
+}
 
 // MoveLabel names the keys that move the cursor a row.
 func MoveLabel(k config.Keybindings) string {
@@ -63,6 +84,50 @@ func NavLegend[S any]() []LegendRow[S] {
 			Of:    []ID{ColumnScroll},
 			Desc:  func(S) string { return "scroll" },
 			Label: ColumnScrollLabel,
+		},
+	}
+}
+
+// NavActionsParams is the section the movement keys walk, the keys bound to them, and the rows a
+// page key and a scroll key move it.
+type NavActionsParams struct {
+	Keys   config.Keybindings
+	Nav    Navigable
+	In     screen.Inputs
+	Page   int
+	Scroll int
+}
+
+// NavActions is the move, jump, page and scroll keys walking a section.
+func NavActions[S any](params NavActionsParams) []Action[S] {
+	return []Action[S]{
+		{
+			ID:   Move,
+			Keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
+			Nav: func(_ S, pressed string) screen.Request {
+				return params.Nav.MoveBy(params.In, DirectionOf(pressed, params.Keys.Nav.Up))
+			},
+		},
+		{
+			ID:   Jump,
+			Keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Top, k.Nav.Bottom) },
+			Nav: func(_ S, pressed string) screen.Request {
+				return params.Nav.MoveToEnd(params.In, DirectionOf(pressed, params.Keys.Nav.Top))
+			},
+		},
+		{
+			ID:   NavPage,
+			Keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
+			Nav: func(_ S, pressed string) screen.Request {
+				return params.Nav.MoveBy(params.In, DirectionOf(pressed, params.Keys.Nav.PageUp)*params.Page)
+			},
+		},
+		{
+			ID:   ColumnScroll,
+			Keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
+			Nav: func(_ S, pressed string) screen.Request {
+				return params.Nav.MoveBy(params.In, DirectionOf(pressed, params.Keys.Column.ScrollUp)*params.Scroll)
+			},
 		},
 	}
 }

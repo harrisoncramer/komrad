@@ -123,16 +123,15 @@ func (a *archivedSchedules) Receive(in screen.Inputs, msg tea.Msg) (screen.Reque
 	return nil, true
 }
 
-func (a *archivedSchedules) list() screenList[scheduleItem] {
-	return screenList[scheduleItem]{
-		keys:   a.deps.keys,
-		top:    a.deps.top,
-		cursor: func() *list.Cursor { return &a.Cursor },
-		rows:   a.listRows,
-		name:   func(item scheduleItem) string { return item.schedule.Name },
-		fits:   scheduleItemFits,
-		placed: func(screen.Inputs) screen.Request { return a.Stage() },
-		moved:  func(screen.Inputs) screen.Request { return screen.Batch{a.Stage(), screen.Settle{}} },
+func (a *archivedSchedules) list() keys.ScreenList[scheduleItem] {
+	return keys.ScreenList[scheduleItem]{
+		Keys:   a.deps.keys,
+		Cursor: func() *list.Cursor { return &a.Cursor },
+		Rows:   a.listRows,
+		Name:   func(item scheduleItem) string { return item.schedule.Name },
+		Fits:   scheduleItemFits,
+		Placed: func(screen.Inputs) screen.Request { return a.Stage() },
+		Moved:  func(screen.Inputs) screen.Request { return screen.Batch{a.Stage(), screen.Settle{}} },
 	}
 }
 
@@ -238,12 +237,12 @@ func (a *archivedSchedules) TakesEveryKey() bool {
 	return false
 }
 
-func (a *archivedSchedules) ActiveList() keyedList {
+func (a *archivedSchedules) ActiveList() keys.KeyedList {
 	return a.list()
 }
 
 func (a *archivedSchedules) HoveredName(in screen.Inputs) string {
-	return a.list().hoveredName(in)
+	return a.list().HoveredName(in)
 }
 
 func (a *archivedSchedules) Column(in screen.Inputs) column.Spec {

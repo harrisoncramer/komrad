@@ -137,10 +137,10 @@ func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 	}
 
 	if screen, ok := m.active().(columnFocuser); ok && screen.DoesScrollColumn(m.inputs()) {
-		return tea.Batch(focus, m.apply(screen.ScrollColumn(m.inputs(), rows*columnWheelStep)))
+		return tea.Batch(focus, m.apply(screen.ScrollColumn(m.inputs(), rows*keys.ColumnWheelStep)))
 	}
 
-	m.wheelDoc(rows * columnWheelStep)
+	m.wheelDoc(rows * keys.ColumnWheelStep)
 
 	return focus
 }

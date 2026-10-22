@@ -22,7 +22,7 @@ func (a *agentsScreen) table(in screen.Inputs) []keys.Action[*agentsScreen] {
 
 // modeActions are the keys that answer whatever the cursor is on.
 func (a *agentsScreen) modeActions(in screen.Inputs) []keys.Action[*agentsScreen] {
-	return append(listActions[*agentsScreen](a.list(), in),
+	return append(keys.ListActions[*agentsScreen](a.list(), in),
 		keys.Action[*agentsScreen]{
 			ID:   actionAgentTriage,
 			Keys: func(k config.Keybindings) []string { return k.Agents.Triage },
@@ -76,7 +76,7 @@ func (a *agentsScreen) rowActions(in screen.Inputs) []keys.Action[*agentsScreen]
 }
 
 func (a *agentsScreen) isBrowsing() bool {
-	return a.list().isBrowsing()
+	return a.list().IsBrowsing()
 }
 
 // isTriageReachable reports whether the triage key has a zone to jump to.
@@ -110,7 +110,7 @@ func (a *agentsScreen) isHoveringAgent(in screen.Inputs) bool {
 }
 
 func (a *agentsScreen) legend(in screen.Inputs) []keys.LegendRow[*agentsScreen] {
-	return append(selectionLegend[*agentsScreen](a.list(), in), a.browsingLegend(in)...)
+	return append(keys.SelectionLegend[*agentsScreen](a.list(), in), a.browsingLegend(in)...)
 }
 
 // browsingLegend is the ordinary legend, in reading order.
@@ -124,7 +124,7 @@ func (a *agentsScreen) browsingLegend(in screen.Inputs) []keys.LegendRow[*agents
 		},
 		{
 			Of:   []keys.ID{keys.SelectToggle},
-			Desc: func(*agentsScreen) string { return a.list().toggleDesc(in) },
+			Desc: func(*agentsScreen) string { return a.list().ToggleDesc(in) },
 			Show: (*agentsScreen).isBrowsing,
 		},
 		{
@@ -153,7 +153,7 @@ func (a *agentsScreen) browsingLegend(in screen.Inputs) []keys.LegendRow[*agents
 		},
 		{
 			Of:   []keys.ID{keys.FilterOpen},
-			Desc: filterDescOf[*agentsScreen](in),
+			Desc: keys.FilterDescOf[*agentsScreen](in),
 			Show: (*agentsScreen).isBrowsing,
 		},
 		{
@@ -162,7 +162,7 @@ func (a *agentsScreen) browsingLegend(in screen.Inputs) []keys.LegendRow[*agents
 		},
 		{
 			Of:   []keys.ID{keys.FilterClear},
-			Desc: filterClearDescOf[*agentsScreen](in),
+			Desc: keys.FilterClearDescOf[*agentsScreen](in),
 		},
 	}, keys.NavLegend[*agentsScreen]())
 }

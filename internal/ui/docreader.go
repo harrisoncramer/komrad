@@ -267,7 +267,7 @@ func (m *model) docActions() keys.Spec[*model] {
 				ID:   keys.NavPage,
 				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
 				Nav: func(_ *model, pressed string) screen.Request {
-					m.moveDocTo(m.reading.Line + keys.DirectionOf(pressed, m.keys.Nav.PageUp)*navPageStep)
+					m.moveDocTo(m.reading.Line + keys.DirectionOf(pressed, m.keys.Nav.PageUp)*keys.NavPageStep)
 
 					return nil
 				},
@@ -276,7 +276,7 @@ func (m *model) docActions() keys.Spec[*model] {
 				ID:   keys.ColumnScroll,
 				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
 				Nav: func(_ *model, pressed string) screen.Request {
-					m.scrollDoc(keys.DirectionOf(pressed, m.keys.Column.ScrollUp) * columnWheelStep)
+					m.scrollDoc(keys.DirectionOf(pressed, m.keys.Column.ScrollUp) * keys.ColumnWheelStep)
 
 					return nil
 				},
