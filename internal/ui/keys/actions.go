@@ -32,8 +32,7 @@ const (
 	SelectToggle
 	selectRange
 	selectClear
-	// Own is the first ID a package declares of its own, free to match another package's since no
-	// table mixes the two.
+	// Own is where each package starts the IDs it declares of its own.
 	Own
 )
 
