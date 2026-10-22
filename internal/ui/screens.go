@@ -59,7 +59,7 @@ type screenModel interface {
 	// StageResting stages the row the cursor came to rest on and asks for what the screen reads of it.
 	StageResting(in screen.Inputs) screen.Request
 
-	// Dispatches is the tables the screen Dispatches through, one at a time, walked behind the
+	// Dispatches is the tables the screen dispatches through, one at a time, walked behind the
 	// global keys.
 	Dispatches() []keys.Table
 }
@@ -134,7 +134,7 @@ type docKeyer interface {
 // popupHost is a screen with a popup over its block and a sidebar of its own, both laid out under
 // the root's chrome.
 type popupHost interface {
-	MeasurePopup(in screen.Inputs, chrome screen.Chrome) (int, int)
+	MeasurePopup(in screen.Inputs, chrome screen.Chrome) (width, height int)
 	PressPopup(in screen.Inputs, chrome screen.Chrome, pressed string) (screen.Request, bool)
 	ScrollPopupAt(in screen.Inputs, chrome screen.Chrome, at image.Point, rows int) bool
 	ScrollSidebarAt(in screen.Inputs, chrome screen.Chrome, y, rows int) (screen.Request, bool)
