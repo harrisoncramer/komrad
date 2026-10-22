@@ -13,7 +13,8 @@ type Params struct {
 	// Help is the screen's own legend, rendered ahead of the bindings every list shares.
 	Help legend.Help
 	// Empty is what the list says over no rows, and blank on a list that renders its window anyway.
-	Empty   string
+	Empty string
+	// Welcome, while set, is centred in place of the list.
 	Welcome string
 	// Rows is how many rows the list holds.
 	Rows     int

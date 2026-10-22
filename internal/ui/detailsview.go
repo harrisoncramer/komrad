@@ -59,6 +59,7 @@ func (m *model) detailsView() string {
 		m.detailsRule(""), pane)
 }
 
+// Record is the hovered row's record, or the rule standing in for it while the pane has the room.
 func (m *model) Record(above ...string) string {
 	if record := m.detailsView(); record != "" {
 		return record

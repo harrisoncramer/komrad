@@ -17,31 +17,32 @@ import (
 // maxHelpColumns is the widest the expanded legend goes.
 const maxHelpColumns = 3
 
-func (m *model) Help(k legend.Help, above ...string) string {
+// Help renders the legend of whatever holds the keys, fitted under the chrome above it.
+func (m *model) Help(help legend.Help, above ...string) string {
 	in := m.inputs()
 	if m.isDetailsFocused(in) {
-		k = m.detailsHelp()
+		help = m.detailsHelp()
 	}
 	if in.Room.Doc.Focused {
-		k = m.docHelp()
+		help = m.docHelp()
 	}
 	if m.isTabsFocused(in) {
-		k = m.tabsHelp()
+		help = m.tabsHelp()
 	}
 	if m.isKindsFocused(in) {
-		k = m.kindsHelp()
+		help = m.kindsHelp()
 	}
 	if in.Room.MessagesFocused {
-		k = m.messagesHelp()
+		help = m.messagesHelp()
 	}
 	if m.filter.typing {
-		k = filterHelp(m.filter.mode)
+		help = filterHelp(m.filter.mode)
 	}
 	if r, ok := m.active().(renamer); ok && r.isRenaming() {
-		k = renameHelp()
+		help = renameHelp()
 	}
 	if m.isViewsOpen() {
-		k = m.viewsHelp()
+		help = m.viewsHelp()
 	}
 
 	width := m.paneWidth()
@@ -49,16 +50,16 @@ func (m *model) Help(k legend.Help, above ...string) string {
 	status := "\n" + m.statusRow(width) + "\n"
 
 	if !m.helpExpanded {
-		return fitLegend(view.ShortHelpView(byLabel(k.Short)), width) + status
+		return fitLegend(view.ShortHelpView(byLabel(help.Short)), width) + status
 	}
 
 	// bubbles truncates a column wider than it was given to a single ellipsis rather than wrapping
 	// it, so a legend the sidebar cannot hold gives way to its short form, a width of zero being a
 	// panel that has not been told how wide it is and which bubbles reads as no limit.
-	columns := helpColumns(byLabel(k.Full), width)
+	columns := helpColumns(byLabel(help.Full), width)
 	full := fitLegend(view.FullHelpView(columns), width) + status
 	if (width > 0 && helpWidth(columns) > width) || !m.doesLegendLeaveARow(full, above) {
-		return fitLegend(view.ShortHelpView(m.refusedExpansion(byLabel(k.Short))), width) + status
+		return fitLegend(view.ShortHelpView(m.refusedExpansion(byLabel(help.Short))), width) + status
 	}
 
 	return full

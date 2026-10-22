@@ -69,6 +69,7 @@ type listRenderer interface {
 	listParams(m *model, in screen.Inputs) list.Params
 }
 
+// chromeRenderer is a screen that draws itself under the chrome the root hands it.
 type chromeRenderer interface {
 	view(m *model, in screen.Inputs, chrome screen.Chrome) string
 }
