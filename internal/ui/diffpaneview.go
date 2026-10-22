@@ -13,9 +13,9 @@ import (
 )
 
 // diffMatchCount is where in the search the cursor is standing, rendered under the pattern.
-func diffMatchCount(pane *diffview.Pane, filter filter.State) string {
+func diffMatchCount(pane *diffview.Pane, search filter.State) string {
 	view := pane.View()
-	if view == nil || !filter.IsStanding() {
+	if view == nil || !search.IsStanding() {
 		return ""
 	}
 

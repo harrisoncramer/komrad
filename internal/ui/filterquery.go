@@ -70,18 +70,18 @@ func (m *model) applySaysSettled(msg saysSettledMsg) tea.Cmd {
 }
 
 func (m *model) applySaysFound(msg saysFoundMsg) {
-	filter := &m.filter
-	if !filter.FindSaid(msg.text, msg.hits, msg.err) {
+	search := &m.filter
+	if !search.FindSaid(msg.text, msg.hits, msg.err) {
 		return
 	}
 
 	m.reconcileSolo()
-	if filter.Typing {
+	if search.Typing {
 		return
 	}
 
 	hovered := m.hoveredFilterKey()
-	if hovered != filter.AppliedAt && (!filter.Pattern().IsNarrowing() || m.isFilterRowShown(hovered)) {
+	if hovered != search.AppliedAt && (!search.Pattern().IsNarrowing() || m.isFilterRowShown(hovered)) {
 		return
 	}
 

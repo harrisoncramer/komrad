@@ -46,10 +46,10 @@ func (m *model) beginFilter() {
 		}
 	}
 
-	filter := &m.filter
-	filter.Open(opts...)
-	filter.OpenedIn = m.keyholder(m.inputs())
-	filter.Origin = origin
+	search := &m.filter
+	search.Open(opts...)
+	search.OpenedIn = m.keyholder(m.inputs())
+	search.Origin = origin
 	m.placeFilteredCursor(origin)
 }
 
@@ -93,10 +93,10 @@ func (m *model) leaveScreen() tea.Cmd {
 // clearFilter drops a standing search and puts the cursor back where the search opened, unless
 // the keys have since moved to the other section.
 func (m *model) clearFilter() {
-	filter := &m.filter
-	origin, openedIn := filter.Origin, filter.OpenedIn
-	filter.Abandon()
-	filter.Origin = ""
+	search := &m.filter
+	origin, openedIn := search.Origin, search.OpenedIn
+	search.Abandon()
+	search.Origin = ""
 	if openedIn == m.keyholder(m.inputs()) {
 		m.placeFilteredCursor(origin)
 	}
@@ -109,16 +109,16 @@ func (m *model) updateFilterInput(key tea.KeyPressMsg) tea.Cmd {
 	}
 
 	// Typing lights what it has found and moves nothing; enter is what applies the search.
-	filter := &m.filter
+	search := &m.filter
 	switch key.String() {
 	case "tab":
-		filter.Mode = filter.Mode.Flipped()
+		search.Mode = search.Mode.Flipped()
 	case "enter":
 		m.applyFilter()
 
 		return tea.Batch(m.waitToStage(), m.saysCmd())
 	default:
-		filter.TakeKey(key, m.register)
+		search.TakeKey(key, m.register)
 		m.reconcileSolo()
 	}
 

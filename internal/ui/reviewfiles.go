@@ -335,28 +335,28 @@ func (r *reviewScreen) ClickFile(in screen.Inputs, path string) screen.Request {
 }
 
 func (r *reviewScreen) openFilesFilter() {
-	filter := &r.filesFilter
-	filter.Open()
-	filter.OpenedIn = list.SectionList
+	search := &r.filesFilter
+	search.Open()
+	search.OpenedIn = list.SectionList
 }
 
 // updateFilesFilter is the tree's search prompt taking keys.
 func (r *reviewScreen) updateFilesFilter(in screen.Inputs, key tea.KeyPressMsg) screen.Request {
-	filter := &r.filesFilter
+	search := &r.filesFilter
 	switch key.String() {
 	case "ctrl+c":
 		return screen.Hide{}
 	case "tab":
-		filter.Mode = filter.Mode.Flipped()
+		search.Mode = search.Mode.Flipped()
 
 		return nil
 	case "enter":
-		filter.Typing = false
+		search.Typing = false
 
 		return r.settleFilesFilter(in)
 	}
 
-	filter.TakeKey(key, r.deps.register)
+	search.TakeKey(key, r.deps.register)
 
 	return nil
 }
