@@ -1,0 +1,133 @@
+syntax = "proto3";
+
+package protoconv.test;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "komrad/lib/protoconv/internal/testpb";
+
+enum Colour {
+  COLOUR_UNSPECIFIED = 0;
+  COLOUR_RED = 1;
+}
+
+message Single {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+  string trimmed = 2 [(buf.validate.field).string.tuuid = true];
+  optional string maybe = 3 [(buf.validate.field).string.uuid = true];
+  string blank_ok = 4 [
+    (buf.validate.field).string.uuid = true,
+    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE
+  ];
+  string skipped = 5 [
+    (buf.validate.field).string.uuid = true,
+    (buf.validate.field).ignore = IGNORE_ALWAYS
+  ];
+  bytes binary = 6 [(buf.validate.field).bytes.uuid = true];
+  bytes binary_ok = 7 [
+    (buf.validate.field).bytes.uuid = true,
+    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE
+  ];
+  optional string must = 8 [
+    (buf.validate.field).string.uuid = true,
+    (buf.validate.field).required = true
+  ];
+  string name = 9;
+  optional int32 count = 10;
+  Colour colour = 11;
+  bytes payload = 12;
+}
+
+message Times {
+  google.protobuf.Timestamp at = 1 [(buf.validate.field).required = true];
+  google.protobuf.Timestamp maybe = 2;
+  repeated google.protobuf.Timestamp each = 3;
+  map<string, google.protobuf.Timestamp> by_name = 4;
+  google.protobuf.Timestamp skipped = 5 [(buf.validate.field).ignore = IGNORE_ALWAYS];
+}
+
+message Lists {
+  repeated string ids = 1 [(buf.validate.field).repeated.items.string.uuid = true];
+  repeated string names = 2;
+  map<string, string> by_name = 3 [(buf.validate.field).map.values.string.uuid = true];
+  map<string, string> by_id = 4 [(buf.validate.field).map.keys.string.uuid = true];
+  map<string, string> both = 5 [
+    (buf.validate.field).map.keys.string.uuid = true,
+    (buf.validate.field).map.values.string.uuid = true
+  ];
+  map<string, int32> plain = 6;
+  repeated bytes binaries = 7 [(buf.validate.field).repeated.items.bytes.uuid = true];
+  repeated Plain plains = 8;
+}
+
+message Plain {
+  string name = 1;
+  int32 count = 2;
+}
+
+message Nested {
+  Single single = 1;
+  Single must = 2 [(buf.validate.field).required = true];
+  repeated Single many = 3;
+  map<int32, Single> by_number = 4;
+  Plain plain = 5;
+  Nested child = 6;
+  Single ignored = 7 [(buf.validate.field).ignore = IGNORE_ALWAYS];
+}
+
+message Choice {
+  oneof target {
+    string id = 1 [(buf.validate.field).string.uuid = true];
+    string name = 2;
+    Single single = 3;
+    google.protobuf.Timestamp at = 4;
+    Plain plain = 5;
+  }
+}
+
+message Either {
+  option (buf.validate.message).oneof = {
+    fields: ["id", "name"]
+    required: true
+  };
+
+  string id = 1 [(buf.validate.field).string.uuid = true];
+  string name = 2;
+}
+
+message Ping {
+  Pong pong = 1;
+  string name = 2;
+}
+
+message Pong {
+  Ping ping = 1;
+  string id = 2 [(buf.validate.field).string.uuid = true];
+}
+
+message Outer {
+  message Inner {
+    string id = 1 [(buf.validate.field).string.uuid = true];
+  }
+
+  Inner inner = 1;
+}
+
+message Untouched {
+  string name = 1;
+  Plain plain = 2;
+  repeated Untouched children = 3;
+}
+
+message HyphenatedRule {
+  string value = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message TrimmedRule {
+  string value = 1 [(buf.validate.field).string.tuuid = true];
+}
+
+message BinaryRule {
+  bytes value = 1 [(buf.validate.field).bytes.uuid = true];
+}
