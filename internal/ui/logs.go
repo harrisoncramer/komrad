@@ -121,9 +121,9 @@ type logsSettledMsg struct {
 	edits      int
 }
 
-// enter starts over on the agent or task the target names, listing where its logs can be read
+// Enter starts over on the agent or task the target names, listing where its logs can be read
 // from and claiming a task's failed runs.
-func (l *logsScreen) enter(m *model, in screen.Inputs, target screen.Target) screen.Request {
+func (l *logsScreen) Enter(in screen.Inputs, target screen.Target) screen.Request {
 	*l = logsScreen{
 		deps:       l.deps,
 		agentID:    target.AgentID,
@@ -144,8 +144,8 @@ func (l *logsScreen) enter(m *model, in screen.Inputs, target screen.Target) scr
 	})}
 }
 
-// leaveScreen ends the chain of reads.
-func (l *logsScreen) leaveScreen(*model) screen.Request {
+// LeaveScreen ends the chain of reads.
+func (l *logsScreen) LeaveScreen() screen.Request {
 	l.generation++
 
 	return nil
@@ -381,7 +381,7 @@ func (l *logsScreen) clearLogFilter() screen.Request {
 	return l.narrow()
 }
 
-func (l *logsScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen.Request {
+func (l *logsScreen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok || l.viewer == nil {
 		return nil
@@ -394,7 +394,7 @@ func (l *logsScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen.Requ
 	return l.actions(in).DispatchTop(l.deps.top, l, l.deps.keys, key.String())
 }
 
-func (l *logsScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
+func (l *logsScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 	switch msg := msg.(type) {
 	case logsSourcesMsg:
 		return l.applySources(in, msg), true
@@ -457,7 +457,7 @@ func (l *logsScreen) nameSource(in screen.Inputs, source *logv1.LogSource) strin
 	return name + " " + sourceLabel(source)
 }
 
-func (l *logsScreen) listParams(_ *model, in screen.Inputs) list.Params {
+func (l *logsScreen) ListParams(in screen.Inputs) list.Params {
 	rows := l.rows(in)
 	row, ok := list.At(rows, l.Row)
 
@@ -470,8 +470,8 @@ func (l *logsScreen) listParams(_ *model, in screen.Inputs) list.Params {
 	}
 }
 
-// buildFrame fits the log's cursor and view to the block it is rendered in.
-func (l *logsScreen) buildFrame(_ *model, in screen.Inputs) {
+// BuildFrame fits the log's cursor and view to the block it is rendered in.
+func (l *logsScreen) BuildFrame(in screen.Inputs) {
 	split := in.Room.Split
 	if !split.On || !l.read || l.viewer.Len() == 0 {
 		return
@@ -480,11 +480,11 @@ func (l *logsScreen) buildFrame(_ *model, in screen.Inputs) {
 	l.viewer.Fit(split.Column-len(list.Blank), max(split.Rows-1, 1))
 }
 
-func (l *logsScreen) parent() screen.ID {
+func (l *logsScreen) Parent() screen.ID {
 	return l.openedFrom
 }
 
-func (l *logsScreen) crumbs(in screen.Inputs) screen.Crumbs {
+func (l *logsScreen) Crumbs(in screen.Inputs) screen.Crumbs {
 	if task, ok := in.Listing.Tasks[l.taskID]; ok {
 		return screen.Crumbs{Trail: []string{task.Slug, "logs"}}
 	}
@@ -497,29 +497,29 @@ func (l *logsScreen) crumbs(in screen.Inputs) screen.Crumbs {
 	return screen.Crumbs{Trail: []string{name, "logs"}}
 }
 
-func (l *logsScreen) doesRenderFromListing() bool {
+func (l *logsScreen) DoesRenderFromListing() bool {
 	return true
 }
 
-func (l *logsScreen) takesEveryKey() bool {
-	return l.isSearchTyping()
+func (l *logsScreen) TakesEveryKey() bool {
+	return l.IsSearchTyping()
 }
 
-func (l *logsScreen) isSearchTyping() bool {
+func (l *logsScreen) IsSearchTyping() bool {
 	return l.logFilter.typing
 }
 
-func (l *logsScreen) column(m *model, in screen.Inputs) column.Spec {
+func (l *logsScreen) Column(in screen.Inputs) column.Spec {
 	return column.Spec{
 		Floor: columnFloor,
 		DocRows: func(width int) []string {
-			return m.logs.block(in, width)
+			return l.block(in, width)
 		},
 	}
 }
 
-// isBlockRendered reports whether the block beside the list holds lines of the log.
-func (l *logsScreen) isBlockRendered(in screen.Inputs) bool {
+// IsBlockRendered reports whether the block beside the list holds lines of the log.
+func (l *logsScreen) IsBlockRendered(in screen.Inputs) bool {
 	if !in.Room.Split.On {
 		return false
 	}
@@ -527,8 +527,8 @@ func (l *logsScreen) isBlockRendered(in screen.Inputs) bool {
 	return l.read && l.viewer.Len() > 0
 }
 
-// isBlockFocused reports whether the log holds the keys.
-func (l *logsScreen) isBlockFocused(in screen.Inputs) bool {
+// IsBlockFocused reports whether the log holds the keys.
+func (l *logsScreen) IsBlockFocused(in screen.Inputs) bool {
 	if !l.logFocus || !in.Room.ListFocused {
 		return false
 	}
@@ -537,22 +537,22 @@ func (l *logsScreen) isBlockFocused(in screen.Inputs) bool {
 		return true
 	}
 
-	return l.isBlockRendered(in)
+	return l.IsBlockRendered(in)
 }
 
-func (l *logsScreen) focusBlock() {
+func (l *logsScreen) FocusBlock() {
 	l.logFocus = true
 }
 
-func (l *logsScreen) blurBlock() {
+func (l *logsScreen) BlurBlock() {
 	l.logFocus = false
 }
 
-func (l *logsScreen) doesScrollColumn(in screen.Inputs) bool {
-	return l.isBlockRendered(in)
+func (l *logsScreen) DoesScrollColumn(in screen.Inputs) bool {
+	return l.IsBlockRendered(in)
 }
 
-func (l *logsScreen) scrollColumn(_ *model, rows int) screen.Request {
+func (l *logsScreen) ScrollColumn(in screen.Inputs, rows int) screen.Request {
 	l.viewer.Scroll(rows)
 
 	return nil
@@ -583,15 +583,15 @@ var (
 	_ kindSwitcher  = (*logsScreen)(nil)
 )
 
-func (l *logsScreen) activeList() keyedList {
+func (l *logsScreen) ActiveList() keyedList {
 	return l.list()
 }
 
-func (l *logsScreen) typedLine() (field.Line, bool) {
+func (l *logsScreen) TypedLine() (field.Line, bool) {
 	return l.logFilter.input, l.logFilter.typing
 }
 
-func (l *logsScreen) dispatches(*model) []keys.Table {
+func (l *logsScreen) Dispatches() []keys.Table {
 	return []keys.Table{l.listActions(screen.Inputs{}), l.logActions(screen.Inputs{})}
 }
 
@@ -606,7 +606,7 @@ func (l *logsScreen) moveToEnd(_ screen.Inputs, direction int) screen.Request {
 // logFormatLabels name each format a server log is rendered in, indexed by logview.Format.
 var logFormatLabels = []string{"raw", "compact"}
 
-func (l *logsScreen) kinds(*model) tabs.Stops {
+func (l *logsScreen) Kinds() tabs.Stops {
 	return tabs.Stops{
 		Labels: logFormatLabels,
 		Focus:  tabs.NoStop,
@@ -614,16 +614,16 @@ func (l *logsScreen) kinds(*model) tabs.Stops {
 	}
 }
 
-func (l *logsScreen) kindsFocused(*model) *bool {
+func (l *logsScreen) KindsFocused() *bool {
 	return &l.formatFocus
 }
 
-func (l *logsScreen) kindsSwitch() bool {
+func (l *logsScreen) KindsSwitch() bool {
 	return true
 }
 
-// stepKind renders the server log in another format.
-func (l *logsScreen) stepKind(m *model, in screen.Inputs, delta int) screen.Request {
+// StepKind renders the server log in another format.
+func (l *logsScreen) StepKind(in screen.Inputs, delta int) screen.Request {
 	l.format = logview.Format(tabs.StepStop(int(l.format), delta, len(logFormatLabels)))
 	if row, ok := list.At(l.rows(in), l.Row); ok {
 		l.applyFormat(row)

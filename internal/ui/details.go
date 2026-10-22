@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"slices"
 	"strconv"
 	"strings"
 
@@ -46,7 +45,7 @@ func (m *model) hoveredDetails(in screen.Inputs) record.Details {
 		return record.Details{}
 	}
 
-	return d.details(m, in)
+	return d.Details(in)
 }
 
 // detailsRows is the record's fields as its search leaves them.
@@ -122,7 +121,7 @@ func (m *model) detailsFit() bool {
 
 	probe := *m
 	probe.details.focused = false
-	params := l.listParams(&probe, probe.inputs())
+	params := l.ListParams(probe.inputs())
 
 	header := probe.tabbedHeader(params.Title, params.Tally)
 	legend := probe.Help(probe.listHelp(params.Help), header)
@@ -247,12 +246,7 @@ func (m *model) detailsActions() keys.Spec[*model] {
 }
 
 func (m *model) detailsHelp() legend.Help {
-	own := m.helpOf(m.detailsActions())
-
-	return legend.Help{
-		Short: slices.Concat(own.Short, m.globalHelp()),
-		Full:  slices.Concat(own.Full, m.fullGlobalHelp()),
-	}
+	return m.Legend(m.helpOf(m.detailsActions()))
 }
 
 func (m *model) copyDetailsField() tea.Cmd {

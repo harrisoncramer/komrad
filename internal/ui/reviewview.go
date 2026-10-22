@@ -38,18 +38,18 @@ const (
 // reviewChangeFolds is how many ways the change block can be rendered, roomiest first.
 const reviewChangeFolds = 2
 
-// view renders the diff and, beside it, the file tree, with the thread the cursor is standing on
+// View renders the diff and, beside it, the file tree, with the thread the cursor is standing on
 // in a popup over them.
-func (r reviewScreen) view(m *model, in screen.Inputs, chrome screen.Chrome) string {
+func (r reviewScreen) View(in screen.Inputs, chrome screen.Chrome) string {
 	split := in.Room.Split
-	if !split.On && m.term.paneMeasure > 0 {
-		return r.sidebarView(m, in, chrome)
+	if !split.On && in.Room.Halved {
+		return r.sidebarView(in, chrome)
 	}
 	if !split.On {
 		band := r.bandView(in)
-		layout := r.layoutSidebar(m, in, chrome, band)
+		layout := r.layoutSidebar(in, chrome, band)
 
-		return r.overlayThread(m, in, chrome, strings.TrimRight(band+r.renderSidebar(layout, layout.block()), "\n"))
+		return r.overlayThread(in, chrome, strings.TrimRight(band+r.renderSidebar(layout, layout.block()), "\n"))
 	}
 
 	// The band stands over the diff rather than over the whole window, and what it carries acts on
@@ -60,13 +60,13 @@ func (r reviewScreen) view(m *model, in screen.Inputs, chrome screen.Chrome) str
 		diff = zone.MarkBlock(zoneList, diff, split.Column)
 	}
 
-	return r.overlayThread(m, in, chrome, chrome.Join(split, r.sidebarView(m, in, chrome), diff))
+	return r.overlayThread(in, chrome, chrome.Join(split, r.sidebarView(in, chrome), diff))
 }
 
 // sidebarView is the sidebar rendered as one half of a split, trimmed so the two halves are the same
 // height.
-func (r reviewScreen) sidebarView(m *model, in screen.Inputs, chrome screen.Chrome) string {
-	layout := r.layoutSidebar(m, in, chrome)
+func (r reviewScreen) sidebarView(in screen.Inputs, chrome screen.Chrome) string {
+	layout := r.layoutSidebar(in, chrome)
 	block := layout.block()
 	if in.Room.Marks {
 		block = zone.MarkBlock(zoneBlock, block, lineWidthOf(in.Room.Width))
@@ -77,7 +77,7 @@ func (r reviewScreen) sidebarView(m *model, in screen.Inputs, chrome screen.Chro
 
 // overlayThread renders the popup over an area, and leaves the area alone where the popup has
 // nothing to hold or the frame is rendered to find its blocks.
-func (r reviewScreen) overlayThread(m *model, in screen.Inputs, chrome screen.Chrome, area string) string {
+func (r reviewScreen) overlayThread(in screen.Inputs, chrome screen.Chrome, area string) string {
 	if in.Room.Marks {
 		return area
 	}
@@ -92,7 +92,7 @@ func (r reviewScreen) overlayThread(m *model, in screen.Inputs, chrome screen.Ch
 		return area
 	}
 
-	slot := r.placeThread(m, in, body)
+	slot := r.placeThread(in, chrome, body)
 
 	return overlayPopup(area, renderPopup(body, back, slot), slot)
 }
@@ -126,10 +126,10 @@ func (l sidebarLayout) block() string {
 
 // layoutSidebar gives the column to the file tree, the bar over it shrinking and then giving way
 // before the tree loses a row it needs.
-func (r reviewScreen) layoutSidebar(m *model, in screen.Inputs, chrome screen.Chrome, above ...string) sidebarLayout {
-	bare := r.layoutUnder(in, r.frameSidebar(m, chrome, "", above))
+func (r reviewScreen) layoutSidebar(in screen.Inputs, chrome screen.Chrome, above ...string) sidebarLayout {
+	bare := r.layoutUnder(in, r.frameSidebar(in, chrome, "", above))
 	for _, bar := range chrome.Bars() {
-		if barred := r.layoutUnder(in, r.frameSidebar(m, chrome, bar, above)); r.doesFitUnderBar(barred, bare) {
+		if barred := r.layoutUnder(in, r.frameSidebar(in, chrome, bar, above)); r.doesFitUnderBar(barred, bare) {
 			return barred
 		}
 	}
@@ -150,8 +150,8 @@ func (r reviewScreen) doesFitUnderBar(barred, bare sidebarLayout) bool {
 	return paint.CountLines(barred.files) >= min(paint.CountLines(bare.files), r.countFilesFloor(bare.spare))
 }
 
-func (r reviewScreen) frameSidebar(m *model, chrome screen.Chrome, bar string, above []string) sidebarLayout {
-	help := chrome.Help(r.help(m), slices.Concat(above, []string{r.placeView()})...)
+func (r reviewScreen) frameSidebar(in screen.Inputs, chrome screen.Chrome, bar string, above []string) sidebarLayout {
+	help := chrome.Help(chrome.Legend(r.help(in)), slices.Concat(above, []string{r.placeView()})...)
 	rule := chrome.Record(slices.Concat(above, []string{bar, help})...)
 
 	return sidebarLayout{
@@ -220,16 +220,8 @@ func cutNotes(notes string, rows int) string {
 }
 
 // help keeps the strip to what the screen is for.
-func (r reviewScreen) help(m *model) legend.Help {
-	own := r.actions(m.inputs()).Help(&r, r.deps.keys)
-
-	return legend.Help{
-		Short: slices.Concat(own.Short, m.globalHelp()),
-		Full: slices.Concat(
-			own.Full,
-			m.fullGlobalHelp(),
-		),
-	}
+func (r reviewScreen) help(in screen.Inputs) legend.Help {
+	return r.actions(in).Help(&r, r.deps.keys)
 }
 
 // placeView is the blank row under the file tree and the place the cursor is standing.
@@ -445,7 +437,7 @@ func (r reviewScreen) backDesc() string {
 }
 
 func (r reviewScreen) diffBackDesc(in screen.Inputs) string {
-	if r.edit.atEditor || !r.isBlockRendered(in) {
+	if r.edit.atEditor || !r.IsBlockRendered(in) {
 		return r.backDesc()
 	}
 

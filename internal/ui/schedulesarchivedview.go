@@ -7,13 +7,13 @@ import (
 	"komrad/internal/ui/screen"
 )
 
-func (a *archivedSchedules) details(m *model, in screen.Inputs) record.Details {
+func (a *archivedSchedules) Details(in screen.Inputs) record.Details {
 	item, ok := list.At(a.listRows(in), a.Row)
 	if !ok {
 		return record.Details{}
 	}
 
-	return scheduleDetails(m, item)
+	return scheduleDetails(in.Listing, item)
 }
 
 // docRows is the block rendered beside the list at a width for the row the cursor is on.

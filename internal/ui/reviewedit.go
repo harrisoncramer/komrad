@@ -180,9 +180,9 @@ func (r *reviewScreen) mailEdited(in screen.Inputs) screen.Request {
 	return r.deps.clients.EditedWrite(item.Agent, touched)
 }
 
-// reconcileEditor catches the editor pane going away on its own and takes the window back for the
+// ReconcileEditor catches the editor pane going away on its own and takes the window back for the
 // diff it was covering.
-func (r *reviewScreen) reconcileEditor(_ *model, in screen.Inputs) screen.Request {
+func (r *reviewScreen) ReconcileEditor(in screen.Inputs) screen.Request {
 	if !r.edit.atEditor {
 		return nil
 	}

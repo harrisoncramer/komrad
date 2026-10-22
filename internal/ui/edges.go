@@ -81,5 +81,5 @@ func (m *model) isColumnKeyed() bool {
 
 	b, ok := m.active().(columnFocuser)
 
-	return ok && b.isBlockFocused(m.inputs())
+	return ok && b.IsBlockFocused(m.inputs())
 }

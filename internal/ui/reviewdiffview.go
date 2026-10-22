@@ -22,19 +22,19 @@ const (
 // reviewNoFileWord is what the tree says when its search matches no file.
 const reviewNoFileWord = "no file matches"
 
-// reviewColumn is the diff rendered beside the review's own threads, whose row budget is what the
+// Column is the diff rendered beside the review's own threads, whose row budget is what the
 // band over it leaves.
-func reviewColumn(m *model, in screen.Inputs) column.Spec {
+func (r *reviewScreen) Column(in screen.Inputs) column.Spec {
 	return column.Spec{
 		Floor: diffFloor,
 		// The editor is another process holding the stage, so the panel owns the window only while
 		// there is none.
-		Holds:  func() bool { return !m.review.edit.atEditor },
-		Beside: func() (panel.AgentRow, bool) { return m.review.writerPane(m.inputs()) },
+		Holds:  func() bool { return !r.edit.atEditor },
+		Beside: func() (panel.AgentRow, bool) { return r.writerPane(in) },
 		Rows: func(split column.Split) int {
 			// The band stands on the diff's own rows rather than the window's, so what is left is
 			// what the patch is rendered in and what the cursor is scrolled against.
-			return split.Rows - strings.Count(m.review.bandView(in), "\n")
+			return split.Rows - strings.Count(r.bandView(in), "\n")
 		},
 	}
 }

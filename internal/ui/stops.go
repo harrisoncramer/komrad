@@ -62,7 +62,7 @@ func (m *model) enterStop(to stop) tea.Cmd {
 		m.enterSidebar(to)
 		m.blurDetails()
 		if b, ok := m.active().(columnFocuser); ok && m.isScreenBlockRendered() {
-			b.focusBlock()
+			b.FocusBlock()
 		} else {
 			m.focusDoc()
 		}
@@ -83,7 +83,7 @@ func (m *model) enterSidebar(to stop) {
 	m.blurTabs()
 	m.blurKinds()
 	if b, ok := m.active().(columnFocuser); ok && to != stopBlock {
-		b.blurBlock()
+		b.BlurBlock()
 	}
 	if to != stopBlock {
 		m.reading.focused = false
@@ -100,7 +100,7 @@ func (m *model) atStop() stop {
 		return stopBlock
 	}
 
-	if b, ok := m.active().(columnFocuser); ok && b.isBlockFocused(m.inputs()) {
+	if b, ok := m.active().(columnFocuser); ok && b.IsBlockFocused(m.inputs()) {
 		return stopBlock
 	}
 
@@ -135,11 +135,12 @@ func (m *model) toggleStop() tea.Cmd {
 
 // isDormantHovered reports whether the agents screen is rendering the saved screen of a dormant agent.
 func (m *model) isDormantHovered() bool {
-	if m.screen != screen.Agents || m.agents.kind != agentsLive {
+	r, ok := m.active().(hoveredAgentReporter)
+	if !ok {
 		return false
 	}
 
-	item, ok := m.agents.hoveredResting(m.inputs())
+	item, ok := r.Resting(m.inputs())
 
 	return ok && !item.Alive
 }
@@ -148,7 +149,7 @@ func (m *model) isDormantHovered() bool {
 func (m *model) isScreenBlockRendered() bool {
 	b, ok := m.active().(columnFocuser)
 
-	return ok && b.isBlockRendered(m.inputs())
+	return ok && b.IsBlockRendered(m.inputs())
 }
 
 // findFocusPane finds the agent's pane the picker stops at, empty where the stage holds none or

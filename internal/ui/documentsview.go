@@ -62,7 +62,7 @@ func (d *documentsScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapsh
 	}
 }
 
-func (d *documentsScreen) details(m *model, in screen.Inputs) record.Details {
+func (d *documentsScreen) Details(in screen.Inputs) record.Details {
 	item, ok := d.hovered(in)
 	if !ok {
 		return record.Details{}

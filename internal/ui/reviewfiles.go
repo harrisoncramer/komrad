@@ -168,7 +168,7 @@ func (r reviewScreen) countFilesFloor(spare int) int {
 	return min(floor, r.countFilesRows())
 }
 
-func (r *reviewScreen) isBlockRendered(in screen.Inputs) bool {
+func (r *reviewScreen) IsBlockRendered(in screen.Inputs) bool {
 	if !in.Room.Split.On {
 		return false
 	}
@@ -176,16 +176,16 @@ func (r *reviewScreen) isBlockRendered(in screen.Inputs) bool {
 	return !r.loading && r.diff.View() != nil && r.diff.View().Len() > 0
 }
 
-func (r *reviewScreen) isBlockFocused(in screen.Inputs) bool {
-	return r.focus == reviewFocusFiles && in.Room.ListFocused && !r.isWriting() && r.isBlockRendered(in)
+func (r *reviewScreen) IsBlockFocused(in screen.Inputs) bool {
+	return r.focus == reviewFocusFiles && in.Room.ListFocused && !r.isWriting() && r.IsBlockRendered(in)
 }
 
-func (r *reviewScreen) focusBlock() {
+func (r *reviewScreen) FocusBlock() {
 	r.focus = reviewFocusFiles
 	r.folderCursor = folderCursor{}
 }
 
-func (r *reviewScreen) blurBlock() {
+func (r *reviewScreen) BlurBlock() {
 	r.folderCursor = folderCursor{}
 	if r.focus == reviewFocusFiles {
 		r.focus = reviewFocusDiff
@@ -315,7 +315,8 @@ func (r *reviewScreen) landOnFile(in screen.Inputs, row diffview.TreeRow) screen
 	return keys.land()
 }
 
-func (r *reviewScreen) clickFile(in screen.Inputs, path string) screen.Request {
+// ClickFile lands on the file clicked in the tree, and opens or closes a folder.
+func (r *reviewScreen) ClickFile(in screen.Inputs, path string) screen.Request {
 	for _, row := range r.readFilesTree().rows {
 		if row.Path != path {
 			continue

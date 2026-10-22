@@ -79,6 +79,14 @@ func (m *model) globalHelp() []key.Binding {
 	return append(keys, m.helpBinding())
 }
 
+// Legend is a legend of its own followed by the keys every screen answers.
+func (m *model) Legend(own legend.Help) legend.Help {
+	return legend.Help{
+		Short: slices.Concat(own.Short, m.globalHelp()),
+		Full:  slices.Concat(own.Full, m.fullGlobalHelp()),
+	}
+}
+
 // fullGlobalHelp is the expanded legend's share of the keys every screen answers.
 func (m *model) fullGlobalHelp() []key.Binding {
 	full := m.globalHelp()

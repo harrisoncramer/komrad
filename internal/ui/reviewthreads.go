@@ -32,16 +32,16 @@ func (t *reviewThreads) set(threads []*agentv1.ReviewThread) {
 }
 
 // followWorld renders what the world now holds of the review.
-func (r *reviewScreen) followWorld(m *model, in screen.Inputs) screen.Request {
+func (r *reviewScreen) followWorld(in screen.Inputs) screen.Request {
 	r.followThreads(in)
 
-	return r.followNotices(m, in)
+	return r.followNotices(in)
 }
 
 // followThreads renders the conversation the world holds on a live agent, once the reader has stopped
 // typing.
 func (r *reviewScreen) followThreads(in screen.Inputs) {
-	if r.diff.View() == nil || r.takesEveryKey() {
+	if r.diff.View() == nil || r.TakesEveryKey() {
 		return
 	}
 

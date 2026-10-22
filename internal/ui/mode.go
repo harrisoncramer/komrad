@@ -70,7 +70,7 @@ func (m *model) typedLine() (field.Line, bool) {
 	}
 
 	if typer, ok := m.active().(lineTyper); ok {
-		return typer.typedLine()
+		return typer.TypedLine()
 	}
 
 	return field.Line{}, false

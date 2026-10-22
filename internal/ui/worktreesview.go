@@ -35,7 +35,7 @@ func (w *worktreesScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapsh
 	})
 }
 
-func (w *worktreesScreen) details(m *model, in screen.Inputs) record.Details {
+func (w *worktreesScreen) Details(in screen.Inputs) record.Details {
 	row, ok := list.At(w.rows(in), w.Row)
 	if !ok {
 		return record.Details{}
@@ -48,15 +48,15 @@ func (w *worktreesScreen) details(m *model, in screen.Inputs) record.Details {
 		}
 	}
 
-	return record.Details{ID: row.Key(), Fields: worktreeFields(m, row.item, in.Room.Now)}
+	return record.Details{ID: row.Key(), Fields: worktreeFields(in, row.item)}
 }
 
-func worktreeFields(m *model, item panel.Worktree, now time.Time) []record.Field {
+func worktreeFields(in screen.Inputs, item panel.Worktree) []record.Field {
 	fields := []record.Field{
 		{Label: "name", Value: worktreeRow{item: item}.name()},
 		{Label: "directory", Value: item.Dir},
-		{Label: "size", Value: sizeField(item, now)},
-		{Label: "last active", Value: lastActiveField(item, now)},
+		{Label: "size", Value: sizeField(item, in.Room.Now)},
+		{Label: "last active", Value: lastActiveField(item, in.Room.Now)},
 	}
 
 	if !item.Readable {
@@ -69,7 +69,7 @@ func worktreeFields(m *model, item panel.Worktree, now time.Time) []record.Field
 		record.Field{Label: "branch", Value: label.OrDash(item.Branch)},
 		record.Field{Label: "repository", Value: label.OrDash(label.Path(item.RepoDir, homeDir()))},
 	)
-	read := m.inspections[item.Dir]
+	read := in.Inspections[item.Dir]
 	if read.Answered && read.Err != nil {
 		fields = append(fields, record.Field{Label: "worktree", Value: "could not read: " + errui.GetReason(read.Err)})
 	}
@@ -80,7 +80,7 @@ func worktreeFields(m *model, item panel.Worktree, now time.Time) []record.Field
 		)
 	}
 
-	fields = append(fields, worktreeTaskField(item), record.Field{Label: "workflow", Value: worktreeWorkflowField(m.listing, item)})
+	fields = append(fields, worktreeTaskField(item), record.Field{Label: "workflow", Value: worktreeWorkflowField(in.Listing, item)})
 
 	return appendOccupantsField(fields, "agents", item.Occupants)
 }

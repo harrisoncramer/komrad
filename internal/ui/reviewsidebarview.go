@@ -25,7 +25,7 @@ func (r reviewScreen) sideView(in screen.Inputs, lines int) string {
 	}
 
 	width := lineWidthOf(in.Room.Width)
-	focused := r.isBlockFocused(in)
+	focused := r.IsBlockFocused(in)
 	rows := make([]string, 0, len(sideRows))
 	keys := make([]string, 0, len(sideRows))
 	cursor := 0

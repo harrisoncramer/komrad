@@ -30,7 +30,7 @@ func (r reviewScreen) filesView(in screen.Inputs, lines int) string {
 	width := lineWidthOf(in.Room.Width)
 	tree := r.readFilesTree()
 	_, onSide := r.findSide(in)
-	focused := r.isBlockFocused(in) && !onSide
+	focused := r.IsBlockFocused(in) && !onSide
 	columns := measureStatColumns(r.deps.glyphs, tree.rows)
 	rows := make([]string, 0, len(tree.rows))
 	keys := make([]string, 0, len(tree.rows))

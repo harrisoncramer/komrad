@@ -38,14 +38,14 @@ func (m *model) isLoading() bool {
 
 	screen, ok := m.active().(loadingReporter)
 
-	return ok && screen.isLoading(m, m.inputs())
+	return ok && screen.IsLoading(m.inputs())
 }
 
-func (a *agentsScreen) isLoading(m *model, in screen.Inputs) bool {
+func (a *agentsScreen) IsLoading(in screen.Inputs) bool {
 	return slices.ContainsFunc(a.rows(in), func(r agentRow) bool { return isRowLoading(in.Listing, r) })
 }
 
-func (r reviewScreen) isLoading(m *model, in screen.Inputs) bool {
+func (r reviewScreen) IsLoading(in screen.Inputs) bool {
 	if r.loading {
 		return true
 	}

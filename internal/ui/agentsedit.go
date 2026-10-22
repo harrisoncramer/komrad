@@ -117,7 +117,7 @@ func (a *agentsScreen) dropEdit() screen.Request {
 	return screen.Batch{screen.Unstage{}, a.deps.clients.EditedWrite(edit.agent, nil)}
 }
 
-func (a *agentsScreen) reconcileEditor(m *model, in screen.Inputs) screen.Request {
+func (a *agentsScreen) ReconcileEditor(in screen.Inputs) screen.Request {
 	if !a.isEditorOpen() || a.deps.panes.IsPaneAlive(a.editing.pane) {
 		return nil
 	}
@@ -125,7 +125,7 @@ func (a *agentsScreen) reconcileEditor(m *model, in screen.Inputs) screen.Reques
 	return screen.Batch{a.dropEdit(), screen.Restage{}}
 }
 
-func (a *agentsScreen) leaveScreen(m *model) screen.Request {
+func (a *agentsScreen) LeaveScreen() screen.Request {
 	a.renaming = nil
 
 	return a.dropEdit()

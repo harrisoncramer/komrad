@@ -7,7 +7,6 @@ import (
 	"komrad/internal/diff"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/api"
-	"komrad/internal/ui/column"
 	"komrad/internal/ui/editor"
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/keys"
@@ -86,22 +85,22 @@ const (
 	reviewFocusFiles
 )
 
-func (r reviewScreen) parent() screen.ID {
+func (r reviewScreen) Parent() screen.ID {
 	return screen.Agents
 }
 
-// crumbs runs through the agent whose work is under review.
-func (r reviewScreen) crumbs(screen.Inputs) screen.Crumbs {
+// Crumbs runs through the agent whose work is under review.
+func (r reviewScreen) Crumbs(screen.Inputs) screen.Crumbs {
 	return screen.Crumbs{Trail: []string{r.agentName, "review"}}
 }
 
-// takesEveryKey reports whether the review is mid-input, in which case a key bound elsewhere
+// TakesEveryKey reports whether the review is mid-input, in which case a key bound elsewhere
 // in the panel belongs here instead.
-func (r reviewScreen) takesEveryKey() bool {
-	return r.isWriting() || r.isSearchTyping()
+func (r reviewScreen) TakesEveryKey() bool {
+	return r.isWriting() || r.IsSearchTyping()
 }
 
-func (r reviewScreen) isSearchTyping() bool {
+func (r reviewScreen) IsSearchTyping() bool {
 	return r.diff.filter.typing || r.filesFilter.typing
 }
 
@@ -117,19 +116,19 @@ func (r reviewScreen) isBusy() bool {
 
 // isDiffFocused is whether the patch holds the keys.
 func (r reviewScreen) isDiffFocused(in screen.Inputs) bool {
-	return in.Room.ListFocused && !r.isWriting() && !r.isBlockFocused(in)
+	return in.Room.ListFocused && !r.isWriting() && !r.IsBlockFocused(in)
 }
 
-func (r *reviewScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen.Request {
+func (r *reviewScreen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 	var keyed screen.Request
 	if key, ok := msg.(tea.KeyPressMsg); ok {
-		keyed = r.updateKey(m, in, key)
+		keyed = r.updateKey(in, key)
 	}
 
-	return screen.Batch{keyed, r.followWorld(m, in)}
+	return screen.Batch{keyed, r.followWorld(in)}
 }
 
-func (r *reviewScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
+func (r *reviewScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 	switch msg := msg.(type) {
 	case reviewEditorStaged:
 		return r.applyEditorStaged(msg), true
@@ -138,18 +137,18 @@ func (r *reviewScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.
 			return nil, true
 		}
 
-		routed := r.route(m, in, msg)
+		routed := r.route(in, msg)
 
-		return screen.Batch{routed, r.followWorld(m, in)}, true
+		return screen.Batch{routed, r.followWorld(in)}, true
 	}
 
 	return nil, false
 }
 
-func (r *reviewScreen) route(m *model, in screen.Inputs, msg tea.Msg) screen.Request {
+func (r *reviewScreen) route(in screen.Inputs, msg tea.Msg) screen.Request {
 	switch msg := msg.(type) {
 	case reviewLoadedMsg:
-		return r.applyLoaded(m, in, msg)
+		return r.applyLoaded(in, msg)
 	case reviewWroteMsg:
 		return r.applyWrote(in, msg)
 	case messageEditedMsg:
@@ -159,8 +158,8 @@ func (r *reviewScreen) route(m *model, in screen.Inputs, msg tea.Msg) screen.Req
 	return nil
 }
 
-// enter leaves the review as it stands.
-func (r *reviewScreen) enter(*model, screen.Inputs, screen.Target) screen.Request {
+// Enter leaves the review as it stands.
+func (r *reviewScreen) Enter(screen.Inputs, screen.Target) screen.Request {
 	return nil
 }
 
@@ -171,17 +170,14 @@ var (
 	_ lineTyper        = (*reviewScreen)(nil)
 	_ listScroller     = (*reviewScreen)(nil)
 	_ editorReconciler = (*reviewScreen)(nil)
+	_ popupHost        = (*reviewScreen)(nil)
 )
 
-func (r *reviewScreen) doesRenderFromListing() bool {
+func (r *reviewScreen) DoesRenderFromListing() bool {
 	return false
 }
 
-func (r *reviewScreen) column(m *model, in screen.Inputs) column.Spec {
-	return reviewColumn(m, in)
-}
-
-func (r reviewScreen) typedLine() (field.Line, bool) {
+func (r reviewScreen) TypedLine() (field.Line, bool) {
 	if r.filesFilter.typing {
 		return r.filesFilter.input, true
 	}
@@ -189,7 +185,7 @@ func (r reviewScreen) typedLine() (field.Line, bool) {
 	return r.diff.filter.input, r.diff.filter.typing
 }
 
-func (r *reviewScreen) dispatches(*model) []keys.Table {
+func (r *reviewScreen) Dispatches() []keys.Table {
 	return []keys.Table{r.diffActions(screen.Inputs{}), r.filesActions(screen.Inputs{}), r.sideActions(screen.Inputs{})}
 }
 

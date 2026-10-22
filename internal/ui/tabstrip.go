@@ -74,7 +74,7 @@ func (m *model) isTabsRendered() bool {
 func (m *model) isTabsFocused() bool {
 	t, ok := m.activeTabs()
 
-	return ok && t.tabsState().Focused && m.tabsFit()
+	return ok && t.TabsState().Focused && m.tabsFit()
 }
 
 func (m *model) tabsFit() bool {
@@ -95,10 +95,10 @@ func (m *model) listFitsTabs() (list.Params, bool) {
 
 	probe.details.focused, probe.helpExpanded = false, false
 	if tabbed {
-		t.tabsState().Focused = false
+		t.TabsState().Focused = false
 	}
 	if kinded {
-		*k.kindsFocused(&probe) = false
+		*k.KindsFocused() = false
 	}
 
 	l, ok := m.active().(listRenderer)
@@ -106,7 +106,7 @@ func (m *model) listFitsTabs() (list.Params, bool) {
 		return list.Params{}, false
 	}
 
-	params := l.listParams(&probe, probe.inputs())
+	params := l.ListParams(probe.inputs())
 
 	if probe.term.height <= 0 {
 		return params, true
@@ -125,7 +125,7 @@ func (m *model) listFitsTabs() (list.Params, bool) {
 
 func (m *model) blurTabs() {
 	if t, ok := m.activeTabs(); ok {
-		t.tabsState().Leave()
+		t.TabsState().Leave()
 	}
 }
 
@@ -136,13 +136,13 @@ func (m *model) focusTabs() {
 	}
 
 	m.blurKinds()
-	t.tabsState().Focused = true
+	t.TabsState().Focused = true
 	m.details.focused = false
 }
 
 func (m *model) updateTabs(key tea.KeyPressMsg) tea.Cmd {
 	t, _ := m.activeTabs()
-	strip, state := t.tabs(), t.tabsState()
+	strip, state := t.Tabs(), t.TabsState()
 	hovered := m.hoveredFilterKey()
 
 	cmd := m.pressStrip(key.String(), stripKeys{
@@ -182,7 +182,7 @@ func (m *model) clickTab(key string) tea.Cmd {
 		return nil
 	}
 
-	strip, state := t.tabs(), t.tabsState()
+	strip, state := t.Tabs(), t.TabsState()
 	at, err := strconv.Atoi(key)
 	if err != nil || at < 0 || at >= strip.CountStops() {
 		return nil
@@ -219,7 +219,7 @@ func (m *model) tabsBinding() key.Binding {
 		return key.Binding{}
 	}
 
-	return binding(m.keys.Tabs.Focus, t.tabs().Legend)
+	return binding(m.keys.Tabs.Focus, t.Tabs().Legend)
 }
 
 func (m *model) tabsHelp() legend.Help {

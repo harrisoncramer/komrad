@@ -51,7 +51,7 @@ func (r reviewScreen) popupBody(in screen.Inputs, inner int) (string, int) {
 // conversationAtCursor is the conversation on the cursor's row, wrapped to inner, and none while the
 // sidebar has the keys.
 func (r reviewScreen) conversationAtCursor(in screen.Inputs, inner int) (string, string, bool) {
-	if r.isBlockFocused(in) {
+	if r.IsBlockFocused(in) {
 		return "", "", false
 	}
 
@@ -63,8 +63,8 @@ func (r reviewScreen) conversationAtCursor(in screen.Inputs, inner int) (string,
 }
 
 // placeThread is where a popup holding a body stands beside the cursor's row of the review.
-func (r reviewScreen) placeThread(m *model, in screen.Inputs, body string) popupSlot {
-	return placePopup(r.popupAnchor(in), r.measurePopupStage(m, in), len(splitPopupRows(body))+2)
+func (r reviewScreen) placeThread(in screen.Inputs, chrome screen.Chrome, body string) popupSlot {
+	return placePopup(r.popupAnchor(in), r.measurePopupStage(in, chrome), len(splitPopupRows(body))+2)
 }
 
 // isPopupForm reports whether the form stands in the review's popup rather than in a column of its own.
@@ -72,18 +72,19 @@ func (m *model) isPopupForm() bool {
 	return m.form.isOpening() && m.screen == screen.Review && !m.review.edit.atEditor && !m.isMessagesFocused()
 }
 
-// measurePopupRoom is the rows inside the tallest popup the review has room for beside the cursor.
-func (r reviewScreen) measurePopupRoom(m *model, in screen.Inputs) int {
-	return placePopup(r.popupAnchor(in), r.measurePopupStage(m, in), popupHeight).room()
+// MeasurePopup is the columns inside the popup over the review and the rows inside the tallest popup
+// it has room for beside the cursor.
+func (r reviewScreen) MeasurePopup(in screen.Inputs, chrome screen.Chrome) (width, height int) {
+	return r.measurePopupInner(in), placePopup(r.popupAnchor(in), r.measurePopupStage(in, chrome), popupHeight).room()
 }
 
 // measurePopupStage is the rows the popup stands over, the band and the diff beside the sidebar or
 // the band and the sidebar without a split, less the bar at the top that carries the messages.
-func (r reviewScreen) measurePopupStage(m *model, in screen.Inputs) popupStage {
+func (r reviewScreen) measurePopupStage(in screen.Inputs, chrome screen.Chrome) popupStage {
 	split := in.Room.Split
 	if !split.On {
 		band := r.bandView(in)
-		layout := r.layoutSidebar(m, in, m, band)
+		layout := r.layoutSidebar(in, chrome, band)
 
 		cursor := paint.CountLines(band+layout.bar+layout.change+layout.block()+r.placeView()) - 1
 
@@ -99,7 +100,7 @@ func (r reviewScreen) measurePopupStage(m *model, in screen.Inputs) popupStage {
 	first, height := r.diff.GetCursorLines(r.diffWindow(in))
 
 	return popupStage{
-		top:        strings.Count(r.layoutSidebar(m, in, m).bar, "\n"),
+		top:        strings.Count(r.layoutSidebar(in, chrome).bar, "\n"),
 		cursor:     above + first,
 		cursorLast: above + first + height - 1,
 		rows:       above + split.Rows,

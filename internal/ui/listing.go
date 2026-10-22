@@ -86,15 +86,24 @@ func (m *model) withListing(change func(*panel.Listing)) tea.Cmd {
 	return tea.Batch(relisted, rerendered, m.finishParked(), m.afterListing())
 }
 
+// readStatusChecksCmd lists the status checks again while they or their logs are up.
+func (m *model) readStatusChecksCmd() tea.Cmd {
+	if m.screen != screen.StatusChecks && m.screen != screen.StatusCheckLogs {
+		return nil
+	}
+
+	return m.statusChecks.readStatusChecksCmd(m.inputs())
+}
+
 // afterListing asks for what the hovered rows are owed and stages the screen over them.
 func (m *model) afterListing() tea.Cmd {
-	inspect := tea.Batch(m.apply(m.inspectHoveredWorktree()), m.apply(m.inspectTaskWorktree(m.clock.Now())), m.readDocumentsCmd(), m.readStatusChecksCmd(), m.readMovedLastScreenCmd())
+	inspect := tea.Batch(m.apply(m.worktrees.inspectUnread(m.inputsFor(&m.worktrees))), m.apply(m.inspectTaskWorktree(m.clock.Now())), m.documents.readDocumentsCmd(m.inputsFor(&m.documents)), m.readStatusChecksCmd(), m.readMovedLastScreenCmd())
 
 	// A screen that renders what it holds beside its own list stages nothing at all.
 	active := m.active()
 	var staged tea.Cmd
-	if s, ok := active.(rowStager); ok && active.doesRenderFromListing() && !m.form.isActive() {
-		staged = m.apply(s.stage())
+	if s, ok := active.(rowStager); ok && active.DoesRenderFromListing() && !m.form.isActive() {
+		staged = m.apply(s.Stage())
 	}
 
 	m.restageBeside()
@@ -374,10 +383,10 @@ func (m *model) landOnMade(made screen.Made, keyMoved bool) tea.Cmd {
 	m.agents.kind = agentsLive
 	cmds := []tea.Cmd{m.enterScreen(screen.Agents)}
 
-	m.agents.showHiddenFor(m, made.Agent)
+	m.agents.showHiddenFor(m.listing, made.Agent)
 
 	rows := m.agents.rows(m.inputs())
-	if key := findLandingKey(rows, m.agents.list().hovered(m.inputs()), made.Row); !keyMoved && list.IndexOf(rows, key) >= 0 {
+	if key := findLandingKey(rows, m.agents.list().Hovered(m.inputs()), made.Row); !keyMoved && list.IndexOf(rows, key) >= 0 {
 		m.agents.apply(m.inputs(), key)
 	}
 

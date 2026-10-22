@@ -11,8 +11,8 @@ import (
 )
 
 // taskDetailsTags is what the record's rule carries for a task.
-func taskDetailsTags(m *model, task panel.Task) []string {
-	worktree, _ := taskWorktree(m.inspections, task.Cwd)
+func taskDetailsTags(inspections map[string]panel.WorktreeInspection, task panel.Task) []string {
+	worktree, _ := taskWorktree(inspections, task.Cwd)
 
 	return append(buildWorktreeStateTags(worktree), buildDiffStatTag(task.DiffStat))
 }

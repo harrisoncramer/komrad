@@ -26,7 +26,7 @@ func phrase(text string) string {
 
 // queryGrammarer is a screen whose filter reads qualifiers, and says whether the list in view reads any.
 type queryGrammarer interface {
-	queryGrammar() (list.Grammar, bool)
+	QueryGrammar() (list.Grammar, bool)
 }
 
 // saidState is the rows the server found saying the text of a says: qualifier.

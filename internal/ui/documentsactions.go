@@ -5,6 +5,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 )
@@ -207,64 +208,76 @@ func (d *documentsScreen) isDiffFocused(in screen.Inputs) bool {
 	return d.focus && d.history != nil && in.Room.ListFocused
 }
 
-// isBlockFocused reports whether the diff of one of its writes holds the keys.
-func (d *documentsScreen) isBlockFocused(in screen.Inputs) bool {
+// IsBlockFocused reports whether the diff of one of its writes holds the keys.
+func (d *documentsScreen) IsBlockFocused(in screen.Inputs) bool {
 	return d.isDiffFocused(in)
 }
 
-func (d *documentsScreen) isBlockRendered(in screen.Inputs) bool {
+func (d *documentsScreen) IsBlockRendered(in screen.Inputs) bool {
 	return d.isDiffRendered(in)
 }
 
-func (d *documentsScreen) focusBlock() {
+func (d *documentsScreen) FocusBlock() {
 	d.focus = true
 }
 
-func (d *documentsScreen) blurBlock() {
+func (d *documentsScreen) BlurBlock() {
 	d.focus = false
 }
 
-// leaveScreen takes down an editor open on the stage.
-func (d *documentsScreen) leaveScreen(m *model) screen.Request {
+// LeaveScreen takes down an editor open on the stage.
+func (d *documentsScreen) LeaveScreen() screen.Request {
 	d.renaming = nil
 
 	return d.closeEdit()
 }
 
-func (d *documentsScreen) doesScrollColumn(in screen.Inputs) bool {
-	return d.isBlockRendered(in)
+func (d *documentsScreen) DoesScrollColumn(in screen.Inputs) bool {
+	return d.IsBlockRendered(in)
 }
 
-func (d *documentsScreen) scrollColumn(m *model, rows int) screen.Request {
-	return d.diffKeys().moveBy(m.inputs(), rows)
+func (d *documentsScreen) ScrollColumn(in screen.Inputs, rows int) screen.Request {
+	return d.diffKeys().moveBy(in, rows)
 }
 
-// docKeys steps through the writes from the document as it stands, handing the keys to the diff.
-func (d *documentsScreen) docKeys() keys.Spec[*model] {
-	return keys.Spec[*model]{
-		Table: []keys.Action[*model]{
+// docSpec steps through the writes from the document as it stands, handing the keys to the diff.
+func (d *documentsScreen) docSpec(in screen.Inputs) keys.Spec[*documentsScreen] {
+	return keys.Spec[*documentsScreen]{
+		Table: []keys.Action[*documentsScreen]{
 			{
 				ID:   actionDocumentsOlder,
 				Keys: func(k config.Keybindings) []string { return k.Documents.Older },
-				Nav: func(m *model, _ string) screen.Request {
+				Nav: func(*documentsScreen, string) screen.Request {
 					d.focus = true
 
-					return d.stepOlder(m.inputs())
+					return d.stepOlder(in)
 				},
 			},
 			{
 				ID:   keys.Quit,
 				Keys: keys.FixedQuit,
-				Nav:  func(m *model, _ string) screen.Request { return screen.Hide{} },
+				Nav:  func(*documentsScreen, string) screen.Request { return screen.Hide{} },
 			},
 		},
-		Legend: []keys.LegendRow[*model]{
+		Legend: []keys.LegendRow[*documentsScreen]{
 			{
 				Of:   []keys.ID{actionDocumentsOlder},
-				Desc: func(*model) string { return "an earlier version" },
+				Desc: func(*documentsScreen) string { return "an earlier version" },
 			},
 		},
 	}
+}
+
+func (d *documentsScreen) DocKeys(in screen.Inputs) keys.Table {
+	return d.docSpec(in)
+}
+
+func (d *documentsScreen) PressDoc(in screen.Inputs, pressed string) screen.Request {
+	return d.docSpec(in).Dispatch(d, d.deps.keys, pressed)
+}
+
+func (d *documentsScreen) DocHelp(in screen.Inputs) legend.Help {
+	return d.docSpec(in).Help(d, d.deps.keys)
 }
 
 // isOnDocument reports whether the cursor is on a document.

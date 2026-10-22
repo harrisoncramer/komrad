@@ -35,11 +35,11 @@ func (m *model) screenedAgentID() (string, bool) {
 		return "", false
 	}
 
-	return screen.screenedAgentID(m.inputs())
+	return screen.ScreenedAgentID(m.inputs())
 }
 
-func (a *archivedAgents) screenedAgentID(in screen.Inputs) (string, bool) {
-	row, ok := a.hoveredRow(in)
+func (a *archivedAgents) ScreenedAgentID(in screen.Inputs) (string, bool) {
+	row, ok := a.HoveredRow(in)
 	if !ok {
 		return "", false
 	}
@@ -49,13 +49,13 @@ func (a *archivedAgents) screenedAgentID(in screen.Inputs) (string, bool) {
 	return item.Agent.ID, ok
 }
 
-func (a *agentsScreen) screenedAgentID(in screen.Inputs) (string, bool) {
-	item, ok := a.hoveredResting(in)
+func (a *agentsScreen) ScreenedAgentID(in screen.Inputs) (string, bool) {
+	item, ok := a.Resting(in)
 
 	return item.Agent.ID, ok
 }
 
-func (w *worktreesScreen) screenedAgentID(in screen.Inputs) (string, bool) {
+func (w *worktreesScreen) ScreenedAgentID(in screen.Inputs) (string, bool) {
 	row, ok := w.hovered(in)
 	if !ok {
 		return "", false
@@ -133,10 +133,10 @@ func (m *model) screenNotice() string {
 		return ""
 	}
 
-	return screen.screenNotice(m, m.inputs())
+	return screen.ScreenNotice(m.inputs())
 }
 
-func (a *archivedAgents) screenNotice(m *model, in screen.Inputs) string {
+func (a *archivedAgents) ScreenNotice(in screen.Inputs) string {
 	restore := a.deps.keys.ArchiveMenu.Restore
 	if target, ok := a.menuTarget(in); ok {
 		if _, err := target.opensAgent(in.Listing); err == nil {
@@ -147,11 +147,11 @@ func (a *archivedAgents) screenNotice(m *model, in screen.Inputs) string {
 	return "archived" + separated + "press " + menuChordLabel(a.deps.keys, a.deps.keys.Menu.Archive, restore) + " to restore"
 }
 
-func (a *agentsScreen) screenNotice(m *model, in screen.Inputs) string {
+func (a *agentsScreen) ScreenNotice(in screen.Inputs) string {
 	return "dormant" + separated + "press " + keys.Label(fixedKeys().Open) + " to restore"
 }
 
-func (w *worktreesScreen) screenNotice(*model, screen.Inputs) string {
+func (w *worktreesScreen) ScreenNotice(screen.Inputs) string {
 	return "not running"
 }
 

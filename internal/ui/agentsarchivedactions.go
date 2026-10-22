@@ -6,6 +6,7 @@ import (
 	"komrad/config"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
+	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 )
 
@@ -104,12 +105,17 @@ func (a *archivedAgents) holdsAnAgent(in screen.Inputs) bool {
 	return ok
 }
 
-// hoveredAgentID is the archived agent under the cursor, empty on a folder.
-func (a *archivedAgents) hoveredAgentID(in screen.Inputs) string {
+// HoveredAgentID is the archived agent under the cursor, empty on a folder.
+func (a *archivedAgents) HoveredAgentID(in screen.Inputs) string {
 	agent, ok := a.hoveredAgent(in)
 	if !ok {
 		return ""
 	}
 
 	return agent.ID
+}
+
+// Resting is never an agent on the archive.
+func (a *archivedAgents) Resting(screen.Inputs) (panel.AgentRow, bool) {
+	return panel.AgentRow{}, false
 }

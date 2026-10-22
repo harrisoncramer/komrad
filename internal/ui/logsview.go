@@ -26,7 +26,7 @@ func (l *logsScreen) emptyLine() string {
 func (l *logsScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
 	rows := l.rows(in)
 	caret := pane.Caret
-	if l.isBlockFocused(in) {
+	if l.IsBlockFocused(in) {
 		caret = view.CaretRendered
 	}
 
@@ -120,7 +120,7 @@ func (l *logsScreen) logRows(in screen.Inputs, width, height int) []string {
 	if in.Room.Marks {
 		lines = l.viewer.Lines(width-len(list.Blank), height)
 	}
-	focused := l.isBlockFocused(in)
+	focused := l.IsBlockFocused(in)
 	for i, row := range rows {
 		prefix := list.Blank
 		if focused && i == cursor {

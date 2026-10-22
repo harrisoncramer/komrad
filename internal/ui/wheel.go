@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"komrad/internal/ui/keys"
-	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -116,7 +115,8 @@ func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 		return nil
 	}
 
-	if m.screen == screen.Review && !m.form.isActive() && !m.writes.held.active && !m.isMessagesFocused() && m.review.scrollPopupAt(m, m.inputs(), image.Point{X: x - gutter, Y: y}, rows) {
+	popup, hosts := m.active().(popupHost)
+	if hosts && !m.form.isActive() && !m.writes.held.active && !m.isMessagesFocused() && popup.ScrollPopupAt(m.inputs(), m, image.Point{X: x - gutter, Y: y}, rows) {
 		return nil
 	}
 
@@ -124,8 +124,8 @@ func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 		return m.wheelList(rows)
 	}
 
-	if m.screen == screen.Review && !m.isOverColumn(x) {
-		if scrolled, ok := m.review.scrollSidebarAt(m, m.inputs(), y, rows); ok {
+	if hosts && !m.isOverColumn(x) {
+		if scrolled, ok := popup.ScrollSidebarAt(m.inputs(), m, y, rows); ok {
 			return m.apply(scrolled)
 		}
 	}
@@ -136,8 +136,8 @@ func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 		return tea.Batch(focus, m.scrollSidebar(rows))
 	}
 
-	if screen, ok := m.active().(columnFocuser); ok && screen.doesScrollColumn(m.inputs()) {
-		return tea.Batch(focus, m.apply(screen.scrollColumn(m, rows*columnWheelStep)))
+	if screen, ok := m.active().(columnFocuser); ok && screen.DoesScrollColumn(m.inputs()) {
+		return tea.Batch(focus, m.apply(screen.ScrollColumn(m.inputs(), rows*columnWheelStep)))
 	}
 
 	m.wheelDoc(rows * columnWheelStep)
@@ -177,7 +177,7 @@ func (m *model) scrollSidebar(rows int) tea.Cmd {
 // wheelList scrolls the screen's list, or presses the scroll key on a screen without one.
 func (m *model) wheelList(rows int) tea.Cmd {
 	if screen, ok := m.active().(listScroller); ok {
-		return m.apply(screen.scrollList(m, rows))
+		return m.apply(screen.ScrollList(m.inputs(), rows))
 	}
 
 	return m.pressWheel(rows)

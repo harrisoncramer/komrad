@@ -15,7 +15,7 @@ import (
 	"connectrpc.com/connect"
 )
 
-func (d *documentsScreen) queryGrammar() (list.Grammar, bool) {
+func (d *documentsScreen) QueryGrammar() (list.Grammar, bool) {
 	agents := d.deps.clients.Agents
 	grammar := list.Grammar{
 		Syntax: searchsyntax.Documents,

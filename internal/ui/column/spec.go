@@ -23,6 +23,10 @@ type Spec struct {
 	SearchDebounce  time.Duration
 	SearchMinLength int
 
+	// Said is the agent whose conversation a said search shows in place of the block, and is nil on a
+	// screen whose block never gives way to one.
+	Said func() string
+
 	// Holds reports whether the screen is rendering its own block at all, and is nil on a screen
 	// that always is.
 	Holds func() bool

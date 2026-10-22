@@ -9,6 +9,7 @@ import (
 type Chrome interface {
 	Bars() []string
 	Help(help legend.Help, above ...string) string
+	Legend(own legend.Help) legend.Help
 	Record(above ...string) string
 	Lines(above ...string) int
 	Join(split column.Split, sidebar, block string) string

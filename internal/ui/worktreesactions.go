@@ -220,7 +220,7 @@ func (w *worktreesScreen) deleteWorktreesWrite(deletion worktreeDeletion) screen
 	}
 }
 
-func (w *worktreesScreen) buildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
+func (w *worktreesScreen) BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
 	if w.list().isSelecting() {
 		deletion := w.chosenDeletion(in)
 		if deletion.chosen() == 0 {
@@ -259,8 +259,8 @@ func (w *worktreesScreen) buildItemMenu(in screen.Inputs, nest menu.Nester) (men
 	return menu.WithNested(band, "jump", w.deps.keys.Menu.Jump, nest.Jump(screen.Worktrees, to)), true
 }
 
-// buildScreenMenu builds the worktrees screen's own band, for clearing every directory that can go.
-func (w *worktreesScreen) buildScreenMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
+// BuildScreenMenu builds the worktrees screen's own band, for clearing every directory that can go.
+func (w *worktreesScreen) BuildScreenMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
 	clearable := w.clearDeletion(in)
 	clearAll := menu.Leaving("delete unused worktrees", w.deps.keys.ArchiveMenu.Clear, func(in screen.Inputs) screen.Request {
 		return w.confirmDeleteWorktrees(in, clearable)

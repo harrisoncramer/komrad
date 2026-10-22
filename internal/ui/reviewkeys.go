@@ -14,8 +14,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-func (r *reviewScreen) updateKey(m *model, in screen.Inputs, key tea.KeyPressMsg) screen.Request {
-	if request, ok := r.takeKey(m, in, key); ok {
+func (r *reviewScreen) updateKey(in screen.Inputs, key tea.KeyPressMsg) screen.Request {
+	if request, ok := r.takeKey(in, key); ok {
 		r.deps.top.Drop()
 
 		return request
@@ -25,7 +25,7 @@ func (r *reviewScreen) updateKey(m *model, in screen.Inputs, key tea.KeyPressMsg
 }
 
 // takeKey handles a key before the screen's actions see it, and false for one it leaves to them.
-func (r *reviewScreen) takeKey(m *model, in screen.Inputs, key tea.KeyPressMsg) (screen.Request, bool) {
+func (r *reviewScreen) takeKey(in screen.Inputs, key tea.KeyPressMsg) (screen.Request, bool) {
 	if r.threads.composing {
 		return r.updateComposer(in, key), true
 	}
@@ -50,11 +50,22 @@ func (r *reviewScreen) takeKey(m *model, in screen.Inputs, key tea.KeyPressMsg) 
 		return nil, true
 	}
 
-	if keys.IsBound(k, slices.Concat(r.deps.keys.Column.ScrollDown, r.deps.keys.Column.ScrollUp)) && r.scrollPopup(m, in, keys.DirectionOf(k, r.deps.keys.Column.ScrollUp)*diffWheelStep) {
-		return nil, true
+	return nil, false
+}
+
+// PressPopup moves the conversation in the popup on a scroll key nothing ahead of the popup takes.
+func (r *reviewScreen) PressPopup(in screen.Inputs, chrome screen.Chrome, pressed string) (screen.Request, bool) {
+	if r.threads.composing || r.filesFilter.typing || r.diff.filter.typing || r.diff.View() == nil {
+		return nil, false
 	}
 
-	return nil, false
+	if !keys.IsBound(pressed, slices.Concat(r.deps.keys.Column.ScrollDown, r.deps.keys.Column.ScrollUp)) || !r.scrollPopup(in, chrome, keys.DirectionOf(pressed, r.deps.keys.Column.ScrollUp)*diffWheelStep) {
+		return nil, false
+	}
+
+	r.deps.top.Drop()
+
+	return r.followWorld(in), true
 }
 
 // diffKeys is the review's own diff under the keys every diff pane shares, with the cursor
@@ -163,20 +174,20 @@ func (r *reviewScreen) moveCursor(in screen.Inputs, next int) screen.Request {
 	return r.diffKeys().moveTo(in, next)
 }
 
-func (r *reviewScreen) doesScrollColumn(screen.Inputs) bool {
+func (r *reviewScreen) DoesScrollColumn(screen.Inputs) bool {
 	return true
 }
 
-func (r *reviewScreen) scrollColumn(m *model, rows int) screen.Request {
+func (r *reviewScreen) ScrollColumn(in screen.Inputs, rows int) screen.Request {
 	if r.isWriting() || r.diff.View() == nil {
 		return nil
 	}
 
-	return r.diffKeys().moveBy(m.inputs(), rows)
+	return r.diffKeys().moveBy(in, rows)
 }
 
-// scrollList presses the scroll key once for every row, past the popup.
-func (r *reviewScreen) scrollList(m *model, rows int) screen.Request {
+// ScrollList presses the scroll key once for every row, past the popup.
+func (r *reviewScreen) ScrollList(in screen.Inputs, rows int) screen.Request {
 	if r.isWriting() || r.diff.View() == nil {
 		return nil
 	}
@@ -192,21 +203,21 @@ func (r *reviewScreen) scrollList(m *model, rows int) screen.Request {
 
 	var requests screen.Batch
 	for range max(rows, -rows) {
-		requests = append(requests, r.diffActions(m.inputs()).Dispatch(r, r.deps.keys, pressed[0]))
+		requests = append(requests, r.diffActions(in).Dispatch(r, r.deps.keys, pressed[0]))
 	}
 
 	return requests
 }
 
-// scrollPopupAt moves the conversation in the popup when the popup holds the cell.
-func (r *reviewScreen) scrollPopupAt(m *model, in screen.Inputs, at image.Point, rows int) bool {
+// ScrollPopupAt moves the conversation in the popup when the popup holds the cell.
+func (r *reviewScreen) ScrollPopupAt(in screen.Inputs, chrome screen.Chrome, at image.Point, rows int) bool {
 	body, _ := r.popupBody(in, r.measurePopupInner(in))
-	if body == "" || !r.placeThread(m, in, body).contains(at.X, at.Y) {
+	if body == "" || !r.placeThread(in, chrome, body).contains(at.X, at.Y) {
 		return false
 	}
 
 	if !r.isWriting() {
-		r.scrollPopup(m, in, rows*diffWheelStep)
+		r.scrollPopup(in, chrome, rows*diffWheelStep)
 	}
 
 	return true
@@ -219,21 +230,21 @@ func (r *reviewScreen) scrollToCursor(in screen.Inputs) {
 
 // scrollPopup moves the conversation in the popup down by rows, up when rows is negative, and
 // reports whether there was a conversation there to move.
-func (r *reviewScreen) scrollPopup(m *model, in screen.Inputs, rows int) bool {
+func (r *reviewScreen) scrollPopup(in screen.Inputs, chrome screen.Chrome, rows int) bool {
 	id, body, ok := r.conversationAtCursor(in, r.measurePopupInner(in))
 	if !ok {
 		return false
 	}
 
-	r.threads.scroll.move(id, body, rows, r.placeThread(m, in, body).room())
+	r.threads.scroll.move(id, body, rows, r.placeThread(in, chrome, body).room())
 
 	return true
 }
 
-// scrollSidebarAt walks the file tree or the pull request description when row y is inside it,
+// ScrollSidebarAt walks the file tree or the pull request description when row y is inside it,
 // without focusing it.
-func (r *reviewScreen) scrollSidebarAt(m *model, in screen.Inputs, y, rows int) (screen.Request, bool) {
-	section, ok := r.sidebarNavAt(m, in, y)
+func (r *reviewScreen) ScrollSidebarAt(in screen.Inputs, chrome screen.Chrome, y, rows int) (screen.Request, bool) {
+	section, ok := r.sidebarNavAt(in, chrome, y)
 	if !ok {
 		return nil, false
 	}
@@ -246,14 +257,14 @@ func (r *reviewScreen) scrollSidebarAt(m *model, in screen.Inputs, y, rows int) 
 }
 
 // sidebarNavAt is the sidebar section rendered on row y, and false for a row the wheel leaves alone.
-func (r *reviewScreen) sidebarNavAt(m *model, in screen.Inputs, y int) (navigable, bool) {
+func (r *reviewScreen) sidebarNavAt(in screen.Inputs, chrome screen.Chrome, y int) (navigable, bool) {
 	if !in.Room.Split.On {
 		return nil, false
 	}
 
-	layout := r.layoutSidebar(m, in, m)
+	layout := r.layoutSidebar(in, chrome)
 	filesTop := paint.CountLines(layout.bar + layout.change + layout.side)
-	if y >= filesTop && y < filesTop+paint.CountLines(layout.files) && r.isBlockRendered(in) {
+	if y >= filesTop && y < filesTop+paint.CountLines(layout.files) && r.IsBlockRendered(in) {
 		return filesNav{r}, true
 	}
 

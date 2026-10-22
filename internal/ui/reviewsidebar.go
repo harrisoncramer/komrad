@@ -396,7 +396,7 @@ func (r *reviewScreen) restOnSide(cursor sideCursor) {
 func (r *reviewScreen) isSideFocused(in screen.Inputs) bool {
 	_, ok := r.findSide(in)
 
-	return ok && r.isBlockFocused(in)
+	return ok && r.IsBlockFocused(in)
 }
 
 // chooseSide does what the row under the sidebar's cursor is for.
@@ -446,7 +446,7 @@ func (r reviewScreen) chooseDesc(in screen.Inputs) string {
 // landOnThread puts the diff's cursor on a thread, widening the diff when the range on screen
 // leaves it out.
 func (r *reviewScreen) landOnThread(in screen.Inputs, id string) screen.Request {
-	r.blurBlock()
+	r.BlurBlock()
 	if y, ok := r.diff.View().GetThreadRow(id); ok && r.diff.isThreadOnScreen(r.threads.list, id) {
 		return r.moveCursor(in, y)
 	}
@@ -504,7 +504,8 @@ func (r *reviewScreen) sideMenu(in screen.Inputs, side sideCursor) (menu.Menu, b
 	}, true
 }
 
-func (r *reviewScreen) clickSide(in screen.Inputs, key string) screen.Request {
+// ClickSide chooses the row of the stack or the forge clicked in the sidebar.
+func (r *reviewScreen) ClickSide(in screen.Inputs, key string) screen.Request {
 	cursor, ok := parseSideKey(key)
 	if !ok || !cursor.kind.isStop() {
 		return nil
