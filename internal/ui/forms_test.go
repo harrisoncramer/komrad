@@ -10,7 +10,6 @@ import (
 
 	"komrad/config"
 	"komrad/internal/eventprompts"
-	"komrad/internal/ui"
 	"komrad/internal/ui/paneltest"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xptr"
@@ -1170,7 +1169,7 @@ func openWideForms(t *testing.T, workflow *workflowv1.Workflow, author *agentv1.
 func openFieldEditor(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
-	harness := paneltest.Start(t, paneltest.Params{Settings: ui.PanelSettings{Editor: "true"}})
+	harness := paneltest.Start(t, paneltest.Params{})
 	answerWorktreeReads(harness)
 	harness.Watch(paneltest.Snapshot(newConfiguredWorkflow(), newFormAuthor()))
 	harness.Press("g", "g")

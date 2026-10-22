@@ -126,7 +126,7 @@ func TestVimEditing(t *testing.T) {
 	})
 
 	t.Run("u takes back what the editor wrote into the field", func(t *testing.T) {
-		harness := paneltest.Start(t, paneltest.Params{Settings: ui.PanelSettings{Editor: "true", VimMode: true}})
+		harness := paneltest.Start(t, paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
 		answerWorktreeReads(harness)
 		harness.Watch(paneltest.Snapshot(newConfiguredWorkflow(), newFormAuthor()))
 		harness.Press("g", "g")
