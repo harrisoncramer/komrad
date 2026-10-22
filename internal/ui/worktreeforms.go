@@ -6,7 +6,10 @@ import (
 	"strings"
 
 	"komrad/internal/errui"
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
@@ -17,7 +20,6 @@ const uncommittedFilesShown = 10
 
 // worktreeConfirm is a delete confirm that says what the worktrees the delete takes still hold.
 type worktreeConfirm struct {
-	kind            formKind
 	title           string
 	warning         string
 	dirs            []string
@@ -26,53 +28,51 @@ type worktreeConfirm struct {
 	values *deleteFormValues
 }
 
-// open reads each worktree afresh and puts the confirm on screen, running write once it is answered yes.
-func (c worktreeConfirm) open(m *model, write func(*model) tea.Cmd) tea.Cmd {
+// open reads each worktree afresh and puts the confirm on screen, sending what write asks for
+// once it is answered yes.
+func (c worktreeConfirm) open(m *model, write func() screen.Request) tea.Cmd {
 	confirmed := c.startsConfirmed
 
 	var cmds []tea.Cmd
 	for _, dir := range c.dirs {
-		if !m.inspections[dir].isSettled() {
+		if !m.inspections[dir].IsSettled() {
 			cmds = append(cmds, m.readWorktreeCmd(dir))
 		}
 	}
 
-	opened := m.openForm(formState{
-		kind:   c.kind,
-		update: (*model).updateForm,
-		submit: func(m *model) tea.Cmd {
-			if confirmed && c.values != nil {
-				if err := c.values.check(); err != nil {
-					m.form.refusal = err.Error()
-
-					return m.rerenderFormOn(deleteFormKey)
-				}
-			}
-
-			return holdSubmit(func(m *model) tea.Cmd {
-				if !confirmed {
-					return nil
-				}
-
-				return write(m)
-			})(m)
-		},
-		rebuild: func(m *model) (*huh.Form, []string) {
-			confirm := confirmField(&confirmed, strings.TrimSpace(c.warning+describeStanding(m.inspections, c.dirs)), "Delete")
+	opened := m.apply(form.Open{Form: form.Form{
+		Build: func(in form.Inputs) (*huh.Form, []string) {
+			confirm := form.ConfirmField(&confirmed, strings.TrimSpace(c.warning+describeStanding(in.Inspections, c.dirs)), "Delete")
 			if c.values == nil {
-				return formOf(fixedKeys(), confirm.Title(c.title))
+				return form.Of(fixedKeys(), confirm.Title(c.title))
 			}
 
 			return c.values.form(fixedKeys(), c.title, confirm)
 		},
-	})
+		Submit: func(form.Inputs) screen.Request {
+			if !confirmed {
+				return nil
+			}
+			if c.values != nil {
+				if err := c.values.check(); err != nil {
+					return form.Refuse{Err: err, Field: deleteFormKey}
+				}
+			}
+
+			return write()
+		},
+		Narrow:          true,
+		ClosesOnRefusal: true,
+		Worktrees:       c.dirs,
+	}})
 
 	return tea.Batch(append(cmds, opened)...)
 }
 
-// rerenderWorktreeConfirm renders a delete confirm again once git answers for a worktree.
-func (m *model) rerenderWorktreeConfirm() tea.Cmd {
-	if m.form.kind != formArchiveDelete && m.form.kind != formWorktreesDelete {
+// rerenderWorktreeConfirm renders a delete confirm again once git answers for a worktree it
+// describes.
+func (m *model) rerenderWorktreeConfirm(dir string) tea.Cmd {
+	if !slices.Contains(m.form.Worktrees, dir) {
 		return nil
 	}
 
@@ -80,24 +80,24 @@ func (m *model) rerenderWorktreeConfirm() tea.Cmd {
 }
 
 // describeStanding says what is uncommitted and unpushed in the worktrees, as git last answered for each.
-func describeStanding(inspections map[string]worktreeInspection, dirs []string) string {
+func describeStanding(inspections map[string]panel.WorktreeInspection, dirs []string) string {
 	var files, refusals []string
 	var commits, uncounted, read, reading, settled int
 	for _, dir := range dirs {
 		inspection := inspections[dir]
 		switch {
-		case !inspection.answered || inspection.pending:
+		case !inspection.Answered || inspection.Pending:
 			reading++
-		case inspection.isSettled():
+		case inspection.IsSettled():
 			settled++
-		case inspection.err != nil:
-			refusals = append(refusals, errui.GetReason(inspection.err))
-		case !inspection.item.Readable:
+		case inspection.Err != nil:
+			refusals = append(refusals, errui.GetReason(inspection.Err))
+		case !inspection.Item.Readable:
 			refusals = append(refusals, "git cannot read it")
 		default:
 			read++
-			files = slices.Concat(files, inspection.modified, inspection.untracked)
-			if unpushed, ok := inspection.unpushedCommits(); ok {
+			files = slices.Concat(files, inspection.Modified, inspection.Untracked)
+			if unpushed, ok := inspection.UnpushedCommits(); ok {
 				commits += unpushed
 			} else {
 				uncounted++
@@ -193,7 +193,6 @@ func deleteWorktreesConfirm(deletion worktreeDeletion) worktreeConfirm {
 	}
 
 	return worktreeConfirm{
-		kind:    formWorktreesDelete,
 		title:   fmt.Sprintf("Delete %s?", subject),
 		warning: warning,
 		dirs:    deletion.dirs(),
@@ -210,7 +209,6 @@ func deleteMixedConfirm(deletion worktreeDeletion, agentCount int) worktreeConfi
 	}
 
 	return worktreeConfirm{
-		kind:    formWorktreesDelete,
 		title:   fmt.Sprintf("Delete %s?", label.Count(deletion.chosen(), "worktree", "worktrees")),
 		warning: strings.Join(lines, " "),
 		dirs:    slices.Concat(deletion.dirs(), taskDirs(deletion.tasks)),

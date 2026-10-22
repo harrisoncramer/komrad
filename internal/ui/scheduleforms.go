@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"komrad/config"
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
@@ -29,7 +30,7 @@ func scheduleForm(params scheduleFormParams) (*huh.Form, []string) {
 		huh.NewInput().Key("name").Title("Name").Description(scheduleNameDescription(values.Kind)).Value(&values.Name),
 		huh.NewInput().Key("cron").Title("Cron").Placeholder("0 9 * * 1-5").Description("minute hour day month weekday").Value(&values.Cron),
 		huh.NewInput().Key("timezone").Title("Timezone").Placeholder("America/New_York").Description("leave blank to use this machine's zone").Value(&values.Timezone),
-		textField("prompt").Title("Prompt").Description(schedulePromptDescription(values.Kind)).Value(&values.Prompt),
+		form.Text("prompt").Title("Prompt").Description(schedulePromptDescription(values.Kind)).Value(&values.Prompt),
 	}
 
 	if values.Kind == schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR {
@@ -47,7 +48,7 @@ func scheduleForm(params scheduleFormParams) (*huh.Form, []string) {
 		)
 	}
 
-	return formOf(params.keys, fields...)
+	return form.Of(params.keys, fields...)
 }
 
 func kindField(values *panel.ScheduleConfig, orchestrators []panel.Agent) huh.Field {

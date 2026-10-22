@@ -264,6 +264,11 @@ func TestWorktreesDelete(t *testing.T) {
 				wantSent: []proto.Message{&taskv1.DeleteTasksRequest{Tasks: []string{"t8", "t9"}}},
 			},
 			{
+				name:     "are deleted once something is checked after a confirm refused on enter",
+				press:    []string{"x", "tab", "enter", "x", "enter"},
+				wantSent: []proto.Message{&taskv1.DeleteTasksRequest{Tasks: []string{"t8", "t9"}}},
+			},
+			{
 				name:     "are deleted with their worktrees alone by default",
 				press:    []string{"enter"},
 				wantSent: []proto.Message{&taskv1.DeleteTasksRequest{Tasks: []string{"t8", "t9"}}},

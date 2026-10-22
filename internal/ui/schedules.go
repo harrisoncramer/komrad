@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
@@ -133,9 +134,9 @@ func toggleSchedule(m *model, schedule panel.Schedule) tea.Cmd {
 		doing, failure = "resuming "+schedule.Name, fmt.Sprintf("Could not resume schedule %q", schedule.Name)
 	}
 
-	return m.writeCmd(doing, failure, func(a api) error {
+	return m.apply(m.write(doing, failure, func(a api) error {
 		return a.setScheduleEnabled(schedule.ID, !schedule.Enabled)
-	})
+	}))
 }
 
 // newScheduleForm puts up the form for a new schedule.
@@ -161,35 +162,31 @@ func newScheduleForm(m *model) tea.Cmd {
 func openScheduleForm(m *model, values *panel.ScheduleConfig, target *panel.Schedule) tea.Cmd {
 	renderedKind := values.Kind
 
-	return m.openForm(rebuildableForm(rebuildableFormParams{
-		Kind: formSchedule,
-		Build: func(m *model) (*huh.Form, []string) {
+	return m.apply(form.Open{Form: form.Form{
+		Build: func(in form.Inputs) (*huh.Form, []string) {
 			renderedKind = values.Kind
 
 			return scheduleForm(scheduleFormParams{
 				values:        values,
-				workflows:     m.listing.Workflows,
-				orchestrators: m.listing.LiveOrchestrators(),
+				workflows:     in.Listing.Workflows,
+				orchestrators: in.Listing.LiveOrchestrators(),
 				keys:          fixedKeys(),
 			})
 		},
 		Reshaped: func() bool { return values.Kind != renderedKind },
-		Editable: []editableText{{key: "prompt", value: &values.Prompt}},
-		Submit: holdSubmit(func(m *model) tea.Cmd {
-			var cmd tea.Cmd
+		Editable: []form.Editable{{Key: "prompt", Value: &values.Prompt}},
+		Submit: func(form.Inputs) screen.Request {
 			if target == nil {
-				cmd = m.writeCmd("creating schedule "+values.Name, "Could not create the schedule", func(a api) error { return a.createSchedule(*values) })
-			} else {
-				cmd = m.writeCmd(
-					"saving "+target.Name,
-					fmt.Sprintf("Could not save schedule %q", target.Name),
-					func(a api) error { return a.updateSchedule(target.ID, *values) },
-				)
+				return m.write("creating schedule "+values.Name, "Could not create the schedule", func(a api) error { return a.createSchedule(*values) })
 			}
 
-			return cmd
-		}),
-	}))
+			return m.write(
+				"saving "+target.Name,
+				fmt.Sprintf("Could not save schedule %q", target.Name),
+				func(a api) error { return a.updateSchedule(target.ID, *values) },
+			)
+		},
+	}})
 }
 
 // editScheduleForm puts up the form over a stored schedule.
@@ -231,12 +228,12 @@ func schedulePrefill(schedule panel.Schedule) panel.ScheduleConfig {
 }
 
 func (m *model) archiveSchedule(schedule panel.Schedule) tea.Cmd {
-	return m.awaitingWriteCmd(
+	return m.apply(m.awaitingWrite(
 		"archiving "+schedule.Name,
 		fmt.Sprintf("Could not archive schedule %q", schedule.Name),
 		screen.Awaits{Gone: screen.RowsIn(screen.ListSchedules, schedule.ID)},
 		func(a api) error { return a.archiveSchedule(schedule.ID) },
-	)
+	))
 }
 
 func (w *schedulesScreen) listParams(m *model) screenListParams {

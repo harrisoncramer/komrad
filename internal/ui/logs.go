@@ -121,9 +121,9 @@ func (l *logsScreen) enter(m *model, target screen.Target) tea.Cmd {
 
 	taskID := l.taskID
 
-	return tea.Batch(l.listCmd(m), m.writeCmd("marking the task's runs read", "Could not mark the task's runs read", func(a api) error {
+	return tea.Batch(l.listCmd(m), m.apply(m.write("marking the task's runs read", "Could not mark the task's runs read", func(a api) error {
 		return a.markTaskRunsRead(taskID)
-	}))
+	})))
 }
 
 // leaveScreen ends the chain of reads.
@@ -283,7 +283,7 @@ func (l *logsScreen) markFailedRunReadCmd(m *model, row logSourceRow) tea.Cmd {
 
 	agentID := l.agentID
 
-	return m.writeCmd("marking the failed run read", "Could not mark the failed run read", func(a api) error { return a.markRunsRead(agentID) })
+	return m.apply(m.write("marking the failed run read", "Could not mark the failed run read", func(a api) error { return a.markRunsRead(agentID) }))
 }
 
 // restart drops the lines held and reads the source over again with the pattern the block is read with.

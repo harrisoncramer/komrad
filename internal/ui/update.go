@@ -430,7 +430,7 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 	case worktreeInspectedMsg:
 		m.applyWorktreeInspection(msg)
 
-		return m.rerenderWorktreeConfirm(), true
+		return m.rerenderWorktreeConfirm(msg.dir), true
 	case documentsListedMsg:
 		return m.applyDocumentsListed(msg), true
 	case statusChecksListedMsg:

@@ -370,11 +370,14 @@ func NewTick(at time.Time) tea.Msg {
 
 // NewFieldEdited is what the editor hands back for a field of the form on screen once it quits.
 func (p *Panel) NewFieldEdited(key, text string) tea.Msg {
-	return formFieldEditedMsg{
-		kind: p.model.form.kind,
-		key:  key,
-		text: text,
+	var value *string
+	for _, field := range p.model.form.Editable {
+		if field.Key == key {
+			value = field.Value
+		}
 	}
+
+	return formFieldEditedMsg{value: value, text: text}
 }
 
 // NewMessageEdited is what the editor hands back for the review comment once it quits.
@@ -688,7 +691,7 @@ func (p *Panel) ExpireParked() {
 // AgeWorktreeReads makes every directory read the panel holds older by the given time.
 func (p *Panel) AgeWorktreeReads(by time.Duration) {
 	for dir, read := range p.model.inspections {
-		read.readAt = read.readAt.Add(-by)
+		read.ReadAt = read.ReadAt.Add(-by)
 		p.model.inspections[dir] = read
 	}
 }

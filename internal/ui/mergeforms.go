@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
@@ -88,13 +89,13 @@ func mergeForm(params mergeFormParams) (*huh.Form, []string) {
 	if hasMessage {
 		fields = append(fields,
 			huh.NewInput().Key("headline").Title("Headline").Value(&params.values.Headline),
-			textField("body").Title("Body").
+			form.Text("body").Title("Body").
 				Description(fmt.Sprintf("%s opens $EDITOR; %s merges", keys.Label(params.keys.Editor), keys.Label(params.keys.Submit))).
 				Value(&params.values.Body),
 		)
 	}
 
-	return formOf(params.keys, fields...)
+	return form.Of(params.keys, fields...)
 }
 
 // mergeFormTitle names what the merge form is about to do.

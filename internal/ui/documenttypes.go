@@ -7,10 +7,11 @@ import (
 	"unicode/utf8"
 
 	"komrad/config"
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 )
 
@@ -24,10 +25,10 @@ type documentTypeFormValues struct {
 }
 
 // newTypeForm is the form that defines a document type, asking its name and its context.
-func newTypeForm() formState {
+func newTypeForm(m *model) form.Form {
 	values := &documentTypeFormValues{}
 
-	return documentTypeFormState(documentTypeFormStateParams{
+	return documentTypeFormOf(m, documentTypeFormOfParams{
 		values:  values,
 		title:   "New document type",
 		doing:   "defining",
@@ -39,10 +40,10 @@ func newTypeForm() formState {
 }
 
 // editTypeForm is the form that writes a document type's name and context over the ones it has.
-func editTypeForm(t *agentv1.DocumentType) formState {
+func editTypeForm(m *model, t *agentv1.DocumentType) form.Form {
 	values := &documentTypeFormValues{Name: t.GetName(), Context: t.GetContext()}
 
-	return documentTypeFormState(documentTypeFormStateParams{
+	return documentTypeFormOf(m, documentTypeFormOfParams{
 		values:  values,
 		title:   "Edit document type",
 		doing:   "editing",
@@ -53,8 +54,8 @@ func editTypeForm(t *agentv1.DocumentType) formState {
 	})
 }
 
-// documentTypeFormStateParams is what a document type form is opened from.
-type documentTypeFormStateParams struct {
+// documentTypeFormOfParams is what a document type form is opened from.
+type documentTypeFormOfParams struct {
 	values  *documentTypeFormValues
 	title   string
 	doing   string
@@ -62,20 +63,20 @@ type documentTypeFormStateParams struct {
 	write   func(api) error
 }
 
-func documentTypeFormState(params documentTypeFormStateParams) formState {
+func documentTypeFormOf(m *model, params documentTypeFormOfParams) form.Form {
 	values := params.values
 
-	return rebuildableForm(rebuildableFormParams{
-		Kind:     formDocumentType,
-		Build:    func(*model) (*huh.Form, []string) { return documentTypeForm(values, params.title, fixedKeys()) },
-		Editable: []editableText{{key: "context", value: &values.Context}},
-		Submit: holdSubmit(func(m *model) tea.Cmd {
+	return form.Form{
+		Build:    func(form.Inputs) (*huh.Form, []string) { return documentTypeForm(values, params.title, fixedKeys()) },
+		Editable: []form.Editable{{Key: "context", Value: &values.Context}},
+		Submit: func(form.Inputs) screen.Request {
 			name, typeContext := strings.TrimSpace(values.Name), values.Context
 			doing, summary := params.doing+" a document type", params.refused+" a document type"
 			if name != "" {
 				doing, summary = params.doing+" "+name, fmt.Sprintf("%s document type %q", params.refused, name)
 			}
-			cmd := m.writeCmd(
+
+			return m.write(
 				doing,
 				summary,
 				func(a api) error {
@@ -86,45 +87,43 @@ func documentTypeFormState(params documentTypeFormStateParams) formState {
 					return params.write(a)
 				},
 			)
-
-			return cmd
-		}),
-	})
+		},
+	}
 }
 
 func documentTypeForm(values *documentTypeFormValues, title string, fixed config.FixedKeys) (*huh.Form, []string) {
-	return formOf(fixed,
+	return form.Of(fixed,
 		huh.NewInput().Key("name").Title(title).Value(&values.Name).Validate(checkDocumentTypeName),
-		textField("context").Title("Context").
+		form.Text("context").Title("Context").
 			Description(fmt.Sprintf("what an agent reads before writing one; %s opens $EDITOR", keys.Label(fixed.Editor))).
 			Lines(6).Value(&values.Context).Validate(checkDocumentTypeContext),
 	)
 }
 
 // deleteTypeForm asks before it deletes a document type.
-func deleteTypeForm(item documentItem) formState {
-	form, confirmed := confirmForm(
+func deleteTypeForm(m *model, item documentItem) form.Form {
+	built, confirmed := form.Confirm(
 		fmt.Sprintf("Delete document type %q?", item.name),
 		"Agents can no longer write documents of this type. Komrad refuses the delete while any document still uses it.",
 		"Delete",
 		fixedKeys(),
 	)
 
-	return formState{
-		kind:   formDocumentTypeDelete,
-		form:   form,
-		update: (*model).updateForm,
-		submit: holdSubmit(func(m *model) tea.Cmd {
+	return form.Form{
+		Built: built,
+		Submit: func(form.Inputs) screen.Request {
 			if !*confirmed {
 				return nil
 			}
 
-			return m.writeCmd(
+			return m.write(
 				"deleting "+item.name,
 				fmt.Sprintf("Could not delete document type %q", item.name),
 				func(a api) error { return a.deleteDocumentType(item.id) },
 			)
-		}),
+		},
+		Narrow:          true,
+		ClosesOnRefusal: true,
 	}
 }
 

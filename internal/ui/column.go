@@ -91,11 +91,7 @@ func (m *model) sidebarColumns() (int, columnSpec, bool) {
 		return 0, columnSpec{}, false
 	}
 
-	spec, ok := m.columnOf()
-	if !ok {
-		return 0, columnSpec{}, false
-	}
-
+	spec := m.columnOf()
 	if !spec.isHeld(m) {
 		return 0, columnSpec{}, false
 	}
@@ -139,7 +135,7 @@ func (m *model) columnSplit() (columnSplit, bool) {
 	}
 
 	// Only ever asked of a block rendered in the other column.
-	if spec, _ := m.columnOf(); spec.rows != nil {
+	if spec := m.columnOf(); spec.rows != nil {
 		split.rows = max(spec.rows(m, split), 1)
 	}
 
@@ -158,27 +154,22 @@ func (m *model) screenColumnSplit() (columnSplit, bool) {
 
 // columnOf is the block the panel renders beside its list, which is the form's while one is up and
 // the screen's otherwise.
-func (m *model) columnOf() (columnSpec, bool) {
+func (m *model) columnOf() columnSpec {
 	if m.isMessagesFocused() {
-		return buildMessagesColumn(), true
+		return buildMessagesColumn()
 	}
 
 	if m.form.isOpening() && !m.isPopupForm() {
-		return formColumn(m.form.kind)
+		return formColumn(m.form.Narrow)
 	}
 
-	return m.active().column(), true
+	return m.active().column()
 }
 
 // holdsWindow reports whether the panel is rendering a block beside its own list, and so takes the
 // window from the panes beside it.
 func (m *model) holdsWindow() bool {
-	spec, ok := m.columnOf()
-	if !ok {
-		return false
-	}
-
-	return spec.isHeld(m)
+	return m.columnOf().isHeld(m)
 }
 
 // wantsSolo reports whether the panel should hold the whole window.
@@ -317,11 +308,11 @@ func (m *model) columnDoc(split columnSplit) docWindow {
 // columnRows is the block rendered at its width, and empty on a screen whose block is not a
 // document.
 func (m *model) columnRows(split columnSplit) []string {
-	spec, ok := m.columnOf()
-	if ok && spec.docRows != nil {
+	spec := m.columnOf()
+	if spec.docRows != nil {
 		return spec.docRows(m, split.column)
 	}
-	if !ok || spec.doc == nil {
+	if spec.doc == nil {
 		return nil
 	}
 

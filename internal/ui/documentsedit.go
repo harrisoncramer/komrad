@@ -109,13 +109,13 @@ func (d *documentsScreen) closeEdit(m *model) tea.Cmd {
 		return m.apply(screen.Report{Summary: summary, Err: removeDocumentCopy(edit.path)})
 	}
 
-	return m.writeCmd("saving "+edit.item.name, summary, func(a api) error {
+	return m.apply(m.write("saving "+edit.item.name, summary, func(a api) error {
 		if err := a.writeDocument(edit.item, edit.version, body); err != nil {
 			return fmt.Errorf("failed to save, so your copy is left at %s: %w", edit.path, err)
 		}
 
 		return removeDocumentCopy(edit.path)
-	})
+	}))
 }
 
 // reconcileEditor catches the editor pane going away on its own and saves what it wrote.

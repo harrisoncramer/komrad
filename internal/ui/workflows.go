@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"komrad/internal/eventprompts"
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
@@ -39,26 +40,25 @@ func openWorkflowConfigForm(m *model, values *workflowFormValues, target *panel.
 		title = "Workflow name"
 	}
 
-	return m.openForm(workflowForm(workflowFormParams{
+	return m.apply(form.Open{Form: workflowForm(workflowFormParams{
 		NameTitle: title,
 		Values:    values,
 		Editing:   target != nil,
-		Submit: holdSubmit(func(m *model) tea.Cmd {
-			var cmd tea.Cmd
+		Hooks:     m.getAvailableHooks,
+		Submit: func(form.Inputs) screen.Request {
 			if target == nil {
-				cmd = m.createWorkflowCmd(values.toConfig())
-			} else {
-				edited := values.toConfig().Workflow(target.ID)
-				cmd = m.writeCmd(
-					"saving "+target.Name,
-					fmt.Sprintf("Could not save workflow %q", target.Name),
-					func(a api) error { return a.updateWorkflow(edited) },
-				)
+				return m.createWorkflowWrite(values.toConfig())
 			}
 
-			return cmd
-		}),
-	}).topState())
+			edited := values.toConfig().Workflow(target.ID)
+
+			return m.write(
+				"saving "+target.Name,
+				fmt.Sprintf("Could not save workflow %q", target.Name),
+				func(a api) error { return a.updateWorkflow(edited) },
+			)
+		},
+	})})
 }
 
 // getAvailableHooks is the hooks directory as the form offers it, a directory that is not there
@@ -75,7 +75,7 @@ func (m *model) getAvailableHooks() []string {
 }
 
 func (m *model) archiveWorkflow(workflow panel.Workflow) tea.Cmd {
-	return m.archivingWriteCmd(archivingWriteCmdParams{
+	return m.apply(m.archivingWrite(archivingWriteParams{
 		doing:   "archiving " + workflow.Name,
 		summary: fmt.Sprintf("Could not archive workflow %q", workflow.Name),
 		agents:  m.listing.AgentsOf(workflow.ID),
@@ -83,12 +83,12 @@ func (m *model) archiveWorkflow(workflow panel.Workflow) tea.Cmd {
 		write: func(a api) error {
 			return a.archiveWorkflow(workflow.ID)
 		},
-	})
+	}))
 }
 
 // eventPromptEditables are the event prompts the panel's editor key can open.
-func eventPromptEditables(values *workflowFormValues) []editableText {
-	return xslice.Map(eventprompts.All(), func(event eventprompts.Event) editableText {
-		return editableText{key: eventPromptKey(event.Name), value: values.eventPromptFor(event.Name)}
+func eventPromptEditables(values *workflowFormValues) []form.Editable {
+	return xslice.Map(eventprompts.All(), func(event eventprompts.Event) form.Editable {
+		return form.Editable{Key: eventPromptKey(event.Name), Value: values.eventPromptFor(event.Name)}
 	})
 }

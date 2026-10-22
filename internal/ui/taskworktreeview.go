@@ -18,28 +18,28 @@ func taskDetailsTags(m *model, task panel.Task) []string {
 }
 
 // buildWorktreeStateTags is what is uncommitted, unpushed and unpulled in the directory.
-func buildWorktreeStateTags(read worktreeInspection) []string {
-	if !read.isRead() || !read.item.Readable {
+func buildWorktreeStateTags(read panel.WorktreeInspection) []string {
+	if !read.IsRead() || !read.Item.Readable {
 		return nil
 	}
 
 	warning := paint.Panel.Style(paint.ToneWarning)
 	var parts []string
-	if n := len(read.modified); n > 0 {
+	if n := len(read.Modified); n > 0 {
 		parts = append(parts, warning.Render(label.Count(n, "modified", "modified")))
 	}
-	if n := len(read.untracked); n > 0 {
+	if n := len(read.Untracked); n > 0 {
 		parts = append(parts, warning.Render(label.Count(n, "untracked", "untracked")))
 	}
 	switch {
-	case read.item.Branch == "":
-	case !read.pushed && (read.baseRef == "" || read.ahead > 0):
+	case read.Item.Branch == "":
+	case !read.Pushed && (read.BaseRef == "" || read.Ahead > 0):
 		parts = append(parts, warning.Render("not pushed"))
-	case read.pushed && read.unpushed > 0 && (read.ahead > 0 || !read.unpulledLanded):
-		parts = append(parts, warning.Render(fmt.Sprintf("%s%d unpushed", glyph.Up, read.unpushed)))
+	case read.Pushed && read.Unpushed > 0 && (read.Ahead > 0 || !read.UnpulledLanded):
+		parts = append(parts, warning.Render(fmt.Sprintf("%s%d unpushed", glyph.Up, read.Unpushed)))
 	}
-	if read.pushed && read.unpulled > 0 && !read.unpulledLanded {
-		parts = append(parts, warning.Render(fmt.Sprintf("%s%d unpulled", glyph.Down, read.unpulled)))
+	if read.Pushed && read.Unpulled > 0 && !read.UnpulledLanded {
+		parts = append(parts, warning.Render(fmt.Sprintf("%s%d unpulled", glyph.Down, read.Unpulled)))
 	}
 
 	return parts

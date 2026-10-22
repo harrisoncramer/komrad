@@ -8,10 +8,12 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
@@ -113,7 +115,7 @@ func taskDirs(tasks []panel.Task) []string {
 
 // archiveTasks archives the tasks along with the live agents on them.
 func (m *model) archiveTasks(tasks []panel.Task) tea.Cmd {
-	return m.archivingWriteCmd(archivingWriteCmdParams{
+	return m.apply(m.archivingWrite(archivingWriteParams{
 		doing:   "archiving " + describeTasks(tasks),
 		summary: "Could not archive " + describeTasks(tasks),
 		agents:  m.listing.AgentsOnTasks(tasks),
@@ -126,12 +128,13 @@ func (m *model) archiveTasks(tasks []panel.Task) tea.Cmd {
 
 			return nil
 		},
-	})
+	}))
 }
 
-// deleteTasks deletes the tasks' worktrees, and with records the tasks for good with everything on them.
-func (m *model) deleteTasks(tasks []panel.Task, records bool) tea.Cmd {
-	return m.archivingWriteCmd(archivingWriteCmdParams{
+// deleteTasksWrite is the write that deletes the tasks' worktrees, and with records the tasks for
+// good with everything on them.
+func (m *model) deleteTasksWrite(tasks []panel.Task, records bool) screen.Write {
+	return m.archivingWrite(archivingWriteParams{
 		doing:   "deleting " + describeTasks(tasks),
 		summary: "Could not delete " + describeTasks(tasks),
 		agents:  m.listing.AgentsOnTasks(tasks),
@@ -145,8 +148,8 @@ func (m *model) deleteTasks(tasks []panel.Task, records bool) tea.Cmd {
 func confirmDeleteTasks(m *model, tasks []panel.Task) tea.Cmd {
 	confirm := deleteTasksConfirm(tasks, len(m.listing.AgentsOnTasks(tasks)), m.listing.HasAnyWorktreeToDelete(tasks))
 
-	return confirm.open(m, func(m *model) tea.Cmd {
-		return m.deleteTasks(tasks, confirm.values.deletesRecords())
+	return confirm.open(m, func() screen.Request {
+		return m.deleteTasksWrite(tasks, confirm.values.deletesRecords())
 	})
 }
 
@@ -165,7 +168,7 @@ func hideTasks(m *model, tasks []panel.Task) tea.Cmd {
 		doing, failure = "unhiding "+describeTasks(tasks), "Could not unhide "+describeTasks(tasks)
 	}
 
-	return m.writeCmd(doing, failure, func(a api) error {
+	return m.apply(m.write(doing, failure, func(a api) error {
 		for _, task := range changed {
 			if err := a.setTaskHidden(task.ID, hidden); err != nil {
 				return err
@@ -173,7 +176,7 @@ func hideTasks(m *model, tasks []panel.Task) tea.Cmd {
 		}
 
 		return nil
-	})
+	}))
 }
 
 // maxTaskTitle is the longest title a task takes.
@@ -193,18 +196,15 @@ func openEditTask(m *model, task panel.Task) tea.Cmd {
 		Notes: task.Notes,
 	}
 
-	return m.openForm(rebuildableForm(rebuildableFormParams{
-		Kind: formTask,
-		Build: func(m *model) (*huh.Form, []string) {
+	return m.apply(form.Open{Form: form.Form{
+		Build: func(form.Inputs) (*huh.Form, []string) {
 			return editTaskForm(fixedKeys(), values, task.Slug)
 		},
-		Editable: []editableText{{key: "goal", value: &values.Goal}, {key: "notes", value: &values.Notes}},
-		Submit: func(m *model) tea.Cmd {
+		Editable: []form.Editable{{Key: "goal", Value: &values.Goal}, {Key: "notes", Value: &values.Notes}},
+		Submit: func(form.Inputs) screen.Request {
 			title, goal := strings.TrimSpace(values.Title), strings.TrimSpace(values.Goal)
 			if err := cmp.Or(checkTaskTitle(title), checkTaskGoal(goal)); err != nil {
-				m.form.refusal = err.Error()
-
-				return formResized()
+				return form.Refuse{Err: err}
 			}
 
 			params := updateTaskParams{
@@ -216,25 +216,23 @@ func openEditTask(m *model, task panel.Task) tea.Cmd {
 				params.notes, params.notesUpdatedAt = &notes, task.NotesUpdatedAt
 			}
 
-			return holdSubmit(func(m *model) tea.Cmd {
-				return m.writeCmd(
-					"saving "+task.Slug,
-					fmt.Sprintf("Could not save task %q", task.Slug),
-					func(a api) error { return a.updateTask(params) },
-				)
-			})(m)
+			return m.write(
+				"saving "+task.Slug,
+				fmt.Sprintf("Could not save task %q", task.Slug),
+				func(a api) error { return a.updateTask(params) },
+			)
 		},
-	}))
+	}})
 }
 
 func editTaskForm(fixed config.FixedKeys, values *taskEditValues, slug string) (*huh.Form, []string) {
-	return formOf(fixed,
+	return form.Of(fixed,
 		huh.NewInput().Key("title").Title(fmt.Sprintf("Task %q", slug)).Description("its title").
 			CharLimit(maxTaskTitle).Validate(checkTaskTitle).Value(&values.Title),
-		textField("goal").Title("Goal").
+		form.Text("goal").Title("Goal").
 			Description(fmt.Sprintf("the outcome that finishes this task; %s opens $EDITOR; %s submits", keys.Label(fixed.Editor), keys.Label(fixed.Submit))).
 			Validate(checkTaskGoal).Value(&values.Goal),
-		textField("notes").Title("Notes").
+		form.Text("notes").Title("Notes").
 			Description(fmt.Sprintf("findings and decisions so far; %s opens $EDITOR; %s submits", keys.Label(fixed.Editor), keys.Label(fixed.Submit))).
 			Value(&values.Notes),
 	)

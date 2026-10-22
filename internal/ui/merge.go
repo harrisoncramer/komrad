@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
@@ -96,7 +97,7 @@ func (m *model) runMerge(taskID string, choice mergeChoice) tea.Cmd {
 			return m.apply(screen.Report{Summary: "Could not change auto-merge on the " + task.PullRequest.Noun() + " of " + task.Slug, Err: err})
 		}
 		if task.PullRequest.MergeReadiness.AutoMerge {
-			return m.setAutoMerge(task, mergeParams{url: task.PullRequest.URL, headSHA: task.PullRequest.HeadSHA}, false)
+			return m.apply(m.autoMergeWrite(task, mergeParams{url: task.PullRequest.URL, headSHA: task.PullRequest.HeadSHA}, false))
 		}
 	case mergeChoiceMergeRebase:
 		if err := mergeRebaseRefusal(m.listing, task); err != nil {
@@ -148,9 +149,8 @@ func (m *model) openMergeForm(task panel.Task, choice mergeChoice, plan *forgev1
 	renderedMethod := values.Method
 	var filled *forgev1.CommitMessage
 
-	form := rebuildableForm(rebuildableFormParams{
-		Kind: formMerge,
-		Build: func(m *model) (*huh.Form, []string) {
+	return m.apply(form.Open{Form: form.Form{
+		Build: func(form.Inputs) (*huh.Form, []string) {
 			renderedMethod = values.Method
 			filled = values.fill(mergeOptionOf(plan, values.Method), filled)
 
@@ -162,21 +162,18 @@ func (m *model) openMergeForm(task panel.Task, choice mergeChoice, plan *forgev1
 			})
 		},
 		Reshaped: func() bool { return values.Method != renderedMethod },
-		Editable: []editableText{{key: "body", value: &values.Body}},
-		Submit: func(m *model) tea.Cmd {
+		Editable: []form.Editable{{Key: "body", Value: &values.Body}},
+		Submit: func(form.Inputs) screen.Request {
 			params, err := values.buildMergeParams(task.PullRequest, plan)
 			if err != nil {
-				m.form.refusal = err.Error()
-
-				return formResized()
+				return form.Refuse{Err: err}
 			}
 
-			return holdSubmit(func(m *model) tea.Cmd { return m.sendMerge(task, choice, *params) })(m)
+			return m.mergeWrite(task, choice, *params)
 		},
-	})
-	form.keepsOnRefusal = false
-
-	return m.openForm(form)
+		Narrow:          true,
+		ClosesOnRefusal: true,
+	}})
 }
 
 // mergeOptionOf is the plan's option for the method, nil when the forge offers no such method.
@@ -190,17 +187,17 @@ func mergeOptionOf(plan *forgev1.PlanForgePullRequestMergeResponse, method forge
 	return nil
 }
 
-// sendMerge does what the merge menu entry asked for, the way the form says.
-func (m *model) sendMerge(task panel.Task, choice mergeChoice, params mergeParams) tea.Cmd {
+// mergeWrite is the write that does what the merge menu entry asked for, the way the form says.
+func (m *model) mergeWrite(task panel.Task, choice mergeChoice, params mergeParams) screen.Write {
 	switch choice {
 	case mergeChoiceAutoMerge:
-		return m.setAutoMerge(task, params, true)
+		return m.autoMergeWrite(task, params, true)
 	case mergeChoiceMergeRebase:
-		return m.runGitCmd(mergeRebaseOp(task, params))
+		return m.gitOpWrite(mergeRebaseOp(task, params))
 	case mergeChoiceMerge, mergeChoiceMergeArchive:
 	}
 
-	return m.runGitCmd(mergeOp(task, choice == mergeChoiceMergeArchive, params))
+	return m.gitOpWrite(mergeOp(task, choice == mergeChoiceMergeArchive, params))
 }
 
 func mergeOp(task panel.Task, archive bool, params mergeParams) gitOp {

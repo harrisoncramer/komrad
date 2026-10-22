@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/panel"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -14,7 +15,6 @@ import (
 
 func abortOp(taskID, name string, sequence panel.Sequence) gitOp {
 	return gitOp{
-		kind:    formAgentAbort,
 		running: "aborting the " + string(sequence) + " of " + name,
 		run: func(clients api) gitReport {
 			result, err := clients.abortSequence(taskID)
@@ -54,7 +54,7 @@ func (m *model) reportAborted(name string, sequence panel.Sequence, result *agen
 
 func abortForm(name string, sequence panel.Sequence) gitConfirmForm {
 	return func(keys config.FixedKeys) (*huh.Form, *bool) {
-		return confirmForm(
+		return form.Confirm(
 			fmt.Sprintf("Abort the %s in the worktree of %s?", sequence, name),
 			fmt.Sprintf("Komrad puts the branch and its files back where they were before the %s began. "+
 				"It first saves a copy of the worktree as it is now, conflicts and all. "+

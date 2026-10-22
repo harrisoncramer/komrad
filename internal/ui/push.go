@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"komrad/config"
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xsha"
@@ -34,7 +35,6 @@ func pushOp(task panel.Task) gitOp {
 	taskID, name := task.ID, task.Slug
 
 	return gitOp{
-		kind:       formAgentPush,
 		planning:   "planning the push of " + name,
 		planFailed: "Could not work out what a push would do",
 		plan: func(clients api) (gitConfirmForm, error) {
@@ -100,7 +100,7 @@ func (m *model) reportPushed(name string, result *agentv1.PushWorktreeResponse, 
 
 func pushForm(plan pushPlan) gitConfirmForm {
 	return func(keys config.FixedKeys) (*huh.Form, *bool) {
-		return confirmForm(
+		return form.Confirm(
 			"Push the branch of "+plan.name+"?",
 			pushDescription(plan),
 			pushAffirmative(plan),

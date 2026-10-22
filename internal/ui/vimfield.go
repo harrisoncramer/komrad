@@ -15,12 +15,12 @@ func (m *model) updateFormVim(key tea.KeyPressMsg) (tea.Cmd, bool) {
 		return nil, false
 	}
 
-	focused := m.form.form.GetFocusedField()
+	focused := m.form.rendered.GetFocusedField()
 	if focused == nil {
 		return nil, false
 	}
 
-	outcome, ok := m.form.vim.Press(m.form.form, focused, key.String())
+	outcome, ok := m.form.vim.Press(m.form.rendered, focused, key.String())
 	if !ok {
 		return nil, false
 	}
@@ -46,7 +46,7 @@ func (m *model) stepVimField(from string, down bool) tea.Cmd {
 		return nil
 	}
 
-	step, back, room := m.form.form.NextField, m.form.form.PrevField, len(m.form.order)-1-at
+	step, back, room := m.form.rendered.NextField, m.form.rendered.PrevField, len(m.form.order)-1-at
 	if !down {
 		step, back, room = back, step, at
 	}
@@ -55,7 +55,7 @@ func (m *model) stepVimField(from string, down bool) tea.Cmd {
 	for range room {
 		cmds = append(cmds, step())
 
-		if m.form.vim.Arrive(m.form.form) {
+		if m.form.vim.Arrive(m.form.rendered) {
 			return tea.Batch(cmds...)
 		}
 	}

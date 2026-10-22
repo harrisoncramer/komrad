@@ -50,6 +50,9 @@ type Report struct {
 // Hide puts the panel away.
 type Hide struct{}
 
+// Batch is several requests at once, applied in order.
+type Batch []Request
+
 // String is the screen as an error names it.
 func (id ID) String() string {
 	switch id {
@@ -82,3 +85,6 @@ func (Report) Request() {}
 
 // Request marks Hide as a request.
 func (Hide) Request() {}
+
+// Request marks Batch as a request.
+func (Batch) Request() {}

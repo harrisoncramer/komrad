@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
@@ -17,14 +18,12 @@ func documentTypeMenu(m *model, t *agentv1.DocumentType) menu.Menu {
 			{
 				Label: "edit",
 				Keys:  m.keys.DocumentTypesMenu.Edit,
-				After: menu.Stay,
-				Pick:  func() tea.Cmd { return m.openBeside(editTypeForm(t)) },
+				Form:  func() form.Form { return editTypeForm(m, t) },
 			},
 			{
 				Label: "delete",
 				Keys:  m.keys.DocumentTypesMenu.Delete,
-				After: menu.Stay,
-				Pick:  func() tea.Cmd { return m.openBeside(deleteTypeForm(documentTypeItem(t))) },
+				Form:  func() form.Form { return deleteTypeForm(m, documentTypeItem(t)) },
 			},
 		},
 	}
@@ -58,8 +57,7 @@ func (d *documentsScreen) buildScreenMenu(m *model) (menu.Menu, bool) {
 				{
 					Label: "new type",
 					Keys:  m.keys.DocumentTypesMenu.New,
-					After: menu.Stay,
-					Pick:  func() tea.Cmd { return m.openBeside(newTypeForm()) },
+					Form:  func() form.Form { return newTypeForm(m) },
 				},
 			},
 		}, true

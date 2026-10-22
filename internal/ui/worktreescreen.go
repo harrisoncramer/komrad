@@ -79,12 +79,12 @@ func (m *model) inspectWorktreeCmd() tea.Cmd {
 // readWorktreeCmd asks the server for one directory's standing, once at a time.
 func (m *model) readWorktreeCmd(dir string) tea.Cmd {
 	last, asked := m.inspections[dir]
-	if asked && last.pending {
+	if asked && last.Pending {
 		return nil
 	}
 
 	pending := last
-	pending.pending = true
+	pending.Pending = true
 	m.applyWorktreeInspection(worktreeInspectedMsg{dir: dir, inspection: pending})
 	clients := m.api
 
@@ -92,7 +92,7 @@ func (m *model) readWorktreeCmd(dir string) tea.Cmd {
 		read, err := clients.getWorktree(dir)
 		if err != nil {
 			// The last answer stays on the row with the refusal beside it.
-			last.answered, last.readAt, last.err = true, time.Now(), err
+			last.Answered, last.ReadAt, last.Err = true, time.Now(), err
 
 			return worktreeInspectedMsg{dir: dir, inspection: last}
 		}
@@ -121,12 +121,12 @@ func (m *model) inspectHoveredWorktreeCmd() tea.Cmd {
 // worktreeInspectedMsg is one directory's standing come back.
 type worktreeInspectedMsg struct {
 	dir        string
-	inspection worktreeInspection
+	inspection panel.WorktreeInspection
 }
 
 func (m *model) applyWorktreeInspection(msg worktreeInspectedMsg) {
 	if m.inspections == nil {
-		m.inspections = map[string]worktreeInspection{}
+		m.inspections = map[string]panel.WorktreeInspection{}
 	}
 
 	m.inspections[msg.dir] = msg.inspection

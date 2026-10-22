@@ -7,6 +7,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"komrad/internal/ui/form"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
@@ -30,16 +32,18 @@ func newDocumentForm(m *model, agentID string) tea.Cmd {
 	}
 	values := &documentFormValues{Type: defaultDocumentType(types)}
 
-	return m.openForm(rebuildableForm(rebuildableFormParams{
-		Kind:  formDocument,
-		Build: func(m *model) (*huh.Form, []string) { return documentForm(values, m.listing.DocumentTypeNames()) },
-		Submit: holdSubmit(func(m *model) tea.Cmd {
+	return m.apply(form.Open{Form: form.Form{
+		Build: func(in form.Inputs) (*huh.Form, []string) {
+			return documentForm(values, in.Listing.DocumentTypeNames())
+		},
+		Submit: func(form.Inputs) screen.Request {
 			name, typeName := strings.TrimSpace(values.Name), values.Type
 			doing := "writing a document"
 			if name != "" {
 				doing = "writing " + name
 			}
-			cmd := m.writeCmd(
+
+			return m.write(
 				doing,
 				fmt.Sprintf("Could not write a document for %s", owner),
 				func(a api) error {
@@ -50,10 +54,8 @@ func newDocumentForm(m *model, agentID string) tea.Cmd {
 					return a.createDocument(agentID, name, typeName, documentPlaceholder(typeName))
 				},
 			)
-
-			return cmd
-		}),
-	}))
+		},
+	}})
 }
 
 func documentForm(values *documentFormValues, types []string) (*huh.Form, []string) {
@@ -61,7 +63,7 @@ func documentForm(values *documentFormValues, types []string) (*huh.Form, []stri
 		return huh.NewOption(name, name)
 	})
 
-	return formOf(fixedKeys(),
+	return form.Of(fixedKeys(),
 		huh.NewInput().Key("name").Title("New document name").Value(&values.Name).Validate(checkDocumentName),
 		huh.NewSelect[string]().Key("type").Title("Type").Options(options...).Value(&values.Type),
 	)

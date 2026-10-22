@@ -6,6 +6,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/glyph"
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/paint"
@@ -34,13 +35,19 @@ func newSubmenuLevel(open menu.Menu) submenuLevel {
 func submenuState(parents []submenuLevel, level submenuLevel) formState {
 	stack := slices.Concat(parents, []submenuLevel{level})
 	state := formState{
-		kind:   formMenu,
+		Form: form.Form{
+			Build: func(form.Inputs) (*huh.Form, []string) {
+				return submenuForm(level, len(parents) > 0, fixedKeys()), nil
+			},
+			Narrow:          true,
+			ClosesOnRefusal: true,
+		},
 		isMenu: true,
 		crumbs: append(xslice.Map(parents, func(p submenuLevel) string { return p.menu.Title }), level.menu.Title),
 		update: func(m *model, msg tea.Msg) tea.Cmd {
 			return m.updateSubmenu(msg, parents, level)
 		},
-		submit: func(m *model) tea.Cmd {
+		answer: func(m *model) tea.Cmd {
 			if level.menu.IsList() {
 				return m.openListActions(stack, level)
 			}
@@ -57,6 +64,13 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 			switch {
 			case entry.Opens != nil:
 				return m.pushSubmenu(stack, newSubmenuLevel(*entry.Opens))
+			case entry.Form != nil:
+				beside := openedFormState(entry.Form())
+				if level.menu.InPlace {
+					return m.stackForm(parents, stack, beside)
+				}
+
+				return m.stackForm(stack, stack, beside)
 			case entry.Pick == nil:
 				return m.closeForm()
 			}
@@ -66,20 +80,9 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 				m.leaveForm()
 			case menu.Hold:
 				return holdSubmit(func(*model) tea.Cmd { return entry.Pick() })(m)
-			case menu.Stay:
 			}
 
 			return entry.Pick()
-		},
-		beside: func(m *model, form formState) tea.Cmd {
-			if level.menu.InPlace {
-				return m.stackForm(parents, stack, form)
-			}
-
-			return m.stackForm(stack, stack, form)
-		},
-		rebuild: func(*model) (*huh.Form, []string) {
-			return submenuForm(level, len(parents) > 0, fixedKeys()), nil
 		},
 		leading: func(width, _ int) []string {
 			return submenuLeading(parents, level, width)
@@ -92,15 +95,6 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 	}
 
 	return state
-}
-
-// openBeside renders a form to the right of the menu on screen, or on its own when no menu is up.
-func (m *model) openBeside(form formState) tea.Cmd {
-	if m.form.beside == nil {
-		return m.openForm(form)
-	}
-
-	return m.form.beside(m, form)
 }
 
 // pushSubmenu renders a menu to the right of the one that opened it.
@@ -158,7 +152,7 @@ const submenuKeyGap = 4
 
 // submenuKeyMap is the form's own keys without the select's filter.
 func submenuKeyMap(keys config.FixedKeys) *huh.KeyMap {
-	km := multiFieldKeyMap(keys)
+	km := form.KeyMap(keys)
 	km.Select.Filter.SetEnabled(false)
 
 	return km

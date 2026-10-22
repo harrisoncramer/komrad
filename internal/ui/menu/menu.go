@@ -4,6 +4,8 @@ package menu
 import (
 	"slices"
 
+	"komrad/internal/ui/form"
+
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -37,8 +39,6 @@ const (
 	Leave after = iota
 	// Hold keeps the menu up while a write the pick began is in flight.
 	Hold
-	// Stay keeps the menu up beside the form the pick opens.
-	Stay
 )
 
 // Entry is one row of a menu.
@@ -53,6 +53,8 @@ type Entry struct {
 	Divider bool
 	// Opens is the menu the entry opens to the right of its own.
 	Opens *Menu
+	// Form is the form the entry opens beside the menu.
+	Form  func() form.Form
 	Pick  func() tea.Cmd
 	After after
 }

@@ -8,11 +8,12 @@ import (
 
 	"komrad/config"
 	"komrad/internal/eventprompts"
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 )
 
@@ -312,10 +313,12 @@ type workflowFormParams struct {
 	Values    *workflowFormValues
 	// Editing says the workflow already exists and its base branch is required.
 	Editing bool
-	Submit  func(*model) tea.Cmd
+	// Hooks lists the hooks the hooks subform offers.
+	Hooks  func() []string
+	Submit func(form.Inputs) screen.Request
 }
 
-func workflowForm(params workflowFormParams) formOfSubforms {
+func workflowForm(params workflowFormParams) form.Form {
 	values := params.Values
 	if values.Provisioner == "" {
 		values.Provisioner = provisionerWorktree
@@ -323,27 +326,25 @@ func workflowForm(params workflowFormParams) formOfSubforms {
 
 	renderedProvisioner := values.Provisioner
 	choice := workflowSubformAgents
+	subforms := workflowSubforms(values, params.Editing, params.Hooks)
 
-	return formOfSubforms{
-		kind:  formWorkflow,
-		title: "Settings",
-		top: func(*model) []huh.Field {
+	return form.Form{
+		Build: func(form.Inputs) (*huh.Form, []string) {
 			renderedProvisioner = values.Provisioner
 
-			return workflowTopFields(params.NameTitle, values)
+			return form.Of(fixedKeys(), append(workflowTopFields(params.NameTitle, values), form.SubformList("Settings", subforms, &choice))...)
 		},
-		topEditable: []editableText{{key: "context", value: &values.Context}},
-		reshaped:    func() bool { return values.Provisioner != renderedProvisioner },
-		subforms:    workflowSubforms(values, params.Editing),
-		submit:      params.Submit,
-		choice:      &choice,
+		Reshaped: func() bool { return values.Provisioner != renderedProvisioner },
+		Editable: []form.Editable{{Key: "context", Value: &values.Context}},
+		Subforms: subforms,
+		Submit:   params.Submit,
 	}
 }
 
 func workflowTopFields(nameTitle string, values *workflowFormValues) []huh.Field {
 	return []huh.Field{
 		huh.NewInput().Key("name").Title(nameTitle).Value(&values.Name),
-		textField("context").Title("Context").
+		form.Text("context").Title("Context").
 			Description(fmt.Sprintf("shared notes for this workflow; %s opens $EDITOR", keys.Label(fixedKeys().Editor))).
 			Lines(2).Value(&values.Context),
 		huh.NewInput().Key("dir").Title("Default Directory").
@@ -361,42 +362,42 @@ const (
 	workflowSubformEventPrompts = "event_prompts"
 )
 
-func workflowSubforms(values *workflowFormValues, editing bool) []subform {
-	return []subform{
+func workflowSubforms(values *workflowFormValues, editing bool, hooks func() []string) []form.Subform {
+	return []form.Subform{
 		{
-			key:   workflowSubformAgents,
-			title: "agents",
-			fields: func(*model) []huh.Field {
+			Key:   workflowSubformAgents,
+			Title: "agents",
+			Fields: func(form.Inputs) []huh.Field {
 				return workflowAgentFields(values)
 			},
 		},
 		{
-			key:   workflowSubformWorktree,
-			title: "worktree",
-			isOff: func() bool { return values.Provisioner != provisionerWorktree },
-			fields: func(*model) []huh.Field {
+			Key:   workflowSubformWorktree,
+			Title: "worktree",
+			Off:   func() bool { return values.Provisioner != provisionerWorktree },
+			Fields: func(form.Inputs) []huh.Field {
 				return worktreeDetailFields(values, editing)
 			},
-			editable: []editableText{
-				{key: "worktree_copy_paths", value: &values.WorktreeCopyPaths},
-				{key: "worktree_symlink_paths", value: &values.WorktreeSymlinkPaths},
-				{key: "worktree_diff_exclude", value: &values.WorktreeDiffExclude},
+			Editable: []form.Editable{
+				{Key: "worktree_copy_paths", Value: &values.WorktreeCopyPaths},
+				{Key: "worktree_symlink_paths", Value: &values.WorktreeSymlinkPaths},
+				{Key: "worktree_diff_exclude", Value: &values.WorktreeDiffExclude},
 			},
 		},
 		{
-			key:   workflowSubformHooks,
-			title: "hooks",
-			fields: func(m *model) []huh.Field {
-				return hookFields(values, m.getAvailableHooks())
+			Key:   workflowSubformHooks,
+			Title: "hooks",
+			Fields: func(form.Inputs) []huh.Field {
+				return hookFields(values, hooks())
 			},
 		},
 		{
-			key:   workflowSubformEventPrompts,
-			title: "event prompts",
-			fields: func(*model) []huh.Field {
+			Key:   workflowSubformEventPrompts,
+			Title: "event prompts",
+			Fields: func(form.Inputs) []huh.Field {
 				return eventPromptFields(values, fixedKeys())
 			},
-			editable: eventPromptEditables(values),
+			Editable: eventPromptEditables(values),
 		},
 	}
 }
@@ -420,16 +421,16 @@ func worktreeDetailFields(values *workflowFormValues, editing bool) []huh.Field 
 		huh.NewInput().Key("worktree_dir").Title("Worktree parent directory").
 			Description("komrad makes this workflow's worktrees here, for a repo that wants them in a place of its own").
 			Placeholder("the configured worktrees directory").Value(&values.WorktreeDir),
-		textField("worktree_copy_paths").Title("Worktree copy paths").
+		form.Text("worktree_copy_paths").Title("Worktree copy paths").
 			Description("one repo-relative path per line that komrad copies into every worktree, such as .env").
 			Lines(2).Value(&values.WorktreeCopyPaths),
-		textField("worktree_symlink_paths").Title("Worktree symlink paths").
+		form.Text("worktree_symlink_paths").Title("Worktree symlink paths").
 			Description("one repo-relative path per line that komrad symlinks into every worktree instead of copying, such as node_modules").
 			Lines(2).Value(&values.WorktreeSymlinkPaths),
 		huh.NewInput().Key("worktree_setup_command").Title("Worktree setup command").
 			Description("a shell command komrad runs in the worktree before an agent starts or resumes there, such as mise trust && mise install").
 			Value(&values.WorktreeSetupCommand),
-		textField("worktree_diff_exclude").Title("Diff excludes").
+		form.Text("worktree_diff_exclude").Title("Diff excludes").
 			Description("one path or glob per line that the review screen leaves out of the diff, such as proto/gen or *.pb.go").
 			Lines(2).Value(&values.WorktreeDiffExclude),
 	}
@@ -493,7 +494,7 @@ func eventPromptFields(values *workflowFormValues, fixed config.FixedKeys) []huh
 	fields := []huh.Field{heading}
 	for _, event := range eventprompts.All() {
 		fields = append(fields,
-			textField(eventPromptKey(event.Name)).Title(event.Title).
+			form.Text(eventPromptKey(event.Name)).Title(event.Title).
 				Description("when "+event.Description).
 				CharLimit(eventprompts.MaxPrompt).Lines(2).Value(values.eventPromptFor(event.Name)),
 			huh.NewSelect[bool]().Key(eventMuteKey(event.Name)).Title(event.Title+" mail").

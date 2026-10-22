@@ -19,6 +19,11 @@ import (
 // on the row asks for it again.
 const worktreeReadTTL = time.Minute
 
+// isStale reports whether the answer is old enough to ask for again.
+func isStale(read panel.WorktreeInspection, now time.Time) bool {
+	return !read.Answered || (!read.IsSettled() && now.Sub(read.ReadAt) > worktreeReadTTL)
+}
+
 // inspectTaskWorktreeCmd asks for the hovered task's directory where nothing stands for it or
 // what stands is stale.
 func (m *model) inspectTaskWorktreeCmd(now time.Time) tea.Cmd {
@@ -26,7 +31,7 @@ func (m *model) inspectTaskWorktreeCmd(now time.Time) tea.Cmd {
 	if !ok || task.Cwd == "" {
 		return nil
 	}
-	if read, asked := m.inspections[task.Cwd]; asked && !read.isStale(now) {
+	if read, asked := m.inspections[task.Cwd]; asked && !isStale(read, now) {
 		return nil
 	}
 
@@ -66,7 +71,7 @@ func (m *model) isHoveringLiveCheckout() bool {
 // for it is, short of an answer that will never change.
 func (m *model) rereadTaskWorktreeCmd() tea.Cmd {
 	task, ok := m.hoveredRecordTask()
-	if !ok || task.Cwd == "" || m.inspections[task.Cwd].isSettled() {
+	if !ok || task.Cwd == "" || m.inspections[task.Cwd].IsSettled() {
 		return nil
 	}
 
@@ -75,10 +80,10 @@ func (m *model) rereadTaskWorktreeCmd() tea.Cmd {
 
 // taskWorktree is what has been read of a task's directory, and nothing for one that is not a
 // worktree komrad holds.
-func taskWorktree(inspections map[string]worktreeInspection, cwd string) (worktreeInspection, bool) {
+func taskWorktree(inspections map[string]panel.WorktreeInspection, cwd string) (panel.WorktreeInspection, bool) {
 	read, ok := inspections[cwd]
-	if !ok || !read.answered || read.isSettled() {
-		return worktreeInspection{}, false
+	if !ok || !read.Answered || read.IsSettled() {
+		return panel.WorktreeInspection{}, false
 	}
 
 	return read, true
@@ -92,7 +97,7 @@ type checkoutFieldsParams struct {
 	task panel.Task
 	// worktree is what the server has answered about the task's directory, and read says
 	// whether it has answered that the directory is a worktree at all.
-	worktree worktreeInspection
+	worktree panel.WorktreeInspection
 	read     bool
 	now      time.Time
 }
@@ -127,26 +132,26 @@ func (m *model) buildCheckoutParams(task panel.Task) checkoutFieldsParams {
 // worktreeStandingFields are the record's rows for where a task's directory stands: what is
 // uncommitted in it and what it takes on disk, with the refusal above them when the last read
 // failed.
-func worktreeStandingFields(read worktreeInspection, now time.Time) []recordField {
+func worktreeStandingFields(read panel.WorktreeInspection, now time.Time) []recordField {
 	fields := []recordField{}
-	if read.err != nil {
-		fields = append(fields, recordField{label: "worktree", value: "could not read: " + errui.GetReason(read.err)})
+	if read.Err != nil {
+		fields = append(fields, recordField{label: "worktree", value: "could not read: " + errui.GetReason(read.Err)})
 	}
-	if !read.isRead() {
+	if !read.IsRead() {
 		return fields
 	}
 
-	if read.item.Readable {
+	if read.Item.Readable {
 		fields = append(fields, recordField{label: "changes", value: changesField(read)})
-		if read.landed > 0 {
-			fields = append(fields, recordField{label: "landed", value: fmt.Sprintf("%s the base already holds", label.Count(read.landed, "commit", "commits"))})
+		if read.Landed > 0 {
+			fields = append(fields, recordField{label: "landed", value: fmt.Sprintf("%s the base already holds", label.Count(read.Landed, "commit", "commits"))})
 		}
-		if read.sequencing {
+		if read.Sequencing {
 			fields = append(fields, recordField{label: "sequence", value: "a merge or rebase is part-way through"})
 		}
 	}
 
-	return append(fields, recordField{label: "size", value: sizeField(read.item, now)})
+	return append(fields, recordField{label: "size", value: sizeField(read.Item, now)})
 }
 
 // hoveredRecordAgent is the agent the record under the agents list or the archive is about, which

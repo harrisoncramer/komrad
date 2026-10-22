@@ -150,7 +150,7 @@ func (m *model) releaseAbandonedPause(msg reviewPausedMsg) tea.Cmd {
 		return nil
 	}
 
-	return m.releaseCmd("Could not let "+item.Agent.Name+" go", item.Agent, abandonedSaid)
+	return m.apply(m.releaseWrite("Could not let "+item.Agent.Name+" go", item.Agent, abandonedSaid))
 }
 
 // endHold lets the agent go and tells it which files the reader opened while it was stopped.
@@ -171,7 +171,7 @@ func (r *reviewScreen) endHold(m *model, said string) tea.Cmd {
 
 	agent, name := item.Agent, r.agentName
 
-	return m.releaseCmd("Could not let "+name+" go", agent, said)
+	return m.apply(m.releaseWrite("Could not let "+name+" go", agent, said))
 }
 
 // touchedSaid names the files the reader opened an editor on.

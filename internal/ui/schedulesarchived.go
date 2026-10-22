@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/menu"
@@ -149,25 +150,25 @@ func (a *archivedSchedules) buildItemMenu(m *model) (menu.Menu, bool) {
 
 // confirmDeleteSchedule asks before it deletes an archived schedule for good.
 func confirmDeleteSchedule(m *model, schedule panel.Schedule) tea.Cmd {
-	form, confirmed := deleteScheduleForm(schedule.Name, fixedKeys())
+	built, confirmed := deleteScheduleForm(schedule.Name, fixedKeys())
 
-	return m.openForm(formState{
-		kind:   formArchiveDelete,
-		form:   form,
-		update: (*model).updateForm,
-		submit: holdSubmit(func(m *model) tea.Cmd {
+	return m.apply(form.Open{Form: form.Form{
+		Built: built,
+		Submit: func(form.Inputs) screen.Request {
 			if !*confirmed {
 				return nil
 			}
 
-			return m.awaitingWriteCmd(
+			return m.awaitingWrite(
 				"deleting "+schedule.Name,
 				fmt.Sprintf("Could not delete schedule %q", schedule.Name),
 				screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedSchedules, schedule.ID)},
 				func(c api) error { return c.deleteSchedule(schedule.ID) },
 			)
-		}),
-	})
+		},
+		Narrow:          true,
+		ClosesOnRefusal: true,
+	}})
 }
 
 // place keeps the cursor on the archived schedule it was on as the rows under it change.

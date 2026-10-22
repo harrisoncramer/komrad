@@ -10,36 +10,36 @@ import (
 	"komrad/lib/xslice"
 )
 
-func worktreeInspectionFrom(read *worktreev1.GetWorktreeResponse, now time.Time) worktreeInspection {
-	return worktreeInspection{
-		answered: true,
-		readAt:   now,
-		item:     panel.WorktreeFrom(read.GetWorktree()),
-		entries: xslice.Map(read.GetEntries(), func(entry *worktreev1.Entry) worktreeEntry {
-			return worktreeEntry{
-				path:  entry.GetPath(),
-				bytes: entry.GetSizeBytes(),
-				dir:   entry.GetDir(),
+func worktreeInspectionFrom(read *worktreev1.GetWorktreeResponse, now time.Time) panel.WorktreeInspection {
+	return panel.WorktreeInspection{
+		Answered: true,
+		ReadAt:   now,
+		Item:     panel.WorktreeFrom(read.GetWorktree()),
+		Entries: xslice.Map(read.GetEntries(), func(entry *worktreev1.Entry) panel.WorktreeEntry {
+			return panel.WorktreeEntry{
+				Path:  entry.GetPath(),
+				Bytes: entry.GetSizeBytes(),
+				Dir:   entry.GetDir(),
 			}
 		}),
-		modified:       read.GetModified(),
-		untracked:      read.GetUntracked(),
-		baseRef:        read.GetBaseRef(),
-		baseError:      read.GetBaseError(),
-		ahead:          int(read.GetAhead()),
-		behind:         int(read.GetBehind()),
-		pushed:         read.GetPushed(),
-		unpushed:       int(read.GetUnpushed()),
-		unpulled:       int(read.GetUnpulled()),
-		unpulledLanded: read.GetUnpulledLanded(),
-		landed:         int(read.GetLandedCommits()),
-		sequencing:     read.GetSequenceInProgress(),
-		keepsBranch:    read.GetKeepsBranch(),
-		commits: xslice.Map(read.GetCommits(), func(commit *worktreev1.Commit) worktreeCommit {
-			return worktreeCommit{
-				sha:         commit.GetSha(),
-				subject:     commit.GetSubject(),
-				committedAt: dates.Parse(commit.GetCommittedAt()),
+		Modified:       read.GetModified(),
+		Untracked:      read.GetUntracked(),
+		BaseRef:        read.GetBaseRef(),
+		BaseError:      read.GetBaseError(),
+		Ahead:          int(read.GetAhead()),
+		Behind:         int(read.GetBehind()),
+		Pushed:         read.GetPushed(),
+		Unpushed:       int(read.GetUnpushed()),
+		Unpulled:       int(read.GetUnpulled()),
+		UnpulledLanded: read.GetUnpulledLanded(),
+		Landed:         int(read.GetLandedCommits()),
+		Sequencing:     read.GetSequenceInProgress(),
+		KeepsBranch:    read.GetKeepsBranch(),
+		Commits: xslice.Map(read.GetCommits(), func(commit *worktreev1.Commit) panel.WorktreeCommit {
+			return panel.WorktreeCommit{
+				SHA:         commit.GetSha(),
+				Subject:     commit.GetSubject(),
+				CommittedAt: dates.Parse(commit.GetCommittedAt()),
 			}
 		}),
 	}

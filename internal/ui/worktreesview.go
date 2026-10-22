@@ -72,10 +72,10 @@ func worktreeFields(m *model, item panel.Worktree, now time.Time) []recordField 
 		recordField{label: "repository", value: label.OrDash(label.Path(item.RepoDir, homeDir()))},
 	)
 	read := m.inspections[item.Dir]
-	if read.answered && read.err != nil {
-		fields = append(fields, recordField{label: "worktree", value: "could not read: " + errui.GetReason(read.err)})
+	if read.Answered && read.Err != nil {
+		fields = append(fields, recordField{label: "worktree", value: "could not read: " + errui.GetReason(read.Err)})
 	}
-	if read.isRead() {
+	if read.IsRead() {
 		fields = append(fields,
 			buildBaseField(read),
 			recordField{label: "changes", value: changesField(read)},
@@ -132,28 +132,28 @@ func lastActiveField(item panel.Worktree, now time.Time) string {
 }
 
 // buildBaseField spells where the branch stands against its base, or why git could not name one.
-func buildBaseField(read worktreeInspection) recordField {
-	if read.baseRef == "" {
-		return recordField{label: "base", value: label.OrDash(read.baseError)}
+func buildBaseField(read panel.WorktreeInspection) recordField {
+	if read.BaseRef == "" {
+		return recordField{label: "base", value: label.OrDash(read.BaseError)}
 	}
-	if read.ahead == 0 && read.behind == 0 {
+	if read.Ahead == 0 && read.Behind == 0 {
 		return recordField{
 			label: "base",
-			value: read.baseRef,
+			value: read.BaseRef,
 			tail:  view.Cell{Text: "even", Tone: paint.ToneMuted},
 		}
 	}
 
-	ahead := fmt.Sprintf("%s%d", glyph.Up, read.ahead)
-	behind := fmt.Sprintf("%s%d", glyph.Down, read.behind)
+	ahead := fmt.Sprintf("%s%d", glyph.Up, read.Ahead)
+	behind := fmt.Sprintf("%s%d", glyph.Down, read.Behind)
 
 	return recordField{
 		label: "base",
-		value: read.baseRef,
+		value: read.BaseRef,
 		tail: view.Cell{Parts: []view.Cell{
-			{Text: ahead, Tone: countTone(read.ahead, paint.ToneSuccess)},
+			{Text: ahead, Tone: countTone(read.Ahead, paint.ToneSuccess)},
 			{Text: " "},
-			{Text: behind, Tone: countTone(read.behind, paint.ToneWarning)},
+			{Text: behind, Tone: countTone(read.Behind, paint.ToneWarning)},
 		}},
 	}
 }
@@ -166,12 +166,12 @@ func countTone(count int, tone paint.Tone) paint.Tone {
 	return tone
 }
 
-func changesField(read worktreeInspection) string {
+func changesField(read panel.WorktreeInspection) string {
 	var parts []string
-	if n := len(read.modified); n > 0 {
+	if n := len(read.Modified); n > 0 {
 		parts = append(parts, label.Count(n, "modified", "modified"))
 	}
-	if n := len(read.untracked); n > 0 {
+	if n := len(read.Untracked); n > 0 {
 		parts = append(parts, label.Count(n, "untracked", "untracked"))
 	}
 	if len(parts) == 0 {
@@ -205,23 +205,23 @@ func (w *worktreesScreen) gitDoc(m *model) string {
 
 	read, ok := m.inspections[row.item.Dir]
 	switch {
-	case !ok || !read.answered:
+	case !ok || !read.Answered:
 		return renderDocument(row.name(), "_"+row.item.Dir+"_", "_reading the directory…_", "")
-	case read.err != nil && !read.isRead():
-		return renderDocument(row.name(), "_"+row.item.Dir+"_", "could not read: "+errui.GetReason(read.err), "")
-	case read.err != nil:
-		return renderDocument(row.name(), "_"+row.item.Dir+"_", "_could not read: "+errui.GetReason(read.err)+"_\n\n"+worktreeProse(row.item, read), "")
+	case read.Err != nil && !read.IsRead():
+		return renderDocument(row.name(), "_"+row.item.Dir+"_", "could not read: "+errui.GetReason(read.Err), "")
+	case read.Err != nil:
+		return renderDocument(row.name(), "_"+row.item.Dir+"_", "_could not read: "+errui.GetReason(read.Err)+"_\n\n"+worktreeProse(row.item, read), "")
 	}
 
 	return renderDocument(row.name(), "_"+row.item.Dir+"_", worktreeProse(row.item, read), "")
 }
 
 // worktreeProse is the three blocks the document renders, each fenced.
-func worktreeProse(item panel.Worktree, read worktreeInspection) string {
+func worktreeProse(item panel.Worktree, read panel.WorktreeInspection) string {
 	var b strings.Builder
 
 	b.WriteString("## Contents\n\n")
-	fenced(&b, entryLines(read.entries))
+	fenced(&b, entryLines(read.Entries))
 
 	if !item.Readable {
 		b.WriteString("\n_git cannot read this directory; its registration names a repository that is gone_\n")
@@ -230,18 +230,18 @@ func worktreeProse(item panel.Worktree, read worktreeInspection) string {
 	}
 
 	b.WriteString("\n## Uncommitted\n\n")
-	if len(read.modified)+len(read.untracked) == 0 {
+	if len(read.Modified)+len(read.Untracked) == 0 {
 		b.WriteString("_nothing_\n")
 	} else {
 		fenced(&b, changeLines(read))
 	}
 
-	if read.baseRef != "" {
-		fmt.Fprintf(&b, "\n## Commits since %s\n\n", read.baseRef)
-		if len(read.commits) == 0 {
+	if read.BaseRef != "" {
+		fmt.Fprintf(&b, "\n## Commits since %s\n\n", read.BaseRef)
+		if len(read.Commits) == 0 {
 			b.WriteString("_none_\n")
 		} else {
-			fenced(&b, commitLines(read.commits))
+			fenced(&b, commitLines(read.Commits))
 		}
 	}
 
@@ -257,7 +257,7 @@ func fenced(b *strings.Builder, lines []string) {
 }
 
 // entryLines is the biggest entries with their sizes lined up, and one line for the rest.
-func entryLines(entries []worktreeEntry) []string {
+func entryLines(entries []panel.WorktreeEntry) []string {
 	if len(entries) == 0 {
 		return []string{"empty"}
 	}
@@ -271,12 +271,12 @@ func entryLines(entries []worktreeEntry) []string {
 	var rest int64
 	for i, entry := range entries {
 		if i >= entriesShown {
-			rest += entry.bytes
+			rest += entry.Bytes
 
 			continue
 		}
 
-		lines = append(lines, fmt.Sprintf("%-*s  %5s", width, entryName(entry), label.Bytes(entry.bytes)))
+		lines = append(lines, fmt.Sprintf("%-*s  %5s", width, entryName(entry), label.Bytes(entry.Bytes)))
 	}
 	if len(entries) > entriesShown {
 		lines = append(lines, fmt.Sprintf("%-*s  %5s", width, fmt.Sprintf("+ %d more", len(entries)-entriesShown), label.Bytes(rest)))
@@ -285,28 +285,28 @@ func entryLines(entries []worktreeEntry) []string {
 	return lines
 }
 
-func entryName(entry worktreeEntry) string {
-	if entry.dir {
-		return entry.path + "/"
+func entryName(entry panel.WorktreeEntry) string {
+	if entry.Dir {
+		return entry.Path + "/"
 	}
 
-	return entry.path
+	return entry.Path
 }
 
-func changeLines(read worktreeInspection) []string {
-	lines := xslice.Map(read.modified, func(path string) string {
+func changeLines(read panel.WorktreeInspection) []string {
+	lines := xslice.Map(read.Modified, func(path string) string {
 		return "M " + path
 	})
-	lines = append(lines, xslice.Map(read.untracked, func(path string) string {
+	lines = append(lines, xslice.Map(read.Untracked, func(path string) string {
 		return "? " + path
 	})...)
 
 	return lines
 }
 
-func commitLines(commits []worktreeCommit) []string {
-	lines := xslice.Map(commits, func(commit worktreeCommit) string {
-		return fmt.Sprintf("%s  %-4s %s", xsha.Short(commit.sha), label.Age(commit.committedAt), commit.subject)
+func commitLines(commits []panel.WorktreeCommit) []string {
+	lines := xslice.Map(commits, func(commit panel.WorktreeCommit) string {
+		return fmt.Sprintf("%s  %-4s %s", xsha.Short(commit.SHA), label.Age(commit.CommittedAt), commit.Subject)
 	})
 
 	return lines

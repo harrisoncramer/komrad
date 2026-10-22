@@ -125,21 +125,21 @@ func restoreArchived(m *model, target archived) tea.Cmd {
 	case target.schedule != nil:
 		schedule := *target.schedule
 
-		return m.awaitingWriteCmd(
+		return m.apply(m.awaitingWrite(
 			"restoring "+schedule.Name,
 			fmt.Sprintf("Could not restore schedule %q", schedule.Name),
 			screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedSchedules, schedule.ID)},
 			func(c api) error { return c.restoreSchedule(schedule.ID) },
-		)
+		))
 	case target.workflow != nil:
 		workflow := *target.workflow
 
-		return m.awaitingWriteCmd(
+		return m.apply(m.awaitingWrite(
 			"restoring "+workflow.Name,
 			fmt.Sprintf("Could not restore workflow %q", workflow.Name),
 			screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)},
 			func(c api) error { return c.restoreWorkflow(workflow.ID) },
-		)
+		))
 	}
 
 	return restoreAgentsCmd(m, target.work.chosen)
@@ -221,7 +221,7 @@ func chosenArchiveMenu(m *model, work chosenWork) menu.Menu {
 func (m *model) archiveChosenAgents(work chosenWork) tea.Cmd {
 	subject := describeAgents(work.chosen)
 
-	return m.archivingWriteCmd(archivingWriteCmdParams{
+	return m.apply(m.archivingWrite(archivingWriteParams{
 		doing:   "archiving " + subject,
 		summary: "Could not archive " + subject,
 		agents:  work.affected(m.listing),
@@ -237,14 +237,15 @@ func (m *model) archiveChosenAgents(work chosenWork) tea.Cmd {
 
 			return a.archiveAgents(panel.IDs(work.loneAgents))
 		},
-	})
+	}))
 }
 
-// deleteChosenAgents deletes the task of each chosen writer, with its agents when records go too.
-func (m *model) deleteChosenAgents(work chosenWork, records bool) tea.Cmd {
+// deleteChosenWrite is the write that deletes the task of each chosen writer, with its agents when
+// records go too.
+func (m *model) deleteChosenWrite(work chosenWork, records bool) screen.Write {
 	subject := describeAgents(work.chosen)
 
-	return m.archivingWriteCmd(archivingWriteCmdParams{
+	return m.archivingWrite(archivingWriteParams{
 		doing:   "deleting " + subject,
 		summary: "Could not delete " + subject,
 		agents:  work.affected(m.listing),
@@ -259,8 +260,8 @@ func (m *model) deleteChosenAgents(work chosenWork, records bool) tea.Cmd {
 func confirmDeleteChosenAgents(m *model, work chosenWork) tea.Cmd {
 	confirm := deleteChosenConfirm(work, m.listing.HasAnyWorktreeToDelete(work.wholeTasks))
 
-	return confirm.open(m, func(m *model) tea.Cmd {
-		return m.deleteChosenAgents(work, confirm.values.deletesRecords())
+	return confirm.open(m, func() screen.Request {
+		return m.deleteChosenWrite(work, confirm.values.deletesRecords())
 	})
 }
 
