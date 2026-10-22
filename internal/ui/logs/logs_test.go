@@ -1,4 +1,4 @@
-package ui_test
+package logs_test
 
 import (
 	"errors"

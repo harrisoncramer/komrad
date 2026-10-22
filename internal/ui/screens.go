@@ -11,6 +11,7 @@ import (
 	"komrad/internal/ui/layout"
 	"komrad/internal/ui/legend"
 	"komrad/internal/ui/list"
+	"komrad/internal/ui/logs"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/record"
@@ -274,6 +275,15 @@ func (m *model) screenOf(s screen.ID) screenModel {
 	// arm compiles to until the exhaustive check refuses it.
 	return nil
 }
+
+var (
+	_ activeLister  = (*logs.Screen)(nil)
+	_ columnFocuser = (*logs.Screen)(nil)
+	_ crumbRenderer = (*logs.Screen)(nil)
+	_ screenLeaver  = (*logs.Screen)(nil)
+	_ lineTyper     = (*logs.Screen)(nil)
+	_ kindSwitcher  = (*logs.Screen)(nil)
+)
 
 // stageEditor puts an editor on the stage with the keys in it, and answers the pane it was
 // given, empty where the split was refused.

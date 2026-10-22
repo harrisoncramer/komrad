@@ -27,6 +27,7 @@ import (
 	"komrad/internal/ui/filter"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/layout"
+	"komrad/internal/ui/logs"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/submitting"
@@ -292,7 +293,7 @@ type model struct {
 	schedules       schedulesScreen
 	worktrees       worktreesScreen
 	documents       documentsScreen
-	logs            logsScreen
+	logs            logs.Screen
 	statusChecks    statusChecksScreen
 	// inspections is what the server answered for each worktree directory.
 	inspections map[string]panel.WorktreeInspection
@@ -515,14 +516,14 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 			sort: tabs.State{Flat: true},
 		},
 		documents: documentsScreen{deps: documents},
-		logs: logsScreen{deps: logsDeps{
-			keys:     deps.Keys,
-			glyphs:   deps.Glyphs,
-			clock:    clock,
-			register: register,
-			clients:  clients,
-			top:      top,
-		}},
+		logs: logs.New(logs.Deps{
+			Keys:     deps.Keys,
+			Glyphs:   deps.Glyphs,
+			Clock:    clock,
+			Register: register,
+			Clients:  clients,
+			Top:      top,
+		}),
 		statusChecks: statusChecksScreen{deps: statusChecks},
 		warm:         newWarmupState(),
 		loading:      loadingState{style: cmp.Or(deps.Loader, loader.Braille)},

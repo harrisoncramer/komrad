@@ -67,7 +67,7 @@ tests what it adds and nothing it inherits.
 | Adapter | `internal/rpc/...`, `internal/mcp` | a fake service | validation, error to code mapping, caller scoping, rendering |
 | Scenario | `internal/e2e`, through `komradtest` | a real service, tmux and Postgres | a feature as a user or an agent meets it, one file per feature |
 | Outside world | `internal/git`, `internal/tmux`, harness frame readers | the real binary or recorded frames | what the other program does |
-| Panel | `internal/ui`, in `package ui_test` through `paneltest` | the frame drawn and the requests sent | keys, screens and forms |
+| Panel | `internal/ui` through `paneltest`, each domain's stories in `package <domain>_test` and the root's in `package ui_test` | the frame drawn and the requests sent | a domain's keys, screens and forms in its own package, and routing, stops, menus, clicks and moves between domains in the root |
 
 - A regression is a new case in the table or story that owns the behaviour, not a new function.
 - A test file sits beside the source file it tests, or is named for the feature or screen it
