@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/ui/menu"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -17,16 +18,27 @@ func TestFirstOn(t *testing.T) {
 		entries []menu.Entry
 		want    int
 	}{
-		{name: "no entries", want: menu.Cancel},
-		{name: "every entry off", entries: []menu.Entry{{Off: true}, {Off: true}}, want: menu.Cancel},
-		{name: "skips entries that are off", entries: []menu.Entry{{Off: true}, {Label: "on"}}, want: 1},
+		{
+			name: "no entries",
+			want: menu.Cancel,
+		},
+		{
+			name:    "every entry off",
+			entries: []menu.Entry{{Off: true}, {Off: true}},
+			want:    menu.Cancel,
+		},
+		{
+			name:    "skips entries that are off",
+			entries: []menu.Entry{{Off: true}, {Label: "on"}},
+			want:    1,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			require.Equal(t, tt.want, menu.Menu{Entries: tt.entries}.FirstOn())
+			assert.Equal(t, tt.want, menu.Menu{Entries: tt.entries}.FirstOn())
 		})
 	}
 }
@@ -40,9 +52,19 @@ func TestNested(t *testing.T) {
 		menu    menu.Menu
 		wantOff bool
 	}{
-		{name: "a menu with an entry on", menu: menu.Menu{Entries: []menu.Entry{{Label: "on"}}}},
-		{name: "a menu with every entry off", menu: menu.Menu{Entries: []menu.Entry{{Off: true}}}, wantOff: true},
-		{name: "a list with no entries yet", menu: menu.Menu{Actions: func(int) menu.Menu { return menu.Menu{} }}},
+		{
+			name: "a menu with an entry on",
+			menu: menu.Menu{Entries: []menu.Entry{{Label: "on"}}},
+		},
+		{
+			name:    "a menu with every entry off",
+			menu:    menu.Menu{Entries: []menu.Entry{{Off: true}}},
+			wantOff: true,
+		},
+		{
+			name: "a list with no entries yet",
+			menu: menu.Menu{Actions: func(int) menu.Menu { return menu.Menu{} }},
+		},
 	}
 
 	for _, tt := range tests {
@@ -51,8 +73,8 @@ func TestNested(t *testing.T) {
 
 			entry := menu.Nested("git", nil, tt.menu)
 
-			require.Equal(t, tt.wantOff, entry.Off)
-			require.NotNil(t, entry.Opens)
+			assert.Equal(t, tt.wantOff, entry.Off)
+			assert.NotNil(t, entry.Opens)
 		})
 	}
 }
@@ -68,9 +90,11 @@ func TestWithNestedLeavesTheBandItCameFrom(t *testing.T) {
 	first := menu.WithNested(band, "jump", nil, menu.Menu{Entries: []menu.Entry{{Label: "agents"}}})
 	second := menu.WithNested(band, "git", nil, menu.Menu{Entries: []menu.Entry{{Label: "push"}}})
 
-	require.Equal(t, "jump", first.Entries[1].Label)
-	require.Equal(t, "git", second.Entries[1].Label)
-	require.Len(t, band.Entries, 1)
+	require.Len(t, first.Entries, 2)
+	require.Len(t, second.Entries, 2)
+	assert.Equal(t, "jump", first.Entries[1].Label)
+	assert.Equal(t, "git", second.Entries[1].Label)
+	assert.Len(t, band.Entries, 1)
 }
 
 // TestJoin checks two bands join under the top title with a rule between them.
@@ -82,11 +106,11 @@ func TestJoin(t *testing.T) {
 		menu.Menu{Title: "task", Entries: []menu.Entry{{Label: "archive"}}},
 	)
 
-	require.Equal(t, "agent", joined.Title)
+	assert.Equal(t, "agent", joined.Title)
 	require.Len(t, joined.Entries, 3)
-	require.True(t, joined.Entries[1].Divider)
-	require.True(t, joined.Entries[1].Off)
-	require.Equal(t, "archive", joined.Entries[2].Label)
+	assert.True(t, joined.Entries[1].Divider)
+	assert.True(t, joined.Entries[1].Off)
+	assert.Equal(t, "archive", joined.Entries[2].Label)
 }
 
 // TestDrawnOff checks an entry is drawn off only when there is a reason to say.
@@ -95,6 +119,6 @@ func TestDrawnOff(t *testing.T) {
 
 	entry := menu.Entry{Label: "push"}
 
-	require.Equal(t, entry, menu.DrawnOff(entry, ""))
-	require.Equal(t, menu.Entry{Label: "push", Off: true, OffSaid: "nothing to push"}, menu.DrawnOff(entry, "nothing to push"))
+	assert.Equal(t, entry, menu.DrawnOff(entry, ""))
+	assert.Equal(t, menu.Entry{Label: "push", Off: true, OffSaid: "nothing to push"}, menu.DrawnOff(entry, "nothing to push"))
 }
