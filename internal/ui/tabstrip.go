@@ -206,12 +206,16 @@ func (m *model) tabsFit(in screen.Inputs) bool {
 	return fits
 }
 
-// listFitsTabs is whether a list has the room to render its strips, judged with the keys on the
-// list.
+// listFitsTabs is the active list's params and whether the list has the room to render its strips,
+// judged with the keys on the list.
 func (m *model) listFitsTabs(in screen.Inputs) (list.Params, bool) {
 	probe := *m
 	t, tabbed := probe.activeTabs()
 	k, kinded := probe.activeKinds()
+	if !tabbed && !kinded {
+		return list.Params{}, false
+	}
+
 	probe.details.focused, probe.helpExpanded = false, false
 	if tabbed {
 		t.tabsState().focused = false
@@ -221,8 +225,8 @@ func (m *model) listFitsTabs(in screen.Inputs) (list.Params, bool) {
 	}
 
 	params, ok := m.listParamsOn(&probe, in)
-	if !ok || !tabbed && !kinded {
-		return params, false
+	if !ok {
+		return list.Params{}, false
 	}
 
 	if probe.term.height <= 0 {
