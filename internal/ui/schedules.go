@@ -169,7 +169,7 @@ func (w *schedulesScreen) toggleSchedule(schedule panel.Schedule) screen.Request
 // newScheduleForm puts up the form for a new schedule.
 func (w *schedulesScreen) newScheduleForm(in screen.Inputs) screen.Request {
 	if len(in.Listing.Workflows) == 0 {
-		return screen.Report{Summary: "Could not create a schedule", Err: errNoWorkflow}
+		return screen.Report{Summary: "Could not create a schedule", Err: panel.ErrNoWorkflow}
 	}
 
 	values := panel.ScheduleConfig{
