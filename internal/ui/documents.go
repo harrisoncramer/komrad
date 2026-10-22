@@ -418,7 +418,7 @@ func (m *model) listDocumentsCmd(written documentsWritten) tea.Cmd {
 	clients := m.api
 
 	return func() tea.Msg {
-		documents, err := clients.listDocuments()
+		documents, err := clients.ListDocuments()
 		if err != nil {
 			return documentsListedMsg{
 				written: written,
@@ -481,7 +481,7 @@ func (m *model) readHoveredDocumentCmd() tea.Cmd {
 	clients := m.api
 
 	return func() tea.Msg {
-		document, err := clients.getDocument(item.id)
+		document, err := clients.GetDocument(item.id)
 		if err != nil {
 			return documentReadMsg{
 				id:   item.id,

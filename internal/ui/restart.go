@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"komrad/config"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/menu"
@@ -102,7 +103,7 @@ func (m *model) restartWrite(agent panel.Agent, values restartValues) screen.Wri
 		Summary: fmt.Sprintf("Could not restart agent %q", m.listing.AgentName(agent)),
 		Unstage: []panel.Agent{agent},
 		Send: func() screen.Landed {
-			restarted, err := clients.restartAgent(restartAgentParams{
+			restarted, err := clients.RestartAgent(api.RestartAgentParams{
 				ID:      agent.ID,
 				Note:    values.Note,
 				Harness: values.Harness,

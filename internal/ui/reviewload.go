@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/diff"
 	"komrad/internal/glyph"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
@@ -160,7 +161,7 @@ type loadReviewCmdParams struct {
 // loadReviewCmd takes a snapshot of the agent and reads that rather than the worktree, a tree that
 // has not moved giving back the snapshot already taken of it.
 func loadReviewCmd(m *model, params loadReviewCmdParams) tea.Cmd {
-	agents := m.api.reads().agents
+	agents := m.api.Reads().Agents
 	agentID := params.AgentID
 	patches := m.patches
 
@@ -244,8 +245,8 @@ func historyRequestOf(params loadReviewCmdParams) *agentv1.OpenReviewHistoryRequ
 		}}
 	case !spec.isWholeChange():
 		req.Span = &agentv1.OpenReviewHistoryRequest_Snapshots{Snapshots: &agentv1.ReviewSnapshotSpan{
-			FromSnapshotId: nilIfBlank(spec.from),
-			ToSnapshotId:   nilIfBlank(spec.to),
+			FromSnapshotId: api.NilIfBlank(spec.from),
+			ToSnapshotId:   api.NilIfBlank(spec.to),
 		}}
 	}
 

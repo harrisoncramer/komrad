@@ -364,7 +364,7 @@ func (c *statusCheckLogsScreen) readCmd(m *model, checkID string, first, last in
 	count := min(last-first+1, statusCheckLogChunk)
 
 	return func() tea.Msg {
-		resp, err := clients.readCheckLog(checkID, first, count)
+		resp, err := clients.ReadCheckLog(checkID, first, count)
 
 		return statusCheckLogReadMsg{
 			generation: generation,

@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
@@ -156,7 +157,7 @@ func confirmDeleteSchedule(m *model, schedule panel.Schedule) screen.Request {
 				"deleting "+schedule.Name,
 				fmt.Sprintf("Could not delete schedule %q", schedule.Name),
 				screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedSchedules, schedule.ID)},
-				func(c api) error { return c.deleteSchedule(schedule.ID) },
+				func(c api.Clients) error { return c.DeleteSchedule(schedule.ID) },
 			)
 		},
 		Narrow:          true,

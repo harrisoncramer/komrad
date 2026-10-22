@@ -324,7 +324,7 @@ func (m *model) readStatusChecksCmd() tea.Cmd {
 	agentID, clients := c.agentID, m.api
 
 	return func() tea.Msg {
-		listed, err := clients.listStatusChecks(pullRequestID)
+		listed, err := clients.ListStatusChecks(pullRequestID)
 		if err != nil {
 			return statusChecksListedMsg{
 				agentID:       agentID,

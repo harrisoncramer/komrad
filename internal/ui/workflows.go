@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"komrad/internal/eventprompts"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
@@ -53,7 +54,7 @@ func openWorkflowConfigForm(m *model, values *workflowFormValues, target *panel.
 			return m.write(
 				"saving "+target.Name,
 				fmt.Sprintf("Could not save workflow %q", target.Name),
-				func(a api) error { return a.updateWorkflow(edited) },
+				func(a api.Clients) error { return a.UpdateWorkflow(edited) },
 			)
 		},
 	})}
@@ -62,7 +63,7 @@ func openWorkflowConfigForm(m *model, values *workflowFormValues, target *panel.
 // getAvailableHooks is the hooks directory as the form offers it, a directory that is not there
 // reading as an empty list rather than an error.
 func (m *model) getAvailableHooks() []string {
-	listed, err := m.api.listHooks()
+	listed, err := m.api.ListHooks()
 	if err != nil {
 		return nil
 	}
@@ -78,8 +79,8 @@ func (m *model) archiveWorkflow(workflow panel.Workflow) screen.Request {
 		summary: fmt.Sprintf("Could not archive workflow %q", workflow.Name),
 		agents:  m.listing.AgentsOf(workflow.ID),
 		awaits:  screen.Awaits{Gone: screen.RowsIn(screen.ListWorkflows, workflow.ID)},
-		write: func(a api) error {
-			return a.archiveWorkflow(workflow.ID)
+		write: func(a api.Clients) error {
+			return a.ArchiveWorkflow(workflow.ID)
 		},
 	})
 }

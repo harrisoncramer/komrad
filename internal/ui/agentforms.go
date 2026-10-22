@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/paint/label"
@@ -82,7 +83,7 @@ func openReviewerForm(m *model, writer panel.Agent, task panel.Task, values *age
 
 // submitReviewer launches a reviewer onto the writer's task.
 func (m *model) submitReviewer(writer panel.Agent, task panel.Task, values agentFormValues) screen.Write {
-	return m.createWrite(createAgentParams{
+	return m.createWrite(api.CreateAgentParams{
 		Prompt:     values.Prompt,
 		Title:      values.Title,
 		Harness:    values.Harness,
@@ -130,7 +131,7 @@ func openAdoptForm(m *model, workflow panel.Workflow, values *adoptFormValues) s
 }
 
 func (m *model) submitAdopt(workflow panel.Workflow, values adoptFormValues) screen.Write {
-	return m.adoptWrite(adoptParams{
+	return m.adoptWrite(api.AdoptParams{
 		Ref:        values.Ref,
 		Prompt:     values.Prompt,
 		Title:      values.Title,
@@ -142,7 +143,7 @@ func (m *model) submitAdopt(workflow panel.Workflow, values adoptFormValues) scr
 
 // submitTask starts the agent along with the task it works on.
 func (m *model) submitTask(workflow panel.Workflow, values taskFormValues) screen.Write {
-	return m.createWrite(createAgentParams{
+	return m.createWrite(api.CreateAgentParams{
 		Prompt:           values.Prompt,
 		Harness:          values.Harness,
 		Flags:            values.Flags,
@@ -154,7 +155,7 @@ func (m *model) submitTask(workflow panel.Workflow, values taskFormValues) scree
 
 // submitAgentOnTask starts a task's writer.
 func (m *model) submitAgentOnTask(workflow panel.Workflow, task panel.Task, values agentFormValues) screen.Write {
-	return m.createWrite(createAgentParams{
+	return m.createWrite(api.CreateAgentParams{
 		Prompt:     values.Prompt,
 		Title:      values.Title,
 		Harness:    values.Harness,

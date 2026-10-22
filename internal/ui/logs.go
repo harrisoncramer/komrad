@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/keys"
@@ -121,8 +122,8 @@ func (l *logsScreen) enter(m *model, target screen.Target) screen.Request {
 
 	taskID := l.taskID
 
-	return screen.Batch{screen.Cmd(l.listCmd(m)), m.write("marking the task's runs read", "Could not mark the task's runs read", func(a api) error {
-		return a.markTaskRunsRead(taskID)
+	return screen.Batch{screen.Cmd(l.listCmd(m)), m.write("marking the task's runs read", "Could not mark the task's runs read", func(a api.Clients) error {
+		return a.MarkTaskRunsRead(taskID)
 	})}
 }
 
@@ -138,13 +139,13 @@ func (l *logsScreen) listCmd(m *model) tea.Cmd {
 		return nil
 	}
 
-	agentID, taskID, generation, clients := l.agentID, l.taskID, l.generation, m.api.reads()
+	agentID, taskID, generation, clients := l.agentID, l.taskID, l.generation, m.api.Reads()
 
 	return func() tea.Msg {
-		list := clients.listAgentLogSources
+		list := clients.ListAgentLogSources
 		id := agentID
 		if taskID != "" {
-			list, id = clients.listTaskLogSources, taskID
+			list, id = clients.ListTaskLogSources, taskID
 		}
 		sources, err := list(id)
 
@@ -172,10 +173,10 @@ func (l *logsScreen) readCmd(m *model) tea.Cmd {
 		Source:   l.reading.GetId(),
 		Pattern:  l.pattern,
 	}
-	generation, clients := l.generation, m.api.reads()
+	generation, clients := l.generation, m.api.Reads()
 
 	return func() tea.Msg {
-		resp, err := clients.readAgentLogs(req)
+		resp, err := clients.ReadAgentLogs(req)
 
 		return logsReadMsg{
 			generation: generation,
@@ -281,7 +282,7 @@ func (l *logsScreen) markFailedRunRead(m *model, row logSourceRow) screen.Reques
 
 	agentID := l.agentID
 
-	return m.write("marking the failed run read", "Could not mark the failed run read", func(a api) error { return a.markRunsRead(agentID) })
+	return m.write("marking the failed run read", "Could not mark the failed run read", func(a api.Clients) error { return a.MarkRunsRead(agentID) })
 }
 
 // restart drops the lines held and reads the source over again with the pattern the block is read with.

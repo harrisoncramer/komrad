@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"komrad/internal/errui"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/savedscreen"
@@ -35,7 +36,7 @@ func lastScreenRows(params lastScreenRowsParams) []string {
 	switch {
 	case shown.agentID != params.agentID || !shown.answered:
 		return []string{muted.Render("reading the saved screen…")}
-	case errors.Is(shown.err, errNoSavedScreen):
+	case errors.Is(shown.err, api.ErrNoSavedScreen):
 		return []string{muted.Render("no saved screen")}
 	case shown.err != nil:
 		return []string{muted.Render("could not read the saved screen: " + errui.GetReason(shown.err))}

@@ -22,6 +22,7 @@ import (
 	"komrad/internal/glyph"
 	"komrad/internal/loader"
 	"komrad/internal/panes"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/layout"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
@@ -260,7 +261,7 @@ type Deps struct {
 type model struct {
 	access          accessState
 	session         *Session
-	api             api
+	api             api.Clients
 	tmux            Tmux
 	patches         diff.Reader
 	browser         browser.Opener
@@ -401,17 +402,17 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 			isDark: isDark,
 		},
 		post: post,
-		api: api{
-			agents:       deps.Agents,
-			workflows:    deps.Workflows,
-			schedules:    deps.Schedules,
-			hooks:        deps.Hooks,
-			worktrees:    deps.Worktrees,
-			logs:         deps.Logs,
-			forges:       deps.Forges,
-			pullRequests: deps.PullRequests,
-			loops:        deps.Loops,
-			tasks:        deps.Tasks,
+		api: api.Clients{
+			Agents:       deps.Agents,
+			Workflows:    deps.Workflows,
+			Schedules:    deps.Schedules,
+			Hooks:        deps.Hooks,
+			Worktrees:    deps.Worktrees,
+			Logs:         deps.Logs,
+			Forges:       deps.Forges,
+			PullRequests: deps.PullRequests,
+			Loops:        deps.Loops,
+			Tasks:        deps.Tasks,
 		},
 		session:         deps.Session,
 		clip:            deps.ClipboardWriter,

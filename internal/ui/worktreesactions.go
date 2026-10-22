@@ -206,7 +206,7 @@ func deleteWorktreesWrite(m *model, deletion worktreeDeletion) screen.Write {
 		Summary: "Could not delete " + subject,
 		Send: func() screen.Landed {
 			return screen.Landed{
-				Err:    clients.deleteWorktrees(dirs),
+				Err:    clients.DeleteWorktrees(dirs),
 				Awaits: screen.Awaits{Gone: screen.RowsIn(screen.ListWorktrees, dirs...)},
 				Notice: &screen.Notice{
 					Summary: "Deleting " + subject,

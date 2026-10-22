@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"komrad/internal/ui/api"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"connectrpc.com/connect"
@@ -12,7 +13,7 @@ import (
 // listReviewThreads is the whole conversation on a task's diff.
 func listReviewThreads(
 	ctx context.Context,
-	agents agentReads,
+	agents api.AgentReads,
 	taskID string,
 ) ([]*agentv1.ReviewThread, error) {
 	resp, err := agents.ListReviewThreads(ctx, connect.NewRequest(&agentv1.ListReviewThreadsRequest{
@@ -28,7 +29,7 @@ func listReviewThreads(
 // listReviewViewedFiles is the files of a task the person reviewing has already read.
 func listReviewViewedFiles(
 	ctx context.Context,
-	agents agentReads,
+	agents api.AgentReads,
 	taskID string,
 ) ([]*agentv1.ReviewViewedFile, error) {
 	resp, err := agents.ListReviewViewedFiles(ctx, connect.NewRequest(&agentv1.ListReviewViewedFilesRequest{

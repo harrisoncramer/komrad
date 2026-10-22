@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/errui"
 	"komrad/internal/searchsyntax"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/lib/xslice"
@@ -24,7 +25,7 @@ const saysLimit = 100
 type queryGrammar struct {
 	syntax searchsyntax.Grammar
 	check  func(searchsyntax.Clause, time.Time) error
-	search func(context.Context, agentReads, string) (map[string][]saidHit, error)
+	search func(context.Context, api.AgentReads, string) (map[string][]saidHit, error)
 }
 
 // phrase quotes text so a search reads it as one phrase.
@@ -165,10 +166,10 @@ func (m *model) applySaysSettled(msg saysSettledMsg) tea.Cmd {
 		return nil
 	}
 
-	client, search := m.api.reads().agents, grammar.search
+	client, search := m.api.Reads().Agents, grammar.search
 
 	return func() tea.Msg {
-		hits, err := call(agentsTimeout, func(ctx context.Context) (map[string][]saidHit, error) {
+		hits, err := api.Call(agentsTimeout, func(ctx context.Context) (map[string][]saidHit, error) {
 			return search(ctx, client, msg.text)
 		})
 

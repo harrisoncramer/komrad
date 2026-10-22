@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
@@ -93,8 +94,8 @@ func (m *model) archiveAgents(agents []panel.Agent) screen.Request {
 		doing:   "archiving " + describeAgents(agents),
 		summary: fmt.Sprintf("Could not archive %s", describeAgents(agents)),
 		agents:  agents,
-		write: func(a api) error {
-			return a.archiveAgents(panel.IDs(agents))
+		write: func(a api.Clients) error {
+			return a.ArchiveAgents(panel.IDs(agents))
 		},
 	})
 }
@@ -152,7 +153,7 @@ func (a *agentsScreen) resume(m *model, agent panel.Agent) screen.Request {
 		Doing:   "resuming " + agent.Name,
 		Summary: fmt.Sprintf("Could not resume agent %q", agent.Name),
 		Send: func() screen.Landed {
-			_, err := clients.resumeAgent(agent.ID)
+			_, err := clients.ResumeAgent(agent.ID)
 
 			return screen.Landed{Err: err, Then: resumeSettled{agentID: agent.ID, err: err}}
 		},
@@ -287,8 +288,8 @@ func startOrchestrator(m *model, workflow panel.Workflow) screen.Request {
 	return m.rowWrite(
 		"starting the orchestrator of "+workflow.Name,
 		fmt.Sprintf("Could not reach the orchestrator of workflow %q", workflow.Name),
-		func(a api) (*screen.Made, error) {
-			agent, err := a.startOrchestrator(workflow.ID)
+		func(a api.Clients) (*screen.Made, error) {
+			agent, err := a.StartOrchestrator(workflow.ID)
 			if err != nil {
 				return nil, err
 			}

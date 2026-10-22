@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"komrad/config"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/screen"
@@ -33,8 +34,8 @@ func newTypeForm(m *model) form.Form {
 		title:   "New document type",
 		doing:   "defining",
 		refused: "Could not define",
-		write: func(a api) error {
-			return a.createDocumentType(strings.TrimSpace(values.Name), values.Context)
+		write: func(a api.Clients) error {
+			return a.CreateDocumentType(strings.TrimSpace(values.Name), values.Context)
 		},
 	})
 }
@@ -48,8 +49,8 @@ func editTypeForm(m *model, t *agentv1.DocumentType) form.Form {
 		title:   "Edit document type",
 		doing:   "editing",
 		refused: "Could not edit",
-		write: func(a api) error {
-			return a.writeDocumentType(documentTypeItem(t), t.GetVersion(), strings.TrimSpace(values.Name), values.Context)
+		write: func(a api.Clients) error {
+			return a.WriteDocumentType(t.GetId(), t.GetVersion(), strings.TrimSpace(values.Name), values.Context)
 		},
 	})
 }
@@ -60,7 +61,7 @@ type documentTypeFormOfParams struct {
 	title   string
 	doing   string
 	refused string
-	write   func(api) error
+	write   func(api.Clients) error
 }
 
 func documentTypeFormOf(m *model, params documentTypeFormOfParams) form.Form {
@@ -79,7 +80,7 @@ func documentTypeFormOf(m *model, params documentTypeFormOfParams) form.Form {
 			return m.write(
 				doing,
 				summary,
-				func(a api) error {
+				func(a api.Clients) error {
 					if err := errors.Join(checkDocumentTypeName(name), checkDocumentTypeContext(typeContext)); err != nil {
 						return err
 					}
@@ -119,7 +120,7 @@ func deleteTypeForm(m *model, item documentItem) form.Form {
 			return m.write(
 				"deleting "+item.name,
 				fmt.Sprintf("Could not delete document type %q", item.name),
-				func(a api) error { return a.deleteDocumentType(item.id) },
+				func(a api.Clients) error { return a.DeleteDocumentType(item.id) },
 			)
 		},
 		Narrow:          true,

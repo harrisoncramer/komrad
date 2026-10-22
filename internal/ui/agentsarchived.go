@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
@@ -436,12 +437,12 @@ func (a *archivedAgents) buildItemMenu(m *model) (menu.Menu, bool) {
 
 // restoreAndResume takes the agents out of the archive and puts the resumed agent's conversation back in a pane.
 func restoreAndResume(m *model, agents []panel.Agent, resumed panel.Agent) screen.Request {
-	return m.openingWrite("restoring "+resumed.Name, fmt.Sprintf("Could not restore and open agent %q", resumed.Name), func(a api) (*agentv1.Agent, error) {
-		if err := a.restoreAgents(panel.IDs(agents)); err != nil {
+	return m.openingWrite("restoring "+resumed.Name, fmt.Sprintf("Could not restore and open agent %q", resumed.Name), func(a api.Clients) (*agentv1.Agent, error) {
+		if err := a.RestoreAgents(panel.IDs(agents)); err != nil {
 			return nil, err
 		}
 
-		return a.resumeAgent(resumed.ID)
+		return a.ResumeAgent(resumed.ID)
 	})
 }
 
@@ -454,7 +455,7 @@ func restoreAgents(m *model, agents []panel.Agent) screen.Request {
 		"restoring "+describeAgents(agents),
 		fmt.Sprintf("Could not restore %s", describeAgents(agents)),
 		screen.Awaits{Shown: screen.RowsIn(screen.ListAgents, panel.IDs(agents)...)},
-		func(a api) error { return a.restoreAgents(panel.IDs(agents)) },
+		func(a api.Clients) error { return a.RestoreAgents(panel.IDs(agents)) },
 	)
 }
 
@@ -467,7 +468,7 @@ func confirmDeleteWorkflow(m *model, workflow panel.Workflow) screen.Request {
 			"deleting "+workflow.Name,
 			fmt.Sprintf("Could not delete workflow %q", workflow.Name),
 			awaitDeleted(confirm.values.deletesRecords(), screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)),
-			func(a api) error { return a.deleteWorkflow(workflow.ID, confirm.values.deletesRecords()) },
+			func(a api.Clients) error { return a.DeleteWorkflow(workflow.ID, confirm.values.deletesRecords()) },
 		)
 	})
 }

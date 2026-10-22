@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"komrad/internal/searchsyntax"
+	"komrad/internal/ui/api"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"connectrpc.com/connect"
@@ -166,7 +167,7 @@ func (m *model) openedForTask(slug string) (string, bool) {
 }
 
 // searchDocumentsSaid asks the server which documents hold the text as they stand now, with the passages it was found in keyed by document id.
-func searchDocumentsSaid(ctx context.Context, client agentReads, text string) (map[string][]saidHit, error) {
+func searchDocumentsSaid(ctx context.Context, client api.AgentReads, text string) (map[string][]saidHit, error) {
 	resp, err := client.SearchDocuments(ctx, connect.NewRequest(&agentv1.SearchDocumentsRequest{
 		Query: phrase(text),
 		Limit: saysLimit,

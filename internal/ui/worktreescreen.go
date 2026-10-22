@@ -89,7 +89,7 @@ func (m *model) readWorktreeCmd(dir string) tea.Cmd {
 	clients, clock := m.api, m.clock
 
 	return func() tea.Msg {
-		read, err := clients.getWorktree(dir)
+		read, err := clients.GetWorktree(dir)
 		if err != nil {
 			// The last answer stays on the row with the refusal beside it.
 			last.Answered, last.ReadAt, last.Err = true, clock.Now(), err

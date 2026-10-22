@@ -100,7 +100,7 @@ func (r *reviewScreen) startHold(m *model) screen.Request {
 
 // holdAgent asks for the agent to stop and reports what came back.
 func holdAgent(m *model, agentID, name string) screen.Request {
-	agents := m.clients().agents
+	agents := m.clients().Agents
 
 	return screen.Write{
 		Doing: "pausing " + name,

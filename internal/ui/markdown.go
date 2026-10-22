@@ -169,7 +169,7 @@ func scheduleFields(sched panel.Schedule, target scheduleTarget) []recordField {
 		)
 	}
 
-	if !knownScheduleKind(sched.Kind) {
+	if !panel.IsKnownScheduleKind(sched.Kind) {
 		return append(fields, recordField{label: "kind", value: "unknown"})
 	}
 

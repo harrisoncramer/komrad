@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
@@ -62,7 +63,7 @@ func openPickForkPoint(m *model, task panel.Task) screen.Request {
 			return m.write(
 				"picking the fork point of "+task.Slug,
 				fmt.Sprintf("Could not pick the fork point of task %q on %s", task.Slug, parent),
-				func(a api) error { return a.pickForkPoint(task.ID, commit) },
+				func(a api.Clients) error { return a.PickForkPoint(task.ID, commit) },
 			)
 		},
 	}}

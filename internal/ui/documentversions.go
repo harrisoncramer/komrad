@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/list"
 	"komrad/lib/dates"
@@ -9,8 +10,8 @@ import (
 )
 
 // listVersions lists every write kept of a document, the newest first.
-func listVersions(a api, id string) ([]historyVersion, error) {
-	versions, err := a.listDocumentVersions(id)
+func listVersions(a api.Clients, id string) ([]historyVersion, error) {
+	versions, err := a.ListDocumentVersions(id)
 	if err != nil {
 		return nil, err
 	}
@@ -30,8 +31,8 @@ func listVersions(a api, id string) ([]historyVersion, error) {
 }
 
 // readVersion reads the text of one write of a document.
-func readVersion(a api, item documentItem, version int32) (string, error) {
-	document, err := a.getDocumentVersion(item.id, version)
+func readVersion(a api.Clients, item documentItem, version int32) (string, error) {
+	document, err := a.GetDocumentVersion(item.id, version)
 	if err != nil {
 		return "", err
 	}

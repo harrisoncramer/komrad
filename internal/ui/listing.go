@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"komrad/internal/errui"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/layout"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
@@ -165,12 +166,12 @@ func (m *model) send(write screen.Write) tea.Cmd {
 	}
 }
 
-func (m *model) write(doing, summary string, write func(api) error) screen.Write {
+func (m *model) write(doing, summary string, write func(api.Clients) error) screen.Write {
 	return m.awaitingWrite(doing, summary, screen.Awaits{}, write)
 }
 
 // awaitingWrite is a write that is held, once it lands, until the panel shows what it did.
-func (m *model) awaitingWrite(doing, summary string, awaits screen.Awaits, write func(api) error) screen.Write {
+func (m *model) awaitingWrite(doing, summary string, awaits screen.Awaits, write func(api.Clients) error) screen.Write {
 	clients := m.api
 
 	return screen.Write{
@@ -189,7 +190,7 @@ type archivingWriteParams struct {
 	summary string
 	agents  []panel.Agent
 	awaits  screen.Awaits
-	write   func(api) error
+	write   func(api.Clients) error
 }
 
 func (m *model) archivingWrite(params archivingWriteParams) screen.Write {
@@ -254,7 +255,7 @@ func (m *model) releaseWrite(summary string, agent panel.Agent, said string) scr
 		Summary: summary,
 		Send: func() screen.Landed {
 			return screen.Landed{
-				Err:      clients.release(agent, said+touchedSaid(let.Files)),
+				Err:      clients.Release(agent, said+touchedSaid(let.Files)),
 				Released: &let,
 			}
 		},
@@ -262,7 +263,7 @@ func (m *model) releaseWrite(summary string, agent panel.Agent, said string) scr
 }
 
 // rowWrite is a write whose landing takes the panel to the row it made.
-func (m *model) rowWrite(doing, summary string, write func(api) (*screen.Made, error)) screen.Write {
+func (m *model) rowWrite(doing, summary string, write func(api.Clients) (*screen.Made, error)) screen.Write {
 	clients := m.api
 
 	return screen.Write{
@@ -281,18 +282,18 @@ func (m *model) rowWrite(doing, summary string, write func(api) (*screen.Made, e
 
 // agentWrite is rowWrite for a write answering with an agent, whose row is shown in the
 // pane the agent is running in.
-func (m *model) agentWrite(doing, summary string, write func(api) (*agentv1.Agent, error)) screen.Write {
+func (m *model) agentWrite(doing, summary string, write func(api.Clients) (*agentv1.Agent, error)) screen.Write {
 	return m.paneWrite(doing, summary, false, write)
 }
 
 // openingWrite is agentWrite for a write that puts a conversation back in a pane, which
 // ends with the keyboard in that pane the way the open key over a live agent does.
-func (m *model) openingWrite(doing, summary string, write func(api) (*agentv1.Agent, error)) screen.Write {
+func (m *model) openingWrite(doing, summary string, write func(api.Clients) (*agentv1.Agent, error)) screen.Write {
 	return m.paneWrite(doing, summary, true, write)
 }
 
-func (m *model) paneWrite(doing, summary string, focus bool, write func(api) (*agentv1.Agent, error)) screen.Write {
-	return m.rowWrite(doing, summary, func(clients api) (*screen.Made, error) {
+func (m *model) paneWrite(doing, summary string, focus bool, write func(api.Clients) (*agentv1.Agent, error)) screen.Write {
+	return m.rowWrite(doing, summary, func(clients api.Clients) (*screen.Made, error) {
 		agent, err := write(clients)
 		if err != nil {
 			return nil, err
@@ -314,8 +315,8 @@ func madeAgent(agent *agentv1.Agent, focus bool) *screen.Made {
 }
 
 func (m *model) retryWrite(agent panel.Agent, values retryFormValues) screen.Write {
-	return m.agentWrite("retrying "+agent.Name, fmt.Sprintf("Could not retry agent %q", agent.Name), func(clients api) (*agentv1.Agent, error) {
-		return clients.retryAgent(retryAgentParams{
+	return m.agentWrite("retrying "+agent.Name, fmt.Sprintf("Could not retry agent %q", agent.Name), func(clients api.Clients) (*agentv1.Agent, error) {
+		return clients.RetryAgent(api.RetryAgentParams{
 			ID:      agent.ID,
 			Flags:   values.Flags,
 			Prompt:  values.Prompt,
@@ -324,9 +325,9 @@ func (m *model) retryWrite(agent panel.Agent, values retryFormValues) screen.Wri
 	})
 }
 
-func (m *model) createWrite(params createAgentParams) screen.Write {
-	return m.agentWrite(startingLabel(params.Title), "Could not start the agent", func(clients api) (*agentv1.Agent, error) {
-		return clients.createAgent(params)
+func (m *model) createWrite(params api.CreateAgentParams) screen.Write {
+	return m.agentWrite(startingLabel(params.Title), "Could not start the agent", func(clients api.Clients) (*agentv1.Agent, error) {
+		return clients.CreateAgent(params)
 	})
 }
 
@@ -338,14 +339,14 @@ func startingLabel(title string) string {
 	return "starting the agent"
 }
 
-func (m *model) adoptWrite(params adoptParams) screen.Write {
+func (m *model) adoptWrite(params api.AdoptParams) screen.Write {
 	clients := m.api
 
 	return screen.Write{
 		Doing:   "adopting " + params.Ref,
 		Summary: "Could not adopt",
 		Send: func() screen.Landed {
-			adopted, err := clients.adopt(params)
+			adopted, err := clients.Adopt(params)
 			if err != nil {
 				return screen.Landed{Err: err}
 			}
@@ -366,15 +367,15 @@ func (m *model) adoptWrite(params adoptParams) screen.Write {
 }
 
 func (m *model) createWorkflowWrite(cfg panel.WorkflowConfig) screen.Write {
-	return m.rowWrite("creating workflow "+cfg.Name, "Could not create the workflow", func(clients api) (*screen.Made, error) {
-		workflow, err := clients.createWorkflow(cfg)
+	return m.rowWrite("creating workflow "+cfg.Name, "Could not create the workflow", func(clients api.Clients) (*screen.Made, error) {
+		workflow, err := clients.CreateWorkflow(cfg)
 		if err != nil {
 			return nil, err
 		}
 
 		// A new workflow comes with the agent that stands behind it, and stands on its own when
 		// that agent will not start.
-		agent, err := clients.startOrchestrator(workflow.GetId())
+		agent, err := clients.StartOrchestrator(workflow.GetId())
 		if err != nil {
 			return &screen.Made{Row: workflowRowKey(workflow.GetId())}, nil //nolint:nilerr // the workflow was created
 		}
@@ -403,7 +404,7 @@ func (m *model) beginWrite(doing string) int {
 }
 
 // clients is the server a write that lands its own message is sent through.
-func (m *model) clients() api {
+func (m *model) clients() api.Clients {
 	return m.api
 }
 

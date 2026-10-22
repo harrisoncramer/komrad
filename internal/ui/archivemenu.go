@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
@@ -127,7 +128,7 @@ func restoreArchived(m *model, target archived) screen.Request {
 			"restoring "+schedule.Name,
 			fmt.Sprintf("Could not restore schedule %q", schedule.Name),
 			screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedSchedules, schedule.ID)},
-			func(c api) error { return c.restoreSchedule(schedule.ID) },
+			func(c api.Clients) error { return c.RestoreSchedule(schedule.ID) },
 		)
 	case target.workflow != nil:
 		workflow := *target.workflow
@@ -136,7 +137,7 @@ func restoreArchived(m *model, target archived) screen.Request {
 			"restoring "+workflow.Name,
 			fmt.Sprintf("Could not restore workflow %q", workflow.Name),
 			screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)},
-			func(c api) error { return c.restoreWorkflow(workflow.ID) },
+			func(c api.Clients) error { return c.RestoreWorkflow(workflow.ID) },
 		)
 	}
 
@@ -223,9 +224,9 @@ func (m *model) archiveChosenAgents(work chosenWork) screen.Request {
 		doing:   "archiving " + subject,
 		summary: "Could not archive " + subject,
 		agents:  work.affected(m.listing),
-		write: func(a api) error {
+		write: func(a api.Clients) error {
 			for _, task := range work.wholeTasks {
-				if err := a.archiveTask(task.ID); err != nil {
+				if err := a.ArchiveTask(task.ID); err != nil {
 					return err
 				}
 			}
@@ -233,7 +234,7 @@ func (m *model) archiveChosenAgents(work chosenWork) screen.Request {
 				return nil
 			}
 
-			return a.archiveAgents(panel.IDs(work.loneAgents))
+			return a.ArchiveAgents(panel.IDs(work.loneAgents))
 		},
 	})
 }
@@ -248,8 +249,8 @@ func (m *model) deleteChosenWrite(work chosenWork, records bool) screen.Write {
 		summary: "Could not delete " + subject,
 		agents:  work.affected(m.listing),
 		awaits:  awaitDeleted(records, screen.RowsIn(screen.ListArchivedAgents, panel.IDs(work.chosen)...)),
-		write: func(a api) error {
-			return a.deleteTasks(panel.TaskIDs(work.wholeTasks), records)
+		write: func(a api.Clients) error {
+			return a.DeleteTasks(panel.TaskIDs(work.wholeTasks), records)
 		},
 	})
 }

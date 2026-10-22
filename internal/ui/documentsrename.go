@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/screen"
 
@@ -94,7 +95,9 @@ func (d *documentsScreen) saveRename(m *model) screen.Request {
 		"renaming "+rename.Was(),
 		fmt.Sprintf("Could not rename document %q", rename.Was()),
 		rename.Key(),
-		func(a api) error { return a.writeDocument(item, read.version, read.body) },
+		func(a api.Clients) error {
+			return a.WriteDocument(api.WriteDocumentParams{ID: item.id, Version: read.version, Name: item.name, Type: item.typeName, Body: read.body})
+		},
 	)
 }
 

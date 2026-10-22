@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"komrad/internal/searchsyntax"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -119,7 +120,7 @@ func (a *archivedAgents) queryGrammar() (queryGrammar, bool) {
 }
 
 // searchTranscriptsSaid asks the server which agents' transcripts hold the text, with the turns it was found in keyed by agent id.
-func searchTranscriptsSaid(ctx context.Context, client agentReads, text string) (map[string][]saidHit, error) {
+func searchTranscriptsSaid(ctx context.Context, client api.AgentReads, text string) (map[string][]saidHit, error) {
 	resp, err := client.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
 		Query:      phrase(text),
 		Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](saysLimit)},

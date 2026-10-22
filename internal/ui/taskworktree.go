@@ -8,6 +8,7 @@ import (
 
 	"komrad/internal/errui"
 	"komrad/internal/logging"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
@@ -47,8 +48,8 @@ func (m *model) wakeCwdSyncCmd() tea.Cmd {
 	clients := m.api
 
 	return func() tea.Msg {
-		if err := clients.wakeLoop(loopv1.Loop_LOOP_CWD_SYNC); err != nil {
-			ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+		if err := clients.WakeLoop(loopv1.Loop_LOOP_CWD_SYNC); err != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), api.RequestTimeout)
 			defer cancel()
 
 			logging.From(ctx).LogAttrs(ctx, slog.LevelDebug, "failed to wake the cwd sync", logging.Err(err)...)

@@ -1,9 +1,9 @@
 package ui
 
 import (
-	"errors"
 	"fmt"
 
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
@@ -17,8 +17,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 )
-
-var errUnknownScheduleKind = errors.New("this build of komrad does not know the schedule's kind, so update it first")
 
 // schedulesScreen is the schedules screen, holding its own cursor behind the panel's one door.
 type schedulesScreen struct {
@@ -147,8 +145,8 @@ func toggleSchedule(m *model, schedule panel.Schedule) screen.Request {
 		doing, failure = "resuming "+schedule.Name, fmt.Sprintf("Could not resume schedule %q", schedule.Name)
 	}
 
-	return m.write(doing, failure, func(a api) error {
-		return a.setScheduleEnabled(schedule.ID, !schedule.Enabled)
+	return m.write(doing, failure, func(a api.Clients) error {
+		return a.SetScheduleEnabled(schedule.ID, !schedule.Enabled)
 	})
 }
 
@@ -190,13 +188,13 @@ func openScheduleForm(m *model, values *panel.ScheduleConfig, target *panel.Sche
 		Editable: []form.Editable{{Key: "prompt", Value: &values.Prompt}},
 		Submit: func(form.Inputs) screen.Request {
 			if target == nil {
-				return m.write("creating schedule "+values.Name, "Could not create the schedule", func(a api) error { return a.createSchedule(*values) })
+				return m.write("creating schedule "+values.Name, "Could not create the schedule", func(a api.Clients) error { return a.CreateSchedule(*values) })
 			}
 
 			return m.write(
 				"saving "+target.Name,
 				fmt.Sprintf("Could not save schedule %q", target.Name),
-				func(a api) error { return a.updateSchedule(target.ID, *values) },
+				func(a api.Clients) error { return a.UpdateSchedule(target.ID, *values) },
 			)
 		},
 	}}
@@ -204,25 +202,13 @@ func openScheduleForm(m *model, values *panel.ScheduleConfig, target *panel.Sche
 
 // editScheduleForm puts up the form over a stored schedule.
 func editScheduleForm(m *model, schedule panel.Schedule) screen.Request {
-	if !knownScheduleKind(schedule.Kind) {
-		return screen.Report{Summary: fmt.Sprintf("Could not edit schedule %q", schedule.Name), Err: errUnknownScheduleKind}
+	if !panel.IsKnownScheduleKind(schedule.Kind) {
+		return screen.Report{Summary: fmt.Sprintf("Could not edit schedule %q", schedule.Name), Err: panel.ErrUnknownScheduleKind}
 	}
 
 	values := schedulePrefill(schedule)
 
 	return openScheduleForm(m, &values, &schedule)
-}
-
-// knownScheduleKind reports whether this build knows what a schedule of this kind targets.
-func knownScheduleKind(kind schedulev1.ScheduleKind) bool {
-	switch kind {
-	case schedulev1.ScheduleKind_SCHEDULE_KIND_UNSPECIFIED,
-		schedulev1.ScheduleKind_SCHEDULE_KIND_TASK,
-		schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR:
-		return true
-	}
-
-	return false
 }
 
 // schedulePrefill is the schedule form as the stored schedule leaves it.
@@ -245,7 +231,7 @@ func (m *model) archiveSchedule(schedule panel.Schedule) screen.Request {
 		"archiving "+schedule.Name,
 		fmt.Sprintf("Could not archive schedule %q", schedule.Name),
 		screen.Awaits{Gone: screen.RowsIn(screen.ListSchedules, schedule.ID)},
-		func(a api) error { return a.archiveSchedule(schedule.ID) },
+		func(a api.Clients) error { return a.ArchiveSchedule(schedule.ID) },
 	)
 }
 

@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"komrad/config"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/screen"
 
@@ -13,9 +14,9 @@ import (
 type gitOp struct {
 	planning   string
 	planFailed string
-	plan       func(api) (gitConfirmForm, error)
+	plan       func(api.Clients) (gitConfirmForm, error)
 	running    string
-	run        func(api) gitReport
+	run        func(api.Clients) gitReport
 }
 
 // gitSkippedError is why an operation has nothing to do, said as a warning rather than a failure.

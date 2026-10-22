@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/menu"
@@ -116,9 +117,9 @@ func (m *model) archiveTasks(tasks []panel.Task) screen.Request {
 		doing:   "archiving " + describeTasks(tasks),
 		summary: "Could not archive " + describeTasks(tasks),
 		agents:  m.listing.AgentsOnTasks(tasks),
-		write: func(a api) error {
+		write: func(a api.Clients) error {
 			for _, task := range tasks {
-				if err := a.archiveTask(task.ID); err != nil {
+				if err := a.ArchiveTask(task.ID); err != nil {
 					return err
 				}
 			}
@@ -135,8 +136,8 @@ func (m *model) deleteTasksWrite(tasks []panel.Task, records bool) screen.Write 
 		doing:   "deleting " + describeTasks(tasks),
 		summary: "Could not delete " + describeTasks(tasks),
 		agents:  m.listing.AgentsOnTasks(tasks),
-		write: func(a api) error {
-			return a.deleteTasks(panel.TaskIDs(tasks), records)
+		write: func(a api.Clients) error {
+			return a.DeleteTasks(panel.TaskIDs(tasks), records)
 		},
 	})
 }
@@ -165,9 +166,9 @@ func hideTasks(m *model, tasks []panel.Task) screen.Request {
 		doing, failure = "unhiding "+describeTasks(tasks), "Could not unhide "+describeTasks(tasks)
 	}
 
-	return m.write(doing, failure, func(a api) error {
+	return m.write(doing, failure, func(a api.Clients) error {
 		for _, task := range changed {
-			if err := a.setTaskHidden(task.ID, hidden); err != nil {
+			if err := a.SetTaskHidden(task.ID, hidden); err != nil {
 				return err
 			}
 		}
@@ -204,19 +205,19 @@ func openEditTask(m *model, task panel.Task) screen.Request {
 				return form.Refuse{Err: err}
 			}
 
-			params := updateTaskParams{
-				id:    task.ID,
-				title: &title,
-				goal:  &goal,
+			params := api.UpdateTaskParams{
+				ID:    task.ID,
+				Title: &title,
+				Goal:  &goal,
 			}
 			if notes := strings.TrimSpace(values.Notes); notes != strings.TrimSpace(task.Notes) {
-				params.notes, params.notesUpdatedAt = &notes, task.NotesUpdatedAt
+				params.Notes, params.NotesUpdatedAt = &notes, task.NotesUpdatedAt
 			}
 
 			return m.write(
 				"saving "+task.Slug,
 				fmt.Sprintf("Could not save task %q", task.Slug),
-				func(a api) error { return a.updateTask(params) },
+				func(a api.Clients) error { return a.UpdateTask(params) },
 			)
 		},
 	}}

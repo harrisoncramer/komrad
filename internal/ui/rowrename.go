@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
@@ -59,7 +60,7 @@ func (r *rowRename) save(m *model) (screen.Request, bool) {
 			"renaming "+r.Was(),
 			fmt.Sprintf("Could not rename schedule %q", r.Was()),
 			r.Key(),
-			func(a api) error { return a.updateSchedule(id, renamed) },
+			func(a api.Clients) error { return a.UpdateSchedule(id, renamed) },
 		), true
 	case r.task != nil:
 		id := r.task.ID
@@ -68,7 +69,7 @@ func (r *rowRename) save(m *model) (screen.Request, bool) {
 			"renaming "+r.Was(),
 			fmt.Sprintf("Could not rename task %q", r.Was()),
 			r.Key(),
-			func(a api) error { return a.updateTask(updateTaskParams{id: id, slug: &name}) },
+			func(a api.Clients) error { return a.UpdateTask(api.UpdateTaskParams{ID: id, Slug: &name}) },
 		), true
 	case r.workflow != nil:
 		renamed := *r.workflow
@@ -78,7 +79,7 @@ func (r *rowRename) save(m *model) (screen.Request, bool) {
 			"renaming "+r.Was(),
 			fmt.Sprintf("Could not rename workflow %q", r.Was()),
 			r.Key(),
-			func(a api) error { return a.updateWorkflow(renamed) },
+			func(a api.Clients) error { return a.UpdateWorkflow(renamed) },
 		), true
 	}
 
@@ -88,7 +89,7 @@ func (r *rowRename) save(m *model) (screen.Request, bool) {
 		"renaming "+r.Was(),
 		fmt.Sprintf("Could not rename agent %q", r.Was()),
 		r.Key(),
-		func(a api) error { return a.renameAgent(agent, name) },
+		func(a api.Clients) error { return a.RenameAgent(agent, name) },
 	), true
 }
 

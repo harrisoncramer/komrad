@@ -3,6 +3,7 @@ package ui
 import (
 	"slices"
 
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/screen"
@@ -27,7 +28,7 @@ type renameSettled struct {
 }
 
 // rename sends a name typed over a row, handing the outcome to the screens that type names.
-func (m *model) rename(doing, summary, row string, write func(api) error) screen.Request {
+func (m *model) rename(doing, summary, row string, write func(api.Clients) error) screen.Request {
 	clients := m.api
 
 	return screen.Write{

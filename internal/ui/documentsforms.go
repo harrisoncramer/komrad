@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
@@ -45,12 +46,12 @@ func newDocumentForm(m *model, agentID string) screen.Request {
 			return m.write(
 				doing,
 				fmt.Sprintf("Could not write a document for %s", owner),
-				func(a api) error {
+				func(a api.Clients) error {
 					if err := checkDocumentName(name); err != nil {
 						return err
 					}
 
-					return a.createDocument(agentID, name, typeName, documentPlaceholder(typeName))
+					return a.CreateDocument(agentID, name, typeName, documentPlaceholder(typeName))
 				},
 			)
 		},

@@ -1,14 +1,10 @@
 package ui
 
 import (
-	"time"
-
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
-
-const draftTimeout = 30 * time.Second
 
 // isDraft says whether the task's pull request is a draft.
 func isDraft(task panel.Task) bool {
@@ -43,7 +39,7 @@ func (m *model) toggleDraft(task panel.Task) screen.Request {
 		Summary: "Could not change " + standing.Ref() + " of " + task.Slug,
 		Send: func() screen.Landed {
 			return screen.Landed{
-				Err:    clients.setPullRequestDraft(standing.URL, draft),
+				Err:    clients.SetPullRequestDraft(standing.URL, draft),
 				Notice: &screen.Notice{Summary: task.Slug + ": " + standing.Ref() + said, Detail: standing.Title},
 			}
 		},
