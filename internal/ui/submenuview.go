@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/zone"
 	"komrad/lib/xslice"
 
 	"charm.land/huh/v2"
@@ -105,11 +106,11 @@ func submenuLabel(entry submenuEntry, labelCols, keyCols int) string {
 }
 
 func markEntry(label string, at int) string {
-	return keyMarkOf(zoneMenu, lipgloss.Width(label), 0, strconv.Itoa(at)) + label
+	return zone.MarkKey(zoneMenu, lipgloss.Width(label), 0, strconv.Itoa(at)) + label
 }
 
 func markParentMenu(view string, at int) string {
-	mark := keyMarkOf(zoneParentMenu, lipgloss.Width(view), 0, strconv.Itoa(at))
+	mark := zone.MarkKey(zoneParentMenu, lipgloss.Width(view), 0, strconv.Itoa(at))
 
 	return strings.Join(xslice.Map(strings.Split(view, "\n"), func(line string) string { return mark + line }), "\n")
 }

@@ -137,6 +137,12 @@ linters:
               desc: the drawing primitives hold no domain, so nothing here reads a record
             - pkg: komrad/internal/ui
               desc: paint is under the panel rather than beside it, so it never reaches back up
+        shared:
+          files:
+            - "**/internal/ui/zone/**"
+          deny:
+            - pkg: komrad/internal/ui$
+              desc: a shared package sits under the panel's screens, so it never reaches back up into the root
         panel:
           files:
             - "**/internal/ui/**"

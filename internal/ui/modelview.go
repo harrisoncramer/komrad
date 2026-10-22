@@ -7,6 +7,7 @@ import (
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/zone"
 	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
@@ -143,7 +144,7 @@ func (m *model) heldFormView() string {
 		return view
 	}
 
-	return keyMark.ReplaceAllString(view, "")
+	return zone.StripKeys(view)
 }
 
 func (m *model) joinedFormView() string {
