@@ -5,6 +5,16 @@ import "komrad/internal/ui/screen"
 // edgeStep is how many columns one press of an edge key moves the edge.
 const edgeStep = 4
 
+// keyRegion is one of the regions side by side across the panel's window.
+type keyRegion int
+
+const (
+	regionList keyRegion = iota
+	// regionBlock is the block beside the list, rendered by the panel or run in the column pane.
+	regionBlock
+	regionStage
+)
+
 // pushEdge moves an edge of the region holding the keys a step left for a negative direction and
 // right for a positive one, taking the region's other edge where it has none on that side.
 func (m *model) pushEdge(direction int) {
@@ -40,16 +50,6 @@ func (m *model) edgeFloor() int {
 
 	return m.columnOf().floor + dividerCols
 }
-
-// keyRegion is one of the regions side by side across the panel's window.
-type keyRegion int
-
-const (
-	regionList keyRegion = iota
-	// regionBlock is the block beside the list, rendered by the panel or run in the column pane.
-	regionBlock
-	regionStage
-)
 
 // keysRegion is the region holding the keys.
 func (m *model) keysRegion() keyRegion {
