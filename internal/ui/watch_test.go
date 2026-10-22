@@ -21,15 +21,15 @@ func TestWatch(t *testing.T) {
 	t.Run("a snapshot replaces everything the last stream built", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openAgents(t,
-			newLiveWorkflow("w1", "api"),
-			newLiveWorkflow("w2", "web"),
+		harness := paneltest.OpenAgents(t,
+			paneltest.Workflow("w1", "api"),
+			paneltest.Workflow("w2", "web"),
 			newAgentAt("older", "w1", 1),
 		)
 		require.Equal(t, []string{"api", "└─ older", "web"}, paneltest.ListRows(harness.Frame()))
 
 		harness.Watch(paneltest.Snapshot(
-			newLiveWorkflow("w1", "api"),
+			paneltest.Workflow("w1", "api"),
 			newAgentAt("two", "w1", 3),
 			newAgentAt("older", "w1", 1),
 		))
@@ -40,13 +40,13 @@ func TestWatch(t *testing.T) {
 	t.Run("a task's tombstones take its writer and reviewer with them", func(t *testing.T) {
 		t.Parallel()
 
-		writer := newAgent("a1", "writer", "w1")
-		harness := openAgents(t,
-			newLiveWorkflow("w1", "api"),
+		writer := paneltest.Agent("a1", "writer", "w1")
+		harness := paneltest.OpenAgents(t,
+			paneltest.Workflow("w1", "api"),
 			writer,
-			newTaskOf(writer),
-			newReviewer("a2", "reviewer", "a1"),
-			newAgent("a3", "other", "w1"),
+			paneltest.TaskOf(writer),
+			paneltest.Reviewer("a2", "reviewer", "a1"),
+			paneltest.Agent("a3", "other", "w1"),
 		)
 		require.Len(t, paneltest.ListRows(harness.Frame()), 4)
 
@@ -62,8 +62,8 @@ func TestWatch(t *testing.T) {
 	t.Run("a put lands over the row it names and the cursor stays on it", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openAgents(t,
-			newLiveWorkflow("w1", "api"),
+		harness := paneltest.OpenAgents(t,
+			paneltest.Workflow("w1", "api"),
 			newAgentAt("one", "w1", 1),
 			newAgentAt("two", "w1", 2),
 		)
@@ -73,7 +73,7 @@ func TestWatch(t *testing.T) {
 		renamed := newAgentAt("one", "w1", 1)
 		renamed.Name = "renamed"
 		harness.Watch(
-			paneltest.Puts(renamed, newAgentAt("three", "w1", 3), newLiveWorkflow("w0", "aaa")),
+			paneltest.Puts(renamed, newAgentAt("three", "w1", 3), paneltest.Workflow("w0", "aaa")),
 			paneltest.Deleted(watchv1.Resource_RESOURCE_AGENT, "two"),
 		)
 
@@ -85,9 +85,9 @@ func TestWatch(t *testing.T) {
 	t.Run("a workflow renamed out of its place is filed again", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openAgents(t, newLiveWorkflow("w1", "api"), newLiveWorkflow("w2", "web"))
+		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), paneltest.Workflow("w2", "web"))
 
-		harness.Watch(paneltest.Puts(newLiveWorkflow("w1", "zzz")))
+		harness.Watch(paneltest.Puts(paneltest.Workflow("w1", "zzz")))
 
 		assert.Equal(t, []string{"web", "zzz"}, paneltest.ListRows(harness.Frame()))
 	})
@@ -95,7 +95,7 @@ func TestWatch(t *testing.T) {
 	t.Run("a workflow's tombstone takes it off the list", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openAgents(t, newLiveWorkflow("w0", "aaa"), newLiveWorkflow("w1", "api"))
+		harness := paneltest.OpenAgents(t, paneltest.Workflow("w0", "aaa"), paneltest.Workflow("w1", "api"))
 
 		harness.Watch(paneltest.Deleted(watchv1.Resource_RESOURCE_WORKFLOW, "w0"))
 
@@ -119,8 +119,8 @@ func TestWatch(t *testing.T) {
 		expired := newUnreadMail("expired")
 		expired.Id = "m2"
 		expired.ExpiresAt = time.Now().Add(-time.Hour).UTC().Format(time.RFC3339)
-		harness := openAgents(t,
-			newLiveWorkflow("w1", "api"),
+		harness := paneltest.OpenAgents(t,
+			paneltest.Workflow("w1", "api"),
 			newAgentAt("waiting", "w1", 2),
 			newAgentAt("expired", "w1", 1),
 			newUnreadMail("waiting"),

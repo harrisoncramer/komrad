@@ -29,7 +29,7 @@ func TestSelection(t *testing.T) {
 		{
 			name: "the archived agents",
 			rows: []proto.Message{
-				newLiveWorkflow("w1", "backend"),
+				paneltest.Workflow("w1", "backend"),
 				newArchivedAgentAt("auth", "2026-07-30T12:00:00Z"),
 				newArchivedAgentAt("api", "2026-07-30T11:00:00Z"),
 				newArchivedAgentAt("db", "2026-07-30T10:00:00Z"),
@@ -40,7 +40,7 @@ func TestSelection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openAgents(t, tt.rows...)
+			harness := paneltest.OpenAgents(t, tt.rows...)
 			harness.Press(tt.press...)
 			harness.Press("j")
 			require.NotContains(t, findRenderedRow(t, harness, "api"), bar)
@@ -53,7 +53,7 @@ func TestSelection(t *testing.T) {
 	}
 
 	t.Run("the bar stays while a menu has the keys", func(t *testing.T) {
-		harness := openAgents(t, withTasks(buildSelectable())...)
+		harness := paneltest.OpenAgents(t, withTasks(buildSelectable())...)
 		harness.Press("j", "v")
 
 		harness.Press("space", "a")
@@ -63,7 +63,7 @@ func TestSelection(t *testing.T) {
 	})
 
 	t.Run("a task's row is under the bar while its writer is", func(t *testing.T) {
-		harness := openAgents(t, buildReviewedTasks()...)
+		harness := paneltest.OpenAgents(t, buildReviewedTasks()...)
 
 		harness.Press("j", "j", "v", "j", "v")
 		require.Contains(t, findRenderedRow(t, harness, "second-reviewer"), bar)

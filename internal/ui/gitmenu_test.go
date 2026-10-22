@@ -74,9 +74,9 @@ func TestGitMenu(t *testing.T) {
 		t.Parallel()
 
 		harness := paneltest.Start(t, paneltest.Params{Width: 36, Height: 20})
-		answerWorktreeReads(harness)
+		harness.AnswerWorktreeReads()
 		harness.Watch(paneltest.Snapshot(buildGitAgent()...))
-		moveToAgentRow(t, harness, "task-a1")
+		harness.MoveToRow("task-a1")
 		harness.Press("space", "g")
 
 		frame := harness.Frame()
@@ -995,9 +995,9 @@ func TestGitMenuOpensThePullRequest(t *testing.T) {
 
 			opener := &recordingOpener{err: tt.refuse}
 			harness := paneltest.Start(t, paneltest.Params{Browser: opener})
-			answerWorktreeReads(harness)
+			harness.AnswerWorktreeReads()
 			harness.Watch(paneltest.Snapshot(append(buildGitAgent(), newOpenPullRequest())...))
-			moveToAgentRow(t, harness, "task-a1")
+			harness.MoveToRow("task-a1")
 			harness.Press("space", "g", "o")
 
 			assert.Equal(t, []string{pullRequestURL}, opener.readTargets())
@@ -1058,8 +1058,8 @@ func (r *recordingOpener) readTargets() []string {
 func openGitMenu(t *testing.T, rows ...proto.Message) *paneltest.Panel {
 	t.Helper()
 
-	harness := openAgents(t, rows...)
-	moveToAgentRow(t, harness, "task-a1")
+	harness := paneltest.OpenAgents(t, rows...)
+	harness.MoveToRow("task-a1")
 	harness.Press("space", "g")
 	require.Contains(t, harness.Frame(), gitMenuEntry)
 
@@ -1085,7 +1085,7 @@ func buildGitAgent() []proto.Message {
 
 func buildUncutAgent() []proto.Message {
 	rows := buildGitAgent()
-	rows[0] = newLiveWorkflow("w1", "backend")
+	rows[0] = paneltest.Workflow("w1", "backend")
 
 	return rows
 }

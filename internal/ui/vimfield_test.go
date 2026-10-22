@@ -107,7 +107,7 @@ func TestVimEditing(t *testing.T) {
 
 	t.Run("j above only fields that are not text stays on the field", func(t *testing.T) {
 		harness := paneltest.Start(t, paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
-		answerWorktreeReads(harness)
+		harness.AnswerWorktreeReads()
 		harness.Watch(paneltest.Snapshot(newConfiguredWorkflow(), newFormAuthor()))
 		harness.Press("g", "g")
 
@@ -126,7 +126,7 @@ func TestVimEditing(t *testing.T) {
 
 	t.Run("u takes back what the editor wrote into the field", func(t *testing.T) {
 		harness := paneltest.Start(t, paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
-		answerWorktreeReads(harness)
+		harness.AnswerWorktreeReads()
 		harness.Watch(paneltest.Snapshot(newConfiguredWorkflow(), newFormAuthor()))
 		harness.Press("g", "g")
 		t.Cleanup(func() { removeEdited(harness) })
@@ -363,7 +363,7 @@ func TestVimEditingBadge(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := paneltest.Start(t, paneltest.Params{Settings: ui.PanelSettings{VimMode: tt.vim}})
-			answerWorktreeReads(harness)
+			harness.AnswerWorktreeReads()
 			harness.Watch(paneltest.Snapshot(newFormWorkflow(), newFormAuthor()))
 			harness.Press("g", "g")
 			harness.Press(tt.press...)
@@ -387,7 +387,7 @@ func openVimForms(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
 	harness := paneltest.Start(t, paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
-	answerWorktreeReads(harness)
+	harness.AnswerWorktreeReads()
 	harness.Watch(paneltest.Snapshot(newFormWorkflow(), newFormAuthor()))
 	harness.Press("g", "g")
 

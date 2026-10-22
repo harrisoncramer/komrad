@@ -91,7 +91,7 @@ func TestListScrollKeys(t *testing.T) {
 	}
 
 	t.Run("a turn up on the record's first field keeps the record", func(t *testing.T) {
-		harness := openAgents(t, buildSelectable()...)
+		harness := paneltest.OpenAgents(t, buildSelectable()...)
 		harness.Press("pick:record")
 
 		harness.Press("ctrl+n")

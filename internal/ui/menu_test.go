@@ -19,7 +19,7 @@ func TestMenu(t *testing.T) {
 	t.Run("a screen with no hovered row opens its own band alone", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openSchedules(t, newLiveWorkflow("w1", "api"))
+		harness := openSchedules(t, paneltest.Workflow("w1", "api"))
 		harness.Press("space")
 
 		frame := harness.Frame()
@@ -30,8 +30,8 @@ func TestMenu(t *testing.T) {
 	t.Run("an agent's entries sit over the agents list's own, with no new task", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openAgents(t, buildSubpagesAgents()...)
-		moveToAgentRow(t, harness, "reviewer")
+		harness := paneltest.OpenAgents(t, buildSubpagesAgents()...)
+		harness.MoveToRow("reviewer")
 		harness.Press("space")
 
 		frame := harness.Frame()
@@ -44,7 +44,7 @@ func TestMenu(t *testing.T) {
 	t.Run("a workflow's entries, new task among them, sit over the agents list's own", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openAgents(t, buildSubpagesAgents()...)
+		harness := paneltest.OpenAgents(t, buildSubpagesAgents()...)
 		harness.Press("g", "g", "space")
 
 		frame := harness.Frame()
@@ -58,7 +58,9 @@ func TestMenu(t *testing.T) {
 	t.Run("a screen with no band of its own opens nothing", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openLogs(t, tailOfTwo())
+		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "komrad"), paneltest.Reviewer("reviewer", "reviewer", "writer"))
+		harness.MoveToRow("reviewer")
+		harness.Press("space", "l")
 		before := harness.Frame()
 
 		harness.Press("space")
@@ -85,8 +87,14 @@ func TestMenu(t *testing.T) {
 				wants: true,
 			},
 			{
-				name:  "on the logs",
-				open:  func(t *testing.T) *paneltest.Panel { return openLogs(t, tailOfTwo()) },
+				name: "on the logs",
+				open: func(t *testing.T) *paneltest.Panel {
+					harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "komrad"), paneltest.Reviewer("reviewer", "reviewer", "writer"))
+					harness.MoveToRow("reviewer")
+					harness.Press("space", "l")
+
+					return harness
+				},
 				wants: false,
 			},
 		}

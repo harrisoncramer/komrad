@@ -82,7 +82,7 @@ func TestDocumentTypesList(t *testing.T) {
 	t.Run("with no types the list says so and the menu only defines one", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openAgents(t)
+		harness := paneltest.OpenAgents(t)
 		pressToDocumentTypes(harness)
 		assert.Contains(t, harness.Frame(), "no document types")
 
@@ -206,7 +206,7 @@ func TestDocumentTypesRefused(t *testing.T) {
 func openDocumentTypes(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
-	harness := openAgents(t, buildDocumentAuthors()...)
+	harness := paneltest.OpenAgents(t, buildDocumentAuthors()...)
 	answerDocumentTypes(harness)
 	pressToDocumentTypes(harness)
 

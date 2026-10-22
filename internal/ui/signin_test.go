@@ -132,7 +132,7 @@ func TestSignIn(t *testing.T) {
 		assert.Equal(t, 2, checks, "the login is checked against the engine before the panel trusts it")
 		assert.True(t, harness.IsWatching())
 
-		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend")))
+		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend")))
 		assert.Contains(t, harness.Frame(), "backend")
 	})
 
@@ -232,7 +232,7 @@ func TestSignInLost(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			signIn := &fakeSignIn{}
 			harness := paneltest.Start(t, paneltest.Params{SignIn: signIn})
-			harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend")))
+			harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend")))
 			require.Contains(t, harness.Frame(), "backend")
 
 			signIn.answer(tt.access, nil)
@@ -245,7 +245,7 @@ func TestSignInLost(t *testing.T) {
 				return
 			}
 
-			harness.Watch(paneltest.Snapshot(newLiveWorkflow("w2", "should-not-render")))
+			harness.Watch(paneltest.Snapshot(paneltest.Workflow("w2", "should-not-render")))
 			assert.NotContains(t, readProse(harness), "should-not-render", "a batch already on its way is dropped")
 
 			signIn.answer(nil, nil)

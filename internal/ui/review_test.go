@@ -202,7 +202,7 @@ func TestReviewOpen(t *testing.T) {
 		harness.Press("space", "r", "?")
 
 		frame := harness.Frame()
-		assert.Contains(t, readStageText(frame), "loading the diff")
+		assert.Contains(t, paneltest.StageText(frame), "loading the diff")
 		assert.Contains(t, frame, "hide help")
 	})
 
@@ -267,7 +267,7 @@ func TestReviewOpen(t *testing.T) {
 			})
 		}
 
-		assert.Contains(t, readStageText(harness.Frame()), "loading the diff")
+		assert.Contains(t, paneltest.StageText(harness.Frame()), "loading the diff")
 	})
 
 	t.Run("a worktree holding only an untracked file opens", func(t *testing.T) {
@@ -508,7 +508,7 @@ func TestReviewThreads(t *testing.T) {
 		harness.Press("t")
 
 		frame := harness.Frame()
-		assert.Contains(t, readStageText(frame), "on the whole change")
+		assert.Contains(t, paneltest.StageText(frame), "on the whole change")
 		assert.Contains(t, paneltest.SidebarProse(frame), "the whole change")
 		assert.Contains(t, paneltest.PopupProse(frame), "the shape is right")
 		assert.NotContains(t, paneltest.PopupProse(frame), "has gone")
@@ -961,13 +961,13 @@ func TestReviewSearch(t *testing.T) {
 
 		frame := harness.Frame()
 		assert.Equal(t, "greet.go:4", paneltest.ReviewCursor(frame))
-		assert.Contains(t, readStageText(frame), "1 of 1")
+		assert.Contains(t, paneltest.StageText(frame), "1 of 1")
 
 		harness.Press("enter")
 
 		frame = harness.Frame()
 		assert.Contains(t, paneltest.Stage(frame), "/ goodbye")
-		assert.Contains(t, readStageText(frame), "1 of 1")
+		assert.Contains(t, paneltest.StageText(frame), "1 of 1")
 	})
 
 	t.Run("escape at the prompt puts the search away", func(t *testing.T) {
@@ -1008,7 +1008,7 @@ func TestReviewSearch(t *testing.T) {
 		typeText(harness, "return")
 		harness.Press("enter", "g", "g")
 
-		assert.Contains(t, readStageText(harness.Frame()), "2 matches")
+		assert.Contains(t, paneltest.StageText(harness.Frame()), "2 matches")
 	})
 
 	t.Run("the match key says when there is nothing to step to", func(t *testing.T) {
@@ -1044,7 +1044,7 @@ func TestReviewSearch(t *testing.T) {
 			Git:    server.repo,
 		})
 		server.serve(harness)
-		second := newAgent("a2", "billing", "w1")
+		second := paneltest.Agent("a2", "billing", "w1")
 		second.Cwd = server.repo.Root
 		harness.Watch(paneltest.Snapshot(server.workflow, server.agent, server.task, second))
 		harness.Press("j")
@@ -1069,7 +1069,7 @@ func TestReviewViewed(t *testing.T) {
 
 		frame := harness.Frame()
 		assert.NotContains(t, frame, "func Hello() string {")
-		assert.Contains(t, readStageText(frame), "greet.go  +")
+		assert.Contains(t, paneltest.StageText(frame), "greet.go  +")
 
 		harness.Press("space", "v")
 		assert.Contains(t, harness.Frame(), "func Hello() string {")
@@ -1350,8 +1350,8 @@ func TestReviewReload(t *testing.T) {
 		frame := harness.Frame()
 		assert.Equal(t, paneltest.ReviewCursor(before), paneltest.ReviewCursor(frame))
 		assert.Equal(t, findLine(paneltest.Stage(before), "package greet"), findLine(paneltest.Stage(frame), "package greet"))
-		assert.Contains(t, readStageText(frame), "/ hello")
-		assert.Contains(t, readStageText(frame), "1 of 2")
+		assert.Contains(t, paneltest.StageText(frame), "/ hello")
+		assert.Contains(t, paneltest.StageText(frame), "1 of 2")
 	})
 
 	t.Run("a search by file name keeps its header across a thread arriving and a reload", func(t *testing.T) {
@@ -1361,16 +1361,16 @@ func TestReviewReload(t *testing.T) {
 		typeText(harness, "greet.go")
 		harness.Press("enter")
 		header := paneltest.ReviewCursor(harness.Frame())
-		require.Contains(t, readStageText(harness.Frame()), "1 of 1")
+		require.Contains(t, paneltest.StageText(harness.Frame()), "1 of 1")
 
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newAgentMessage("m1", "done"))}
 		harness.Watch(server.buildSnapshot())
 		assert.Equal(t, header, paneltest.ReviewCursor(harness.Frame()))
-		assert.Contains(t, readStageText(harness.Frame()), "1 of 1")
+		assert.Contains(t, paneltest.StageText(harness.Frame()), "1 of 1")
 
 		harness.Press("space", "R")
 		assert.Equal(t, header, paneltest.ReviewCursor(harness.Frame()))
-		assert.Contains(t, readStageText(harness.Frame()), "1 of 1")
+		assert.Contains(t, paneltest.StageText(harness.Frame()), "1 of 1")
 	})
 
 	t.Run("the reload key keeps the search and its matches", func(t *testing.T) {
@@ -1379,9 +1379,9 @@ func TestReviewReload(t *testing.T) {
 		typeText(harness, "return")
 		harness.Press("enter", "space", "R")
 
-		assert.Contains(t, readStageText(harness.Frame()), "1 of 2")
+		assert.Contains(t, paneltest.StageText(harness.Frame()), "1 of 2")
 		harness.Press("n")
-		assert.Contains(t, readStageText(harness.Frame()), "2 of 2")
+		assert.Contains(t, paneltest.StageText(harness.Frame()), "2 of 2")
 	})
 
 	t.Run("the reload key reads again with nothing moved", func(t *testing.T) {
@@ -1719,7 +1719,7 @@ func TestReviewExpand(t *testing.T) {
 
 		harness.Press("space", "E", "space", "v", "space", "R")
 
-		assert.Contains(t, readStageText(harness.Frame()), "tall.go  +")
+		assert.Contains(t, paneltest.StageText(harness.Frame()), "tall.go  +")
 	})
 }
 
@@ -1733,14 +1733,14 @@ func TestReviewSnapshots(t *testing.T) {
 
 		harness.Press("<")
 		frame = harness.Frame()
-		assert.Contains(t, readStageText(frame), "snapshot 1 ▸ snapshot 2")
+		assert.Contains(t, paneltest.StageText(frame), "snapshot 1 ▸ snapshot 2")
 		assert.Contains(t, paneltest.SidebarProse(frame), "1 file, +3 -0")
 		assert.NotRegexp(t, `\d+/\d+ viewed`, frame)
 		assert.NotContains(t, paneltest.SidebarProse(frame), "since you last reviewed")
 
 		harness.Press(">")
 		frame = harness.Frame()
-		assert.Contains(t, readStageText(frame), "where the task starts ▸ snapshot 2")
+		assert.Contains(t, paneltest.StageText(frame), "where the task starts ▸ snapshot 2")
 		assert.Contains(t, paneltest.SidebarProse(frame), "2 files, +4 -1")
 	})
 
@@ -1751,7 +1751,7 @@ func TestReviewSnapshots(t *testing.T) {
 		harness.Press("<", "<")
 		harness.Release(agentv1connect.AgentServiceOpenReviewHistoryProcedure)
 		frame := harness.Frame()
-		assert.Contains(t, readStageText(frame), "where the task starts ▸ snapshot 1")
+		assert.Contains(t, paneltest.StageText(frame), "where the task starts ▸ snapshot 1")
 		assert.Contains(t, paneltest.SidebarProse(frame), "2 files, +4 -1")
 
 		harness.Release(agentv1connect.AgentServiceOpenReviewHistoryProcedure)
@@ -1786,7 +1786,7 @@ func TestReviewSnapshots(t *testing.T) {
 
 		frame := harness.Frame()
 		assert.True(t, isBeside(harness))
-		assert.Contains(t, readStageText(frame), "greet.go")
+		assert.Contains(t, paneltest.StageText(frame), "greet.go")
 		assert.Contains(t, readEngineLine(frame), "nothing written")
 	})
 
@@ -1812,7 +1812,7 @@ func TestReviewSnapshots(t *testing.T) {
 	t.Run("a range ending before the newest snapshot draws commenting off", func(t *testing.T) {
 		harness := openReviewAt(t, newEarlierReviewServer(t), paneltest.Params{Height: 50})
 		harness.Press("<", "<")
-		require.Contains(t, readStageText(harness.Frame()), "where the task starts ▸ snapshot 1")
+		require.Contains(t, paneltest.StageText(harness.Frame()), "where the task starts ▸ snapshot 1")
 
 		harness.Press("space")
 		assert.Contains(t, harness.Frame(), "new comments go on snapshot 2")
@@ -1839,16 +1839,16 @@ func TestReviewSnapshots(t *testing.T) {
 		require.Len(t, harness.Sent(agentv1connect.AgentServiceSetReviewFileViewedProcedure), 1)
 
 		harness.Press("<")
-		require.Contains(t, readStageText(harness.Frame()), "snapshot 1 ▸ snapshot 2")
-		require.NotContains(t, readStageText(harness.Frame()), "greet.go  +")
+		require.Contains(t, paneltest.StageText(harness.Frame()), "snapshot 1 ▸ snapshot 2")
+		require.NotContains(t, paneltest.StageText(harness.Frame()), "greet.go  +")
 		harness.Press("space", "v")
 		frame := harness.Frame()
 		assert.Contains(t, frame, "viewed marks belong to the whole change")
-		assert.NotContains(t, readStageText(frame), "greet.go  +")
+		assert.NotContains(t, paneltest.StageText(frame), "greet.go  +")
 		assert.Len(t, harness.Sent(agentv1connect.AgentServiceSetReviewFileViewedProcedure), 1)
 
 		harness.Press("esc", ">")
-		assert.Contains(t, readStageText(harness.Frame()), "greet.go  +")
+		assert.Contains(t, paneltest.StageText(harness.Frame()), "greet.go  +")
 	})
 
 	t.Run("a comment being written goes with the snapshot a landing load takes away", func(t *testing.T) {
@@ -1875,7 +1875,7 @@ func TestReviewSnapshots(t *testing.T) {
 		harness.Press("<", "<", "t")
 
 		frame := harness.Frame()
-		require.Contains(t, readStageText(frame), "where the task starts ▸ snapshot 1")
+		require.Contains(t, paneltest.StageText(frame), "where the task starts ▸ snapshot 1")
 		said := paneltest.PopupProse(frame)
 		assert.Contains(t, said, "thanks")
 		assert.Less(t, strings.Index(said, "looking"), strings.Index(said, laterRule))
@@ -1892,7 +1892,7 @@ func TestReviewReplay(t *testing.T) {
 		harness.Press("<")
 
 		frame := harness.Frame()
-		assert.Contains(t, readStageText(frame), "snapshot 1 ▸ snapshot 2, replayed across the rebase")
+		assert.Contains(t, paneltest.StageText(frame), "snapshot 1 ▸ snapshot 2, replayed across the rebase")
 		assert.Contains(t, paneltest.SidebarProse(frame), "1 file, +3 -0")
 	})
 
@@ -1901,7 +1901,7 @@ func TestReviewReplay(t *testing.T) {
 
 		harness.Press("<")
 
-		assert.Contains(t, readStageText(harness.Frame()), "snapshot 1 ▸ snapshot 2, conflicts in greet.go, second.go")
+		assert.Contains(t, paneltest.StageText(harness.Frame()), "snapshot 1 ▸ snapshot 2, conflicts in greet.go, second.go")
 	})
 
 	t.Run("a git that cannot replay says the base moved between the snapshots", func(t *testing.T) {
@@ -1910,7 +1910,7 @@ func TestReviewReplay(t *testing.T) {
 		harness.Press("<")
 
 		frame := harness.Frame()
-		assert.Contains(t, readStageText(frame), "snapshot 1 ▸ snapshot 2, the base moved between these snapshots")
+		assert.Contains(t, paneltest.StageText(frame), "snapshot 1 ▸ snapshot 2, the base moved between these snapshots")
 		assert.NotContains(t, frame, "replayed")
 	})
 
@@ -1923,7 +1923,7 @@ func TestReviewReplay(t *testing.T) {
 		harness.Press("<", "<")
 
 		frame := harness.Frame()
-		assert.Contains(t, readStageText(frame), "where the task starts ▸ snapshot 1")
+		assert.Contains(t, paneltest.StageText(frame), "where the task starts ▸ snapshot 1")
 		assert.Contains(t, paneltest.SidebarProse(frame), "1 file, +1 -1")
 	})
 
@@ -1948,7 +1948,7 @@ func TestReviewReplay(t *testing.T) {
 		harness.Press(">")
 		frame := harness.Frame()
 		assert.NotContains(t, findLine(paneltest.Stage(frame), `return "hello"`), "○")
-		assert.Contains(t, readStageText(frame), "the code these were about has changed")
+		assert.Contains(t, paneltest.StageText(frame), "the code these were about has changed")
 	})
 }
 
@@ -2204,7 +2204,7 @@ func TestReviewEdit(t *testing.T) {
 		server.repo.Wrote(gittest.WroteParams{Tree: "tree-the-reader-edited", Whole: gittest.PatchWrittenOver})
 		harness.Press("space", "e", "j")
 
-		assert.Contains(t, readStageText(harness.Frame()), "written by the agent")
+		assert.Contains(t, paneltest.StageText(harness.Frame()), "written by the agent")
 	})
 
 	t.Run("the gate reads the agent under review rather than the first row", func(t *testing.T) {
@@ -2216,7 +2216,7 @@ func TestReviewEdit(t *testing.T) {
 			Git:    server.repo,
 		})
 		server.serve(harness)
-		idle := newAgent("a0", "able", "w1")
+		idle := paneltest.Agent("a0", "able", "w1")
 		harness.Watch(paneltest.Snapshot(server.workflow, idle, server.agent, server.task))
 		require.Contains(t, paneltest.HoveredRow(harness.Frame()), "auth")
 
@@ -2584,10 +2584,6 @@ func typeText(harness *paneltest.Panel, text string) {
 		}
 		harness.Press(key)
 	}
-}
-
-func readStageText(frame string) string {
-	return strings.Join(paneltest.Stage(frame), "\n")
 }
 
 func findLine(lines []string, text string) string {

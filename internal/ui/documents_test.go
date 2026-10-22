@@ -42,16 +42,16 @@ func TestDocumentsOpen(t *testing.T) {
 			Version:   1,
 			UpdatedAt: "2026-09-20T12:00:00Z",
 		})
-		harness := openAgents(t, buildDocumentAuthors()...)
+		harness := paneltest.OpenAgents(t, buildDocumentAuthors()...)
 		docs.answer(harness)
-		moveToAgentRow(t, harness, "task-author")
+		harness.MoveToRow("task-author")
 		harness.Press("space", "J", "d")
 		harness.Advance(time.Second)
 
 		frame := harness.Frame()
 		assert.Equal(t, screen.Documents, paneltest.Screen(harness.Frame()))
 		assert.Equal(t, "▽ task:task-author", readSearch(frame))
-		assert.Contains(t, readStageText(frame), "Design the cache")
+		assert.Contains(t, paneltest.StageText(frame), "Design the cache")
 		assert.NotContains(t, strings.Join(paneltest.ListRows(frame), "\n"), "Quiet notes")
 		harness.AssertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{
 			Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](100)},
@@ -70,9 +70,9 @@ func TestDocumentsOpen(t *testing.T) {
 			Version:   1,
 			UpdatedAt: "2026-09-20T12:00:00Z",
 		})
-		harness := openAgents(t, buildDocumentAuthors()...)
+		harness := paneltest.OpenAgents(t, buildDocumentAuthors()...)
 		docs.answer(harness)
-		moveToAgentRow(t, harness, "komrad")
+		harness.MoveToRow("komrad")
 		harness.Press("space", "J", "d")
 		harness.Advance(time.Second)
 
@@ -125,7 +125,7 @@ func TestDocumentsOpen(t *testing.T) {
 		})
 		rows := buildTasks()
 		rows[2].(*taskv1.Task).Slug = "fix-login-2"
-		harness := openAgents(t, rows...)
+		harness := paneltest.OpenAgents(t, rows...)
 		docs.answer(harness)
 		harness.Press("j")
 		require.Contains(t, paneltest.HoveredRow(harness.Frame()), "fix-login")
@@ -143,14 +143,14 @@ func TestDocumentsOpen(t *testing.T) {
 		t.Parallel()
 
 		docs := newDocumentShelf()
-		harness := openAgents(t, buildDocumentAuthors()...)
+		harness := paneltest.OpenAgents(t, buildDocumentAuthors()...)
 		docs.answer(harness)
-		moveToAgentRow(t, harness, "task-quiet")
+		harness.MoveToRow("task-quiet")
 		harness.Press("space", "J", "d")
 		harness.Advance(time.Second)
 
 		assert.Equal(t, screen.Documents, paneltest.Screen(harness.Frame()))
-		assert.Contains(t, readStageText(harness.Frame()), "no documents")
+		assert.Contains(t, paneltest.StageText(harness.Frame()), "no documents")
 	})
 
 	t.Run("back clears the agent's filter and stays on the documents", func(t *testing.T) {
@@ -171,7 +171,7 @@ func TestDocumentsOpen(t *testing.T) {
 
 		frame := harness.Frame()
 		assert.Equal(t, screen.Documents, paneltest.Screen(harness.Frame()))
-		assert.Contains(t, readStageText(frame), "Design the cache")
+		assert.Contains(t, paneltest.StageText(frame), "Design the cache")
 	})
 
 	t.Run("the switcher opens every agent's documents, the hovered one's writer in its info", func(t *testing.T) {
@@ -203,13 +203,13 @@ func TestDocumentsOpen(t *testing.T) {
 	t.Run("the jump menu on a document with no task lands on its author", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openAgents(t, buildDocumentAuthors()...)
+		harness := paneltest.OpenAgents(t, buildDocumentAuthors()...)
 		shelf := newDocumentShelf()
 		for _, document := range shelf.listed {
 			document.TaskId = nil
 		}
 		shelf.answer(harness)
-		moveToAgentRow(t, harness, "task-quiet")
+		harness.MoveToRow("task-quiet")
 		harness.Press("tab", "tab")
 		harness.Advance(time.Second)
 		harness.Press("space", "J", "a")
@@ -238,7 +238,7 @@ func TestDocumentsOpen(t *testing.T) {
 		author.DocumentsUpdatedAt = xptr.Ptr("2026-09-25T12:00:00Z")
 		harness := paneltest.Start(t, paneltest.Params{})
 		harness.Press("F", "shift+tab", "esc")
-		harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "komrad"), author, newDeletedTaskOf(author)))
+		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "komrad"), author, newDeletedTaskOf(author)))
 		newDocumentShelf().answer(harness)
 		harness.Press("j", "j", "space", "J", "d")
 		harness.Advance(time.Second)
@@ -321,9 +321,9 @@ func TestDocumentsFilter(t *testing.T) {
 				Version:   1,
 				UpdatedAt: "2026-09-20T12:00:00Z",
 			})
-			harness := openAgents(t, buildDocumentAuthors()...)
+			harness := paneltest.OpenAgents(t, buildDocumentAuthors()...)
 			docs.answer(harness)
-			moveToAgentRow(t, harness, "task-quiet")
+			harness.MoveToRow("task-quiet")
 			harness.Press("tab", "tab")
 			harness.Advance(time.Second)
 
@@ -389,7 +389,7 @@ func TestDocumentsRead(t *testing.T) {
 
 		harness, _ := openDocuments(t)
 
-		stage := readStageText(harness.Frame())
+		stage := paneltest.StageText(harness.Frame())
 		assert.Contains(t, stage, "RFC, written")
 		assert.Contains(t, stage, "Keep the cache warm.")
 		assert.Equal(t, 1, strings.Count(stage, "Design the cache"), "a heading that repeats the name is rendered once")
@@ -402,7 +402,7 @@ func TestDocumentsRead(t *testing.T) {
 		harness.Press("j")
 		harness.Advance(time.Second)
 
-		stage := readStageText(harness.Frame())
+		stage := paneltest.StageText(harness.Frame())
 		assert.Contains(t, stage, "Rollout report")
 		assert.Contains(t, stage, "It went out on Tuesday.")
 
@@ -422,7 +422,7 @@ func TestDocumentsRead(t *testing.T) {
 		harness.Watch(paneltest.Puts(author))
 
 		assert.Len(t, harness.Sent(agentv1connect.AgentServiceListDocumentsProcedure), 2)
-		assert.Contains(t, readStageText(harness.Frame()), "The cache is cold now.")
+		assert.Contains(t, paneltest.StageText(harness.Frame()), "The cache is cold now.")
 	})
 
 	t.Run("a rewrite within the second it was listed in reads again", func(t *testing.T) {
@@ -436,7 +436,7 @@ func TestDocumentsRead(t *testing.T) {
 		harness.Watch(paneltest.Puts(author))
 
 		assert.Len(t, harness.Sent(agentv1connect.AgentServiceGetDocumentProcedure), 2)
-		assert.Contains(t, readStageText(harness.Frame()), "The cache is cold now.")
+		assert.Contains(t, paneltest.StageText(harness.Frame()), "The cache is cold now.")
 	})
 
 	t.Run("another document stamped with the newest one's time lists again", func(t *testing.T) {
@@ -551,7 +551,7 @@ func TestDocumentsEdit(t *testing.T) {
 			respawns := harness.Tmux().Respawns()
 			require.NotEmpty(t, respawns)
 			path := readEditedPath(t, respawns[len(respawns)-1])
-			assert.NotContains(t, readStageText(harness.Frame()), "Keep the cache warm.", "the editor stands where the document was rendered")
+			assert.NotContains(t, paneltest.StageText(harness.Frame()), "Keep the cache warm.", "the editor stands where the document was rendered")
 
 			require.NoError(t, os.WriteFile(path, []byte(tt.write), 0o600))
 			if tt.between != nil {
@@ -657,12 +657,12 @@ func TestDocumentsNewRerendersTheTypes(t *testing.T) {
 func TestDocumentsNewFromEmpty(t *testing.T) {
 	t.Parallel()
 
-	harness := openAgents(t, buildDocumentAuthors()...)
+	harness := paneltest.OpenAgents(t, buildDocumentAuthors()...)
 	newDocumentShelf().answer(harness)
 	harness.Answer(agentv1connect.AgentServiceWriteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&agentv1.WriteDocumentResponse{}), nil
 	})
-	moveToAgentRow(t, harness, "task-quiet")
+	harness.MoveToRow("task-quiet")
 	harness.Press("space", "J", "d")
 	harness.Advance(time.Second)
 	harness.Press("space", "c", "P", "l", "a", "n", "enter")
@@ -892,7 +892,7 @@ func TestDocumentsHistory(t *testing.T) {
 				harness.Advance(time.Second)
 			}
 
-			stage := readStageText(harness.Frame())
+			stage := paneltest.StageText(harness.Frame())
 			for _, want := range tt.want {
 				assert.Contains(t, stage, want)
 			}
@@ -992,7 +992,7 @@ func TestDocumentsReading(t *testing.T) {
 				harness.Advance(time.Second)
 			}
 
-			stage := readStageText(harness.Frame())
+			stage := paneltest.StageText(harness.Frame())
 			for _, want := range tt.want {
 				assert.Contains(t, stage, want)
 			}
@@ -1074,10 +1074,10 @@ func TestDocumentsReadingKeepsTheCursorShown(t *testing.T) {
 			harness.Press("j")
 			harness.Advance(time.Second)
 			harness.Press("pick:block", "G")
-			require.Contains(t, readStageText(harness.Frame()), "The last line.")
+			require.Contains(t, paneltest.StageText(harness.Frame()), "The last line.")
 
 			harness.Press(tt.presses...)
-			assert.Contains(t, readStageText(harness.Frame()), "The last line.")
+			assert.Contains(t, paneltest.StageText(harness.Frame()), "The last line.")
 		})
 	}
 }
@@ -1121,7 +1121,7 @@ func TestDocumentsDiffSearchOutlastsTheSplit(t *testing.T) {
 	harness.Press("a", "r", "m", "enter")
 	harness.Send(tea.WindowSizeMsg{Width: 140, Height: 40})
 
-	stage := readStageText(harness.Frame())
+	stage := paneltest.StageText(harness.Frame())
 	assert.Contains(t, stage, "/ warm")
 	assert.Contains(t, stage, "1 of 1")
 }
@@ -1149,11 +1149,11 @@ func openDocumentsWith(t *testing.T, params paneltest.Params) (*paneltest.Panel,
 
 	docs := newDocumentShelf()
 	harness := paneltest.Start(t, params)
-	answerWorktreeReads(harness)
+	harness.AnswerWorktreeReads()
 	harness.Watch(paneltest.Snapshot(buildDocumentAuthors()...))
 	docs.answer(harness)
 
-	moveToAgentRow(t, harness, "task-author")
+	harness.MoveToRow("task-author")
 	harness.Press("space", "J", "d")
 	harness.Advance(time.Second)
 
@@ -1164,49 +1164,34 @@ func openDocumentsWith(t *testing.T, params paneltest.Params) (*paneltest.Panel,
 func openEveryDocument(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
-	harness := openAgents(t, buildDocumentAuthors()...)
+	harness := paneltest.OpenAgents(t, buildDocumentAuthors()...)
 	newDocumentShelf().answer(harness)
-	moveToAgentRow(t, harness, "task-quiet")
+	harness.MoveToRow("task-quiet")
 	harness.Press("tab", "tab")
 	harness.Advance(time.Second)
 
 	return harness
 }
 
-// moveToAgentRow puts the agents list's cursor on the row named the one given.
-func moveToAgentRow(t *testing.T, harness *paneltest.Panel, name string) {
-	t.Helper()
-
-	harness.Press("g", "g")
-	for range 12 {
-		if slices.Contains(strings.Fields(paneltest.HoveredRow(harness.Frame())), name) {
-			return
-		}
-		harness.Press("j")
-	}
-
-	require.Contains(t, strings.Fields(paneltest.HoveredRow(harness.Frame())), name, "no row is named %q", name)
-}
-
 // buildDocumentAuthors is a workflow whose orchestrator and one agent have written, beside an
 // agent that has not.
 func buildDocumentAuthors() []proto.Message {
-	orchestrator := newOrchestrator()
+	orchestrator := paneltest.Orchestrator()
 	orchestrator.Documents = 2
 	orchestrator.DocumentsUpdatedAt = xptr.Ptr("2026-09-25T12:00:00Z")
 
-	author := newAgent("author", "author", "w1")
+	author := paneltest.Agent("author", "author", "w1")
 	author.Documents = 2
 	author.DocumentsUpdatedAt = xptr.Ptr("2026-09-25T12:00:00Z")
-	quiet := newAgent("quiet", "quiet", "w1")
+	quiet := paneltest.Agent("quiet", "quiet", "w1")
 
 	return []proto.Message{
-		newLiveWorkflow("w1", "komrad"),
+		paneltest.Workflow("w1", "komrad"),
 		orchestrator,
 		author,
-		newTaskOf(author),
+		paneltest.TaskOf(author),
 		quiet,
-		newTaskOf(quiet),
+		paneltest.TaskOf(quiet),
 		newDocumentType("t1", "RFC"),
 		newDocumentType("t2", "report"),
 		newDocumentType("t3", "explainer"),

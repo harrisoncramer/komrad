@@ -41,9 +41,9 @@ func openHelp(t *testing.T, params paneltest.Params, press ...string) *paneltest
 	dormant.Id = "a2"
 
 	harness := paneltest.Start(t, params)
-	answerWorktreeReads(harness)
+	harness.AnswerWorktreeReads()
 	harness.Refuse(agentv1connect.AgentServiceResumeAgentProcedure, newTracedRefusal("no such agent"))
-	harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), newThinking(), dormant))
+	harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), newThinking(), dormant))
 	harness.Press(press...)
 
 	return harness

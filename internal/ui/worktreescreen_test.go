@@ -63,8 +63,8 @@ func TestWorktreesOpen(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			harness := openAgents(t, buildWorktrees()...)
-			answerWorktreeReads(harness)
+			harness := paneltest.OpenAgents(t, buildWorktrees()...)
+			harness.AnswerWorktreeReads()
 
 			harness.Press(tt.press...)
 
@@ -79,7 +79,7 @@ func TestWorktreesOpen(t *testing.T) {
 
 		rows := buildWorktrees()
 		rows[1].(*agentv1.Agent).PaneId = "%7"
-		harness := openAgents(t, rows...)
+		harness := paneltest.OpenAgents(t, rows...)
 		harness.Press("shift+tab")
 
 		assert.True(t, harness.Tmux().IsZoomed())
@@ -221,11 +221,11 @@ func TestWorktreesDelete(t *testing.T) {
 	t.Run("deleting unused worktrees is gray and asks nothing when only live directories are listed", func(t *testing.T) {
 		t.Parallel()
 
-		live := newAgent("live", "treeview", "w1")
+		live := paneltest.Agent("live", "treeview", "w1")
 		live.Cwd = "/trees/live"
 		live.Alive = xptr.Ptr(true)
 		harness := openWorktrees(t,
-			newLiveWorkflow("w1", "komrad"),
+			paneltest.Workflow("w1", "komrad"),
 			live,
 			newWorktreeTask(live),
 			&worktreev1.WatchedWorktree{
@@ -634,20 +634,20 @@ func TestWorktreesRecord(t *testing.T) {
 	t.Run("a directory named after its task names the agents provisioned for the task and those working in it", func(t *testing.T) {
 		t.Parallel()
 
-		writer := newAgent("writer-id", "writer", "w1")
+		writer := paneltest.Agent("writer-id", "writer", "w1")
 		writer.Cwd = "/home/h/komrad"
-		task := newTaskOf(writer)
-		reviewer := newAgent("reviewer-id", "reviewer", "w1")
+		task := paneltest.TaskOf(writer)
+		reviewer := paneltest.Agent("reviewer-id", "reviewer", "w1")
 		reviewer.Cwd = "/trees/" + task.GetId()
 		reviewer.TaskId = writer.TaskId
 		reviewer.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
-		adopter := newAgent("adopter-id", "adopter", "w1")
+		adopter := paneltest.Agent("adopter-id", "adopter", "w1")
 		adopter.Cwd = writer.GetCwd()
 		adopter.TaskId = writer.TaskId
 		adopter.ProvisionDisabled = true
 
 		harness := openWorktrees(t,
-			newLiveWorkflow("w1", "komrad"),
+			paneltest.Workflow("w1", "komrad"),
 			writer,
 			reviewer,
 			adopter,
@@ -669,9 +669,9 @@ func TestWorktreesRecord(t *testing.T) {
 	t.Run("a live writer is named before a newer archived reviewer", func(t *testing.T) {
 		t.Parallel()
 
-		writer := newAgent("writer-id", "writer", "w1")
+		writer := paneltest.Agent("writer-id", "writer", "w1")
 		writer.CreatedAt = "2026-09-20T12:00:00Z"
-		task := newTaskOf(writer)
+		task := paneltest.TaskOf(writer)
 		writer.Cwd = "/trees/" + task.GetId()
 		reviewer := newArchivedAgent("reviewer-id", "reviewer", "w1")
 		reviewer.CreatedAt = "2026-09-20T13:00:00Z"
@@ -680,7 +680,7 @@ func TestWorktreesRecord(t *testing.T) {
 		reviewer.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
 
 		harness := openWorktrees(t,
-			newLiveWorkflow("w1", "komrad"),
+			paneltest.Workflow("w1", "komrad"),
 			writer,
 			reviewer,
 			task,
@@ -702,7 +702,7 @@ func TestWorktreesRecord(t *testing.T) {
 		t.Parallel()
 
 		harness := openWorktrees(t,
-			newLiveWorkflow("w1", "komrad"),
+			paneltest.Workflow("w1", "komrad"),
 			&taskv1.Task{
 				Id:         "t9",
 				WorkflowId: "w1",
@@ -871,7 +871,7 @@ func TestWorktreesRecordOccupants(t *testing.T) {
 			all := buildWorktrees()
 			rows := []proto.Message{all[0], all[1], all[3], all[4], all[5], all[6], all[7]}
 			for i, name := range tt.occupants {
-				occupant := newAgent(fmt.Sprintf("occ%d", i), name, "w1")
+				occupant := paneltest.Agent(fmt.Sprintf("occ%d", i), name, "w1")
 				occupant.Cwd = tt.dir
 				occupant.CreatedAt = fmt.Sprintf("2026-09-20T1%d:00:00Z", i)
 				rows = append(rows, occupant)
@@ -902,7 +902,7 @@ func TestWorktreesDocument(t *testing.T) {
 
 		harness.Watch(paneltest.Puts(newMeasuredWorktree("/trees/admin", 1024)))
 
-		assert.Contains(t, readStageText(harness.Frame()), "git exploded")
+		assert.Contains(t, paneltest.StageText(harness.Frame()), "git exploded")
 		assert.Len(t, harness.Sent(worktreev1connect.WorktreeServiceGetWorktreeProcedure), asked)
 	})
 
@@ -920,7 +920,7 @@ func TestWorktreesDocument(t *testing.T) {
 		harness.Press("j", "k")
 		harness.Advance(time.Second)
 
-		document := readStageText(harness.Frame())
+		document := paneltest.StageText(harness.Frame())
 		assert.Contains(t, document, "could not read: git exploded")
 		assert.Contains(t, document, "Commits since origin/main")
 	})
@@ -961,7 +961,7 @@ func TestWorktreesDocument(t *testing.T) {
 		}))
 		harness.Advance(time.Second)
 
-		document := readStageText(harness.Frame())
+		document := paneltest.StageText(harness.Frame())
 		for _, want := range []string{
 			"treeview",
 			"local/      40M",
@@ -989,7 +989,7 @@ func TestWorktreesLastScreen(t *testing.T) {
 		moveToWorktree(t, harness, "reviewer")
 		harness.Advance(time.Second)
 
-		document := readStageText(harness.Frame())
+		document := paneltest.StageText(harness.Frame())
 		assert.Contains(t, document, "saved screen")
 		assert.Contains(t, document, "the reviewer approved")
 	})
@@ -1003,7 +1003,7 @@ func TestWorktreesLastScreen(t *testing.T) {
 		moveToWorktree(t, harness, "task/orphan")
 		harness.Advance(time.Second)
 
-		assert.NotContains(t, readStageText(harness.Frame()), "saved screen")
+		assert.NotContains(t, paneltest.StageText(harness.Frame()), "saved screen")
 	})
 }
 
@@ -1266,7 +1266,7 @@ func TestWorktreesScope(t *testing.T) {
 
 		harness := openWorktrees(t, buildMeasuredWorktrees()...)
 		harness.Press("F", "tab", "esc", "tab")
-		moveToAgentRow(t, harness, "treeview")
+		harness.MoveToRow("treeview")
 
 		harness.Press("space", "J", "w")
 
@@ -1284,7 +1284,7 @@ func openWorktrees(t *testing.T, rows ...proto.Message) *paneltest.Panel {
 		rows = buildWorktrees()
 	}
 
-	harness := openAgents(t, rows...)
+	harness := paneltest.OpenAgents(t, rows...)
 	harness.Press("shift+tab", "esc")
 
 	return harness
@@ -1318,14 +1318,14 @@ func openGroupedWorktrees(t *testing.T, rows ...proto.Message) *paneltest.Panel 
 }
 
 func buildWorktrees() []proto.Message {
-	live := newAgent("live", "treeview", "w1")
+	live := paneltest.Agent("live", "treeview", "w1")
 	live.Harness = "claude"
 	live.Cwd = "/trees/live"
 	live.Alive = xptr.Ptr(true)
 	live.State = agentv1.AgentState_AGENT_STATE_THINKING
 	live.Role = agentv1.AgentRole_AGENT_ROLE_WRITER
 
-	occupant := newAgent("occ", "review-607", "w1")
+	occupant := paneltest.Agent("occ", "review-607", "w1")
 	occupant.Cwd = "/trees/live"
 	occupant.Alive = xptr.Ptr(true)
 
@@ -1339,7 +1339,7 @@ func buildWorktrees() []proto.Message {
 	admin.Role = agentv1.AgentRole_AGENT_ROLE_WRITER
 
 	return append([]proto.Message{
-		newLiveWorkflow("w1", "komrad"),
+		paneltest.Workflow("w1", "komrad"),
 		live,
 		occupant,
 		archived,

@@ -88,7 +88,7 @@ func TestSubpages(t *testing.T) {
 
 		harness := openSubpages(t, "komrad")
 
-		frame := readStageText(harness.Frame())
+		frame := paneltest.StageText(harness.Frame())
 		assert.NotContains(t, frame, "review")
 		assert.Contains(t, frame, "terminal")
 	})
@@ -134,9 +134,9 @@ func TestSubpages(t *testing.T) {
 	t.Run("the legend offers it", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openAgents(t, buildSubpagesAgents()...)
+		harness := paneltest.OpenAgents(t, buildSubpagesAgents()...)
 		harness.Press(widenListPresses...)
-		moveToAgentRow(t, harness, "task-quiet")
+		harness.MoveToRow("task-quiet")
 		harness.Press("?")
 
 		assert.Regexp(t, `space +menu`, paneltest.Legend(harness.Frame()))
@@ -155,7 +155,7 @@ func TestSubpagesInArchive(t *testing.T) {
 		frame := harness.Frame()
 		assert.Contains(t, frame, "agents › author")
 		assert.Contains(t, frame, "› logs")
-		assert.NotContains(t, readStageText(frame), "review")
+		assert.NotContains(t, paneltest.StageText(frame), "review")
 		assert.Regexp(t, readOffEntry("terminal", "t"), harness.RawFrame())
 
 		harness.Press("r")
@@ -181,11 +181,11 @@ func TestSubpagesInArchive(t *testing.T) {
 		t.Parallel()
 
 		author := newArchivedAgent("author", "author", "w1")
-		harness := openArchivedAgents(t, newLiveWorkflow("w1", "komrad"), author, newTaskOf(author))
+		harness := openArchivedAgents(t, paneltest.Workflow("w1", "komrad"), author, paneltest.TaskOf(author))
 		harness.Press("j", "j", "space")
 		require.Contains(t, harness.Frame(), "  author")
 
-		stage := readStageText(harness.Frame())
+		stage := paneltest.StageText(harness.Frame())
 		require.Contains(t, stage, "jump")
 		assert.NotContains(t, stage, "git")
 	})
@@ -209,8 +209,8 @@ func TestSubpagesInArchive(t *testing.T) {
 func openSubpages(t *testing.T, row string) *paneltest.Panel {
 	t.Helper()
 
-	harness := openAgents(t, buildSubpagesAgents()...)
-	moveToAgentRow(t, harness, row)
+	harness := paneltest.OpenAgents(t, buildSubpagesAgents()...)
+	harness.MoveToRow(row)
 	harness.Press("space")
 
 	return harness
@@ -223,10 +223,10 @@ func openArchivedSubpages(t *testing.T) *paneltest.Panel {
 	author := newArchivedAgent("author", "author", "w1")
 	author.Documents = 2
 	author.DocumentsUpdatedAt = xptr.Ptr("2026-09-25T12:00:00Z")
-	task := newTaskOf(author)
+	task := paneltest.TaskOf(author)
 	task.ArchivedAt = xptr.Ptr(archivedAt)
 
-	harness := openArchivedAgents(t, newLiveWorkflow("w1", "komrad"), author, task)
+	harness := openArchivedAgents(t, paneltest.Workflow("w1", "komrad"), author, task)
 	newDocumentShelf().answer(harness)
 	harness.Press("j", "j", "space")
 	require.Contains(t, harness.Frame(), "  author")
@@ -239,7 +239,7 @@ func buildSubpagesAgents() []proto.Message {
 	author, _ := rows[2].(*agentv1.Agent)
 	author.Cwd = "/trees/author"
 
-	return append(rows, newReviewer("reviewer", "reviewer", "author"))
+	return append(rows, paneltest.Reviewer("reviewer", "reviewer", "author"))
 }
 
 // readOffEntry matches a submenu entry as it is rendered when there is nothing behind it, gray with

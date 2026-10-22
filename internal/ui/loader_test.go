@@ -134,7 +134,7 @@ func TestLoaderSpinsWhileAnAgentSetsUp(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			agent := newAgent("a1", "old", "w1")
+			agent := paneltest.Agent("a1", "old", "w1")
 			agent.State = agentv1.AgentState_AGENT_STATE_SETTING_UP
 			agent.PaneId = tt.pane
 			harness := openNoticed(t, paneltest.Params{Loader: loader.Arcs}, agent)
@@ -147,7 +147,7 @@ func TestLoaderSpinsWhileAnAgentSetsUp(t *testing.T) {
 
 			assert.Equal(t, []string{"◜", "◝", "◞"}, rendered)
 
-			harness.Watch(paneltest.Snapshot(newLiveWorkflow("w1", "backend"), newRunning()))
+			harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), newRunning()))
 			harness.Advance(loader.Interval)
 			assert.False(t, isSpinning(harness), "the loader goes quiet once the agent is up")
 		})
@@ -162,7 +162,7 @@ func TestLoaderSpinsWhileAWriteIsInFlight(t *testing.T) {
 		Height: 40,
 		Loader: loader.Arcs,
 	})
-	answerWorktreeReads(harness)
+	harness.AnswerWorktreeReads()
 	harness.Watch(paneltest.Snapshot(newFormWorkflow()))
 	harness.Answer(create, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "w2"}}), nil
@@ -179,7 +179,7 @@ func TestLoaderSpinsWhileAWriteIsInFlight(t *testing.T) {
 	assert.Equal(t, []string{"◜", "◝", "◞"}, rendered)
 
 	harness.Release(create)
-	harness.Watch(paneltest.Puts(newLiveWorkflow("w2", "web")))
+	harness.Watch(paneltest.Puts(paneltest.Workflow("w2", "web")))
 	harness.Advance(loader.Interval)
 	assert.False(t, isSpinning(harness), "the loader goes quiet once the write lands")
 }
@@ -200,7 +200,7 @@ func openArchiveWithChecksRunning(t *testing.T) *paneltest.Panel {
 	require.True(t, ok)
 	agent.ArchivedAt = xptr.Ptr(archivedAt)
 
-	return openArchivedAgents(t, append([]proto.Message{newLiveWorkflow("w1", "backend")}, rows...)...)
+	return openArchivedAgents(t, append([]proto.Message{paneltest.Workflow("w1", "backend")}, rows...)...)
 }
 
 func readChecksFrame(t *testing.T, harness *paneltest.Panel) string {
