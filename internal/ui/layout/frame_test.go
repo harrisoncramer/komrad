@@ -650,11 +650,12 @@ func TestFrameSidebarWidthFollowsTheDivider(t *testing.T) {
 // moved the panel's own pane on.
 func TestFrameIsStaleSize(t *testing.T) {
 	tests := []struct {
-		name          string
-		paneWidth     int
-		paneHeight    int
-		width, height int
-		want          bool
+		name       string
+		paneWidth  int
+		paneHeight int
+		width      int
+		height     int
+		want       bool
 	}{
 		{
 			name:       "the size the pane stands at is current",
