@@ -110,7 +110,7 @@ func (p *Panel) Attach(program sender) {
 	p.m.post.program = program
 }
 
-// sender takes a message from off the program's loop; *tea.Program is one.
+// sender takes a message from off the program's loop.
 type sender interface {
 	Send(msg tea.Msg)
 }
