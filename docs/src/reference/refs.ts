@@ -1,4 +1,4 @@
-import { anchor, api, commandBySlug, commandHref, config, escape, referencedTypes } from ".";
+import { anchor, api, commandBySlug, commandHref, config, escape, inline, referencedTypes } from ".";
 import { link } from "../site";
 import type { Section, Setting } from "./types";
 
@@ -72,7 +72,7 @@ export function commandOf(path: string): Ref {
 export const refLink = (target: Ref, inner: string) =>
   `<a class="ref" href="${escape(target.href)}">${inner}<span class="ref-card" aria-hidden="true">` +
   `<code>${escape(target.title)}</code>` +
-  (target.description ? `<span>${escape(target.description)}</span>` : "") +
+  (target.description ? `<span>${inline(target.description)}</span>` : "") +
   (target.detail ? `<span class="ref-detail">${escape(target.detail)}</span>` : "") +
   `</span></a>`;
 

@@ -55,7 +55,7 @@ export const escape = (text: string) =>
 
 type CodeLink = (code: string) => string | undefined;
 
-const inline = (text: string, codeLink: CodeLink) =>
+export const inline = (text: string, codeLink: CodeLink = () => undefined) =>
   escape(text).replace(/`([^`]+)`/g, (_, code: string) => codeLink(code) ?? `<code>${code}</code>`);
 
 const indented = (line: string) => /^(\t| {2,})/.test(line);

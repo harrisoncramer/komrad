@@ -49,7 +49,7 @@ const body = JSON.stringify(Object.fromEntries(required.map((field) => [field.na
 const connect = `curl -X POST http://127.0.0.1:8787${method.path} \\
   -H 'Content-Type: application/json' \\
   -d '${body}'`;
-const cli = [method.command, ...required.map((field) => `--${kebab(field.name)} <${field.type}>`)].join(" \\\n  ");
+const cli = [method.command, ...required.map((field) => `--${kebab(field.name)} '<${field.type}>'`)].join(" \\\n  ");
 
 const args = Object.fromEntries(required.map((field) => [field.name, placeholder(field)]));
 const mcp = JSON.stringify({ name: method.tool, arguments: args }, null, 2);
