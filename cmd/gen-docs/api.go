@@ -80,9 +80,9 @@ type enumValueDoc struct {
 }
 
 type eventDoc struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Prompt      string `json:"prompt"`
+	Name          string `json:"name"`
+	Description   string `json:"description"`
+	DefaultPrompt string `json:"defaultPrompt"`
 }
 
 var firstSentence = regexp.MustCompile(`^.*?[.!?](\s|$)`)
@@ -93,7 +93,7 @@ func buildAPI(notes comments) apiDoc {
 		Messages: map[string]messageDoc{},
 		Enums:    map[string]enumDoc{},
 		Events: xslice.Map(eventprompts.All(), func(event eventprompts.Event) eventDoc {
-			return eventDoc{Name: event.Name, Description: event.Description, Prompt: event.DefaultPrompt}
+			return eventDoc{Name: event.Name, Description: event.Description, DefaultPrompt: event.DefaultPrompt}
 		}),
 	}
 	index := map[protoreflect.FullName]int{}

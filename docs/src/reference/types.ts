@@ -56,7 +56,7 @@ export type Service = {
 export type Event = {
   name: string;
   description: string;
-  prompt: string;
+  defaultPrompt: string;
 };
 
 export type API = {
