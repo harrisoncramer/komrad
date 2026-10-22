@@ -9,9 +9,8 @@ import (
 	"komrad/internal/diff"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 var errCommentSnapshotGone = errors.New("the snapshot this comment was written on is gone")
@@ -28,7 +27,7 @@ type reviewOrigin struct {
 	place *diffview.Place
 }
 
-func (r *reviewScreen) toggleJump(m *model) tea.Cmd {
+func (r *reviewScreen) toggleJump(m *model) screen.Request {
 	if r.diff.spec.origin != nil {
 		return r.leaveOrigin(m)
 	}
@@ -40,9 +39,7 @@ func (r *reviewScreen) toggleJump(m *model) tea.Cmd {
 
 	snapshot := findSnapshot(r.diff.snapshots, thread.GetSnapshotId())
 	if snapshot == nil {
-		m.note(messageWarning, errCommentSnapshotGone.Error())
-
-		return nil
+		return screen.NewNote(screen.Warning, errCommentSnapshotGone.Error())
 	}
 
 	origin := &reviewOrigin{
@@ -61,7 +58,7 @@ func (r *reviewScreen) toggleJump(m *model) tea.Cmd {
 	return r.reload(m)
 }
 
-func (r *reviewScreen) leaveOrigin(m *model) tea.Cmd {
+func (r *reviewScreen) leaveOrigin(m *model) screen.Request {
 	origin := r.diff.spec.origin
 	r.diff.spec = origin.held
 

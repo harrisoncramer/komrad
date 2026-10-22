@@ -8,7 +8,6 @@ import (
 	"komrad/internal/ui/screen"
 
 	"charm.land/bubbles/v2/key"
-	tea "charm.land/bubbletea/v2"
 )
 
 // reconcileNameEdit says whether a field stays open over rows whose cursor is on hovered.
@@ -27,11 +26,11 @@ type renameSettled struct {
 	err error
 }
 
-// renameCmd sends a name typed over a row, handing the outcome to the screens that type names.
-func (m *model) renameCmd(doing, summary, row string, write func(api) error) tea.Cmd {
+// rename sends a name typed over a row, handing the outcome to the screens that type names.
+func (m *model) rename(doing, summary, row string, write func(api) error) screen.Request {
 	clients := m.api
 
-	return m.apply(screen.Write{
+	return screen.Write{
 		Doing:   doing,
 		Summary: summary,
 		Send: func() screen.Landed {
@@ -39,7 +38,7 @@ func (m *model) renameCmd(doing, summary, row string, write func(api) error) tea
 
 			return screen.Landed{Err: err, Then: renameSettled{row: row, err: err}}
 		},
-	})
+	}
 }
 
 // settleRename marks a typed name saved once its write has landed, or open for another try when it failed.

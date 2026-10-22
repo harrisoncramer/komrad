@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/assemble"
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"google.golang.org/protobuf/proto"
@@ -31,9 +32,10 @@ func (t *reviewThreads) set(threads []*agentv1.ReviewThread) {
 }
 
 // followWorld renders what the world now holds of the review.
-func (r *reviewScreen) followWorld(m *model) {
+func (r *reviewScreen) followWorld(m *model) screen.Request {
 	r.followThreads(m)
-	r.followNotices(m)
+
+	return r.followNotices(m)
 }
 
 // followThreads renders the conversation the world holds on a live agent, once the reader has stopped

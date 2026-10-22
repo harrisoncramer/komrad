@@ -358,7 +358,7 @@ func (m *model) leaveScreen() tea.Cmd {
 	m.reading.focused = false
 
 	if l, ok := m.active().(screenLeaver); ok {
-		return l.leaveScreen(m)
+		return m.apply(l.leaveScreen(m))
 	}
 
 	return nil
@@ -478,7 +478,7 @@ func (m *model) hoveredFilterKey() string {
 
 func (m *model) placeFilteredCursor(hovered string) {
 	if list, ok := m.filteredList(); ok {
-		list.place(m, hovered)
+		m.apply(list.place(m, hovered))
 	}
 }
 
@@ -571,13 +571,8 @@ func narrowed[T any](filter filterState, params narrowedParams[T]) []T {
 	return kept
 }
 
-// jumpToFilterMatch walks the cursor to the next row the search matches, the way the key says.
-func (m *model) jumpToFilterMatch(pressed string) tea.Cmd {
-	delta := 1
-	if keys.IsBound(pressed, m.keys.Filter.PrevMatch) {
-		delta = -1
-	}
-
+// stepFilterMatch walks the cursor delta rows the search matches along.
+func (m *model) stepFilterMatch(delta int) tea.Cmd {
 	if found, ok := m.matchAt(delta); ok {
 		m.placeFilteredCursor(found)
 	}
@@ -645,4 +640,21 @@ func (m *model) clickSearch(key string) tea.Cmd {
 	}
 
 	return tea.Batch(entered, m.route(keys.Press(filterOpenKey)))
+}
+
+// filterBy narrows the list up as if the user typed and applied the query, in the grammar the
+// screen up reads.
+func (m *model) filterBy(query string) {
+	var opts []filterOption
+	if s, ok := m.active().(queryGrammarer); ok {
+		if grammar, reads := s.queryGrammar(); reads {
+			opts = append(opts, withGrammar(grammar, m.clock))
+		}
+	}
+
+	m.filter.open(opts...)
+	m.filter.mode = filterModeFilter
+	m.filter.openedIn = sectionList
+	m.filter.setQuery(query)
+	m.applyFilter()
 }

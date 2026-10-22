@@ -68,8 +68,8 @@ type reviewWroteMsg struct {
 }
 
 // open puts the review on an agent's diff and reads it.
-func (r *reviewScreen) open(m *model, agent panel.Agent) tea.Cmd {
-	m.dropMessage(r.notices.moved)
+func (r *reviewScreen) open(m *model, agent panel.Agent) screen.Request {
+	unnote := screen.Unnote{Key: r.notices.moved}
 
 	workflow := m.listing.WorkflowFor(agent)
 
@@ -84,39 +84,43 @@ func (r *reviewScreen) open(m *model, agent panel.Agent) tea.Cmd {
 		diff:      reviewDiff{spec: wholeChange()},
 	}
 
-	return r.loadWholeCmd(m)
+	return screen.Batch{unnote, r.loadWhole(m)}
 }
 
 // refuse backs out to the listing, for a worktree that turned out to hold nothing.
-func (r *reviewScreen) refuse(m *model, err error) tea.Cmd {
+func (r *reviewScreen) refuse(m *model, err error) screen.Request {
 	name := r.agentName
-	letGo := r.drop(m)
-	m.reportBrief(describeRefusedReview(name, err), err.Error())
 
-	return letGo
+	return screen.Batch{
+		r.drop(m),
+		screen.Note{
+			Kind:    screen.Error,
+			Summary: describeRefusedReview(name, err),
+			Detail:  err.Error(),
+		},
+	}
 }
 
 // abandon backs out to the listing for a diff that could not be read at all.
-func (r *reviewScreen) abandon(m *model, err error) tea.Cmd {
+func (r *reviewScreen) abandon(m *model, err error) screen.Request {
 	name := r.agentName
-	letGo := r.drop(m)
-	m.report("Could not read the diff of "+name, err)
 
-	return letGo
+	return screen.Batch{r.drop(m), screen.Report{Summary: "Could not read the diff of " + name, Err: err}}
 }
 
 // drop puts the reader back on the row they opened the review from, closing the editor and letting
 // go of an agent stopped for it.
-func (r *reviewScreen) drop(m *model) tea.Cmd {
+func (r *reviewScreen) drop(m *model) screen.Request {
+	var unstaged screen.Request
 	if r.hold.atEditor {
-		m.unstageEditor()
+		unstaged = screen.Unstage{}
 	}
 
 	letGo := r.endHold(m, abandonedSaid)
 
 	*r = reviewScreen{loads: r.loads}
 
-	return tea.Batch(m.apply(screen.Open{Screen: screen.Agents}), letGo)
+	return screen.Batch{unstaged, screen.Open{Screen: screen.Agents}, letGo}
 }
 
 // describeRefusedReview says which of the two empty diffs this is: an agent that has written
@@ -129,17 +133,17 @@ func describeRefusedReview(name string, err error) string {
 	return "Nothing to review in " + name
 }
 
-// loadWholeCmd reads the whole change of the agent on screen.
-func (r *reviewScreen) loadWholeCmd(m *model) tea.Cmd {
+// loadWhole reads the whole change of the agent on screen.
+func (r *reviewScreen) loadWhole(m *model) screen.Request {
 	r.loads++
 
-	return loadReviewCmd(m, loadReviewCmdParams{
+	return screen.Cmd(loadReviewCmd(m, loadReviewCmdParams{
 		AgentID: r.agentID,
 		TaskID:  r.taskID,
 		Dir:     r.dir,
 		Exclude: r.exclude,
 		Load:    r.loads,
-	})
+	}))
 }
 
 // loadReviewCmdParams says which task's snapshot to take, for which agent on screen, where to read
@@ -311,16 +315,17 @@ func loadSnapshotPatch(ctx context.Context, params loadSnapshotPatchParams) (*sn
 	return &snapshotPatch{patch: patch, origin: origin}, nil
 }
 
-func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
+func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) screen.Request {
 	if msg.agentID != r.agentID || msg.load != r.loads {
 		return nil
 	}
 
 	r.diff.snapshots, r.diff.newest = msg.snapshots, msg.snapshot
 
+	var widened screen.Request
 	if msg.widened != nil {
 		r.diff.widen()
-		m.note(messageWarning, widenedSaid(msg.widened))
+		widened = screen.NewNote(screen.Warning, widenedSaid(msg.widened))
 	}
 
 	isEmpty := errors.Is(msg.err, diff.ErrNoChanges) || errors.Is(msg.err, diff.ErrAllExcluded)
@@ -334,31 +339,27 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 		}
 
 		r.diff.widen()
-		m.note(messageWarning, said)
 
-		return r.loadWholeCmd(m)
+		return screen.Batch{widened, screen.NewNote(screen.Warning, said), r.loadWhole(m)}
 	}
 
 	// Both render nothing, so both back out rather than leaving the reader in an empty viewer.
 	if isEmpty {
-		return r.refuse(m, msg.err)
+		return screen.Batch{widened, r.refuse(m, msg.err)}
 	}
 
 	if msg.patch == nil && r.diff.spec.origin != nil {
 		r.diff.widen()
-		m.note(messageWarning, "could not render where this comment was written: "+msg.err.Error())
 
-		return r.loadWholeCmd(m)
+		return screen.Batch{widened, screen.NewNote(screen.Warning, "could not render where this comment was written: "+msg.err.Error()), r.loadWhole(m)}
 	}
 
 	if msg.patch == nil {
-		return r.abandon(m, msg.err)
+		return screen.Batch{widened, r.abandon(m, msg.err)}
 	}
 
 	r.loading = false
-	if msg.err != nil {
-		m.report("Could not read the whole review of "+r.agentName, msg.err)
-	}
+	partial := screen.Report{Summary: "Could not read the whole review of " + r.agentName, Err: msg.err}
 
 	r.notice = msg.notice
 
@@ -368,9 +369,8 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) tea.Cmd {
 	r.threads.set(msg.threads)
 
 	r.scrollToCursor(m)
-	r.followNotices(m)
 
-	return nil
+	return screen.Batch{widened, partial, r.followNotices(m)}
 }
 
 // load renders a patch just read, over the one on screen, and puts the cursor back where the
@@ -431,34 +431,34 @@ func indexViewedFiles(viewed []*agentv1.ReviewViewedFile, patch *diff.Patch) map
 	return held
 }
 
-func (r *reviewScreen) applyWrote(m *model, msg reviewWroteMsg) tea.Cmd {
+func (r *reviewScreen) applyWrote(m *model, msg reviewWroteMsg) screen.Request {
 	if msg.agentID != r.agentID || r.diff.View() == nil {
 		return nil
 	}
 
 	if msg.err != nil {
-		m.report("Could not write on "+r.agentName, msg.err)
-
+		refused := screen.Report{Summary: "Could not write on " + r.agentName, Err: msg.err}
 		if msg.unsent != nil {
-			return r.restoreMessage(m, *msg.unsent)
+			return screen.Batch{refused, r.restoreMessage(m, *msg.unsent)}
 		}
 
-		return nil
+		return refused
 	}
 
+	var requests screen.Batch
 	if msg.notice != "" {
-		m.note(messageSuccess, msg.notice)
+		requests = append(requests, screen.NewNote(screen.Success, msg.notice))
 	}
 
 	switch {
 	case !msg.readBack:
 	case msg.readErr != nil:
-		m.report("Could not read the review of "+r.agentName+" back", msg.readErr)
+		requests = append(requests, screen.Report{Summary: "Could not read the review of " + r.agentName + " back", Err: msg.readErr})
 	default:
 		r.applyThreads(m, msg.threads)
 	}
 
-	return nil
+	return requests
 }
 
 // applyThreads renders the review as it now stands, keeping the reader where they were.
@@ -477,7 +477,7 @@ func (r *reviewScreen) applyThreads(m *model, threads []*agentv1.ReviewThread) {
 }
 
 // toggleAgentThreads shows or hides the conversations agents opened.
-func (r *reviewScreen) toggleAgentThreads(m *model) tea.Cmd {
+func (r *reviewScreen) toggleAgentThreads(m *model) screen.Request {
 	r.diff.hidesAgentThreads = !r.diff.hidesAgentThreads
 
 	if r.diff.View() != nil {
@@ -488,7 +488,7 @@ func (r *reviewScreen) toggleAgentThreads(m *model) tea.Cmd {
 }
 
 // catchUp takes a snapshot of the worktree as it stands and ends the range on it.
-func (r *reviewScreen) catchUp(m *model) tea.Cmd {
+func (r *reviewScreen) catchUp(m *model) screen.Request {
 	if r.diff.spec.isRange() {
 		r.diff.spec.to = ""
 	}
@@ -498,7 +498,7 @@ func (r *reviewScreen) catchUp(m *model) tea.Cmd {
 
 // reload reads the diff again, holding the place the cursor is standing so the diff comes back
 // under it.
-func (r *reviewScreen) reload(m *model) tea.Cmd {
+func (r *reviewScreen) reload(m *model) screen.Request {
 	if r.diff.View() == nil {
 		return nil
 	}
@@ -509,17 +509,17 @@ func (r *reviewScreen) reload(m *model) tea.Cmd {
 
 	r.loads++
 
-	return loadReviewCmd(m, loadReviewCmdParams{
+	return screen.Cmd(loadReviewCmd(m, loadReviewCmdParams{
 		AgentID: r.agentID,
 		TaskID:  r.taskID,
 		Dir:     r.dir,
 		Exclude: r.exclude,
 		Spec:    r.diff.spec,
 		Load:    r.loads,
-	})
+	}))
 }
 
-func (r *reviewScreen) back(m *model) tea.Cmd {
+func (r *reviewScreen) back(m *model) screen.Request {
 	if r.hold.atEditor {
 		return r.closeEdit(m)
 	}
@@ -530,7 +530,7 @@ func (r *reviewScreen) back(m *model) tea.Cmd {
 }
 
 // backFromDiff hands the keys to the file tree, or leaves the screen where no tree renders.
-func (r *reviewScreen) backFromDiff(m *model) tea.Cmd {
+func (r *reviewScreen) backFromDiff(m *model) screen.Request {
 	if r.hold.isHeld() || !r.isBlockRendered(m) {
 		return r.back(m)
 	}

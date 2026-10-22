@@ -97,3 +97,9 @@ type Refuse struct {
 
 // Request marks Refuse as a screen request.
 func (Refuse) Request() {}
+
+// Close takes the form or menu up down and comes back to the screen it was rendered over.
+type Close struct{}
+
+// Request marks Close as a screen request.
+func (Close) Request() {}

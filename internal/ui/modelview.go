@@ -7,6 +7,7 @@ import (
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/screen"
 	"komrad/internal/ui/zone"
 	"komrad/lib/xslice"
 
@@ -206,7 +207,7 @@ func joinLeading(leading []string, form string) string {
 }
 
 func (m *model) renderRefusal(width int) string {
-	icon := paint.Panel.Style(kindTone(messageError)).Render(kindIcon(m.glyphs, messageError))
+	icon := paint.Panel.Style(kindTone(screen.Error)).Render(kindIcon(m.glyphs, screen.Error))
 
 	return icon + " " + paint.Clip(m.form.refusal, max(width-2, 1))
 }

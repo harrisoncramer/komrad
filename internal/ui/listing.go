@@ -47,7 +47,7 @@ func (m *model) reportUnreachable(err error) {
 	}
 
 	m.pushMessage(message{
-		kind:    messageError,
+		kind:    screen.Error,
 		summary: "Cannot reach the server",
 		detail:  reason,
 		trace:   errui.GetTrace(err),
@@ -87,9 +87,9 @@ func (m *model) withListing(change func(*panel.Listing)) tea.Cmd {
 	now := m.clock.Now()
 	m.agents.triage.refresh(m.listing.Agents, m.listing.Tasks, now)
 	m.agents.apply(m, treeRow)
-	m.agents.followAwaitingCLI(m)
+	cmds := []tea.Cmd{m.apply(m.agents.followAwaitingCLI(m))}
 	m.agents.landInTriage(m, treeRow, triageSlot)
-	m.schedules.apply(m, scheduleRow)
+	cmds = append(cmds, m.apply(m.schedules.apply(m, scheduleRow)))
 	if archiveShown != nil {
 		archiveShown.place(m, archivedAgentRow)
 	}
@@ -104,22 +104,23 @@ func (m *model) withListing(change func(*panel.Listing)) tea.Cmd {
 		rerendered = m.rerenderOpenForm()
 	}
 
-	return tea.Batch(rerendered, m.finishParked(), m.afterListing())
+	return tea.Batch(append(cmds, rerendered, m.finishParked(), m.afterListing())...)
 }
 
 // afterListing asks for what the hovered rows are owed and stages the screen over them.
 func (m *model) afterListing() tea.Cmd {
-	inspect := tea.Batch(m.inspectHoveredWorktreeCmd(), m.inspectTaskWorktreeCmd(m.clock.Now()), m.readDocumentsCmd(), m.readStatusChecksCmd(), m.readMovedLastScreenCmd())
+	inspect := tea.Batch(m.apply(m.inspectHoveredWorktree()), m.apply(m.inspectTaskWorktree(m.clock.Now())), m.readDocumentsCmd(), m.readStatusChecksCmd(), m.readMovedLastScreenCmd())
 
 	// A screen that renders what it holds beside its own list stages nothing at all.
 	active := m.active()
+	var staged tea.Cmd
 	if s, ok := active.(rowStager); ok && active.doesRenderFromListing() && !m.form.isActive() {
-		s.stage(m)
+		staged = m.apply(s.stage(m))
 	}
 
 	m.restageBeside()
 
-	return inspect
+	return tea.Batch(inspect, staged)
 }
 
 type writeResult struct {
@@ -448,7 +449,7 @@ func (m *model) finishWrite(result writeResult) tea.Cmd {
 
 	if landed.Notice != nil && landed.Err == nil {
 		m.pushMessage(message{
-			kind:    messageInfo,
+			kind:    screen.Info,
 			summary: landed.Notice.Summary,
 			detail:  landed.Notice.Detail,
 		})
@@ -494,9 +495,9 @@ func (m *model) finishWrite(result writeResult) tea.Cmd {
 func (m *model) landOnMade(made screen.Made, keyMoved bool) tea.Cmd {
 	switch {
 	case made.Archived && keyMoved:
-		return m.enterArchived(screen.Target{})
+		return m.apply(m.enterArchived(screen.Target{}))
 	case made.Archived:
-		return m.enterArchived(screen.Target{AgentID: made.Agent})
+		return m.apply(m.enterArchived(screen.Target{AgentID: made.Agent}))
 	}
 
 	m.agents.kind = agentsLive
@@ -516,7 +517,7 @@ func (m *model) landOnMade(made screen.Made, keyMoved bool) tea.Cmd {
 	}
 
 	pane := made.Pane
-	cmds = append(cmds, m.agents.closeEdit(m))
+	cmds = append(cmds, m.apply(m.agents.closeEdit(m)))
 	m.frame.Solo(false)
 	m.frame.ShowGuest(layout.Guest{Agent: made.Agent, Pane: pane})
 	delete(m.warm.since, pane)

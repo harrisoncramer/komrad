@@ -10,8 +10,6 @@ import (
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 // actions is the worktrees screen as one table and the legend that names it.
@@ -30,7 +28,7 @@ func (w *worktreesScreen) table() []keys.Action[*model] {
 			ID:   actionWorktreesBack,
 			Keys: keys.FixedBack,
 			When: list.isBrowsing,
-			Nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
+			Nav:  func(m *model, _ string) screen.Request { return screen.PickView{} },
 		},
 	)
 }
@@ -92,7 +90,7 @@ func deleteDesc(fate panel.WorktreeFate) string {
 }
 
 // deleteWorktree asks before a directory goes the way its fate decides.
-func deleteWorktree(m *model, item panel.Worktree) tea.Cmd {
+func deleteWorktree(m *model, item panel.Worktree) screen.Request {
 	switch item.Fate {
 	case panel.FateLive:
 		return m.archiveTasks([]panel.Task{*item.Task})
@@ -164,7 +162,7 @@ func (d worktreeDeletion) chosen() int {
 }
 
 // confirmDeleteChosen asks before the chosen directories go, with the confirm that fits the choice.
-func confirmDeleteChosen(m *model, deletion worktreeDeletion) tea.Cmd {
+func confirmDeleteChosen(m *model, deletion worktreeDeletion) screen.Request {
 	switch {
 	case len(deletion.tasks) == 0:
 		return confirmDeleteWorktrees(m, deletion)
@@ -177,7 +175,7 @@ func confirmDeleteChosen(m *model, deletion worktreeDeletion) tea.Cmd {
 
 // confirmDeleteMixed asks once before task checkouts go with their tasks and the other directories
 // through the remover.
-func confirmDeleteMixed(m *model, deletion worktreeDeletion) tea.Cmd {
+func confirmDeleteMixed(m *model, deletion worktreeDeletion) screen.Request {
 	confirm := deleteMixedConfirm(deletion, len(m.listing.AgentsOnTasks(deletion.tasks)))
 
 	return confirm.open(m, func() screen.Request {
@@ -186,7 +184,7 @@ func confirmDeleteMixed(m *model, deletion worktreeDeletion) tea.Cmd {
 }
 
 // confirmDeleteWorktrees asks before a deletion.
-func confirmDeleteWorktrees(m *model, deletion worktreeDeletion) tea.Cmd {
+func confirmDeleteWorktrees(m *model, deletion worktreeDeletion) screen.Request {
 	if deletion.isEmpty() {
 		return nil
 	}
@@ -226,7 +224,7 @@ func (w *worktreesScreen) buildItemMenu(m *model) (menu.Menu, bool) {
 			return menu.Menu{}, false
 		}
 
-		return menu.WithNested(rowMenu(label.Count(deletion.chosen(), "worktree", "worktrees")), "archive", m.keys.Menu.Archive, liveArchiveMenu(menu.Leaving("delete all", m.keys.ArchiveMenu.Delete, func() tea.Cmd {
+		return menu.WithNested(rowMenu(label.Count(deletion.chosen(), "worktree", "worktrees")), "archive", m.keys.Menu.Archive, liveArchiveMenu(menu.Leaving("delete all", m.keys.ArchiveMenu.Delete, func() screen.Request {
 			return confirmDeleteChosen(m, deletion)
 		}))), true
 	}
@@ -261,7 +259,7 @@ func (w *worktreesScreen) buildItemMenu(m *model) (menu.Menu, bool) {
 // buildScreenMenu builds the worktrees screen's own band, for clearing every directory that can go.
 func (w *worktreesScreen) buildScreenMenu(m *model) (menu.Menu, bool) {
 	clearable := w.clearDeletion(m)
-	clearAll := menu.Leaving("delete unused worktrees", m.keys.ArchiveMenu.Clear, func() tea.Cmd {
+	clearAll := menu.Leaving("delete unused worktrees", m.keys.ArchiveMenu.Clear, func() screen.Request {
 		return confirmDeleteWorktrees(m, clearable)
 	})
 	clearAll.Off = clearable.isEmpty()
@@ -276,7 +274,7 @@ func (w *worktreesScreen) buildScreenMenu(m *model) (menu.Menu, bool) {
 // the fate offers none.
 func worktreeDeleteEntry(m *model, item panel.Worktree) (menu.Entry, bool) {
 	desc := deleteDesc(item.Fate)
-	run := func() tea.Cmd { return deleteWorktree(m, item) }
+	run := func() screen.Request { return deleteWorktree(m, item) }
 	switch item.Fate {
 	case panel.FateLive:
 		return menu.Holding(desc, m.keys.ArchiveMenu.Archive, run), true

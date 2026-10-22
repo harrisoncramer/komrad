@@ -10,6 +10,7 @@ import (
 	"komrad/internal/logging"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	loopv1 "komrad/proto/gen/loop/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -24,9 +25,9 @@ func isStale(read panel.WorktreeInspection, now time.Time) bool {
 	return !read.Answered || (!read.IsSettled() && now.Sub(read.ReadAt) > worktreeReadTTL)
 }
 
-// inspectTaskWorktreeCmd asks for the hovered task's directory where nothing stands for it or
+// inspectTaskWorktree asks for the hovered task's directory where nothing stands for it or
 // what stands is stale.
-func (m *model) inspectTaskWorktreeCmd(now time.Time) tea.Cmd {
+func (m *model) inspectTaskWorktree(now time.Time) screen.Request {
 	task, ok := m.hoveredRecordTask()
 	if !ok || task.Cwd == "" {
 		return nil
@@ -35,7 +36,7 @@ func (m *model) inspectTaskWorktreeCmd(now time.Time) tea.Cmd {
 		return nil
 	}
 
-	return m.readWorktreeCmd(task.Cwd)
+	return screen.Inspect{Dir: task.Cwd}
 }
 
 // wakeCwdSyncCmd wakes the cwd sync while the cursor rests on a live task or agent.
@@ -67,15 +68,15 @@ func (m *model) isHoveringLiveCheckout() bool {
 	return ok && item.Agent.Cwd != "" && item.Agent.ArchivedAt == nil
 }
 
-// rereadTaskWorktreeCmd asks for the hovered task's directory again however fresh what stands
+// rereadTaskWorktree asks for the hovered task's directory again however fresh what stands
 // for it is, short of an answer that will never change.
-func (m *model) rereadTaskWorktreeCmd() tea.Cmd {
+func (m *model) rereadTaskWorktree() screen.Request {
 	task, ok := m.hoveredRecordTask()
 	if !ok || task.Cwd == "" || m.inspections[task.Cwd].IsSettled() {
 		return nil
 	}
 
-	return m.readWorktreeCmd(task.Cwd)
+	return screen.Inspect{Dir: task.Cwd}
 }
 
 // taskWorktree is what has been read of a task's directory, and nothing for one that is not a

@@ -53,7 +53,7 @@ func (d *documentsScreen) documentTypeTable() []keys.Action[*model] {
 		keys.Action[*model]{
 			ID:   actionDocumentsBack,
 			Keys: keys.FixedBack,
-			Nav:  func(m *model, _ string) tea.Cmd { return d.back(m) },
+			Nav:  func(m *model, _ string) screen.Request { return d.back(m) },
 		},
 	)
 }
@@ -63,21 +63,21 @@ func (d *documentsScreen) documentTable() []keys.Action[*model] {
 		{
 			ID:   actionDocumentsOlder,
 			Keys: func(k config.Keybindings) []string { return k.Documents.Older },
-			Nav: func(m *model, _ string) tea.Cmd {
+			Nav: func(m *model, _ string) screen.Request {
 				return d.stepOlder(m)
 			},
 		},
 		{
 			ID:   actionDocumentsNewer,
 			Keys: func(k config.Keybindings) []string { return k.Documents.Newer },
-			Nav: func(m *model, _ string) tea.Cmd {
+			Nav: func(m *model, _ string) screen.Request {
 				return d.stepNewer(m)
 			},
 		},
 		{
 			ID:   actionDocumentsBack,
 			Keys: keys.FixedBack,
-			Nav: func(m *model, _ string) tea.Cmd {
+			Nav: func(m *model, _ string) screen.Request {
 				return d.back(m)
 			},
 		},
@@ -137,7 +137,7 @@ func (d *documentsScreen) stepActions() keys.Spec[*model] {
 			{
 				ID:   actionDocumentsBack,
 				Keys: keys.FixedBack,
-				Nav: func(*model, string) tea.Cmd {
+				Nav: func(*model, string) screen.Request {
 					d.focus = false
 
 					return nil
@@ -146,17 +146,17 @@ func (d *documentsScreen) stepActions() keys.Spec[*model] {
 			{
 				ID:   keys.Quit,
 				Keys: keys.FixedQuit,
-				Nav:  func(m *model, _ string) tea.Cmd { return m.apply(screen.Hide{}) },
+				Nav:  func(m *model, _ string) screen.Request { return screen.Hide{} },
 			},
 			{
 				ID:   actionDocumentsOlder,
 				Keys: func(k config.Keybindings) []string { return k.Documents.Older },
-				Nav:  func(m *model, _ string) tea.Cmd { return d.stepOlder(m) },
+				Nav:  func(m *model, _ string) screen.Request { return d.stepOlder(m) },
 			},
 			{
 				ID:   actionDocumentsNewer,
 				Keys: func(k config.Keybindings) []string { return k.Documents.Newer },
-				Nav:  func(m *model, _ string) tea.Cmd { return d.stepNewer(m) },
+				Nav:  func(m *model, _ string) screen.Request { return d.stepNewer(m) },
 			},
 		},
 		Legend: []keys.LegendRow[*model]{
@@ -192,7 +192,7 @@ func (d *documentsScreen) diffKeys() diffKeys {
 }
 
 // updateDiff is the diff taking the keys.
-func (d *documentsScreen) updateDiff(m *model, key tea.KeyPressMsg) tea.Cmd {
+func (d *documentsScreen) updateDiff(m *model, key tea.KeyPressMsg) screen.Request {
 	return m.dispatchTop(d.actions(m), key.String())
 }
 
@@ -228,7 +228,7 @@ func (d *documentsScreen) blurBlock() {
 }
 
 // leaveScreen takes down an editor open on the stage.
-func (d *documentsScreen) leaveScreen(m *model) tea.Cmd {
+func (d *documentsScreen) leaveScreen(m *model) screen.Request {
 	d.renaming = nil
 
 	return d.closeEdit(m)
@@ -238,7 +238,7 @@ func (d *documentsScreen) doesScrollColumn(m *model) bool {
 	return d.isBlockRendered(m)
 }
 
-func (d *documentsScreen) scrollColumn(m *model, rows int) tea.Cmd {
+func (d *documentsScreen) scrollColumn(m *model, rows int) screen.Request {
 	return d.diffKeys().moveBy(m, rows)
 }
 
@@ -249,7 +249,7 @@ func (d *documentsScreen) docKeys() keys.Spec[*model] {
 			{
 				ID:   actionDocumentsOlder,
 				Keys: func(k config.Keybindings) []string { return k.Documents.Older },
-				Nav: func(m *model, _ string) tea.Cmd {
+				Nav: func(m *model, _ string) screen.Request {
 					d.focus = true
 
 					return d.stepOlder(m)
@@ -258,7 +258,7 @@ func (d *documentsScreen) docKeys() keys.Spec[*model] {
 			{
 				ID:   keys.Quit,
 				Keys: keys.FixedQuit,
-				Nav:  func(m *model, _ string) tea.Cmd { return m.apply(screen.Hide{}) },
+				Nav:  func(m *model, _ string) screen.Request { return screen.Hide{} },
 			},
 		},
 		Legend: []keys.LegendRow[*model]{

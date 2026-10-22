@@ -7,8 +7,6 @@ import (
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 var (
@@ -78,15 +76,15 @@ func archiveMenu(m *model, target archived) menu.Menu {
 	return menu.Menu{
 		Title: "archive",
 		Entries: []menu.Entry{
-			menu.Holding(restore, m.keys.ArchiveMenu.Restore, func() tea.Cmd { return restoreArchived(m, target) }),
+			menu.Holding(restore, m.keys.ArchiveMenu.Restore, func() screen.Request { return restoreArchived(m, target) }),
 			{
 				Label: "restore and open",
 				Keys:  m.keys.ArchiveMenu.RestoreOpen,
 				Off:   err != nil,
 				After: menu.Hold,
-				Pick:  func() tea.Cmd { return m.restoreAndOpen(target) },
+				Pick:  func() screen.Request { return m.restoreAndOpen(target) },
 			},
-			menu.DrawnOff(menu.Leaving(remove, m.keys.ArchiveMenu.Delete, func() tea.Cmd {
+			menu.DrawnOff(menu.Leaving(remove, m.keys.ArchiveMenu.Delete, func() screen.Request {
 				return confirmDeleteArchivedRow(m, target)
 			}), target.deleteOffSaid()),
 		},
@@ -102,50 +100,50 @@ func deletedEntries(m *model, target archived) []menu.Entry {
 
 	var entries []menu.Entry
 	if target.workflow != nil {
-		entries = append(entries, menu.Holding("restore", m.keys.Menu.Restore, func() tea.Cmd { return restoreArchived(m, target) }))
+		entries = append(entries, menu.Holding("restore", m.keys.Menu.Restore, func() screen.Request { return restoreArchived(m, target) }))
 	}
 
-	return append(entries, menu.DrawnOff(menu.Leaving(remove, m.keys.Menu.Delete, func() tea.Cmd {
+	return append(entries, menu.DrawnOff(menu.Leaving(remove, m.keys.Menu.Delete, func() screen.Request {
 		return confirmDeleteArchivedRow(m, target)
 	}), target.deleteOffSaid()))
 }
 
 // restoreAndOpen restores the work and puts one agent's conversation back in a pane, or says why it cannot.
-func (m *model) restoreAndOpen(target archived) tea.Cmd {
+func (m *model) restoreAndOpen(target archived) screen.Request {
 	resumed, err := target.opensAgent(m.listing)
 	if err != nil {
-		return m.apply(screen.Report{Summary: "Could not restore and open " + target.name(), Err: err})
+		return screen.Report{Summary: "Could not restore and open " + target.name(), Err: err}
 	}
 
-	return restoreAndResumeCmd(m, target.work.chosen, *resumed)
+	return restoreAndResume(m, target.work.chosen, *resumed)
 }
 
-func restoreArchived(m *model, target archived) tea.Cmd {
+func restoreArchived(m *model, target archived) screen.Request {
 	switch {
 	case target.schedule != nil:
 		schedule := *target.schedule
 
-		return m.apply(m.awaitingWrite(
+		return m.awaitingWrite(
 			"restoring "+schedule.Name,
 			fmt.Sprintf("Could not restore schedule %q", schedule.Name),
 			screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedSchedules, schedule.ID)},
 			func(c api) error { return c.restoreSchedule(schedule.ID) },
-		))
+		)
 	case target.workflow != nil:
 		workflow := *target.workflow
 
-		return m.apply(m.awaitingWrite(
+		return m.awaitingWrite(
 			"restoring "+workflow.Name,
 			fmt.Sprintf("Could not restore workflow %q", workflow.Name),
 			screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)},
 			func(c api) error { return c.restoreWorkflow(workflow.ID) },
-		))
+		)
 	}
 
-	return restoreAgentsCmd(m, target.work.chosen)
+	return restoreAgents(m, target.work.chosen)
 }
 
-func confirmDeleteArchivedRow(m *model, target archived) tea.Cmd {
+func confirmDeleteArchivedRow(m *model, target archived) screen.Request {
 	switch {
 	case target.schedule != nil:
 		return confirmDeleteSchedule(m, *target.schedule)
@@ -170,7 +168,7 @@ func agentArchiveMenu(m *model, agent panel.Agent) menu.Menu {
 		Label: "archive this agent",
 		Keys:  m.keys.ArchiveMenu.Archive,
 		After: menu.Hold,
-		Pick:  func() tea.Cmd { return m.archiveAgents([]panel.Agent{agent}) },
+		Pick:  func() screen.Request { return m.archiveAgents([]panel.Agent{agent}) },
 	})
 }
 
@@ -179,7 +177,7 @@ func workflowArchiveMenu(m *model, workflow panel.Workflow) menu.Menu {
 		Label: "archive with its agents",
 		Keys:  m.keys.ArchiveMenu.Archive,
 		After: menu.Hold,
-		Pick:  func() tea.Cmd { return m.archiveWorkflow(workflow) },
+		Pick:  func() screen.Request { return m.archiveWorkflow(workflow) },
 	})
 }
 
@@ -192,9 +190,9 @@ func taskArchiveMenu(m *model, task panel.Task) menu.Menu {
 			Label: "archive with its agents",
 			Keys:  m.keys.ArchiveMenu.Archive,
 			After: menu.Hold,
-			Pick:  func() tea.Cmd { return m.archiveTasks(tasks) },
+			Pick:  func() screen.Request { return m.archiveTasks(tasks) },
 		},
-		menu.Leaving("archive and delete for good", m.keys.ArchiveMenu.Delete, func() tea.Cmd {
+		menu.Leaving("archive and delete for good", m.keys.ArchiveMenu.Delete, func() screen.Request {
 			return confirmDeleteTasks(m, tasks)
 		}),
 	)
@@ -208,9 +206,9 @@ func chosenArchiveMenu(m *model, work chosenWork) menu.Menu {
 			Label: "archive all",
 			Keys:  m.keys.ArchiveMenu.Archive,
 			After: menu.Hold,
-			Pick:  func() tea.Cmd { return m.archiveChosenAgents(work) },
+			Pick:  func() screen.Request { return m.archiveChosenAgents(work) },
 		},
-		menu.DrawnOff(menu.Leaving("archive and delete all for good", m.keys.ArchiveMenu.Delete, func() tea.Cmd {
+		menu.DrawnOff(menu.Leaving("archive and delete all for good", m.keys.ArchiveMenu.Delete, func() screen.Request {
 			return confirmDeleteChosenAgents(m, work)
 		}), work.deleteOffSaid()),
 	)
@@ -218,10 +216,10 @@ func chosenArchiveMenu(m *model, work chosenWork) menu.Menu {
 
 // archiveChosenAgents archives the task of each chosen writer with its agents and the other chosen
 // agents alone.
-func (m *model) archiveChosenAgents(work chosenWork) tea.Cmd {
+func (m *model) archiveChosenAgents(work chosenWork) screen.Request {
 	subject := describeAgents(work.chosen)
 
-	return m.apply(m.archivingWrite(archivingWriteParams{
+	return m.archivingWrite(archivingWriteParams{
 		doing:   "archiving " + subject,
 		summary: "Could not archive " + subject,
 		agents:  work.affected(m.listing),
@@ -237,7 +235,7 @@ func (m *model) archiveChosenAgents(work chosenWork) tea.Cmd {
 
 			return a.archiveAgents(panel.IDs(work.loneAgents))
 		},
-	}))
+	})
 }
 
 // deleteChosenWrite is the write that deletes the task of each chosen writer, with its agents when
@@ -257,7 +255,7 @@ func (m *model) deleteChosenWrite(work chosenWork, records bool) screen.Write {
 }
 
 // confirmDeleteChosenAgents asks what goes before the chosen agents are deleted.
-func confirmDeleteChosenAgents(m *model, work chosenWork) tea.Cmd {
+func confirmDeleteChosenAgents(m *model, work chosenWork) screen.Request {
 	confirm := deleteChosenConfirm(work, m.listing.HasAnyWorktreeToDelete(work.wholeTasks))
 
 	return confirm.open(m, func() screen.Request {
@@ -270,6 +268,6 @@ func scheduleArchiveMenu(m *model, schedule panel.Schedule) menu.Menu {
 		Label: "archive",
 		Keys:  m.keys.ArchiveMenu.Archive,
 		After: menu.Hold,
-		Pick:  func() tea.Cmd { return m.archiveSchedule(schedule) },
+		Pick:  func() screen.Request { return m.archiveSchedule(schedule) },
 	})
 }

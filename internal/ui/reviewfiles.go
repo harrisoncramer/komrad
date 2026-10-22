@@ -193,7 +193,7 @@ func (r *reviewScreen) blurBlock() {
 
 // stepFile moves the diff to the next file the tree renders, or the previous one for a negative
 // direction.
-func (r *reviewScreen) stepFile(m *model, direction int) tea.Cmd {
+func (r *reviewScreen) stepFile(m *model, direction int) screen.Request {
 	r.side = nil
 	keys := r.diffKeys()
 	if !r.filesFilter.isNarrowing() && len(r.closedFolders) == 0 {
@@ -209,7 +209,7 @@ func (r *reviewScreen) stepFile(m *model, direction int) tea.Cmd {
 
 // walkFiles moves the diff down the tree by files, up it when files is negative, stopping at the
 // last file there is.
-func (r *reviewScreen) walkFiles(m *model, files int) tea.Cmd {
+func (r *reviewScreen) walkFiles(m *model, files int) screen.Request {
 	direction := 1
 	if files < 0 {
 		direction = -1
@@ -240,7 +240,7 @@ func (r *reviewScreen) walkFiles(m *model, files int) tea.Cmd {
 // following onto each file, and the wheel walking it a file at a time while it does not.
 type filesNav struct{ r *reviewScreen }
 
-func (f filesNav) moveBy(m *model, rows int) tea.Cmd {
+func (f filesNav) moveBy(m *model, rows int) screen.Request {
 	if f.r.focus != reviewFocusFiles {
 		return f.r.walkFiles(m, rows)
 	}
@@ -273,7 +273,7 @@ func (f filesNav) moveBy(m *model, rows int) tea.Cmd {
 	return f.r.landOnRow(m, row)
 }
 
-func (f filesNav) moveToEnd(m *model, direction int) tea.Cmd {
+func (f filesNav) moveToEnd(m *model, direction int) screen.Request {
 	if direction < 0 && f.r.moveSideToTop(m) {
 		return nil
 	}
@@ -292,7 +292,7 @@ func (f filesNav) moveToEnd(m *model, direction int) tea.Cmd {
 
 // landOnRow puts the tree's cursor on a row, moving the diff to the top of a file and leaving it
 // where it is for a folder.
-func (r *reviewScreen) landOnRow(m *model, row diffview.TreeRow) tea.Cmd {
+func (r *reviewScreen) landOnRow(m *model, row diffview.TreeRow) screen.Request {
 	if !row.Folder {
 		return r.landOnFile(m, row)
 	}
@@ -303,7 +303,7 @@ func (r *reviewScreen) landOnRow(m *model, row diffview.TreeRow) tea.Cmd {
 }
 
 // landOnFile moves the diff to the top of a file in the tree.
-func (r *reviewScreen) landOnFile(m *model, row diffview.TreeRow) tea.Cmd {
+func (r *reviewScreen) landOnFile(m *model, row diffview.TreeRow) screen.Request {
 	r.folderCursor = folderCursor{}
 	r.side = nil
 	keys := r.diffKeys()
@@ -314,7 +314,7 @@ func (r *reviewScreen) landOnFile(m *model, row diffview.TreeRow) tea.Cmd {
 	return keys.land(m)
 }
 
-func (r *reviewScreen) clickFile(m *model, path string) tea.Cmd {
+func (r *reviewScreen) clickFile(m *model, path string) screen.Request {
 	for _, row := range r.readFilesTree().rows {
 		if row.Path != path {
 			continue
@@ -339,11 +339,11 @@ func (r *reviewScreen) openFilesFilter() {
 }
 
 // updateFilesFilter is the tree's search prompt taking keys.
-func (r *reviewScreen) updateFilesFilter(m *model, key tea.KeyPressMsg) tea.Cmd {
+func (r *reviewScreen) updateFilesFilter(m *model, key tea.KeyPressMsg) screen.Request {
 	filter := &r.filesFilter
 	switch key.String() {
 	case "ctrl+c":
-		return m.apply(screen.Hide{})
+		return screen.Hide{}
 	case "tab":
 		filter.mode = filter.mode.flipped()
 
@@ -361,7 +361,7 @@ func (r *reviewScreen) updateFilesFilter(m *model, key tea.KeyPressMsg) tea.Cmd 
 
 // settleFilesFilter lands a search on the nearest file it matches, and a filter on the first file
 // it left when it took the current one away.
-func (r *reviewScreen) settleFilesFilter(m *model) tea.Cmd {
+func (r *reviewScreen) settleFilesFilter(m *model) screen.Request {
 	if !r.filesFilter.isNarrowing() {
 		return r.jumpFilesMatch(m, 0)
 	}
@@ -384,7 +384,7 @@ func (r *reviewScreen) settleFilesFilter(m *model) tea.Cmd {
 
 // jumpFilesMatch walks to the next file whose name the pattern matches, the way direction says,
 // wrapping at either end and leaving the cursor where it is when that file is the current one.
-func (r *reviewScreen) jumpFilesMatch(m *model, direction int) tea.Cmd {
+func (r *reviewScreen) jumpFilesMatch(m *model, direction int) screen.Request {
 	tree := r.readOpenFilesTree()
 	count := len(tree.rows)
 	if r.filesFilter.pattern == nil || count == 0 {
@@ -416,7 +416,5 @@ func (r *reviewScreen) jumpFilesMatch(m *model, direction int) tea.Cmd {
 		return r.landOnFile(m, row)
 	}
 
-	m.note(messageWarning, reviewNoFileWord)
-
-	return nil
+	return screen.NewNote(screen.Warning, reviewNoFileWord)
 }

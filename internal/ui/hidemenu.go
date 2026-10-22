@@ -3,8 +3,7 @@ package ui
 import (
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
-
-	tea "charm.land/bubbletea/v2"
+	"komrad/internal/ui/screen"
 )
 
 // hideMenu is the agents list's hide menu, hiding the tasks given and gray when there are none.
@@ -37,14 +36,10 @@ func hideEntry(m *model, tasks []panel.Task) menu.Entry {
 		label = "unhide"
 	}
 
-	return menu.Holding(label, m.keys.HideMenu.Hide, func() tea.Cmd { return hideTasks(m, tasks) })
+	return menu.Holding(label, m.keys.HideMenu.Hide, func() screen.Request { return hideTasks(m, tasks) })
 }
 
-// toggleHidden leaves the menu and shows the hidden tasks, or puts them away.
-func (m *model) toggleHidden() tea.Cmd {
-	m.leaveForm()
-	m.reconcileSolo()
-	m.agents.toggleHidden(m)
-
-	return nil
+// toggleHidden shows the hidden tasks, or puts them away.
+func (m *model) toggleHidden() screen.Request {
+	return screen.Batch{screen.Reconcile{}, m.agents.toggleHidden(m)}
 }

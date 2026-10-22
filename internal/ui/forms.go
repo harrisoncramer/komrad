@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"slices"
+
 	"komrad/config"
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/form"
@@ -201,13 +203,13 @@ func (m *model) formLeading() ([]string, int) {
 func holdSubmit(write func(*model) tea.Cmd) func(*model) tea.Cmd {
 	return func(m *model) tea.Cmd {
 		began := m.writes.count
-		writeCmd := write(m)
+		cmd := write(m)
 
 		if m.writes.count != began && m.form.isActive() {
-			return tea.Batch(writeCmd, m.holdForm())
+			return tea.Batch(cmd, m.holdForm())
 		}
 
-		return tea.Batch(writeCmd, m.closeForm())
+		return tea.Batch(cmd, m.closeForm())
 	}
 }
 
@@ -243,6 +245,16 @@ func (m *model) rerenderOpenForm() tea.Cmd {
 	}
 
 	return m.rerenderFormOn(key)
+}
+
+// rerenderWorktreeConfirm renders a delete confirm again once git answers for a worktree it
+// describes.
+func (m *model) rerenderWorktreeConfirm(dir string) tea.Cmd {
+	if !slices.Contains(m.form.Worktrees, dir) {
+		return nil
+	}
+
+	return m.rerenderOpenForm()
 }
 
 func (m *model) rebuildForm() tea.Cmd {

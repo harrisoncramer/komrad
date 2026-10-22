@@ -88,7 +88,7 @@ type statusCheckLogReadMsg struct {
 	err        error
 }
 
-func (c *statusCheckLogsScreen) enter(m *model, target screen.Target) tea.Cmd {
+func (c *statusCheckLogsScreen) enter(m *model, target screen.Target) screen.Request {
 	generation := c.generation + 1
 	if target.AgentID != "" {
 		*c = statusCheckLogsScreen{
@@ -98,16 +98,16 @@ func (c *statusCheckLogsScreen) enter(m *model, target screen.Target) tea.Cmd {
 	}
 	c.generation, c.logs, c.placed, c.placedTop = generation, map[string]*statusCheckLogRead{}, 0, 0
 
-	return tea.Batch(m.readStatusChecksCmd(), c.readsCmd(m))
+	return screen.Batch{screen.Cmd(m.readStatusChecksCmd()), screen.Cmd(c.readsCmd(m))}
 }
 
-func (c *statusCheckLogsScreen) leaveScreen(*model) tea.Cmd {
+func (c *statusCheckLogsScreen) leaveScreen(*model) screen.Request {
 	c.generation++
 
 	return nil
 }
 
-func (c *statusCheckLogsScreen) update(m *model, msg tea.Msg) tea.Cmd {
+func (c *statusCheckLogsScreen) update(m *model, msg tea.Msg) screen.Request {
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return nil
@@ -121,11 +121,7 @@ func (c *statusCheckLogsScreen) list() screenList[statusCheckLogRow] {
 		cursor: func() *list.Cursor { return &c.Cursor },
 		rows:   c.rows,
 		name:   statusCheckLogRowName,
-		moved: func(m *model) tea.Cmd {
-			c.anchor(m)
-
-			return nil
-		},
+		moved:  c.anchor,
 	}
 }
 
@@ -157,32 +153,33 @@ func (c *statusCheckLogsScreen) rows(m *model) []statusCheckLogRow {
 }
 
 // anchor puts the hovered row's header at the top of the document.
-func (c *statusCheckLogsScreen) anchor(m *model) {
+func (c *statusCheckLogsScreen) anchor(m *model) screen.Request {
 	split, ok := m.screenColumnSplit()
 	if !ok {
-		return
+		return nil
 	}
 
 	line, ok := c.keepDoc(m, split.column).anchors[c.list().hovered(m)]
 	if !ok {
-		return
+		return nil
 	}
 
-	m.reading.tail = false
+	var top int
 	if rows, height, ok := m.docLayout(); ok {
-		m.reading.Line, c.placed = line, line
-		m.reading.Top = reader.Window{Len: len(rows), Markers: true}.Clamp(line, height)
-		c.placedTop = m.reading.Top
+		top = reader.Window{Len: len(rows), Markers: true}.Clamp(line, height)
+		c.placed, c.placedTop = line, top
 	}
+
+	return screen.PlaceDoc{Line: line, Top: top}
 }
 
 // reanchor keeps the hovered row's header in view as the document changes above it, unless the reader has moved or scrolled off it.
-func (c *statusCheckLogsScreen) reanchor(m *model) {
+func (c *statusCheckLogsScreen) reanchor(m *model) screen.Request {
 	if m.screen != screen.StatusCheckLogs || m.reading.focused || m.reading.Line != c.placed || m.reading.Top != c.placedTop {
-		return
+		return nil
 	}
 
-	c.anchor(m)
+	return c.anchor(m)
 }
 
 func (c *statusCheckLogsScreen) listParams(m *model) screenListParams {
@@ -212,13 +209,12 @@ func (c *statusCheckLogsScreen) kindsSwitch(*model) bool {
 }
 
 // stepKind moves the status checks screen to another scope, which is the scope the logs are joined under.
-func (c *statusCheckLogsScreen) stepKind(m *model, delta int) tea.Cmd {
+func (c *statusCheckLogsScreen) stepKind(m *model, delta int) screen.Request {
 	hovered := c.list().hovered(m)
-	cmd := m.statusChecks.stepKind(m, delta)
-	c.list().place(m, hovered)
-	c.reanchor(m)
+	stepped := m.statusChecks.stepKind(m, delta)
+	placed := c.list().place(m, hovered)
 
-	return tea.Batch(cmd, c.readsCmd(m))
+	return screen.Batch{stepped, placed, c.reanchor(m), screen.Cmd(c.readsCmd(m))}
 }
 
 func (c *statusCheckLogsScreen) listActions() keys.Spec[*model] {
@@ -227,8 +223,8 @@ func (c *statusCheckLogsScreen) listActions() keys.Spec[*model] {
 			keys.Action[*model]{
 				ID:   actionStatusCheckLogsBack,
 				Keys: keys.FixedBack,
-				Nav: func(m *model, _ string) tea.Cmd {
-					return m.apply(screen.Open{Screen: screen.StatusChecks})
+				Nav: func(m *model, _ string) screen.Request {
+					return screen.Open{Screen: screen.StatusChecks}
 				},
 			},
 		),
@@ -278,7 +274,7 @@ func (c *statusCheckLogsScreen) column() columnSpec {
 	}
 }
 
-func (c *statusCheckLogsScreen) stageResting(*model) tea.Cmd {
+func (c *statusCheckLogsScreen) stageResting(*model) screen.Request {
 	return nil
 }
 
@@ -379,9 +375,8 @@ func (m *model) applyStatusCheckLogRead(msg statusCheckLogReadMsg) tea.Cmd {
 
 	if msg.err != nil {
 		read.err, read.reading = msg.err, false
-		c.reanchor(m)
 
-		return nil
+		return m.apply(c.reanchor(m))
 	}
 
 	read.lines = append(read.lines, xslice.Map(msg.resp.GetLines(), func(line *pullrequestv1.CheckLogLine) string { return line.GetText() })...)
@@ -392,7 +387,6 @@ func (m *model) applyStatusCheckLogRead(msg statusCheckLogReadMsg) tea.Cmd {
 	} else {
 		next = c.readCmd(m, msg.checkID, int32(len(read.lines))+1, total)
 	}
-	c.reanchor(m)
 
-	return next
+	return tea.Batch(m.apply(c.reanchor(m)), next)
 }

@@ -6,8 +6,6 @@ import (
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 const draftTimeout = 30 * time.Second
@@ -28,9 +26,9 @@ func draftLabel(task panel.Task) string {
 
 // toggleDraft asks the forge to flip whether the task's pull request is a draft, or says why it
 // cannot.
-func (m *model) toggleDraft(task panel.Task) tea.Cmd {
+func (m *model) toggleDraft(task panel.Task) screen.Request {
 	if err := openPullRequestRefusal(task); err != nil {
-		return m.apply(screen.Report{Summary: "Could not change the " + task.PullRequest.Noun() + " of " + task.Slug, Err: err})
+		return screen.Report{Summary: "Could not change the " + task.PullRequest.Noun() + " of " + task.Slug, Err: err}
 	}
 
 	clients := m.api
@@ -40,7 +38,7 @@ func (m *model) toggleDraft(task panel.Task) tea.Cmd {
 		doing, said = "marking "+standing.Ref()+" a draft", " is a draft"
 	}
 
-	return m.apply(screen.Write{
+	return screen.Write{
 		Doing:   doing,
 		Summary: "Could not change " + standing.Ref() + " of " + task.Slug,
 		Send: func() screen.Landed {
@@ -49,5 +47,5 @@ func (m *model) toggleDraft(task panel.Task) tea.Cmd {
 				Notice: &screen.Notice{Summary: task.Slug + ": " + standing.Ref() + said, Detail: standing.Title},
 			}
 		},
-	})
+	}
 }

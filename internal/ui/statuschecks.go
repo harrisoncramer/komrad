@@ -63,7 +63,7 @@ func (r statusCheckRow) Key() string {
 	return "status-check:" + r.item.providerID
 }
 
-func (c *statusChecksScreen) enter(m *model, target screen.Target) tea.Cmd {
+func (c *statusChecksScreen) enter(m *model, target screen.Target) screen.Request {
 	if target.AgentID != "" {
 		*c = statusChecksScreen{
 			agentID:    target.AgentID,
@@ -71,10 +71,10 @@ func (c *statusChecksScreen) enter(m *model, target screen.Target) tea.Cmd {
 		}
 	}
 
-	return m.readStatusChecksCmd()
+	return screen.Cmd(m.readStatusChecksCmd())
 }
 
-func (c *statusChecksScreen) update(m *model, msg tea.Msg) tea.Cmd {
+func (c *statusChecksScreen) update(m *model, msg tea.Msg) screen.Request {
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return nil
@@ -88,7 +88,7 @@ func (c *statusChecksScreen) list() screenList[statusCheckRow] {
 		cursor: func() *list.Cursor { return &c.Cursor },
 		rows:   c.rows,
 		name:   statusCheckRowName,
-		moved:  func(m *model) tea.Cmd { return m.waitToStage() },
+		moved:  func(*model) screen.Request { return screen.Settle{} },
 	}
 }
 
@@ -175,13 +175,12 @@ func (c *statusChecksScreen) kindsSwitch(*model) bool {
 }
 
 // stepKind moves the listing to another scope, keeping the cursor on its row when the new scope lists it.
-func (c *statusChecksScreen) stepKind(m *model, delta int) tea.Cmd {
+func (c *statusChecksScreen) stepKind(m *model, delta int) screen.Request {
 	hovered := c.list().hovered(m)
 	c.scope = statusCheckScope(stepStop(int(c.shownScope()), delta, len(statusCheckScopeLabels)))
 	c.scopeChosen = true
-	c.list().place(m, hovered)
 
-	return m.waitToStage()
+	return screen.Batch{c.list().place(m, hovered), screen.Settle{}}
 }
 
 func (c *statusChecksScreen) listActions() keys.Spec[*model] {
@@ -190,15 +189,15 @@ func (c *statusChecksScreen) listActions() keys.Spec[*model] {
 			keys.Action[*model]{
 				ID:   actionStatusChecksBack,
 				Keys: keys.FixedBack,
-				Nav: func(m *model, _ string) tea.Cmd {
-					return m.apply(screen.Open{Screen: c.openedFrom, Target: screen.Target{AgentID: c.agentID}})
+				Nav: func(m *model, _ string) screen.Request {
+					return screen.Open{Screen: c.openedFrom, Target: screen.Target{AgentID: c.agentID}}
 				},
 			},
 			keys.Action[*model]{
 				ID:   actionStatusChecksLogs,
 				Keys: keys.FixedOpen,
-				Nav: func(m *model, _ string) tea.Cmd {
-					return m.apply(screen.Open{Screen: screen.StatusCheckLogs, Target: screen.Target{AgentID: c.agentID, OpenedFrom: screen.StatusChecks}})
+				Nav: func(m *model, _ string) screen.Request {
+					return screen.Open{Screen: screen.StatusCheckLogs, Target: screen.Target{AgentID: c.agentID, OpenedFrom: screen.StatusChecks}}
 				},
 			},
 		),
@@ -249,7 +248,7 @@ func (c *statusChecksScreen) column() columnSpec {
 	}
 }
 
-func (c *statusChecksScreen) stageResting(*model) tea.Cmd {
+func (c *statusChecksScreen) stageResting(*model) screen.Request {
 	return nil
 }
 
@@ -354,16 +353,15 @@ func (m *model) applyStatusChecksListed(msg statusChecksListedMsg) tea.Cmd {
 
 	hovered := c.list().hovered(m)
 	c.commit, c.err = msg.commit, nil
-	c.list().place(m, hovered)
-	m.statusCheckLogs.reanchor(m)
+	placed := m.apply(screen.Batch{c.list().place(m, hovered), m.statusCheckLogs.reanchor(m)})
 	reads := m.statusCheckLogs.readsCmd(m)
 	if !msg.headRead {
 		c.listedHead = ""
 
-		return reads
+		return tea.Batch(placed, reads)
 	}
 
-	return tea.Batch(reads, m.readStatusChecksCmd())
+	return tea.Batch(placed, reads, m.readStatusChecksCmd())
 }
 
 func isStatusCheckFinished(item statusCheckItem) bool {

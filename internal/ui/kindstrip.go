@@ -63,14 +63,14 @@ func (m *model) clickKind(label string) tea.Cmd {
 		return cmd
 	}
 
-	return tea.Batch(cmd, k.stepKind(m, at-row.lit))
+	return tea.Batch(cmd, m.apply(k.stepKind(m, at-row.lit)))
 }
 
 func (m *model) updateKinds(press tea.KeyPressMsg) tea.Cmd {
 	k, _ := m.activeKinds()
 
 	cmd := m.pressStrip(press.String(), stripKeys{
-		step:  func(delta int) tea.Cmd { return k.stepKind(m, delta) },
+		step:  func(delta int) tea.Cmd { return m.apply(k.stepKind(m, delta)) },
 		close: func() { *k.kindsFocused(m) = false },
 	})
 

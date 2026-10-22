@@ -9,6 +9,7 @@ import (
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
+	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -156,7 +157,7 @@ func (m *model) focusDetails() tea.Cmd {
 	m.blurKinds()
 	m.detailsRowCursor()
 
-	return tea.Batch(m.rereadTaskWorktreeCmd(), m.wakeCwdSyncCmd())
+	return tea.Batch(m.apply(m.rereadTaskWorktree()), m.wakeCwdSyncCmd())
 }
 
 // releaseHiddenDetails hands the keys back from a record the pane no longer renders.
@@ -174,7 +175,7 @@ func (m *model) blurDetails() {
 }
 
 func (m *model) updateDetails(key tea.KeyPressMsg) tea.Cmd {
-	return m.detailsActions().Dispatch(m, m.keys, key.String())
+	return m.apply(m.detailsActions().Dispatch(m, m.keys, key.String()))
 }
 
 func (m *model) detailsActions() keys.Spec[*model] {
@@ -183,7 +184,7 @@ func (m *model) detailsActions() keys.Spec[*model] {
 			{
 				ID:   keys.Details,
 				Keys: keys.FixedBack,
-				Nav: func(*model, string) tea.Cmd {
+				Nav: func(*model, string) screen.Request {
 					m.details.focused = false
 
 					return nil
@@ -192,7 +193,7 @@ func (m *model) detailsActions() keys.Spec[*model] {
 			{
 				ID:   keys.DetailsCopy,
 				Keys: func(k config.Keybindings) []string { return k.Details.Copy },
-				Nav:  func(*model, string) tea.Cmd { return m.copyDetailsField() },
+				Nav:  func(*model, string) screen.Request { return screen.Cmd(m.copyDetailsField()) },
 			},
 		}...),
 		Legend: []keys.LegendRow[*model]{

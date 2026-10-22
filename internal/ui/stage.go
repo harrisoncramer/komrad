@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/ui/layout"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xptr"
 
 	tea "charm.land/bubbletea/v2"
@@ -49,7 +50,7 @@ func (m *model) settleUnstaged(agents []panel.Agent, killed bool) {
 	}
 
 	if stager, ok := m.active().(rowStager); ok {
-		stager.stage(m)
+		m.apply(stager.stage(m))
 	}
 }
 
@@ -76,43 +77,35 @@ func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 		return nil
 	}
 
-	return tea.Batch(m.active().stageResting(m), m.wakeCwdSyncCmd())
+	return tea.Batch(m.apply(m.active().stageResting(m)), m.wakeCwdSyncCmd())
 }
 
-func (w *worktreesScreen) stageResting(m *model) tea.Cmd {
-	w.stage(m)
-
-	return tea.Batch(m.inspectWorktreeCmd(), m.readLastScreenCmd())
+func (w *worktreesScreen) stageResting(m *model) screen.Request {
+	return screen.Batch{w.stage(m), m.inspectWorktree(), screen.ReadLastScreen{}}
 }
 
-func (d *documentsScreen) stageResting(m *model) tea.Cmd {
-	d.stage(m)
-
-	return m.readDocumentsCmd()
+func (d *documentsScreen) stageResting(m *model) screen.Request {
+	return screen.Batch{d.stage(m), screen.Cmd(m.readDocumentsCmd())}
 }
 
-func (w *schedulesScreen) stageResting(m *model) tea.Cmd {
-	m.stageSelection()
-
-	return nil
+func (w *schedulesScreen) stageResting(*model) screen.Request {
+	return screen.Restage{}
 }
 
-func (l *logsScreen) stageResting(m *model) tea.Cmd {
+func (l *logsScreen) stageResting(m *model) screen.Request {
 	return l.switchSource(m)
 }
 
-func (a *agentsScreen) stageResting(m *model) tea.Cmd {
-	m.stageSelection()
-
-	return tea.Batch(m.readLastScreenCmd(), m.inspectTaskWorktreeCmd(m.clock.Now()))
+func (a *agentsScreen) stageResting(m *model) screen.Request {
+	return screen.Batch{screen.Restage{}, screen.ReadLastScreen{}, m.inspectTaskWorktree(m.clock.Now())}
 }
 
-func (r *reviewScreen) stageResting(m *model) tea.Cmd {
-	if !r.hold.atEditor {
-		m.stageSelection()
+func (r *reviewScreen) stageResting(m *model) screen.Request {
+	if r.hold.atEditor {
+		return r.markThreadRead(m)
 	}
 
-	return r.markThreadReadCmd(m)
+	return screen.Batch{screen.Restage{}, r.markThreadRead(m)}
 }
 
 // paneStatusRows is the rows the blank status line tmux renders over every pane takes from its window.

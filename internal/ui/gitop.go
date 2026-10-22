@@ -7,7 +7,6 @@ import (
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/screen"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 )
 
@@ -28,7 +27,7 @@ func (s gitSkippedError) Error() string {
 
 type gitConfirmForm func(config.FixedKeys) (*huh.Form, *bool)
 
-type gitReport func(*model) tea.Cmd
+type gitReport func(*model) screen.Request
 
 // gitPlannedMsg is a plan come back, or the reason there is none.
 type gitPlannedMsg struct {
@@ -42,11 +41,11 @@ type gitDoneMsg struct {
 	report gitReport
 }
 
-// planGitCmd asks what the operation would do.
-func (m *model) planGitCmd(op gitOp) tea.Cmd {
+// planGit asks what the operation would do.
+func (m *model) planGit(op gitOp) screen.Request {
 	clients := m.api
 
-	return m.apply(screen.Write{
+	return screen.Write{
 		Doing: op.planning,
 		Send: func() screen.Landed {
 			form, err := op.plan(clients)
@@ -56,7 +55,7 @@ func (m *model) planGitCmd(op gitOp) tea.Cmd {
 				Then:     gitPlannedMsg{op: op, form: form, err: err},
 			}
 		},
-	})
+	}
 }
 
 // gitOpWrite is the write that runs the operation and reports what it did.
@@ -72,30 +71,28 @@ func (m *model) gitOpWrite(op gitOp) screen.Write {
 }
 
 // applyGitPlanned opens the confirmation, or says why there is nothing to confirm.
-func (m *model) applyGitPlanned(msg gitPlannedMsg) tea.Cmd {
+func (m *model) applyGitPlanned(msg gitPlannedMsg) screen.Request {
 	if msg.err == nil {
 		return m.openGitConfirm(msg.op, msg.form)
 	}
 
 	var skipped gitSkippedError
 	if errors.As(msg.err, &skipped) {
-		m.note(messageWarning, string(skipped))
-	} else {
-		m.report(msg.op.planFailed, msg.err)
+		return screen.NewNote(screen.Warning, string(skipped))
 	}
 
-	return nil
+	return screen.Report{Summary: msg.op.planFailed, Err: msg.err}
 }
 
 // applyGitDone reports the outcome.
-func (m *model) applyGitDone(msg gitDoneMsg) tea.Cmd {
+func (m *model) applyGitDone(msg gitDoneMsg) screen.Request {
 	return msg.report(m)
 }
 
-func (m *model) openGitConfirm(op gitOp, buildForm gitConfirmForm) tea.Cmd {
+func (m *model) openGitConfirm(op gitOp, buildForm gitConfirmForm) screen.Request {
 	built, confirmed := buildForm(fixedKeys())
 
-	return m.apply(form.Open{Form: form.Form{
+	return form.Open{Form: form.Form{
 		Built: built,
 		Build: func(form.Inputs) (*huh.Form, []string) {
 			held, _ := buildForm(fixedKeys())
@@ -111,5 +108,5 @@ func (m *model) openGitConfirm(op gitOp, buildForm gitConfirmForm) tea.Cmd {
 		},
 		Narrow:          true,
 		ClosesOnRefusal: true,
-	}})
+	}}
 }

@@ -20,15 +20,13 @@ import (
 
 // compose opens the editor on the line under the cursor, replying in the thread already there
 // or opening a new one, writing prose alone rather than editing the snapshot.
-func (r *reviewScreen) compose(m *model) tea.Cmd {
+func (r *reviewScreen) compose(m *model) screen.Request {
 	thread, replying := r.diff.threadAtCursor()
 
 	// A thread whose code is gone has no line to anchor a new thread to, but replying to it is
 	// what it is still on screen for.
 	if _, ok := r.diff.View().GetAnchor(r.diff.Cursor()); !ok && !replying {
-		r.refuseLine(m)
-
-		return nil
+		return screen.NewNote(screen.Warning, "put the cursor on a line of the diff to comment on it")
 	}
 
 	r.threads.editing = ""
@@ -67,7 +65,7 @@ func reviewInputHint(editor, submit []string, said string) string {
 }
 
 // openInput puts a field in the popup, sized to the room inside it.
-func (r *reviewScreen) openInput(m *model, params newReviewInputParams) tea.Cmd {
+func (r *reviewScreen) openInput(m *model, params newReviewInputParams) screen.Request {
 	params.Width = reviewInputWidth(r.measurePopupInner(m))
 	params.Keys = fixedKeys()
 	params.Register = m.register
@@ -75,15 +73,10 @@ func (r *reviewScreen) openInput(m *model, params newReviewInputParams) tea.Cmd 
 	input, cmd := newReviewInput(params)
 	r.threads.editor = input
 
-	return cmd
+	return screen.Cmd(cmd)
 }
 
-// refuseLine says why nothing opened on a row that is not a line of code.
-func (r *reviewScreen) refuseLine(m *model) {
-	m.note(messageWarning, "put the cursor on a line of the diff to comment on it")
-}
-
-func (r *reviewScreen) updateComposer(m *model, key tea.KeyPressMsg) tea.Cmd {
+func (r *reviewScreen) updateComposer(m *model, key tea.KeyPressMsg) screen.Request {
 	outcome := r.threads.editor.updateVim(key)
 	if outcome != vim.Pass && outcome != vim.Leave {
 		return nil
@@ -99,7 +92,7 @@ func (r *reviewScreen) updateComposer(m *model, key tea.KeyPressMsg) tea.Cmd {
 
 		return nil
 	case keys.IsBound(k, fixedKeys().Quit):
-		return m.apply(screen.Hide{})
+		return screen.Hide{}
 	case keys.IsBound(k, fixedKeys().Editor):
 		return r.openMessageEditor(m)
 	case keys.IsBound(k, fixedKeys().Submit):
@@ -109,7 +102,7 @@ func (r *reviewScreen) updateComposer(m *model, key tea.KeyPressMsg) tea.Cmd {
 	editor, cmd := r.threads.editor.update(key)
 	r.threads.editor = editor
 
-	return cmd
+	return screen.Cmd(cmd)
 }
 
 // messageEditedMsg is what the reviewer wrote in their own editor.
@@ -120,15 +113,15 @@ type messageEditedMsg struct {
 }
 
 // openMessageEditor hands what has been typed so far to the reviewer's editor.
-func (r reviewScreen) openMessageEditor(m *model) tea.Cmd {
+func (r reviewScreen) openMessageEditor(m *model) screen.Request {
 	agentID := r.agentID
 	path := messageDraftPath(agentID)
 
 	if err := os.WriteFile(path, []byte(r.threads.editor.value()), 0o600); err != nil {
-		return m.apply(screen.Report{Summary: "Your editor could not be opened on that message", Err: err})
+		return screen.Report{Summary: "Your editor could not be opened on that message", Err: err}
 	}
 
-	return m.editor.Edit(path, func(err error) tea.Msg {
+	return screen.Cmd(m.editor.Edit(path, func(err error) tea.Msg {
 		if err != nil {
 			return messageEditedMsg{agentID: agentID, err: err}
 		}
@@ -140,7 +133,7 @@ func (r reviewScreen) openMessageEditor(m *model) tea.Cmd {
 			body:    string(body),
 			err:     err,
 		}
-	})
+	}))
 }
 
 // messageDraftPath is where the message is put for the editor to open.
@@ -149,13 +142,13 @@ func messageDraftPath(agentID string) string {
 }
 
 // applyMessageEdited puts what the editor wrote back into the composer.
-func (r *reviewScreen) applyMessageEdited(m *model, msg messageEditedMsg) tea.Cmd {
+func (r *reviewScreen) applyMessageEdited(m *model, msg messageEditedMsg) screen.Request {
 	if msg.agentID != r.agentID || !r.threads.composing {
 		return nil
 	}
 
 	if msg.err != nil {
-		return m.apply(screen.Report{Summary: "What you wrote in your editor could not be read back", Err: msg.err})
+		return screen.Report{Summary: "What you wrote in your editor could not be read back", Err: msg.err}
 	}
 
 	title, said := r.threads.inputHead()
@@ -167,7 +160,7 @@ func (r *reviewScreen) applyMessageEdited(m *model, msg messageEditedMsg) tea.Cm
 	})
 }
 
-func (r *reviewScreen) saveMessage(m *model) tea.Cmd {
+func (r *reviewScreen) saveMessage(m *model) screen.Request {
 	body := strings.TrimSpace(r.threads.editor.value())
 	if body == "" {
 		r.threads.cancelMessage()
@@ -190,7 +183,7 @@ func (r *reviewScreen) saveMessage(m *model) tea.Cmd {
 	kept := reviewUnsent{editing: threadID, body: body}
 	if threadID != "" {
 		// Nothing is said back: the reply is rendered in the thread it went into.
-		return r.writeMsgCmd(m, "replying", &kept, func(ctx context.Context) (string, error) {
+		return r.writeMsg(m, "replying", &kept, func(ctx context.Context) (string, error) {
 			_, err := agents.AddReviewMessage(ctx, connect.NewRequest(&agentv1.AddReviewMessageRequest{
 				ThreadId: threadID,
 				Body:     body,
@@ -223,7 +216,7 @@ func (r *reviewScreen) saveMessage(m *model) tea.Cmd {
 
 	kept.place = place
 
-	return r.createThreadCmd(m, *place, kept)
+	return r.createThread(m, *place, kept)
 }
 
 // reviewUnsent is a message on its way to the server, held until the write carrying it lands.
@@ -252,7 +245,7 @@ type reviewPlace struct {
 }
 
 // restoreMessage opens the composer again on a message the server refused.
-func (r *reviewScreen) restoreMessage(m *model, unsent reviewUnsent) tea.Cmd {
+func (r *reviewScreen) restoreMessage(m *model, unsent reviewUnsent) screen.Request {
 	if r.threads.composing {
 		return nil
 	}
@@ -279,11 +272,11 @@ func (t *reviewThreads) cancelMessage() {
 	t.forge = nil
 }
 
-func (r reviewScreen) createThreadCmd(m *model, place reviewPlace, kept reviewUnsent) tea.Cmd {
+func (r reviewScreen) createThread(m *model, place reviewPlace, kept reviewUnsent) screen.Request {
 	agents, taskID, body := m.clients().agents, r.taskID, kept.body
 	anchor := place.anchor
 
-	return r.writeMsgCmd(m, "opening a thread", &kept, func(ctx context.Context) (string, error) {
+	return r.writeMsg(m, "opening a thread", &kept, func(ctx context.Context) (string, error) {
 		_, err := agents.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
 			Task:        &taskID,
 			BaseSha:     place.base,
@@ -302,7 +295,7 @@ func (r reviewScreen) createThreadCmd(m *model, place reviewPlace, kept reviewUn
 }
 
 // resolveThread settles the thread the cursor is standing on, or reopens one already settled.
-func (r reviewScreen) resolveThread(m *model) tea.Cmd {
+func (r reviewScreen) resolveThread(m *model) screen.Request {
 	thread, ok := r.diff.threadAtCursor()
 	if !ok {
 		return nil
@@ -315,7 +308,7 @@ func (r reviewScreen) resolveThread(m *model) tea.Cmd {
 		doing, notice = "settling the thread", "thread settled"
 	}
 
-	return r.writeCmd(m, doing, notice, func(ctx context.Context) error {
+	return r.write(m, doing, notice, func(ctx context.Context) error {
 		_, err := agents.SetReviewThreadResolved(ctx, connect.NewRequest(&agentv1.SetReviewThreadResolvedRequest{
 			Id:       id,
 			Resolved: settling,
@@ -327,7 +320,7 @@ func (r reviewScreen) resolveThread(m *model) tea.Cmd {
 
 // toggleViewed folds the file the cursor is in away once it has been read, or opens it again,
 // stepping on to the next file when it has just been folded.
-func (r *reviewScreen) toggleViewed(m *model) tea.Cmd {
+func (r *reviewScreen) toggleViewed(m *model) screen.Request {
 	if !r.diff.spec.isWholeChange() {
 		return nil
 	}
@@ -356,7 +349,7 @@ func (r *reviewScreen) toggleViewed(m *model) tea.Cmd {
 	agents, taskID := m.clients().agents, r.taskID
 	fingerprint := file.Fingerprint()
 
-	return r.writeCmd(m, doing, notice, func(ctx context.Context) error {
+	return r.write(m, doing, notice, func(ctx context.Context) error {
 		_, err := agents.SetReviewFileViewed(ctx, connect.NewRequest(&agentv1.SetReviewFileViewedRequest{
 			Task:        taskID,
 			FilePath:    path,
@@ -368,8 +361,8 @@ func (r *reviewScreen) toggleViewed(m *model) tea.Cmd {
 	})
 }
 
-// markThreadReadCmd claims the thread the cursor came to rest on and only that one.
-func (r reviewScreen) markThreadReadCmd(m *model) tea.Cmd {
+// markThreadRead claims the thread the cursor came to rest on and only that one.
+func (r reviewScreen) markThreadRead(m *model) screen.Request {
 	thread, ok := r.diff.threadAtCursor()
 	if !ok || !thread.GetUnreadByHuman() {
 		return nil
@@ -377,32 +370,32 @@ func (r reviewScreen) markThreadReadCmd(m *model) tea.Cmd {
 
 	agents, id := m.clients().agents, thread.GetId()
 
-	return r.quietWriteCmd(m, func(ctx context.Context) error {
+	return r.quietWrite(m, func(ctx context.Context) error {
 		_, err := agents.MarkReviewThreadRead(ctx, connect.NewRequest(&agentv1.MarkReviewThreadReadRequest{Id: id}))
 
 		return err
 	})
 }
 
-// writeCmd runs one write on the review, saying notice once it lands.
-func (r reviewScreen) writeCmd(m *model, doing, notice string, write func(context.Context) error) tea.Cmd {
-	return r.writeMsgCmd(m, doing, nil, func(ctx context.Context) (string, error) {
+// write runs one write on the review, saying notice once it lands.
+func (r reviewScreen) write(m *model, doing, notice string, write func(context.Context) error) screen.Request {
+	return r.writeMsg(m, doing, nil, func(ctx context.Context) (string, error) {
 		return notice, write(ctx)
 	})
 }
 
-// quietWriteCmd runs one write on the review that the panel does not count in flight.
-func (r reviewScreen) quietWriteCmd(m *model, write func(context.Context) error) tea.Cmd {
-	return r.writeCmd(m, "", "", write)
+// quietWrite runs one write on the review that the panel does not count in flight.
+func (r reviewScreen) quietWrite(m *model, write func(context.Context) error) screen.Request {
+	return r.write(m, "", "", write)
 }
 
-// writeMsgCmd runs one write, marking whose answer it is, handing back the message a refused write
+// writeMsg runs one write, marking whose answer it is, handing back the message a refused write
 // carried, and reading an archived agent's threads back.
-func (r reviewScreen) writeMsgCmd(m *model, doing string, unsent *reviewUnsent, write func(context.Context) (string, error)) tea.Cmd {
+func (r reviewScreen) writeMsg(m *model, doing string, unsent *reviewUnsent, write func(context.Context) (string, error)) screen.Request {
 	agents, agentID, taskID := m.api.reads().agents, r.agentID, r.taskID
 	_, live := r.agentRow(m)
 
-	return m.apply(screen.Write{
+	return screen.Write{
 		Doing: doing,
 		Send: func() screen.Landed {
 			ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
@@ -425,7 +418,7 @@ func (r reviewScreen) writeMsgCmd(m *model, doing string, unsent *reviewUnsent, 
 
 			return screen.Landed{Then: wrote}
 		},
-	})
+	}
 }
 
 // inputHead is the composer's title and what its submit key is said to do.

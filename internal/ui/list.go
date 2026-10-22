@@ -11,6 +11,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/screen"
 	"komrad/internal/ui/zone"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
@@ -33,9 +34,9 @@ type screenList[T list.Keyed] struct {
 	// header is what the toggle key names a header row as.
 	header string
 	// placed follows the cursor onto a row at once, when set.
-	placed func(*model)
+	placed func(*model) screen.Request
 	// moved follows the cursor onto a row a key put it on, and is placed when nil.
-	moved func(*model) tea.Cmd
+	moved func(*model) screen.Request
 }
 
 func (l screenList[T]) isSelecting(*model) bool {
@@ -61,13 +62,15 @@ func (l screenList[T]) hoveredName(m *model) string {
 }
 
 // place puts the cursor back on a row by key, or as near to where it was as the list allows.
-func (l screenList[T]) place(m *model, hovered string) {
+func (l screenList[T]) place(m *model, hovered string) screen.Request {
 	rows := l.rows(m)
 	c := l.cursor()
 	c.Row = cursor.Place(list.IndexOf(rows, hovered), c.Row, len(rows))
 	if l.placed != nil {
-		l.placed(m)
+		return l.placed(m)
 	}
+
+	return nil
 }
 
 func (l screenList[T]) filterRows(m *model) []filterRow {
@@ -85,19 +88,19 @@ func (l screenList[T]) filterRows(m *model) []filterRow {
 	})
 }
 
-func (l screenList[T]) landed(m *model) tea.Cmd {
+func (l screenList[T]) landed(m *model) screen.Request {
 	if l.moved != nil {
 		return l.moved(m)
 	}
 
 	if l.placed != nil {
-		l.placed(m)
+		return l.placed(m)
 	}
 
 	return nil
 }
 
-func (l screenList[T]) move(m *model, delta int) tea.Cmd {
+func (l screenList[T]) move(m *model, delta int) screen.Request {
 	next, ok := l.cursor().Move(delta, len(l.rows(m)))
 	if !ok {
 		return nil
@@ -108,7 +111,7 @@ func (l screenList[T]) move(m *model, delta int) tea.Cmd {
 	return l.landed(m)
 }
 
-func (l screenList[T]) jump(m *model, idx int) tea.Cmd {
+func (l screenList[T]) jump(m *model, idx int) screen.Request {
 	next, ok := l.cursor().Jump(idx, len(l.rows(m)))
 	if !ok {
 		return nil
@@ -119,7 +122,7 @@ func (l screenList[T]) jump(m *model, idx int) tea.Cmd {
 	return l.landed(m)
 }
 
-func (l screenList[T]) click(m *model, key string, nth int) tea.Cmd {
+func (l screenList[T]) click(m *model, key string, nth int) screen.Request {
 	for i, row := range l.rows(m) {
 		if row.Key() != key {
 			continue
@@ -138,7 +141,7 @@ func (l screenList[T]) click(m *model, key string, nth int) tea.Cmd {
 }
 
 // update hands a key to the list's table.
-func (l screenList[T]) update(m *model, key tea.KeyPressMsg, actions keys.Spec[*model]) tea.Cmd {
+func (l screenList[T]) update(m *model, key tea.KeyPressMsg, actions keys.Spec[*model]) screen.Request {
 	return m.dispatchTop(actions, key.String())
 }
 
@@ -151,7 +154,7 @@ func (l screenList[T]) actions() []keys.Action[*model] {
 	shared = append(shared, keys.Action[*model]{
 		ID:   keys.Quit,
 		Keys: keys.FixedQuit,
-		Nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
+		Nav:  func(*model, string) screen.Request { return screen.Hide{} },
 	})
 	shared = append(shared, navActions(l, navSteps{page: navPageStep, scroll: 1})...)
 	if l.name != nil {
@@ -190,32 +193,26 @@ func (l screenList[T]) filterActions() []keys.Action[*model] {
 			ID:   keys.FilterOpen,
 			Keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
 			When: l.isBrowsing,
-			Nav: func(m *model, _ string) tea.Cmd {
-				m.beginFilter()
-
-				return nil
-			},
+			Nav:  func(*model, string) screen.Request { return screen.BeginFilter{} },
 		},
 		{
 			ID:   keys.FilterMatch,
 			Keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
 			When: standing,
-			Nav:  func(m *model, pressed string) tea.Cmd { return m.jumpToFilterMatch(pressed) },
+			Nav: func(m *model, pressed string) screen.Request {
+				return screen.StepMatch{Delta: keys.DirectionOf(pressed, m.keys.Filter.PrevMatch)}
+			},
 		},
 		{
 			ID:   keys.FilterClear,
 			Keys: keys.FixedBack,
 			When: standing,
-			Nav: func(m *model, _ string) tea.Cmd {
-				m.clearFilter()
-
-				return m.waitToStage()
-			},
+			Nav:  func(*model, string) screen.Request { return screen.Batch{screen.ClearFilter{}, screen.Settle{}} },
 		},
 	}
 }
 
-func (l screenList[T]) moveBy(m *model, rows int) tea.Cmd {
+func (l screenList[T]) moveBy(m *model, rows int) screen.Request {
 	if rows == 1 || rows == -1 {
 		return l.move(m, rows)
 	}
@@ -223,7 +220,7 @@ func (l screenList[T]) moveBy(m *model, rows int) tea.Cmd {
 	return l.jump(m, l.cursor().Row+rows)
 }
 
-func (l screenList[T]) moveToEnd(m *model, direction int) tea.Cmd {
+func (l screenList[T]) moveToEnd(m *model, direction int) screen.Request {
 	if direction > 0 {
 		return l.jump(m, len(l.rows(m))-1)
 	}
@@ -231,20 +228,20 @@ func (l screenList[T]) moveToEnd(m *model, direction int) tea.Cmd {
 	return l.jump(m, 0)
 }
 
-func (l screenList[T]) clearSelection(*model, string) tea.Cmd {
+func (l screenList[T]) clearSelection(*model, string) screen.Request {
 	l.cursor().Selected = list.Selection{}
 
 	return nil
 }
 
-func (l screenList[T]) toggleSelection(m *model, _ string) tea.Cmd {
+func (l screenList[T]) toggleSelection(m *model, _ string) screen.Request {
 	c := l.cursor()
 	c.Selected = c.Selected.Toggle(l.refs(l.rows(m)), c.Row)
 
 	return nil
 }
 
-func (l screenList[T]) extendSelection(m *model, pressed string) tea.Cmd {
+func (l screenList[T]) extendSelection(m *model, pressed string) screen.Request {
 	if !l.isSelecting(m) {
 		return l.toggleSelection(m, pressed)
 	}
@@ -382,13 +379,14 @@ func spareLinesOf(height int, chrome ...string) int {
 }
 
 func (m *model) listClicker(l keyedList) clicker {
+	clicked := requestClick(l.click)
 	if !m.isListFocused() || m.isViewsOpen() {
-		return m.stopClicker(stopList, l)
+		return m.stopClicker(stopList, clicked)
 	}
 
 	return clickFunc(func(m *model, key string, nth int) tea.Cmd {
 		if key != l.hovered(m) {
-			return l.click(m, key, nth)
+			return clicked.click(m, key, nth)
 		}
 
 		band, ok := m.buildMenu()

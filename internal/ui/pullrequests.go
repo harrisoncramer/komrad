@@ -44,24 +44,24 @@ func pullRequestFields(standing panel.PullRequestStanding, pullRequests []panel.
 
 // openPullRequest hands the agent's current pull request to the browser, or says why there is
 // none to open.
-func (m *model) openPullRequest(task panel.Task) tea.Cmd {
+func (m *model) openPullRequest(task panel.Task) screen.Request {
 	standing := task.PullRequest
 	if standing.URL == "" {
-		return m.apply(screen.Report{Summary: "Could not open the pull request of " + task.Slug, Err: pullRequestRefusal(task)})
+		return screen.Report{Summary: "Could not open the pull request of " + task.Slug, Err: pullRequestRefusal(task)}
 	}
 
-	return m.openURLCmd(standing.URL)
+	return screen.Cmd(m.openURLCmd(standing.URL))
 }
 
 // copyPullRequestURL puts the agent's current pull request's address on the clipboard, or says
 // why there is none to copy.
-func (m *model) copyPullRequestURL(task panel.Task) tea.Cmd {
+func (m *model) copyPullRequestURL(task panel.Task) screen.Request {
 	standing := task.PullRequest
 	if standing.URL == "" {
-		return m.apply(screen.Report{Summary: "Could not copy the pull request of " + task.Slug, Err: pullRequestRefusal(task)})
+		return screen.Report{Summary: "Could not copy the pull request of " + task.Slug, Err: pullRequestRefusal(task)}
 	}
 
-	return m.copyCmd(standing.URL)
+	return screen.Copy{Text: standing.URL}
 }
 
 // urlOpenedMsg reports that the panel asked the browser to open an address.
@@ -82,6 +82,6 @@ func (m *model) openURLCmd(target string) tea.Cmd {
 	}
 }
 
-func (m *model) applyURLOpened(msg urlOpenedMsg) {
-	m.report("Could not open "+msg.target, msg.err)
+func (m *model) applyURLOpened(msg urlOpenedMsg) screen.Request {
+	return screen.Report{Summary: "Could not open " + msg.target, Err: msg.err}
 }

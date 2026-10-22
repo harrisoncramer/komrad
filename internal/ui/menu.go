@@ -5,8 +5,7 @@ import (
 
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
-
-	tea "charm.land/bubbletea/v2"
+	"komrad/internal/ui/screen"
 )
 
 // buildMenu is the hovered row's band over the screen's, false when the screen offers neither.
@@ -102,7 +101,7 @@ func (w *schedulesScreen) buildScreenMenu(m *model) (menu.Menu, bool) {
 	return menu.Menu{
 		Title: "schedules",
 		Entries: []menu.Entry{
-			menu.Leaving("new schedule", m.keys.ScheduleMenu.New, func() tea.Cmd { return newScheduleForm(m) }),
+			menu.Leaving("new schedule", m.keys.ScheduleMenu.New, func() screen.Request { return newScheduleForm(m) }),
 		},
 	}, true
 }
@@ -117,8 +116,8 @@ func scheduleMenu(m *model, schedule panel.Schedule) menu.Menu {
 	return menu.Menu{
 		Title: schedule.Name,
 		Entries: []menu.Entry{
-			menu.Leaving("edit", m.keys.ScheduleMenu.Edit, func() tea.Cmd { return editScheduleForm(m, schedule) }),
-			menu.Holding(toggle, m.keys.ScheduleMenu.Toggle, func() tea.Cmd { return toggleSchedule(m, schedule) }),
+			menu.Leaving("edit", m.keys.ScheduleMenu.Edit, func() screen.Request { return editScheduleForm(m, schedule) }),
+			menu.Holding(toggle, m.keys.ScheduleMenu.Toggle, func() screen.Request { return toggleSchedule(m, schedule) }),
 		},
 	}
 }

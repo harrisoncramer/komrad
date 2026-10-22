@@ -29,7 +29,7 @@ func opensTerminal(s screen.ID) bool {
 // screenModel is what the panel asks of whichever screen is up.
 type screenModel interface {
 	// update takes a message the panel's own bindings did not claim.
-	update(m *model, msg tea.Msg) tea.Cmd
+	update(m *model, msg tea.Msg) screen.Request
 
 	// view renders the screen into the panel's own pane.
 	view(m *model) string
@@ -39,7 +39,7 @@ type screenModel interface {
 
 	// enter lands the cursor on the target where the target is on screen, and puts the stage
 	// right, once the root has put the screen up.
-	enter(m *model, target screen.Target) tea.Cmd
+	enter(m *model, target screen.Target) screen.Request
 
 	// takesEveryKey reports whether something on the screen is taking every key.
 	takesEveryKey() bool
@@ -48,7 +48,7 @@ type screenModel interface {
 	column() columnSpec
 
 	// stageResting stages the row the cursor came to rest on and asks for what the screen reads of it.
-	stageResting(m *model) tea.Cmd
+	stageResting(m *model) screen.Request
 
 	// dispatches is the tables the screen dispatches through, one at a time, walked behind the
 	// global keys.
@@ -78,13 +78,13 @@ type keyedList interface {
 
 	// place puts the cursor back on that row, or as near to where it was as the narrowed list
 	// allows.
-	place(m *model, key string)
+	place(m *model, key string) screen.Request
 
 	// filterRows is every row on screen with the text a search reads, in the order they are
 	// rendered.
 	filterRows(m *model) []filterRow
 
-	clicker
+	click(m *model, key string, nth int) screen.Request
 }
 
 // filterRow is one row a search can land on: the key that names it and the text it matches by.
@@ -103,7 +103,7 @@ type kindSwitcher interface {
 	kindsFocused(m *model) *bool
 
 	// stepKind moves the list delta kinds along, wrapping at both ends.
-	stepKind(m *model, delta int) tea.Cmd
+	stepKind(m *model, delta int) screen.Request
 
 	// kindsFit is whether the screen has the room to render the row of kinds.
 	kindsFit(m *model) bool
@@ -134,7 +134,7 @@ type columnFocuser interface {
 	focusBlock(m *model)
 	blurBlock()
 	doesScrollColumn(m *model) bool
-	scrollColumn(m *model, rows int) tea.Cmd
+	scrollColumn(m *model, rows int) screen.Request
 }
 
 // crumbRenderer is a screen opened from another that renders the trail back to it.
@@ -160,12 +160,12 @@ type savedScreenRenderer interface {
 
 // screenLeaver is a screen that puts down what it had open when another screen goes up.
 type screenLeaver interface {
-	leaveScreen(m *model) tea.Cmd
+	leaveScreen(m *model) screen.Request
 }
 
 // rowStager is a screen that puts its hovered row on the stage.
 type rowStager interface {
-	stage(m *model)
+	stage(m *model) screen.Request
 }
 
 // hoveredNamer is a screen that names its hovered row at the end of the trail.
@@ -194,7 +194,7 @@ type searchTyper interface {
 
 // listScroller is a screen whose scroll key does something other than move its list.
 type listScroller interface {
-	scrollList(m *model, rows int) tea.Cmd
+	scrollList(m *model, rows int) screen.Request
 }
 
 // loadingReporter is a screen that can be waiting on the server for what it renders.
@@ -210,7 +210,7 @@ type renamer interface {
 // editorReconciler is a screen that keeps an editor it opened on the stage in step with its
 // cursor.
 type editorReconciler interface {
-	reconcileEditor(m *model) tea.Cmd
+	reconcileEditor(m *model) screen.Request
 }
 
 // agentPauser is a screen that can pause an agent while it is up.
@@ -310,17 +310,22 @@ func (m *model) selectGuest(pane string) {
 func (m *model) enter(next screen.ID, target screen.Target) tea.Cmd {
 	// The review is the one screen that refuses a target, and it refuses before the screen goes up.
 	if next == screen.Review && target.AgentID != "" {
-		item, ok := m.listing.LiveAgent(target.AgentID)
-		if !ok {
+		item, ok := m.listing.AnyAgent(target.AgentID)
+		if !ok || !m.listing.IsReviewable(item.Agent) {
 			return nil
 		}
 
-		return m.enterReview(item.Agent)
+		opened := m.apply(m.review.open(m, item.Agent))
+		left := m.enterScreen(screen.Review)
+		m.leftStop = stopList
+		m.stageSelection()
+
+		return tea.Batch(left, opened)
 	}
 
 	left := m.enterScreen(next)
 
-	return tea.Batch(left, m.screenOf(next).enter(m, target))
+	return tea.Batch(left, m.apply(m.screenOf(next).enter(m, target)))
 }
 
 // apply does what a screen asked of the root.
@@ -336,10 +341,67 @@ func (m *model) apply(request screen.Request) tea.Cmd {
 		return m.send(request)
 	case screen.Stage:
 		return m.route(request.Staged(m.stageEditor(request.Content)))
+	case screen.Cmd:
+		return tea.Cmd(request)
+	case screen.Settle:
+		return m.waitToStage()
+	case screen.Restage:
+		m.stageSelection()
+	case screen.StageTerminal:
+		m.stageTerminal()
+	case screen.OpenTerminal:
+		return m.openTerminal(request.Dir)
+	case screen.Unstage:
+		m.unstageEditor()
+	case screen.SelectGuest:
+		m.selectGuest(request.Pane)
+	case screen.Reconcile:
+		m.reconcileSolo()
+	case screen.PickView:
+		return m.pickView()
+	case screen.Leave:
+		left := m.leaveScreen()
+		if request.Then == nil {
+			return left
+		}
+
+		return tea.Batch(left, m.apply(request.Then()))
+	case screen.ResetFilter:
+		m.filter = filterState{}
+	case screen.BeginFilter:
+		m.beginFilter()
+	case screen.StepMatch:
+		return m.stepFilterMatch(request.Delta)
+	case screen.ClearFilter:
+		m.clearFilter()
+	case screen.Filter:
+		m.filterBy(request.Query)
+	case screen.FocusDoc:
+		m.focusDoc()
+	case screen.PlaceDoc:
+		m.placeDoc(request.Line, request.Top)
+	case screen.Inspect:
+		return m.readWorktreeCmd(request.Dir)
+	case screen.ReadLastScreen:
+		return m.readLastScreenCmd()
+	case screen.Copy:
+		return m.copyCmd(request.Text)
+	case screen.Note:
+		m.pushMessage(message{
+			kind:    request.Kind,
+			key:     request.Key,
+			summary: request.Summary,
+			detail:  request.Detail,
+			hint:    request.Hint,
+		})
+	case screen.Unnote:
+		m.dropMessage(request.Key)
 	case menu.Open:
 		return m.openForm(submenuState(nil, newSubmenuLevel(request.Menu)))
 	case form.Open:
 		return m.openForm(openedFormState(request.Form))
+	case form.Close:
+		return m.closeForm()
 	case screen.Batch:
 		return tea.Batch(xslice.Map(request, m.apply)...)
 	}

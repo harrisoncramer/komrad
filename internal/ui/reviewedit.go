@@ -105,7 +105,7 @@ func dirEditorContent(editor, dir string) layout.Content {
 
 // pressEdit is the edit key, which stops the agent before it opens the editor and closes one
 // already open.
-func (r *reviewScreen) pressEdit(m *model) tea.Cmd {
+func (r *reviewScreen) pressEdit(m *model) screen.Request {
 	if r.isHistory() && !r.hold.atEditor {
 		return nil
 	}
@@ -113,9 +113,7 @@ func (r *reviewScreen) pressEdit(m *model) tea.Cmd {
 	// A press that arrives while the agent is still coming to a stop is the wait, not a second
 	// thing to do, and letting it through would open the editor the wait exists to hold shut.
 	if r.hold.pausing {
-		m.note(messageWarning, "the agent is still stopping")
-
-		return nil
+		return screen.NewNote(screen.Warning, "the agent is still stopping")
 	}
 
 	if r.hold.atEditor {
@@ -124,9 +122,7 @@ func (r *reviewScreen) pressEdit(m *model) tea.Cmd {
 
 	// The refusals are read before the agent is stopped.
 	if reason, refused := r.isEditRefused(m); refused {
-		m.note(messageWarning, reason)
-
-		return nil
+		return screen.NewNote(screen.Warning, reason)
 	}
 
 	return r.startHold(m)
@@ -166,24 +162,20 @@ func (r reviewScreen) isAgentUnreadable(m *model) (string, bool) {
 
 // editFile opens the file under the cursor in the agent's own worktree, in the stage beside the
 // sidebar, letting the agent go again when there is nothing to open it in.
-func (r *reviewScreen) editFile(m *model) tea.Cmd {
+func (r *reviewScreen) editFile(m *model) screen.Request {
 	path, line, ok := r.diff.View().GetEditTarget(r.diff.Cursor())
 	if !ok {
-		m.note(messageWarning, "that file was deleted, so there is nothing to open")
-
-		return r.endHold(m, abandonedSaid)
+		return screen.Batch{screen.NewNote(screen.Warning, "that file was deleted, so there is nothing to open"), r.endHold(m, abandonedSaid)}
 	}
 
 	if reason, busy := r.isAgentBusy(m); busy {
-		m.note(messageWarning, reason)
-
-		return r.endHold(m, abandonedSaid)
+		return screen.Batch{screen.NewNote(screen.Warning, reason), r.endHold(m, abandonedSaid)}
 	}
 
-	return m.apply(screen.Stage{
+	return screen.Stage{
 		Content: m.fileEditorContent(r.root, path, line),
 		Staged:  func(pane string) tea.Msg { return reviewEditorStaged{path: path, pane: pane} },
-	})
+	}
 }
 
 // reviewEditorStaged is the pane an editor over a file in the agent's worktree was given, empty
@@ -195,22 +187,19 @@ type reviewEditorStaged struct {
 
 // applyEditorStaged keeps the editor's pane, or lets the agent go again when there was no room
 // for it.
-func (r *reviewScreen) applyEditorStaged(m *model, staged reviewEditorStaged) tea.Cmd {
+func (r *reviewScreen) applyEditorStaged(m *model, staged reviewEditorStaged) screen.Request {
 	path, pane := staged.path, staged.pane
 	if pane == "" {
-		m.note(messageWarning, "there is no room beside the sidebar for an editor")
-
-		return r.endHold(m, abandonedSaid)
+		return screen.Batch{screen.NewNote(screen.Warning, "there is no room beside the sidebar for an editor"), r.endHold(m, abandonedSaid)}
 	}
 
 	r.hold.openEditor(path, pane)
-	m.pushMessage(message{
-		kind:    messageInfo,
-		summary: "editing " + path,
-		detail:  m.menuChordLabel(m.keys.Review.EditFile) + " to come back",
-	})
 
-	return nil
+	return screen.Note{
+		Kind:    screen.Info,
+		Summary: "editing " + path,
+		Detail:  m.menuChordLabel(m.keys.Review.EditFile) + " to come back",
+	}
 }
 
 // isAgentBusy reports whether the agent may be writing in the tree the editor would open.
@@ -248,17 +237,13 @@ func (r reviewScreen) agentRow(m *model) (panel.AgentRow, bool) {
 
 // closeEdit gives the stage back to the diff, lets the agent go, and reads the worktree again with
 // the reader's own writing in it.
-func (r *reviewScreen) closeEdit(m *model) tea.Cmd {
-	m.unstageEditor()
-	letGo := r.endHold(m, editedSaid)
-	m.stageSelection()
-
-	return tea.Batch(letGo, r.catchUp(m))
+func (r *reviewScreen) closeEdit(m *model) screen.Request {
+	return screen.Batch{screen.Unstage{}, r.endHold(m, editedSaid), screen.Restage{}, r.catchUp(m)}
 }
 
 // reconcileEditor catches the editor pane going away on its own and takes the window back for the
 // diff it was covering.
-func (r *reviewScreen) reconcileEditor(m *model) tea.Cmd {
+func (r *reviewScreen) reconcileEditor(m *model) screen.Request {
 	if !r.hold.atEditor {
 		return nil
 	}

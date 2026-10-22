@@ -3,6 +3,7 @@ package ui
 import (
 	"komrad/internal/diff"
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -43,7 +44,7 @@ type versionRead struct {
 }
 
 // stepOlder steps back to the write before the one rendered, starting from the newest.
-func (d *documentsScreen) stepOlder(m *model) tea.Cmd {
+func (d *documentsScreen) stepOlder(m *model) screen.Request {
 	item, ok := d.hovered(m)
 	if !ok || d.editing != nil {
 		return nil
@@ -52,7 +53,7 @@ func (d *documentsScreen) stepOlder(m *model) tea.Cmd {
 	if d.history == nil || d.history.item.id != item.id || d.history.err != nil {
 		d.history = &documentHistory{item: item}
 
-		return m.waitToStage()
+		return screen.Settle{}
 	}
 
 	d.history.forgetFailedReads()
@@ -61,12 +62,12 @@ func (d *documentsScreen) stepOlder(m *model) tea.Cmd {
 		d.history.pane.Drop()
 	}
 
-	return m.waitToStage()
+	return screen.Settle{}
 }
 
 // stepNewer steps forward to the write after the one rendered, and past the newest back to the
 // document as it stands.
-func (d *documentsScreen) stepNewer(m *model) tea.Cmd {
+func (d *documentsScreen) stepNewer(m *model) screen.Request {
 	if !d.isSteppingHovered(m) {
 		return nil
 	}
@@ -75,7 +76,8 @@ func (d *documentsScreen) stepNewer(m *model) tea.Cmd {
 		d.history = nil
 		if d.focus {
 			d.focus = false
-			m.focusDoc()
+
+			return screen.FocusDoc{}
 		}
 
 		return nil
@@ -85,7 +87,7 @@ func (d *documentsScreen) stepNewer(m *model) tea.Cmd {
 	d.history.at--
 	d.history.pane.Drop()
 
-	return m.waitToStage()
+	return screen.Settle{}
 }
 
 // forgetFailedReads drops the writes that could not be read, so the next step reads them again.

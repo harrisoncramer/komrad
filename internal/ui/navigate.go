@@ -5,17 +5,16 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/keys"
-
-	tea "charm.land/bubbletea/v2"
+	"komrad/internal/ui/screen"
 )
 
 // navigable is a section the movement keys walk, some rows at a time or to either end.
 type navigable interface {
 	// moveBy walks down the section by rows, up it when rows is negative.
-	moveBy(m *model, rows int) tea.Cmd
+	moveBy(m *model, rows int) screen.Request
 	// moveToEnd lands on the top of the section for a negative direction and the bottom for a
 	// positive one.
-	moveToEnd(m *model, direction int) tea.Cmd
+	moveToEnd(m *model, direction int) screen.Request
 }
 
 // navSteps is the rows a page key and a scroll key move a section.
@@ -30,28 +29,28 @@ func navActions(n navigable, steps navSteps) []keys.Action[*model] {
 		{
 			ID:   keys.Move,
 			Keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
-			Nav: func(m *model, pressed string) tea.Cmd {
+			Nav: func(m *model, pressed string) screen.Request {
 				return n.moveBy(m, keys.DirectionOf(pressed, m.keys.Nav.Up))
 			},
 		},
 		{
 			ID:   keys.Jump,
 			Keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Top, k.Nav.Bottom) },
-			Nav: func(m *model, pressed string) tea.Cmd {
+			Nav: func(m *model, pressed string) screen.Request {
 				return n.moveToEnd(m, keys.DirectionOf(pressed, m.keys.Nav.Top))
 			},
 		},
 		{
 			ID:   keys.NavPage,
 			Keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
-			Nav: func(m *model, pressed string) tea.Cmd {
+			Nav: func(m *model, pressed string) screen.Request {
 				return n.moveBy(m, keys.DirectionOf(pressed, m.keys.Nav.PageUp)*steps.page)
 			},
 		},
 		{
 			ID:   keys.ColumnScroll,
 			Keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
-			Nav: func(m *model, pressed string) tea.Cmd {
+			Nav: func(m *model, pressed string) screen.Request {
 				return n.moveBy(m, keys.DirectionOf(pressed, m.keys.Column.ScrollUp)*steps.scroll)
 			},
 		},
@@ -59,7 +58,7 @@ func navActions(n navigable, steps navSteps) []keys.Action[*model] {
 }
 
 // dispatchTop settles the doubled top key ahead of the table.
-func (m *model) dispatchTop(spec keys.Spec[*model], pressed string) tea.Cmd {
+func (m *model) dispatchTop(spec keys.Spec[*model], pressed string) screen.Request {
 	if !m.takeTopPress(pressed) && m.isTopHeld() {
 		return nil
 	}

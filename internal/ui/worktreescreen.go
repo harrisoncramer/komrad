@@ -18,18 +18,17 @@ const entriesShown = 10
 
 // enter lands on the directory of the agent the target names, remembering it as the focus for
 // the listing on its way.
-func (w *worktreesScreen) enter(m *model, target screen.Target) tea.Cmd {
+func (w *worktreesScreen) enter(m *model, target screen.Target) screen.Request {
 	w.focus = target.AgentID
 	if target.AgentID != "" && !w.scope.listsAgent(m.listing.Worktrees, target.AgentID) {
 		w.scope = scopeAll
 	}
 	w.apply(m, m.listing.Worktrees, w.list().hovered(m))
-	w.stage(m)
 
-	return m.waitToStage()
+	return screen.Batch{w.stage(m), screen.Settle{}}
 }
 
-func (w *worktreesScreen) update(m *model, msg tea.Msg) tea.Cmd {
+func (w *worktreesScreen) update(m *model, msg tea.Msg) screen.Request {
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return nil
@@ -46,9 +45,7 @@ func (w *worktreesScreen) list() screenList[worktreeRow] {
 		refs:   worktreeRefs,
 		header: "repository",
 		placed: w.stage,
-		moved: func(m *model) tea.Cmd {
-			return m.waitToStage()
-		},
+		moved:  func(*model) screen.Request { return screen.Settle{} },
 	}
 }
 
@@ -61,18 +58,18 @@ func (w *worktreesScreen) hovered(m *model) (worktreeRow, bool) {
 	return row, true
 }
 
-func (w *worktreesScreen) stage(m *model) {
-	m.stageTerminal()
+func (w *worktreesScreen) stage(*model) screen.Request {
+	return screen.StageTerminal{}
 }
 
-// inspectWorktreeCmd asks the server for the hovered directory's standing.
-func (m *model) inspectWorktreeCmd() tea.Cmd {
+// inspectWorktree asks the server for the hovered directory's standing.
+func (m *model) inspectWorktree() screen.Request {
 	row, ok := m.worktrees.hovered(m)
 	if !ok {
 		return nil
 	}
 
-	return m.readWorktreeCmd(row.item.Dir)
+	return screen.Inspect{Dir: row.item.Dir}
 }
 
 // readWorktreeCmd asks the server for one directory's standing, once at a time.
@@ -100,8 +97,8 @@ func (m *model) readWorktreeCmd(dir string) tea.Cmd {
 	}
 }
 
-// inspectHoveredWorktreeCmd asks for the hovered directory's standing the first time.
-func (m *model) inspectHoveredWorktreeCmd() tea.Cmd {
+// inspectHoveredWorktree asks for the hovered directory's standing the first time.
+func (m *model) inspectHoveredWorktree() screen.Request {
 	if m.screen != screen.Worktrees {
 		return nil
 	}
@@ -114,7 +111,7 @@ func (m *model) inspectHoveredWorktreeCmd() tea.Cmd {
 		return nil
 	}
 
-	return m.inspectWorktreeCmd()
+	return m.inspectWorktree()
 }
 
 // worktreeInspectedMsg is one directory's standing come back.
@@ -180,14 +177,12 @@ func (w *worktreesScreen) kindsSwitch(*model) bool {
 
 // stepKind moves the listing to another scope, keeping the cursor on its row when the new scope
 // lists it.
-func (w *worktreesScreen) stepKind(m *model, delta int) tea.Cmd {
+func (w *worktreesScreen) stepKind(m *model, delta int) screen.Request {
 	hovered := w.list().hovered(m)
 	w.scope = worktreeScope(stepStop(int(w.scope), delta, len(worktreeScopeLabels)))
 	w.place(m, hovered)
 
-	w.stage(m)
-
-	return m.waitToStage()
+	return screen.Batch{w.stage(m), screen.Settle{}}
 }
 
 // tally is how many directories the scope lists, what the measured ones take, and whether they

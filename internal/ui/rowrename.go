@@ -43,7 +43,7 @@ func renameScheduleRow(item scheduleItem) *rowRename {
 }
 
 // save sends the typed name, or says there is nothing to send.
-func (r *rowRename) save(m *model) (tea.Cmd, bool) {
+func (r *rowRename) save(m *model) (screen.Request, bool) {
 	name, ok := r.Submit()
 	if !ok {
 		return nil, false
@@ -55,7 +55,7 @@ func (r *rowRename) save(m *model) (tea.Cmd, bool) {
 		renamed.Name = name
 		id := r.schedule.ID
 
-		return m.renameCmd(
+		return m.rename(
 			"renaming "+r.Was(),
 			fmt.Sprintf("Could not rename schedule %q", r.Was()),
 			r.Key(),
@@ -64,7 +64,7 @@ func (r *rowRename) save(m *model) (tea.Cmd, bool) {
 	case r.task != nil:
 		id := r.task.ID
 
-		return m.renameCmd(
+		return m.rename(
 			"renaming "+r.Was(),
 			fmt.Sprintf("Could not rename task %q", r.Was()),
 			r.Key(),
@@ -74,7 +74,7 @@ func (r *rowRename) save(m *model) (tea.Cmd, bool) {
 		renamed := *r.workflow
 		renamed.Name = name
 
-		return m.renameCmd(
+		return m.rename(
 			"renaming "+r.Was(),
 			fmt.Sprintf("Could not rename workflow %q", r.Was()),
 			r.Key(),
@@ -84,7 +84,7 @@ func (r *rowRename) save(m *model) (tea.Cmd, bool) {
 
 	agent := r.agent
 
-	return m.renameCmd(
+	return m.rename(
 		"renaming "+r.Was(),
 		fmt.Sprintf("Could not rename agent %q", r.Was()),
 		r.Key(),
@@ -116,21 +116,21 @@ func reconcileRename[T list.Keyed](r *renameSlot, rows []T, hovered string, name
 	}
 }
 
-func (r *renameSlot) updateRename(m *model, msg tea.Msg) tea.Cmd {
+func (r *renameSlot) updateRename(m *model, msg tea.Msg) screen.Request {
 	switch r.renaming.Take(msg, m.register) {
 	case field.NameGone:
-		m.note(messageWarning, r.renaming.GoneWarning())
+		return screen.NewNote(screen.Warning, r.renaming.GoneWarning())
 	case field.NameHidden:
-		return m.apply(screen.Hide{})
+		return screen.Hide{}
 	case field.NameCancelled:
 		r.renaming = nil
 	case field.NameSubmitted:
-		cmd, ok := r.renaming.save(m)
+		request, ok := r.renaming.save(m)
 		if !ok {
 			r.renaming = nil
 		}
 
-		return cmd
+		return request
 	case field.NameTyping:
 	}
 

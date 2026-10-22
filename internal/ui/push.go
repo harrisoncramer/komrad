@@ -9,10 +9,10 @@ import (
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xsha"
 	agentv1 "komrad/proto/gen/agent/v1"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 )
 
@@ -61,41 +61,33 @@ func pushOp(task panel.Task) gitOp {
 		run: func(clients api) gitReport {
 			result, err := clients.pushWorktree(taskID)
 
-			return func(m *model) tea.Cmd {
-				m.reportPushed(name, result, err)
-
-				return nil
-			}
+			return func(*model) screen.Request { return reportPushed(name, result, err) }
 		},
 	}
 }
 
-func (m *model) reportPushed(name string, result *agentv1.PushWorktreeResponse, err error) {
+func reportPushed(name string, result *agentv1.PushWorktreeResponse, err error) screen.Request {
 	if err != nil {
-		m.report("Could not push the branch of "+name, err)
-
-		return
+		return screen.Report{Summary: "Could not push the branch of " + name, Err: err}
 	}
 
 	commits := int(result.GetCommits())
 	sha := result.GetSha()
 
 	if result.GetForced() {
-		m.pushMessage(message{
-			kind:    messageInfo,
-			summary: name + ": force-pushed " + result.GetBranch(),
-			detail: fmt.Sprintf("%s. Komrad pushed %s over origin's copy and told %s.",
+		return screen.Note{
+			Kind:    screen.Info,
+			Summary: name + ": force-pushed " + result.GetBranch(),
+			Detail: fmt.Sprintf("%s. Komrad pushed %s over origin's copy and told %s.",
 				xsha.Short(sha), label.Count(commits, "commit", "commits"), name),
-		})
-
-		return
+		}
 	}
 
-	m.pushMessage(message{
-		kind:    messageInfo,
-		summary: name + ": pushed " + result.GetBranch(),
-		detail:  fmt.Sprintf("%s. Komrad pushed %s.", xsha.Short(sha), label.Count(commits, "commit", "commits")),
-	})
+	return screen.Note{
+		Kind:    screen.Info,
+		Summary: name + ": pushed " + result.GetBranch(),
+		Detail:  fmt.Sprintf("%s. Komrad pushed %s.", xsha.Short(sha), label.Count(commits, "commit", "commits")),
+	}
 }
 
 func pushForm(plan pushPlan) gitConfirmForm {

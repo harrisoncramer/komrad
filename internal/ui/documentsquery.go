@@ -165,15 +165,6 @@ func (m *model) openedForTask(slug string) (string, bool) {
 	return taskID, true
 }
 
-// filterDocuments narrows the list as if the user typed and applied the query.
-func (m *model) filterDocuments(query string) {
-	m.filter.open(withGrammar(documentsQuery, m.clock))
-	m.filter.mode = filterModeFilter
-	m.filter.openedIn = sectionList
-	m.filter.setQuery(query)
-	m.applyFilter()
-}
-
 // searchDocumentsSaid asks the server which documents hold the text as they stand now, with the passages it was found in keyed by document id.
 func searchDocumentsSaid(ctx context.Context, client agentReads, text string) (map[string][]saidHit, error) {
 	resp, err := client.SearchDocuments(ctx, connect.NewRequest(&agentv1.SearchDocumentsRequest{

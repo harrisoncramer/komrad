@@ -16,7 +16,7 @@ import (
 
 // enter lands on the task or agent the target names, showing the hidden tasks when it works on
 // one, or comes back to the list as it stands.
-func (a *agentsScreen) enter(m *model, target screen.Target) tea.Cmd {
+func (a *agentsScreen) enter(m *model, target screen.Target) screen.Request {
 	switch {
 	case target.TaskID != "":
 		a.revealTask(m, target.TaskID, target.AgentID)
@@ -27,12 +27,11 @@ func (a *agentsScreen) enter(m *model, target screen.Target) tea.Cmd {
 	}
 
 	a.reconcileRename(m)
-	m.stageSelection()
 
-	return nil
+	return screen.Restage{}
 }
 
-func (a *agentsScreen) update(m *model, msg tea.Msg) tea.Cmd {
+func (a *agentsScreen) update(m *model, msg tea.Msg) screen.Request {
 	switch msg := msg.(type) {
 	case tea.PasteMsg:
 		if a.isRenaming() {
@@ -61,33 +60,33 @@ func (a *agentsScreen) list() screenList[agentRow] {
 		refs:   refsOf,
 		header: "folder",
 		placed: a.stage,
-		moved:  func(m *model) tea.Cmd { return m.waitToStage() },
+		moved:  func(*model) screen.Request { return screen.Settle{} },
 	}
 }
 
 // stage puts the pane of whatever the cursor is standing on beside the list.
-func (a *agentsScreen) stage(m *model) {
-	m.stageSelection()
+func (a *agentsScreen) stage(*model) screen.Request {
+	return screen.Restage{}
 }
 
-func (m *model) archiveAgents(agents []panel.Agent) tea.Cmd {
+func (m *model) archiveAgents(agents []panel.Agent) screen.Request {
 	if len(agents) == 0 {
 		return nil
 	}
 
-	return m.apply(m.archivingWrite(archivingWriteParams{
+	return m.archivingWrite(archivingWriteParams{
 		doing:   "archiving " + describeAgents(agents),
 		summary: fmt.Sprintf("Could not archive %s", describeAgents(agents)),
 		agents:  agents,
 		write: func(a api) error {
 			return a.archiveAgents(panel.IDs(agents))
 		},
-	}))
+	})
 }
 
 // openHovered attaches to whatever the cursor is on, which for a workflow is the orchestrator
 // standing behind it and for a task its writer.
-func (a *agentsScreen) openHovered(m *model) tea.Cmd {
+func (a *agentsScreen) openHovered(m *model) screen.Request {
 	if workflow, ok := a.hoveredWorkflow(m); ok {
 		return startOrchestrator(m, workflow)
 	}
@@ -97,13 +96,13 @@ func (a *agentsScreen) openHovered(m *model) tea.Cmd {
 		return nil
 	}
 	if a.isHoveringNotes(m) {
-		a.closeNotes(m)
+		return screen.Batch{a.closeNotes(), a.openAgent(m, item)}
 	}
 
 	return a.openAgent(m, item)
 }
 
-func (a *agentsScreen) openAgent(m *model, item panel.AgentRow) tea.Cmd {
+func (a *agentsScreen) openAgent(m *model, item panel.AgentRow) screen.Request {
 	if _, waking := a.resuming[item.Agent.ID]; waking {
 		return nil
 	}
@@ -115,7 +114,8 @@ func (a *agentsScreen) openAgent(m *model, item panel.AgentRow) tea.Cmd {
 	if item.Alive {
 		if item.Agent.HeldAt == nil {
 			a.seeFinished(m, item)
-			m.selectGuest(item.Agent.Pane)
+
+			return screen.SelectGuest{Pane: item.Agent.Pane}
 		}
 
 		return nil
@@ -125,7 +125,7 @@ func (a *agentsScreen) openAgent(m *model, item panel.AgentRow) tea.Cmd {
 }
 
 // resume wakes a dormant agent in the background.
-func (a *agentsScreen) resume(m *model, agent panel.Agent) tea.Cmd {
+func (a *agentsScreen) resume(m *model, agent panel.Agent) screen.Request {
 	if a.resuming == nil {
 		a.resuming = map[string]struct{}{}
 	}
@@ -133,7 +133,7 @@ func (a *agentsScreen) resume(m *model, agent panel.Agent) tea.Cmd {
 
 	clients := m.api
 
-	return m.apply(screen.Write{
+	return screen.Write{
 		Doing:   "resuming " + agent.Name,
 		Summary: fmt.Sprintf("Could not resume agent %q", agent.Name),
 		Send: func() screen.Landed {
@@ -141,7 +141,7 @@ func (a *agentsScreen) resume(m *model, agent panel.Agent) tea.Cmd {
 
 			return screen.Landed{Err: err, Then: resumeSettled{agentID: agent.ID, err: err}}
 		},
-	})
+	}
 }
 
 // resumeSettled is a resume landed, for the agents list.
@@ -150,20 +150,22 @@ type resumeSettled struct {
 	err     error
 }
 
-func (a *agentsScreen) settleResume(m *model, id string, err error) {
+func (a *agentsScreen) settleResume(m *model, id string, err error) screen.Request {
 	delete(a.resuming, id)
 	if err != nil {
-		return
+		return nil
 	}
 
 	if a.awaitingCLI == nil {
 		a.awaitingCLI = map[string]bool{}
 	}
 	a.awaitingCLI[id] = false
-	a.followAwaitingCLI(m)
+
+	return a.followAwaitingCLI(m)
 }
 
-func (a *agentsScreen) followAwaitingCLI(m *model) {
+func (a *agentsScreen) followAwaitingCLI(m *model) screen.Request {
+	var notes screen.Batch
 	for id, paneSeen := range a.awaitingCLI {
 		item, ok := m.listing.LiveAgent(id)
 
@@ -172,10 +174,10 @@ func (a *agentsScreen) followAwaitingCLI(m *model) {
 			delete(a.awaitingCLI, id)
 		case item.Alive && item.Agent.State.DoesPaneDecide():
 			delete(a.awaitingCLI, id)
-			m.pushMessage(message{
-				kind:    messageInfo,
-				summary: item.Agent.Name + " is back up",
-				detail:  "Press enter on it to open its pane.",
+			notes = append(notes, screen.Note{
+				Kind:    screen.Info,
+				Summary: item.Agent.Name + " is back up",
+				Detail:  "Press enter on it to open its pane.",
 			})
 		case item.Agent.Pane != "":
 			a.awaitingCLI[id] = true
@@ -183,9 +185,11 @@ func (a *agentsScreen) followAwaitingCLI(m *model) {
 			delete(a.awaitingCLI, id)
 		}
 	}
+
+	return notes
 }
 
-func (a *agentsScreen) toggleHidden(m *model) {
+func (a *agentsScreen) toggleHidden(m *model) screen.Request {
 	selected := a.list().hovered(m)
 
 	a.showHidden = !a.showHidden
@@ -193,7 +197,8 @@ func (a *agentsScreen) toggleHidden(m *model) {
 	rows := a.rows(m)
 	a.Row = cursor.Place(list.IndexOf(rows, selected), a.Row, len(rows))
 	a.Selected = a.Selected.Pruned(refsOf(a.rows(m)))
-	a.stage(m)
+
+	return a.stage(m)
 }
 
 // seeFinished snoozes the agent's task when it waits only to be looked at and the tree renders the
@@ -211,20 +216,21 @@ func (a *agentsScreen) seeFinished(m *model, item panel.AgentRow) {
 }
 
 // toggleSnooze snoozes or wakes the task under the key in triage, keeping the cursor in the zone.
-func (a *agentsScreen) toggleSnooze(m *model, key string) {
+func (a *agentsScreen) toggleSnooze(m *model, key string) screen.Request {
 	selected := a.list().hovered(m)
 	slot := a.findZoneSlot(m)
 	if !a.triage.toggleSnooze(key, m.listing.Agents) {
-		return
+		return nil
 	}
 
 	rows := a.rows(m)
 	a.Row = cursor.Place(list.IndexOf(rows, selected), a.Row, len(rows))
+	var moved screen.Request
 	if slot >= 0 {
-		a.moveAfterSnooze(m, slot)
+		moved = a.moveAfterSnooze(m, slot)
 	}
 
-	a.stage(m)
+	return screen.Batch{moved, a.stage(m)}
 }
 
 // hasPane reports whether an agent has a pane of its own worth putting in the window.
@@ -262,8 +268,8 @@ func (a *agentsScreen) help(m *model) keyMap {
 }
 
 // startOrchestrator brings the workflow's orchestrator back and puts the keyboard in its pane.
-func startOrchestrator(m *model, workflow panel.Workflow) tea.Cmd {
-	return m.apply(m.rowWrite(
+func startOrchestrator(m *model, workflow panel.Workflow) screen.Request {
+	return m.rowWrite(
 		"starting the orchestrator of "+workflow.Name,
 		fmt.Sprintf("Could not reach the orchestrator of workflow %q", workflow.Name),
 		func(a api) (*screen.Made, error) {
@@ -282,7 +288,7 @@ func startOrchestrator(m *model, workflow panel.Workflow) tea.Cmd {
 				Focus:   true,
 			}, nil
 		},
-	))
+	)
 }
 
 var (
@@ -358,7 +364,7 @@ func (a *agentsScreen) column() columnSpec {
 	}
 }
 
-func (a *agentsScreen) openRename(m *model) tea.Cmd {
+func (a *agentsScreen) openRename(m *model) screen.Request {
 	row, ok := a.hoveredRow(m)
 	if !ok {
 		return nil

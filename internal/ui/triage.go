@@ -633,16 +633,17 @@ func (a *agentsScreen) findZoneSlot(m *model) int {
 
 // moveAfterSnooze puts the cursor on the task above the zone's slot, on the top task when the
 // slot was the top, or on the first agent of the list once the zone is empty.
-func (a *agentsScreen) moveAfterSnooze(m *model, slot int) {
+func (a *agentsScreen) moveAfterSnooze(m *model, slot int) screen.Request {
 	heads := zoneHeads(a.layout(m).zone)
 	if len(heads) == 0 {
-		m.note(messageInfo, "nothing left to triage")
 		a.Row = firstAgentRowIndex(a.rows(m))
 
-		return
+		return screen.NewNote(screen.Info, "nothing left to triage")
 	}
 
 	a.Row = heads[min(max(slot-1, 0), len(heads)-1)]
+
+	return nil
 }
 
 // landInTriage moves the cursor off a zone row that has left the list onto the task now in its
@@ -664,15 +665,14 @@ func (a *agentsScreen) landInTriage(m *model, selected string, slot int) {
 }
 
 // jumpToTriage puts the cursor on the zone's first agent.
-func (a *agentsScreen) jumpToTriage(m *model) {
+func (a *agentsScreen) jumpToTriage(m *model) screen.Request {
 	if len(a.layout(m).zone) == 0 {
-		m.note(messageInfo, "nothing to triage")
-
-		return
+		return screen.NewNote(screen.Info, "nothing to triage")
 	}
 
 	a.Row = 0
-	m.stageSelection()
+
+	return screen.Restage{}
 }
 
 // triageSnapshot is the zone as the agents list renders it.

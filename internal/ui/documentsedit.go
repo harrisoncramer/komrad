@@ -22,7 +22,7 @@ type documentEdit struct {
 }
 
 // pressEdit opens the document under the cursor in your editor, or saves and closes the one open.
-func (d *documentsScreen) pressEdit(m *model) tea.Cmd {
+func (d *documentsScreen) pressEdit(m *model) screen.Request {
 	if d.editing != nil {
 		return d.closeEdit(m)
 	}
@@ -34,22 +34,24 @@ func (d *documentsScreen) pressEdit(m *model) tea.Cmd {
 
 	read, asked := d.bodies[item.id]
 	if !asked || read.err != nil || read.body == "" || read.pending || read.updatedAt.Before(item.updatedAt) {
-		m.reportBrief("could not edit "+item.name, "its text has not been read yet")
-
-		return nil
+		return screen.Note{
+			Kind:    screen.Error,
+			Summary: "could not edit " + item.name,
+			Detail:  "its text has not been read yet",
+		}
 	}
 
 	path, err := writeDocumentCopy(m.settings.DraftDir, read.body)
 	if err != nil {
-		return m.apply(screen.Report{Summary: "could not edit " + item.name, Err: err})
+		return screen.Report{Summary: "could not edit " + item.name, Err: err}
 	}
 
-	return m.apply(screen.Stage{
+	return screen.Stage{
 		Content: editorContent(m.settings.Editor, filepath.Dir(path), path, 1),
 		Staged: func(pane string) tea.Msg {
 			return documentEditorStaged{item: item, read: read, path: path, pane: pane}
 		},
-	})
+	}
 }
 
 // documentEditorStaged is the pane an editor over a document's copy was given, empty where the
@@ -63,13 +65,17 @@ type documentEditorStaged struct {
 
 // applyEditorStaged opens the edit in the editor's pane, or throws the copy away when there was no
 // room for one.
-func (d *documentsScreen) applyEditorStaged(m *model, staged documentEditorStaged) {
+func (d *documentsScreen) applyEditorStaged(staged documentEditorStaged) screen.Request {
 	item, read, path, pane := staged.item, staged.read, staged.path, staged.pane
 	if pane == "" {
-		m.report("could not edit "+item.name, removeDocumentCopy(path))
-		m.reportBrief("could not edit "+item.name, "there is no room beside the sidebar for an editor")
-
-		return
+		return screen.Batch{
+			screen.Report{Summary: "could not edit " + item.name, Err: removeDocumentCopy(path)},
+			screen.Note{
+				Kind:    screen.Error,
+				Summary: "could not edit " + item.name,
+				Detail:  "there is no room beside the sidebar for an editor",
+			},
+		}
 	}
 
 	d.history = nil
@@ -80,10 +86,12 @@ func (d *documentsScreen) applyEditorStaged(m *model, staged documentEditorStage
 		pane:    pane,
 		body:    read.body,
 	}
+
+	return nil
 }
 
 // closeEdit takes the editor down and writes back what changed in the copy.
-func (d *documentsScreen) closeEdit(m *model) tea.Cmd {
+func (d *documentsScreen) closeEdit(m *model) screen.Request {
 	if d.editing == nil {
 		return nil
 	}
@@ -95,31 +103,33 @@ func (d *documentsScreen) closeEdit(m *model) tea.Cmd {
 	summary := "could not save " + edit.item.name
 	content, err := os.ReadFile(edit.path)
 	if err != nil {
-		return m.apply(screen.Report{Summary: summary, Err: fmt.Errorf("failed to read your copy at %s: %w", edit.path, err)})
+		return screen.Report{Summary: summary, Err: fmt.Errorf("failed to read your copy at %s: %w", edit.path, err)}
 	}
 
 	body := string(content)
 	if strings.TrimSpace(body) == "" {
-		m.reportBrief(summary, "komrad does not save an empty document, so your copy stays at "+edit.path)
-
-		return nil
+		return screen.Note{
+			Kind:    screen.Error,
+			Summary: summary,
+			Detail:  "komrad does not save an empty document, so your copy stays at " + edit.path,
+		}
 	}
 
 	if body == edit.body {
-		return m.apply(screen.Report{Summary: summary, Err: removeDocumentCopy(edit.path)})
+		return screen.Report{Summary: summary, Err: removeDocumentCopy(edit.path)}
 	}
 
-	return m.apply(m.write("saving "+edit.item.name, summary, func(a api) error {
+	return m.write("saving "+edit.item.name, summary, func(a api) error {
 		if err := a.writeDocument(edit.item, edit.version, body); err != nil {
 			return fmt.Errorf("failed to save, so your copy is left at %s: %w", edit.path, err)
 		}
 
 		return removeDocumentCopy(edit.path)
-	}))
+	})
 }
 
 // reconcileEditor catches the editor pane going away on its own and saves what it wrote.
-func (d *documentsScreen) reconcileEditor(m *model) tea.Cmd {
+func (d *documentsScreen) reconcileEditor(m *model) screen.Request {
 	if d.editing == nil || m.isPaneAlive(d.editing.pane) {
 		return nil
 	}

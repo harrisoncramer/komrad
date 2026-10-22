@@ -8,7 +8,6 @@ import (
 	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
 
-	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
 )
 
@@ -73,33 +72,37 @@ type reviewPausedMsg struct {
 }
 
 // startHold stops the agent and opens the editor once it has.
-func (r *reviewScreen) startHold(m *model) tea.Cmd {
+func (r *reviewScreen) startHold(m *model) screen.Request {
 	item, ok := r.agentRow(m)
 	if !ok || !item.Alive {
 		return r.editFile(m)
 	}
 
 	if item.Agent.HeldAt != nil {
-		m.reportBrief("could not edit "+r.agentName, stillPaused)
-
-		return nil
+		return screen.Note{
+			Kind:    screen.Error,
+			Summary: "could not edit " + r.agentName,
+			Detail:  stillPaused,
+		}
 	}
 
 	r.hold.pausing = true
-	m.pushMessage(message{
-		kind:    messageInfo,
-		summary: "stopping the agent",
-		detail:  "the editor opens once it stops",
-	})
 
-	return holdAgentCmd(m, r.agentID, r.agentName)
+	return screen.Batch{
+		screen.Note{
+			Kind:    screen.Info,
+			Summary: "stopping the agent",
+			Detail:  "the editor opens once it stops",
+		},
+		holdAgent(m, r.agentID, r.agentName),
+	}
 }
 
-// holdAgentCmd asks for the agent to stop and reports what came back.
-func holdAgentCmd(m *model, agentID, name string) tea.Cmd {
+// holdAgent asks for the agent to stop and reports what came back.
+func holdAgent(m *model, agentID, name string) screen.Request {
 	agents := m.clients().agents
 
-	return m.apply(screen.Write{
+	return screen.Write{
 		Doing: "pausing " + name,
 		Send: func() screen.Landed {
 			ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
@@ -109,11 +112,11 @@ func holdAgentCmd(m *model, agentID, name string) tea.Cmd {
 
 			return screen.Landed{Then: reviewPausedMsg{agentID: agentID, err: err}}
 		},
-	})
+	}
 }
 
 // applyPaused opens the editor, or gives it up when the agent would not stop.
-func (r *reviewScreen) applyPaused(m *model, msg reviewPausedMsg) tea.Cmd {
+func (r *reviewScreen) applyPaused(m *model, msg reviewPausedMsg) screen.Request {
 	if msg.agentID != r.agentID {
 		return nil
 	}
@@ -121,7 +124,7 @@ func (r *reviewScreen) applyPaused(m *model, msg reviewPausedMsg) tea.Cmd {
 	r.hold.pausing = false
 
 	if msg.err != nil {
-		return m.apply(screen.Report{Summary: "Could not pause " + r.agentName, Err: msg.err})
+		return screen.Report{Summary: "Could not pause " + r.agentName, Err: msg.err}
 	}
 
 	r.hold.paused = true
@@ -140,7 +143,7 @@ func (r *reviewScreen) isPausing(agentID string) bool {
 	return r.agentID == agentID && r.hold.pausing
 }
 
-func (m *model) releaseAbandonedPause(msg reviewPausedMsg) tea.Cmd {
+func (m *model) releaseAbandonedPause(msg reviewPausedMsg) screen.Request {
 	if msg.err != nil {
 		return nil
 	}
@@ -150,11 +153,11 @@ func (m *model) releaseAbandonedPause(msg reviewPausedMsg) tea.Cmd {
 		return nil
 	}
 
-	return m.apply(m.releaseWrite("Could not let "+item.Agent.Name+" go", item.Agent, abandonedSaid))
+	return m.releaseWrite("Could not let "+item.Agent.Name+" go", item.Agent, abandonedSaid)
 }
 
 // endHold lets the agent go and tells it which files the reader opened while it was stopped.
-func (r *reviewScreen) endHold(m *model, said string) tea.Cmd {
+func (r *reviewScreen) endHold(m *model, said string) screen.Request {
 	agentID := r.agentID
 	ours, touched := r.hold.end()
 
@@ -171,7 +174,7 @@ func (r *reviewScreen) endHold(m *model, said string) tea.Cmd {
 
 	agent, name := item.Agent, r.agentName
 
-	return m.apply(m.releaseWrite("Could not let "+name+" go", agent, said))
+	return m.releaseWrite("Could not let "+name+" go", agent, said)
 }
 
 // touchedSaid names the files the reader opened an editor on.

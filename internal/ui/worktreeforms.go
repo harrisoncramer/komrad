@@ -11,7 +11,6 @@ import (
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 )
 
@@ -30,17 +29,17 @@ type worktreeConfirm struct {
 
 // open reads each worktree afresh and puts the confirm on screen, sending what write asks for
 // once it is answered yes.
-func (c worktreeConfirm) open(m *model, write func() screen.Request) tea.Cmd {
+func (c worktreeConfirm) open(m *model, write func() screen.Request) screen.Request {
 	confirmed := c.startsConfirmed
 
-	var cmds []tea.Cmd
+	var requests screen.Batch
 	for _, dir := range c.dirs {
 		if !m.inspections[dir].IsSettled() {
-			cmds = append(cmds, m.readWorktreeCmd(dir))
+			requests = append(requests, screen.Inspect{Dir: dir})
 		}
 	}
 
-	opened := m.apply(form.Open{Form: form.Form{
+	return append(requests, form.Open{Form: form.Form{
 		Build: func(in form.Inputs) (*huh.Form, []string) {
 			confirm := form.ConfirmField(&confirmed, strings.TrimSpace(c.warning+describeStanding(in.Inspections, c.dirs)), "Delete")
 			if c.values == nil {
@@ -65,18 +64,6 @@ func (c worktreeConfirm) open(m *model, write func() screen.Request) tea.Cmd {
 		ClosesOnRefusal: true,
 		Worktrees:       c.dirs,
 	}})
-
-	return tea.Batch(append(cmds, opened)...)
-}
-
-// rerenderWorktreeConfirm renders a delete confirm again once git answers for a worktree it
-// describes.
-func (m *model) rerenderWorktreeConfirm(dir string) tea.Cmd {
-	if !slices.Contains(m.form.Worktrees, dir) {
-		return nil
-	}
-
-	return m.rerenderOpenForm()
 }
 
 // describeStanding says what is uncommitted and unpushed in the worktrees, as git last answered for each.

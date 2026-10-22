@@ -3,9 +3,9 @@ package ui
 import (
 	"context"
 
+	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
 
-	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
 )
 
@@ -63,7 +63,7 @@ func (r *reviewScreen) doesOfferAccept() bool {
 
 // acceptForge accepts the held forge comment under the cursor, which releases it to the writer as
 // the person's own comment.
-func (r *reviewScreen) acceptForge(m *model) tea.Cmd {
+func (r *reviewScreen) acceptForge(m *model) screen.Request {
 	thread, ok := r.diff.threadAtCursor()
 	if !ok {
 		return nil
@@ -76,7 +76,7 @@ func (r *reviewScreen) acceptForge(m *model) tea.Cmd {
 
 	agents, id := m.clients().agents, target.GetId()
 
-	return r.writeCmd(m, "accepting the comment", "comment accepted", func(ctx context.Context) error {
+	return r.write(m, "accepting the comment", "comment accepted", func(ctx context.Context) error {
 		_, err := agents.AcceptForgeMessage(ctx, connect.NewRequest(&agentv1.AcceptForgeMessageRequest{
 			MessageId: id,
 		}))

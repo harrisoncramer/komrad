@@ -19,47 +19,43 @@ func (a *agentsScreen) isEditorOpen() bool {
 }
 
 // releaseEdit closes the open editor and lets its agent go, unless the agent is still pausing.
-func (a *agentsScreen) releaseEdit(m *model) tea.Cmd {
+func (a *agentsScreen) releaseEdit(m *model) screen.Request {
 	if a.editing == nil || a.editing.pausing {
 		return nil
 	}
 
-	cmd := a.closeEdit(m)
-	m.stageSelection()
-
-	return cmd
+	return screen.Batch{a.closeEdit(m), screen.Restage{}}
 }
 
 // pressEdit opens an editor on the agent's worktree, or closes the one already open.
-func (a *agentsScreen) pressEdit(m *model, item panel.AgentRow) tea.Cmd {
+func (a *agentsScreen) pressEdit(m *model, item panel.AgentRow) screen.Request {
 	if a.editing != nil {
 		return a.releaseEdit(m)
 	}
 
 	agent := item.Agent
-	if agent.Cwd == "" || m.listing.Tasks.FindForAgent(agent).IsWorktreeRemoved() {
-		m.reportBrief("could not edit "+agent.Name, "it has no worktree to open")
+	refuse := func(reason string) screen.Note {
+		return screen.Note{
+			Kind:    screen.Error,
+			Summary: "could not edit " + agent.Name,
+			Detail:  reason,
+		}
+	}
 
-		return nil
+	if agent.Cwd == "" || m.listing.Tasks.FindForAgent(agent).IsWorktreeRemoved() {
+		return refuse("it has no worktree to open")
 	}
 
 	if item.Alive && agent.State == panel.StateUncertain {
-		m.reportBrief("could not edit "+agent.Name,
-			"komrad cannot read its pane, so it may be writing in this worktree")
-
-		return nil
+		return refuse("komrad cannot read its pane, so it may be writing in this worktree")
 	}
 
 	if agent.HeldAt != nil {
-		m.reportBrief("could not edit "+agent.Name, stillPaused)
-
-		return nil
+		return refuse(stillPaused)
 	}
 
 	if reason, refused := m.isRemoteEditRefused(); refused {
-		m.reportBrief("could not edit "+agent.Name, reason)
-
-		return nil
+		return refuse(reason)
 	}
 
 	a.editing = &agentEdit{agent: agent}
@@ -69,10 +65,10 @@ func (a *agentsScreen) pressEdit(m *model, item panel.AgentRow) tea.Cmd {
 
 	a.editing.pausing = true
 
-	return holdAgentCmd(m, agent.ID, agent.Name)
+	return holdAgent(m, agent.ID, agent.Name)
 }
 
-func (a *agentsScreen) applyPaused(m *model, msg reviewPausedMsg) tea.Cmd {
+func (a *agentsScreen) applyPaused(m *model, msg reviewPausedMsg) screen.Request {
 	if !a.isPausing(msg.agentID) {
 		return nil
 	}
@@ -80,10 +76,10 @@ func (a *agentsScreen) applyPaused(m *model, msg reviewPausedMsg) tea.Cmd {
 	a.editing.pausing = false
 
 	if msg.err != nil {
-		m.report("Could not pause "+a.editing.agent.Name, msg.err)
+		refused := screen.Report{Summary: "Could not pause " + a.editing.agent.Name, Err: msg.err}
 		a.editing = nil
 
-		return nil
+		return refused
 	}
 
 	a.editing.ourPause = true
@@ -101,15 +97,15 @@ type agentEditorStaged struct {
 	pane string
 }
 
-func (a *agentsScreen) openEditor(m *model) tea.Cmd {
-	return m.apply(screen.Stage{
+func (a *agentsScreen) openEditor(m *model) screen.Request {
+	return screen.Stage{
 		Content: m.agentDirEditorContent(a.editing.agent.Cwd),
 		Staged:  func(pane string) tea.Msg { return agentEditorStaged{pane: pane} },
-	})
+	}
 }
 
 // applyEditorStaged keeps the editor's pane, or gives the edit up when there was no room for it.
-func (a *agentsScreen) applyEditorStaged(m *model, staged agentEditorStaged) tea.Cmd {
+func (a *agentsScreen) applyEditorStaged(m *model, staged agentEditorStaged) screen.Request {
 	if a.editing == nil {
 		return nil
 	}
@@ -122,17 +118,22 @@ func (a *agentsScreen) applyEditorStaged(m *model, staged agentEditorStaged) tea
 
 	edit := *a.editing
 	a.editing = nil
-	m.reportBrief("could not edit "+edit.agent.Name, "there is no room beside the sidebar for an editor")
-	m.stageSelection()
-
+	refused := screen.Batch{
+		screen.Note{
+			Kind:    screen.Error,
+			Summary: "could not edit " + edit.agent.Name,
+			Detail:  "there is no room beside the sidebar for an editor",
+		},
+		screen.Restage{},
+	}
 	if !edit.ourPause {
-		return nil
+		return refused
 	}
 
-	return m.apply(m.releaseWrite("Could not let "+edit.agent.Name+" go", edit.agent, abandonedSaid))
+	return append(refused, m.releaseWrite("Could not let "+edit.agent.Name+" go", edit.agent, abandonedSaid))
 }
 
-func (a *agentsScreen) closeEdit(m *model) tea.Cmd {
+func (a *agentsScreen) closeEdit(m *model) screen.Request {
 	if a.editing == nil {
 		return nil
 	}
@@ -144,27 +145,22 @@ func (a *agentsScreen) closeEdit(m *model) tea.Cmd {
 		return nil
 	}
 
-	m.unstageEditor()
-
 	if !edit.ourPause {
-		return nil
+		return screen.Unstage{}
 	}
 
-	return m.apply(m.releaseWrite("Could not let "+edit.agent.Name+" go", edit.agent, editedSaid))
+	return screen.Batch{screen.Unstage{}, m.releaseWrite("Could not let "+edit.agent.Name+" go", edit.agent, editedSaid)}
 }
 
-func (a *agentsScreen) reconcileEditor(m *model) tea.Cmd {
+func (a *agentsScreen) reconcileEditor(m *model) screen.Request {
 	if !a.isEditorOpen() || m.isPaneAlive(a.editing.pane) {
 		return nil
 	}
 
-	cmd := a.closeEdit(m)
-	m.stageSelection()
-
-	return cmd
+	return screen.Batch{a.closeEdit(m), screen.Restage{}}
 }
 
-func (a *agentsScreen) leaveScreen(m *model) tea.Cmd {
+func (a *agentsScreen) leaveScreen(m *model) screen.Request {
 	a.renaming = nil
 
 	return a.closeEdit(m)

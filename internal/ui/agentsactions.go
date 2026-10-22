@@ -5,8 +5,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/keys"
-
-	tea "charm.land/bubbletea/v2"
+	"komrad/internal/ui/screen"
 )
 
 // actions is the agents list as one table and the legend that names it.
@@ -30,23 +29,19 @@ func (a *agentsScreen) modeActions() []keys.Action[*model] {
 			ID:   actionAgentTriage,
 			Keys: func(k config.Keybindings) []string { return k.Agents.Triage },
 			When: a.isTriageReachable,
-			Nav: func(m *model, _ string) tea.Cmd {
-				a.jumpToTriage(m)
-
-				return nil
-			},
+			Nav:  func(m *model, _ string) screen.Request { return a.jumpToTriage(m) },
 		},
 		keys.Action[*model]{
 			ID:   actionTaskNotesBack,
 			Keys: keys.FixedBack,
 			When: a.isHoveringNotes,
-			Nav:  func(m *model, _ string) tea.Cmd { return a.closeNotes(m) },
+			Nav:  func(*model, string) screen.Request { return a.closeNotes() },
 		},
 		keys.Action[*model]{
 			ID:   actionAgentsBack,
 			Keys: keys.FixedBack,
 			When: list.isBrowsing,
-			Nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
+			Nav:  func(m *model, _ string) screen.Request { return screen.PickView{} },
 		},
 	)
 }
@@ -61,25 +56,25 @@ func (a *agentsScreen) rowActions() []keys.Action[*model] {
 			ID:     actionWorkflowRename,
 			Keys:   func(k config.Keybindings) []string { return k.Workflows.Rename },
 			When:   a.isHoveringWorkflow,
-			Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) tea.Cmd { return a.openRename(m) }),
+			Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) screen.Request { return a.openRename(m) }),
 		},
 		{
 			ID:     actionAgentOpen,
 			Keys:   keys.FixedOpen,
 			When:   list.isBrowsing,
-			Direct: keys.Directly("enter is how a person reaches an agent, and the resume is incidental to that", func(m *model, _ string) tea.Cmd { return a.openHovered(m) }),
+			Direct: keys.Directly("enter is how a person reaches an agent, and the resume is incidental to that", func(m *model, _ string) screen.Request { return a.openHovered(m) }),
 		},
 		{
 			ID:     actionAgentRename,
 			Keys:   func(k config.Keybindings) []string { return k.Agents.Rename },
 			When:   a.isHoveringAgent,
-			Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) tea.Cmd { return a.openRename(m) }),
+			Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) screen.Request { return a.openRename(m) }),
 		},
 		{
 			ID:     actionTaskRename,
 			Keys:   func(k config.Keybindings) []string { return k.Agents.Rename },
 			When:   a.isHoveringTask,
-			Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) tea.Cmd { return a.openRename(m) }),
+			Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) screen.Request { return a.openRename(m) }),
 		},
 	}
 }
