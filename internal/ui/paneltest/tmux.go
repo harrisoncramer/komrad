@@ -59,8 +59,6 @@ type recordedTmux struct {
 	keysElsewhere     bool
 	activePane        string
 	rootBinds         map[string][]string
-	rootBindCount     int
-	rootUnbinds       []string
 	tableBinds        map[string][]string
 	shown             []panes.Rect
 	screens           map[string]string
@@ -220,22 +218,6 @@ func (t *recordedTmux) RootBinding(key string) ([]string, bool) {
 	command, bound := t.rootBinds[key]
 
 	return command, bound
-}
-
-// RootUnbinds is every key the panel has taken out of tmux's root table.
-func (t *recordedTmux) RootUnbinds() []string {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	return t.rootUnbinds
-}
-
-// RootBinds is how many times the panel has bound a key in tmux's root table.
-func (t *recordedTmux) RootBinds() int {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	return t.rootBindCount
 }
 
 // TableBinding is the command a key runs in a named key table, and whether it is bound.
@@ -464,7 +446,6 @@ func (t *recordedTmux) BindRootKey(key string, command ...string) {
 	}
 
 	t.rootBinds[key] = command
-	t.rootBindCount++
 }
 
 func (t *recordedTmux) UnbindRootKey(key string) {
@@ -472,7 +453,6 @@ func (t *recordedTmux) UnbindRootKey(key string) {
 	defer t.mu.Unlock()
 
 	delete(t.rootBinds, key)
-	t.rootUnbinds = append(t.rootUnbinds, key)
 }
 
 func (t *recordedTmux) BindTableKey(table, key string, command ...string) {
