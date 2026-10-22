@@ -10,6 +10,7 @@ import (
 
 	"komrad/internal/caller"
 	"komrad/internal/harness"
+	"komrad/internal/harnesstest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -59,7 +60,7 @@ func TestBuildCommand(t *testing.T) {
 			launch := tt.launch
 			launch.CacheDir = t.TempDir()
 
-			command, err := NewHarness(NewHarnessParams{ConfigDir: t.TempDir()}).BuildCommand(launch)
+			command, err := NewHarness(NewHarnessParams{ConfigDir: t.TempDir(), CacheDir: harnesstest.SocketDir(t)}).BuildCommand(launch)
 			require.NoError(t, err)
 
 			assert.True(t, strings.HasPrefix(stripGeneratedFlags(command), tt.wantCommand),
@@ -97,7 +98,7 @@ func TestBuildCommandFailsWhenThePromptCannotBeWritten(t *testing.T) {
 			launch := tt.launch
 			launch.CacheDir = filepath.Join(blocked, "cache")
 
-			_, err := NewHarness(NewHarnessParams{ConfigDir: t.TempDir()}).BuildCommand(launch)
+			_, err := NewHarness(NewHarnessParams{ConfigDir: t.TempDir(), CacheDir: harnesstest.SocketDir(t)}).BuildCommand(launch)
 			require.Error(t, err)
 		})
 	}
@@ -125,7 +126,7 @@ func TestBuildCommandFailsWhenItsConfigCannotBeWritten(t *testing.T) {
 			configDir := t.TempDir()
 			require.NoError(t, os.Mkdir(filepath.Join(configDir, tt.occupied), 0o755))
 
-			_, err := NewHarness(NewHarnessParams{ConfigDir: configDir}).BuildCommand(harness.Launch{
+			_, err := NewHarness(NewHarnessParams{ConfigDir: configDir, CacheDir: harnesstest.SocketDir(t)}).BuildCommand(harness.Launch{
 				SessionID:   "sess-1",
 				MCPEndpoint: "127.0.0.1:8787",
 				HookCommand: "/usr/local/bin/komrad",
@@ -162,7 +163,7 @@ func TestBuildCommandQuotesFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := NewHarness(NewHarnessParams{ConfigDir: t.TempDir()}).BuildCommand(harness.Launch{
+			command, err := NewHarness(NewHarnessParams{ConfigDir: t.TempDir(), CacheDir: harnesstest.SocketDir(t)}).BuildCommand(harness.Launch{
 				Flags:     tt.flags,
 				SessionID: "sess",
 				CacheDir:  t.TempDir(),
@@ -220,7 +221,7 @@ func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 			launch := tt.launch
 			launch.CacheDir = t.TempDir()
 
-			command, err := NewHarness(NewHarnessParams{ConfigDir: t.TempDir()}).BuildCommand(launch)
+			command, err := NewHarness(NewHarnessParams{ConfigDir: t.TempDir(), CacheDir: harnesstest.SocketDir(t)}).BuildCommand(launch)
 			require.NoError(t, err)
 
 			for _, want := range tt.wantContain {
@@ -243,7 +244,7 @@ func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 func TestBuildCommandStagesTextUnderTheCacheDir(t *testing.T) {
 	cache := t.TempDir()
 
-	_, err := NewHarness(NewHarnessParams{ConfigDir: t.TempDir()}).BuildCommand(harness.Launch{
+	_, err := NewHarness(NewHarnessParams{ConfigDir: t.TempDir(), CacheDir: harnesstest.SocketDir(t)}).BuildCommand(harness.Launch{
 		SessionID: "sess",
 		Context:   "the buildBriefing",
 		Prompt:    "do the thing",
@@ -276,7 +277,7 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			configDir := t.TempDir()
 
-			command, err := NewHarness(NewHarnessParams{ConfigDir: configDir}).BuildCommand(harness.Launch{
+			command, err := NewHarness(NewHarnessParams{ConfigDir: configDir, CacheDir: harnesstest.SocketDir(t)}).BuildCommand(harness.Launch{
 				CacheDir:    t.TempDir(),
 				SessionID:   "sess",
 				MCPEndpoint: "127.0.0.1:9999",
@@ -314,7 +315,7 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 // TestBuildCommandKeepsEachInstancesMCPConfig covers two instances sharing one Claude config dir.
 func TestBuildCommandKeepsEachInstancesMCPConfig(t *testing.T) {
 	configDir := t.TempDir()
-	claude := NewHarness(NewHarnessParams{ConfigDir: configDir})
+	claude := NewHarness(NewHarnessParams{ConfigDir: configDir, CacheDir: harnesstest.SocketDir(t)})
 
 	urls := map[string]string{}
 	for _, endpoint := range []string{"127.0.0.1:8787", "127.0.0.1:8790", "127.0.0.1:8787"} {
@@ -349,7 +350,7 @@ func TestBuildCommandKeepsEachInstancesMCPConfig(t *testing.T) {
 // each launch pointing its hooks at its own instance's binary.
 func TestBuildCommandKeepsEachInstancesSettings(t *testing.T) {
 	configDir := t.TempDir()
-	claude := NewHarness(NewHarnessParams{ConfigDir: configDir})
+	claude := NewHarness(NewHarnessParams{ConfigDir: configDir, CacheDir: harnesstest.SocketDir(t)})
 
 	hooks := map[string]string{}
 	for _, launch := range []harness.Launch{
@@ -390,8 +391,11 @@ var mcpConfigRef = regexp.MustCompile(` --mcp-config '([^']+)'`)
 
 var configDirRef = regexp.MustCompile(`CLAUDE_CONFIG_DIR='([^']+)' `)
 
+var socketRef = regexp.MustCompile(` --messaging-socket-path '([^']+)'`)
+
 func stripGeneratedFlags(command string) string {
 	command = configDirRef.ReplaceAllString(command, "")
+	command = socketRef.ReplaceAllString(command, "")
 
 	return settingsRef.ReplaceAllString(mcpConfigRef.ReplaceAllString(command, ""), "")
 }
@@ -434,7 +438,7 @@ func TestBuildCommandPinsTheConfigDir(t *testing.T) {
 			launch := tt.launch
 			launch.CacheDir = t.TempDir()
 
-			command, err := NewHarness(NewHarnessParams{ConfigDir: configDir}).BuildCommand(launch)
+			command, err := NewHarness(NewHarnessParams{ConfigDir: configDir, CacheDir: harnesstest.SocketDir(t)}).BuildCommand(launch)
 			require.NoError(t, err)
 
 			if !tt.wantPin {
@@ -473,7 +477,7 @@ func TestMCPConfigCarriesTheAgentsIdentity(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	command, err := NewHarness(NewHarnessParams{}).BuildCommand(harness.Launch{
+	command, err := NewHarness(NewHarnessParams{CacheDir: harnesstest.SocketDir(t)}).BuildCommand(harness.Launch{
 		CacheDir:    t.TempDir(),
 		AgentID:     "agent-1",
 		SessionID:   "sess-1",
@@ -534,7 +538,7 @@ func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			configDir := t.TempDir()
 
-			command, err := NewHarness(NewHarnessParams{ConfigDir: configDir}).BuildCommand(harness.Launch{
+			command, err := NewHarness(NewHarnessParams{ConfigDir: configDir, CacheDir: harnesstest.SocketDir(t)}).BuildCommand(harness.Launch{
 				CacheDir:    t.TempDir(),
 				SessionID:   "sess",
 				HookCommand: tt.hookCommand,
@@ -568,7 +572,7 @@ func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 // TestBuildCommandSetsTheCompactionPoint pins the point reaching claude's own settings.
 func TestBuildCommandSetsTheCompactionPoint(t *testing.T) {
 	configDir := t.TempDir()
-	hn := NewHarness(NewHarnessParams{ConfigDir: configDir})
+	hn := NewHarness(NewHarnessParams{ConfigDir: configDir, CacheDir: harnesstest.SocketDir(t)})
 
 	build := func(role string, autoCompaction int) string {
 		command, err := hn.BuildCommand(harness.Launch{
@@ -622,7 +626,7 @@ func TestBuildCommandPermissions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := NewHarness(NewHarnessParams{ConfigDir: t.TempDir()}).BuildCommand(harness.Launch{
+			command, err := NewHarness(NewHarnessParams{ConfigDir: t.TempDir(), CacheDir: harnesstest.SocketDir(t)}).BuildCommand(harness.Launch{
 				CacheDir:    t.TempDir(),
 				SessionID:   "sess",
 				HookCommand: tt.hookCommand,

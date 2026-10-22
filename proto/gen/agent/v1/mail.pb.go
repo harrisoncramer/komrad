@@ -615,51 +615,6 @@ func (x *ForwardLastTurnsResponse) GetWarning() string {
 	return ""
 }
 
-type ClaimMailNudgeResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// The line telling the agent it has unread mail. Empty when it has none or was told recently.
-	Nudge         string `protobuf:"bytes,1,opt,name=nudge,proto3" json:"nudge,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ClaimMailNudgeResponse) Reset() {
-	*x = ClaimMailNudgeResponse{}
-	mi := &file_agent_v1_mail_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ClaimMailNudgeResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ClaimMailNudgeResponse) ProtoMessage() {}
-
-func (x *ClaimMailNudgeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_mail_proto_msgTypes[5]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ClaimMailNudgeResponse.ProtoReflect.Descriptor instead.
-func (*ClaimMailNudgeResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_mail_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *ClaimMailNudgeResponse) GetNudge() string {
-	if x != nil {
-		return x.Nudge
-	}
-	return ""
-}
-
 type ReadMailRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The agent whose unread mail to read, by id. Unset reads the caller's own.
@@ -670,7 +625,7 @@ type ReadMailRequest struct {
 
 func (x *ReadMailRequest) Reset() {
 	*x = ReadMailRequest{}
-	mi := &file_agent_v1_mail_proto_msgTypes[6]
+	mi := &file_agent_v1_mail_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -682,7 +637,7 @@ func (x *ReadMailRequest) String() string {
 func (*ReadMailRequest) ProtoMessage() {}
 
 func (x *ReadMailRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_mail_proto_msgTypes[6]
+	mi := &file_agent_v1_mail_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -695,7 +650,7 @@ func (x *ReadMailRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadMailRequest.ProtoReflect.Descriptor instead.
 func (*ReadMailRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_mail_proto_rawDescGZIP(), []int{6}
+	return file_agent_v1_mail_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ReadMailRequest) GetId() string {
@@ -715,7 +670,7 @@ type ReadMailResponse struct {
 
 func (x *ReadMailResponse) Reset() {
 	*x = ReadMailResponse{}
-	mi := &file_agent_v1_mail_proto_msgTypes[7]
+	mi := &file_agent_v1_mail_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -727,7 +682,7 @@ func (x *ReadMailResponse) String() string {
 func (*ReadMailResponse) ProtoMessage() {}
 
 func (x *ReadMailResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_mail_proto_msgTypes[7]
+	mi := &file_agent_v1_mail_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -740,7 +695,7 @@ func (x *ReadMailResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadMailResponse.ProtoReflect.Descriptor instead.
 func (*ReadMailResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_mail_proto_rawDescGZIP(), []int{7}
+	return file_agent_v1_mail_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ReadMailResponse) GetMail() []*Mail {
@@ -764,7 +719,7 @@ type ListMailRequest struct {
 
 func (x *ListMailRequest) Reset() {
 	*x = ListMailRequest{}
-	mi := &file_agent_v1_mail_proto_msgTypes[8]
+	mi := &file_agent_v1_mail_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -776,7 +731,7 @@ func (x *ListMailRequest) String() string {
 func (*ListMailRequest) ProtoMessage() {}
 
 func (x *ListMailRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_mail_proto_msgTypes[8]
+	mi := &file_agent_v1_mail_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -789,7 +744,7 @@ func (x *ListMailRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMailRequest.ProtoReflect.Descriptor instead.
 func (*ListMailRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_mail_proto_rawDescGZIP(), []int{8}
+	return file_agent_v1_mail_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ListMailRequest) GetId() string {
@@ -825,7 +780,7 @@ type ListMailResponse struct {
 
 func (x *ListMailResponse) Reset() {
 	*x = ListMailResponse{}
-	mi := &file_agent_v1_mail_proto_msgTypes[9]
+	mi := &file_agent_v1_mail_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -837,7 +792,7 @@ func (x *ListMailResponse) String() string {
 func (*ListMailResponse) ProtoMessage() {}
 
 func (x *ListMailResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_mail_proto_msgTypes[9]
+	mi := &file_agent_v1_mail_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -850,7 +805,7 @@ func (x *ListMailResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMailResponse.ProtoReflect.Descriptor instead.
 func (*ListMailResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_mail_proto_rawDescGZIP(), []int{9}
+	return file_agent_v1_mail_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ListMailResponse) GetMail() []*Mail {
@@ -877,7 +832,7 @@ type DeleteMailRequest struct {
 
 func (x *DeleteMailRequest) Reset() {
 	*x = DeleteMailRequest{}
-	mi := &file_agent_v1_mail_proto_msgTypes[10]
+	mi := &file_agent_v1_mail_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -889,7 +844,7 @@ func (x *DeleteMailRequest) String() string {
 func (*DeleteMailRequest) ProtoMessage() {}
 
 func (x *DeleteMailRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_mail_proto_msgTypes[10]
+	mi := &file_agent_v1_mail_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -902,7 +857,7 @@ func (x *DeleteMailRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteMailRequest.ProtoReflect.Descriptor instead.
 func (*DeleteMailRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_mail_proto_rawDescGZIP(), []int{10}
+	return file_agent_v1_mail_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *DeleteMailRequest) GetIds() []string {
@@ -970,9 +925,7 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"characters\x12\x1d\n" +
 	"\awarning\x18\x06 \x01(\tH\x00R\awarning\x88\x01\x01B\n" +
 	"\n" +
-	"\b_warning\".\n" +
-	"\x16ClaimMailNudgeResponse\x12\x14\n" +
-	"\x05nudge\x18\x01 \x01(\tR\x05nudge\"7\n" +
+	"\b_warning\"7\n" +
 	"\x0fReadMailRequest\x12\x1d\n" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x02id\x88\x01\x01B\x05\n" +
 	"\x03_id\"6\n" +
@@ -1021,7 +974,7 @@ func file_agent_v1_mail_proto_rawDescGZIP() []byte {
 }
 
 var file_agent_v1_mail_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_agent_v1_mail_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_agent_v1_mail_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_agent_v1_mail_proto_goTypes = []any{
 	(MailKind)(0),                    // 0: agent.v1.MailKind
 	(MailDirection)(0),               // 1: agent.v1.MailDirection
@@ -1030,19 +983,18 @@ var file_agent_v1_mail_proto_goTypes = []any{
 	(*SendMailResponse)(nil),         // 4: agent.v1.SendMailResponse
 	(*ForwardLastTurnsRequest)(nil),  // 5: agent.v1.ForwardLastTurnsRequest
 	(*ForwardLastTurnsResponse)(nil), // 6: agent.v1.ForwardLastTurnsResponse
-	(*ClaimMailNudgeResponse)(nil),   // 7: agent.v1.ClaimMailNudgeResponse
-	(*ReadMailRequest)(nil),          // 8: agent.v1.ReadMailRequest
-	(*ReadMailResponse)(nil),         // 9: agent.v1.ReadMailResponse
-	(*ListMailRequest)(nil),          // 10: agent.v1.ListMailRequest
-	(*ListMailResponse)(nil),         // 11: agent.v1.ListMailResponse
-	(*DeleteMailRequest)(nil),        // 12: agent.v1.DeleteMailRequest
-	(*v1.Pagination)(nil),            // 13: pagination.v1.Pagination
+	(*ReadMailRequest)(nil),          // 7: agent.v1.ReadMailRequest
+	(*ReadMailResponse)(nil),         // 8: agent.v1.ReadMailResponse
+	(*ListMailRequest)(nil),          // 9: agent.v1.ListMailRequest
+	(*ListMailResponse)(nil),         // 10: agent.v1.ListMailResponse
+	(*DeleteMailRequest)(nil),        // 11: agent.v1.DeleteMailRequest
+	(*v1.Pagination)(nil),            // 12: pagination.v1.Pagination
 }
 var file_agent_v1_mail_proto_depIdxs = []int32{
 	0,  // 0: agent.v1.Mail.kind:type_name -> agent.v1.MailKind
 	2,  // 1: agent.v1.SendMailResponse.mail:type_name -> agent.v1.Mail
 	2,  // 2: agent.v1.ReadMailResponse.mail:type_name -> agent.v1.Mail
-	13, // 3: agent.v1.ListMailRequest.pagination:type_name -> pagination.v1.Pagination
+	12, // 3: agent.v1.ListMailRequest.pagination:type_name -> pagination.v1.Pagination
 	1,  // 4: agent.v1.ListMailRequest.direction:type_name -> agent.v1.MailDirection
 	2,  // 5: agent.v1.ListMailResponse.mail:type_name -> agent.v1.Mail
 	6,  // [6:6] is the sub-list for method output_type
@@ -1065,16 +1017,16 @@ func file_agent_v1_mail_proto_init() {
 	file_agent_v1_mail_proto_msgTypes[2].OneofWrappers = []any{}
 	file_agent_v1_mail_proto_msgTypes[3].OneofWrappers = []any{}
 	file_agent_v1_mail_proto_msgTypes[4].OneofWrappers = []any{}
-	file_agent_v1_mail_proto_msgTypes[6].OneofWrappers = []any{}
+	file_agent_v1_mail_proto_msgTypes[5].OneofWrappers = []any{}
+	file_agent_v1_mail_proto_msgTypes[7].OneofWrappers = []any{}
 	file_agent_v1_mail_proto_msgTypes[8].OneofWrappers = []any{}
-	file_agent_v1_mail_proto_msgTypes[9].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_v1_mail_proto_rawDesc), len(file_agent_v1_mail_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   11,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

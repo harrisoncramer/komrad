@@ -11,9 +11,7 @@ import (
 	"komrad/internal/harness"
 	"komrad/internal/harness/pane"
 	"komrad/internal/harnesstest"
-	"komrad/internal/mail"
 	agentstore "komrad/internal/store/agent"
-	mailstore "komrad/internal/store/mail"
 	schedulestore "komrad/internal/store/schedule"
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xptr"
@@ -1345,74 +1343,6 @@ func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
 			assert.Equal(t, tt.want, count, "what the next firing sees")
 		})
 	}
-}
-
-// TestDeliverToAnAgentNoPassCanRead pins that an agent whose harness this binary cannot run is
-// told once rather than deferred every pass.
-func TestDeliverToAnAgentNoPassCanRead(t *testing.T) {
-	st := newStore(t)
-	ctx := t.Context()
-
-	require.NoError(t, st.createAgent(ctx, agentstore.Agent{
-		Name:    "orphan",
-		Pane:    "%1",
-		State:   agentstore.StateThinking,
-		Harness: "gemini",
-	}))
-	agent, err := st.Get(ctx, "orphan")
-	require.NoError(t, err)
-
-	tmux := tmuxtest.NewFake()
-	tmux.Owners["%1"] = agent.ID
-	tmux.Commands["%1"] = "agent-cli"
-	tmux.Captures["%1"] = harnesstest.FrameIdle
-	harnesses := harnesstest.Registry{Harness: &harnesstest.Fake{}, Only: []string{harnesstest.FakeID}}
-
-	rec := NewReconciler(NewReconcilerParams{
-		Panes:    tmux,
-		Observer: pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: harnesses}),
-		States:   st.Agents,
-	})
-	for range 30 {
-		require.NoError(t, rec.Reconcile(ctx))
-	}
-
-	pinned := agentByID(t, st, agent.ID)
-	assert.Equal(t, agentstore.StateThinking, pinned.State, "thirty passes read nothing, so the state stands")
-	assert.Equal(t, agent.StateSeenAt, pinned.StateSeenAt, "and none of them confirmed it")
-
-	_, err = st.Mail.Send(ctx, mailstore.SendParams{
-		FromName:  "somebody",
-		ToAgentID: agent.ID,
-		Body:      "please read this",
-		Deadline:  time.Hour,
-	})
-	require.NoError(t, err)
-
-	svc := mail.NewDeliveryService(mail.NewDeliveryServiceParams{
-		Mail:         st.Mail,
-		NudgeClaimer: st.Agents,
-		PaneReader:   NewPaneLiveness(tmux),
-		Channel:      pane.NewPane(pane.NewPaneParams{Terminal: tmux, Harnesses: harnesses}),
-	})
-
-	got, err := svc.Deliver(ctx, agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, mail.DeliverySoon, got, "a state confirmed a moment ago is still worth waiting on")
-	assert.Empty(t, tmux.Sent["%1"])
-
-	backdateStateSeen(t, st, agent.ID, agentstore.StateSeenBound+time.Minute)
-
-	got, err = svc.Deliver(ctx, agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, mail.DeliverySoon, got)
-	require.Len(t, tmux.Sent["%1"], 1, "an unconfirmed state is not live work, so the agent is told")
-	assert.Contains(t, tmux.Sent["%1"][0][0], "read_mail")
-
-	got, err = svc.Deliver(ctx, agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, mail.DeliveryLater, got)
-	assert.Len(t, tmux.Sent["%1"], 1, "and told once, not once a pass")
 }
 
 // countingStates is the agent store with its liveness writes counted.

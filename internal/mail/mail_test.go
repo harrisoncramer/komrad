@@ -1216,3 +1216,11 @@ func (m fakeMail) Events() []string {
 func (m fakeMail) Body() string {
 	return m.body
 }
+
+type paneOwners struct {
+	terminal *tmuxtest.Fake
+}
+
+func (p paneOwners) IsAgentRunning(agent agentstore.Agent) bool {
+	return agent.ID != "" && p.terminal.GetPaneOwner(agent.Pane) == agent.ID
+}

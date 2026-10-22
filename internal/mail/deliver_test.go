@@ -6,41 +6,39 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
-	"komrad/db/testmodels"
-	"komrad/internal/harness"
-	"komrad/internal/harness/claude"
-	"komrad/internal/harness/codex"
-	"komrad/internal/harness/pane"
 	"komrad/internal/harnesstest"
 	"komrad/internal/logging"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	"komrad/internal/storetest"
-	"komrad/internal/tmuxtest"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-const nudgeLine = "komrad: 1 piece(s) of unread mail, call read_mail"
+var nudgeLine = regexp.MustCompile(`^komrad: 1 piece\(s\) of unread mail at \d\d:\d\d:\d\d, call read_mail$`)
 
-// TestDeliver pins which agents mail is handed to and which are passed over, covering the pane, the state, and how recently it was last told.
+const movingDir = "/moving"
+
+// TestDeliver pins which agents are told about their mail, and what a send that reached nothing
+// or failed leaves behind.
 func TestDeliver(t *testing.T) {
 	tests := []struct {
 		name      string
 		state     agentstore.State
+		cwd       string
 		noMail    bool
-		paneGone  bool
-		shell     bool
-		inMode    bool
-		frame     string
+		refuse    bool
+		sendErr   error
 		arrange   func(t *testing.T, st *storetest.Stores, id string)
 		want      Delivery
+		wantErr   bool
 		wantClaim bool
 		wantNudge bool
 	}{
@@ -58,50 +56,19 @@ func TestDeliver(t *testing.T) {
 			want:   DeliveryDone,
 		},
 		{
-			name:  "an agent mid-turn, waited on until its turn ends",
-			state: agentstore.StateThinking,
-			want:  DeliverySoon,
-		},
-		{
-			name:  "an agent sitting on a permission prompt is never typed at",
+			name:  "an agent sitting on a permission prompt",
 			state: agentstore.StateWaiting,
 			want:  DeliveryLater,
 		},
 		{
-			name:    "a prompt nothing has confirmed is still left alone, since keys typed at one answer it",
-			state:   agentstore.StateWaiting,
-			arrange: backdateStateSeen,
-			want:    DeliveryLater,
+			name: "an agent whose checkout komrad is moving",
+			cwd:  movingDir,
+			want: DeliveryLater,
 		},
 		{
-			name:     "an agent whose pane is gone",
-			paneGone: true,
-			want:     DeliveryLater,
-		},
-		{
-			name:  "an agent whose CLI has exited with its pane still stamped as its own",
-			shell: true,
-			want:  DeliveryLater,
-		},
-		{
-			name:   "an agent whose pane the user is scrolled back in",
-			inMode: true,
-			want:   DeliveryLater,
-		},
-		{
-			name:  "an agent whose pane has opened but whose CLI has not finished coming up",
-			frame: harnesstest.FrameUnrecognized,
-			want:  DeliveryLater,
-		},
-		{
-			name:  "an agent whose prompt somebody is halfway through typing into",
-			frame: harnesstest.FrameComposing,
-			want:  DeliveryLater,
-		},
-		{
-			name: "an agent told about the mail recently enough that the line may yet be answered",
+			name: "an agent already told about the mail it holds",
 			arrange: func(t *testing.T, st *storetest.Stores, id string) {
-				claimed, err := st.Agents.ClaimNudge(t.Context(), id, nudgeRetryAfter)
+				claimed, err := st.Agents.ClaimNudge(t.Context(), id)
 				require.NoError(t, err)
 				require.True(t, claimed)
 			},
@@ -109,131 +76,73 @@ func TestDeliver(t *testing.T) {
 			wantClaim: true,
 		},
 		{
-			name:      "an idle agent never told before",
+			name:      "an agent mid-turn",
+			state:     agentstore.StateThinking,
 			want:      DeliverySoon,
 			wantClaim: true,
 			wantNudge: true,
+		},
+		{
+			name:      "an idle agent never told",
+			want:      DeliverySoon,
+			wantClaim: true,
+			wantNudge: true,
+		},
+		{
+			name:   "an agent whose CLI is not listening gives the claim back",
+			refuse: true,
+			want:   DeliveryLater,
+		},
+		{
+			name:      "a send that failed keeps the claim, since the line may have landed",
+			sendErr:   errors.New("connection reset"),
+			want:      DeliveryLater,
+			wantErr:   true,
+			wantClaim: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := storetest.Open(t)
-			terminal := tmuxtest.NewFake()
-			agent := seedListeningAgent(t, st, terminal)
+			agent := seedAgent(t, st, tt.cwd)
 			if tt.state != "" {
 				require.NoError(t, st.Agents.SetStateByID(t.Context(), agent.ID, tt.state))
 			}
 			if !tt.noMail {
 				sendTo(t, st, agent.ID)
 			}
-			if tt.paneGone {
-				delete(terminal.Owners, agent.Pane)
-			}
-			if tt.shell {
-				terminal.Commands[agent.Pane] = "zsh"
-			}
-			if tt.frame != "" {
-				terminal.Captures[agent.Pane] = tt.frame
-			}
-			terminal.InMode[agent.Pane] = tt.inMode
 			if tt.arrange != nil {
 				tt.arrange(t, st, agent.ID)
 			}
 
-			svc := newDeliveryService(st, terminal, newPaneChannel(terminal))
-
-			got, err := svc.Deliver(t.Context(), agent.ID)
-			require.NoError(t, err)
+			channel := &harnesstest.Channel{RefuseSend: tt.refuse, SendErr: tt.sendErr}
+			got, err := newDeliveryService(st, channel).Deliver(t.Context(), agent.ID)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
 			assert.Equal(t, tt.want, got)
+			if tt.wantNudge {
+				require.Len(t, channel.Sent, 1)
+				assert.Regexp(t, nudgeLine, channel.Sent[0])
+			} else {
+				assert.Empty(t, channel.Sent)
+			}
 
 			stored, err := st.Agents.GetByID(t.Context(), agent.ID)
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantClaim, stored.NudgedAt != nil,
-				"the right to type is only spent on an agent that could have taken the keys")
-
-			if !tt.wantNudge {
-				assert.Empty(t, terminal.Sent[agent.Pane], "nothing is sent to the agent")
-
-				return
-			}
-
-			assert.Equal(t, [][]string{{nudgeLine}}, terminal.Sent[agent.Pane],
-				"the line goes as one paste and nothing else is typed")
+			assert.Equal(t, tt.wantClaim, stored.NudgedAt != nil)
 		})
 	}
 }
 
-// TestDeliverNudgesAnAgentMidTurnThatNoPassHasConfirmed pins that komrad types at a thinking row nothing has seen lately rather than trusting it.
-func TestDeliverNudgesAnAgentMidTurnThatNoPassHasConfirmed(t *testing.T) {
-	st := storetest.Open(t)
-	terminal := tmuxtest.NewFake()
-	agent := seedListeningAgent(t, st, terminal)
-	require.NoError(t, st.Agents.SetStateByID(t.Context(), agent.ID, agentstore.StateThinking))
-	backdateStateSeen(t, st, agent.ID)
-	sendTo(t, st, agent.ID)
-
-	svc := newDeliveryService(st, terminal, newPaneChannel(terminal))
-
-	got, err := svc.Deliver(t.Context(), agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, DeliverySoon, got)
-	assert.Equal(t, [][]string{{nudgeLine}}, terminal.Sent[agent.Pane])
-}
-
-// TestClaimTurnEndNudge pins when an agent whose turn just ended is handed the nudge.
-func TestClaimTurnEndNudge(t *testing.T) {
-	tests := []struct {
-		name    string
-		noMail  bool
-		arrange func(t *testing.T, st *storetest.Stores, id string)
-		want    string
-	}{
-		{
-			name:   "an empty mailbox",
-			noMail: true,
-		},
-		{
-			name: "an agent the delivery loop told recently enough",
-			arrange: func(t *testing.T, st *storetest.Stores, id string) {
-				claimed, err := st.Agents.ClaimNudge(t.Context(), id, nudgeRetryAfter)
-				require.NoError(t, err)
-				require.True(t, claimed)
-			},
-		},
-		{
-			name: "an agent with mail waiting",
-			want: nudgeLine,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := storetest.Open(t)
-			terminal := tmuxtest.NewFake()
-			agent := seedListeningAgent(t, st, terminal)
-			if !tt.noMail {
-				sendTo(t, st, agent.ID)
-			}
-			if tt.arrange != nil {
-				tt.arrange(t, st, agent.ID)
-			}
-
-			channel := &harnesstest.Channel{}
-			nudge, err := newDeliveryService(st, terminal, channel).ClaimTurnEndNudge(t.Context(), agent.ID)
-			require.NoError(t, err)
-
-			assert.Equal(t, tt.want, nudge)
-			assert.Empty(t, channel.Sent, "the hook hands the line over, so nothing is typed into the pane")
-		})
-	}
-}
-
-// TestDeliverReportsExpiredMail pins that komrad reports mail nobody read before its deadline rather than dropping it in silence.
+// TestDeliverReportsExpiredMail pins that komrad reports mail nobody read before its deadline
+// rather than dropping it in silence.
 func TestDeliverReportsExpiredMail(t *testing.T) {
 	st := storetest.Open(t)
-	terminal := tmuxtest.NewFake()
-	agent := seedListeningAgent(t, st, terminal)
+	agent := seedAgent(t, st, "")
 	expired, err := st.Mail.Send(t.Context(), mailstore.SendParams{
 		FromName:  "somebody",
 		ToAgentID: agent.ID,
@@ -242,13 +151,13 @@ func TestDeliverReportsExpiredMail(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	svc := newDeliveryService(st, terminal, newPaneChannel(terminal))
+	channel := &harnesstest.Channel{}
 	ctx, records := newLoggedContext(t)
 
-	got, err := svc.Deliver(ctx, agent.ID)
+	got, err := newDeliveryService(st, channel).Deliver(ctx, agent.ID)
 	require.NoError(t, err)
 	assert.Equal(t, DeliveryDone, got)
-	assert.Empty(t, terminal.Sent[agent.Pane])
+	assert.Empty(t, channel.Sent)
 
 	written := records()
 	require.Len(t, written, 1)
@@ -256,359 +165,46 @@ func TestDeliverReportsExpiredMail(t *testing.T) {
 	assert.Equal(t, expired.ID, written[0][logging.MailID])
 }
 
-// firstSendFailer is a pane channel whose first send fails, whichever agent it is for.
-type firstSendFailer struct {
-	*pane.Pane
-	failed string
-}
-
-// Send fails for the first agent it is handed and passes every later send through.
-func (f *firstSendFailer) Send(ctx context.Context, target harness.Target, text string) (bool, error) {
-	if f.failed == "" {
-		f.failed = target.Pane
-
-		return false, errors.New("pane gone")
-	}
-
-	return f.Pane.Send(ctx, target, text)
-}
-
-// TestDeliverAll pins that a sweep tells every agent holding mail and leaves the rest alone.
+// TestDeliverAll pins that a sweep tells every agent holding mail and no other.
 func TestDeliverAll(t *testing.T) {
-	tests := []struct {
-		name       string
-		failFirst  bool
-		wantErr    bool
-		wantNudged int
-	}{
-		{
-			name:       "one mailbox whose delivery fails",
-			failFirst:  true,
-			wantErr:    true,
-			wantNudged: 3,
-		},
-		{
-			name:       "every mailbox delivered",
-			wantNudged: 4,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := storetest.Open(t)
-			terminal := tmuxtest.NewFake()
-			empty := seedListeningAgent(t, st, terminal)
-
-			var holding []agentstore.Agent
-			for range 4 {
-				agent := seedListeningAgent(t, st, terminal)
-				sendTo(t, st, agent.ID)
-				holding = append(holding, agent)
-			}
-
-			paneChannel := newPaneChannel(terminal)
-			failer := &firstSendFailer{Pane: paneChannel}
-			var channel harness.Channel = paneChannel
-			if tt.failFirst {
-				channel = failer
-			}
-
-			svc := newDeliveryService(st, terminal, channel)
-
-			err := svc.DeliverAll(t.Context())
-			if tt.wantErr {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
-
-			var nudged int
-			for _, agent := range holding {
-				if agent.Pane == failer.failed {
-					assert.Empty(t, terminal.Sent[agent.Pane])
-
-					continue
-				}
-				assert.Equal(t, [][]string{{nudgeLine}}, terminal.Sent[agent.Pane], "one agent's failure holds up no other")
-				nudged++
-			}
-			assert.Equal(t, tt.wantNudged, nudged)
-			assert.Empty(t, terminal.Sent[empty.Pane])
-		})
-	}
-}
-
-// TestDeliverRetriesANudgeTheAgentNeverActedOn pins that unread mail puts the nudge back once the retry window has passed.
-func TestDeliverRetriesANudgeTheAgentNeverActedOn(t *testing.T) {
 	st := storetest.Open(t)
-	ctx := t.Context()
-	terminal := tmuxtest.NewFake()
-	agent := seedListeningAgent(t, st, terminal)
-	sendTo(t, st, agent.ID)
-
-	svc := newDeliveryService(st, terminal, newPaneChannel(terminal))
-
-	got, err := svc.Deliver(ctx, agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, DeliverySoon, got)
-	require.Len(t, terminal.Sent[agent.Pane], 1, "an idle agent holding mail is told about it")
-
-	for range 30 {
-		got, err = svc.Deliver(ctx, agent.ID)
-		require.NoError(t, err)
-		assert.Equal(t, DeliveryLater, got)
+	seedAgent(t, st, "")
+	for range 3 {
+		sendTo(t, st, seedAgent(t, st, "").ID)
 	}
-	assert.Len(t, terminal.Sent[agent.Pane], 1, "and not told again once a pass")
 
-	backdateNudge(t, st, agent.ID)
-
-	got, err = svc.Deliver(ctx, agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, DeliverySoon, got)
-	assert.Len(t, terminal.Sent[agent.Pane], 2, "a nudge that did not get the mail read is sent again")
-
-	stranded, err := st.Agents.GetByID(ctx, agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, agentstore.StateIdle, stranded.State, "nothing about the agent moved to earn the retry")
-
-	pending, err := st.Mail.CountPending(ctx, agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, int64(1), pending, "and the mail is still waiting")
+	channel := &harnesstest.Channel{}
+	require.NoError(t, newDeliveryService(st, channel).DeliverAll(t.Context()))
+	assert.Len(t, channel.Sent, 3)
 }
 
-// TestDeliverRetriesANudgeAcrossAnArchive pins the same retry across an archive, which leaves the agent's spent nudge as it was.
-func TestDeliverRetriesANudgeAcrossAnArchive(t *testing.T) {
-	st := storetest.Open(t)
-	ctx := t.Context()
-	terminal := tmuxtest.NewFake()
-	agent := seedListeningAgent(t, st, terminal)
-	sendTo(t, st, agent.ID)
+type movingTrees struct{}
 
-	svc := newDeliveryService(st, terminal, newPaneChannel(terminal))
-
-	got, err := svc.Deliver(ctx, agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, DeliverySoon, got)
-	require.Len(t, terminal.Sent[agent.Pane], 1)
-
-	_, err = st.Agents.Archive(ctx, []string{agent.ID})
-	require.NoError(t, err)
-
-	got, err = svc.Deliver(ctx, agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, DeliveryDone, got, "an archived agent is not typed at")
-	assert.Len(t, terminal.Sent[agent.Pane], 1)
-
-	require.NoError(t, st.Agents.Restore(ctx, []string{agent.ID}))
-
-	restored, err := st.Agents.GetByID(ctx, agent.ID)
-	require.NoError(t, err)
-	restored.Pane = agent.Pane
-	require.NoError(t, st.Agents.Update(ctx, *restored), "resumed into the pane it had")
-
-	got, err = svc.Deliver(ctx, agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, DeliveryLater, got, "the nudge spent before the archive still holds")
-	assert.Len(t, terminal.Sent[agent.Pane], 1)
-
-	backdateNudge(t, st, agent.ID)
-
-	got, err = svc.Deliver(ctx, agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, DeliverySoon, got)
-	assert.Len(t, terminal.Sent[agent.Pane], 2, "an agent back from the archive is told about the mail it never read")
+func (movingTrees) IsMoving(dir string) bool {
+	return dir == movingDir
 }
 
-// TestDeliverDefersToARealHarnessStillComingUp pins that each registered harness reads a pane still echoing its launch as not listening.
-func TestDeliverDefersToARealHarnessStillComingUp(t *testing.T) {
-	shellEcho := "harry@mac ~/komrad % KOMRAD_AGENT_ID=01a0 codex resume 019abc"
-
-	tests := []struct {
-		name    string
-		harness harness.Harness
-	}{
-		{
-			name:    "claude",
-			harness: claude.NewHarness(claude.NewHarnessParams{}),
-		},
-		{
-			name:    "codex",
-			harness: codex.NewHarness(codex.NewHarnessParams{Home: t.TempDir()}),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := storetest.Open(t)
-			terminal := tmuxtest.NewFake()
-			agent := seedListeningAgent(t, st, terminal)
-			require.NoError(t, st.Agents.SetHarness(t.Context(), agentstore.SetHarnessParams{
-				ID:      agent.ID,
-				Harness: tt.harness.ID(),
-			}))
-			terminal.Captures[agent.Pane] = shellEcho
-			sendTo(t, st, agent.ID)
-
-			registry, err := harness.NewRegistry(tt.harness)
-			require.NoError(t, err)
-
-			svc := newDeliveryService(st, terminal, pane.NewPane(pane.NewPaneParams{
-				Terminal:  terminal,
-				Harnesses: registry,
-			}))
-
-			got, err := svc.Deliver(t.Context(), agent.ID)
-			require.NoError(t, err)
-			assert.Equal(t, DeliveryLater, got)
-			assert.Empty(t, terminal.Sent[agent.Pane], "nothing is sent to a pane that is not listening")
-		})
-	}
-}
-
-// TestDeliverTellsTheChannelToForgetAnAgentNothingWillLookAtAgain pins that the channel is told when no pass will reach an agent again.
-func TestDeliverTellsTheChannelToForgetAnAgentNothingWillLookAtAgain(t *testing.T) {
-	tests := []struct {
-		name string
-		gone func(t *testing.T, st *storetest.Stores, id string)
-	}{
-		{
-			name: "an agent no row holds any more",
-			gone: func(t *testing.T, st *storetest.Stores, id string) {
-				_, err := st.Agents.Delete(t.Context(), []string{id})
-				require.NoError(t, err)
-			},
-		},
-		{
-			name: "an agent archived while its mail waited",
-			gone: func(t *testing.T, st *storetest.Stores, id string) {
-				_, err := st.Agents.Archive(t.Context(), []string{id})
-				require.NoError(t, err)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := storetest.Open(t)
-			terminal := tmuxtest.NewFake()
-			agent := seedListeningAgent(t, st, terminal)
-			sendTo(t, st, agent.ID)
-
-			channel := &harnesstest.Channel{}
-			svc := newDeliveryService(st, terminal, channel)
-
-			got, err := svc.Deliver(t.Context(), agent.ID)
-			require.NoError(t, err)
-			require.Equal(t, DeliverySoon, got)
-			require.Empty(t, channel.Forgotten)
-
-			tt.gone(t, st, agent.ID)
-
-			got, err = svc.Deliver(t.Context(), agent.ID)
-			require.NoError(t, err)
-			assert.Equal(t, DeliveryDone, got)
-			assert.Equal(t, []string{agent.ID}, channel.Forgotten, "nothing will reach this agent again")
-		})
-	}
-}
-
-// TestDeliverSpendsTheClaimOnAChannelThatTakesTheLineAndThenRefuses pins the two ways a send can fail after the claim was taken.
-func TestDeliverSpendsTheClaimOnAChannelThatTakesTheLineAndThenRefuses(t *testing.T) {
-	tests := []struct {
-		name    string
-		channel *harnesstest.Channel
-		wantErr bool
-	}{
-		{
-			name:    "a channel whose send fails outright",
-			channel: &harnesstest.Channel{SendErr: errors.New("tmux said no")},
-			wantErr: true,
-		},
-		{
-			name:    "a channel that says yes and then declines",
-			channel: &harnesstest.Channel{RefuseSend: true},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := storetest.Open(t)
-			terminal := tmuxtest.NewFake()
-			agent := seedListeningAgent(t, st, terminal)
-			sendTo(t, st, agent.ID)
-
-			svc := newDeliveryService(st, terminal, tt.channel)
-
-			got, err := svc.Deliver(t.Context(), agent.ID)
-			if tt.wantErr {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
-
-			assert.Equal(t, DeliveryLater, got)
-			assert.Empty(t, tt.channel.Sent)
-
-			stored, err := st.Agents.GetByID(t.Context(), agent.ID)
-			require.NoError(t, err)
-			assert.NotNil(t, stored.NudgedAt, "the claim is spent on a send that reached the agent")
-		})
-	}
-}
-
-// TestDeliverLeavesTheClaimOnAChannelThatWasNeverReady pins that an agent komrad never spoke to is left for the next pass.
-func TestDeliverLeavesTheClaimOnAChannelThatWasNeverReady(t *testing.T) {
-	st := storetest.Open(t)
-	terminal := tmuxtest.NewFake()
-	agent := seedListeningAgent(t, st, terminal)
-	sendTo(t, st, agent.ID)
-
-	channel := &harnesstest.Channel{RefuseReady: true}
-	svc := newDeliveryService(st, terminal, channel)
-
-	got, err := svc.Deliver(t.Context(), agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, DeliveryLater, got)
-	assert.Empty(t, channel.Sent)
-
-	stored, err := st.Agents.GetByID(t.Context(), agent.ID)
-	require.NoError(t, err)
-	assert.Nil(t, stored.NudgedAt, "nothing reached the agent, so the right to type is not spent")
-}
-
-func newDeliveryService(st *storetest.Stores, terminal *tmuxtest.Fake, channel harness.Channel) *DeliveryService {
+func newDeliveryService(st *storetest.Stores, channel *harnesstest.Channel) *DeliveryService {
 	return NewDeliveryService(NewDeliveryServiceParams{
 		Mail:         st.Mail,
 		NudgeClaimer: st.Agents,
-		PaneReader:   paneOwners{terminal: terminal},
-		Channel:      channel,
+		Harnesses:    harnesstest.Registry{Harness: &harnesstest.Fake{Delivery: channel}},
+		Trees:        movingTrees{},
 	})
 }
 
-func newPaneChannel(terminal *tmuxtest.Fake) *pane.Pane {
-	return pane.NewPane(pane.NewPaneParams{
-		Terminal:  terminal,
-		Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{Naming: harness.SessionDiscovered}},
-	})
-}
-
-// seedListeningAgent records an idle agent whose pane is its own and shows an empty prompt.
-func seedListeningAgent(t *testing.T, st *storetest.Stores, terminal *tmuxtest.Fake) agentstore.Agent {
+func seedAgent(t *testing.T, st *storetest.Stores, cwd string) agentstore.Agent {
 	t.Helper()
 
 	name := uuid.NewString()
-	agent := st.SeedAgent(t, agentstore.Agent{
+
+	return *st.SeedAgent(t, agentstore.Agent{
 		Name:    name,
 		Pane:    "%" + name,
+		Cwd:     cwd,
 		State:   agentstore.StateIdle,
 		Harness: harnesstest.FakeID,
 	})
-
-	terminal.Owners[agent.Pane] = agent.ID
-	terminal.Commands[agent.Pane] = harnesstest.FakeID
-	terminal.Captures[agent.Pane] = harnesstest.FrameIdle
-
-	return *agent
 }
 
 func sendTo(t *testing.T, st *storetest.Stores, agentID string) {
@@ -621,26 +217,6 @@ func sendTo(t *testing.T, st *storetest.Stores, agentID string) {
 		Deadline:  time.Hour,
 	})
 	require.NoError(t, err)
-}
-
-func backdateNudge(t *testing.T, st *storetest.Stores, id string) {
-	t.Helper()
-
-	queries := testmodels.New(st.Pool.GetDB())
-	require.NoError(t, queries.BackdateAgentNudge(t.Context(), testmodels.BackdateAgentNudgeParams{
-		AgeMicros: (nudgeRetryAfter + time.Minute).Microseconds(),
-		ID:        id,
-	}))
-}
-
-func backdateStateSeen(t *testing.T, st *storetest.Stores, id string) {
-	t.Helper()
-
-	queries := testmodels.New(st.Pool.GetDB())
-	require.NoError(t, queries.BackdateAgentStateSeen(t.Context(), testmodels.BackdateAgentStateSeenParams{
-		AgeMicros: (agentstore.StateSeenBound + time.Minute).Microseconds(),
-		ID:        id,
-	}))
 }
 
 // newLoggedContext is a context whose log lines a test can read back as records.
@@ -665,12 +241,4 @@ func newLoggedContext(t *testing.T) (context.Context, func() []map[string]any) {
 
 		return records
 	}
-}
-
-type paneOwners struct {
-	terminal *tmuxtest.Fake
-}
-
-func (p paneOwners) IsAgentRunning(agent agentstore.Agent) bool {
-	return agent.ID != "" && p.terminal.GetPaneOwner(agent.Pane) == agent.ID
 }

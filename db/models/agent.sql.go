@@ -74,26 +74,29 @@ func (q *Queries) AgentExists(ctx context.Context, id string) (bool, error) {
 
 const claimAgentNudge = `-- name: ClaimAgentNudge :many
 UPDATE
-    agents
+    agents a
 SET
     nudged_at = NOW()
 WHERE
-    id = $1
-    AND archived_at IS NULL
-    AND (nudged_at IS NULL
-        OR state_changed_at > nudged_at
-        OR nudged_at < NOW() - interval '1 microsecond' * $2::bigint)
+    a.id = $1
+    AND a.archived_at IS NULL
+    AND (a.nudged_at IS NULL
+        OR EXISTS (
+            SELECT
+                1
+            FROM
+                mail m
+            WHERE
+                m.to_agent_id = a.id
+                AND m.claimed_at IS NULL
+                AND m.expires_at > NOW()
+                AND m.updated_at > a.nudged_at))
 RETURNING
-    id
+    a.id
 `
 
-type ClaimAgentNudgeParams struct {
-	ID          string
-	RetryMicros int64
-}
-
-func (q *Queries) ClaimAgentNudge(ctx context.Context, arg ClaimAgentNudgeParams) ([]string, error) {
-	rows, err := q.db.Query(ctx, claimAgentNudge, arg.ID, arg.RetryMicros)
+func (q *Queries) ClaimAgentNudge(ctx context.Context, id string) ([]string, error) {
+	rows, err := q.db.Query(ctx, claimAgentNudge, id)
 	if err != nil {
 		return nil, err
 	}
@@ -110,6 +113,20 @@ func (q *Queries) ClaimAgentNudge(ctx context.Context, arg ClaimAgentNudgeParams
 		return nil, err
 	}
 	return items, nil
+}
+
+const clearAgentNudge = `-- name: ClearAgentNudge :exec
+UPDATE
+    agents
+SET
+    nudged_at = NULL
+WHERE
+    id = $1
+`
+
+func (q *Queries) ClearAgentNudge(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, clearAgentNudge, id)
+	return err
 }
 
 const clearAgentsDeleting = `-- name: ClearAgentsDeleting :exec
@@ -3302,7 +3319,8 @@ SET
     ELSE
         session_id
     END,
-    workflow_id = $7
+    workflow_id = $7,
+    nudged_at = NULL
 WHERE
     id = $8
     AND archived_at IS NULL

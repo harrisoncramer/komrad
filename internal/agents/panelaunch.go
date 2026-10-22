@@ -251,6 +251,10 @@ func (l *Launcher) launch(ctx context.Context, h harness.Harness, params launchP
 		role = agentstore.RoleWriter
 	}
 
+	if err := harness.CheckVersion(ctx, h); err != nil {
+		return nil, err
+	}
+
 	if l.trustLaunchDirs[h.ID()] && params.Dir != "" {
 		if err := h.TrustDir(params.Dir); err != nil {
 			return nil, fmt.Errorf("failed to trust the launch directory: %w", err)

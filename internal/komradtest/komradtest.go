@@ -129,6 +129,7 @@ func Start(t *testing.T, p Params) *Instance {
 
 	fake, err := harnesstest.New(harnessDir)
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = fake.Close() })
 
 	harnesses, err := harness.NewRegistry(fake)
 	require.NoError(t, err)
@@ -429,8 +430,8 @@ func (i *Instance) Deliver(agentID string) mail.Delivery {
 	return delivery
 }
 
-// Typed is every line komrad has typed into an agent's pane, read back from the agent
-// itself, so a test asserts on what the agent received rather than on what was sent.
+// Typed is every line that reached an agent, read back from the agent itself, so a test asserts
+// on what the agent received rather than on what was sent.
 func (i *Instance) Typed(agentID string) []string {
 	i.t.Helper()
 
@@ -440,8 +441,8 @@ func (i *Instance) Typed(agentID string) []string {
 	return typed
 }
 
-// WaitForTyped waits for an agent to have received the given number of typed lines, typing at a
-// pane and the agent reading its stdin being two processes apart.
+// WaitForTyped waits for an agent to have received the given number of lines, the channel writing
+// to its socket and the agent reading its stdin being two processes apart.
 func (i *Instance) WaitForTyped(agentID string, lines int) []string {
 	i.t.Helper()
 

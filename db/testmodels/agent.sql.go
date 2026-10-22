@@ -9,25 +9,6 @@ import (
 	"context"
 )
 
-const backdateAgentNudge = `-- name: BackdateAgentNudge :exec
-UPDATE
-    agents
-SET
-    nudged_at = NOW() - interval '1 microsecond' * $1::bigint
-WHERE
-    id::text = $2::text
-`
-
-type BackdateAgentNudgeParams struct {
-	AgeMicros int64
-	ID        string
-}
-
-func (q *Queries) BackdateAgentNudge(ctx context.Context, arg BackdateAgentNudgeParams) error {
-	_, err := q.db.Exec(ctx, backdateAgentNudge, arg.AgeMicros, arg.ID)
-	return err
-}
-
 const backdateAgentStateSeen = `-- name: BackdateAgentStateSeen :exec
 UPDATE
     agents

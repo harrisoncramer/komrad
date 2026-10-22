@@ -85,10 +85,12 @@ the server, or call an endpoint from a script.`,
 			}
 
 			codexHarness := codex.NewHarness(codex.NewHarnessParams{
-				Home: codex.NamedHome(),
+				Home:     codex.NamedHome(),
+				CacheDir: env.CacheDir,
 			})
 			claudeHarness := claude.NewHarness(claude.NewHarnessParams{
 				ConfigDir: claude.NamedConfigDir(),
+				CacheDir:  env.CacheDir,
 			})
 
 			harnessRegistry, err := harness.NewRegistry(claudeHarness, codexHarness)

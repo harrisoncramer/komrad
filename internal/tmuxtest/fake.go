@@ -4,7 +4,6 @@ import (
 	"errors"
 	"slices"
 	"sync"
-	"time"
 
 	"komrad/internal/tmux"
 )
@@ -40,14 +39,6 @@ type Fake struct {
 	RespawnErr      error
 	Shell           string
 	Respawned       map[string][]respawn
-	ClientAt        map[string]bool
-	PasteErr        error
-	YankErr         error
-	// Edits is every cut, paste and yank made on a pane, in the order they were made.
-	Edits map[string][]string
-	// CutFrames is what a pane shows once its line is cut, one frame per capture, holding the last.
-	CutFrames map[string][]string
-	cutReads  map[string]int
 	// Views is the pane each view was last opened on.
 	Views map[string]string
 	// SessionClients is how many clients each session answers it has attached.
@@ -84,9 +75,6 @@ func NewFake() *Fake {
 		NewWindows:     map[string]string{},
 		SessionOptions: map[string]string{},
 		Respawned:      map[string][]respawn{},
-		ClientAt:       map[string]bool{},
-		Edits:          map[string][]string{},
-		CutFrames:      map[string][]string{},
 		Views:          map[string]string{},
 		SessionClients: map[string]int{},
 		Shell:          "/bin/zsh",
@@ -173,17 +161,10 @@ func (f *Fake) GetPaneOwner(pane string) string {
 	return f.Owners[pane]
 }
 
-// CapturePane answers the frame Captures holds for the pane, or the next of CutFrames once its line is cut.
+// CapturePane answers the frame Captures holds for the pane.
 func (f *Fake) CapturePane(pane string) string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-
-	frames := f.CutFrames[pane]
-	if read, cut := f.cutReads[pane]; cut && len(frames) > 0 {
-		f.cutReads[pane]++
-
-		return frames[min(read, len(frames)-1)]
-	}
 
 	return f.Captures[pane]
 }
@@ -392,59 +373,6 @@ func (f *Fake) IsPaneRunningCLI(pane string) bool {
 // CheckPaneRunningCLI is IsPaneRunningCLI, which never fails here.
 func (f *Fake) CheckPaneRunningCLI(pane string) (bool, error) {
 	return f.IsPaneRunningCLI(pane), nil
-}
-
-// IsClientAtPane answers ClientAt for the pane.
-func (f *Fake) IsClientAtPane(pane string, _ time.Duration) bool {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	return f.ClientAt[pane]
-}
-
-// PasteAndSubmit records the paste, and the text as sent unless PasteErr refuses it.
-func (f *Fake) PasteAndSubmit(target, text string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	f.recordEdit(target, "paste")
-	if f.PasteErr != nil {
-		return f.PasteErr
-	}
-	f.Sent[target] = append(f.Sent[target], []string{text})
-
-	return nil
-}
-
-// CutLine records the cut, after which the pane shows CutFrames.
-func (f *Fake) CutLine(target string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	f.recordEdit(target, "cut")
-	if f.cutReads == nil {
-		f.cutReads = map[string]int{}
-	}
-	f.cutReads[target] = 0
-
-	return nil
-}
-
-// YankLine records the yank, answering YankErr.
-func (f *Fake) YankLine(target string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	f.recordEdit(target, "yank")
-
-	return f.YankErr
-}
-
-func (f *Fake) recordEdit(target, edit string) {
-	if f.Edits == nil {
-		f.Edits = map[string][]string{}
-	}
-	f.Edits[target] = append(f.Edits[target], edit)
 }
 
 // CaptureScreen answers Screens for the pane.

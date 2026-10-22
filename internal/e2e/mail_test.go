@@ -124,8 +124,8 @@ func TestIntegrationAgentsMailEachOther(t *testing.T) {
 	})
 }
 
-// TestIntegrationDeliveryWaitsUntilTheRecipientCanTakeTheLine walks one piece of mail past every state an agent must not be typed at in.
-func TestIntegrationDeliveryWaitsUntilTheRecipientCanTakeTheLine(t *testing.T) {
+// TestIntegrationDeliveryWaitsOutAPermissionPrompt walks one piece of mail from an agent on a permission prompt to the same agent mid-turn.
+func TestIntegrationDeliveryWaitsOutAPermissionPrompt(t *testing.T) {
 	instance := komradtest.Start(t, komradtest.Params{})
 	ctx := t.Context()
 
@@ -141,31 +141,15 @@ func TestIntegrationDeliveryWaitsUntilTheRecipientCanTakeTheLine(t *testing.T) {
 	_, err := instance.Agents.SendMail(ctx, req)
 	require.NoError(t, err)
 
-	t.Run("an agent mid-turn is waited on until its turn ends", func(t *testing.T) {
-		instance.Settle(migrations.GetId(), harness.ActivityWorking, agentstore.StateThinking)
-
-		assert.Equal(t, mail.DeliverySoon, instance.Deliver(migrations.GetId()))
-		assert.Empty(t, instance.Typed(migrations.GetId()))
-	})
-
-	t.Run("an agent on a permission prompt is never typed at, since the line would answer it", func(t *testing.T) {
+	t.Run("an agent on a permission prompt is never told, since the line would answer it", func(t *testing.T) {
 		instance.Settle(migrations.GetId(), harness.ActivityWaiting, agentstore.StateWaiting)
 
 		assert.Equal(t, mail.DeliveryLater, instance.Deliver(migrations.GetId()))
 		assert.Empty(t, instance.Typed(migrations.GetId()))
 	})
 
-	t.Run("a pane yet to draw its prompt is never typed at, however idle the row reads", func(t *testing.T) {
-		instance.Settle(migrations.GetId(), harness.ActivityIdle, agentstore.StateIdle)
-		require.NoError(t, instance.Harness.Show(migrations.GetId(), "fake:coming-up"))
-		instance.WaitForActivity(migrations.GetId(), harness.ActivityUnknown)
-
-		assert.Equal(t, mail.DeliveryLater, instance.Deliver(migrations.GetId()))
-		assert.Empty(t, instance.Typed(migrations.GetId()))
-	})
-
-	t.Run("the agent is told once its prompt is there to take the line", func(t *testing.T) {
-		instance.Settle(migrations.GetId(), harness.ActivityIdle, agentstore.StateIdle)
+	t.Run("an agent mid-turn is told at once", func(t *testing.T) {
+		instance.Settle(migrations.GetId(), harness.ActivityWorking, agentstore.StateThinking)
 
 		assert.Equal(t, mail.DeliverySoon, instance.Deliver(migrations.GetId()))
 

@@ -89,7 +89,6 @@ func newMux(params newMuxParams) (*http.ServeMux, error) {
 		Transcripts:   svc.transcripts.reader,
 		Screens:       svc.agents.screens,
 		Mail:          svc.mail.service,
-		Nudges:        svc.mail.delivery,
 		Creator:       svc.agents.launch,
 		Adopter:       svc.agents.adopt,
 		Lifecycle:     svc.agents.lifecycle,

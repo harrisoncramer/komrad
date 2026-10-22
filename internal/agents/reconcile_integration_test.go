@@ -5,14 +5,10 @@ package agents
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"komrad/internal/harness/claude"
 	"komrad/internal/harness/pane"
-	"komrad/internal/harnesstest"
-	"komrad/internal/mail"
 	agentstore "komrad/internal/store/agent"
-	mailstore "komrad/internal/store/mail"
 	"komrad/internal/tmuxtest"
 
 	"github.com/stretchr/testify/assert"
@@ -78,52 +74,6 @@ func TestIntegrationReconcileAgainstRealTmux(t *testing.T) {
 	assert.Equal(t, agentstore.StateIdle, stateOf(t, st, "exited"), "the agent whose CLI exited")
 	assert.Empty(t, agentByID(t, st, exited.ID).Pane, "the agent whose CLI exited forgets its pane")
 	assert.False(t, cli.IsPaneAlive(exitedPane), "the shell's pane is closed")
-}
-
-// TestIntegrationExitedCLIStopsBeingANudgeTarget pins that mail is not typed at an agent whose CLI has
-// exited, whose pane looks just like one waiting to be told.
-func TestIntegrationExitedCLIStopsBeingANudgeTarget(t *testing.T) {
-	it := tmuxtest.New(t)
-	cli := it.Client()
-	st := newStore(t)
-	ctx := t.Context()
-	rec := NewReconciler(NewReconcilerParams{
-		Panes:    cli,
-		Observer: pane.NewPane(pane.NewPaneParams{Terminal: cli, Harnesses: mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()}))}),
-		States:   st.Agents,
-	})
-
-	exitedPane := it.Spawn("exited", `sh -c 'printf "\033[H❯ ready\n"; exec sh'`)
-	agent := seedRunning(t, st, cli, "exited", exitedPane, agentstore.StateThinking)
-	it.WaitForFrame(exitedPane, "ready")
-
-	for range reconcileMisses {
-		require.NoError(t, rec.Reconcile(ctx))
-	}
-
-	waitOutTheShellGrace(rec)
-	require.NoError(t, rec.Reconcile(ctx))
-
-	_, err := st.Mail.Send(ctx, mailstore.SendParams{
-		FromName:  "somebody",
-		ToAgentID: agent.ID,
-		Body:      "please read this",
-		Deadline:  time.Hour,
-	})
-	require.NoError(t, err)
-
-	panes := tmuxtest.NewFake()
-	svc := mail.NewDeliveryService(mail.NewDeliveryServiceParams{
-		Mail:         st.Mail,
-		NudgeClaimer: st.Agents,
-		PaneReader:   NewPaneLiveness(cli),
-		Channel:      pane.NewPane(pane.NewPaneParams{Terminal: panes, Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{}}}),
-	})
-
-	got, err := svc.Deliver(ctx, agent.ID)
-	require.NoError(t, err)
-	assert.Equal(t, mail.DeliveryLater, got, "delivery to an agent whose CLI exited")
-	assert.Empty(t, panes.Sent, "nothing is sent to an agent whose CLI exited")
 }
 
 // TestIntegrationReconcileHoldsAPaneOneListingLeftOut pins that a pane missing from a single listing is not

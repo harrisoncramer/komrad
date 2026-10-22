@@ -43,6 +43,8 @@ type Fake struct {
 	Installed []string
 	// Anonymous leaves ID blank.
 	Anonymous bool
+	// Delivery is the channel Channel answers, one taking every line when the test gave none.
+	Delivery *Channel
 }
 
 // ID is Name, or FakeID when the test gave none.
@@ -133,6 +135,23 @@ func (f *Fake) ReadLog(string, int64) (harness.LogRead, error) {
 	return harness.LogRead{}, nil
 }
 
+// Channel is Delivery, or a channel taking every line when the test gave none.
+func (f *Fake) Channel() harness.Channel {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	if f.Delivery == nil {
+		f.Delivery = &Channel{}
+	}
+
+	return f.Delivery
+}
+
+// MinVersion is empty, the fake running no CLI to check.
+func (f *Fake) MinVersion() string {
+	return ""
+}
+
 // Registry answers an id from ByID, then with Harness, refusing any id outside Only or left with no harness.
 type Registry struct {
 	Harness *Fake
@@ -164,16 +183,9 @@ func (r Registry) GetByID(id string) (harness.Harness, error) {
 
 // Channel takes every line it is handed unless told to refuse, recording what reached it.
 type Channel struct {
-	RefuseReady bool
-	RefuseSend  bool
-	SendErr     error
-	Sent        []string
-	Forgotten   []string
-}
-
-// Ready is true unless RefuseReady is set.
-func (c *Channel) Ready(context.Context, harness.Target) (bool, error) {
-	return !c.RefuseReady, nil
+	RefuseSend bool
+	SendErr    error
+	Sent       []string
 }
 
 // Send records text unless the channel was told to refuse it.
@@ -187,11 +199,6 @@ func (c *Channel) Send(_ context.Context, _ harness.Target, text string) (bool, 
 	c.Sent = append(c.Sent, text)
 
 	return true, nil
-}
-
-// Forget records the agent forgotten.
-func (c *Channel) Forget(agentID string) {
-	c.Forgotten = append(c.Forgotten, agentID)
 }
 
 func splitComposingLines(held string) []string {

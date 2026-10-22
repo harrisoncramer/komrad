@@ -490,7 +490,8 @@ SET
     ELSE
         session_id
     END,
-    workflow_id = @workflow_id
+    workflow_id = @workflow_id,
+    nudged_at = NULL
 WHERE
     id = @id
     AND archived_at IS NULL
@@ -675,17 +676,33 @@ ORDER BY
 
 -- name: ClaimAgentNudge :many
 UPDATE
-    agents
+    agents a
 SET
     nudged_at = NOW()
 WHERE
-    id = @id
-    AND archived_at IS NULL
-    AND (nudged_at IS NULL
-        OR state_changed_at > nudged_at
-        OR nudged_at < NOW() - interval '1 microsecond' * @retry_micros::bigint)
+    a.id = @id
+    AND a.archived_at IS NULL
+    AND (a.nudged_at IS NULL
+        OR EXISTS (
+            SELECT
+                1
+            FROM
+                mail m
+            WHERE
+                m.to_agent_id = a.id
+                AND m.claimed_at IS NULL
+                AND m.expires_at > NOW()
+                AND m.updated_at > a.nudged_at))
 RETURNING
-    id;
+    a.id;
+
+-- name: ClearAgentNudge :exec
+UPDATE
+    agents
+SET
+    nudged_at = NULL
+WHERE
+    id = @id;
 
 -- name: SetAgentStateByID :exec
 UPDATE

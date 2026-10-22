@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"komrad/internal/store"
-	"komrad/lib/clock"
 	"komrad/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
@@ -159,69 +158,109 @@ func TestSettersRefuseAnIDThatIsNotOne(t *testing.T) {
 	}
 }
 
-// TestANudgeIsHeldForTheRetryInterval pins that a nudge just taken stands while one left
-// standing longer than the interval can be taken again.
-func TestANudgeIsHeldForTheRetryInterval(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
+// TestClaimNudge pins when an agent may be told about its mail again: never told, or holding
+// unread mail that arrived after it was last told.
+func TestClaimNudge(t *testing.T) {
+	tests := []struct {
+		name    string
+		arrange func(t *testing.T, st *fixture, agent *Agent)
+		want    bool
+	}{
+		{
+			name: "an agent never told",
+			want: true,
+		},
+		{
+			name: "an agent told, with nothing sent since",
+			arrange: func(t *testing.T, st *fixture, agent *Agent) {
+				claimNudge(t, st, agent.ID)
+			},
+		},
+		{
+			name: "an agent told, with mail sent since",
+			arrange: func(t *testing.T, st *fixture, agent *Agent) {
+				claimNudge(t, st, agent.ID)
+				sendMail(t, st, agent.ID, time.Hour)
+			},
+			want: true,
+		},
+		{
+			name: "an agent told, whose mail sent since was read",
+			arrange: func(t *testing.T, st *fixture, agent *Agent) {
+				claimNudge(t, st, agent.ID)
+				sendMail(t, st, agent.ID, time.Hour)
+				_, err := st.db.Exec(t.Context(), `UPDATE mail SET claimed_at = NOW() WHERE to_agent_id = $1`, agent.ID)
+				require.NoError(t, err)
+			},
+		},
+		{
+			name: "an agent told, whose mail sent since has expired",
+			arrange: func(t *testing.T, st *fixture, agent *Agent) {
+				claimNudge(t, st, agent.ID)
+				sendMail(t, st, agent.ID, -time.Hour)
+			},
+		},
+		{
+			name: "an agent whose claim was given back",
+			arrange: func(t *testing.T, st *fixture, agent *Agent) {
+				claimNudge(t, st, agent.ID)
+				require.NoError(t, st.ClearNudge(t.Context(), agent.ID))
+			},
+			want: true,
+		},
+		{
+			name: "an agent launched again since it was told",
+			arrange: func(t *testing.T, st *fixture, agent *Agent) {
+				claimNudge(t, st, agent.ID)
+				live, err := st.UpdateIfLive(t.Context(), *agent)
+				require.NoError(t, err)
+				require.True(t, live)
+			},
+			want: true,
+		},
+		{
+			name: "an archived agent",
+			arrange: func(t *testing.T, st *fixture, agent *Agent) {
+				_, err := st.Archive(t.Context(), []string{agent.ID})
+				require.NoError(t, err)
+			},
+		},
+	}
 
-	require.NoError(t, st.Create(ctx, Agent{
-		Name:  "idler",
-		Pane:  "%1",
-		State: StateIdle,
-	}))
-	agent, err := st.Get(ctx, "idler")
-	require.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			ctx := t.Context()
 
-	claimed, err := st.ClaimNudge(ctx, agent.ID, time.Minute)
-	require.NoError(t, err)
-	require.True(t, claimed, "an agent never nudged is there to be nudged")
+			require.NoError(t, st.Create(ctx, Agent{Name: "idler", Pane: "%1", State: StateIdle}))
+			agent, err := st.Get(ctx, "idler")
+			require.NoError(t, err)
+			if tt.arrange != nil {
+				tt.arrange(t, st, agent)
+			}
 
-	again, err := st.ClaimNudge(ctx, agent.ID, time.Minute)
-	require.NoError(t, err)
-	assert.False(t, again, "and not again while the one just taken still stands")
-
-	backdateNudge(t, st, agent.ID, 2*time.Minute)
-
-	again, err = st.ClaimNudge(ctx, agent.ID, time.Minute)
-	require.NoError(t, err)
-	assert.True(t, again, "a nudge older than the interval is spent")
+			claimed, err := st.ClaimNudge(ctx, agent.ID)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, claimed)
+		})
+	}
 }
 
-// TestANudgeIsReclaimedOnTheDatabaseClock pins that the interval is counted on the database
-// clock, where NOW() holds at the start of a transaction while the caller's clock runs on.
-func TestANudgeIsReclaimedOnTheDatabaseClock(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
+func claimNudge(t *testing.T, st *fixture, id string) {
+	t.Helper()
 
-	require.NoError(t, st.Create(ctx, Agent{
-		Name:  "idler",
-		Pane:  "%1",
-		State: StateIdle,
-	}))
-	agent, err := st.Get(ctx, "idler")
-	require.NoError(t, err)
-
-	claimed, err := st.ClaimNudge(ctx, agent.ID, time.Minute)
+	claimed, err := st.ClaimNudge(t.Context(), id)
 	require.NoError(t, err)
 	require.True(t, claimed)
-
-	require.NoError(t, st.pool.InTx(ctx, func(db store.DBTX) error {
-		clock.Sleep(t.Context(), 300*time.Millisecond)
-
-		again, err := NewAgentStore(db).ClaimNudge(ctx, agent.ID, 200*time.Millisecond)
-		require.NoError(t, err)
-		assert.False(t, again, "no database time has passed, so the nudge still stands")
-
-		return nil
-	}))
 }
 
-func backdateNudge(t *testing.T, st *fixture, id string, age time.Duration) {
+func sendMail(t *testing.T, st *fixture, id string, deadline time.Duration) {
 	t.Helper()
 
 	_, err := st.db.Exec(t.Context(),
-		`UPDATE agents SET nudged_at = NOW() - $2::interval WHERE id = $1`, id, age.String())
+		`INSERT INTO mail (to_agent_id, body, expires_at, engine_id)
+		SELECT id, 'please read this', NOW() + $2::interval, engine_id FROM agents WHERE id = $1`,
+		id, deadline.String())
 	require.NoError(t, err)
 }
 

@@ -394,3 +394,28 @@ bind -n WheelUpPane if-shell -F "#{||:#{pane_in_mode},#{mouse_any_flag}}" { send
 	}, 5*time.Second, 20*time.Millisecond, "the wheel over any other pane runs the user's binding")
 	assert.NotContains(t, client.CapturePane(other), "[<64;")
 }
+
+// attachClient puts a real client on a session of the server under test, running it in a pane of
+// a second server of its own.
+func attachClient(t *testing.T, client *Client, session string) *Client {
+	t.Helper()
+
+	socket := client.server[1]
+	outer := &Client{server: []string{"-L", socket + "-outer", "-f", "/dev/null"}}
+
+	t.Cleanup(func() {
+		_, _ = outer.query("kill-server")
+	})
+
+	_, err := outer.query("new-session", "-d", "-x", "80", "-y", "24", "--",
+		"tmux", "-L", socket, "-f", "/dev/null", "attach", "-t", session)
+	require.NoError(t, err, "could not start a client against the server under test")
+
+	require.Eventually(t, func() bool {
+		listed, err := client.query("list-clients", "-t", session, "-F", "#{client_name}")
+
+		return err == nil && listed != ""
+	}, 5*time.Second, 20*time.Millisecond, "no client ever attached to the server under test")
+
+	return outer
+}

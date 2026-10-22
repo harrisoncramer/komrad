@@ -51,7 +51,6 @@ type AgentServiceImpl interface {
 	DeleteDocument(context.Context, *DeleteDocumentRequest) (*emptypb.Empty, *fail.Error)
 	DeleteDocumentType(context.Context, *DeleteDocumentTypeRequest) (*emptypb.Empty, *fail.Error)
 	RecordReport(context.Context, *v1.RecordReportRequest) (*emptypb.Empty, *fail.Error)
-	ClaimMailNudge(context.Context, *emptypb.Empty) (*v1.ClaimMailNudgeResponse, *fail.Error)
 	MarkRunsRead(context.Context, *MarkRunsReadRequest) (*emptypb.Empty, *fail.Error)
 	ListReviewThreads(context.Context, *ListReviewThreadsRequest) (*v1.ListReviewThreadsResponse, *fail.Error)
 	CreateReviewThread(context.Context, *CreateReviewThreadRequest) (*v1.CreateReviewThreadResponse, *fail.Error)
@@ -394,11 +393,6 @@ func (a AgentServiceAdapter) DeleteDocumentType(ctx context.Context, req *connec
 // RecordReport answers the request as connect serves it.
 func (a AgentServiceAdapter) RecordReport(ctx context.Context, req *connect.Request[v1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error) {
 	return rpcerr.Answer(a.Impl.RecordReport(ctx, req.Msg))
-}
-
-// ClaimMailNudge answers the request as connect serves it.
-func (a AgentServiceAdapter) ClaimMailNudge(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[v1.ClaimMailNudgeResponse], error) {
-	return rpcerr.Answer(a.Impl.ClaimMailNudge(ctx, req.Msg))
 }
 
 // MarkRunsRead answers the request as connect serves it.

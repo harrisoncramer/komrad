@@ -239,8 +239,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			delivery: mail.NewDeliveryService(mail.NewDeliveryServiceParams{
 				Mail:         st.mail,
 				NudgeClaimer: st.agents,
-				PaneReader:   liveness,
-				Channel:      paneChannel,
+				Harnesses:    params.Harnesses,
 				Trees:        checkoutLocks,
 			}),
 		},

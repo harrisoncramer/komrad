@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"komrad/internal/harness"
+	"komrad/internal/harnesstest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,6 +23,15 @@ func TestBuildCommand(t *testing.T) {
 		wantContain []string
 		wantAbsent  []string
 	}{
+		{
+			name:   "the pane runs the agent's own app server and points codex at its socket",
+			launch: harness.Launch{Prompt: "go"},
+			wantContain: []string{
+				"command codex app-server --listen 'unix://",
+				"command codex --remote 'unix://",
+				`trap 'kill "$app" 2>/dev/null; sleep 0.5; kill "$app" 2>/dev/null' HUP TERM`,
+			},
+		},
 		{
 			name:   "a resume reopens the prior conversation by id",
 			launch: harness.Launch{SessionID: "019fb3e7-2cb6", Resume: true},
@@ -107,7 +117,7 @@ func TestBuildCommand(t *testing.T) {
 			launch := tt.launch
 			launch.CacheDir = t.TempDir()
 
-			command, err := NewHarness(NewHarnessParams{}).BuildCommand(launch)
+			command, err := NewHarness(NewHarnessParams{CacheDir: harnesstest.SocketDir(t)}).BuildCommand(launch)
 			require.NoError(t, err)
 
 			for _, want := range tt.wantContain {
@@ -163,7 +173,7 @@ func TestBuildCommandPinsTheHome(t *testing.T) {
 			launch := tt.launch
 			launch.CacheDir = t.TempDir()
 
-			command, err := NewHarness(NewHarnessParams{Home: home}).BuildCommand(launch)
+			command, err := NewHarness(NewHarnessParams{Home: home, CacheDir: harnesstest.SocketDir(t)}).BuildCommand(launch)
 			require.NoError(t, err)
 
 			if !tt.wantPin {
@@ -199,7 +209,7 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := NewHarness(NewHarnessParams{Home: t.TempDir()}).BuildCommand(harness.Launch{
+			command, err := NewHarness(NewHarnessParams{Home: t.TempDir(), CacheDir: harnesstest.SocketDir(t)}).BuildCommand(harness.Launch{
 				CacheDir:    t.TempDir(),
 				SessionID:   "sess",
 				MCPEndpoint: "127.0.0.1:9999",
@@ -238,7 +248,7 @@ func TestBuildCommandQuotesFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := NewHarness(NewHarnessParams{Home: t.TempDir()}).BuildCommand(harness.Launch{
+			command, err := NewHarness(NewHarnessParams{Home: t.TempDir(), CacheDir: harnesstest.SocketDir(t)}).BuildCommand(harness.Launch{
 				Flags:    tt.flags,
 				Prompt:   "go",
 				CacheDir: t.TempDir(),
@@ -278,7 +288,7 @@ func TestOpeningPrompt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harnessUnderTest := NewHarness(NewHarnessParams{Home: t.TempDir()})
+			harnessUnderTest := NewHarness(NewHarnessParams{Home: t.TempDir(), CacheDir: harnesstest.SocketDir(t)})
 			assert.Equal(t, tt.want, harnessUnderTest.openingPrompt(tt.launch))
 
 			launch := tt.launch
@@ -350,7 +360,7 @@ func TestTOMLString(t *testing.T) {
 // TestMCPHeadersNameTheEnvironment covers Codex identifying the agent through env_http_headers,
 // which keeps the override the same for every agent while the values differ.
 func TestMCPHeadersNameTheEnvironment(t *testing.T) {
-	command, err := NewHarness(NewHarnessParams{}).BuildCommand(harness.Launch{
+	command, err := NewHarness(NewHarnessParams{CacheDir: harnesstest.SocketDir(t)}).BuildCommand(harness.Launch{
 		CacheDir:    t.TempDir(),
 		AgentID:     "agent-1",
 		SessionID:   "sess-1",
@@ -368,7 +378,7 @@ func TestMCPHeadersNameTheEnvironment(t *testing.T) {
 // TestMCPHeadersOnlyWithAnEndpoint covers a launch with no server to register, where no
 // override is written rather than one pointing at nothing.
 func TestMCPHeadersOnlyWithAnEndpoint(t *testing.T) {
-	command, err := NewHarness(NewHarnessParams{}).BuildCommand(harness.Launch{AgentID: "agent-1"})
+	command, err := NewHarness(NewHarnessParams{CacheDir: harnesstest.SocketDir(t)}).BuildCommand(harness.Launch{AgentID: "agent-1"})
 	require.NoError(t, err)
 
 	assert.NotContains(t, command, "env_http_headers")

@@ -13,6 +13,7 @@ import (
 	"komrad/internal/agents"
 	"komrad/internal/harness"
 	"komrad/internal/harness/claude"
+	"komrad/internal/harnesstest"
 	"komrad/internal/mail"
 	"komrad/internal/schedules"
 	agentstore "komrad/internal/store/agent"
@@ -441,7 +442,7 @@ type newAgentServiceParams struct {
 func newAgentService(t *testing.T, params newAgentServiceParams) *agents.LaunchService {
 	t.Helper()
 
-	registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir()}))
+	registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ConfigDir: t.TempDir(), CacheDir: harnesstest.SocketDir(t)}))
 	require.NoError(t, err)
 
 	return agents.NewLaunchService(agents.NewLaunchServiceParams{

@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
+	"komrad/internal/tmuxtest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -109,4 +110,20 @@ func TestDoesFrameShowHarness(t *testing.T) {
 			assert.Equal(t, tt.want, p.DoesFrameShowHarness(target.Pane, target.HarnessID))
 		})
 	}
+}
+
+// target is the agent every test in this package reads.
+var target = harness.Target{
+	AgentID:   "agent-a",
+	Pane:      "%1",
+	HarnessID: harnesstest.FakeID,
+}
+
+// terminalShowing is a tmux whose pane shows the frame under a running CLI.
+func terminalShowing(frame string) *tmuxtest.Fake {
+	terminal := tmuxtest.NewFake()
+	terminal.Captures[target.Pane] = frame
+	terminal.Commands[target.Pane] = "claude"
+
+	return terminal
 }
