@@ -79,10 +79,10 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 			case menu.Leave:
 				m.leaveForm()
 			case menu.Hold:
-				return holdSubmit(func(m *model) tea.Cmd { return m.apply(entry.Pick()) })(m)
+				return holdSubmit(func(m *model) tea.Cmd { return m.apply(entry.Pick(m.inputs())) })(m)
 			}
 
-			return m.apply(entry.Pick())
+			return m.apply(entry.Pick(m.inputs()))
 		},
 		leading: func(width, _ int) []string {
 			return submenuLeading(parents, level, width)

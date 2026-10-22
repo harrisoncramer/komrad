@@ -116,7 +116,7 @@ func (d *documentsScreen) enter(m *model, in screen.Inputs, target screen.Target
 	if !target.Resume {
 		d.agentID, d.taskID = target.AgentID, target.TaskID
 		if target.AgentID != "" || target.TaskID != "" {
-			requests = append(requests, d.closeEdit(m))
+			requests = append(requests, d.closeEdit())
 			d.kind, d.kindFocus, d.history, d.focus = documentKindDocuments, false, nil, false
 			d.Cursor = list.Cursor{}
 		}

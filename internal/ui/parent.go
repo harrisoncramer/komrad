@@ -49,9 +49,9 @@ func cascadeBlockSaid(block taskv1.CascadeBlock, parent string) string {
 }
 
 // openPickForkPoint opens the form that picks an orphaned child's fork point.
-func (a *agentsScreen) openPickForkPoint(m *model, task panel.Task) screen.Request {
+func (a *agentsScreen) openPickForkPoint(in screen.Inputs, task panel.Task) screen.Request {
 	values := &pickForkPointValues{}
-	parent := m.listing.Tasks[task.Parent.GetTaskId()].Slug
+	parent := in.Listing.Tasks[task.Parent.GetTaskId()].Slug
 
 	return form.Open{Form: form.Form{
 		Build: func(form.Inputs) (*huh.Form, []string) {

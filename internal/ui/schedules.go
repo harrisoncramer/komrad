@@ -168,17 +168,17 @@ func (w *schedulesScreen) toggleSchedule(schedule panel.Schedule) screen.Request
 }
 
 // newScheduleForm puts up the form for a new schedule.
-func (w *schedulesScreen) newScheduleForm(m *model) screen.Request {
-	if len(m.listing.Workflows) == 0 {
+func (w *schedulesScreen) newScheduleForm(in screen.Inputs) screen.Request {
+	if len(in.Listing.Workflows) == 0 {
 		return screen.Report{Summary: "Could not create a schedule", Err: errNoWorkflow}
 	}
 
 	values := panel.ScheduleConfig{
 		Kind:       schedulev1.ScheduleKind_SCHEDULE_KIND_TASK,
 		Enabled:    true,
-		WorkflowID: m.listing.Workflows[0].ID,
+		WorkflowID: in.Listing.Workflows[0].ID,
 	}
-	if orchestrators := m.listing.LiveOrchestrators(); len(orchestrators) > 0 {
+	if orchestrators := in.Listing.LiveOrchestrators(); len(orchestrators) > 0 {
 		values.OrchestratorID = orchestrators[0].ID
 	}
 

@@ -28,28 +28,40 @@ var (
 	errTerminalHere     = errors.New("open a terminal from the agents list")
 )
 
-// agentMenu is the band of the menu that acts on an agent, with the entries a screen adds of its own before git.
-func agentMenu(m *model, bindings config.Keybindings, item panel.AgentRow, own ...menu.Entry) menu.Menu {
-	agent := item.Agent
-	task := m.listing.Tasks.FindForAgent(agent)
+// agentMenuParams is the agent a band acts on, the menus it nests, and the entries a screen adds
+// of its own before git.
+type agentMenuParams struct {
+	in       screen.Inputs
+	nest     menu.Nester
+	bindings config.Keybindings
+	item     panel.AgentRow
+	own      []menu.Entry
+}
 
-	entries := slices.Concat(subpageEntries(m, bindings, item, agentSubpages(agent)), own)
+// agentMenu is the band of the menu that acts on an agent, with the entries a screen adds of its own before git.
+func agentMenu(params agentMenuParams) menu.Menu {
+	agent := params.item.Agent
+	task := params.in.Listing.Tasks.FindForAgent(agent)
+
+	entries := slices.Concat(subpageEntries(params.in.Listing, params.bindings, params.item, agentSubpages(agent)), params.own)
 	if agent.ArchivedAt == nil || task.ArchivedAt != nil {
-		entries = append(entries, menu.Nested("git", bindings.Menu.Git, gitMenu(m, task)))
+		entries = append(entries, menu.Nested("git", params.bindings.Menu.Git, params.nest.Git(task)))
 	}
 
 	return menu.Menu{
-		Title:   m.listing.AgentName(agent),
-		Entries: append(entries, menu.Nested("jump", bindings.Menu.Jump, jumpMenu(m, bindings, screen.Agents, screen.Target{AgentID: agent.ID}))),
+		Title:   params.in.Listing.AgentName(agent),
+		Entries: append(entries, menu.Nested("jump", params.bindings.Menu.Jump, params.nest.Jump(screen.Agents, screen.Target{AgentID: agent.ID}))),
 	}
 }
 
 // subpageEntries are the entries that open the agent's pages from the agents list.
-func subpageEntries(m *model, bindings config.Keybindings, item panel.AgentRow, pages []subpage) []menu.Entry {
+func subpageEntries(l panel.Listing, bindings config.Keybindings, item panel.AgentRow, pages []subpage) []menu.Entry {
 	return xslice.Map(pages, func(page subpage) menu.Entry {
-		entry := page.entry(m, bindings, screen.Agents, item)
+		entry := page.entry(l, bindings, screen.Agents, item)
 		if entry.Opens == nil {
-			entry.Pick = func() screen.Request { return m.enterSubpage(screen.Agents, item.Agent.ID, page) }
+			entry.Pick = func(in screen.Inputs) screen.Request {
+				return enterSubpage(in.Listing, screen.Agents, item.Agent.ID, page)
+			}
 		}
 
 		return entry
@@ -69,13 +81,13 @@ func agentSubpages(agent panel.Agent) []subpage {
 }
 
 // entry is how the subpage is rendered in an agent's menu.
-func (p subpage) entry(m *model, bindings config.Keybindings, openedFrom screen.ID, item panel.AgentRow) menu.Entry {
+func (p subpage) entry(l panel.Listing, bindings config.Keybindings, openedFrom screen.ID, item panel.AgentRow) menu.Entry {
 	switch p {
 	case subpageReview:
 		return menu.Entry{
 			Label: "review",
 			Keys:  bindings.Menu.Review,
-			Off:   reviewRefusal(m.listing, item.Agent) != nil,
+			Off:   reviewRefusal(l, item.Agent) != nil,
 		}
 	case subpageLogs:
 		return menu.Entry{Label: "logs", Keys: bindings.Menu.Logs}
@@ -119,8 +131,8 @@ func terminalRefusal(openedFrom screen.ID, agent panel.Agent) error {
 
 // enterSubpage goes from the menu to the subpage picked, or closes it and says why the agent has
 // nothing there.
-func (m *model) enterSubpage(openedFrom screen.ID, agentID string, picked subpage) screen.Request {
-	item, ok := m.listing.AnyAgent(agentID)
+func enterSubpage(l panel.Listing, openedFrom screen.ID, agentID string, picked subpage) screen.Request {
+	item, ok := l.AnyAgent(agentID)
 	if !ok {
 		return refuseSubpage("Could not open the subpage", errAgentGone)
 	}
@@ -129,7 +141,7 @@ func (m *model) enterSubpage(openedFrom screen.ID, agentID string, picked subpag
 
 	switch picked {
 	case subpageReview:
-		if err := reviewRefusal(m.listing, item.Agent); err != nil {
+		if err := reviewRefusal(l, item.Agent); err != nil {
 			return refuseSubpage("Could not open the review of "+name, err)
 		}
 

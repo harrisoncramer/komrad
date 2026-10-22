@@ -228,7 +228,7 @@ func (d *documentsScreen) blurBlock() {
 func (d *documentsScreen) leaveScreen(m *model) screen.Request {
 	d.renaming = nil
 
-	return d.closeEdit(m)
+	return d.closeEdit()
 }
 
 func (d *documentsScreen) doesScrollColumn(in screen.Inputs) bool {

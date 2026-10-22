@@ -50,8 +50,8 @@ func (a *agentsScreen) openTaskForm(workflow panel.Workflow, values *taskFormVal
 
 // openNewAgentOnTask opens the form that starts an agent on a task: a reviewer when it has a
 // writer, or else its writer.
-func (a *agentsScreen) openNewAgentOnTask(m *model, workflow panel.Workflow, task panel.Task) screen.Request {
-	if writer, ok := m.listing.FindTaskWriter(task); ok {
+func (a *agentsScreen) openNewAgentOnTask(in screen.Inputs, workflow panel.Workflow, task panel.Task) screen.Request {
+	if writer, ok := in.Listing.FindTaskWriter(task); ok {
 		values := reviewerPrefill(writer.Agent)
 
 		return a.openReviewerForm(writer.Agent, task, &values)

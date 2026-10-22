@@ -138,13 +138,13 @@ func (a *archivedSchedules) menuTarget(in screen.Inputs) (archived, bool) {
 	return archived{schedule: &schedule}, ok
 }
 
-func (a *archivedSchedules) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
+func (a *archivedSchedules) buildItemMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
 	target, ok := a.menuTarget(in)
 	if !ok {
 		return menu.Menu{}, false
 	}
 
-	return menu.WithNested(rowMenu(target.name()), "archive", a.deps.keys.Menu.Archive, archiveMenu(m, a.deps.keys, a.deps.clients, target)), true
+	return menu.WithNested(rowMenu(target.name()), "archive", a.deps.keys.Menu.Archive, archiveMenu(in, a.deps.keys, a.deps.clients, target)), true
 }
 
 // confirmDeleteSchedule asks before it deletes an archived schedule for good.

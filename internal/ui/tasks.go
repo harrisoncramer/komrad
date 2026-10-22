@@ -76,10 +76,10 @@ func (a *agentsScreen) isShowingNotes(r agentRow) bool {
 // notesEntry swaps the pane beside the list between the task's notes and its writer's pane.
 func (a *agentsScreen) notesEntry(row agentRow) menu.Entry {
 	if a.notes == row.task.ID {
-		return menu.Leaving("close the notes", a.deps.keys.Menu.Notes, func() screen.Request { return a.closeNotes() })
+		return menu.Leaving("close the notes", a.deps.keys.Menu.Notes, func(screen.Inputs) screen.Request { return a.closeNotes() })
 	}
 
-	return menu.Leaving("notes", a.deps.keys.Menu.Notes, func() screen.Request {
+	return menu.Leaving("notes", a.deps.keys.Menu.Notes, func(screen.Inputs) screen.Request {
 		a.notes = row.task.ID
 
 		return screen.Restage{}
@@ -105,11 +105,11 @@ func taskDirs(tasks []panel.Task) []string {
 }
 
 // confirmDeleteTasks asks what goes before the tasks are deleted.
-func confirmDeleteTasks(m *model, clients api.Clients, tasks []panel.Task) screen.Request {
-	confirm := deleteTasksConfirm(tasks, len(m.listing.AgentsOnTasks(tasks)), m.listing.HasAnyWorktreeToDelete(tasks))
+func confirmDeleteTasks(in screen.Inputs, clients api.Clients, tasks []panel.Task) screen.Request {
+	confirm := deleteTasksConfirm(tasks, len(in.Listing.AgentsOnTasks(tasks)), in.Listing.HasAnyWorktreeToDelete(tasks))
 
-	return confirm.open(m, func() screen.Request {
-		return clients.DeleteTasksWrite(tasks, m.listing.AgentsOnTasks(tasks), confirm.values.deletesRecords())
+	return confirm.open(in, func(submitted form.Inputs) screen.Request {
+		return clients.DeleteTasksWrite(tasks, submitted.Listing.AgentsOnTasks(tasks), confirm.values.deletesRecords())
 	})
 }
 
@@ -216,7 +216,7 @@ func checkTaskGoal(goal string) error {
 
 // taskRowOf is the task row the hovered row acts as: itself on a task's header, and the header of
 // the agent's task on a row of the triage zone.
-func (a *agentsScreen) taskRowOf(m *model, row agentRow) (agentRow, bool) {
+func (a *agentsScreen) taskRowOf(in screen.Inputs, row agentRow) (agentRow, bool) {
 	switch {
 	case row.isTask():
 		return row, true
@@ -226,10 +226,10 @@ func (a *agentsScreen) taskRowOf(m *model, row agentRow) (agentRow, bool) {
 
 	tree := treeRows(treeRowsParams{
 		workflows:         []panel.Workflow{row.workflow},
-		agents:            m.listing.Agents,
+		agents:            in.Listing.Agents,
 		showHidden:        a.showHidden,
 		foldOrchestrators: true,
-		tasks:             m.listing.Tasks,
+		tasks:             in.Listing.Tasks,
 	})
 	at := slices.IndexFunc(tree, func(laid agentRow) bool {
 		return laid.isTask() && laid.task.ID == row.item.Agent.TaskID

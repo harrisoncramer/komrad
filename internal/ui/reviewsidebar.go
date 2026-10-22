@@ -488,14 +488,14 @@ func (r reviewScreen) stackedOffSaid(in screen.Inputs, taskID string) string {
 }
 
 // sideMenu is the band on the row under the sidebar's cursor, false for a row with none.
-func (r *reviewScreen) sideMenu(m *model, in screen.Inputs, side sideCursor) (menu.Menu, bool) {
+func (r *reviewScreen) sideMenu(in screen.Inputs, side sideCursor) (menu.Menu, bool) {
 	if side.kind != sideTask {
 		return menu.Menu{}, false
 	}
 
 	task := in.Listing.Tasks[side.id]
-	review := menu.Leaving("review", r.deps.keys.Menu.Review, func() screen.Request {
-		return m.review.openStackedReview(m.inputs(), task.ID)
+	review := menu.Leaving("review", r.deps.keys.Menu.Review, func(in screen.Inputs) screen.Request {
+		return r.openStackedReview(in, task.ID)
 	})
 
 	return menu.Menu{
