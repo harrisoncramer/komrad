@@ -29,6 +29,7 @@ import (
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/submitting"
+	"komrad/internal/ui/tabs"
 	"komrad/internal/vim"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/forge/v1/forgev1connect"
@@ -513,7 +514,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 				clients: clients,
 				top:     top,
 			},
-			sort: tabsState{flat: true},
+			sort: tabs.State{Flat: true},
 		},
 		documents: documentsScreen{deps: documents},
 		logs: logsScreen{deps: logsDeps{

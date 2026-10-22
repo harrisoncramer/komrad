@@ -13,6 +13,7 @@ import (
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/tabs"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -35,7 +36,7 @@ type archivedAgents struct {
 	deps agentsDeps
 	kind agentsKind
 	list.Cursor
-	sort  tabsState
+	sort  tabs.State
 	built derived[archivedRowsKey, []agentRow]
 	renameSlot
 }
@@ -58,11 +59,11 @@ func (m *model) enterLive(target screen.Target) screen.Request {
 	return screen.Open{Screen: screen.Agents, Target: target}
 }
 
-func (a *agentsScreen) kinds(*model) stops {
-	return stops{
-		labels: []string{"live", "archived", "deleted"},
-		focus:  noStop,
-		lit:    int(a.kind),
+func (a *agentsScreen) kinds(*model) tabs.Stops {
+	return tabs.Stops{
+		Labels: []string{"live", "archived", "deleted"},
+		Focus:  tabs.NoStop,
+		Lit:    int(a.kind),
 	}
 }
 
@@ -78,7 +79,7 @@ func (a *agentsScreen) kindsSwitch(*model) bool {
 // stepKind moves the agents view to its other kind, back on the row it last stood on.
 func (a *agentsScreen) stepKind(m *model, _ screen.Inputs, delta int) screen.Request {
 	return screen.Leave{Then: func() screen.Request {
-		a.kind = agentsKind(stepStop(int(a.kind), delta, len(a.kinds(m).labels)))
+		a.kind = agentsKind(tabs.Step(int(a.kind), delta, len(a.kinds(m).Labels)))
 		var staged screen.Request
 		if shown := a.shownArchive(); shown != nil {
 			shown.Selected = list.Selection{}
@@ -147,7 +148,7 @@ func (a *archivedAgents) receive(m *model, in screen.Inputs, msg tea.Msg) (scree
 	return nil, true
 }
 
-func (a *archivedAgents) kinds(m *model) stops {
+func (a *archivedAgents) kinds(m *model) tabs.Stops {
 	return m.agents.kinds(m)
 }
 
@@ -206,11 +207,11 @@ type archivedRowsKey struct {
 }
 
 func (a *archivedAgents) listRows(m *model, in screen.Inputs) []agentRow {
-	order := archivedAgentTabs().order(a.sort)
+	order := stripOrder(archivedAgentTabs(), a.sort)
 	key := archivedRowsKey{
 		generation: in.Listing.Generation,
 		order:      order,
-		flat:       a.sort.flat,
+		flat:       a.sort.Flat,
 		filter:     in.Room.Pattern.Key(),
 	}
 
@@ -219,8 +220,8 @@ func (a *archivedAgents) listRows(m *model, in screen.Inputs) []agentRow {
 			workflows:         a.headers(in.Listing),
 			agents:            sortedAgents(a.listedAgents(in.Listing), archivedAgentSorts, order),
 			showHidden:        true,
-			foldOrchestrators: !a.sort.flat,
-			flat:              a.sort.flat,
+			foldOrchestrators: !a.sort.Flat,
+			flat:              a.sort.Flat,
 			tasks:             in.Listing.Tasks,
 		}))
 	})
@@ -488,13 +489,13 @@ func (a *archivedAgents) help(m *model) legend.Help {
 	return m.helpOf(a.actions())
 }
 
-func archivedAgentTabs() tabStrip {
-	return tabStrip{
-		title:    "f",
-		legend:   "sort",
-		options:  tabOptionsOf(archivedAgentSorts),
-		fallback: "archived",
-		grouped:  "workflow",
+func archivedAgentTabs() tabs.Strip {
+	return tabs.Strip{
+		Title:    "f",
+		Legend:   "sort",
+		Options:  tabOptionsOf(archivedAgentSorts),
+		Fallback: "archived",
+		Grouped:  "workflow",
 	}
 }
 
@@ -529,11 +530,11 @@ func (a *archivedAgents) hoveredName(m *model, in screen.Inputs) string {
 	return a.list().hoveredName(m, in)
 }
 
-func (a *archivedAgents) tabs() tabStrip {
+func (a *archivedAgents) tabs() tabs.Strip {
 	return archivedAgentTabs()
 }
 
-func (a *archivedAgents) tabsState() *tabsState {
+func (a *archivedAgents) tabsState() *tabs.State {
 	return &a.sort
 }
 

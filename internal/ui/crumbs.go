@@ -6,23 +6,16 @@ import (
 	"komrad/internal/ui/screen"
 )
 
-// crumbs is the trail from a view down to the row or page the cursor is on.
-type crumbs struct {
-	trail []string
-	// tally is said after the trail.
-	tally string
-}
-
 // activeCrumbs is the trail from the view the screen that is up sits under, that view, and
 // whether a page or a form is open under it.
-func (m *model) activeCrumbs() (crumbs, screen.ID, bool) {
+func (m *model) activeCrumbs() (screen.Crumbs, screen.ID, bool) {
 	parent, trail, opened := m.pageCrumbs()
 	if !opened {
 		trail = m.hoveredCrumbs()
 	}
 
 	if i := slices.IndexFunc(viewEntries(), func(entry viewEntry) bool { return entry.screen == parent }); i >= 0 {
-		trail.trail = slices.Concat([]string{viewEntries()[i].label}, trail.trail)
+		trail.Trail = slices.Concat([]string{viewEntries()[i].label}, trail.Trail)
 	}
 
 	return trail, parent, opened
@@ -30,28 +23,28 @@ func (m *model) activeCrumbs() (crumbs, screen.ID, bool) {
 
 // pageCrumbs is the trail under the view, from the page that is up or from the form open over a
 // view.
-func (m *model) pageCrumbs() (screen.ID, crumbs, bool) {
+func (m *model) pageCrumbs() (screen.ID, screen.Crumbs, bool) {
 	if c, ok := m.active().(crumbRenderer); ok {
 		return c.parent(), c.crumbs(m, m.inputs()), true
 	}
 
 	if m.form.isOpening() && len(m.form.crumbs) > 0 {
-		return m.screen, crumbs{trail: m.form.crumbs}, true
+		return m.screen, screen.Crumbs{Trail: m.form.crumbs}, true
 	}
 
-	return m.screen, crumbs{}, false
+	return m.screen, screen.Crumbs{}, false
 }
 
-func (m *model) hoveredCrumbs() crumbs {
+func (m *model) hoveredCrumbs() screen.Crumbs {
 	h, ok := m.active().(hoveredNamer)
 	if !ok {
-		return crumbs{}
+		return screen.Crumbs{}
 	}
 
 	name := h.hoveredName(m, m.inputs())
 	if name == "" {
-		return crumbs{}
+		return screen.Crumbs{}
 	}
 
-	return crumbs{trail: []string{name}}
+	return screen.Crumbs{Trail: []string{name}}
 }

@@ -1,10 +1,11 @@
-package ui
+package tabs_test
 
 import (
 	"strings"
 	"testing"
 
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/tabs"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -20,58 +21,58 @@ func TestTabStripView(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		state tabsState
+		state tabs.State
 		want  string
 	}{
 		{
 			name:  "a choice the strip does not hold falls back",
-			state: tabsState{chosen: "gone"},
+			state: tabs.State{Chosen: "gone"},
 			want:  title + muted.Render("↓ size") + "  " + muted.Render("age") + "  " + muted.Render("name") + dot + muted.Render("repo"),
 		},
 		{
 			name:  "the zero state is the fallback with its arrow down, on the list's keys",
-			state: tabsState{},
+			state: tabs.State{},
 			want:  title + muted.Render("↓ size") + "  " + muted.Render("age") + "  " + muted.Render("name") + dot + muted.Render("repo"),
 		},
 		{
 			name:  "a chosen tab keeps its arrow when the list holds the keys",
-			state: tabsState{chosen: "age", direction: tabUp},
+			state: tabs.State{Chosen: "age", Direction: tabs.Up},
 			want:  title + muted.Render("size") + "  " + muted.Render("↑ age") + "  " + muted.Render("name") + dot + muted.Render("repo"),
 		},
 		{
 			name:  "the strip holding the keys renders the chosen tab in the accent",
-			state: tabsState{chosen: "age", focused: true},
+			state: tabs.State{Chosen: "age", Focused: true},
 			want:  title + muted.Render("size") + "  " + accent.Render("↓ age") + "  " + muted.Render("name") + dot + muted.Render("repo"),
 		},
 		{
 			name: "a focus moved off the chosen tab lights the tab it stands on and leaves the arrow",
-			state: tabsState{
-				chosen:  "age",
-				focused: true,
-				focus:   "name",
+			state: tabs.State{
+				Chosen:  "age",
+				Focused: true,
+				Focus:   "name",
 			},
 			want: title + muted.Render("size") + "  " + muted.Render("↓ age") + "  " + accent.Render("name") + dot + muted.Render("repo"),
 		},
 		{
 			name:  "a flat list names itself on the stop",
-			state: tabsState{flat: true},
+			state: tabs.State{Flat: true},
 			want:  title + muted.Render("↓ size") + "  " + muted.Render("age") + "  " + muted.Render("name") + dot + muted.Render("flat"),
 		},
 		{
 			name:  "the focus on the stop lights it and not the column",
-			state: tabsState{focused: true, onGroup: true},
+			state: tabs.State{Focused: true, OnGroup: true},
 			want:  title + muted.Render("↓ size") + "  " + muted.Render("age") + "  " + muted.Render("name") + dot + accent.Render("repo"),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, buildGroupedStrip().view(tt.state, 0, nil))
+			assert.Equal(t, tt.want, buildGroupedStrip().View(tt.state, 0, nil))
 		})
 	}
 
 	t.Run("a strip wider than the pane ends in an ellipsis", func(t *testing.T) {
-		rendered := buildGroupedStrip().view(tabsState{}, 12, nil)
+		rendered := buildGroupedStrip().View(tabs.State{}, 12, nil)
 
 		assert.Equal(t, 12, lipgloss.Width(rendered))
 		assert.True(t, strings.HasSuffix(ansi.Strip(rendered), "…"))
@@ -82,60 +83,60 @@ func TestTabStripView(t *testing.T) {
 func TestTabStripStep(t *testing.T) {
 	tests := []struct {
 		name  string
-		from  tabsState
+		from  tabs.State
 		delta int
-		want  tabsState
+		want  tabs.State
 	}{
 		{
 			name:  "back from the first column wraps to the stop",
-			from:  tabsState{chosen: "size"},
+			from:  tabs.State{Chosen: "size"},
 			delta: -1,
-			want:  tabsState{chosen: "size", onGroup: true},
+			want:  tabs.State{Chosen: "size", OnGroup: true},
 		},
 		{
 			name: "forward from the stop wraps to the first column",
-			from: tabsState{
-				chosen:    "name",
-				direction: tabUp,
-				onGroup:   true,
-				flat:      true,
+			from: tabs.State{
+				Chosen:    "name",
+				Direction: tabs.Up,
+				OnGroup:   true,
+				Flat:      true,
 			},
 			delta: 1,
-			want: tabsState{
-				chosen:    "name",
-				direction: tabUp,
-				focus:     "size",
-				flat:      true,
+			want: tabs.State{
+				Chosen:    "name",
+				Direction: tabs.Up,
+				Focus:     "size",
+				Flat:      true,
 			},
 		},
 		{
 			name: "back from the stop lands on the last column",
-			from: tabsState{
-				chosen:    "age",
-				direction: tabUp,
-				onGroup:   true,
+			from: tabs.State{
+				Chosen:    "age",
+				Direction: tabs.Up,
+				OnGroup:   true,
 			},
 			delta: -1,
-			want: tabsState{
-				chosen:    "age",
-				direction: tabUp,
-				focus:     "name",
+			want: tabs.State{
+				Chosen:    "age",
+				Direction: tabs.Up,
+				Focus:     "name",
 			},
 		},
 		{
 			name:  "forward from the last column lands on the stop",
-			from:  tabsState{chosen: "size", focus: "name"},
+			from:  tabs.State{Chosen: "size", Focus: "name"},
 			delta: 1,
-			want:  tabsState{chosen: "size", onGroup: true},
+			want:  tabs.State{Chosen: "size", OnGroup: true},
 		},
 		{
 			name:  "forward steps to the next column",
-			from:  tabsState{chosen: "size", direction: tabUp},
+			from:  tabs.State{Chosen: "size", Direction: tabs.Up},
 			delta: 1,
-			want: tabsState{
-				chosen:    "size",
-				direction: tabUp,
-				focus:     "age",
+			want: tabs.State{
+				Chosen:    "size",
+				Direction: tabs.Up,
+				Focus:     "age",
 			},
 		},
 	}
@@ -144,29 +145,29 @@ func TestTabStripStep(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			state := tt.from
 
-			buildGroupedStrip().step(&state, tt.delta)
+			buildGroupedStrip().Step(&state, tt.delta)
 
 			assert.Equal(t, tt.want, state)
 		})
 	}
 }
 
-func buildStrip() tabStrip {
-	return tabStrip{
-		title:  "f",
-		legend: "sort",
-		options: []tabOption{
-			{id: "size", label: "size"},
-			{id: "age", label: "age"},
-			{id: "name", label: "name"},
+func buildStrip() tabs.Strip {
+	return tabs.Strip{
+		Title:  "f",
+		Legend: "sort",
+		Options: []tabs.Option{
+			{ID: "size", Label: "size"},
+			{ID: "age", Label: "age"},
+			{ID: "name", Label: "name"},
 		},
-		fallback: "size",
+		Fallback: "size",
 	}
 }
 
-func buildGroupedStrip() tabStrip {
+func buildGroupedStrip() tabs.Strip {
 	strip := buildStrip()
-	strip.grouped = "repo"
+	strip.Grouped = "repo"
 
 	return strip
 }

@@ -4,11 +4,11 @@ import (
 	"slices"
 	"strconv"
 
-	"komrad/internal/glyph"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/legend"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/tabs"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -18,46 +18,6 @@ const (
 	tabNextKey = "tab"
 	tabPrevKey = "shift+tab"
 )
-
-type tabDirection int
-
-const (
-	tabDown tabDirection = iota
-	tabUp
-)
-
-func (d tabDirection) flip() tabDirection {
-	if d == tabUp {
-		return tabDown
-	}
-
-	return tabUp
-}
-
-func (d tabDirection) glyph() string {
-	if d == tabUp {
-		return glyph.Up
-	}
-
-	return glyph.Down
-}
-
-// stops is a row of labels the tab keys walk, the focused one rendered as the cursor and the lit one
-// as the choice in force.
-type stops struct {
-	labels []string
-	focus  int
-	lit    int
-	mark   func(int, string) string
-}
-
-// noStop is a focus or a lit stop that stands on none of the row.
-const noStop = -1
-
-// stepStop is the stop delta along from at in a row of count, wrapping at both ends.
-func stepStop(at, delta, count int) int {
-	return (at + delta + count) % count
-}
 
 // stripKeys is how one row of stops answers the keys every row shares.
 type stripKeys struct {
@@ -99,88 +59,6 @@ func stopsMoveBinding(desc string) key.Binding {
 	return key.NewBinding(key.WithKeys(tabNextKey, tabPrevKey), key.WithHelp("tab/S-tab", desc))
 }
 
-type tabOption struct {
-	id    string
-	label string
-}
-
-type tabStrip struct {
-	title    string
-	legend   string
-	options  []tabOption
-	fallback string
-	// grouped is the stop's label while the rows sit under their headings.
-	grouped string
-}
-
-const flatLabel = "flat"
-
-type tabsState struct {
-	chosen    string
-	direction tabDirection
-	focused   bool
-	// focus is the column the keys act on, the chosen one while empty.
-	focus string
-	// onGroup says the focus is on the stop after the columns.
-	onGroup bool
-	// flat says the headings are off.
-	flat bool
-}
-
-// leave takes the focus off the strip and back to the chosen column.
-func (s *tabsState) leave() {
-	s.focused, s.focus, s.onGroup = false, "", false
-}
-
-func (s tabStrip) indexOf(state tabsState) int {
-	at := slices.IndexFunc(s.options, func(option tabOption) bool { return option.id == state.chosen })
-	if at < 0 {
-		at = max(slices.IndexFunc(s.options, func(option tabOption) bool { return option.id == s.fallback }), 0)
-	}
-
-	return at
-}
-
-// focusIndex is the stop the focus stands on, the group stop being one past the columns.
-func (s tabStrip) focusIndex(state tabsState) int {
-	if state.onGroup {
-		return len(s.options)
-	}
-
-	at := slices.IndexFunc(s.options, func(option tabOption) bool { return option.id == state.focus })
-	if at < 0 {
-		return s.indexOf(state)
-	}
-
-	return at
-}
-
-func (s tabStrip) countStops() int {
-	if s.grouped != "" {
-		return len(s.options) + 1
-	}
-
-	return len(s.options)
-}
-
-// step moves the focus along the strip, wrapping at both ends, and chooses nothing.
-func (s tabStrip) step(state *tabsState, delta int) {
-	at := stepStop(s.focusIndex(*state), delta, s.countStops())
-	state.onGroup = at == len(s.options)
-	if state.onGroup {
-		state.focus = ""
-
-		return
-	}
-	state.focus = s.options[at].id
-}
-
-// choose sorts by the focused column in the given direction.
-func (s tabStrip) choose(state *tabsState, direction tabDirection) {
-	state.chosen, state.direction = s.options[s.focusIndex(*state)].id, direction
-	state.focus = ""
-}
-
 // activeTabs is the tab switcher of the screen that is up, and false on a screen that renders no strip.
 func (m *model) activeTabs() (tabSwitcher, bool) {
 	t, ok := m.active().(tabSwitcher)
@@ -197,7 +75,7 @@ func (m *model) isTabsRendered(in screen.Inputs) bool {
 func (m *model) isTabsFocused(in screen.Inputs) bool {
 	t, ok := m.activeTabs()
 
-	return ok && t.tabsState().focused && m.tabsFit(in)
+	return ok && t.tabsState().Focused && m.tabsFit(in)
 }
 
 func (m *model) tabsFit(in screen.Inputs) bool {
@@ -218,7 +96,7 @@ func (m *model) listFitsTabs(in screen.Inputs) (list.Params, bool) {
 
 	probe.details.focused, probe.helpExpanded = false, false
 	if tabbed {
-		t.tabsState().focused = false
+		t.tabsState().Focused = false
 	}
 	if kinded {
 		*k.kindsFocused(&probe) = false
@@ -246,7 +124,7 @@ func (m *model) listFitsTabs(in screen.Inputs) (list.Params, bool) {
 
 func (m *model) blurTabs() {
 	if t, ok := m.activeTabs(); ok {
-		t.tabsState().leave()
+		t.tabsState().Leave()
 	}
 }
 
@@ -257,7 +135,7 @@ func (m *model) focusTabs() {
 	}
 
 	m.blurKinds()
-	t.tabsState().focused = true
+	t.tabsState().Focused = true
 	m.details.focused = false
 }
 
@@ -268,24 +146,24 @@ func (m *model) updateTabs(key tea.KeyPressMsg) tea.Cmd {
 
 	cmd := m.pressStrip(key.String(), stripKeys{
 		step: func(delta int) tea.Cmd {
-			strip.step(state, delta)
+			strip.Step(state, delta)
 
 			return nil
 		},
 		pick: func() {
-			if !state.onGroup {
-				strip.choose(state, state.direction)
+			if !state.OnGroup {
+				strip.Choose(state, state.Direction)
 			}
 		},
-		close: state.leave,
+		close: state.Leave,
 		other: func(pressed string) tea.Cmd {
 			switch {
-			case state.onGroup && keys.IsBound(pressed, slices.Concat(m.keys.Nav.Down, m.keys.Nav.Up)):
-				state.flat = !state.flat
+			case state.OnGroup && keys.IsBound(pressed, slices.Concat(m.keys.Nav.Down, m.keys.Nav.Up)):
+				state.Flat = !state.Flat
 			case keys.IsBound(pressed, m.keys.Nav.Down):
-				strip.choose(state, tabDown)
+				strip.Choose(state, tabs.Down)
 			case keys.IsBound(pressed, m.keys.Nav.Up):
-				strip.choose(state, tabUp)
+				strip.Choose(state, tabs.Up)
 			}
 
 			return nil
@@ -305,7 +183,7 @@ func (m *model) clickTab(key string) tea.Cmd {
 
 	strip, state := t.tabs(), t.tabsState()
 	at, err := strconv.Atoi(key)
-	if err != nil || at < 0 || at >= strip.countStops() {
+	if err != nil || at < 0 || at >= strip.CountStops() {
 		return nil
 	}
 
@@ -316,17 +194,17 @@ func (m *model) clickTab(key string) tea.Cmd {
 	m.focusTabs()
 	hovered := m.hoveredFilterKey()
 
-	state.onGroup = at == len(strip.options)
-	if state.onGroup {
-		state.focus = ""
-		state.flat = !state.flat
+	state.OnGroup = at == len(strip.Options)
+	if state.OnGroup {
+		state.Focus = ""
+		state.Flat = !state.Flat
 	} else {
-		direction := state.direction
-		if at == strip.indexOf(*state) {
-			direction = direction.flip()
+		direction := state.Direction
+		if at == strip.IndexOf(*state) {
+			direction = direction.Flip()
 		}
-		state.focus = strip.options[at].id
-		strip.choose(state, direction)
+		state.Focus = strip.Options[at].ID
+		strip.Choose(state, direction)
 	}
 
 	m.placeFilteredCursor(hovered)
@@ -340,7 +218,7 @@ func (m *model) tabsBinding() key.Binding {
 		return key.Binding{}
 	}
 
-	return binding(m.keys.Tabs.Focus, t.tabs().legend)
+	return binding(m.keys.Tabs.Focus, t.tabs().Legend)
 }
 
 func (m *model) tabsHelp() legend.Help {

@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/record"
 	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 	"komrad/lib/dates"
@@ -60,18 +61,18 @@ func (d *documentsScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) v
 	}
 }
 
-func (d *documentsScreen) details(m *model, in screen.Inputs) details {
+func (d *documentsScreen) details(m *model, in screen.Inputs) record.Details {
 	item, ok := d.hovered(m, in)
 	if !ok {
-		return details{}
+		return record.Details{}
 	}
 
-	return details{
-		id: item.id,
-		fields: []recordField{
-			{label: "type", value: label.OrDash(item.typeName)},
-			{label: "updated", value: label.OrDash(label.Friendly(item.updatedAt))},
-			{label: "agent", value: findAgentName(in.Listing, item.agentID)},
+	return record.Details{
+		ID: item.id,
+		Fields: []record.Field{
+			{Label: "type", Value: label.OrDash(item.typeName)},
+			{Label: "updated", Value: label.OrDash(label.Friendly(item.updatedAt))},
+			{Label: "agent", Value: findAgentName(in.Listing, item.agentID)},
 		},
 	}
 }

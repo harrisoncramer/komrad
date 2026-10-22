@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/internal/ui/tabs"
 	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -21,17 +22,17 @@ func TestSortRowsOrdersByTheColumn(t *testing.T) {
 	}{
 		{
 			name:  "down puts the largest first and the rows without a value last",
-			order: sortOrder{column: "value", direction: tabDown},
+			order: sortOrder{column: "value", direction: tabs.Down},
 			want:  []string{"f", "d", "e", "c", "a", "b"},
 		},
 		{
 			name:  "up puts the smallest first and the rows without a value still last",
-			order: sortOrder{column: "value", direction: tabUp},
+			order: sortOrder{column: "value", direction: tabs.Up},
 			want:  []string{"c", "d", "e", "f", "a", "b"},
 		},
 		{
 			name:  "a column every row carries reverses whole",
-			order: sortOrder{column: "name", direction: tabDown},
+			order: sortOrder{column: "name", direction: tabs.Down},
 			want:  []string{"f", "e", "d", "c", "b", "a"},
 		},
 	}
@@ -59,15 +60,15 @@ func TestSortRowsOrdersByTheColumn(t *testing.T) {
 func TestSortRowsIsStable(t *testing.T) {
 	tests := []struct {
 		name      string
-		direction tabDirection
+		direction tabs.Direction
 	}{
 		{
 			name:      "down",
-			direction: tabDown,
+			direction: tabs.Down,
 		},
 		{
 			name:      "up",
-			direction: tabUp,
+			direction: tabs.Up,
 		},
 	}
 
@@ -105,9 +106,9 @@ func TestSortRowsIsStable(t *testing.T) {
 // TestTabOptionsOfKeepsTheTable covers the strip's tabs coming out of the column table in its
 // order, with its ids and labels.
 func TestTabOptionsOfKeepsTheTable(t *testing.T) {
-	assert.Equal(t, []tabOption{
-		{id: "value", label: "value"},
-		{id: "name", label: "name"},
+	assert.Equal(t, []tabs.Option{
+		{ID: "value", Label: "value"},
+		{ID: "name", Label: "name"},
 	}, tabOptionsOf(sortFixtureColumns()))
 }
 
@@ -116,29 +117,29 @@ func TestTabOptionsOfKeepsTheTable(t *testing.T) {
 func TestStripOrderReadsTheState(t *testing.T) {
 	tests := []struct {
 		name  string
-		state tabsState
+		state tabs.State
 		want  sortOrder
 	}{
 		{
 			name:  "the zero state is the fallback, down",
-			state: tabsState{},
-			want:  sortOrder{column: "size", direction: tabDown},
+			state: tabs.State{},
+			want:  sortOrder{column: "size", direction: tabs.Down},
 		},
 		{
 			name:  "a choice the strip does not hold falls back and keeps its direction",
-			state: tabsState{chosen: "gone", direction: tabUp},
-			want:  sortOrder{column: "size", direction: tabUp},
+			state: tabs.State{Chosen: "gone", Direction: tabs.Up},
+			want:  sortOrder{column: "size", direction: tabs.Up},
 		},
 		{
 			name:  "a choice the strip holds is named as chosen",
-			state: tabsState{chosen: "age", direction: tabUp},
-			want:  sortOrder{column: "age", direction: tabUp},
+			state: tabs.State{Chosen: "age", Direction: tabs.Up},
+			want:  sortOrder{column: "age", direction: tabs.Up},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, buildStrip().order(tt.state))
+			assert.Equal(t, tt.want, stripOrder(buildStrip(), tt.state))
 		})
 	}
 }
@@ -148,8 +149,8 @@ func TestStripOrderReadsTheState(t *testing.T) {
 func TestEveryStripIsBuiltFromItsTable(t *testing.T) {
 	tests := []struct {
 		name  string
-		strip tabStrip
-		table []tabOption
+		strip tabs.Strip
+		table []tabs.Option
 	}{
 		{
 			name:  "the agents tree",
@@ -170,10 +171,10 @@ func TestEveryStripIsBuiltFromItsTable(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.table, tt.strip.options)
+			assert.Equal(t, tt.table, tt.strip.Options)
 
-			ids := xslice.Map(tt.strip.options, func(option tabOption) string { return option.id })
-			assert.Contains(t, ids, tt.strip.fallback)
+			ids := xslice.Map(tt.strip.Options, func(option tabs.Option) string { return option.ID })
+			assert.Contains(t, ids, tt.strip.Fallback)
 		})
 	}
 }
@@ -236,4 +237,17 @@ func sortFixtureColumns() []sortColumn[sortFixture] {
 
 func sortFixtureNames(rows []sortFixture) []string {
 	return xslice.Map(rows, func(row sortFixture) string { return row.name })
+}
+
+func buildStrip() tabs.Strip {
+	return tabs.Strip{
+		Title:  "f",
+		Legend: "sort",
+		Options: []tabs.Option{
+			{ID: "size", Label: "size"},
+			{ID: "age", Label: "age"},
+			{ID: "name", Label: "name"},
+		},
+		Fallback: "size",
+	}
 }

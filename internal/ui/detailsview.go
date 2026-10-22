@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/record"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 
@@ -53,7 +54,7 @@ func (m *model) detailsView() string {
 		})
 	}
 
-	return m.markZone(zoneDetails, m.detailsRule("Info", held.tags...)+
+	return m.markZone(zoneDetails, m.detailsRule("Info", held.Tags...)+
 		block+
 		paint.PadRows(body, lines)+
 		m.detailsRule(""), pane)
@@ -94,13 +95,13 @@ func (m *model) detailsRule(title string, tags ...string) string {
 
 // detailsNotices are the lines the marks on the row take above the fields, giving up a notice
 // that does not fit rather than the fields under it.
-func (m *model) detailsNotices(held details, budget int) []string {
+func (m *model) detailsNotices(held record.Details, budget int) []string {
 	if budget <= 0 {
 		return nil
 	}
 
 	rendered := []string{}
-	for _, n := range held.notices {
+	for _, n := range held.Notices {
 		lines := m.noticeLines(n, 0)
 		if len(rendered)+len(lines) > budget {
 			// The first notice is cut short rather than given up.
@@ -119,7 +120,7 @@ func (m *model) detailsNotices(held details, budget int) []string {
 
 // noticeLines renders one notice, putting the glyph the row carries first, wrapping the sentence
 // under it in the column the glyph left, and cutting off at a number of lines when given one.
-func (m *model) noticeLines(n notice, most int) []string {
+func (m *model) noticeLines(n record.Notice, most int) []string {
 	const indent = "    "
 
 	// A notice that is going to be cut keeps a cell back for the ellipsis.
@@ -128,15 +129,15 @@ func (m *model) noticeLines(n notice, most int) []string {
 		width--
 	}
 
-	text := paint.WrapRows(n.text, width)
+	text := paint.WrapRows(n.Text, width)
 	if most > 0 && len(text) > most {
 		text = text[:most]
 		text[most-1] += "…"
 	}
 
 	icon := " "
-	if n.icon != "" {
-		icon = paint.Panel.Style(n.tone).Render(n.icon)
+	if n.Icon != "" {
+		icon = paint.Panel.Style(n.Tone).Render(n.Icon)
 	}
 
 	lines := []string{"  " + icon + " " + dimStyle().Render(text[0])}
@@ -148,7 +149,7 @@ func (m *model) noticeLines(n notice, most int) []string {
 }
 
 func (m *model) detailsSnapshot(fields []detailsRow, cursor, pane int) view.Snapshot {
-	labels := labelColumn(xslice.Map(fields, func(row detailsRow) recordField { return row.field }))
+	labels := labelColumn(xslice.Map(fields, func(row detailsRow) record.Field { return row.field }))
 	flashed := list.KeyAt(fields, m.details.flashed-1)
 
 	return view.Snapshot{
@@ -156,11 +157,11 @@ func (m *model) detailsSnapshot(fields []detailsRow, cursor, pane int) view.Snap
 			return view.Row{
 				Key:      row.id,
 				Kind:     view.KindResult,
-				Lead:     padRight(row.field.label, labels),
-				Name:     row.field.value,
-				Matches:  matchesIn(m.filter.matcher, row.field.value),
+				Lead:     padRight(row.field.Label, labels),
+				Name:     row.field.Value,
+				Matches:  matchesIn(m.filter.matcher, row.field.Value),
 				Process:  view.ProcessNone,
-				Tail:     row.field.tail,
+				Tail:     row.field.Tail,
 				Selected: m.details.flashed > 0 && row.id == flashed,
 			}
 		}),
@@ -184,10 +185,10 @@ func lineWidthOf(pane int) int {
 	return pane
 }
 
-func labelColumn(fields []recordField) int {
+func labelColumn(fields []record.Field) int {
 	widest := 0
 	for _, field := range fields {
-		widest = max(widest, len([]rune(field.label)))
+		widest = max(widest, len([]rune(field.Label)))
 	}
 
 	return widest

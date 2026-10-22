@@ -6,6 +6,7 @@ import (
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/legend"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/tabs"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -48,7 +49,7 @@ func (m *model) isViewsOpen() bool {
 	return m.viewsOpen && rendersSwitcher(m.screen)
 }
 
-// viewIndex is where the screen that is up sits on the switcher, and noStop when it is not there.
+// viewIndex is where the screen that is up sits on the switcher, and tabs.NoStop when it is not there.
 func (m *model) viewIndex() int {
 	_, at, _ := m.activeCrumbs()
 
@@ -79,7 +80,7 @@ func (m *model) closeViews() {
 func (m *model) stepView(delta int) tea.Cmd {
 	entries := viewEntries()
 
-	return m.enterView(entries[stepStop(m.viewIndex(), delta, len(entries))])
+	return m.enterView(entries[tabs.Step(m.viewIndex(), delta, len(entries))])
 }
 
 // viewsDelta is how far a press steps through the views, and zero for a press that steps none.
@@ -119,7 +120,7 @@ func (m *model) updateViews(key tea.KeyPressMsg) tea.Cmd {
 func (m *model) clickView(label string) tea.Cmd {
 	entries := viewEntries()
 	at := slices.IndexFunc(entries, func(entry viewEntry) bool { return entry.label == label })
-	if at == noStop {
+	if at == tabs.NoStop {
 		return nil
 	}
 

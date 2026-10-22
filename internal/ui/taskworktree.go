@@ -11,6 +11,7 @@ import (
 	"komrad/internal/ui/api"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/record"
 	"komrad/internal/ui/screen"
 	loopv1 "komrad/proto/gen/loop/v1"
 
@@ -106,10 +107,10 @@ type checkoutFieldsParams struct {
 
 // checkoutFields are the record's rows for a task's checkout: its branch and the pull requests
 // from it, then where its directory stands.
-func checkoutFields(params checkoutFieldsParams) []recordField {
-	var fields []recordField
+func checkoutFields(params checkoutFieldsParams) []record.Field {
+	var fields []record.Field
 	if params.task.Branch != nil {
-		fields = append(fields, recordField{label: branchFieldKey, value: *params.task.Branch})
+		fields = append(fields, record.Field{Label: branchFieldKey, Value: *params.task.Branch})
 		fields = append(fields, pullRequestFields(params.task.PullRequest, params.task.PullRequests)...)
 	}
 	if params.read {
@@ -134,26 +135,26 @@ func (m *model) buildCheckoutParams(task panel.Task) checkoutFieldsParams {
 // worktreeStandingFields are the record's rows for where a task's directory stands: what is
 // uncommitted in it and what it takes on disk, with the refusal above them when the last read
 // failed.
-func worktreeStandingFields(read panel.WorktreeInspection, now time.Time) []recordField {
-	fields := []recordField{}
+func worktreeStandingFields(read panel.WorktreeInspection, now time.Time) []record.Field {
+	fields := []record.Field{}
 	if read.Err != nil {
-		fields = append(fields, recordField{label: "worktree", value: "could not read: " + errui.GetReason(read.Err)})
+		fields = append(fields, record.Field{Label: "worktree", Value: "could not read: " + errui.GetReason(read.Err)})
 	}
 	if !read.IsRead() {
 		return fields
 	}
 
 	if read.Item.Readable {
-		fields = append(fields, recordField{label: "changes", value: changesField(read)})
+		fields = append(fields, record.Field{Label: "changes", Value: changesField(read)})
 		if read.Landed > 0 {
-			fields = append(fields, recordField{label: "landed", value: fmt.Sprintf("%s the base already holds", label.Count(read.Landed, "commit", "commits"))})
+			fields = append(fields, record.Field{Label: "landed", Value: fmt.Sprintf("%s the base already holds", label.Count(read.Landed, "commit", "commits"))})
 		}
 		if read.Sequencing {
-			fields = append(fields, recordField{label: "sequence", value: "a merge or rebase is part-way through"})
+			fields = append(fields, record.Field{Label: "sequence", Value: "a merge or rebase is part-way through"})
 		}
 	}
 
-	return append(fields, recordField{label: "size", value: sizeField(read.Item, now)})
+	return append(fields, record.Field{Label: "size", Value: sizeField(read.Item, now)})
 }
 
 // hoveredRecordAgent is the agent the record under the agents list or the archive is about, which

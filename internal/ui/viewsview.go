@@ -6,6 +6,8 @@ import (
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/screen"
+	"komrad/internal/ui/tabs"
 	"komrad/lib/xslice"
 
 	"github.com/charmbracelet/x/ansi"
@@ -34,7 +36,7 @@ func (m *model) Bars() []string {
 			return []string{""}
 		}
 
-		return []string{trail.view(paint.Panel, m.paneWidth()) + "\n"}
+		return []string{crumbsView(trail, paint.Panel, m.paneWidth()) + "\n"}
 	}
 
 	lines := m.switcherLines(trail)
@@ -48,9 +50,9 @@ func (m *model) Bars() []string {
 }
 
 // switcherLines is the logo and, on a screen that renders the switcher, the row of views.
-func (m *model) switcherLines(trail crumbs) []string {
+func (m *model) switcherLines(trail screen.Crumbs) []string {
 	logo := paint.Panel.Title(glyph.Logo + " " + komradName)
-	if path := trail.view(paint.Panel, 0); path != "" {
+	if path := crumbsView(trail, paint.Panel, 0); path != "" {
 		logo += paint.Panel.Style(paint.ToneMuted).Render(" "+glyph.Crumb+" ") + path
 	}
 
@@ -69,17 +71,17 @@ func (m *model) switcherLines(trail crumbs) []string {
 
 func (m *model) viewsRow() string {
 	labels := xslice.Map(viewEntries(), func(entry viewEntry) string { return entry.label })
-	row := stops{
-		labels: labels,
-		focus:  noStop,
-		lit:    noStop,
-		mark:   m.spanMarker(zoneViews, labels),
+	row := tabs.Stops{
+		Labels: labels,
+		Focus:  tabs.NoStop,
+		Lit:    tabs.NoStop,
+		Mark:   m.spanMarker(zoneViews, labels),
 	}
 	if m.isViewsOpen() {
-		row.focus = m.viewIndex()
+		row.Focus = m.viewIndex()
 	} else {
-		row.lit = m.viewIndex()
+		row.Lit = m.viewIndex()
 	}
 
-	return row.view()
+	return row.View()
 }

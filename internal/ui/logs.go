@@ -15,6 +15,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/logview"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/tabs"
 	"komrad/internal/view"
 	"komrad/internal/vim"
 	"komrad/lib/xslice"
@@ -487,9 +488,9 @@ func (l *logsScreen) parent() screen.ID {
 	return l.openedFrom
 }
 
-func (l *logsScreen) crumbs(_ *model, in screen.Inputs) crumbs {
+func (l *logsScreen) crumbs(_ *model, in screen.Inputs) screen.Crumbs {
 	if task, ok := in.Listing.Tasks[l.taskID]; ok {
-		return crumbs{trail: []string{task.Slug, "logs"}}
+		return screen.Crumbs{Trail: []string{task.Slug, "logs"}}
 	}
 
 	name := l.agentID
@@ -497,7 +498,7 @@ func (l *logsScreen) crumbs(_ *model, in screen.Inputs) crumbs {
 		name = in.Listing.AgentName(item.Agent)
 	}
 
-	return crumbs{trail: []string{name, "logs"}}
+	return screen.Crumbs{Trail: []string{name, "logs"}}
 }
 
 func (l *logsScreen) doesRenderFromListing() bool {
@@ -609,11 +610,11 @@ func (l *logsScreen) moveToEnd(_ *model, direction int) screen.Request {
 // logFormatLabels name each format a server log is rendered in, indexed by logview.Format.
 var logFormatLabels = []string{"raw", "compact"}
 
-func (l *logsScreen) kinds(*model) stops {
-	return stops{
-		labels: logFormatLabels,
-		focus:  noStop,
-		lit:    int(l.format),
+func (l *logsScreen) kinds(*model) tabs.Stops {
+	return tabs.Stops{
+		Labels: logFormatLabels,
+		Focus:  tabs.NoStop,
+		Lit:    int(l.format),
 	}
 }
 
@@ -627,7 +628,7 @@ func (l *logsScreen) kindsSwitch(*model) bool {
 
 // stepKind renders the server log in another format.
 func (l *logsScreen) stepKind(m *model, in screen.Inputs, delta int) screen.Request {
-	l.format = logview.Format(stepStop(int(l.format), delta, len(logFormatLabels)))
+	l.format = logview.Format(tabs.Step(int(l.format), delta, len(logFormatLabels)))
 	if row, ok := list.At(l.rows(m, in), l.Row); ok {
 		l.applyFormat(row)
 	}

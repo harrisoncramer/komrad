@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/ui/legend"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/tabs"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -59,8 +60,8 @@ func (m *model) clickKind(label string) tea.Cmd {
 	}
 
 	row := k.kinds(m)
-	at := slices.Index(row.labels, label)
-	if at == noStop {
+	at := slices.Index(row.Labels, label)
+	if at == tabs.NoStop {
 		return nil
 	}
 
@@ -68,11 +69,11 @@ func (m *model) clickKind(label string) tea.Cmd {
 		m.closeViews()
 	}
 	cmd := m.enterStop(stopList)
-	if at == row.lit {
+	if at == row.Lit {
 		return cmd
 	}
 
-	return tea.Batch(cmd, m.apply(k.stepKind(m, m.inputs(), at-row.lit)))
+	return tea.Batch(cmd, m.apply(k.stepKind(m, m.inputs(), at-row.Lit)))
 }
 
 func (m *model) updateKinds(press tea.KeyPressMsg) tea.Cmd {

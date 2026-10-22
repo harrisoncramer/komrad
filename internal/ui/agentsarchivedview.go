@@ -4,14 +4,15 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/record"
 	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 )
 
-func (a *archivedAgents) details(m *model, in screen.Inputs) details {
+func (a *archivedAgents) details(m *model, in screen.Inputs) record.Details {
 	r, ok := list.At(a.listRows(m, in), a.Row)
 	if !ok {
-		return details{}
+		return record.Details{}
 	}
 
 	if r.isTask() {
@@ -19,9 +20,9 @@ func (a *archivedAgents) details(m *model, in screen.Inputs) details {
 	}
 
 	if r.header {
-		return details{
-			id:     r.workflow.ID,
-			fields: workflowFields(r.workflow, in.Listing.ArchivedCount(r.workflow.ID)),
+		return record.Details{
+			ID:     r.workflow.ID,
+			Fields: workflowFields(r.workflow, in.Listing.ArchivedCount(r.workflow.ID)),
 		}
 	}
 
@@ -76,7 +77,7 @@ func (a *archivedAgents) snapshot(m *model, in screen.Inputs, pane list.Pane) vi
 		tasks:        in.Listing.Tasks,
 		renaming:     a.renamingField(),
 		showHidden:   true,
-		flat:         a.sort.flat,
+		flat:         a.sort.Flat,
 		pane:         pane.Width,
 	})
 }

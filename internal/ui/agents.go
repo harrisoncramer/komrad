@@ -12,6 +12,7 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/tabs"
 	"komrad/internal/view"
 
 	tea "charm.land/bubbletea/v2"
@@ -293,13 +294,13 @@ const heldPlaceholder = "Paused."
 
 const stillPaused = "it is still paused"
 
-func agentsTabs() tabStrip {
-	return tabStrip{
-		title:    "f",
-		legend:   "sort",
-		options:  tabOptionsOf(agentSorts),
-		fallback: "created",
-		grouped:  "workflow",
+func agentsTabs() tabs.Strip {
+	return tabs.Strip{
+		Title:    "f",
+		Legend:   "sort",
+		Options:  tabOptionsOf(agentSorts),
+		Fallback: "created",
+		Grouped:  "workflow",
 	}
 }
 
@@ -378,11 +379,11 @@ func (a *agentsScreen) hoveredName(m *model, in screen.Inputs) string {
 	return a.list().hoveredName(m, in)
 }
 
-func (a *agentsScreen) tabs() tabStrip {
+func (a *agentsScreen) tabs() tabs.Strip {
 	return agentsTabs()
 }
 
-func (a *agentsScreen) tabsState() *tabsState {
+func (a *agentsScreen) tabsState() *tabs.State {
 	return &a.sort
 }
 

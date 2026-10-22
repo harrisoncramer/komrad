@@ -13,6 +13,7 @@ import (
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/tabs"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 
@@ -34,11 +35,11 @@ type archivedSchedules struct {
 	built derived[listingKey, []scheduleItem]
 }
 
-func (w *schedulesScreen) kinds(*model) stops {
-	return stops{
-		labels: []string{"live", "archived"},
-		focus:  noStop,
-		lit:    int(w.kind),
+func (w *schedulesScreen) kinds(*model) tabs.Stops {
+	return tabs.Stops{
+		Labels: []string{"live", "archived"},
+		Focus:  tabs.NoStop,
+		Lit:    int(w.kind),
 	}
 }
 
@@ -53,7 +54,7 @@ func (w *schedulesScreen) kindsSwitch(*model) bool {
 // stepKind moves the schedules view to its other kind, back on the row it last stood on.
 func (w *schedulesScreen) stepKind(m *model, in screen.Inputs, delta int) screen.Request {
 	return screen.Leave{Then: func() screen.Request {
-		w.kind = schedulesKind(stepStop(int(w.kind), delta, len(w.kinds(m).labels)))
+		w.kind = schedulesKind(tabs.Step(int(w.kind), delta, len(w.kinds(m).Labels)))
 
 		return screen.Batch{screen.ResetFilter{}, screen.StageTerminal{}, screen.Settle{}}
 	}}
@@ -83,7 +84,7 @@ func (a *archivedSchedules) receive(m *model, in screen.Inputs, msg tea.Msg) (sc
 	return nil, true
 }
 
-func (a *archivedSchedules) kinds(m *model) stops {
+func (a *archivedSchedules) kinds(m *model) tabs.Stops {
 	return m.schedules.kinds(m)
 }
 

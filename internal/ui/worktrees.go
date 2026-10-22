@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/tabs"
 	"komrad/lib/xslice"
 )
 
@@ -59,7 +60,7 @@ type worktreesScreen struct {
 	items      []panel.Worktree
 	scope      worktreeScope
 	scopeFocus bool
-	sort       tabsState
+	sort       tabs.State
 	revision   int
 	built      derived[worktreeRowsKey, []worktreeRow]
 }

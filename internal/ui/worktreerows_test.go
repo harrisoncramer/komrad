@@ -8,6 +8,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/tabs"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 
@@ -26,13 +27,13 @@ func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 	tests := []struct {
 		name  string
 		items []panel.Worktree
-		state tabsState
+		state tabs.State
 		want  []string
 	}{
 		{
 			name:  "nothing measured falls to the directory name",
 			items: worktreeFixture(),
-			state: tabsState{chosen: "size", direction: tabUp},
+			state: tabs.State{Chosen: "size", Direction: tabs.Up},
 			want: []string{
 				"repo:/home/h/gadgets/admin",
 				"tree:/trees/admin",
@@ -47,7 +48,7 @@ func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 		{
 			name:  "size down is the fallback, largest first and the failed walk last",
 			items: items,
-			state: tabsState{},
+			state: tabs.State{},
 			want: []string{
 				"repo:/home/h/gadgets/admin",
 				"tree:/trees/admin",
@@ -62,7 +63,7 @@ func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 		{
 			name:  "size up is smallest first with the failed walk still last",
 			items: items,
-			state: tabsState{chosen: "size", direction: tabUp},
+			state: tabs.State{Chosen: "size", Direction: tabs.Up},
 			want: []string{
 				"repo:/home/h/gadgets/admin",
 				"tree:/trees/admin",
@@ -77,7 +78,7 @@ func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 		{
 			name:  "last-accessed down is the most recent first, the failed walk placed by its own activity",
 			items: items,
-			state: tabsState{chosen: "last-accessed", direction: tabDown},
+			state: tabs.State{Chosen: "last-accessed", Direction: tabs.Down},
 			want: []string{
 				"repo:/home/h/gadgets/admin",
 				"tree:/trees/admin",
@@ -92,7 +93,7 @@ func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 		{
 			name:  "last-accessed up is the coldest first",
 			items: items,
-			state: tabsState{chosen: "last-accessed", direction: tabUp},
+			state: tabs.State{Chosen: "last-accessed", Direction: tabs.Up},
 			want: []string{
 				"repo:/home/h/gadgets/admin",
 				"tree:/trees/admin",
@@ -125,26 +126,26 @@ func TestWorktreeRowsFlatOrderTheWholeListing(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		state tabsState
+		state tabs.State
 		want  []string
 	}{
 		{
 			name:  "size down is the largest first across every repository",
-			state: tabsState{flat: true},
+			state: tabs.State{Flat: true},
 			want:  []string{"tree:/trees/admin", "tree:/trees/live", "tree:/trees/archived", "tree:/trees/broken", "tree:/trees/orphan"},
 		},
 		{
 			name: "size up is the smallest first with the unmeasured still last",
-			state: tabsState{
-				chosen:    "size",
-				direction: tabUp,
-				flat:      true,
+			state: tabs.State{
+				Chosen:    "size",
+				Direction: tabs.Up,
+				Flat:      true,
 			},
 			want: []string{"tree:/trees/archived", "tree:/trees/live", "tree:/trees/admin", "tree:/trees/broken", "tree:/trees/orphan"},
 		},
 		{
 			name:  "last-accessed down is the most recent first",
-			state: tabsState{chosen: "last-accessed", flat: true},
+			state: tabs.State{Chosen: "last-accessed", Flat: true},
 			want:  []string{"tree:/trees/live", "tree:/trees/orphan", "tree:/trees/admin", "tree:/trees/archived", "tree:/trees/broken"},
 		},
 	}
@@ -174,7 +175,7 @@ func TestWorktreesSnapshotRendersFlatRowsAtTheHeadingIndent(t *testing.T) {
 	snapshot := worktreesSnapshot(worktreesSnapshotParams{
 		rows: worktreeRows(worktreeRowsParams{
 			items: items,
-			order: worktreesOrder(tabsState{}),
+			order: worktreesOrder(tabs.State{}),
 			flat:  true,
 		}),
 		items: items,
@@ -192,7 +193,7 @@ func TestWorktreesSnapshotRendersFlatRowsAtTheHeadingIndent(t *testing.T) {
 // TestWorktreeRowsLeaveTheOccupantOffTheList covers an agent working in a task's directory
 // getting no row of its own.
 func TestWorktreeRowsLeaveTheOccupantOffTheList(t *testing.T) {
-	rows := worktreeRows(worktreeRowsParams{items: worktreeFixture(), order: worktreesOrder(tabsState{})})
+	rows := worktreeRows(worktreeRowsParams{items: worktreeFixture(), order: worktreesOrder(tabs.State{})})
 
 	assert.Len(t, rows, 8)
 	assert.NotContains(t, xslice.Map(rows, func(row worktreeRow) string { return row.name() }), "review-607")
@@ -200,7 +201,7 @@ func TestWorktreeRowsLeaveTheOccupantOffTheList(t *testing.T) {
 
 // TestWorktreeRowNames covers the name falling from the task to the branch to the directory.
 func TestWorktreeRowNames(t *testing.T) {
-	rows := worktreeRows(worktreeRowsParams{items: worktreeFixture(), order: worktreesOrder(tabsState{})})
+	rows := worktreeRows(worktreeRowsParams{items: worktreeFixture(), order: worktreesOrder(tabs.State{})})
 
 	names := xslice.Map(rows, func(row worktreeRow) string {
 		return row.name()
@@ -221,7 +222,7 @@ func TestWorktreeRowNames(t *testing.T) {
 // TestWorktreeRowsHeadTheDirectoriesWithNoRepository covers a directory whose .git file names
 // nothing sitting under a heading of its own.
 func TestWorktreeRowsHeadTheDirectoriesWithNoRepository(t *testing.T) {
-	rows := worktreeRows(worktreeRowsParams{items: []panel.Worktree{{Dir: "/trees/stray"}}, order: worktreesOrder(tabsState{})})
+	rows := worktreeRows(worktreeRowsParams{items: []panel.Worktree{{Dir: "/trees/stray"}}, order: worktreesOrder(tabs.State{})})
 
 	require.Len(t, rows, 2)
 	assert.Equal(t, noRepository, rows[0].name())
@@ -231,7 +232,7 @@ func TestWorktreeRowsHeadTheDirectoriesWithNoRepository(t *testing.T) {
 // TestRowIndexOfWorktreeAgent covers the lead and another occupant both landing on the directory,
 // and an agent with no directory landing nowhere.
 func TestRowIndexOfWorktreeAgent(t *testing.T) {
-	rows := worktreeRows(worktreeRowsParams{items: worktreeFixture(), order: worktreesOrder(tabsState{})})
+	rows := worktreeRows(worktreeRowsParams{items: worktreeFixture(), order: worktreesOrder(tabs.State{})})
 
 	tests := []struct {
 		name string
@@ -270,7 +271,7 @@ func TestRowIndexOfWorktreeAgent(t *testing.T) {
 // TestWorktreesSnapshotReadsEveryRow covers the kind, the process, the status and the repo
 // glyph each kind of row carries.
 func TestWorktreesSnapshotReadsEveryRow(t *testing.T) {
-	rows := worktreeRows(worktreeRowsParams{items: worktreeFixture(), order: worktreesOrder(tabsState{})})
+	rows := worktreeRows(worktreeRowsParams{items: worktreeFixture(), order: worktreesOrder(tabs.State{})})
 	snapshot := worktreesSnapshot(worktreesSnapshotParams{
 		rows:     rows,
 		selected: list.Selection{Keys: []string{"tree:/trees/orphan"}},
@@ -393,7 +394,7 @@ func TestWorktreesSnapshotCellsAreSizeAgeThenStanding(t *testing.T) {
 	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 	items := measuredFixture(now)
 	snapshot := worktreesSnapshot(worktreesSnapshotParams{
-		rows:  worktreeRows(worktreeRowsParams{items: items, order: worktreesOrder(tabsState{})}),
+		rows:  worktreeRows(worktreeRowsParams{items: items, order: worktreesOrder(tabs.State{})}),
 		items: items,
 		now:   now,
 	})
@@ -495,8 +496,8 @@ func worktreeFixture() []panel.Worktree {
 }
 
 // worktreesOrder is the order the strip names for a state.
-func worktreesOrder(state tabsState) sortOrder {
-	return worktreesTabs().order(state)
+func worktreesOrder(state tabs.State) sortOrder {
+	return stripOrder(worktreesTabs(), state)
 }
 
 // measuredFixture is the fixture with the loop having been round: the live and archived

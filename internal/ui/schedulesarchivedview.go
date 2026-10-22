@@ -3,13 +3,14 @@ package ui
 import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/record"
 	"komrad/internal/ui/screen"
 )
 
-func (a *archivedSchedules) details(m *model, in screen.Inputs) details {
+func (a *archivedSchedules) details(m *model, in screen.Inputs) record.Details {
 	item, ok := list.At(a.listRows(m, in), a.Row)
 	if !ok {
-		return details{}
+		return record.Details{}
 	}
 
 	return scheduleDetails(m, item)

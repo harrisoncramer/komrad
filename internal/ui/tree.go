@@ -13,6 +13,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/tabs"
 	"komrad/internal/vim"
 	"komrad/lib/xslice"
 )
@@ -36,7 +37,7 @@ type agentsScreen struct {
 	list.Cursor
 	placed     bool
 	showHidden bool
-	sort       tabsState
+	sort       tabs.State
 	// rendered is the list built for the frame once an update settles, and nil while one runs.
 	rendered *agentsLayout
 	tree     derived[agentTreeKey, []agentRow]
@@ -404,11 +405,11 @@ type agentTreeKey struct {
 }
 
 func (a *agentsScreen) buildTree(in screen.Inputs) []agentRow {
-	order := agentsTabs().order(a.sort)
+	order := stripOrder(agentsTabs(), a.sort)
 	key := agentTreeKey{
 		generation: in.Listing.Generation,
 		order:      order,
-		flat:       a.sort.flat,
+		flat:       a.sort.Flat,
 		showHidden: a.showHidden,
 		filter:     in.Room.Pattern.Key(),
 	}
@@ -419,7 +420,7 @@ func (a *agentsScreen) buildTree(in screen.Inputs) []agentRow {
 			agents:            sortedAgents(in.Listing.Agents, agentSorts, order),
 			showHidden:        a.showHidden,
 			foldOrchestrators: true,
-			flat:              a.sort.flat,
+			flat:              a.sort.Flat,
 			tasks:             in.Listing.Tasks,
 		}))
 	})

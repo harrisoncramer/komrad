@@ -6,16 +6,9 @@ import (
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/record"
 	"komrad/internal/view"
 )
-
-// notice is one of the marks a row renders said in words, carrying the part it plays rather than a
-// colour.
-type notice struct {
-	icon string
-	tone paint.Tone
-	text string
-}
 
 const (
 	failedToCreateNotice  = "setup failed, it never launched"
@@ -66,19 +59,19 @@ var (
 
 // agentNotices orders the marks by how much each wants a person's attention, reading the row the
 // list would render so a column the row leaves empty is a column the record says nothing about.
-func agentNotices(glyphs glyph.Set, loaderFrame string, tasks panel.Tasks, r agentRow) []notice {
+func agentNotices(glyphs glyph.Set, loaderFrame string, tasks panel.Tasks, r agentRow) []record.Notice {
 	item, row := r.item, snapshotRow(r, snapshotParams{loaderFrame: loaderFrame, tasks: tasks})
 	standing, failure := tasks.FindForAgent(item.Agent).PullRequest, describeFailure(item)
 	if r.isTask() {
 		standing = r.task.PullRequest
 	}
 
-	var notices []notice
+	var notices []record.Notice
 	if failure != "" {
-		notices = append(notices, notice{
-			icon: glyphs.Spell(glyph.MessageError),
-			tone: paint.ToneDanger,
-			text: failure,
+		notices = append(notices, record.Notice{
+			Icon: glyphs.Spell(glyph.MessageError),
+			Tone: paint.ToneDanger,
+			Text: failure,
 		})
 	}
 	notices = appendCellNotice(notices, glyphs, view.AlertCell(row), failedRunNotice)
@@ -95,31 +88,31 @@ func agentNotices(glyphs glyph.Set, loaderFrame string, tasks panel.Tasks, r age
 }
 
 // appendUnreadNotice says how many of the person's comments hold a reply they have not read.
-func appendUnreadNotice(notices []notice, glyphs glyph.Set, row view.Row) []notice {
+func appendUnreadNotice(notices []record.Notice, glyphs glyph.Set, row view.Row) []record.Notice {
 	if view.UnreadCell(row).IsBlank() {
 		return notices
 	}
 
 	text := fmt.Sprintf("your comments with a reply you have not read: %d", row.PersonComments.Unread)
 
-	return append(notices, notice{
-		icon: glyphs.Spell(glyph.Unread),
-		tone: paint.ToneWarning,
-		text: text,
+	return append(notices, record.Notice{
+		Icon: glyphs.Spell(glyph.Unread),
+		Tone: paint.ToneWarning,
+		Text: text,
 	})
 }
 
 // appendCellNotice says in words what a cell of the row stands for, taking the glyph and the tone
 // from that cell, and saying nothing where the row renders nothing.
-func appendCellNotice(notices []notice, glyphs glyph.Set, cell view.Cell, text string) []notice {
+func appendCellNotice(notices []record.Notice, glyphs glyph.Set, cell view.Cell, text string) []record.Notice {
 	if cell.IsBlank() || text == "" {
 		return notices
 	}
 
-	return append(notices, notice{
-		icon: view.Spell(glyphs, cell),
-		tone: cell.Tone,
-		text: text,
+	return append(notices, record.Notice{
+		Icon: view.Spell(glyphs, cell),
+		Tone: cell.Tone,
+		Text: text,
 	})
 }
 
