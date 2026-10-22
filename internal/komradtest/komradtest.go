@@ -4,7 +4,7 @@
 // The behaviour worth testing here is the wiring between config, the server, tmux and a
 // spawned CLI, and that is exactly what a unit test with fakes on both sides cannot reach. An
 // instance lets a test launch an agent for real, make its harness look busy, run one pass of
-// the reconciler, and then ask what was written and what was typed into the pane.
+// the reconciler, and then ask what was written and what reached each agent.
 //
 // Two things in here are about a pane outliving the test that opened it. A CLI coming up in one
 // writes into its harness root for the first time whenever it gets there, which can be after the
@@ -129,6 +129,7 @@ func Start(t *testing.T, p Params) *Instance {
 
 	fake, err := harnesstest.New(harnessDir)
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = fake.Close() })
 
 	harnesses, err := harness.NewRegistry(fake)
 	require.NoError(t, err)
@@ -429,33 +430,33 @@ func (i *Instance) Deliver(agentID string) mail.Delivery {
 	return delivery
 }
 
-// Typed is every line komrad has typed into an agent's pane, read back from the agent
-// itself, so a test asserts on what the agent received rather than on what was sent.
-func (i *Instance) Typed(agentID string) []string {
+// Received is every line that reached an agent, read back from the agent itself, so a test asserts
+// on what the agent received rather than on what was sent.
+func (i *Instance) Received(agentID string) []string {
 	i.t.Helper()
 
-	typed, err := i.Harness.Typed(agentID)
+	received, err := i.Harness.Received(agentID)
 	require.NoError(i.t, err)
 
-	return typed
+	return received
 }
 
-// WaitForTyped waits for an agent to have received the given number of typed lines, typing at a
-// pane and the agent reading its stdin being two processes apart.
-func (i *Instance) WaitForTyped(agentID string, lines int) []string {
+// WaitForReceived waits for an agent to have received the given number of lines, the channel writing
+// to its socket and the agent reading its stdin being two processes apart.
+func (i *Instance) WaitForReceived(agentID string, lines int) []string {
 	i.t.Helper()
 
 	deadline := time.Now().Add(settleTimeout)
 	for time.Now().Before(deadline) {
-		typed := i.Typed(agentID)
-		if len(typed) >= lines {
-			return typed
+		received := i.Received(agentID)
+		if len(received) >= lines {
+			return received
 		}
 
 		clock.Sleep(i.t.Context(), 50*time.Millisecond)
 	}
 
-	i.t.Fatalf("agent %s was never typed at %d time(s)", agentID, lines)
+	i.t.Fatalf("agent %s never received %d line(s)", agentID, lines)
 
 	return nil
 }

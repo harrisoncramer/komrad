@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/harness"
 	"komrad/lib/xslice"
 )
 
@@ -21,6 +22,14 @@ var (
 	errHarnessMissing = &problemError{
 		Code:    "harness_missing",
 		Message: "the agent CLI is not on PATH",
+	}
+	errHarnessOutdated = &problemError{
+		Code:    "harness_outdated",
+		Message: "the agent CLI is older than komrad supports",
+	}
+	errHarnessVersionUnreadable = &problemError{
+		Code:    "harness_version_unreadable",
+		Message: "the agent CLI's version could not be read",
 	}
 )
 
@@ -113,47 +122,76 @@ func newDefaultHarnessCheck() Check {
 	}
 }
 
-// newHarnessBinaryCheck asserts one agent CLI is on PATH, a missing one leaving the pane idle at
-// a "command not found" the reconciler reads as finished.
+// newHarnessBinaryCheck asserts one agent CLI is on PATH and new enough to launch, a missing one
+// leaving the pane idle at a "command not found" the reconciler reads as finished.
 func newHarnessBinaryCheck(agent harnessInfo) Check {
 	return Check{
 		Name:        agent.ID,
 		Description: "agents on the " + agent.ID + " harness run this command",
 		Run: func(ctx context.Context, env Env) Result {
+			isDefault := effectiveDefaultHarness(env) == agent.ID
+
 			path, lookErr := env.LookPath(agent.Binary)
-			if lookErr == nil {
-				return pass(describeHarnessBinary(ctx, env, path))
+			if lookErr != nil {
+				if !isDefault {
+					return warn(
+						fmt.Errorf("%w: %s, so only agents set to this harness are affected",
+							errHarnessMissing, agent.Binary),
+						"not on PATH",
+					)
+				}
+
+				return fail(
+					fmt.Errorf("%w: %s, which is what new agents run", errHarnessMissing, agent.Binary),
+					"not on PATH",
+					"install "+agent.Binary+", or point default_harness at a CLI you have",
+				)
 			}
 
-			if effectiveDefaultHarness(env) != agent.ID {
+			reported := readHarnessVersion(ctx, env, path)
+			if reported == "" {
+				return pass(path)
+			}
+
+			detail := path + ", " + reported
+			if agent.MinVersion == "" {
+				return pass(detail)
+			}
+
+			found, older, err := harness.ReadVersion(reported, agent.MinVersion)
+			if err != nil {
+				return warn(fmt.Errorf("%w: %w", errHarnessVersionUnreadable, err), detail)
+			}
+			if !older {
+				return pass(detail)
+			}
+
+			if !isDefault {
 				return warn(
-					fmt.Errorf("%w: %s, so only agents set to this harness are affected",
-						errHarnessMissing, agent.Binary),
-					"not on PATH",
+					fmt.Errorf("%w: found %s, need %s or newer, so agents set to this harness fail to launch",
+						errHarnessOutdated, found, agent.MinVersion),
+					detail,
 				)
 			}
 
 			return fail(
-				fmt.Errorf("%w: %s, which is what new agents run", errHarnessMissing, agent.Binary),
-				"not on PATH",
-				"install "+agent.Binary+", or point default_harness at a CLI you have",
+				fmt.Errorf("%w: found %s, need %s or newer, and new agents run it", errHarnessOutdated, found, agent.MinVersion),
+				detail,
+				"upgrade "+agent.Binary+" to "+agent.MinVersion+" or newer",
 			)
 		},
 	}
 }
 
-func describeHarnessBinary(ctx context.Context, env Env, path string) string {
+func readHarnessVersion(ctx context.Context, env Env, path string) string {
 	reported, err := env.Output(ctx, path, "--version")
 	if err != nil {
-		return path
+		return ""
 	}
 
 	first, _, _ := strings.Cut(reported, "\n")
-	if first == "" {
-		return path
-	}
 
-	return path + ", " + first
+	return first
 }
 
 func effectiveDefaultHarness(env Env) string {

@@ -68,6 +68,10 @@ type mailConfigReader interface {
 	GetMaxExchange() (int, error)
 }
 
+type paneReader interface {
+	IsAgentRunning(agent agentstore.Agent) bool
+}
+
 type txRunner interface {
 	InTx(ctx context.Context, fn func(store.DBTX) error) error
 }

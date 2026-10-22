@@ -21,7 +21,7 @@ const minAutoCompactWindow = 100_000
 
 const maxAutoCompactWindow = 1_000_000
 
-var deniedAgents = []string{"Agent(general-purpose)", "Agent(claude)"}
+var deniedAgents = []string{"Agent(general-purpose)", "Agent(claude)", "SendMessage", "ListAgents"}
 
 var allowedTools = []string{"mcp__komrad"}
 
@@ -49,6 +49,12 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 		return "", err
 	}
 	command += fmt.Sprintf(" --settings '%s'", settings)
+
+	socket, err := harness.PrepareSocket(h.cacheDir, HarnessID, launch.AgentID)
+	if err != nil {
+		return "", err
+	}
+	command += " --messaging-socket-path " + harness.QuoteArg(socket)
 
 	switch {
 	case launch.Resume && launch.SessionID != "":
@@ -88,7 +94,8 @@ func (h *Harness) writeSettings(launch harness.Launch) (string, error) {
 	}
 
 	settings := map[string]any{
-		"permissions": map[string]any{"allow": allowedTools, "deny": deniedAgents},
+		"permissions":         map[string]any{"allow": allowedTools, "deny": deniedAgents},
+		"crossSessionInbound": "accept",
 	}
 	if hooks := hookSettings(launch.HookCommand); len(hooks) > 0 {
 		settings["hooks"] = hooks

@@ -8,35 +8,74 @@ import (
 	"komrad/internal/harness"
 )
 
-// BuildCommand renders the command line that puts Codex up, quoting everything interpolated
-// since it is written to a script and parsed by the shell komrad starts the pane with.
+// BuildCommand renders the script that starts the agent's own app server and points Codex at it.
 func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
-	command := harness.EnvPrefix(launch) + h.homePrefix() + originatorPrefix(launch.AgentID) + harness.RunBinary(HarnessID)
+	// Explainer: the app server runs in the pane under the agent's environment, so the agent's
+	// commands and its calls to komrad carry its identity, and komrad reaches the agent's thread
+	// through the server's socket. Everything interpolated is quoted, since the shell komrad
+	// starts the pane with parses the script.
+	socket, err := harness.PrepareSocket(h.cacheDir, HarnessID, launch.AgentID)
+	if err != nil {
+		return "", err
+	}
+	endpoint := harness.QuoteArg("unix://" + socket)
+	env := harness.EnvPrefix(launch) + h.homePrefix() + originatorPrefix(launch.AgentID)
+
+	codex, err := h.codexCommand(launch, env, endpoint)
+	if err != nil {
+		return "", err
+	}
+
+	lines := []string{
+		"rm -f " + harness.QuoteArg(socket),
+		`( trap 'kill "$app" 2>/dev/null; sleep 0.5; kill "$app" 2>/dev/null' HUP TERM; ` +
+			env + harness.RunBinary(HarnessID) + " app-server --listen " + endpoint + configFlags(launch) +
+			` >/dev/null 2>&1 & app=$!; wait "$app" ) &`,
+		"server=$!",
+		"while [ ! -S " + harness.QuoteArg(socket) + ` ] && kill -0 "$server" 2>/dev/null; do sleep 0.1; done`,
+		codex,
+		`kill "$server" 2>/dev/null`,
+	}
+
+	return strings.Join(lines, "\n"), nil
+}
+
+// configFlags is what komrad sets on the app server, which runs the agent's tools and hooks.
+func configFlags(launch harness.Launch) string {
+	var flags string
+	if launch.MCPEndpoint != "" {
+		flags += " -c " + harness.QuoteArg(fmt.Sprintf(
+			"mcp_servers.komrad.url=%s",
+			tomlString("http://"+launch.MCPEndpoint+"/mcp"),
+		))
+		flags += " -c " + harness.QuoteArg(mcpHeaders())
+		flags += " -c " + harness.QuoteArg(`mcp_servers.komrad.default_tools_approval_mode="approve"`)
+	}
+
+	if launch.HookCommand != "" {
+		flags += " -c " + harness.QuoteArg(notifyProgram(launch.HookCommand))
+	}
+
+	if launch.AutoCompaction > 0 {
+		flags += " -c " + harness.QuoteArg(fmt.Sprintf("model_auto_compact_token_limit=%d", launch.AutoCompaction))
+	}
+
+	return flags
+}
+
+// codexCommand is the line that opens Codex on the pane's app server.
+func (h *Harness) codexCommand(launch harness.Launch, env, endpoint string) (string, error) {
+	command := env + harness.RunBinary(HarnessID)
 
 	resuming := launch.Resume && launch.SessionID != ""
 	if resuming {
 		command += " resume"
 	}
 
+	command += " --remote " + endpoint
+
 	if quoted := harness.QuoteFlags(launch.Flags); quoted != "" {
 		command += " " + quoted
-	}
-
-	if launch.MCPEndpoint != "" {
-		command += " -c " + harness.QuoteArg(fmt.Sprintf(
-			"mcp_servers.komrad.url=%s",
-			tomlString("http://"+launch.MCPEndpoint+"/mcp"),
-		))
-		command += " -c " + harness.QuoteArg(mcpHeaders())
-		command += " -c " + harness.QuoteArg(`mcp_servers.komrad.default_tools_approval_mode="approve"`)
-	}
-
-	if launch.HookCommand != "" {
-		command += " -c " + harness.QuoteArg(notifyProgram(launch.HookCommand))
-	}
-
-	if launch.AutoCompaction > 0 {
-		command += " -c " + harness.QuoteArg(fmt.Sprintf("model_auto_compact_token_limit=%d", launch.AutoCompaction))
 	}
 
 	if resuming {

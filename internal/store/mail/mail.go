@@ -361,6 +361,34 @@ func (s *MailStore) CountPending(ctx context.Context, toAgentID string) (int64, 
 	return count, nil
 }
 
+// ClaimNudge takes the right to tell an agent about its unread mail, which only mail it has not
+// been told about gives.
+func (s *MailStore) ClaimNudge(ctx context.Context, toAgentID string) (bool, error) {
+	if !store.IsID(toAgentID) {
+		return false, nil
+	}
+
+	claimed, err := s.queries.ClaimMailNudge(ctx, toAgentID)
+	if err != nil {
+		return false, fmt.Errorf("failed to claim the nudge for agent %q: %w", toAgentID, err)
+	}
+
+	return len(claimed) > 0, nil
+}
+
+// ClearNudge gives back a claim whose nudge reached nothing, so the next pass tries again.
+func (s *MailStore) ClearNudge(ctx context.Context, toAgentID string) error {
+	if !store.IsID(toAgentID) {
+		return nil
+	}
+
+	if err := s.queries.ClearMailNudge(ctx, toAgentID); err != nil {
+		return fmt.Errorf("failed to clear the nudge claim for agent %q: %w", toAgentID, err)
+	}
+
+	return nil
+}
+
 // ListPendingMailboxes is every unarchived agent holding unclaimed mail, whether that mail is
 // still live or has expired without being reported.
 func (s *MailStore) ListPendingMailboxes(ctx context.Context) ([]string, error) {

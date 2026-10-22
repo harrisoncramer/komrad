@@ -155,16 +155,6 @@ func (c *Client) HasCLIExited(pane string) bool {
 	return c.value("show-options", "-p", "-qv", "-t", pane, CLIExitedOption) == "1"
 }
 
-// IsPaneInMode reports whether a pane is in one of tmux's own modes, where keys reach the mode
-// instead of the program running there.
-func (c *Client) IsPaneInMode(pane string) bool {
-	if pane == "" {
-		return false
-	}
-
-	return c.value("display-message", "-p", "-t", pane, "#{pane_in_mode}") == "1"
-}
-
 type PaneStatus struct {
 	Owner   string
 	Command string

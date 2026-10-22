@@ -37,16 +37,20 @@ func originatorPrefix(agentID string) string {
 
 type NewHarnessParams struct {
 	Home string
+	// CacheDir holds the socket each agent's app server listens on.
+	CacheDir string
 }
 
 type Harness struct {
-	home string
+	home     string
+	cacheDir string
 }
 
 // NewHarness builds a harness from opts.
 func NewHarness(params NewHarnessParams) *Harness {
 	return &Harness{
-		home: params.Home,
+		home:     params.Home,
+		cacheDir: params.CacheDir,
 	}
 }
 

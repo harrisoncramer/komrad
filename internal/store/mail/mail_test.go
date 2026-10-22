@@ -914,6 +914,136 @@ func TestUpsertFromKomradRewritesTheEvents(t *testing.T) {
 	assert.Equal(t, []string{"pull_request.behind"}, found.Events, "a rewrite replaces the events rather than adding to them")
 }
 
+// TestClaimNudge pins when an agent may be told about its mail: while it holds unread mail it has
+// not been told about.
+func TestClaimNudge(t *testing.T) {
+	tests := []struct {
+		name    string
+		arrange func(t *testing.T, st *fixture, recipient string)
+		want    bool
+	}{
+		{
+			name: "an empty mailbox",
+		},
+		{
+			name: "mail never told",
+			arrange: func(t *testing.T, st *fixture, recipient string) {
+				sendNudgeMail(t, st, recipient, time.Hour)
+			},
+			want: true,
+		},
+		{
+			name: "mail told, with nothing sent since",
+			arrange: func(t *testing.T, st *fixture, recipient string) {
+				sendNudgeMail(t, st, recipient, time.Hour)
+				claimNudge(t, st, recipient)
+			},
+		},
+		{
+			name: "mail told, with mail sent since",
+			arrange: func(t *testing.T, st *fixture, recipient string) {
+				sendNudgeMail(t, st, recipient, time.Hour)
+				claimNudge(t, st, recipient)
+				sendNudgeMail(t, st, recipient, time.Hour)
+			},
+			want: true,
+		},
+		{
+			name: "mail told, whose mail sent since was read",
+			arrange: func(t *testing.T, st *fixture, recipient string) {
+				sendNudgeMail(t, st, recipient, time.Hour)
+				claimNudge(t, st, recipient)
+				sendNudgeMail(t, st, recipient, time.Hour)
+				_, err := st.claim(t.Context(), recipient, 10)
+				require.NoError(t, err)
+			},
+		},
+		{
+			name: "mail told, whose mail sent since has expired",
+			arrange: func(t *testing.T, st *fixture, recipient string) {
+				sendNudgeMail(t, st, recipient, time.Hour)
+				claimNudge(t, st, recipient)
+				sendNudgeMail(t, st, recipient, time.Nanosecond)
+			},
+		},
+		{
+			name: "mail whose claim was given back",
+			arrange: func(t *testing.T, st *fixture, recipient string) {
+				sendNudgeMail(t, st, recipient, time.Hour)
+				claimNudge(t, st, recipient)
+				require.NoError(t, st.ClearNudge(t.Context(), recipient))
+			},
+			want: true,
+		},
+		{
+			name: "mail from komrad rewritten since it was told",
+			arrange: func(t *testing.T, st *fixture, recipient string) {
+				upsert := func() {
+					_, err := st.UpsertFromKomrad(t.Context(), UpsertFromKomradParams{
+						FromName:  "komrad",
+						ToAgentID: recipient,
+						Body:      "pull request changed",
+						Kind:      KindPullRequestChanged,
+						SubjectID: "00000000-0000-0000-0000-0000000000aa",
+						Deadline:  time.Hour,
+					})
+					require.NoError(t, err)
+				}
+				upsert()
+				claimNudge(t, st, recipient)
+				upsert()
+			},
+			want: true,
+		},
+		{
+			name: "mail told before the recipient launched again",
+			arrange: func(t *testing.T, st *fixture, recipient string) {
+				sendNudgeMail(t, st, recipient, time.Hour)
+				claimNudge(t, st, recipient)
+				agent, err := st.agents.GetByID(t.Context(), recipient)
+				require.NoError(t, err)
+				live, err := st.agents.UpdateIfLive(t.Context(), *agent)
+				require.NoError(t, err)
+				require.True(t, live)
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+			recipient := seedAgent(t, st, "recipient")
+			if tt.arrange != nil {
+				tt.arrange(t, st, recipient)
+			}
+
+			claimed, err := st.ClaimNudge(t.Context(), recipient)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, claimed)
+		})
+	}
+}
+
+func claimNudge(t *testing.T, st *fixture, recipient string) {
+	t.Helper()
+
+	claimed, err := st.ClaimNudge(t.Context(), recipient)
+	require.NoError(t, err)
+	require.True(t, claimed)
+}
+
+func sendNudgeMail(t *testing.T, st *fixture, recipient string, deadline time.Duration) {
+	t.Helper()
+
+	_, err := st.Send(t.Context(), SendParams{
+		ToAgentID: recipient,
+		Body:      "please read this",
+		Deadline:  deadline,
+	})
+	require.NoError(t, err)
+}
+
 // claim takes the waiting mail the way a read of the mailbox does: listed, then claimed by id.
 func (st *fixture) claim(ctx context.Context, toAgentID string, limit int32) ([]Mail, error) {
 	waiting, err := st.ListWaiting(ctx, toAgentID, limit)

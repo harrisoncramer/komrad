@@ -22,10 +22,13 @@ type NewHarnessParams struct {
 	// ConfigDir is the directory named in place of ~/.claude, empty when the CLI is left to
 	// its default.
 	ConfigDir string
+	// CacheDir holds the socket each agent's CLI listens on for messages.
+	CacheDir string
 }
 
 type Harness struct {
 	configDir string
+	cacheDir  string
 	mu        sync.Mutex
 	// logPaths remembers where each session's log was found, keyed by session id.
 	logPaths map[string]string
@@ -35,6 +38,7 @@ type Harness struct {
 func NewHarness(params NewHarnessParams) *Harness {
 	return &Harness{
 		configDir: params.ConfigDir,
+		cacheDir:  params.CacheDir,
 		logPaths:  map[string]string{},
 	}
 }

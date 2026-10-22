@@ -40,6 +40,11 @@ table "mail" {
     null = true
     type = timestamptz
   }
+  column "nudged_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When komrad told the recipient this mail was waiting, null until then. A rewrite or the recipient's next launch clears it, so the recipient is told again."
+  }
   column "expires_at" {
     null = false
     type = timestamptz

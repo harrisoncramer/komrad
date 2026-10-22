@@ -56,8 +56,9 @@ type Env struct {
 }
 
 type harnessInfo struct {
-	ID     string
-	Binary string
+	ID         string
+	Binary     string
+	MinVersion string
 }
 
 // DescribeHarnesses is the harnesses a registry holds, as the checks name them.
@@ -69,7 +70,7 @@ func DescribeHarnesses(registry *harness.Registry) ([]harnessInfo, error) {
 			return nil, err
 		}
 
-		harnesses = append(harnesses, harnessInfo{ID: found.ID(), Binary: found.Binary()})
+		harnesses = append(harnesses, harnessInfo{ID: found.ID(), Binary: found.Binary(), MinVersion: found.MinVersion()})
 	}
 
 	return harnesses, nil

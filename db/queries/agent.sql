@@ -471,8 +471,16 @@ WHERE
     id = @id;
 
 -- name: UpdateAgentIfLive :many
+WITH rearmed AS (
+    UPDATE
+        mail
+    SET
+        nudged_at = NULL
+    WHERE
+        to_agent_id = @id
+        AND claimed_at IS NULL)
 UPDATE
-    agents
+    agents a
 SET
     cwd = @cwd,
     flags = @flags,
@@ -492,10 +500,10 @@ SET
     END,
     workflow_id = @workflow_id
 WHERE
-    id = @id
-    AND archived_at IS NULL
+    a.id = @id
+    AND a.archived_at IS NULL
 RETURNING
-    id;
+    a.id;
 
 -- name: MarkWorkflowAgentsArchived :many
 WITH prior AS (
@@ -672,20 +680,6 @@ WHERE
     AND archived_at IS NOT NULL
 ORDER BY
     id DESC;
-
--- name: ClaimAgentNudge :many
-UPDATE
-    agents
-SET
-    nudged_at = NOW()
-WHERE
-    id = @id
-    AND archived_at IS NULL
-    AND (nudged_at IS NULL
-        OR state_changed_at > nudged_at
-        OR nudged_at < NOW() - interval '1 microsecond' * @retry_micros::bigint)
-RETURNING
-    id;
 
 -- name: SetAgentStateByID :exec
 UPDATE

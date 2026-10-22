@@ -186,6 +186,35 @@ func TestHarnessBinaryCheck(t *testing.T) {
 			want:       StatusOK,
 			wantDetail: "/usr/local/bin/claude, 2.1.0 (Claude Code)",
 		},
+		{
+			name:       "the default one is older than komrad launches",
+			agent:      harnessInfo{ID: "codex", Binary: "codex", MinVersion: "0.149.0"},
+			configured: "codex",
+			installed:  []string{"codex"},
+			reported:   "codex-cli 0.144.4\n",
+			want:       StatusFail,
+			wantCode:   "harness_outdated",
+			wantDetail: "/usr/local/bin/codex, codex-cli 0.144.4",
+		},
+		{
+			name:       "a harness nobody is defaulting to is older than komrad launches",
+			agent:      harnessInfo{ID: "codex", Binary: "codex", MinVersion: "0.149.0"},
+			configured: "claude",
+			installed:  []string{"codex"},
+			reported:   "codex-cli 0.144.4\n",
+			want:       StatusWarn,
+			wantCode:   "harness_outdated",
+			wantDetail: "/usr/local/bin/codex, codex-cli 0.144.4",
+		},
+		{
+			name:       "new enough",
+			agent:      harnessInfo{ID: "codex", Binary: "codex", MinVersion: "0.149.0"},
+			configured: "codex",
+			installed:  []string{"codex"},
+			reported:   "codex-cli 0.163.0\n",
+			want:       StatusOK,
+			wantDetail: "/usr/local/bin/codex, codex-cli 0.163.0",
+		},
 	}
 
 	for _, tt := range tests {

@@ -1118,13 +1118,6 @@ service AgentService {
       reason: "Only komrad's CLI hook command calls this, to pass on what an agent's CLI did, and an agent calling it could claim its turn ended while still working."
     };
   }
-  rpc ClaimMailNudge(google.protobuf.Empty) returns (ClaimMailNudgeResponse) {
-    option (annotation.v1.surfaces) = {
-      cli: false
-      mcp: false
-      reason: "Only komrad's CLI hook calls this as an agent's turn ends, and an agent calling it would use up the mail notice komrad types into its pane."
-    };
-  }
   rpc MarkRunsRead(MarkRunsReadRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.surfaces) = {

@@ -9,24 +9,6 @@ import (
 	"komrad/internal/store"
 )
 
-// ClaimNudge takes the right to tell an agent about waiting mail, checking and stamping in
-// one statement.
-func (s *AgentStore) ClaimNudge(ctx context.Context, id string, retryAfter time.Duration) (bool, error) {
-	if !store.IsID(id) {
-		return false, nil
-	}
-
-	claimed, err := s.queries.ClaimAgentNudge(ctx, models.ClaimAgentNudgeParams{
-		ID:          id,
-		RetryMicros: retryAfter.Microseconds(),
-	})
-	if err != nil {
-		return false, fmt.Errorf("failed to claim the nudge for agent %q: %w", id, err)
-	}
-
-	return len(claimed) > 0, nil
-}
-
 // SetStateByID records the state a reconcile pass observed, stamping when it was seen whether
 // or not the value moved, and clearing the reported reason when it did.
 func (s *AgentStore) SetStateByID(ctx context.Context, id string, state State) error {

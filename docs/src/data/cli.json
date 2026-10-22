@@ -801,8 +801,8 @@
     "parent": "hook",
     "usage": "komrad hook stop",
     "aliases": [],
-    "short": "Record that an agent's turn ended and tell it about waiting mail",
-    "long": "Record that an agent's turn ended and tell it about waiting mail.\n\nClaude runs this on its Stop event. Komrad keeps the moment against the agent so\nthe panel can say it has finished something nobody has read. When mail is waiting,\nit prints the same one-line notice komrad would type into the pane, so the agent\nreads its mail without waiting for the next pass.",
+    "short": "Record that an agent's turn ended",
+    "long": "Record that an agent's turn ended.\n\nClaude runs this on its Stop event. Komrad keeps the moment against the agent so\nthe panel can say it has finished something nobody has read.",
     "example": "",
     "flags": [],
     "inherited": [

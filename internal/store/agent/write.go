@@ -64,8 +64,8 @@ func (s *AgentStore) Update(ctx context.Context, agent Agent) error {
 	return nil
 }
 
-// UpdateIfLive rewrites an agent's row and reports whether it did, refusing an archived or
-// deleted one.
+// UpdateIfLive rewrites an agent's row as it launches, clearing the nudges on its unread mail so
+// it is told again, and reports whether it did, refusing an archived or deleted one.
 func (s *AgentStore) UpdateIfLive(ctx context.Context, agent Agent) (bool, error) {
 	if !store.IsID(agent.ID) {
 		return false, nil

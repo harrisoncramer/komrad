@@ -471,7 +471,6 @@ type Agent struct {
 	SpawnedByAgentID *string
 	ArchivedAt       *time.Time
 	IsHidden         bool
-	NudgedAt         *time.Time
 	Branch           *string
 	WorktreeRemoved  bool
 	CreatedAt        time.Time
@@ -775,6 +774,8 @@ type Mail struct {
 	SubjectID *string
 	// The events mail from komrad named, whose workflow prompts were appended to its body. A rewrite keeps those that still hold.
 	Events []string
+	// When komrad told the recipient this mail was waiting, null until then. A rewrite or the recipient's next launch clears it, so the recipient is told again.
+	NudgedAt *time.Time
 }
 
 // A pull request komrad has read from a forge, one row per forge identity and none owned by an agent. Finished is derived: merged when merged_at is set, closed when closed_at is set and merged_at is not, open otherwise.

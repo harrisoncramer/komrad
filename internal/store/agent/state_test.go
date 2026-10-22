@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"komrad/internal/store"
-	"komrad/lib/clock"
 	"komrad/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
@@ -157,72 +156,6 @@ func TestSettersRefuseAnIDThatIsNotOne(t *testing.T) {
 			require.NoError(t, missing, "an id no agent holds is not the same question")
 		})
 	}
-}
-
-// TestANudgeIsHeldForTheRetryInterval pins that a nudge just taken stands while one left
-// standing longer than the interval can be taken again.
-func TestANudgeIsHeldForTheRetryInterval(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-
-	require.NoError(t, st.Create(ctx, Agent{
-		Name:  "idler",
-		Pane:  "%1",
-		State: StateIdle,
-	}))
-	agent, err := st.Get(ctx, "idler")
-	require.NoError(t, err)
-
-	claimed, err := st.ClaimNudge(ctx, agent.ID, time.Minute)
-	require.NoError(t, err)
-	require.True(t, claimed, "an agent never nudged is there to be nudged")
-
-	again, err := st.ClaimNudge(ctx, agent.ID, time.Minute)
-	require.NoError(t, err)
-	assert.False(t, again, "and not again while the one just taken still stands")
-
-	backdateNudge(t, st, agent.ID, 2*time.Minute)
-
-	again, err = st.ClaimNudge(ctx, agent.ID, time.Minute)
-	require.NoError(t, err)
-	assert.True(t, again, "a nudge older than the interval is spent")
-}
-
-// TestANudgeIsReclaimedOnTheDatabaseClock pins that the interval is counted on the database
-// clock, where NOW() holds at the start of a transaction while the caller's clock runs on.
-func TestANudgeIsReclaimedOnTheDatabaseClock(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-
-	require.NoError(t, st.Create(ctx, Agent{
-		Name:  "idler",
-		Pane:  "%1",
-		State: StateIdle,
-	}))
-	agent, err := st.Get(ctx, "idler")
-	require.NoError(t, err)
-
-	claimed, err := st.ClaimNudge(ctx, agent.ID, time.Minute)
-	require.NoError(t, err)
-	require.True(t, claimed)
-
-	require.NoError(t, st.pool.InTx(ctx, func(db store.DBTX) error {
-		clock.Sleep(t.Context(), 300*time.Millisecond)
-
-		again, err := NewAgentStore(db).ClaimNudge(ctx, agent.ID, 200*time.Millisecond)
-		require.NoError(t, err)
-		assert.False(t, again, "no database time has passed, so the nudge still stands")
-
-		return nil
-	}))
-}
-
-func backdateNudge(t *testing.T, st *fixture, id string, age time.Duration) {
-	t.Helper()
-
-	_, err := st.db.Exec(t.Context(),
-		`UPDATE agents SET nudged_at = NOW() - $2::interval WHERE id = $1`, id, age.String())
-	require.NoError(t, err)
 }
 
 // TestSetHooksByIDRoundTrips pins that the hooks a launch installed land on the row and that none

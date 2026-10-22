@@ -2,9 +2,9 @@
 //
 // A harness knows what komrad cannot know generically: the command line that starts a
 // conversation, where the CLI writes its conversation log and how to flatten that log into turns,
-// how to read a captured frame for whether the agent is working or waiting, and how to read one
-// of its own hook payloads. The registry holds the harnesses this build was compiled with and
-// hands one back by the id an agent or workflow named.
+// how to read a captured frame for whether the agent is working or waiting, how to read one of
+// its own hook payloads, and how to hand its CLI a line of text. The registry holds the harnesses
+// this build was compiled with and hands one back by the id an agent or workflow named.
 package harness
 
 import (
@@ -227,6 +227,11 @@ type Harness interface {
 	LogPath(sessionID string) string
 
 	ReadLog(path string, offset int64) (LogRead, error)
+
+	Channel() Channel
+
+	// MinVersion is the oldest version of the CLI komrad launches, empty for a CLI it never checks.
+	MinVersion() string
 }
 
 // MintSessionID names a fresh launch's conversation, empty when the CLI names its own.

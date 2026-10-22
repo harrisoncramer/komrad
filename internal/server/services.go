@@ -146,7 +146,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		return nil, err
 	}
 
-	paneChannel := pane.NewPane(pane.NewPaneParams{Terminal: params.Tmux, Harnesses: params.Harnesses})
+	paneObserver := pane.NewPane(pane.NewPaneParams{Terminal: params.Tmux, Harnesses: params.Harnesses})
 	checkoutLocks := checkouts.NewTreeLocks()
 	taskService := tasks.NewTaskService(tasks.NewTaskServiceParams{
 		Tasks:        st.tasks,
@@ -184,7 +184,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		Git:         gitClient,
 		Queue:       queue,
 		Scripts:     scriptService,
-		Panes:       paneChannel,
+		Panes:       paneObserver,
 		Locks:       checkoutLocks,
 		RunLogsDir:  runLogsDir,
 		Transcripts: transcriptSync,
@@ -237,11 +237,10 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 		mail: mailServices{
 			service: mailService,
 			delivery: mail.NewDeliveryService(mail.NewDeliveryServiceParams{
-				Mail:         st.mail,
-				NudgeClaimer: st.agents,
-				PaneReader:   liveness,
-				Channel:      paneChannel,
-				Trees:        checkoutLocks,
+				Mail:      st.mail,
+				Agents:    st.agents,
+				Harnesses: params.Harnesses,
+				Trees:     checkoutLocks,
 			}),
 		},
 		review: reviews.NewReviewService(reviews.NewReviewServiceParams{

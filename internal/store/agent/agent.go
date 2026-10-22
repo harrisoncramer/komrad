@@ -11,8 +11,8 @@ import (
 	"komrad/lib/xslice"
 )
 
-// StateSeenBound is how long a reading of an agent's state stands before it is unconfirmed.
-const StateSeenBound = 2 * time.Minute
+// stateSeenBound is how long a reading of an agent's state stands before it is unconfirmed.
+const stateSeenBound = 2 * time.Minute
 
 // State is what an agent is doing.
 type State string
@@ -98,7 +98,6 @@ type Agent struct {
 	// ArchiveBatchID is the archive that took this agent, shared by every agent it took.
 	ArchiveBatchID     *string
 	DeletingAt         *time.Time
-	NudgedAt           *time.Time
 	SpawnedByAgentID   *string
 	RequestedByAgentID *string
 
@@ -135,7 +134,7 @@ func (t Turn) IsFailed() bool {
 
 // IsStateUnconfirmed reports whether the agent's state was last read longer ago than the bound.
 func (a Agent) IsStateUnconfirmed() bool {
-	return time.Since(a.StateSeenAt) > StateSeenBound
+	return time.Since(a.StateSeenAt) > stateSeenBound
 }
 
 // IsProvisionerDisabled reports whether the agent has been told to keep the directory it was given
@@ -242,7 +241,6 @@ func FromRow(agent models.Agent) Agent {
 		ArchivedAt:         agent.ArchivedAt,
 		ArchiveBatchID:     agent.ArchiveBatchID,
 		DeletingAt:         agent.DeletingAt,
-		NudgedAt:           agent.NudgedAt,
 		SpawnedByAgentID:   agent.SpawnedByAgentID,
 		RequestedByAgentID: agent.RequestedByAgentID,
 		TaskID:             agent.TaskID,
