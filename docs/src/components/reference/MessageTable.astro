@@ -58,13 +58,11 @@ for (const field of message.fields) {
               <tr id={`${id}-${row.oneof.name}`} class="oneof">
                 <td>
                   <a class="row-anchor oneof-name" href={`#${id}-${row.oneof.name}`}>
-                    {row.oneof.name}
+                    one of
                   </a>
-                </td>
-                <td class="type-cell" data-sep=":">
-                  one of
                   {row.oneof.required && <Required />}
                 </td>
+                <td></td>
                 <td>{row.oneof.description && <Fragment set:html={prose(row.oneof.description)} />}</td>
               </tr>
             ) : (

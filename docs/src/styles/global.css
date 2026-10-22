@@ -275,8 +275,7 @@
   box-shadow: inset 2px 0 var(--color-app-background-medium);
 }
 
-.doc-content tr.oneof .oneof-name,
-.doc-content tr.oneof .type-cell {
+.doc-content tr.oneof .oneof-name {
   font-style: italic;
   color: var(--color-app-gray-dim);
 }
