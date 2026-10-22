@@ -52,22 +52,13 @@ func JumpRow[S any]() LegendRow[S] {
 
 // NavLegend is the four rows the cursor keys are named by.
 func NavLegend[S any]() []LegendRow[S] {
+	move := MoveRow[S]()
+	move.Strip = false
+
 	return []LegendRow[S]{
-		{
-			Of:    []ID{Move},
-			Desc:  func(S) string { return "move" },
-			Label: MoveLabel,
-		},
-		{
-			Of:    []ID{Jump},
-			Desc:  func(S) string { return "top/bottom" },
-			Label: JumpLabel,
-		},
-		{
-			Of:    []ID{NavPage},
-			Desc:  func(S) string { return "page" },
-			Label: NavPageLabel,
-		},
+		move,
+		JumpRow[S](),
+		NavPageRow[S](),
 		{
 			Of:    []ID{ColumnScroll},
 			Desc:  func(S) string { return "scroll" },
