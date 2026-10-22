@@ -75,7 +75,7 @@ func (d *documentsScreen) details(m *model, in screen.Inputs) details {
 		fields: []recordField{
 			{label: "type", value: label.OrDash(item.typeName)},
 			{label: "updated", value: label.OrDash(label.Friendly(item.updatedAt))},
-			{label: "agent", value: findAgentName(m.listing, item.agentID)},
+			{label: "agent", value: findAgentName(in.Listing, item.agentID)},
 		},
 	}
 }
