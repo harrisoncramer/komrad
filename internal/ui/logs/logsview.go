@@ -17,6 +17,7 @@ import (
 	logv1 "komrad/proto/gen/log/v1"
 )
 
+// Zone names the lines of the log, each keyed by its line number.
 const Zone zone.Name = "log"
 
 func (l *Screen) emptyLine() string {
