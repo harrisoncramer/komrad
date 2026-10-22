@@ -8,6 +8,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 
 	tea "charm.land/bubbletea/v2"
@@ -15,12 +16,12 @@ import (
 
 // enter lands on the task or agent the target names, showing the hidden tasks when it works on
 // one, or comes back to the list as it stands.
-func (a *agentsScreen) enter(m *model, target screenTarget) tea.Cmd {
+func (a *agentsScreen) enter(m *model, target screen.Target) tea.Cmd {
 	switch {
-	case target.taskID != "":
-		a.revealTask(m, target.taskID, target.agentID)
-	case target.agentID != "":
-		a.revealAgent(m, target.agentID)
+	case target.TaskID != "":
+		a.revealTask(m, target.TaskID, target.AgentID)
+	case target.AgentID != "":
+		a.revealAgent(m, target.AgentID)
 	default:
 		a.Row = cursor.Clamp(a.Row, len(a.rows(m)))
 	}

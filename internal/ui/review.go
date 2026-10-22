@@ -6,6 +6,7 @@ import (
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -64,8 +65,8 @@ const (
 	reviewFocusFiles
 )
 
-func (r reviewScreen) parent() screen {
-	return screenAgents
+func (r reviewScreen) parent() screen.ID {
+	return screen.Agents
 }
 
 // crumbs runs through the agent whose work is under review.
@@ -124,7 +125,7 @@ func (r *reviewScreen) route(m *model, msg tea.Msg) tea.Cmd {
 }
 
 // enter leaves the review as it stands.
-func (r *reviewScreen) enter(*model, screenTarget) tea.Cmd {
+func (r *reviewScreen) enter(*model, screen.Target) tea.Cmd {
 	return nil
 }
 
@@ -136,7 +137,7 @@ func (m *model) enterReview(agent panel.Agent) tea.Cmd {
 	}
 
 	opened := m.review.open(m, agent)
-	left := m.enterScreen(screenReview)
+	left := m.enterScreen(screen.Review)
 	m.leftStop = stopList
 	m.stageSelection()
 

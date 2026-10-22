@@ -6,6 +6,7 @@ import (
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -116,7 +117,7 @@ func (r *renameSlot) updateRename(m *model, msg tea.Msg) tea.Cmd {
 	case field.NameGone:
 		m.note(messageWarning, r.renaming.GoneWarning())
 	case field.NameHidden:
-		return m.hide()
+		return m.apply(screen.Hide{})
 	case field.NameCancelled:
 		r.renaming = nil
 	case field.NameSubmitted:

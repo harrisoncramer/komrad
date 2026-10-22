@@ -11,6 +11,7 @@ import (
 	"komrad/internal/ui/layout"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/internal/ui/submitting"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -508,12 +509,12 @@ func (m *model) finishWrite(result writeResult) tea.Cmd {
 	switch {
 	case result.written == nil || walkedAway:
 	case result.written.archived && result.keyMoved:
-		cmds = append(cmds, m.enterArchived(screenTarget{}))
+		cmds = append(cmds, m.enterArchived(screen.Target{}))
 	case result.written.archived:
-		cmds = append(cmds, m.enterArchived(screenTarget{agentID: result.written.agent}))
+		cmds = append(cmds, m.enterArchived(screen.Target{AgentID: result.written.agent}))
 	default:
 		m.agents.kind = agentsLive
-		cmds = append(cmds, m.enterScreen(screenAgents))
+		cmds = append(cmds, m.enterScreen(screen.Agents))
 
 		m.agents.showHiddenFor(m, result.written.agent)
 

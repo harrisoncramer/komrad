@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
@@ -46,9 +47,7 @@ func pullRequestFields(standing panel.PullRequestStanding, pullRequests []panel.
 func (m *model) openPullRequest(task panel.Task) tea.Cmd {
 	standing := task.PullRequest
 	if standing.URL == "" {
-		m.report("Could not open the pull request of "+task.Slug, pullRequestRefusal(task))
-
-		return nil
+		return m.apply(screen.Report{Summary: "Could not open the pull request of " + task.Slug, Err: pullRequestRefusal(task)})
 	}
 
 	return m.openURLCmd(standing.URL)
@@ -59,9 +58,7 @@ func (m *model) openPullRequest(task panel.Task) tea.Cmd {
 func (m *model) copyPullRequestURL(task panel.Task) tea.Cmd {
 	standing := task.PullRequest
 	if standing.URL == "" {
-		m.report("Could not copy the pull request of "+task.Slug, pullRequestRefusal(task))
-
-		return nil
+		return m.apply(screen.Report{Summary: "Could not copy the pull request of " + task.Slug, Err: pullRequestRefusal(task)})
 	}
 
 	return m.copyCmd(standing.URL)

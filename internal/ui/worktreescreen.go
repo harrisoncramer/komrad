@@ -8,6 +8,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 
 	tea "charm.land/bubbletea/v2"
@@ -18,9 +19,9 @@ const entriesShown = 10
 
 // enter lands on the directory of the agent the target names, remembering it as the focus for
 // the listing on its way.
-func (w *worktreesScreen) enter(m *model, target screenTarget) tea.Cmd {
-	w.focus = target.agentID
-	if target.agentID != "" && !w.scope.listsAgent(m.listing.Worktrees, target.agentID) {
+func (w *worktreesScreen) enter(m *model, target screen.Target) tea.Cmd {
+	w.focus = target.AgentID
+	if target.AgentID != "" && !w.scope.listsAgent(m.listing.Worktrees, target.AgentID) {
 		w.scope = scopeAll
 	}
 	w.apply(m, m.listing.Worktrees, w.list().hovered(m))
@@ -102,7 +103,7 @@ func (m *model) readWorktreeCmd(dir string) tea.Cmd {
 
 // inspectHoveredWorktreeCmd asks for the hovered directory's standing the first time.
 func (m *model) inspectHoveredWorktreeCmd() tea.Cmd {
-	if m.screen != screenWorktrees {
+	if m.screen != screen.Worktrees {
 		return nil
 	}
 

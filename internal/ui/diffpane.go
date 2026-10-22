@@ -7,6 +7,7 @@ import (
 	"komrad/config"
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -199,7 +200,7 @@ func (k diffKeys) expandDesc() string {
 // updateFilter is the search prompt taking keys.
 func (k diffKeys) updateFilter(m *model, key tea.KeyPressMsg) tea.Cmd {
 	if key.String() == "ctrl+c" {
-		return m.hide()
+		return m.apply(screen.Hide{})
 	}
 
 	if k.filter.takeKey(key, m.register) {

@@ -5,6 +5,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -32,7 +33,7 @@ func (l *logsScreen) table() []keys.Action[*model] {
 			ID:   actionLogsBack,
 			Keys: keys.FixedBack,
 			Nav: func(m *model, _ string) tea.Cmd {
-				return m.enter(l.openedFrom, screenTarget{agentID: l.agentID})
+				return m.apply(screen.Open{Screen: l.openedFrom, Target: screen.Target{AgentID: l.agentID}})
 			},
 		},
 	)
@@ -103,7 +104,7 @@ func (l *logsScreen) logActions() keys.Spec[*model] {
 			{
 				ID:   keys.Quit,
 				Keys: keys.FixedQuit,
-				Nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
+				Nav:  func(m *model, _ string) tea.Cmd { return m.apply(screen.Hide{}) },
 			},
 		}...),
 		Legend: []keys.LegendRow[*model]{

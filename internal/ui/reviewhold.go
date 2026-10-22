@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 
+	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -122,9 +123,7 @@ func (r *reviewScreen) applyPaused(m *model, msg reviewPausedMsg) tea.Cmd {
 	r.hold.pausing = false
 
 	if msg.err != nil {
-		m.report("Could not pause "+r.agentName, msg.err)
-
-		return nil
+		return m.apply(screen.Report{Summary: "Could not pause " + r.agentName, Err: msg.err})
 	}
 
 	r.hold.paused = true

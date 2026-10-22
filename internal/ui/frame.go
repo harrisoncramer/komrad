@@ -1,5 +1,7 @@
 package ui
 
+import "komrad/internal/ui/screen"
+
 // frameBuilder is a screen that builds what its frame renders once an update has settled.
 type frameBuilder interface {
 	buildFrame(m *model)
@@ -18,7 +20,7 @@ func (m *model) buildFrame() {
 }
 
 type shownScreen struct {
-	screen    screen
+	screen    screen.ID
 	agents    agentsKind
 	schedules schedulesKind
 }

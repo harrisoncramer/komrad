@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -112,9 +113,7 @@ func deletedEntries(m *model, target archived) []submenuEntry {
 func (m *model) restoreAndOpen(target archived) tea.Cmd {
 	resumed, err := target.opensAgent(m.listing)
 	if err != nil {
-		m.report("Could not restore and open "+target.name(), err)
-
-		return nil
+		return m.apply(screen.Report{Summary: "Could not restore and open " + target.name(), Err: err})
 	}
 
 	return restoreAndResumeCmd(m, target.work.chosen, *resumed)

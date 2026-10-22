@@ -20,6 +20,7 @@ import (
 	"komrad/internal/panes"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/layout"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/forge/v1/forgev1connect"
@@ -383,7 +384,7 @@ func NewMessageEdited(agentID, body string) tea.Msg {
 
 // ReadScreen is the name of the screen that is up.
 func (p *Panel) ReadScreen() string {
-	return screenNames[p.model.screen]
+	return p.model.screen.String()
 }
 
 // ReadGuestPane is the pane the panel has swapped into its stage.
@@ -491,29 +492,29 @@ func (p *Panel) ReadLegendKeys() []string {
 
 	var legend keyMap
 	switch p.model.screen {
-	case screenAgents:
+	case screen.Agents:
 		if p.model.agents.kind == agentsArchived {
 			legend = p.model.listHelpOf(p.model.agents.archived.listParams(m))
 		} else {
 			legend = p.model.listHelp(p.model.agents.help(m))
 		}
-	case screenSchedules:
+	case screen.Schedules:
 		if p.model.schedules.kind == schedulesArchived {
 			legend = p.model.listHelpOf(p.model.schedules.archived.listParams(m))
 		} else {
 			legend = p.model.listHelpOf(p.model.schedules.listParams(m))
 		}
-	case screenReview:
+	case screen.Review:
 		legend = p.model.review.help(m)
-	case screenWorktrees:
+	case screen.Worktrees:
 		legend = p.model.listHelpOf(p.model.worktrees.listParams(m))
-	case screenDocuments:
+	case screen.Documents:
 		legend = p.model.listHelpOf(p.model.documents.listParams(m))
-	case screenLogs:
+	case screen.Logs:
 		legend = p.model.listHelp(p.model.logs.help(m))
-	case screenStatusChecks:
+	case screen.StatusChecks:
 		legend = p.model.listHelp(p.model.statusChecks.help(m))
-	case screenStatusCheckLogs:
+	case screen.StatusCheckLogs:
 		legend = p.model.listHelp(p.model.statusCheckLogs.help(m))
 	}
 
@@ -1010,7 +1011,7 @@ func (p *Panel) IsWatching() bool {
 }
 
 // specsOf is the key specs among the tables a screen dispatches through.
-func specsOf(s screen) []keys.Spec[*model] {
+func specsOf(s screen.ID) []keys.Spec[*model] {
 	var specs []keys.Spec[*model]
 
 	for _, table := range actionsOf(s) {

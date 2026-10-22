@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"komrad/internal/ui/screen"
+
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -39,9 +41,7 @@ func (d *documentsScreen) pressEdit(m *model) tea.Cmd {
 
 	path, err := writeDocumentCopy(m.settings.DraftDir, read.body)
 	if err != nil {
-		m.report("could not edit "+item.name, err)
-
-		return nil
+		return m.apply(screen.Report{Summary: "could not edit " + item.name, Err: err})
 	}
 
 	pane := m.stageEditor(editorContent(m.settings.Editor, filepath.Dir(path), path, 1))
@@ -77,9 +77,7 @@ func (d *documentsScreen) closeEdit(m *model) tea.Cmd {
 	summary := "could not save " + edit.item.name
 	content, err := os.ReadFile(edit.path)
 	if err != nil {
-		m.report(summary, fmt.Errorf("failed to read your copy at %s: %w", edit.path, err))
-
-		return nil
+		return m.apply(screen.Report{Summary: summary, Err: fmt.Errorf("failed to read your copy at %s: %w", edit.path, err)})
 	}
 
 	body := string(content)
@@ -90,9 +88,7 @@ func (d *documentsScreen) closeEdit(m *model) tea.Cmd {
 	}
 
 	if body == edit.body {
-		m.report(summary, removeDocumentCopy(edit.path))
-
-		return nil
+		return m.apply(screen.Report{Summary: summary, Err: removeDocumentCopy(edit.path)})
 	}
 
 	return m.writeCmd("saving "+edit.item.name, summary, func(a api) error {

@@ -3,6 +3,7 @@ package ui
 import (
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/screen"
 )
 
 // The labels naming the mode that holds the panel.
@@ -16,7 +17,7 @@ const (
 // findModeEnd is the column of the pane the mode's label ends at, the last of the sidebar's own
 // cells short of a gutter, and never in the block rendered beside the sidebar.
 func (m *model) findModeEnd() int {
-	if m.screen == screenAgents && m.listing.IsEmpty() {
+	if m.screen == screen.Agents && m.listing.IsEmpty() {
 		return gutter + m.term.width
 	}
 
@@ -48,7 +49,7 @@ func (m *model) isEditing() bool {
 		return focused != nil && field.IsText(focused) && m.form.vim.IsInserting(focused.GetKey())
 	}
 
-	if m.screen == screenReview && m.review.isWriting() {
+	if m.screen == screen.Review && m.review.isWriting() {
 		return m.review.threads.editor.isInserting()
 	}
 

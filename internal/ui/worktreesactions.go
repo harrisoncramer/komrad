@@ -7,6 +7,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
@@ -246,12 +247,12 @@ func (w *worktreesScreen) buildItemMenu(m *model) (submenu, bool) {
 		return menu, len(menu.entries) > 0
 	}
 
-	to := screenTarget{agentID: occupant.ID}
+	to := screen.Target{AgentID: occupant.ID}
 	if row.item.Task != nil {
-		to.taskID = row.item.Task.ID
+		to.TaskID = row.item.Task.ID
 	}
 
-	return withNested(menu, "jump", m.keys.Menu.Jump, jumpMenu(m, screenWorktrees, to)), true
+	return withNested(menu, "jump", m.keys.Menu.Jump, jumpMenu(m, screen.Worktrees, to)), true
 }
 
 // buildScreenMenu builds the worktrees screen's own band, for clearing every directory that can go.

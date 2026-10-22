@@ -9,6 +9,7 @@ import (
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -116,7 +117,7 @@ func (r *reviewScreen) drop(m *model) tea.Cmd {
 
 	*r = reviewScreen{loads: r.loads}
 
-	return tea.Batch(m.enter(screenAgents, screenTarget{}), letGo)
+	return tea.Batch(m.apply(screen.Open{Screen: screen.Agents}), letGo)
 }
 
 // describeRefusedReview says which of the two empty diffs this is: an agent that has written

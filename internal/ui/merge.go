@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	forgev1 "komrad/proto/gen/forge/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -83,37 +84,27 @@ func (m *model) runMerge(taskID string, choice mergeChoice) tea.Cmd {
 	// The list may have moved under the open menu.
 	task, ok := m.findGitTask(taskID)
 	if !ok {
-		m.report("Could not act on the task", errTaskGone)
-
-		return nil
+		return m.apply(screen.Report{Summary: "Could not act on the task", Err: errTaskGone})
 	}
 
 	switch choice {
 	case mergeChoiceAutoMerge:
 		if err := autoMergeRefusal(task); err != nil {
-			m.report("Could not change auto-merge on the "+task.PullRequest.Noun()+" of "+task.Slug, err)
-
-			return nil
+			return m.apply(screen.Report{Summary: "Could not change auto-merge on the " + task.PullRequest.Noun() + " of " + task.Slug, Err: err})
 		}
 		if task.PullRequest.MergeReadiness.AutoMerge {
 			return m.setAutoMerge(task, mergeParams{url: task.PullRequest.URL, headSHA: task.PullRequest.HeadSHA}, false)
 		}
 	case mergeChoiceMergeRebase:
 		if err := mergeRebaseRefusal(m.listing, task); err != nil {
-			m.report("Could not merge and rebase "+task.Slug, err)
-
-			return nil
+			return m.apply(screen.Report{Summary: "Could not merge and rebase " + task.Slug, Err: err})
 		}
 	case mergeChoiceMerge, mergeChoiceMergeArchive:
 		if err := openPullRequestRefusal(task); err != nil {
-			m.report("Could not merge the "+task.PullRequest.Noun()+" of "+task.Slug, err)
-
-			return nil
+			return m.apply(screen.Report{Summary: "Could not merge the " + task.PullRequest.Noun() + " of " + task.Slug, Err: err})
 		}
 		if choice == mergeChoiceMergeArchive && task.ArchivedAt != nil {
-			m.report("Could not archive "+task.Slug, errArchiveArchived)
-
-			return nil
+			return m.apply(screen.Report{Summary: "Could not archive " + task.Slug, Err: errArchiveArchived})
 		}
 	}
 
@@ -224,9 +215,7 @@ func mergeOp(task panel.Task, archive bool, params mergeParams) gitOp {
 func (m *model) reportMerged(task panel.Task, archive bool, err error) tea.Cmd {
 	standing := task.PullRequest
 	if err != nil {
-		m.report("Could not merge "+standing.Ref()+" of "+task.Slug, err)
-
-		return nil
+		return m.apply(screen.Report{Summary: "Could not merge " + standing.Ref() + " of " + task.Slug, Err: err})
 	}
 
 	m.pushMessage(message{

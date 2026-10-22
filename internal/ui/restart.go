@@ -7,6 +7,7 @@ import (
 	"komrad/config"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -41,9 +42,7 @@ func restartEntries(m *model, task panel.Task) []submenuEntry {
 	writer, refusal := findRestartableWriter(m.listing, task)
 	entry := openEntry("restart", m.keys.Menu.Restart, func(m *model) tea.Cmd {
 		if refusal != nil {
-			m.report("Could not restart the writer of task "+task.Slug, refusal)
-
-			return nil
+			return m.apply(screen.Report{Summary: "Could not restart the writer of task " + task.Slug, Err: refusal})
 		}
 
 		return openRestart(m, restartTarget{agent: *writer, on: task.Slug, briefing: "the task's notes"})

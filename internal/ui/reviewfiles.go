@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -342,7 +343,7 @@ func (r *reviewScreen) updateFilesFilter(m *model, key tea.KeyPressMsg) tea.Cmd 
 	filter := &r.filesFilter
 	switch key.String() {
 	case "ctrl+c":
-		return m.hide()
+		return m.apply(screen.Hide{})
 	case "tab":
 		filter.mode = filter.mode.flipped()
 

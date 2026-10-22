@@ -143,6 +143,7 @@ linters:
             - "**/internal/ui/zone/**"
             - "**/internal/ui/list/**"
             - "**/internal/ui/field/**"
+            - "**/internal/ui/screen/**"
           deny:
             - pkg: komrad/internal/ui$
               desc: a shared package sits under the panel's screens, so it never reaches back up into the root

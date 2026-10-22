@@ -11,6 +11,7 @@ import (
 
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/screen"
 	"komrad/internal/vim"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -99,7 +100,7 @@ func (r *reviewScreen) updateComposer(m *model, key tea.KeyPressMsg) tea.Cmd {
 
 		return nil
 	case keys.IsBound(k, fixedKeys().Quit):
-		return m.hide()
+		return m.apply(screen.Hide{})
 	case keys.IsBound(k, fixedKeys().Editor):
 		return r.openMessageEditor(m)
 	case keys.IsBound(k, fixedKeys().Submit):
@@ -125,9 +126,7 @@ func (r reviewScreen) openMessageEditor(m *model) tea.Cmd {
 	path := messageDraftPath(agentID)
 
 	if err := os.WriteFile(path, []byte(r.threads.editor.value()), 0o600); err != nil {
-		m.report("Your editor could not be opened on that message", err)
-
-		return nil
+		return m.apply(screen.Report{Summary: "Your editor could not be opened on that message", Err: err})
 	}
 
 	// The message is one file with nothing above it, so the editor opens on its first line.
@@ -161,9 +160,7 @@ func (r *reviewScreen) applyMessageEdited(m *model, msg messageEditedMsg) tea.Cm
 	}
 
 	if msg.err != nil {
-		m.report("What you wrote in your editor could not be read back", msg.err)
-
-		return nil
+		return m.apply(screen.Report{Summary: "What you wrote in your editor could not be read back", Err: msg.err})
 	}
 
 	title, said := r.threads.inputHead()

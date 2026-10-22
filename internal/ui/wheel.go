@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -112,7 +113,7 @@ func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 		return nil
 	}
 
-	if m.screen == screenReview && !m.form.isActive() && !m.writes.held.active && !m.isMessagesFocused() && m.review.scrollPopupAt(m, x-gutter, y, rows) {
+	if m.screen == screen.Review && !m.form.isActive() && !m.writes.held.active && !m.isMessagesFocused() && m.review.scrollPopupAt(m, x-gutter, y, rows) {
 		return nil
 	}
 
@@ -120,7 +121,7 @@ func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 		return m.wheelList(rows)
 	}
 
-	if m.screen == screenReview && !m.isOverColumn(x) {
+	if m.screen == screen.Review && !m.isOverColumn(x) {
 		if cmd, ok := m.review.scrollSidebarAt(m, y, rows); ok {
 			return cmd
 		}

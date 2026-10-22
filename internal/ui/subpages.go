@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
@@ -39,16 +40,16 @@ func agentMenu(m *model, item panel.AgentRow, own ...submenuEntry) submenu {
 	return submenu{
 		kind:    formMenu,
 		title:   m.listing.AgentName(agent),
-		entries: append(entries, nestedEntry("jump", m.keys.Menu.Jump, jumpMenu(m, screenAgents, screenTarget{agentID: agent.ID}))),
+		entries: append(entries, nestedEntry("jump", m.keys.Menu.Jump, jumpMenu(m, screen.Agents, screen.Target{AgentID: agent.ID}))),
 	}
 }
 
 // subpageEntries are the entries that open the agent's pages from the agents list.
 func subpageEntries(m *model, item panel.AgentRow, pages []subpage) []submenuEntry {
 	return xslice.Map(pages, func(page subpage) submenuEntry {
-		entry := subpageEntry(m, screenAgents, item, page)
+		entry := subpageEntry(m, screen.Agents, item, page)
 		if entry.opens == nil {
-			entry.open = func(m *model) tea.Cmd { return m.enterSubpage(screenAgents, item.Agent.ID, page) }
+			entry.open = func(m *model) tea.Cmd { return m.enterSubpage(screen.Agents, item.Agent.ID, page) }
 		}
 
 		return entry
@@ -68,7 +69,7 @@ func agentSubpages(agent panel.Agent) []subpage {
 }
 
 // subpageEntry is how a subpage is rendered in an agent's menu.
-func subpageEntry(m *model, openedFrom screen, item panel.AgentRow, page subpage) submenuEntry {
+func subpageEntry(m *model, openedFrom screen.ID, item panel.AgentRow, page subpage) submenuEntry {
 	switch page {
 	case subpageReview:
 		return submenuEntry{
@@ -105,9 +106,9 @@ func reviewRefusal(l panel.Listing, agent panel.Agent) error {
 
 // terminalRefusal is why a shell cannot open on an agent from where the menu was opened, nil when
 // it can.
-func terminalRefusal(openedFrom screen, agent panel.Agent) error {
+func terminalRefusal(openedFrom screen.ID, agent panel.Agent) error {
 	switch {
-	case !openedFrom.opensTerminal(), agent.ArchivedAt != nil:
+	case !opensTerminal(openedFrom), agent.ArchivedAt != nil:
 		return errTerminalHere
 	case agent.Cwd == "":
 		return errNoAgentDir
@@ -118,7 +119,7 @@ func terminalRefusal(openedFrom screen, agent panel.Agent) error {
 
 // enterSubpage goes from the menu to the subpage picked, or closes it and says why the agent has
 // nothing there.
-func (m *model) enterSubpage(openedFrom screen, agentID string, picked subpage) tea.Cmd {
+func (m *model) enterSubpage(openedFrom screen.ID, agentID string, picked subpage) tea.Cmd {
 	item, ok := m.listing.AnyAgent(agentID)
 	if !ok {
 		return m.refuseSubpage("Could not open the subpage", errAgentGone)
@@ -134,15 +135,15 @@ func (m *model) enterSubpage(openedFrom screen, agentID string, picked subpage) 
 
 		m.leaveForm()
 
-		return m.enter(screenReview, screenTarget{agentID: agentID})
+		return m.apply(screen.Open{Screen: screen.Review, Target: screen.Target{AgentID: agentID}})
 	case subpageLogs:
 		m.leaveForm()
 
-		return m.enter(screenLogs, screenTarget{agentID: agentID, openedFrom: openedFrom})
+		return m.apply(screen.Open{Screen: screen.Logs, Target: screen.Target{AgentID: agentID, OpenedFrom: openedFrom}})
 	case subpageChecks:
 		m.leaveForm()
 
-		return m.enter(screenStatusChecks, screenTarget{agentID: agentID, openedFrom: openedFrom})
+		return m.apply(screen.Open{Screen: screen.StatusChecks, Target: screen.Target{AgentID: agentID, OpenedFrom: openedFrom}})
 	case subpageTerminal:
 		if err := terminalRefusal(openedFrom, item.Agent); err != nil {
 			return m.refuseSubpage("Could not open a terminal", err)

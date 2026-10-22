@@ -3,6 +3,8 @@ package ui
 import (
 	"slices"
 
+	"komrad/internal/ui/screen"
+
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -131,7 +133,7 @@ func (m *model) toggleStop() tea.Cmd {
 
 // isDormantHovered reports whether the agents screen is rendering the saved screen of a dormant agent.
 func (m *model) isDormantHovered() bool {
-	if m.screen != screenAgents || m.agents.kind != agentsLive {
+	if m.screen != screen.Agents || m.agents.kind != agentsLive {
 		return false
 	}
 
@@ -150,7 +152,7 @@ func (m *model) isScreenBlockRendered() bool {
 // findFocusPane finds the agent's pane the picker stops at, empty where the stage holds none or
 // the panel is rendered over it.
 func (m *model) findFocusPane() string {
-	if m.screen != screenAgents || m.frame.IsSolo() {
+	if m.screen != screen.Agents || m.frame.IsSolo() {
 		return ""
 	}
 

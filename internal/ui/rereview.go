@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -40,9 +41,7 @@ func rereviewRefusal(task panel.Task) error {
 // asked for changes on it, or says why it cannot.
 func (m *model) requestRereview(task panel.Task) tea.Cmd {
 	if err := rereviewRefusal(task); err != nil {
-		m.report("Could not ask for another review of the "+task.PullRequest.Noun()+" of "+task.Slug, err)
-
-		return nil
+		return m.apply(screen.Report{Summary: "Could not ask for another review of the " + task.PullRequest.Noun() + " of " + task.Slug, Err: err})
 	}
 
 	clients := m.api

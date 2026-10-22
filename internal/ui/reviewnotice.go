@@ -1,6 +1,10 @@
 package ui
 
-import "slices"
+import (
+	"slices"
+
+	"komrad/internal/ui/screen"
+)
 
 // reviewNotices is what the review has raised on the messages stack.
 type reviewNotices struct {
@@ -28,7 +32,7 @@ func (n *reviewNotices) lower(m *model, key string) {
 
 // followNotices raises what the review has to say about the agent and lowers what is no longer true.
 func (r *reviewScreen) followNotices(m *model) {
-	if r.diff.View() == nil || r.diff.View().Len() == 0 || m.screen != screenReview {
+	if r.diff.View() == nil || r.diff.View().Len() == 0 || m.screen != screen.Review {
 		return
 	}
 

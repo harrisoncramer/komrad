@@ -25,6 +25,7 @@ import (
 	"komrad/internal/panes"
 	"komrad/internal/ui/layout"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/internal/ui/submitting"
 	"komrad/internal/vim"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -260,7 +261,7 @@ type model struct {
 	configErr       error
 	startupErr      error
 	startupFindings []errui.Finding
-	screen          screen
+	screen          screen.ID
 	terminalDir     string
 	details         detailsState
 	messages        messagesState
@@ -412,7 +413,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		startupFindings: deps.StartupFindings,
 		engineStatus:    deps.EngineStatus,
 		engineBuild:     deps.EngineStatus.Build,
-		screen:          screenAgents,
+		screen:          screen.Agents,
 		agents: agentsScreen{
 			triage:   triageZone{capacity: deps.Layout.TriageRows},
 			archived: archivedAgents{kind: agentsArchived},
