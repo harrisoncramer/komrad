@@ -254,13 +254,13 @@ func claimNudge(t *testing.T, st *fixture, id string) {
 	require.True(t, claimed)
 }
 
-func sendMail(t *testing.T, st *fixture, id string, deadline time.Duration) {
+func sendMail(t *testing.T, st *fixture, id string, expiresIn time.Duration) {
 	t.Helper()
 
 	_, err := st.db.Exec(t.Context(),
 		`INSERT INTO mail (to_agent_id, body, expires_at, engine_id)
 		SELECT id, 'please read this', NOW() + $2::interval, engine_id FROM agents WHERE id = $1`,
-		id, deadline.String())
+		id, expiresIn.String())
 	require.NoError(t, err)
 }
 

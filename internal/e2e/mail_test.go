@@ -33,7 +33,7 @@ func TestIntegrationAgentsMailEachOther(t *testing.T) {
 
 	var sentID string
 
-	t.Run("an agent addresses another by name and nothing is typed yet", func(t *testing.T) {
+	t.Run("an agent addresses another by name and nothing reaches it yet", func(t *testing.T) {
 		req := connect.NewRequest(&agentv1.SendMailRequest{
 			To:   &agentv1.SendMailRequest_ToAgentName{ToAgentName: "migrations"},
 			Body: "what is the refund column called?",
@@ -50,22 +50,22 @@ func TestIntegrationAgentsMailEachOther(t *testing.T) {
 		require.NotEmpty(t, sentMail.GetId())
 		sentID = sentMail.GetId()
 
-		assert.Empty(t, instance.Typed(migrations.GetId()), "sending types nothing at anybody")
+		assert.Empty(t, instance.Received(migrations.GetId()), "sending reaches nobody yet")
 	})
 
 	t.Run("delivery types one line at the idle recipient", func(t *testing.T) {
 		assert.Equal(t, mail.DeliverySoon, instance.Deliver(migrations.GetId()))
 
-		typed := instance.WaitForTyped(migrations.GetId(), 1)
-		require.Len(t, typed, 1, "the agent received exactly one line")
-		assert.Contains(t, typed[0], "read_mail")
-		assert.Contains(t, typed[0], "1 piece(s) of unread mail")
-		assert.NotContains(t, typed[0], "refund column", "the mail itself stays in the panel")
+		received := instance.WaitForReceived(migrations.GetId(), 1)
+		require.Len(t, received, 1, "the agent received exactly one line")
+		assert.Contains(t, received[0], "read_mail")
+		assert.Contains(t, received[0], "1 piece(s) of unread mail")
+		assert.NotContains(t, received[0], "refund column", "the mail itself stays in the panel")
 	})
 
-	t.Run("it is not typed at twice for the same stretch of sitting idle", func(t *testing.T) {
+	t.Run("it is not nudged twice for the same stretch of sitting idle", func(t *testing.T) {
 		assert.Equal(t, mail.DeliveryLater, instance.Deliver(migrations.GetId()))
-		assert.Len(t, instance.Typed(migrations.GetId()), 1)
+		assert.Len(t, instance.Received(migrations.GetId()), 1)
 	})
 
 	t.Run("the recipient reads it once and delivery stands down", func(t *testing.T) {
@@ -145,7 +145,7 @@ func TestIntegrationDeliveryWaitsOutAPermissionPrompt(t *testing.T) {
 		instance.Settle(migrations.GetId(), harness.ActivityWaiting, agentstore.StateWaiting)
 
 		assert.Equal(t, mail.DeliveryLater, instance.Deliver(migrations.GetId()))
-		assert.Empty(t, instance.Typed(migrations.GetId()))
+		assert.Empty(t, instance.Received(migrations.GetId()))
 	})
 
 	t.Run("an agent mid-turn is told at once", func(t *testing.T) {
@@ -153,9 +153,9 @@ func TestIntegrationDeliveryWaitsOutAPermissionPrompt(t *testing.T) {
 
 		assert.Equal(t, mail.DeliverySoon, instance.Deliver(migrations.GetId()))
 
-		typed := instance.WaitForTyped(migrations.GetId(), 1)
-		require.Len(t, typed, 1)
-		assert.Contains(t, typed[0], "read_mail")
+		received := instance.WaitForReceived(migrations.GetId(), 1)
+		require.Len(t, received, 1)
+		assert.Contains(t, received[0], "read_mail")
 	})
 }
 
@@ -179,7 +179,7 @@ func TestIntegrationExpiredMailIsGivenUpOn(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, mail.DeliveryDone, instance.Deliver(migrations.GetId()))
-	assert.Empty(t, instance.Typed(migrations.GetId()))
+	assert.Empty(t, instance.Received(migrations.GetId()))
 	assert.Empty(t, readMail(t, instance, migrations.GetId()), "expired mail is not readable either")
 }
 

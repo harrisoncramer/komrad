@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestCompareVersion covers which versions a CLI prints meet the floor komrad launches it at.
-func TestCompareVersion(t *testing.T) {
+// TestRequireVersion covers which versions a CLI prints meet the floor komrad launches it at.
+func TestRequireVersion(t *testing.T) {
 	tests := []struct {
 		name    string
 		output  string
@@ -25,6 +25,11 @@ func TestCompareVersion(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "output naming no version",
+			output:  "command not recognised",
+			wantErr: true,
+		},
+		{
 			name:   "the floor itself",
 			output: "2.1.224 (Claude Code)",
 		},
@@ -32,16 +37,11 @@ func TestCompareVersion(t *testing.T) {
 			name:   "a newer version whose part is wider than the floor's",
 			output: "codex-cli 2.1.1000",
 		},
-		{
-			name:    "output naming no version",
-			output:  "command not recognised",
-			wantErr: true,
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := compareVersion("claude", tt.output, "2.1.224")
+			err := requireVersion("claude", tt.output, "2.1.224")
 			if !tt.wantErr {
 				require.NoError(t, err)
 

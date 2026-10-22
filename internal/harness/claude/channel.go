@@ -26,11 +26,11 @@ func (h *Harness) MinVersion() string {
 
 // Channel writes to the messaging socket each agent's CLI listens on.
 func (h *Harness) Channel() harness.Channel {
-	return channel{harness: h}
+	return channel{cacheDir: h.cacheDir}
 }
 
 type channel struct {
-	harness *Harness
+	cacheDir string
 }
 
 type inboundMessage struct {
@@ -47,7 +47,7 @@ type inboundContent struct {
 // Send writes text to the agent's messaging socket as a message from komrad.
 func (c channel) Send(ctx context.Context, target harness.Target, text string) (bool, error) {
 	dialer := net.Dialer{Timeout: dialTimeout}
-	conn, err := dialer.DialContext(ctx, "unix", harness.SocketPath(c.harness.cacheDir, HarnessID, target.AgentID))
+	conn, err := dialer.DialContext(ctx, "unix", harness.SocketPath(c.cacheDir, HarnessID, target.AgentID))
 	if errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ECONNREFUSED) {
 		return false, nil
 	}

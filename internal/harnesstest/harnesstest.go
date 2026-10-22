@@ -36,8 +36,8 @@ const tailLines = 5
 const agentScript = `#!/bin/sh
 log="$FAKE_ROOT/logs/$FAKE_SESSION.jsonl"
 state="$FAKE_ROOT/state/$KOMRAD_AGENT_ID"
-typed="$FAKE_ROOT/typed/$KOMRAD_AGENT_ID"
-mkdir -p "$FAKE_ROOT/logs" "$FAKE_ROOT/state" "$FAKE_ROOT/typed"
+received="$FAKE_ROOT/received/$KOMRAD_AGENT_ID"
+mkdir -p "$FAKE_ROOT/logs" "$FAKE_ROOT/state" "$FAKE_ROOT/received"
 
 if [ -n "$FAKE_RESUME" ]; then
 	printf 'assistant\tresumed\n' >>"$log"
@@ -54,7 +54,7 @@ fi
 
 while IFS= read -r line; do
 	[ -n "$line" ] || continue
-	printf '%s\n' "$line" >>"$typed"
+	printf '%s\n' "$line" >>"$received"
 	printf 'user\t%s\n' "$line" >>"$log"
 done
 `
@@ -289,25 +289,25 @@ func (h *Harness) Show(agentID, line string) error {
 	return nil
 }
 
-// Typed is every line that reached an agent, oldest first, as its own stdin received them from
+// Received is every line that reached an agent, oldest first, as its own stdin received them from
 // its socket or its pane.
-func (h *Harness) Typed(agentID string) ([]string, error) {
-	raw, err := os.ReadFile(filepath.Join(h.root, "typed", agentID))
+func (h *Harness) Received(agentID string) ([]string, error) {
+	raw, err := os.ReadFile(filepath.Join(h.root, "received", agentID))
 	if os.IsNotExist(err) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to read what was typed at agent %q: %w", agentID, err)
+		return nil, fmt.Errorf("failed to read what reached agent %q: %w", agentID, err)
 	}
 
-	var typed []string
+	var received []string
 	for _, line := range strings.Split(strings.TrimRight(string(raw), "\n"), "\n") {
 		if strings.TrimSpace(line) != "" {
-			typed = append(typed, line)
+			received = append(received, line)
 		}
 	}
 
-	return typed, nil
+	return received, nil
 }
 
 // Say appends a turn to a conversation.
@@ -343,7 +343,7 @@ func flatten(data []byte) []harness.Turn {
 
 // Channel writes a line to the socket the fake agent listens on.
 func (h *Harness) Channel() harness.Channel {
-	return channel{sockets: h.sockets}
+	return socketChannel{sockets: h.sockets}
 }
 
 // MinVersion is empty, the fake agent having no version to check.
@@ -351,12 +351,12 @@ func (h *Harness) MinVersion() string {
 	return ""
 }
 
-type channel struct {
+type socketChannel struct {
 	sockets string
 }
 
 // Send writes text to the agent's socket, returning false when nothing listens there.
-func (c channel) Send(ctx context.Context, target harness.Target, text string) (bool, error) {
+func (c socketChannel) Send(ctx context.Context, target harness.Target, text string) (bool, error) {
 	var dialer net.Dialer
 	conn, err := dialer.DialContext(ctx, "unix", harness.SocketPath(c.sockets, ID, target.AgentID))
 	if errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ECONNREFUSED) {

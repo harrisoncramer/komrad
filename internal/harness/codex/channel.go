@@ -33,11 +33,11 @@ func (h *Harness) MinVersion() string {
 
 // Channel hands text to an agent's thread through the app server its pane runs.
 func (h *Harness) Channel() harness.Channel {
-	return channel{harness: h}
+	return channel{cacheDir: h.cacheDir}
 }
 
 type channel struct {
-	harness *Harness
+	cacheDir string
 }
 
 // Send steers the turn the agent's thread is in, or queues the text when no turn is running.
@@ -58,16 +58,16 @@ func (c channel) Send(ctx context.Context, target harness.Target, text string) (
 	}
 	defer func() { _ = conn.CloseNow() }() //nolint:errcheck // the send already has its answer
 
-	session := &rpcSession{conn: conn}
-	if err := session.open(ctx); err != nil {
-		return false, fmt.Errorf("failed to open a session with the codex app server for agent %q: %w", target.AgentID, err)
+	rpc := &rpcConn{conn: conn}
+	if err := rpc.open(ctx); err != nil {
+		return false, fmt.Errorf("failed to open a connection to the codex app server for agent %q: %w", target.AgentID, err)
 	}
 
-	return session.deliver(ctx, target.SessionID, text)
+	return rpc.deliver(ctx, target.SessionID, text)
 }
 
 func (c channel) dial(ctx context.Context, agentID string) (*websocket.Conn, error) {
-	path := harness.SocketPath(c.harness.cacheDir, HarnessID, agentID)
+	path := harness.SocketPath(c.cacheDir, HarnessID, agentID)
 
 	transport := xhttp.NewTransport()
 	transport.Proxy = nil
@@ -88,10 +88,10 @@ func (c channel) dial(ctx context.Context, agentID string) (*websocket.Conn, err
 	return conn, nil
 }
 
-// rpcSession is one connection's JSON-RPC exchange with the app server.
-type rpcSession struct {
-	conn *websocket.Conn
-	last int
+// rpcConn is one connection's JSON-RPC exchange with the app server.
+type rpcConn struct {
+	conn   *websocket.Conn
+	lastID int
 }
 
 type rpcRequest struct {
@@ -127,34 +127,34 @@ type turn struct {
 }
 
 // open introduces komrad to the app server, asking for the methods it marks experimental.
-func (s *rpcSession) open(ctx context.Context) error {
+func (r *rpcConn) open(ctx context.Context) error {
 	params := map[string]any{
 		"clientInfo":   map[string]string{"name": "komrad", "version": "1"},
 		"capabilities": map[string]bool{"experimentalApi": true},
 	}
-	if err := s.call(ctx, "initialize", params, nil); err != nil {
+	if err := r.call(ctx, "initialize", params, nil); err != nil {
 		return err
 	}
 
-	return s.write(ctx, rpcRequest{Method: "initialized"})
+	return r.write(ctx, rpcRequest{Method: "initialized"})
 }
 
 // deliver steers the thread's running turn, falling through to its queue when there is none or
 // the turn ended before the steer landed.
-func (s *rpcSession) deliver(ctx context.Context, threadID, text string) (bool, error) {
+func (r *rpcConn) deliver(ctx context.Context, threadID, text string) (bool, error) {
 	input := []userInput{{Type: "text", Text: text}}
 
 	var page struct {
 		Data []turn `json:"data"`
 	}
 	params := map[string]any{"threadId": threadID, "limit": 1, "itemsView": "notLoaded"}
-	if err := s.call(ctx, "thread/turns/list", params, &page); err != nil {
+	if err := r.call(ctx, "thread/turns/list", params, &page); err != nil {
 		return false, fmt.Errorf("failed to read the turns of thread %q: %w", threadID, err)
 	}
 
 	if len(page.Data) > 0 && page.Data[0].Status == turnInProgress {
 		steer := map[string]any{"threadId": threadID, "expectedTurnId": page.Data[0].ID, "input": input}
-		err := s.call(ctx, "turn/steer", steer, nil)
+		err := r.call(ctx, "turn/steer", steer, nil)
 		if err == nil {
 			return true, nil
 		}
@@ -166,7 +166,7 @@ func (s *rpcSession) deliver(ctx context.Context, threadID, text string) (bool, 
 	}
 
 	queue := map[string]any{"threadId": threadID, "clientUserMessageId": uuid.NewString(), "input": input}
-	err := s.call(ctx, "thread/queue/add", queue, nil)
+	err := r.call(ctx, "thread/queue/add", queue, nil)
 
 	var refused *rpcError
 	if errors.As(err, &refused) {
@@ -181,15 +181,15 @@ func (s *rpcSession) deliver(ctx context.Context, threadID, text string) (bool, 
 
 // call sends one request and waits for its answer, passing over whatever the app server says in
 // between.
-func (s *rpcSession) call(ctx context.Context, method string, params, result any) error {
-	s.last++
-	id := s.last
-	if err := s.write(ctx, rpcRequest{ID: &id, Method: method, Params: params}); err != nil {
+func (r *rpcConn) call(ctx context.Context, method string, params, result any) error {
+	r.lastID++
+	id := r.lastID
+	if err := r.write(ctx, rpcRequest{ID: &id, Method: method, Params: params}); err != nil {
 		return err
 	}
 
 	for {
-		_, raw, err := s.conn.Read(ctx)
+		_, raw, err := r.conn.Read(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to read the answer to %s: %w", method, err)
 		}
@@ -216,12 +216,12 @@ func (s *rpcSession) call(ctx context.Context, method string, params, result any
 	}
 }
 
-func (s *rpcSession) write(ctx context.Context, request rpcRequest) error {
+func (r *rpcConn) write(ctx context.Context, request rpcRequest) error {
 	body, err := json.Marshal(request)
 	if err != nil {
 		return fmt.Errorf("failed to encode %s: %w", request.Method, err)
 	}
-	if err := s.conn.Write(ctx, websocket.MessageText, body); err != nil {
+	if err := r.conn.Write(ctx, websocket.MessageText, body); err != nil {
 		return fmt.Errorf("failed to send %s: %w", request.Method, err)
 	}
 

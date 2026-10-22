@@ -101,9 +101,9 @@ func TestIntegrationReviews(t *testing.T) {
 
 		instance.WorkQueue()
 		assert.Equal(t, mail.DeliverySoon, instance.Deliver(worker.GetId()))
-		typed := instance.WaitForTyped(worker.GetId(), 1)
-		require.Len(t, typed, 1)
-		assert.Contains(t, typed[0], "read_mail")
+		received := instance.WaitForReceived(worker.GetId(), 1)
+		require.Len(t, received, 1)
+		assert.Contains(t, received[0], "read_mail")
 
 		doorbell := readMail(t, instance, worker.GetId())
 		require.Len(t, doorbell, 1)

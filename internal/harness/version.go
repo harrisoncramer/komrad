@@ -36,11 +36,11 @@ func CheckVersion(ctx context.Context, hn Harness) error {
 		return fmt.Errorf("failed to read the version of %s: %w", hn.Binary(), err)
 	}
 
-	return compareVersion(hn.Binary(), string(output), floor)
+	return requireVersion(hn.Binary(), string(output), floor)
 }
 
-// compareVersion refuses the version a CLI printed when it is older than floor.
-func compareVersion(binary, output, floor string) error {
+// requireVersion refuses the version a CLI printed when it is older than floor.
+func requireVersion(binary, output, floor string) error {
 	found, older, err := ReadVersion(output, floor)
 	if errors.Is(err, errNoVersion) {
 		return fmt.Errorf("%w: %s --version printed no version, and komrad needs %s or newer", errUnsupportedVersion, binary, floor)

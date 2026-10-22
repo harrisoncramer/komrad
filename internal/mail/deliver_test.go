@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -22,7 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var nudgeLine = regexp.MustCompile(`^komrad: 1 piece\(s\) of unread mail at \d\d:\d\d:\d\d, call read_mail$`)
+const nudgeLine = "komrad: 1 piece(s) of unread mail at 15:04:05, call read_mail"
 
 const movingDir = "/moving"
 
@@ -76,6 +75,18 @@ func TestDeliver(t *testing.T) {
 			wantClaim: true,
 		},
 		{
+			name:   "an agent whose CLI is not listening gives the claim back",
+			refuse: true,
+			want:   DeliveryLater,
+		},
+		{
+			name:      "a send that failed keeps the claim, since the line may have landed",
+			sendErr:   errors.New("connection reset"),
+			want:      DeliveryLater,
+			wantErr:   true,
+			wantClaim: true,
+		},
+		{
 			name:      "an agent mid-turn",
 			state:     agentstore.StateThinking,
 			want:      DeliverySoon,
@@ -87,18 +98,6 @@ func TestDeliver(t *testing.T) {
 			want:      DeliverySoon,
 			wantClaim: true,
 			wantNudge: true,
-		},
-		{
-			name:   "an agent whose CLI is not listening gives the claim back",
-			refuse: true,
-			want:   DeliveryLater,
-		},
-		{
-			name:      "a send that failed keeps the claim, since the line may have landed",
-			sendErr:   errors.New("connection reset"),
-			want:      DeliveryLater,
-			wantErr:   true,
-			wantClaim: true,
 		},
 	}
 
@@ -126,7 +125,7 @@ func TestDeliver(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 			if tt.wantNudge {
 				require.Len(t, channel.Sent, 1)
-				assert.Regexp(t, nudgeLine, channel.Sent[0])
+				assert.Equal(t, nudgeLine, channel.Sent[0])
 			} else {
 				assert.Empty(t, channel.Sent)
 			}
@@ -190,6 +189,9 @@ func newDeliveryService(st *storetest.Stores, channel *harnesstest.Channel) *Del
 		NudgeClaimer: st.Agents,
 		Harnesses:    harnesstest.Registry{Harness: &harnesstest.Fake{Delivery: channel}},
 		Trees:        movingTrees{},
+		Now: func() time.Time {
+			return time.Date(2026, time.October, 22, 15, 4, 5, 0, time.Local)
+		},
 	})
 }
 

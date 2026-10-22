@@ -33,31 +33,39 @@ type nudgeClaimer interface {
 	ClearNudge(ctx context.Context, id string) error
 }
 
-type harnessFinder interface {
+type harnessGetter interface {
 	GetByID(id string) (harness.Harness, error)
 }
 
 type NewDeliveryServiceParams struct {
 	Mail         *mailstore.MailStore
 	NudgeClaimer nudgeClaimer
-	Harnesses    harnessFinder
+	Harnesses    harnessGetter
 	Trees        treeReader
+	Now          func() time.Time
 }
 
 type DeliveryService struct {
 	mail         *mailstore.MailStore
 	nudgeClaimer nudgeClaimer
-	harnesses    harnessFinder
+	harnesses    harnessGetter
 	trees        treeReader
+	now          func() time.Time
 }
 
 // NewDeliveryService builds the service from its dependencies.
 func NewDeliveryService(params NewDeliveryServiceParams) *DeliveryService {
+	now := params.Now
+	if now == nil {
+		now = time.Now
+	}
+
 	return &DeliveryService{
 		mail:         params.Mail,
 		nudgeClaimer: params.NudgeClaimer,
 		harnesses:    params.Harnesses,
 		trees:        params.Trees,
+		now:          now,
 	}
 }
 
@@ -145,7 +153,7 @@ func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pen
 		return false, err
 	}
 
-	sent, err := hn.Channel().Send(ctx, buildTarget(agent), formatNudge(pending, time.Now()))
+	sent, err := hn.Channel().Send(ctx, buildTarget(agent), formatNudge(pending, s.now()))
 	if err != nil {
 		return false, err
 	}
