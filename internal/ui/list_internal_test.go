@@ -67,7 +67,7 @@ func TestActionKeysGoThroughTheMenu(t *testing.T) {
 		},
 		screen.Schedules: {actionScheduleRename},
 		screen.Review: {
-			actionReviewBack, actionReviewBack,
+			actionReviewBack, actionReviewBack, actionReviewBack,
 		},
 	}
 

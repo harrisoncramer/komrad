@@ -392,33 +392,38 @@ func (r *reviewScreen) restOnSide(cursor sideCursor) {
 	r.folderCursor = folderCursor{}
 }
 
-// chooseSide does what the row under the sidebar's cursor is for, false when it is for nothing.
-func (r *reviewScreen) chooseSide(m *model, in screen.Inputs) (screen.Request, bool) {
+// isSideFocused reports whether the rows over the file tree hold the review's keys.
+func (r *reviewScreen) isSideFocused(m *model, in screen.Inputs) bool {
+	_, ok := r.findSide(m)
+
+	return ok && r.isBlockFocused(m, in)
+}
+
+// chooseSide does what the row under the sidebar's cursor is for.
+func (r *reviewScreen) chooseSide(m *model, in screen.Inputs) screen.Request {
 	side, ok := r.findSide(m)
 	if !ok {
-		return nil, false
+		return nil
 	}
 
 	switch side.kind {
 	case sideDescription:
 		r.openDescription = !r.openDescription
-
-		return nil, true
 	case sideNeed:
-		return r.landOnThread(m, side.id), true
+		return r.landOnThread(m, side.id)
 	case sideTask:
-		return r.openStackedReview(m, in, side.id), true
+		return r.openStackedReview(m, in, side.id)
 	case sideHeading, sideBlank, sideThisTask, sideForge, sideWaiting, sideDescriptionLine:
 	}
 
-	return nil, false
+	return nil
 }
 
-// chooseDesc says what choosing the row under the sidebar's cursor does.
+// chooseDesc says what choosing the row under the sidebar's cursor does, empty when it does nothing.
 func (r reviewScreen) chooseDesc(m *model) string {
 	side, ok := r.findSide(m)
 	if !ok {
-		return r.folderDesc()
+		return ""
 	}
 
 	switch side.kind {
@@ -436,17 +441,6 @@ func (r reviewScreen) chooseDesc(m *model) string {
 	}
 
 	return ""
-}
-
-// doesChoose reports whether the open key does something where the sidebar's cursor rests.
-func (r reviewScreen) doesChoose(m *model) bool {
-	if _, ok := r.findSide(m); ok {
-		return r.chooseDesc(m) != ""
-	}
-
-	_, ok := r.readCurrentFolder()
-
-	return ok
 }
 
 // landOnThread puts the diff's cursor on a thread, widening the diff when the range on screen
@@ -518,7 +512,6 @@ func (r *reviewScreen) clickSide(m *model, in screen.Inputs, key string) screen.
 	}
 
 	r.restOnSide(cursor)
-	chosen, _ := r.chooseSide(m, in)
 
-	return chosen
+	return r.chooseSide(m, in)
 }

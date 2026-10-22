@@ -36,4 +36,5 @@ const (
 	actionReviewBase
 	actionReviewBaseForward
 	actionReviewFolder
+	actionReviewSide
 )

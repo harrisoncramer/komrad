@@ -192,7 +192,7 @@ func (r reviewScreen) typedLine() (field.Line, bool) {
 }
 
 func (r *reviewScreen) dispatches(*model) []keys.Table {
-	return []keys.Table{r.diffActions(), r.filesActions()}
+	return []keys.Table{r.diffActions(), r.filesActions(), r.sideActions()}
 }
 
 // writerPane is the agent whose work is under review, which the stage keeps beside the diff while
