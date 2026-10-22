@@ -102,7 +102,7 @@ func TestStatusChecksList(t *testing.T) {
 
 		harness := openStatusChecks(t, listed)
 
-		assert.True(t, spins(harness))
+		assert.True(t, isSpinning(harness))
 	})
 
 	t.Run("the spinner rests once every status check has finished", func(t *testing.T) {
@@ -112,7 +112,7 @@ func TestStatusChecksList(t *testing.T) {
 			newStatusCheck("1", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SUCCESS"),
 		))
 
-		assert.False(t, spins(harness))
+		assert.False(t, isSpinning(harness))
 	})
 
 	t.Run("the cursor moves through the status checks", func(t *testing.T) {
@@ -343,7 +343,7 @@ func TestStatusChecksSteps(t *testing.T) {
 		frame := harness.Frame()
 		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckUnknown)+" e2e")
 		assert.Contains(t, frame, "unknown")
-		assert.False(t, spins(harness))
+		assert.False(t, isSpinning(harness))
 	})
 }
 
