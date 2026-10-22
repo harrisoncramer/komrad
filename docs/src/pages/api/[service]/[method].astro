@@ -23,10 +23,10 @@ export function getStaticPaths() {
 const { service, method } = Astro.props;
 const request = messageOf(method.request);
 const response = messageOf(method.response);
-const oneofs = new Set(request.oneofs.filter((oneof) => oneof.required).map((oneof) => oneof.name));
+const unfilled = new Set(request.oneofs.filter((oneof) => oneof.required).map((oneof) => oneof.name));
 const required = request.fields.filter((field) => {
   if (!field.oneof) return field.rules.includes("required");
-  return oneofs.delete(field.oneof);
+  return unfilled.delete(field.oneof);
 });
 
 const placeholder = (field: Field) => {
