@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/screen"
 )
 
 // popupAnchor is the columns the popup takes beside the diff's code, which are the sidebar, the
@@ -68,7 +69,7 @@ func (r reviewScreen) placeThread(m *model, body string) popupSlot {
 
 // isPopupForm reports whether the form stands in the review's popup rather than in a column of its own.
 func (m *model) isPopupForm() bool {
-	return m.form.isOpening() && m.screen == screenReview && !m.review.hold.atEditor && !m.isMessagesFocused()
+	return m.form.isOpening() && m.screen == screen.Review && !m.review.hold.atEditor && !m.isMessagesFocused()
 }
 
 // measurePopupRoom is the rows inside the tallest popup the review has room for beside the cursor.

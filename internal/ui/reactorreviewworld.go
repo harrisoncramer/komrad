@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"komrad/internal/assemble"
+	"komrad/internal/ui/screen"
 	watchv1 "komrad/proto/gen/watch/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -13,7 +14,7 @@ import (
 type reviewWorldReactor struct{}
 
 func (reviewWorldReactor) react(m *model, changed assemble.Changed) tea.Cmd {
-	if m.screen != screenReview || !doesMoveReview(changed, m.review.agentID) {
+	if m.screen != screen.Review || !doesMoveReview(changed, m.review.agentID) {
 		return nil
 	}
 

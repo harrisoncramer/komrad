@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
@@ -80,14 +81,14 @@ func isTaskStartable(m *model, task panel.Task) bool {
 // taskJumpMenu is the jump menu of the agent that opens a task, with its documents entry landing on the
 // task's.
 func taskJumpMenu(m *model, agentID, taskID string) submenu {
-	menu := jumpMenu(m, screenAgents, screenTarget{agentID: agentID})
+	menu := jumpMenu(m, screen.Agents, screen.Target{AgentID: agentID})
 	menu.entries = xslice.Map(menu.entries, func(entry submenuEntry) submenuEntry {
 		if !slices.Equal(entry.keys, m.keys.JumpMenu.Documents) {
 			return entry
 		}
 
 		return openEntry("documents", m.keys.JumpMenu.Documents, func(m *model) tea.Cmd {
-			return m.enter(screenDocuments, screenTarget{agentID: agentID, taskID: taskID})
+			return m.apply(screen.Open{Screen: screen.Documents, Target: screen.Target{AgentID: agentID, TaskID: taskID}})
 		})
 	})
 
@@ -99,7 +100,7 @@ func taskLogsEntry(m *model, task panel.Task) submenuEntry {
 	return openEntry("logs", m.keys.Menu.Logs, func(m *model) tea.Cmd {
 		m.leaveForm()
 
-		return m.enter(screenLogs, screenTarget{taskID: task.ID, openedFrom: screenAgents})
+		return m.apply(screen.Open{Screen: screen.Logs, Target: screen.Target{TaskID: task.ID, OpenedFrom: screen.Agents}})
 	})
 }
 

@@ -7,6 +7,7 @@ import (
 	"komrad/config"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/reader"
+	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -209,7 +210,7 @@ func (m *model) updateDoc(key tea.KeyPressMsg) tea.Cmd {
 		return own.Dispatch(m, m.keys, k)
 	}
 
-	if m.screen == screenDocuments {
+	if m.screen == screen.Documents {
 		return m.documents.docKeys().Dispatch(m, m.keys, k)
 	}
 
@@ -318,7 +319,7 @@ func (m *model) docActions() keys.Spec[*model] {
 // docHelp is the legend while the document beside the list holds the keys.
 func (m *model) docHelp() keyMap {
 	own := m.helpOf(m.docActions())
-	if m.screen == screenDocuments {
+	if m.screen == screen.Documents {
 		screen := m.helpOf(m.documents.docKeys())
 		own = keyMap{
 			short: slices.Concat(own.short, screen.short),

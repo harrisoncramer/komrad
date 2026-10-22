@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -121,7 +122,7 @@ func documentMenu(m *model, d *documentsScreen) (submenu, bool) {
 		return menu, true
 	}
 
-	return withNested(menu, "jump", m.keys.Menu.Jump, jumpMenu(m, screenDocuments, screenTarget{agentID: item.agentID, taskID: item.taskID})), true
+	return withNested(menu, "jump", m.keys.Menu.Jump, jumpMenu(m, screen.Documents, screen.Target{AgentID: item.agentID, TaskID: item.taskID})), true
 }
 
 // documentEntries are the entries that leave the menu and run on the documents screen.

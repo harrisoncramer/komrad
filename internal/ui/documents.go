@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
+	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 	"komrad/lib/dates"
 	"komrad/lib/xslice"
@@ -89,20 +90,20 @@ func (r documentTypeRow) Key() string {
 }
 
 // enter opens on every agent's documents, filtered down to the task or agent the target names when one is.
-func (d *documentsScreen) enter(m *model, target screenTarget) tea.Cmd {
+func (d *documentsScreen) enter(m *model, target screen.Target) tea.Cmd {
 	var saved tea.Cmd
-	if !target.resume {
-		d.agentID, d.taskID = target.agentID, target.taskID
-		if target.agentID != "" || target.taskID != "" {
+	if !target.Resume {
+		d.agentID, d.taskID = target.AgentID, target.TaskID
+		if target.AgentID != "" || target.TaskID != "" {
 			saved = d.closeEdit(m)
 			d.kind, d.kindFocus, d.history, d.focus = documentKindDocuments, false, nil, false
 			d.Cursor = list.Cursor{}
 		}
 		switch {
-		case target.taskID != "":
-			m.filterDocuments(taskClause(m.listing.Tasks[target.taskID].Slug))
-		case target.agentID != "":
-			m.filterDocuments(agentClause(findAgentName(m, target.agentID)))
+		case target.TaskID != "":
+			m.filterDocuments(taskClause(m.listing.Tasks[target.TaskID].Slug))
+		case target.AgentID != "":
+			m.filterDocuments(agentClause(findAgentName(m, target.AgentID)))
 		}
 	}
 
@@ -287,8 +288,8 @@ func (d *documentsScreen) listParams(m *model) screenListParams {
 	}
 }
 
-func (d *documentsScreen) parent() screen {
-	return screenDocuments
+func (d *documentsScreen) parent() screen.ID {
+	return screen.Documents
 }
 
 // crumbs runs down to the version stepped to, and counts the documents while none is.
@@ -351,7 +352,7 @@ type documentReadMsg struct {
 // readDocumentsCmd lists the documents again when any agent has written since they were last
 // listed, and otherwise reads the one under the cursor.
 func (m *model) readDocumentsCmd() tea.Cmd {
-	if m.screen != screenDocuments {
+	if m.screen != screen.Documents {
 		return nil
 	}
 

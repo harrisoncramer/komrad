@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -39,9 +40,7 @@ func draftLabel(task panel.Task) string {
 // cannot.
 func (m *model) toggleDraft(task panel.Task) tea.Cmd {
 	if err := openPullRequestRefusal(task); err != nil {
-		m.report("Could not change the "+task.PullRequest.Noun()+" of "+task.Slug, err)
-
-		return nil
+		return m.apply(screen.Report{Summary: "Could not change the " + task.PullRequest.Noun() + " of " + task.Slug, Err: err})
 	}
 
 	clients := m.api

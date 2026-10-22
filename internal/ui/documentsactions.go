@@ -5,6 +5,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
@@ -145,7 +146,7 @@ func (d *documentsScreen) stepActions() keys.Spec[*model] {
 			{
 				ID:   keys.Quit,
 				Keys: keys.FixedQuit,
-				Nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
+				Nav:  func(m *model, _ string) tea.Cmd { return m.apply(screen.Hide{}) },
 			},
 			{
 				ID:   actionDocumentsOlder,
@@ -257,7 +258,7 @@ func (d *documentsScreen) docKeys() keys.Spec[*model] {
 			{
 				ID:   keys.Quit,
 				Keys: keys.FixedQuit,
-				Nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
+				Nav:  func(m *model, _ string) tea.Cmd { return m.apply(screen.Hide{}) },
 			},
 		},
 		Legend: []keys.LegendRow[*model]{

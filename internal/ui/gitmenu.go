@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -234,33 +235,25 @@ func openPullRequestRefusal(task panel.Task) error {
 func (m *model) runGitChoice(taskID string, choice gitChoice) tea.Cmd {
 	task, ok := m.findGitTask(taskID)
 	if !ok {
-		m.report("Could not act on the task", errTaskGone)
-
-		return nil
+		return m.apply(screen.Report{Summary: "Could not act on the task", Err: errTaskGone})
 	}
 
 	switch choice {
 	case gitChoiceRebase:
 		if err := worktreeRefusal(m.listing, task); err != nil {
-			m.report("Could not rebase the worktree of "+task.Slug, err)
-
-			return nil
+			return m.apply(screen.Report{Summary: "Could not rebase the worktree of " + task.Slug, Err: err})
 		}
 
 		return m.planGitCmd(rebaseOp(task.ID, task.Slug, false))
 	case gitChoiceRebaseOntoBase:
 		if err := rebaseOntoBaseRefusal(m.listing, task); err != nil {
-			m.report("Could not re-target "+task.Slug+" onto the base branch", err)
-
-			return nil
+			return m.apply(screen.Report{Summary: "Could not re-target " + task.Slug + " onto the base branch", Err: err})
 		}
 
 		return m.planGitCmd(rebaseOp(task.ID, task.Slug, true))
 	case gitChoicePush:
 		if err := pushRefusal(m.listing, task); err != nil {
-			m.report("Could not push the branch of "+task.Slug, err)
-
-			return nil
+			return m.apply(screen.Report{Summary: "Could not push the branch of " + task.Slug, Err: err})
 		}
 
 		return m.planGitCmd(pushOp(task))

@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"komrad/internal/ui/field"
+	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -64,7 +65,7 @@ func (d *documentsScreen) updateRename(m *model, msg tea.Msg) tea.Cmd {
 	case field.NameGone:
 		m.note(messageWarning, d.renaming.GoneWarning())
 	case field.NameHidden:
-		return m.hide()
+		return m.apply(screen.Hide{})
 	case field.NameCancelled:
 		d.renaming = nil
 	case field.NameSubmitted:

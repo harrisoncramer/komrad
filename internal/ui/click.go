@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/screen"
 	"komrad/internal/ui/zone"
 
 	tea "charm.land/bubbletea/v2"
@@ -81,10 +82,10 @@ func (m *model) clickerOf(name zone.Name) (clicker, bool) {
 	case zoneLog:
 		return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.logs.clickLine(key) })), true
 	case zoneDiff:
-		if m.screen == screenReview {
+		if m.screen == screen.Review {
 			return m.stopClicker(stopList, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.review.diffKeys().click(m, key) })), true
 		}
-		if m.screen == screenDocuments {
+		if m.screen == screen.Documents {
 			return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.documents.diffKeys().click(m, key) })), true
 		}
 	case zoneMenu:

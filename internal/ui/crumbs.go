@@ -2,6 +2,8 @@ package ui
 
 import (
 	"slices"
+
+	"komrad/internal/ui/screen"
 )
 
 // crumbs is the trail from a view down to the row or page the cursor is on.
@@ -13,7 +15,7 @@ type crumbs struct {
 
 // activeCrumbs is the trail from the view the screen that is up sits under, that view, and
 // whether a page or a form is open under it.
-func (m *model) activeCrumbs() (crumbs, screen, bool) {
+func (m *model) activeCrumbs() (crumbs, screen.ID, bool) {
 	parent, trail, opened := m.pageCrumbs()
 	if !opened {
 		trail = m.hoveredCrumbs()
@@ -28,7 +30,7 @@ func (m *model) activeCrumbs() (crumbs, screen, bool) {
 
 // pageCrumbs is the trail under the view, from the page that is up or from the form open over a
 // view.
-func (m *model) pageCrumbs() (screen, crumbs, bool) {
+func (m *model) pageCrumbs() (screen.ID, crumbs, bool) {
 	if c, ok := m.active().(crumbRenderer); ok {
 		return c.parent(), c.crumbs(m), true
 	}

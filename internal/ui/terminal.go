@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"komrad/internal/ui/layout"
+	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -158,8 +159,8 @@ func (m *model) findTerminalPane() string {
 }
 
 // closeTerminalLeaving closes the shell when the screen being entered cannot hold it.
-func (m *model) closeTerminalLeaving(next screen) {
-	if next.opensTerminal() || m.terminalDir == "" {
+func (m *model) closeTerminalLeaving(next screen.ID) {
+	if opensTerminal(next) || m.terminalDir == "" {
 		return
 	}
 

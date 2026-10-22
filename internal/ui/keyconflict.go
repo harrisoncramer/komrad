@@ -6,23 +6,12 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/screen"
 )
-
-// screenNames are the screens as an error names them.
-var screenNames = map[screen]string{
-	screenAgents:          "the agents list",
-	screenSchedules:       "the schedules",
-	screenReview:          "the review",
-	screenWorktrees:       "the worktrees",
-	screenDocuments:       "the documents",
-	screenLogs:            "the logs",
-	screenStatusChecks:    "the status checks",
-	screenStatusCheckLogs: "the status check logs",
-}
 
 // actionsOf is the tables each screen dispatches through, one at a time, walked behind the global
 // keys.
-func actionsOf(s screen) []keys.Table {
+func actionsOf(s screen.ID) []keys.Table {
 	var zero model
 
 	return zero.screenOf(s).dispatches(&zero)
@@ -30,7 +19,7 @@ func actionsOf(s screen) []keys.Table {
 
 // ValidateKeybindings rejects the bindings a screen could not dispatch.
 func ValidateKeybindings(keys config.Keybindings) error {
-	for _, s := range []screen{screenAgents, screenSchedules, screenReview, screenWorktrees, screenDocuments, screenLogs, screenStatusChecks, screenStatusCheckLogs} {
+	for _, s := range screen.IDs {
 		if err := validateScreenKeys(s, keys); err != nil {
 			return err
 		}
@@ -229,7 +218,7 @@ func validateSubmenuKeys(menu string, entries []submenuKeys) error {
 
 // validateScreenKeys walks each of one screen's tables in dispatch order and finds a key an
 // earlier unguarded arm answers ahead of a later one.
-func validateScreenKeys(s screen, bindings config.Keybindings) error {
+func validateScreenKeys(s screen.ID, bindings config.Keybindings) error {
 	tables := actionsOf(s)
 	if len(tables) == 0 {
 		return validateArms(s, globalArms(s, bindings))
@@ -245,7 +234,7 @@ func validateScreenKeys(s screen, bindings config.Keybindings) error {
 }
 
 // validateArms finds a key an earlier unguarded arm answers ahead of a later one.
-func validateArms(s screen, arms []keys.Arm) error {
+func validateArms(s screen.ID, arms []keys.Arm) error {
 	// answered holds, per key, the arm that takes every press of it and the arm's own place in the
 	// order, so an arm is not read as shadowing itself.
 	type shadow struct {
@@ -260,11 +249,11 @@ func validateArms(s screen, arms []keys.Arm) error {
 			if taken, ok := answered[key]; ok && taken.at != at {
 				if taken.describe == arm.Describe {
 					return fmt.Errorf("keybindings: on %s, %q is bound to two of the screen's own actions, and the first answers every press of it, so the second never runs",
-						screenNames[s], key)
+						s, key)
 				}
 
 				return fmt.Errorf("keybindings: on %s, %q is bound to both %s and %s, and %s answers every press of it, so the other never runs",
-					screenNames[s], key, taken.describe, arm.Describe, taken.describe)
+					s, key, taken.describe, arm.Describe, taken.describe)
 			}
 
 			if !arm.Guarded {
@@ -278,7 +267,7 @@ func validateArms(s screen, arms []keys.Arm) error {
 
 // globalArms are the keys the panel answers on one screen ahead of that screen's own table, in
 // the order it reads them.
-func globalArms(s screen, bindings config.Keybindings) []keys.Arm {
+func globalArms(s screen.ID, bindings config.Keybindings) []keys.Arm {
 	arms := []keys.Arm{{Describe: "the leader", Keys: []string{leaderKey}}}
 	var zero model
 

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"komrad/config"
+	"komrad/internal/ui/screen"
 
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/keys"
@@ -531,7 +532,7 @@ func (m *model) closeForm() tea.Cmd {
 	m.leaveForm()
 	m.reconcileSolo()
 
-	return m.enter(m.screen, screenTarget{resume: true})
+	return m.enter(m.screen, screen.Target{Resume: true})
 }
 
 // fixedKeys is what every screen, menu and form answers.

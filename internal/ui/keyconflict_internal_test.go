@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"komrad/config"
+	"komrad/internal/ui/screen"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,17 +35,17 @@ func TestValidateKeybindingsReadsEveryScreen(t *testing.T) {
 	tests := []struct {
 		name    string
 		rebind  func(*config.Keybindings)
-		screens []screen
+		screens []screen.ID
 	}{
 		{
 			name:    "a review key taking a movement key",
 			rebind:  func(k *config.Keybindings) { k.Review.NextThread = k.Nav.Down },
-			screens: []screen{screenReview},
+			screens: []screen.ID{screen.Review},
 		},
 		{
 			name:    "a diff key taking a movement key, on both screens that render a diff",
 			rebind:  func(k *config.Keybindings) { k.Diff.PanLeft = k.Nav.Down },
-			screens: []screen{screenReview, screenDocuments},
+			screens: []screen.ID{screen.Review, screen.Documents},
 		},
 	}
 
@@ -59,7 +60,7 @@ func TestValidateKeybindingsReadsEveryScreen(t *testing.T) {
 				err := validateScreenKeys(target, keys)
 
 				require.Error(t, err)
-				assert.ErrorContains(t, err, screenNames[target])
+				assert.ErrorContains(t, err, target.String())
 			}
 		})
 	}

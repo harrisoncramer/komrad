@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/screen"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -11,26 +12,26 @@ import (
 
 // viewEntry is one view on the switcher.
 type viewEntry struct {
-	screen screen
+	screen screen.ID
 	label  string
 }
 
 func viewEntries() []viewEntry {
 	return []viewEntry{
 		{
-			screen: screenAgents,
+			screen: screen.Agents,
 			label:  "agents",
 		},
 		{
-			screen: screenSchedules,
+			screen: screen.Schedules,
 			label:  "schedules",
 		},
 		{
-			screen: screenDocuments,
+			screen: screen.Documents,
 			label:  "documents",
 		},
 		{
-			screen: screenWorktrees,
+			screen: screen.Worktrees,
 			label:  "worktrees",
 		},
 	}
@@ -38,7 +39,7 @@ func viewEntries() []viewEntry {
 
 // rendersSwitcher reports whether the screen renders the row of views and answers the keys that
 // switch them.
-func rendersSwitcher(s screen) bool {
+func rendersSwitcher(s screen.ID) bool {
 	return slices.ContainsFunc(viewEntries(), func(entry viewEntry) bool { return entry.screen == s })
 }
 
@@ -135,12 +136,12 @@ func (m *model) enterView(entry viewEntry) tea.Cmd {
 		return nil
 	}
 
-	var target screenTarget
-	if entry.screen == screenWorktrees {
+	var target screen.Target
+	if entry.screen == screen.Worktrees {
 		if item, ok := m.hoveredRecordAgent(); ok {
-			target.agentID = item.Agent.ID
+			target.AgentID = item.Agent.ID
 		} else {
-			target.agentID = m.hoveredAgentID()
+			target.AgentID = m.hoveredAgentID()
 		}
 	}
 

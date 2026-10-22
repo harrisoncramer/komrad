@@ -8,6 +8,7 @@ import (
 
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
@@ -570,7 +571,7 @@ func compareUrgency(a, b triageEntry) int {
 // moment the cursor leaves, putting the cursor back on the row it was on.
 func (m *model) settleTriage() {
 	var zone []agentRow
-	if m.screen == screenAgents && len(m.agents.triage.entries) > 0 {
+	if m.screen == screen.Agents && len(m.agents.triage.entries) > 0 {
 		zone = m.agents.layout(m).zone
 	}
 

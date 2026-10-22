@@ -9,6 +9,7 @@ import (
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 
@@ -20,9 +21,7 @@ var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one
 
 func openNewTask(m *model, workflow *panel.Workflow) tea.Cmd {
 	if workflow == nil {
-		m.report("Could not start a task", errNoWorkflow)
-
-		return nil
+		return m.apply(screen.Report{Summary: "Could not start a task", Err: errNoWorkflow})
 	}
 
 	values := taskPrefill(*workflow)
@@ -119,9 +118,7 @@ func (m *model) submitRetry(agent panel.Agent, values retryFormValues) tea.Cmd {
 
 func openAdopt(m *model, workflow *panel.Workflow) tea.Cmd {
 	if workflow == nil {
-		m.report("Could not adopt", errNoWorkflow)
-
-		return nil
+		return m.apply(screen.Report{Summary: "Could not adopt", Err: errNoWorkflow})
 	}
 
 	values := adoptPrefill(*workflow)

@@ -9,6 +9,7 @@ import (
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -37,20 +38,20 @@ type archivedAgents struct {
 
 // enterArchived lands the agents view on its archived kind, or its deleted kind when that lists the
 // target.
-func (m *model) enterArchived(target screenTarget) tea.Cmd {
+func (m *model) enterArchived(target screen.Target) tea.Cmd {
 	m.agents.kind = agentsArchived
 	if isTargetOnDeletedList(m.listing, target) {
 		m.agents.kind = agentsDeleted
 	}
 
-	return m.enter(screenAgents, target)
+	return m.enter(screen.Agents, target)
 }
 
 // enterLive lands the agents view on the live kind.
-func (m *model) enterLive(target screenTarget) tea.Cmd {
+func (m *model) enterLive(target screen.Target) tea.Cmd {
 	m.agents.kind = agentsLive
 
-	return m.enter(screenAgents, target)
+	return m.enter(screen.Agents, target)
 }
 
 func (a *agentsScreen) kinds(*model) stops {
@@ -105,12 +106,12 @@ func (a *agentsScreen) shownArchive() *archivedAgents {
 }
 
 // enter lands on the task the target names, or on its agent when no row stands for the task.
-func (a *archivedAgents) enter(m *model, target screenTarget) tea.Cmd {
+func (a *archivedAgents) enter(m *model, target screen.Target) tea.Cmd {
 	a.place(m, "")
 	rows := a.listRows(m)
-	if idx := list.IndexOf(rows, taskRowKey(target.taskID)); target.taskID != "" && idx >= 0 {
+	if idx := list.IndexOf(rows, taskRowKey(target.TaskID)); target.TaskID != "" && idx >= 0 {
 		a.Row = idx
-	} else if idx := rowIndexOfAgentID(rows, target.agentID); target.agentID != "" && idx >= 0 {
+	} else if idx := rowIndexOfAgentID(rows, target.AgentID); target.AgentID != "" && idx >= 0 {
 		a.Row = idx
 	}
 
@@ -269,13 +270,13 @@ func isAgentOnDeletedList(l panel.Listing, item panel.AgentRow) bool {
 
 // isTargetOnDeletedList reports whether the deleted list holds the task or the archived agent a
 // target names.
-func isTargetOnDeletedList(l panel.Listing, target screenTarget) bool {
-	if task, listed := l.Tasks[target.taskID]; listed {
+func isTargetOnDeletedList(l panel.Listing, target screen.Target) bool {
+	if task, listed := l.Tasks[target.TaskID]; listed {
 		return isTaskOnDeletedList(task)
 	}
 
 	return slices.ContainsFunc(l.ArchivedAgents, func(item panel.AgentRow) bool {
-		return item.Agent.ID == target.agentID && isAgentOnDeletedList(l, item)
+		return item.Agent.ID == target.AgentID && isAgentOnDeletedList(l, item)
 	})
 }
 

@@ -8,6 +8,7 @@ import (
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 	schedulev1 "komrad/proto/gen/schedule/v1"
@@ -45,7 +46,7 @@ func scheduleItemName(item scheduleItem) string {
 }
 
 // enter lands the cursor once the root has put the screen up.
-func (w *schedulesScreen) enter(m *model, _ screenTarget) tea.Cmd {
+func (w *schedulesScreen) enter(m *model, _ screen.Target) tea.Cmd {
 	w.Row = cursor.Clamp(w.Row, len(w.listRows(m)))
 
 	return m.waitToStage()
@@ -140,9 +141,7 @@ func toggleSchedule(m *model, schedule panel.Schedule) tea.Cmd {
 // newScheduleForm puts up the form for a new schedule.
 func newScheduleForm(m *model) tea.Cmd {
 	if len(m.listing.Workflows) == 0 {
-		m.report("Could not create a schedule", errNoWorkflow)
-
-		return nil
+		return m.apply(screen.Report{Summary: "Could not create a schedule", Err: errNoWorkflow})
 	}
 
 	values := panel.ScheduleConfig{
@@ -196,9 +195,7 @@ func openScheduleForm(m *model, values *panel.ScheduleConfig, target *panel.Sche
 // editScheduleForm puts up the form over a stored schedule.
 func editScheduleForm(m *model, schedule panel.Schedule) tea.Cmd {
 	if !knownScheduleKind(schedule.Kind) {
-		m.report(fmt.Sprintf("Could not edit schedule %q", schedule.Name), errUnknownScheduleKind)
-
-		return nil
+		return m.apply(screen.Report{Summary: fmt.Sprintf("Could not edit schedule %q", schedule.Name), Err: errUnknownScheduleKind})
 	}
 
 	values := schedulePrefill(schedule)

@@ -8,6 +8,7 @@ import (
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 	"komrad/lib/dates"
 	"komrad/lib/xsha"
@@ -42,7 +43,7 @@ type statusCheckCommit struct {
 type statusChecksScreen struct {
 	list.Cursor
 	agentID           string
-	openedFrom        screen
+	openedFrom        screen.ID
 	commit            statusCheckCommit
 	listedPullRequest string
 	listedHead        string
@@ -62,11 +63,11 @@ func (r statusCheckRow) Key() string {
 	return "status-check:" + r.item.providerID
 }
 
-func (c *statusChecksScreen) enter(m *model, target screenTarget) tea.Cmd {
-	if target.agentID != "" {
+func (c *statusChecksScreen) enter(m *model, target screen.Target) tea.Cmd {
+	if target.AgentID != "" {
 		*c = statusChecksScreen{
-			agentID:    target.agentID,
-			openedFrom: target.openedFrom,
+			agentID:    target.AgentID,
+			openedFrom: target.OpenedFrom,
 		}
 	}
 
@@ -190,14 +191,14 @@ func (c *statusChecksScreen) listActions() keys.Spec[*model] {
 				ID:   actionStatusChecksBack,
 				Keys: keys.FixedBack,
 				Nav: func(m *model, _ string) tea.Cmd {
-					return m.enter(c.openedFrom, screenTarget{agentID: c.agentID})
+					return m.apply(screen.Open{Screen: c.openedFrom, Target: screen.Target{AgentID: c.agentID}})
 				},
 			},
 			keys.Action[*model]{
 				ID:   actionStatusChecksLogs,
 				Keys: keys.FixedOpen,
 				Nav: func(m *model, _ string) tea.Cmd {
-					return m.enter(screenStatusCheckLogs, screenTarget{agentID: c.agentID, openedFrom: screenStatusChecks})
+					return m.apply(screen.Open{Screen: screen.StatusCheckLogs, Target: screen.Target{AgentID: c.agentID, OpenedFrom: screen.StatusChecks}})
 				},
 			},
 		),
@@ -220,7 +221,7 @@ func (c *statusChecksScreen) help(m *model) keyMap {
 	return m.helpOf(c.listActions())
 }
 
-func (c *statusChecksScreen) parent() screen {
+func (c *statusChecksScreen) parent() screen.ID {
 	return c.openedFrom
 }
 
@@ -295,7 +296,7 @@ func (m *model) statusChecksPullRequestID(agentID string) string {
 // readStatusChecksCmd lists the status checks again when the agent's pull request or its head has moved since
 // they were last listed, once at a time.
 func (m *model) readStatusChecksCmd() tea.Cmd {
-	if m.screen != screenStatusChecks && m.screen != screenStatusCheckLogs {
+	if m.screen != screen.StatusChecks && m.screen != screen.StatusCheckLogs {
 		return nil
 	}
 

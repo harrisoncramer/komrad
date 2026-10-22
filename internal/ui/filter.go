@@ -13,6 +13,7 @@ import (
 	"komrad/internal/searchsyntax"
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/screen"
 	"komrad/internal/vim"
 
 	tea "charm.land/bubbletea/v2"
@@ -323,7 +324,7 @@ func (m *model) beginFilter() {
 	m.placeFilteredCursor(origin)
 }
 
-func (m *model) enterScreen(next screen) tea.Cmd {
+func (m *model) enterScreen(next screen.ID) tea.Cmd {
 	// A pane opened on a screen that takes these keys would follow the reader onto one that does
 	// not, where no key is left to close it, so it goes while the screen it belongs to is still up.
 	if !m.isViewsOpen() {

@@ -4,29 +4,17 @@ import (
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/layout"
+	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 )
 
-type screen int
-
-const (
-	screenAgents screen = iota
-	screenSchedules
-	screenReview
-	screenWorktrees
-	screenDocuments
-	screenLogs
-	screenStatusChecks
-	screenStatusCheckLogs
-)
-
 // opensTerminal reports whether the key that opens a shell beside the panel acts on a screen.
-func (s screen) opensTerminal() bool {
+func opensTerminal(s screen.ID) bool {
 	switch s {
-	case screenAgents, screenSchedules:
+	case screen.Agents, screen.Schedules:
 		return true
-	case screenReview, screenWorktrees, screenDocuments, screenLogs, screenStatusChecks, screenStatusCheckLogs:
+	case screen.Review, screen.Worktrees, screen.Documents, screen.Logs, screen.StatusChecks, screen.StatusCheckLogs:
 		return false
 	}
 
@@ -48,7 +36,7 @@ type screenModel interface {
 
 	// enter lands the cursor on the target where the target is on screen, and puts the stage
 	// right, once the root has put the screen up.
-	enter(m *model, target screenTarget) tea.Cmd
+	enter(m *model, target screen.Target) tea.Cmd
 
 	// takesEveryKey reports whether something on the screen is taking every key.
 	takesEveryKey() bool
@@ -62,18 +50,6 @@ type screenModel interface {
 	// dispatches is the tables the screen dispatches through, one at a time, walked behind the
 	// global keys.
 	dispatches(m *model) []keys.Table
-}
-
-// screenTarget is the row a screen must land on, each screen reading the fields it
-// understands.
-type screenTarget struct {
-	agentID string
-	// taskID is the task the screen opens on, for a screen that shows a task's work.
-	taskID string
-	// openedFrom is the view that opened the screen.
-	openedFrom screen
-	// resume says the screen is being gone back to and keeps what it held.
-	resume bool
 }
 
 // recordRenderer is a screen that renders the hovered row's record under its list.
@@ -161,7 +137,7 @@ type columnFocuser interface {
 // crumbRenderer is a screen opened from another that renders the trail back to it.
 type crumbRenderer interface {
 	// parent is the view that opened the page.
-	parent() screen
+	parent() screen.ID
 
 	// crumbs is the trail under the parent, down to the page.
 	crumbs(m *model) crumbs
@@ -245,31 +221,31 @@ func (m *model) active() screenModel {
 }
 
 // screenOf is the screen behind the enum, held by value on the root.
-func (m *model) screenOf(s screen) screenModel {
+func (m *model) screenOf(s screen.ID) screenModel {
 	switch s {
-	case screenAgents:
+	case screen.Agents:
 		if shown := m.agents.shownArchive(); shown != nil {
 			return shown
 		}
 
 		return &m.agents
-	case screenSchedules:
+	case screen.Schedules:
 		if m.schedules.kind == schedulesArchived {
 			return &m.schedules.archived
 		}
 
 		return &m.schedules
-	case screenReview:
+	case screen.Review:
 		return &m.review
-	case screenWorktrees:
+	case screen.Worktrees:
 		return &m.worktrees
-	case screenDocuments:
+	case screen.Documents:
 		return &m.documents
-	case screenLogs:
+	case screen.Logs:
 		return &m.logs
-	case screenStatusChecks:
+	case screen.StatusChecks:
 		return &m.statusChecks
-	case screenStatusCheckLogs:
+	case screen.StatusCheckLogs:
 		return &m.statusCheckLogs
 	}
 
@@ -328,10 +304,10 @@ func (m *model) selectGuest(pane string) {
 }
 
 // enter leaves whichever screen is up for the next, landing it on the target.
-func (m *model) enter(next screen, target screenTarget) tea.Cmd {
+func (m *model) enter(next screen.ID, target screen.Target) tea.Cmd {
 	// The review is the one screen that refuses a target, and it refuses before the screen goes up.
-	if next == screenReview && target.agentID != "" {
-		item, ok := m.listing.LiveAgent(target.agentID)
+	if next == screen.Review && target.AgentID != "" {
+		item, ok := m.listing.LiveAgent(target.AgentID)
 		if !ok {
 			return nil
 		}
@@ -342,4 +318,18 @@ func (m *model) enter(next screen, target screenTarget) tea.Cmd {
 	left := m.enterScreen(next)
 
 	return tea.Batch(left, m.screenOf(next).enter(m, target))
+}
+
+// apply does what a screen asked of the root.
+func (m *model) apply(request screen.Request) tea.Cmd {
+	switch request := request.(type) {
+	case screen.Open:
+		return m.enter(request.Screen, request.Target)
+	case screen.Report:
+		m.report(request.Summary, request.Err)
+	case screen.Hide:
+		return m.hide()
+	}
+
+	return nil
 }

@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/logview"
+	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 	logv1 "komrad/proto/gen/log/v1"
@@ -35,7 +36,7 @@ type logsScreen struct {
 	// taskID is the task whose runs the screen lists, empty for an agent's logs.
 	taskID string
 	// openedFrom is the view that opened the screen.
-	openedFrom screen
+	openedFrom screen.ID
 	sources    []*logv1.LogSource
 	listed     bool
 	// reading is the source the block holds lines of.
@@ -105,11 +106,11 @@ type logsSettledMsg struct {
 
 // enter starts over on the agent or task the target names, listing where its logs can be read
 // from and claiming a task's failed runs.
-func (l *logsScreen) enter(m *model, target screenTarget) tea.Cmd {
+func (l *logsScreen) enter(m *model, target screen.Target) tea.Cmd {
 	*l = logsScreen{
-		agentID:    target.agentID,
-		taskID:     target.taskID,
-		openedFrom: target.openedFrom,
+		agentID:    target.AgentID,
+		taskID:     target.TaskID,
+		openedFrom: target.OpenedFrom,
 		viewer:     logview.NewTail(logsCeiling),
 		format:     logview.FormatCompact,
 		generation: l.generation + 1,
@@ -312,7 +313,7 @@ func (l *logsScreen) openLogFilter() {
 // pattern sits still or the prompt is left.
 func (l *logsScreen) updateLogFilter(m *model, key tea.KeyPressMsg) tea.Cmd {
 	if key.String() == "ctrl+c" {
-		return m.hide()
+		return m.apply(screen.Hide{})
 	}
 
 	if !l.logFilter.takeKey(key, m.register) {
@@ -447,7 +448,7 @@ func (l *logsScreen) buildFrame(m *model) {
 	l.viewer.Fit(split.column-len(list.Blank), max(split.rows-1, 1))
 }
 
-func (l *logsScreen) parent() screen {
+func (l *logsScreen) parent() screen.ID {
 	return l.openedFrom
 }
 

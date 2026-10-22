@@ -8,6 +8,7 @@ import (
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/reader"
+	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
@@ -31,7 +32,7 @@ type statusCheckLogsScreen struct {
 	list.Cursor
 	agentID string
 	// openedFrom is the screen the logs were opened from, which going back returns to.
-	openedFrom screen
+	openedFrom screen.ID
 	// generation tells this visit's reads apart from an earlier one's.
 	generation int
 	logs       map[string]*statusCheckLogRead
@@ -87,12 +88,12 @@ type statusCheckLogReadMsg struct {
 	err        error
 }
 
-func (c *statusCheckLogsScreen) enter(m *model, target screenTarget) tea.Cmd {
+func (c *statusCheckLogsScreen) enter(m *model, target screen.Target) tea.Cmd {
 	generation := c.generation + 1
-	if target.agentID != "" {
+	if target.AgentID != "" {
 		*c = statusCheckLogsScreen{
-			agentID:    target.agentID,
-			openedFrom: target.openedFrom,
+			agentID:    target.AgentID,
+			openedFrom: target.OpenedFrom,
 		}
 	}
 	c.generation, c.logs, c.placed, c.placedTop = generation, map[string]*statusCheckLogRead{}, 0, 0
@@ -177,7 +178,7 @@ func (c *statusCheckLogsScreen) anchor(m *model) {
 
 // reanchor keeps the hovered row's header in view as the document changes above it, unless the reader has moved or scrolled off it.
 func (c *statusCheckLogsScreen) reanchor(m *model) {
-	if m.screen != screenStatusCheckLogs || m.reading.focused || m.reading.Line != c.placed || m.reading.Top != c.placedTop {
+	if m.screen != screen.StatusCheckLogs || m.reading.focused || m.reading.Line != c.placed || m.reading.Top != c.placedTop {
 		return
 	}
 
@@ -227,7 +228,7 @@ func (c *statusCheckLogsScreen) listActions() keys.Spec[*model] {
 				ID:   actionStatusCheckLogsBack,
 				Keys: keys.FixedBack,
 				Nav: func(m *model, _ string) tea.Cmd {
-					return m.enter(screenStatusChecks, screenTarget{})
+					return m.apply(screen.Open{Screen: screen.StatusChecks, Target: screen.Target{}})
 				},
 			},
 		),
@@ -245,7 +246,7 @@ func (c *statusCheckLogsScreen) help(m *model) keyMap {
 	return m.helpOf(c.listActions())
 }
 
-func (c *statusCheckLogsScreen) parent() screen {
+func (c *statusCheckLogsScreen) parent() screen.ID {
 	return c.openedFrom
 }
 
@@ -332,7 +333,7 @@ func (c *statusCheckLogsScreen) keepDoc(m *model, width int) statusCheckLogsRend
 
 // readsCmd starts reading the log of each shown check that has one kept and is not read yet.
 func (c *statusCheckLogsScreen) readsCmd(m *model) tea.Cmd {
-	if m.screen != screenStatusCheckLogs || c.logs == nil {
+	if m.screen != screen.StatusCheckLogs || c.logs == nil {
 		return nil
 	}
 

@@ -7,6 +7,7 @@ import (
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 
@@ -61,7 +62,7 @@ func (w *schedulesScreen) stepKind(m *model, delta int) tea.Cmd {
 	return tea.Batch(left, m.waitToStage())
 }
 
-func (a *archivedSchedules) enter(m *model, _ screenTarget) tea.Cmd {
+func (a *archivedSchedules) enter(m *model, _ screen.Target) tea.Cmd {
 	a.stage(m)
 
 	return m.waitToStage()
