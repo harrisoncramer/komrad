@@ -91,6 +91,8 @@ func (Open) Request() {}
 // Refuse leaves the form up with why its answer was refused.
 type Refuse struct {
 	Err error
+	// Field is the key of the field the cursor goes back to, empty to leave it where it is.
+	Field string
 }
 
 // Request marks Refuse as a screen request.

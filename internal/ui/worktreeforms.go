@@ -55,7 +55,7 @@ func (c worktreeConfirm) open(m *model, write func() screen.Request) tea.Cmd {
 			}
 			if c.values != nil {
 				if err := c.values.check(); err != nil {
-					return form.Refuse{Err: err}
+					return form.Refuse{Err: err, Field: deleteFormKey}
 				}
 			}
 

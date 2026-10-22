@@ -282,16 +282,19 @@ func (m *model) submitForm() tea.Cmd {
 
 	request := m.form.Submit(m.formInputs())
 	if refused, ok := request.(form.Refuse); ok {
-		return m.refuseForm(refused.Err)
+		return m.refuseForm(refused)
 	}
 
 	return holdSubmit(func(m *model) tea.Cmd { return m.apply(request) })(m)
 }
 
-// refuseForm leaves the form up with why its answer was refused, rendering it again when huh had
-// finished it.
-func (m *model) refuseForm(err error) tea.Cmd {
-	m.form.refusal = err.Error()
+// refuseForm leaves the form up with why its answer was refused, rendering it again on the field
+// the refusal names or when huh had finished it.
+func (m *model) refuseForm(refused form.Refuse) tea.Cmd {
+	m.form.refusal = refused.Err.Error()
+	if refused.Field != "" {
+		return m.rerenderFormOn(refused.Field)
+	}
 	if m.form.form.State == huh.StateCompleted {
 		return m.rebuildForm()
 	}
