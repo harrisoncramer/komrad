@@ -136,6 +136,31 @@ func (d *documentsScreen) update(m *model, msg tea.Msg) screen.Request {
 	return d.list().update(m, key, d.actions(m))
 }
 
+func (d *documentsScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) {
+	switch msg := msg.(type) {
+	case documentsListedMsg:
+		return d.applyListed(m, msg), true
+	case documentReadMsg:
+		d.applyRead(msg)
+
+		return nil, true
+	case documentVersionsListedMsg:
+		return d.applyVersionsListed(m, msg), true
+	case documentVersionReadMsg:
+		d.applyVersionRead(msg)
+
+		return nil, true
+	case documentEditorStaged:
+		return d.applyEditorStaged(msg), true
+	case renameSettled:
+		d.settleRename(m, msg.row, msg.err)
+
+		return nil, true
+	}
+
+	return nil, false
+}
+
 func (d *documentsScreen) onDocuments(*model) bool {
 	return d.kind == documentKindDocuments
 }
@@ -417,8 +442,7 @@ func (m *model) listDocumentsCmd(written documentsWritten) tea.Cmd {
 	}
 }
 
-func (m *model) applyDocumentsListed(msg documentsListedMsg) tea.Cmd {
-	d := &m.documents
+func (d *documentsScreen) applyListed(m *model, msg documentsListedMsg) screen.Request {
 	d.listing = false
 	if msg.err != nil {
 		d.err = msg.err
@@ -431,7 +455,7 @@ func (m *model) applyDocumentsListed(msg documentsListedMsg) tea.Cmd {
 	d.revision++
 	d.keepCursor(m, hovered)
 
-	return m.readDocumentsCmd()
+	return screen.Cmd(m.readDocumentsCmd())
 }
 
 // readHoveredDocumentCmd reads the document under the cursor where the text held is older than
@@ -473,8 +497,7 @@ func (m *model) readHoveredDocumentCmd() tea.Cmd {
 	}
 }
 
-func (m *model) applyDocumentRead(msg documentReadMsg) {
-	d := &m.documents
+func (d *documentsScreen) applyRead(msg documentReadMsg) {
 	if d.bodies == nil {
 		return
 	}

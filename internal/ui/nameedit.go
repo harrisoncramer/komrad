@@ -41,15 +41,6 @@ func (m *model) rename(doing, summary, row string, write func(api) error) screen
 	}
 }
 
-// settleRename marks a typed name saved once its write has landed, or open for another try when it failed.
-func (m *model) settleRename(settled renameSettled) {
-	m.agents.settleRename(m, settled.row, settled.err)
-	m.documents.settleRename(m, settled.row, settled.err)
-	m.agents.archived.settleRename(m, settled.row, settled.err)
-	m.agents.deleted.settleRename(m, settled.row, settled.err)
-	m.schedules.settleRename(m, settled.row, settled.err)
-}
-
 func renameHelp() keyMap {
 	save := binding(fixedKeys().Submit, "save")
 	cancel := binding([]string{"esc"}, "cancel")

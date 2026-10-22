@@ -258,8 +258,8 @@ func (m *model) readVersionCmd(version int32) tea.Cmd {
 	}
 }
 
-func (m *model) applyDocumentVersionsListed(msg documentVersionsListedMsg) tea.Cmd {
-	h := m.documents.history
+func (d *documentsScreen) applyVersionsListed(m *model, msg documentVersionsListedMsg) screen.Request {
+	h := d.history
 	if h == nil || h.item.id != msg.id {
 		return nil
 	}
@@ -273,11 +273,11 @@ func (m *model) applyDocumentVersionsListed(msg documentVersionsListedMsg) tea.C
 
 	h.versions, h.at = msg.versions, 0
 
-	return m.readHistoryCmd()
+	return screen.Cmd(m.readHistoryCmd())
 }
 
-func (m *model) applyDocumentVersionRead(msg documentVersionReadMsg) {
-	h := m.documents.history
+func (d *documentsScreen) applyVersionRead(msg documentVersionReadMsg) {
+	h := d.history
 	if h == nil || h.item.id != msg.id || h.reads == nil {
 		return
 	}

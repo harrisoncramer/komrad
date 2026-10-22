@@ -37,8 +37,6 @@ func (a *agentsScreen) update(m *model, msg tea.Msg) screen.Request {
 		if a.isRenaming() {
 			return a.updateRename(m, msg)
 		}
-	case reviewPausedMsg:
-		return a.applyPaused(m, msg)
 	case tea.KeyPressMsg:
 		a.reconcileRename(m)
 		if a.isRenaming() {
@@ -49,6 +47,27 @@ func (a *agentsScreen) update(m *model, msg tea.Msg) screen.Request {
 	}
 
 	return nil
+}
+
+func (a *agentsScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) {
+	switch msg := msg.(type) {
+	case reviewPausedMsg:
+		if !m.isUp(a) {
+			return nil, true
+		}
+
+		return a.applyPaused(m, msg), true
+	case agentEditorStaged:
+		return a.applyEditorStaged(m, msg), true
+	case resumeSettled:
+		return a.settleResume(m, msg.agentID, msg.err), true
+	case renameSettled:
+		a.settleRename(m, msg.row, msg.err)
+
+		return nil, true
+	}
+
+	return nil, false
 }
 
 func (a *agentsScreen) list() screenList[agentRow] {

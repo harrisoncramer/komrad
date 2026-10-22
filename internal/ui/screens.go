@@ -31,6 +31,10 @@ type screenModel interface {
 	// update takes a message the panel's own bindings did not claim.
 	update(m *model, msg tea.Msg) screen.Request
 
+	// receive takes a result the screen may have asked for, whether it is up or not, and reports
+	// whether the result was the screen's own.
+	receive(m *model, msg tea.Msg) (screen.Request, bool)
+
 	// view renders the screen into the panel's own pane.
 	view(m *model) string
 
@@ -221,6 +225,28 @@ type agentPauser interface {
 // active is the screen that is up.
 func (m *model) active() screenModel {
 	return m.screenOf(m.screen)
+}
+
+// isUp reports whether the screen is the one up.
+func (m *model) isUp(s screenModel) bool {
+	return m.active() == s
+}
+
+// screens is every screen the root holds, up or not.
+func (m *model) screens() []screenModel {
+	return []screenModel{
+		&m.agents,
+		&m.agents.archived,
+		&m.agents.deleted,
+		&m.schedules,
+		&m.schedules.archived,
+		&m.review,
+		&m.worktrees,
+		&m.documents,
+		&m.logs,
+		&m.statusChecks,
+		&m.statusCheckLogs,
+	}
 }
 
 // screenOf is the screen behind the enum, held by value on the root.

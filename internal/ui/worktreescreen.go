@@ -37,6 +37,10 @@ func (w *worktreesScreen) update(m *model, msg tea.Msg) screen.Request {
 	return w.list().update(m, key, w.actions())
 }
 
+func (w *worktreesScreen) receive(*model, tea.Msg) (screen.Request, bool) {
+	return nil, false
+}
+
 func (w *worktreesScreen) list() screenList[worktreeRow] {
 	return screenList[worktreeRow]{
 		cursor: func() *list.Cursor { return &w.Cursor },

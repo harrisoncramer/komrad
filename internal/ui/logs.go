@@ -185,10 +185,9 @@ func (l *logsScreen) readCmd(m *model) tea.Cmd {
 	}
 }
 
-// applyLogsSources takes a listing of the sources, landing the first on the agent's failed run
+// applySources takes a listing of the sources, landing the first on the agent's failed run
 // and keeping the cursor on the source it was on after that.
-func (m *model) applyLogsSources(msg logsSourcesMsg) screen.Request {
-	l := &m.logs
+func (l *logsScreen) applySources(m *model, msg logsSourcesMsg) screen.Request {
 	if msg.generation != l.generation {
 		return nil
 	}
@@ -217,15 +216,14 @@ func (m *model) applyLogsSources(msg logsSourcesMsg) screen.Request {
 	return l.switchSource(m)
 }
 
-func (m *model) applyLogsRead(msg logsReadMsg) tea.Cmd {
-	l := &m.logs
+func (l *logsScreen) applyRead(m *model, msg logsReadMsg) screen.Request {
 	if msg.generation != l.generation {
 		return nil
 	}
 
 	l.err = msg.err
 	if msg.err != nil {
-		return l.tickCmd(m.clock)
+		return screen.Cmd(l.tickCmd(m.clock))
 	}
 
 	if msg.resp.GetReset_() || l.replacing {
@@ -236,22 +234,22 @@ func (m *model) applyLogsRead(msg logsReadMsg) tea.Cmd {
 	l.readCursor, l.read = msg.resp.GetCursor(), true
 
 	if msg.resp.GetMore() {
-		return l.readCmd(m)
+		return screen.Cmd(l.readCmd(m))
 	}
 
-	return l.tickCmd(m.clock)
+	return screen.Cmd(l.tickCmd(m.clock))
 }
 
-func (m *model) applyLogsTick(msg logsTickMsg) tea.Cmd {
-	if msg.generation != m.logs.generation {
+func (l *logsScreen) applyTick(m *model, msg logsTickMsg) screen.Request {
+	if msg.generation != l.generation {
 		return nil
 	}
 
-	if !m.logs.listed {
-		return m.logs.listCmd(m)
+	if !l.listed {
+		return screen.Cmd(l.listCmd(m))
 	}
 
-	return tea.Batch(m.logs.listCmd(m), m.logs.readCmd(m))
+	return screen.Cmd(tea.Batch(l.listCmd(m), l.readCmd(m)))
 }
 
 func (l *logsScreen) tickCmd(clock screen.Clock) tea.Cmd {
@@ -330,8 +328,7 @@ func (l *logsScreen) updateLogFilter(m *model, key tea.KeyPressMsg) screen.Reque
 	return screen.Cmd(m.clock.After(logsFilterSettle, func(time.Time) tea.Msg { return logsSettledMsg{generation: generation, edits: edits} }))
 }
 
-func (m *model) applyLogsSettled(msg logsSettledMsg) screen.Request {
-	l := &m.logs
+func (l *logsScreen) applySettled(m *model, msg logsSettledMsg) screen.Request {
 	if msg.generation != l.generation || msg.edits != l.edits {
 		return nil
 	}
@@ -381,6 +378,21 @@ func (l *logsScreen) update(m *model, msg tea.Msg) screen.Request {
 	}
 
 	return l.list().update(m, key, l.actions(m))
+}
+
+func (l *logsScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) {
+	switch msg := msg.(type) {
+	case logsSourcesMsg:
+		return l.applySources(m, msg), true
+	case logsReadMsg:
+		return l.applyRead(m, msg), true
+	case logsTickMsg:
+		return l.applyTick(m, msg), true
+	case logsSettledMsg:
+		return l.applySettled(m, msg), true
+	}
+
+	return nil, false
 }
 
 func (l *logsScreen) list() screenList[logSourceRow] {

@@ -116,6 +116,15 @@ func (c *statusCheckLogsScreen) update(m *model, msg tea.Msg) screen.Request {
 	return c.list().update(m, key, c.listActions())
 }
 
+func (c *statusCheckLogsScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) {
+	read, ok := msg.(statusCheckLogReadMsg)
+	if !ok {
+		return nil, false
+	}
+
+	return c.applyRead(m, read), true
+}
+
 func (c *statusCheckLogsScreen) list() screenList[statusCheckLogRow] {
 	return screenList[statusCheckLogRow]{
 		cursor: func() *list.Cursor { return &c.Cursor },
@@ -366,8 +375,7 @@ func (c *statusCheckLogsScreen) readCmd(m *model, checkID string, first, last in
 	}
 }
 
-func (m *model) applyStatusCheckLogRead(msg statusCheckLogReadMsg) tea.Cmd {
-	c := &m.statusCheckLogs
+func (c *statusCheckLogsScreen) applyRead(m *model, msg statusCheckLogReadMsg) screen.Request {
 	read, ok := c.logs[msg.checkID]
 	if msg.generation != c.generation || !ok {
 		return nil
@@ -376,7 +384,7 @@ func (m *model) applyStatusCheckLogRead(msg statusCheckLogReadMsg) tea.Cmd {
 	if msg.err != nil {
 		read.err, read.reading = msg.err, false
 
-		return m.apply(c.reanchor(m))
+		return c.reanchor(m)
 	}
 
 	read.lines = append(read.lines, xslice.Map(msg.resp.GetLines(), func(line *pullrequestv1.CheckLogLine) string { return line.GetText() })...)
@@ -388,5 +396,5 @@ func (m *model) applyStatusCheckLogRead(msg statusCheckLogReadMsg) tea.Cmd {
 		next = c.readCmd(m, msg.checkID, int32(len(read.lines))+1, total)
 	}
 
-	return tea.Batch(m.apply(c.reanchor(m)), next)
+	return screen.Batch{c.reanchor(m), screen.Cmd(next)}
 }
