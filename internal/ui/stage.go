@@ -50,7 +50,7 @@ func (m *model) settleUnstaged(agents []panel.Agent, killed bool) {
 	}
 
 	if stager, ok := m.active().(rowStager); ok {
-		m.apply(stager.stage())
+		m.apply(stager.Stage())
 	}
 }
 
@@ -77,30 +77,30 @@ func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 		return nil
 	}
 
-	return tea.Batch(m.apply(m.active().stageResting(m, m.inputs())), m.wakeCwdSyncCmd())
+	return tea.Batch(m.apply(m.active().StageResting(m.inputs())), m.wakeCwdSyncCmd())
 }
 
-func (w *worktreesScreen) stageResting(m *model, in screen.Inputs) screen.Request {
-	return screen.Batch{w.stage(), m.inspectWorktree(), screen.ReadLastScreen{}}
+func (w *worktreesScreen) StageResting(in screen.Inputs) screen.Request {
+	return screen.Batch{w.Stage(), w.inspect(in), screen.ReadLastScreen{}}
 }
 
-func (d *documentsScreen) stageResting(m *model, in screen.Inputs) screen.Request {
-	return screen.Batch{d.stage(), screen.Cmd(m.readDocumentsCmd())}
+func (d *documentsScreen) StageResting(in screen.Inputs) screen.Request {
+	return screen.Batch{d.Stage(), screen.Cmd(d.readDocumentsCmd(in))}
 }
 
-func (w *schedulesScreen) stageResting(*model, screen.Inputs) screen.Request {
+func (w *schedulesScreen) StageResting(screen.Inputs) screen.Request {
 	return screen.Restage{}
 }
 
-func (l *logsScreen) stageResting(m *model, in screen.Inputs) screen.Request {
+func (l *logsScreen) StageResting(in screen.Inputs) screen.Request {
 	return l.switchSource(in)
 }
 
-func (a *agentsScreen) stageResting(m *model, in screen.Inputs) screen.Request {
-	return screen.Batch{screen.Restage{}, screen.ReadLastScreen{}, m.inspectTaskWorktree(a.deps.clock.Now())}
+func (a *agentsScreen) StageResting(in screen.Inputs) screen.Request {
+	return screen.Batch{screen.Restage{}, screen.ReadLastScreen{}, inspectRecordTask(a, in, a.deps.clock.Now())}
 }
 
-func (r *reviewScreen) stageResting(m *model, in screen.Inputs) screen.Request {
+func (r *reviewScreen) StageResting(in screen.Inputs) screen.Request {
 	if r.edit.atEditor {
 		return r.markThreadRead(in)
 	}
@@ -149,7 +149,7 @@ func (m *model) stageSelection() {
 // stagedAgent is the agent whose pane the stage shows, the one the screen keeps beside its block
 // and the hovered agent on a screen that keeps none.
 func (m *model) stagedAgent() (panel.AgentRow, bool) {
-	if beside := m.active().column(m, m.inputs()).Beside; beside != nil {
+	if beside := m.active().Column(m.inputs()).Beside; beside != nil {
 		return beside()
 	}
 

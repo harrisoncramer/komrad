@@ -57,15 +57,15 @@ func scheduleItemName(item scheduleItem) string {
 	return item.schedule.Name
 }
 
-// enter lands the cursor once the root has put the screen up.
-func (w *schedulesScreen) enter(m *model, in screen.Inputs, _ screen.Target) screen.Request {
+// Enter lands the cursor once the root has put the screen up.
+func (w *schedulesScreen) Enter(in screen.Inputs, _ screen.Target) screen.Request {
 	w.Row = cursor.Clamp(w.Row, len(w.listRows(in)))
 
 	return screen.Settle{}
 }
 
-func (w *schedulesScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen.Request {
-	if _, ok := msg.(tea.PasteMsg); ok && w.isRenaming() {
+func (w *schedulesScreen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
+	if _, ok := msg.(tea.PasteMsg); ok && w.IsRenaming() {
 		return w.updateRename(w.deps.register, w.deps.clients, msg)
 	}
 
@@ -75,21 +75,21 @@ func (w *schedulesScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen
 	}
 
 	w.reconcileRename(in)
-	if w.isRenaming() {
+	if w.IsRenaming() {
 		return w.updateRename(w.deps.register, w.deps.clients, msg)
 	}
 
 	return w.actions(in).DispatchTop(w.deps.top, w, w.deps.keys, key.String())
 }
 
-func (w *schedulesScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
+func (w *schedulesScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 	switch msg := msg.(type) {
 	case api.RenameSettled:
 		w.settleRename(in, msg.Row, msg.Err)
 
 		return nil, true
 	case screen.Relisted:
-		return w.apply(in, w.list().hovered(msg.Before(in))), true
+		return w.apply(in, w.list().Hovered(msg.Before(in))), true
 	}
 
 	return nil, false
@@ -124,7 +124,7 @@ func (w *schedulesScreen) selected(in screen.Inputs) (scheduleItem, bool) {
 
 // apply takes a fresh listing, keeping the cursor on the schedule it was on.
 func (w *schedulesScreen) apply(in screen.Inputs, hovered string) screen.Request {
-	placed := w.list().place(in, hovered)
+	placed := w.list().Place(in, hovered)
 	w.reconcileRename(in)
 
 	return placed
@@ -252,7 +252,7 @@ func (w *schedulesScreen) archiveSchedule(schedule panel.Schedule) screen.Reques
 	})
 }
 
-func (w *schedulesScreen) listParams(_ *model, in screen.Inputs) list.Params {
+func (w *schedulesScreen) ListParams(in screen.Inputs) list.Params {
 	return list.Params{
 		Help:     w.help(in),
 		Empty:    "no schedules yet",
@@ -276,29 +276,29 @@ var (
 	_ kindSwitcher      = (*schedulesScreen)(nil)
 )
 
-func (w *schedulesScreen) doesRenderFromListing() bool {
+func (w *schedulesScreen) DoesRenderFromListing() bool {
 	return true
 }
 
-func (w *schedulesScreen) takesEveryKey() bool {
-	return w.isRenaming()
+func (w *schedulesScreen) TakesEveryKey() bool {
+	return w.IsRenaming()
 }
 
-func (w *schedulesScreen) activeList() keyedList {
+func (w *schedulesScreen) ActiveList() keyedList {
 	return w.list()
 }
 
-func (w *schedulesScreen) hoveredName(in screen.Inputs) string {
+func (w *schedulesScreen) HoveredName(in screen.Inputs) string {
 	return w.list().hoveredName(in)
 }
 
-// column is the hovered schedule's own record rendered beside the list.
-func (w *schedulesScreen) column(m *model, in screen.Inputs) column.Spec {
+// Column is the hovered schedule's own record rendered beside the list.
+func (w *schedulesScreen) Column(in screen.Inputs) column.Spec {
 	return column.Spec{
 		Floor: columnFloor,
 		Read:  column.IsAlwaysRead,
 		DocRows: func(width int) []string {
-			return m.schedules.docRows(in, width)
+			return w.docRows(in, width)
 		},
 	}
 }
@@ -312,7 +312,7 @@ func (w *schedulesScreen) openRename(in screen.Inputs) screen.Request {
 }
 
 func (w *schedulesScreen) reconcileRename(in screen.Inputs) {
-	reconcileRename(&w.renameSlot, w.listRows(in), w.list().hovered(in), scheduleItemName)
+	reconcileRename(&w.renameSlot, w.listRows(in), w.list().Hovered(in), scheduleItemName)
 }
 
 func (w *schedulesScreen) settleRename(in screen.Inputs, row string, err error) {
@@ -321,6 +321,6 @@ func (w *schedulesScreen) settleRename(in screen.Inputs, row string, err error) 
 	}
 }
 
-func (w *schedulesScreen) dispatches(*model) []keys.Table {
+func (w *schedulesScreen) Dispatches() []keys.Table {
 	return []keys.Table{w.actions(screen.Inputs{}), w.archived.actions(screen.Inputs{})}
 }

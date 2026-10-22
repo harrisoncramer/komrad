@@ -70,10 +70,10 @@ type reviewWroteMsg struct {
 }
 
 // open puts the review on an agent's diff and reads it.
-func (r *reviewScreen) open(m *model, agent panel.Agent) screen.Request {
+func (r *reviewScreen) open(listing panel.Listing, agent panel.Agent) screen.Request {
 	unnote := screen.Unnote{Key: r.notices.moved}
 
-	workflow := m.listing.WorkflowFor(agent)
+	workflow := listing.WorkflowFor(agent)
 
 	*r = reviewScreen{
 		deps:      r.deps,
@@ -81,7 +81,7 @@ func (r *reviewScreen) open(m *model, agent panel.Agent) screen.Request {
 		loads:     r.loads,
 		taskID:    agent.TaskID,
 		agentName: agent.Name,
-		dir:       m.listing.ReviewDir(agent),
+		dir:       listing.ReviewDir(agent),
 		exclude:   workflow.Worktree.DiffExclude,
 		loading:   true,
 		diff:      reviewDiff{spec: wholeChange()},
@@ -318,7 +318,7 @@ func loadSnapshotPatch(ctx context.Context, params loadSnapshotPatchParams) (*sn
 	return &snapshotPatch{patch: patch, origin: origin}, nil
 }
 
-func (r *reviewScreen) applyLoaded(m *model, in screen.Inputs, msg reviewLoadedMsg) screen.Request {
+func (r *reviewScreen) applyLoaded(in screen.Inputs, msg reviewLoadedMsg) screen.Request {
 	if msg.agentID != r.agentID || msg.load != r.loads {
 		return nil
 	}
@@ -368,13 +368,23 @@ func (r *reviewScreen) applyLoaded(m *model, in screen.Inputs, msg reviewLoadedM
 
 	r.root = msg.patch.Root
 	r.snapshot = msg.snapshot
-	r.diff.load(msg, m.term.isDark, r.deps.glyphs)
+	r.diff.load(msg, in.Room.Dark, r.deps.glyphs)
 	r.threads.set(msg.threads)
 
-	loaded := m.inputs()
+	loaded := r.underBand(in)
 	r.scrollToCursor(loaded)
 
-	return screen.Batch{widened, partial, r.followNotices(m, loaded)}
+	return screen.Batch{widened, partial, r.followNotices(loaded)}
+}
+
+// underBand is the inputs with the diff's rows measured again under the band as it now stands.
+func (r *reviewScreen) underBand(in screen.Inputs) screen.Inputs {
+	if in.Room.Split.On {
+		in.Room.Split.Rows = max(r.Column(in).Rows(in.Room.Geometry), 1)
+		in.Room.Column = in.Room.Split
+	}
+
+	return in
 }
 
 // load renders a patch just read, over the one on screen, and puts the cursor back where the
@@ -535,11 +545,11 @@ func (r *reviewScreen) back(in screen.Inputs) screen.Request {
 
 // backFromDiff hands the keys to the file tree, or leaves the screen where no tree renders.
 func (r *reviewScreen) backFromDiff(in screen.Inputs) screen.Request {
-	if r.edit.atEditor || !r.isBlockRendered(in) {
+	if r.edit.atEditor || !r.IsBlockRendered(in) {
 		return r.back(in)
 	}
 
-	r.focusBlock()
+	r.FocusBlock()
 
 	return nil
 }

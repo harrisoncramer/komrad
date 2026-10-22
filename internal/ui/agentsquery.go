@@ -30,7 +30,7 @@ func agentsQueryOf(agents api.AgentReads) list.Grammar {
 	}
 }
 
-func (a *agentsScreen) queryGrammar() (list.Grammar, bool) {
+func (a *agentsScreen) QueryGrammar() (list.Grammar, bool) {
 	return agentsQueryOf(a.deps.clients.Agents), true
 }
 
@@ -124,7 +124,7 @@ func containsFold(s, sub string) bool {
 	return strings.Contains(strings.ToLower(s), strings.ToLower(sub))
 }
 
-func (a *archivedAgents) queryGrammar() (list.Grammar, bool) {
+func (a *archivedAgents) QueryGrammar() (list.Grammar, bool) {
 	return agentsQueryOf(a.deps.clients.Agents), true
 }
 

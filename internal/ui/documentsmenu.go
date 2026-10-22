@@ -26,7 +26,7 @@ func (d *documentsScreen) documentTypeMenu(t *agentv1.DocumentType) menu.Menu {
 	}
 }
 
-func (d *documentsScreen) buildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
+func (d *documentsScreen) BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
 	if d.kind == documentKindTypes {
 		t := d.hoveredDocumentType(in)
 
@@ -39,8 +39,8 @@ func (d *documentsScreen) buildItemMenu(in screen.Inputs, nest menu.Nester) (men
 	return d.documentMenu(in, nest)
 }
 
-// buildScreenMenu builds the documents screen's own band, for writing a new document or type.
-func (d *documentsScreen) buildScreenMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
+// BuildScreenMenu builds the documents screen's own band, for writing a new document or type.
+func (d *documentsScreen) BuildScreenMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
 	if d.kind == documentKindTypes {
 		return menu.Menu{
 			Title: "document types",

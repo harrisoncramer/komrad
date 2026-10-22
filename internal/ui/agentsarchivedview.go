@@ -9,14 +9,14 @@ import (
 	"komrad/internal/view"
 )
 
-func (a *archivedAgents) details(m *model, in screen.Inputs) record.Details {
+func (a *archivedAgents) Details(in screen.Inputs) record.Details {
 	r, ok := list.At(a.listRows(in), a.Row)
 	if !ok {
 		return record.Details{}
 	}
 
 	if r.isTask() {
-		return taskDetails(m, in, a.deps.glyphs, r)
+		return taskDetails(in, a.deps.clock.Now(), a.deps.glyphs, r)
 	}
 
 	if r.header {
@@ -26,7 +26,7 @@ func (a *archivedAgents) details(m *model, in screen.Inputs) record.Details {
 		}
 	}
 
-	return agentDetails(m, in, a.deps.glyphs, r)
+	return agentDetails(in, a.deps.clock.Now(), a.deps.glyphs, r)
 }
 
 // doc is the markdown rendered beside the list for the row the cursor is on.

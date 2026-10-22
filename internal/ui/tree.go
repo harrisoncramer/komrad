@@ -379,7 +379,7 @@ func (a *agentsScreen) layout(in screen.Inputs) agentsLayout {
 	return a.buildLayout(in)
 }
 
-func (a *agentsScreen) buildFrame(_ *model, in screen.Inputs) {
+func (a *agentsScreen) BuildFrame(in screen.Inputs) {
 	layout := a.buildLayout(in)
 	a.rendered = &layout
 }
@@ -435,18 +435,18 @@ func narrowedAgentRows(in screen.Inputs, rows []agentRow) []agentRow {
 	})
 }
 
-func (a *agentsScreen) hoveredRow(in screen.Inputs) (agentRow, bool) {
+func (a *agentsScreen) HoveredRow(in screen.Inputs) (agentRow, bool) {
 	return a.layout(in).cursorRow(a.Row)
 }
 
 func (a *agentsScreen) hoveredWorkflow(in screen.Inputs) (panel.Workflow, bool) {
-	return hoveredHeader(a.hoveredRow(in))
+	return hoveredHeader(a.HoveredRow(in))
 }
 
 // hoveredPane is the agent whose pane the row under the cursor shows, and none where that row
 // has no pane worth putting in the window.
 func (a *agentsScreen) hoveredPane(in screen.Inputs) (panel.AgentRow, bool) {
-	r, ok := a.hoveredRow(in)
+	r, ok := a.HoveredRow(in)
 	if !ok {
 		return panel.AgentRow{}, false
 	}
@@ -459,9 +459,9 @@ func (a *agentsScreen) hoveredPane(in screen.Inputs) (panel.AgentRow, bool) {
 	return item, true
 }
 
-// hoveredResting is the agent the row under the cursor stands for when it is dormant or paused.
-func (a *agentsScreen) hoveredResting(in screen.Inputs) (panel.AgentRow, bool) {
-	r, ok := a.hoveredRow(in)
+// Resting is the agent the row under the cursor stands for when it is dormant or paused.
+func (a *agentsScreen) Resting(in screen.Inputs) (panel.AgentRow, bool) {
+	r, ok := a.HoveredRow(in)
 	if !ok {
 		return panel.AgentRow{}, false
 	}
@@ -481,8 +481,8 @@ func (a *agentsScreen) hasNoAgentPane(in screen.Inputs) bool {
 	return !ok
 }
 
-// hoveredAgentID is the agent under the cursor, or the orchestrator behind a hovered workflow.
-func (a *agentsScreen) hoveredAgentID(in screen.Inputs) string {
+// HoveredAgentID is the agent under the cursor, or the orchestrator behind a hovered workflow.
+func (a *agentsScreen) HoveredAgentID(in screen.Inputs) string {
 	item, ok := a.hoveredPaneItem(in)
 	if !ok {
 		return ""
@@ -493,7 +493,7 @@ func (a *agentsScreen) hoveredAgentID(in screen.Inputs) string {
 
 // hoveredPaneItem is the agent under the cursor, or the orchestrator of the workflow under it.
 func (a *agentsScreen) hoveredPaneItem(in screen.Inputs) (panel.AgentRow, bool) {
-	row, ok := a.hoveredRow(in)
+	row, ok := a.HoveredRow(in)
 	if !ok {
 		return panel.AgentRow{}, false
 	}
@@ -656,12 +656,12 @@ func (a *agentsScreen) apply(in screen.Inputs, selected string) {
 }
 
 // revealAgent puts the cursor on an agent, showing the hidden rows when it needs them.
-func (a *agentsScreen) revealAgent(m *model, in screen.Inputs, id string) {
-	if toTreeRowKey(a.list().hovered(in)) == agentRowKey(id) {
+func (a *agentsScreen) revealAgent(in screen.Inputs, id string) {
+	if toTreeRowKey(a.list().Hovered(in)) == agentRowKey(id) {
 		return
 	}
 
-	a.showHiddenFor(m, id)
+	a.showHiddenFor(in.Listing, id)
 
 	rows := a.rows(in)
 	if idx := list.IndexOf(rows, findLandingKey(rows, "", agentRowKey(id))); idx >= 0 {
@@ -670,7 +670,7 @@ func (a *agentsScreen) revealAgent(m *model, in screen.Inputs, id string) {
 }
 
 // revealTask puts the cursor on a task's row, or on its writer when the list draws no row for it.
-func (a *agentsScreen) revealTask(m *model, in screen.Inputs, taskID, writerID string) {
+func (a *agentsScreen) revealTask(in screen.Inputs, taskID, writerID string) {
 	if in.Listing.Tasks[taskID].Hidden {
 		a.showHidden = true
 	}
@@ -680,12 +680,12 @@ func (a *agentsScreen) revealTask(m *model, in screen.Inputs, taskID, writerID s
 		return
 	}
 
-	a.revealAgent(m, in, writerID)
+	a.revealAgent(in, writerID)
 }
 
 // showHiddenFor shows the hidden tasks when the agent works on one.
-func (a *agentsScreen) showHiddenFor(m *model, id string) {
-	if m.listing.Tasks.IsHidden(m.listing.AgentsByID[id].Agent) {
+func (a *agentsScreen) showHiddenFor(listing panel.Listing, id string) {
+	if listing.Tasks.IsHidden(listing.AgentsByID[id].Agent) {
 		a.showHidden = true
 	}
 }

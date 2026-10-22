@@ -25,7 +25,7 @@ func (m *model) activeCrumbs() (screen.Crumbs, screen.ID, bool) {
 // view.
 func (m *model) pageCrumbs() (screen.ID, screen.Crumbs, bool) {
 	if c, ok := m.active().(crumbRenderer); ok {
-		return c.parent(), c.crumbs(m.inputs()), true
+		return c.Parent(), c.Crumbs(m.inputs()), true
 	}
 
 	if m.form.isOpening() && len(m.form.crumbs) > 0 {
@@ -41,7 +41,7 @@ func (m *model) hoveredCrumbs() screen.Crumbs {
 		return screen.Crumbs{}
 	}
 
-	name := h.hoveredName(m.inputs())
+	name := h.HoveredName(m.inputs())
 	if name == "" {
 		return screen.Crumbs{}
 	}

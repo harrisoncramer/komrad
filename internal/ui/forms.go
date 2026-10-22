@@ -171,8 +171,8 @@ func (m *model) formBox() (width, height int) {
 // formArea is the columns and rows the form and what it renders to its left share.
 func (m *model) formArea() (width, height int) {
 	in := m.inputs()
-	if m.isPopupForm() {
-		return m.review.measurePopupInner(in), m.review.measurePopupRoom(m, in)
+	if p, ok := m.active().(popupHost); ok && m.isPopupForm() {
+		return p.MeasurePopup(in, m)
 	}
 
 	if split := in.Room.Geometry; split.On {

@@ -9,27 +9,28 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/panel"
 	"komrad/internal/ui/record"
 	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 )
 
-func (w *schedulesScreen) details(m *model, in screen.Inputs) record.Details {
+func (w *schedulesScreen) Details(in screen.Inputs) record.Details {
 	item, ok := w.selected(in)
 	if !ok {
 		return record.Details{}
 	}
 
-	return scheduleDetails(m, item)
+	return scheduleDetails(in.Listing, item)
 }
 
-func scheduleDetails(m *model, item scheduleItem) record.Details {
+func scheduleDetails(listing panel.Listing, item scheduleItem) record.Details {
 	return record.Details{
 		ID: item.schedule.ID,
 		Fields: scheduleFields(item.schedule, scheduleTarget{
-			workflow:     workflowByID(m.listing.Workflows, item.schedule.WorkflowID),
-			orchestrator: orchestratorLabel(m.listing, item.schedule.OrchestratorID),
+			workflow:     workflowByID(listing.Workflows, item.schedule.WorkflowID),
+			orchestrator: orchestratorLabel(listing, item.schedule.OrchestratorID),
 		}),
 	}
 }

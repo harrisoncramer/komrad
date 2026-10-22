@@ -233,8 +233,8 @@ func (m *model) updateDoc(key tea.KeyPressMsg) tea.Cmd {
 		return m.apply(own.Dispatch(m, m.keys, k))
 	}
 
-	if m.screen == screen.Documents {
-		return m.apply(m.documents.docKeys().Dispatch(m, m.keys, k))
+	if d, ok := m.active().(docKeyer); ok {
+		return m.apply(d.PressDoc(m.inputs(), k))
 	}
 
 	return nil
@@ -341,18 +341,15 @@ func (m *model) docActions() keys.Spec[*model] {
 // docHelp is the legend while the document beside the list holds the keys.
 func (m *model) docHelp() legend.Help {
 	own := m.helpOf(m.docActions())
-	if m.screen == screen.Documents {
-		screen := m.helpOf(m.documents.docKeys())
+	if d, ok := m.active().(docKeyer); ok {
+		screen := d.DocHelp(m.inputs())
 		own = legend.Help{
 			Short: slices.Concat(own.Short, screen.Short),
 			Full:  slices.Concat(own.Full, screen.Full),
 		}
 	}
 
-	return legend.Help{
-		Short: slices.Concat(own.Short, m.globalHelp()),
-		Full:  slices.Concat(own.Full, m.fullGlobalHelp()),
-	}
+	return m.Legend(own)
 }
 
 // wheelDoc moves the window over the document, carrying the cursor along when it leaves the window.

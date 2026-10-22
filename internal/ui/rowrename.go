@@ -99,7 +99,7 @@ type renameSlot struct {
 	renaming *rowRename
 }
 
-func (r *renameSlot) isRenaming() bool {
+func (r *renameSlot) IsRenaming() bool {
 	return r.renaming != nil && !r.renaming.IsLanded()
 }
 
@@ -150,8 +150,8 @@ func (r *renameSlot) settleField(row string, err error) bool {
 	return true
 }
 
-func (r *renameSlot) typedLine() (field.Line, bool) {
-	if !r.isRenaming() {
+func (r *renameSlot) TypedLine() (field.Line, bool) {
+	if !r.IsRenaming() {
 		return field.Line{}, false
 	}
 

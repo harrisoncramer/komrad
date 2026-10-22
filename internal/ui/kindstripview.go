@@ -10,9 +10,9 @@ import (
 
 func (m *model) kindsLine() string {
 	k, _ := m.activeKinds()
-	row := k.kinds(m)
+	row := k.Kinds()
 	row.Mark = m.spanMarker(zoneKinds, row.Labels)
-	if *k.kindsFocused(m) {
+	if *k.KindsFocused() {
 		row.Focus, row.Lit = row.Lit, tabs.NoStop
 	}
 

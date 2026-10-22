@@ -1,13 +1,17 @@
 package ui
 
 import (
+	"image"
+
 	"komrad/internal/ui/column"
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/layout"
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/menu"
+	"komrad/internal/ui/panel"
 	"komrad/internal/ui/record"
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/tabs"
@@ -32,181 +36,201 @@ func opensTerminal(s screen.ID) bool {
 
 // screenModel is what the panel asks of whichever screen is up.
 type screenModel interface {
-	// update takes a message the panel's own bindings did not claim.
-	update(m *model, in screen.Inputs, msg tea.Msg) screen.Request
+	// Update takes a message the panel's own bindings did not claim.
+	Update(in screen.Inputs, msg tea.Msg) screen.Request
 
-	// receive takes a result the screen may have asked for, whether it is up or not, and reports
+	// Receive takes a result the screen may have asked for, whether it is up or not, and reports
 	// whether the result was the screen's own.
-	receive(m *model, in screen.Inputs, msg tea.Msg) (screen.Request, bool)
+	Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool)
 
-	// doesRenderFromListing reports whether the screen renders the watch's listings.
-	doesRenderFromListing() bool
+	// DoesRenderFromListing reports whether the screen renders the watch's listings.
+	DoesRenderFromListing() bool
 
-	// enter lands the cursor on the target where the target is on screen, and puts the stage
+	// Enter lands the cursor on the target where the target is on screen, and puts the stage
 	// right, once the root has put the screen up.
-	enter(m *model, in screen.Inputs, target screen.Target) screen.Request
+	Enter(in screen.Inputs, target screen.Target) screen.Request
 
-	// takesEveryKey reports whether something on the screen is taking every key.
-	takesEveryKey() bool
+	// TakesEveryKey reports whether something on the screen is taking every key.
+	TakesEveryKey() bool
 
-	// column is the block the screen renders beside its own list.
-	column(m *model, in screen.Inputs) column.Spec
+	// Column is the block the screen renders beside its own list.
+	Column(in screen.Inputs) column.Spec
 
-	// stageResting stages the row the cursor came to rest on and asks for what the screen reads of it.
-	stageResting(m *model, in screen.Inputs) screen.Request
+	// StageResting stages the row the cursor came to rest on and asks for what the screen reads of it.
+	StageResting(in screen.Inputs) screen.Request
 
-	// dispatches is the tables the screen dispatches through, one at a time, walked behind the
+	// Dispatches is the tables the screen Dispatches through, one at a time, walked behind the
 	// global keys.
-	dispatches(m *model) []keys.Table
+	Dispatches() []keys.Table
 }
 
 // recordRenderer is a screen that renders the hovered row's record under its list.
 type recordRenderer interface {
-	// details is the record the cursor is standing on.
-	details(m *model, in screen.Inputs) record.Details
+	// Details is the record the cursor is standing on.
+	Details(in screen.Inputs) record.Details
 }
 
 // listRenderer is a screen the root renders as a list from the params it answers.
 type listRenderer interface {
-	listParams(m *model, in screen.Inputs) list.Params
+	ListParams(in screen.Inputs) list.Params
 }
 
 // chromeRenderer is a screen that draws itself under the chrome the root hands it.
 type chromeRenderer interface {
-	view(m *model, in screen.Inputs, chrome screen.Chrome) string
+	View(in screen.Inputs, chrome screen.Chrome) string
 }
 
 // activeLister is a screen whose list the user can narrow by typing a pattern.
 type activeLister interface {
-	activeList() keyedList
+	ActiveList() keyedList
 }
 
 type keyedList interface {
-	// hovered is the key of the row the cursor is on, read before the pattern changes.
-	hovered(in screen.Inputs) string
+	// Hovered is the key of the row the cursor is on, read before the pattern changes.
+	Hovered(in screen.Inputs) string
 
-	// place puts the cursor back on that row, or as near to where it was as the narrowed list
+	// Place puts the cursor back on that row, or as near to where it was as the narrowed list
 	// allows.
-	place(in screen.Inputs, key string) screen.Request
+	Place(in screen.Inputs, key string) screen.Request
 
-	// filterRows is every row on screen with the text a search reads, in the order they are
+	// FilterRows is every row on screen with the text a search reads, in the order they are
 	// rendered.
-	filterRows(in screen.Inputs) []list.Row
+	FilterRows(in screen.Inputs) []list.Row
 
-	click(in screen.Inputs, key string, nth int) screen.Request
+	Click(in screen.Inputs, key string, nth int) screen.Request
 }
 
 // kindSwitcher is a screen that lists more than one kind of resource and switches between them
 // on a row of its own.
 type kindSwitcher interface {
-	kinds(m *model) tabs.Stops
+	Kinds() tabs.Stops
 
-	// kindsFocused is whether the row of kinds holds the keys.
-	kindsFocused(m *model) *bool
+	// KindsFocused is whether the row of kinds holds the keys.
+	KindsFocused() *bool
 
-	// stepKind moves the list delta kinds along, wrapping at both ends.
-	stepKind(m *model, in screen.Inputs, delta int) screen.Request
+	// StepKind moves the list delta kinds along, wrapping at both ends.
+	StepKind(in screen.Inputs, delta int) screen.Request
 
-	// kindsSwitch is whether the kind listed may change.
-	kindsSwitch() bool
+	// KindsSwitch is whether the kind listed may change.
+	KindsSwitch() bool
 }
 
 // tabSwitcher is a screen with a strip of tabs over its list.
 type tabSwitcher interface {
-	tabs() tabs.Strip
+	Tabs() tabs.Strip
 
-	// tabsState is where the screen keeps the tab chosen and whether the strip holds the keys.
-	tabsState() *tabs.State
+	// TabsState is where the screen keeps the tab chosen and whether the strip holds the keys.
+	TabsState() *tabs.State
+}
+
+// docKeyer is a screen with keys of its own on the document beside its list, which answer what the
+// root's keys on the document leave.
+type docKeyer interface {
+	DocKeys(in screen.Inputs) keys.Table
+	PressDoc(in screen.Inputs, pressed string) screen.Request
+	DocHelp(in screen.Inputs) legend.Help
+}
+
+// popupHost is a screen with a popup over its block and a sidebar of its own, both laid out under
+// the root's chrome.
+type popupHost interface {
+	MeasurePopup(in screen.Inputs, chrome screen.Chrome) (int, int)
+	PressPopup(in screen.Inputs, chrome screen.Chrome, pressed string) (screen.Request, bool)
+	ScrollPopupAt(in screen.Inputs, chrome screen.Chrome, at image.Point, rows int) bool
+	ScrollSidebarAt(in screen.Inputs, chrome screen.Chrome, y, rows int) (screen.Request, bool)
+	ClickFile(in screen.Inputs, path string) screen.Request
+	ClickSide(in screen.Inputs, key string) screen.Request
 }
 
 // columnFocuser is a screen whose block beside the list can take the keys and be scrolled.
 type columnFocuser interface {
-	// isBlockRendered is whether the block is rendered with something in it to take the keys.
-	isBlockRendered(in screen.Inputs) bool
+	// IsBlockRendered is whether the block is rendered with something in it to take the keys.
+	IsBlockRendered(in screen.Inputs) bool
 
-	// isBlockFocused is whether the block holds the keys.
-	isBlockFocused(in screen.Inputs) bool
+	// IsBlockFocused is whether the block holds the keys.
+	IsBlockFocused(in screen.Inputs) bool
 
-	focusBlock()
-	blurBlock()
-	doesScrollColumn(in screen.Inputs) bool
-	scrollColumn(m *model, rows int) screen.Request
+	FocusBlock()
+	BlurBlock()
+	DoesScrollColumn(in screen.Inputs) bool
+	ScrollColumn(in screen.Inputs, rows int) screen.Request
 }
 
 // crumbRenderer is a screen opened from another that renders the trail back to it.
 type crumbRenderer interface {
-	// parent is the view that opened the page.
-	parent() screen.ID
+	// Parent is the view that opened the page.
+	Parent() screen.ID
 
-	// crumbs is the trail under the parent, down to the page.
-	crumbs(in screen.Inputs) screen.Crumbs
+	// Crumbs is the trail under the parent, down to the page.
+	Crumbs(in screen.Inputs) screen.Crumbs
 }
 
 // hoveredAgentReporter is a screen whose cursor can rest on an agent's row.
 type hoveredAgentReporter interface {
-	hoveredAgentID(in screen.Inputs) string
-	hoveredRow(in screen.Inputs) (agentRow, bool)
+	HoveredAgentID(in screen.Inputs) string
+	HoveredRow(in screen.Inputs) (agentRow, bool)
+	Resting(in screen.Inputs) (panel.AgentRow, bool)
 }
 
 // savedScreenRenderer is a screen that renders a stopped agent's saved screen beside its list.
 type savedScreenRenderer interface {
-	screenedAgentID(in screen.Inputs) (string, bool)
-	screenNotice(m *model, in screen.Inputs) string
+	ScreenedAgentID(in screen.Inputs) (string, bool)
+	ScreenNotice(in screen.Inputs) string
 }
 
 // screenLeaver is a screen that puts down what it had open when another screen goes up.
 type screenLeaver interface {
-	leaveScreen(m *model) screen.Request
+	LeaveScreen() screen.Request
 }
 
 // rowStager is a screen that puts its hovered row on the stage.
 type rowStager interface {
-	stage() screen.Request
+	Stage() screen.Request
 }
 
 // hoveredNamer is a screen that names its hovered row at the end of the trail.
 type hoveredNamer interface {
-	hoveredName(in screen.Inputs) string
+	HoveredName(in screen.Inputs) string
 }
 
 // screenMenuBuilder is a screen that adds its own band to the menu.
 type screenMenuBuilder interface {
-	buildScreenMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool)
+	BuildScreenMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool)
 }
 
 // itemMenuBuilder is a screen that adds a band to the menu for its hovered row.
 type itemMenuBuilder interface {
-	buildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool)
+	BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool)
 }
 
 // lineTyper is a screen with a one-row field the user can type into.
 type lineTyper interface {
-	typedLine() (field.Line, bool)
+	TypedLine() (field.Line, bool)
 }
 
 type searchTyper interface {
-	isSearchTyping() bool
+	IsSearchTyping() bool
 }
 
 // listScroller is a screen whose scroll key does something other than move its list.
 type listScroller interface {
-	scrollList(m *model, rows int) screen.Request
+	ScrollList(in screen.Inputs, rows int) screen.Request
 }
 
 // loadingReporter is a screen that can be waiting on the server for what it renders.
 type loadingReporter interface {
-	isLoading(m *model, in screen.Inputs) bool
+	IsLoading(in screen.Inputs) bool
 }
 
 // renamer is a screen that can rename its hovered row in place.
 type renamer interface {
-	isRenaming() bool
+	IsRenaming() bool
 }
 
 // editorReconciler is a screen that keeps an editor it opened on the stage in step with its
 // cursor.
 type editorReconciler interface {
-	reconcileEditor(m *model, in screen.Inputs) screen.Request
+	ReconcileEditor(in screen.Inputs) screen.Request
 }
 
 // active is the screen that is up.
@@ -218,10 +242,10 @@ func (m *model) active() screenModel {
 func (m *model) screens() []screenModel {
 	return []screenModel{
 		&m.agents,
-		&m.agents.archived,
-		&m.agents.deleted,
+		m.agents.archiveScreen(&m.agents.archived),
+		m.agents.archiveScreen(&m.agents.deleted),
 		&m.schedules,
-		&m.schedules.archived,
+		m.schedules.archiveScreen(),
 		&m.review,
 		&m.worktrees,
 		&m.documents,
@@ -235,14 +259,14 @@ func (m *model) screens() []screenModel {
 func (m *model) screenOf(s screen.ID) screenModel {
 	switch s {
 	case screen.Agents:
-		if shown := m.agents.shownArchive(); shown != nil {
+		if shown, ok := m.agents.ShownArchive(); ok {
 			return shown
 		}
 
 		return &m.agents
 	case screen.Schedules:
-		if m.schedules.kind == schedulesArchived {
-			return &m.schedules.archived
+		if shown, ok := m.schedules.ShownArchive(); ok {
+			return shown
 		}
 
 		return &m.schedules
@@ -315,7 +339,7 @@ func (m *model) enter(next screen.ID, target screen.Target) tea.Cmd {
 			return nil
 		}
 
-		opened := m.apply(m.review.open(m, item.Agent))
+		opened := m.apply(m.review.open(m.listing, item.Agent))
 		left := m.enterScreen(screen.Review)
 		m.leftStop = stopList
 		m.stageSelection()
@@ -325,7 +349,7 @@ func (m *model) enter(next screen.ID, target screen.Target) tea.Cmd {
 
 	left := m.enterScreen(next)
 
-	return tea.Batch(left, m.apply(m.screenOf(next).enter(m, m.inputs(), target)))
+	return tea.Batch(left, m.apply(m.screenOf(next).Enter(m.inputs(), target)))
 }
 
 // apply does what a screen asked of the root.

@@ -12,6 +12,8 @@ import (
 type Room struct {
 	// Width is the column the panel renders its own list, record and legend in.
 	Width int
+	// Halved is whether the screen is rendered as the list half of a split the root has already chosen.
+	Halved bool
 	// Height is the rows of the panel's pane.
 	Height int
 	// Geometry is how the window divides between the list and the block beside it, over the whole

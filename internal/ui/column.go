@@ -116,7 +116,26 @@ func (m *model) columnOf(in screen.Inputs) column.Spec {
 		return formColumn(m.form.Narrow)
 	}
 
-	return m.active().column(m, in)
+	spec := m.active().Column(in)
+	if spec.DocRows != nil {
+		spec.DocRows = m.screenDocRows(in, spec)
+	}
+
+	return spec
+}
+
+// screenDocRows renders the screen's block with the conversation a said search matched in its
+// place, and with the saved screen of the agent it is about beneath it.
+func (m *model) screenDocRows(in screen.Inputs, spec column.Spec) func(width int) []string {
+	return func(width int) []string {
+		if spec.Said != nil {
+			if rows := m.said.columnRows(in.Room.Pattern, spec.Said(), width); rows != nil {
+				return rows
+			}
+		}
+
+		return m.withLastScreen(spec.DocRows(width), width)
+	}
 }
 
 // holdsWindow reports whether the panel is rendering a block beside its own list, and so takes the
@@ -133,7 +152,7 @@ func (m *model) wantsSolo() bool {
 // isStageBeside reports whether the screen keeps an agent on the stage beside its block, which it
 // does only while the agent is running and the window has room for both.
 func (m *model) isStageBeside() bool {
-	spec := m.active().column(m, m.inputs())
+	spec := m.active().Column(m.inputs())
 	if spec.Beside == nil || m.terminalDir != "" {
 		return false
 	}
@@ -150,7 +169,7 @@ func (m *model) isStageBeside() bool {
 // restageBeside restages the screen when the frame no longer matches whether its agent belongs
 // beside its block.
 func (m *model) restageBeside() {
-	spec := m.active().column(m, m.inputs())
+	spec := m.active().Column(m.inputs())
 	if spec.Beside != nil && spec.IsHeld() && m.isStageBeside() != m.frame.IsBeside() {
 		m.stageSelection()
 	}
@@ -159,7 +178,7 @@ func (m *model) restageBeside() {
 // syncBeside draws the sidebar across the stage for the block while an agent is beside it, and
 // gives the stage its columns back once none is or another process has them.
 func (m *model) syncBeside() {
-	m.frame.Beside(m.isStageBeside() && m.active().column(m, m.inputs()).IsHeld())
+	m.frame.Beside(m.isStageBeside() && m.active().Column(m.inputs()).IsHeld())
 }
 
 // reconcileSolo settles whether the panel has the whole window, and hands it back while the info
@@ -232,10 +251,10 @@ func (m *model) paneWidthAt(geometry column.Split) int {
 func (m *model) docShown(in screen.Inputs) string {
 	hovered := m.hoveredDetails(in).ID
 	if f, ok := m.active().(activeLister); ok {
-		hovered = f.activeList().hovered(in)
+		hovered = f.ActiveList().Hovered(in)
 	}
 	if n, ok := m.active().(docNamer); ok {
-		hovered = n.docName()
+		hovered = n.DocName()
 	}
 
 	return fmt.Sprintf("%d/%s/%t", m.screen, hovered, in.Room.MessagesFocused)
@@ -244,7 +263,7 @@ func (m *model) docShown(in screen.Inputs) string {
 // docNamer is a screen whose every row reads the one document, named so the reader keeps its place
 // as the cursor moves.
 type docNamer interface {
-	docName() string
+	DocName() string
 }
 
 // columnDoc is the document the block is rendered from, read where the reader left it.

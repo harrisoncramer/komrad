@@ -140,8 +140,8 @@ func (d *documentsScreen) saveEdit(edit documentEdit) screen.Request {
 	})
 }
 
-// reconcileEditor catches the editor pane going away on its own and saves what it wrote.
-func (d *documentsScreen) reconcileEditor(m *model, in screen.Inputs) screen.Request {
+// ReconcileEditor catches the editor pane going away on its own and saves what it wrote.
+func (d *documentsScreen) ReconcileEditor(in screen.Inputs) screen.Request {
 	if d.editing == nil || d.deps.panes.IsPaneAlive(d.editing.pane) {
 		return nil
 	}

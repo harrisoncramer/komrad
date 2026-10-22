@@ -15,7 +15,7 @@ func (m *model) activeView(in screen.Inputs) string {
 	case listRenderer:
 		return m.listScreenView(s, in)
 	case chromeRenderer:
-		return s.view(m, in, m)
+		return s.View(in, m)
 	}
 
 	return ""
@@ -24,7 +24,7 @@ func (m *model) activeView(in screen.Inputs) string {
 // listScreenView renders a screen as its list beside its own block, or as the list alone on a window
 // that will not hold both.
 func (m *model) listScreenView(l listRenderer, in screen.Inputs) string {
-	params := l.listParams(m, in)
+	params := l.ListParams(in)
 	if params.Welcome != "" {
 		return m.welcomeView(l, in, params)
 	}
@@ -45,7 +45,7 @@ func (m *model) welcomeView(l listRenderer, in screen.Inputs, params list.Params
 	}
 
 	full := m.measuredAt(m.term.width)
-	header, below := full.listChrome(l.listParams(full, in))
+	header, below := full.listChrome(l.ListParams(in))
 	lines := full.Lines(header, below)
 	centered := lipgloss.NewStyle().Align(lipgloss.Center).Render(params.Welcome)
 

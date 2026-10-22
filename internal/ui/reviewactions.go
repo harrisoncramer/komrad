@@ -15,7 +15,7 @@ func (r *reviewScreen) actions(in screen.Inputs) keys.Spec[*reviewScreen] {
 	switch {
 	case r.isSideFocused(in):
 		return r.sideActions(in)
-	case r.isBlockFocused(in):
+	case r.IsBlockFocused(in):
 		return r.filesActions(in)
 	}
 
@@ -281,9 +281,9 @@ const (
 	editorRelease = "leaving the editor releases the agent whichever key leaves it"
 )
 
-// buildItemMenu builds the band on the thread under the diff's cursor.
-func (r *reviewScreen) buildItemMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
-	if side, ok := r.findSide(in); ok && r.isBlockFocused(in) {
+// BuildItemMenu builds the band on the thread under the diff's cursor.
+func (r *reviewScreen) BuildItemMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
+	if side, ok := r.findSide(in); ok && r.IsBlockFocused(in) {
 		return r.sideMenu(in, side)
 	}
 
@@ -341,14 +341,14 @@ func (r *reviewScreen) buildItemMenu(in screen.Inputs, _ menu.Nester) (menu.Menu
 	}, true
 }
 
-// buildScreenMenu builds the band of whichever of the diff, the file tree and the rows over it holds
+// BuildScreenMenu builds the band of whichever of the diff, the file tree and the rows over it holds
 // the keys.
-func (r *reviewScreen) buildScreenMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
+func (r *reviewScreen) BuildScreenMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
 	var band menu.Menu
 	switch {
 	case r.isSideFocused(in):
 		band = pullRequestMenu()
-	case r.isBlockFocused(in):
+	case r.IsBlockFocused(in):
 		band = menu.Menu{Title: "file", Entries: r.fileEntries(in)}
 	default:
 		band = r.diffMenu(in, nest)

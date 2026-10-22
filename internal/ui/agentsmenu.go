@@ -10,8 +10,8 @@ import (
 	"komrad/lib/xslice"
 )
 
-// buildScreenMenu builds the agents list's own band, for starting a workflow, under every row.
-func (a *agentsScreen) buildScreenMenu(_ screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
+// BuildScreenMenu builds the agents list's own band, for starting a workflow, under every row.
+func (a *agentsScreen) BuildScreenMenu(_ screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
 	return menu.Menu{
 		Title: "agents",
 		Entries: []menu.Entry{

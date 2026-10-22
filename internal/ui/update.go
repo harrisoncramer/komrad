@@ -299,9 +299,17 @@ func (m *model) relayout() {
 	m.review.threads.editor.resize(reviewInputWidth(m.review.measurePopupInner(m.inputs())))
 }
 
-// routeScreenMessage hands a message to the screen that is up.
+// routeScreenMessage hands a message to the screen that is up, letting its popup take a scroll key first.
 func (m *model) routeScreenMessage(msg tea.Msg) tea.Cmd {
-	return m.apply(m.active().update(m, m.inputs(), msg))
+	if key, ok := msg.(tea.KeyPressMsg); ok {
+		if p, ok := m.active().(popupHost); ok {
+			if scrolled, ok := p.PressPopup(m.inputs(), m, key.String()); ok {
+				return m.apply(scrolled)
+			}
+		}
+	}
+
+	return m.apply(m.active().Update(m.inputs(), msg))
 }
 
 // routeResult hands a message to every screen, and reports whether any of them owned it.
@@ -309,7 +317,7 @@ func (m *model) routeResult(msg tea.Msg) (tea.Cmd, bool) {
 	var cmds []tea.Cmd
 	owned := false
 	for _, s := range m.screens() {
-		request, ok := s.receive(m, m.inputsFor(s), msg)
+		request, ok := s.Receive(m.inputsFor(s), msg)
 		if !ok {
 			continue
 		}
@@ -443,7 +451,7 @@ func (m *model) reconcileEditor() tea.Cmd {
 	m.reconcileTerminal()
 
 	if screen, ok := m.active().(editorReconciler); ok {
-		return m.apply(screen.reconcileEditor(m, m.inputs()))
+		return m.apply(screen.ReconcileEditor(m.inputs()))
 	}
 
 	return nil
@@ -452,7 +460,7 @@ func (m *model) reconcileEditor() tea.Cmd {
 // isTyping reports whether the panel's own bindings are off: the list's filter, the document's
 // search, a text input the screen put up, or a key prefix waiting on the key that completes it.
 func (m *model) isTyping() bool {
-	return m.isSearchTyping() || m.active().takesEveryKey()
+	return m.isSearchTyping() || m.active().TakesEveryKey()
 }
 
 func (m *model) isSearchTyping() bool {
@@ -462,7 +470,7 @@ func (m *model) isSearchTyping() bool {
 
 	s, ok := m.active().(searchTyper)
 
-	return ok && s.isSearchTyping()
+	return ok && s.IsSearchTyping()
 }
 
 // columnWheelStep is how many rows one turn of the wheel moves the block beside the list.

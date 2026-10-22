@@ -11,11 +11,11 @@ import (
 
 var schedulesQuery = list.Grammar{Syntax: searchsyntax.Schedules, Check: checkSchedulesClause}
 
-func (w *schedulesScreen) queryGrammar() (list.Grammar, bool) {
+func (w *schedulesScreen) QueryGrammar() (list.Grammar, bool) {
 	return schedulesQuery, true
 }
 
-func (a *archivedSchedules) queryGrammar() (list.Grammar, bool) {
+func (a *archivedSchedules) QueryGrammar() (list.Grammar, bool) {
 	return schedulesQuery, true
 }
 

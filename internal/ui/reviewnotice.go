@@ -33,8 +33,8 @@ func (n *reviewNotices) lower(key string) screen.Request {
 }
 
 // followNotices raises what the review has to say about the agent and lowers what is no longer true.
-func (r *reviewScreen) followNotices(m *model, in screen.Inputs) screen.Request {
-	if r.diff.View() == nil || r.diff.View().Len() == 0 || m.screen != screen.Review {
+func (r *reviewScreen) followNotices(in screen.Inputs) screen.Request {
+	if r.diff.View() == nil || r.diff.View().Len() == 0 || !in.Up {
 		return nil
 	}
 

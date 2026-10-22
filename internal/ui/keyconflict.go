@@ -13,8 +13,13 @@ import (
 // keys.
 func actionsOf(s screen.ID) []keys.Table {
 	var zero model
+	up := zero.screenOf(s)
+	tables := up.Dispatches()
+	if d, ok := up.(docKeyer); ok {
+		tables = append(tables, zero.docActions(), d.DocKeys(screen.Inputs{}))
+	}
 
-	return zero.screenOf(s).dispatches(&zero)
+	return tables
 }
 
 // ValidateKeybindings rejects the bindings a screen could not dispatch.

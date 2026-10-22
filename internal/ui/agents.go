@@ -18,14 +18,14 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// enter lands on the task or agent the target names, showing the hidden tasks when it works on
+// Enter lands on the task or agent the target names, showing the hidden tasks when it works on
 // one, or comes back to the list as it stands.
-func (a *agentsScreen) enter(m *model, in screen.Inputs, target screen.Target) screen.Request {
+func (a *agentsScreen) Enter(in screen.Inputs, target screen.Target) screen.Request {
 	switch {
 	case target.TaskID != "":
-		a.revealTask(m, in, target.TaskID, target.AgentID)
+		a.revealTask(in, target.TaskID, target.AgentID)
 	case target.AgentID != "":
-		a.revealAgent(m, in, target.AgentID)
+		a.revealAgent(in, target.AgentID)
 	default:
 		a.Row = cursor.Clamp(a.Row, len(a.rows(in)))
 	}
@@ -35,15 +35,15 @@ func (a *agentsScreen) enter(m *model, in screen.Inputs, target screen.Target) s
 	return screen.Restage{}
 }
 
-func (a *agentsScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen.Request {
+func (a *agentsScreen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 	switch msg := msg.(type) {
 	case tea.PasteMsg:
-		if a.isRenaming() {
+		if a.IsRenaming() {
 			return a.updateRename(a.deps.register, a.deps.clients, msg)
 		}
 	case tea.KeyPressMsg:
 		a.reconcileRename(in)
-		if a.isRenaming() {
+		if a.IsRenaming() {
 			return a.updateRename(a.deps.register, a.deps.clients, msg)
 		}
 
@@ -53,7 +53,7 @@ func (a *agentsScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen.Re
 	return nil
 }
 
-func (a *agentsScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
+func (a *agentsScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 	switch msg := msg.(type) {
 	case agentEditorStaged:
 		return a.applyEditorStaged(msg), true
@@ -80,13 +80,13 @@ func (a *agentsScreen) list() screenList[agentRow] {
 		fits:   agentRowFits,
 		refs:   refsOf,
 		header: "folder",
-		placed: func(screen.Inputs) screen.Request { return a.stage() },
+		placed: func(screen.Inputs) screen.Request { return a.Stage() },
 		moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
 	}
 }
 
-// stage puts the pane of whatever the cursor is standing on beside the list.
-func (a *agentsScreen) stage() screen.Request {
+// Stage puts the pane of whatever the cursor is standing on beside the list.
+func (a *agentsScreen) Stage() screen.Request {
 	return screen.Restage{}
 }
 
@@ -184,12 +184,12 @@ func (a *agentsScreen) settleResume(in screen.Inputs, id string, err error) scre
 // relist puts the cursors of the tree, the zone and the archive on show back on the rows they were on.
 func (a *agentsScreen) relist(in screen.Inputs, relisted screen.Relisted) screen.Request {
 	before := relisted.Before(in)
-	treeRow := a.list().hovered(before)
+	treeRow := a.list().Hovered(before)
 	triageSlot := a.findZoneSlot(before)
 	archiveShown := a.shownArchive()
 	var archivedRow string
 	if archiveShown != nil {
-		archivedRow = archiveShown.list().hovered(before)
+		archivedRow = archiveShown.list().Hovered(before)
 	}
 
 	a.triage.refresh(in.Listing.Agents, in.Listing.Tasks, a.deps.clock.Now())
@@ -229,7 +229,7 @@ func (a *agentsScreen) followAwaitingCLI(in screen.Inputs) screen.Request {
 }
 
 func (a *agentsScreen) toggleHidden(in screen.Inputs) screen.Request {
-	selected := a.list().hovered(in)
+	selected := a.list().Hovered(in)
 
 	a.showHidden = !a.showHidden
 
@@ -237,13 +237,13 @@ func (a *agentsScreen) toggleHidden(in screen.Inputs) screen.Request {
 	a.Row = cursor.Place(list.IndexOf(rows, selected), a.Row, len(rows))
 	a.Selected = a.Selected.Pruned(refsOf(a.rows(in)))
 
-	return a.stage()
+	return a.Stage()
 }
 
 // seeFinished snoozes the agent's task when it waits only to be looked at and the tree renders the
 // agent, keeping the cursor on the agent's tree row.
 func (a *agentsScreen) seeFinished(in screen.Inputs, item panel.AgentRow) {
-	treeKey := toTreeRowKey(a.list().hovered(in))
+	treeKey := toTreeRowKey(a.list().Hovered(in))
 	if list.IndexOf(a.rows(in), treeKey) < 0 {
 		return
 	}
@@ -256,7 +256,7 @@ func (a *agentsScreen) seeFinished(in screen.Inputs, item panel.AgentRow) {
 
 // toggleSnooze snoozes or wakes the task under the key in triage, keeping the cursor in the zone.
 func (a *agentsScreen) toggleSnooze(in screen.Inputs, key string) screen.Request {
-	selected := a.list().hovered(in)
+	selected := a.list().Hovered(in)
 	slot := a.findZoneSlot(in)
 	if !a.triage.toggleSnooze(key, in.Listing.Agents) {
 		return nil
@@ -269,7 +269,7 @@ func (a *agentsScreen) toggleSnooze(in screen.Inputs, key string) screen.Request
 		moved = a.moveAfterSnooze(in, slot)
 	}
 
-	return screen.Batch{moved, a.stage()}
+	return screen.Batch{moved, a.Stage()}
 }
 
 // hasPane reports whether an agent has a pane of its own worth putting in the window.
@@ -289,7 +289,7 @@ func agentsTabs() tabs.Strip {
 	}
 }
 
-func (a *agentsScreen) listParams(_ *model, in screen.Inputs) list.Params {
+func (a *agentsScreen) ListParams(in screen.Inputs) list.Params {
 	params := list.Params{
 		Help:     a.help(in),
 		Rows:     len(a.rows(in)),
@@ -347,51 +347,52 @@ var (
 	_ savedScreenRenderer  = (*agentsScreen)(nil)
 )
 
-func (a *agentsScreen) doesRenderFromListing() bool {
+func (a *agentsScreen) DoesRenderFromListing() bool {
 	return true
 }
 
-func (a *agentsScreen) takesEveryKey() bool {
-	return a.isRenaming()
+func (a *agentsScreen) TakesEveryKey() bool {
+	return a.IsRenaming()
 }
 
-func (a *agentsScreen) activeList() keyedList {
+func (a *agentsScreen) ActiveList() keyedList {
 	return a.list()
 }
 
-func (a *agentsScreen) hoveredName(in screen.Inputs) string {
+func (a *agentsScreen) HoveredName(in screen.Inputs) string {
 	return a.list().hoveredName(in)
 }
 
-func (a *agentsScreen) tabs() tabs.Strip {
+func (a *agentsScreen) Tabs() tabs.Strip {
 	return agentsTabs()
 }
 
-func (a *agentsScreen) tabsState() *tabs.State {
+func (a *agentsScreen) TabsState() *tabs.State {
 	return &a.sort
 }
 
-func (a *agentsScreen) column(m *model, in screen.Inputs) column.Spec {
+func (a *agentsScreen) Column(in screen.Inputs) column.Spec {
 	return column.Spec{
 		Floor: columnFloor,
 		Read:  column.IsAlwaysRead,
 		DocRows: func(width int) []string {
-			if !m.agents.isHoveringNotes(in) {
-				if rows := m.said.columnRows(in.Room.Pattern, m.agents.hoveredAgentID(in), width); rows != nil {
-					return rows
-				}
+			return paint.DocStyledRows(a.doc(in), max(width, 1), columnStyle())
+		},
+		Said: func() string {
+			if a.isHoveringNotes(in) {
+				return ""
 			}
 
-			return m.withLastScreen(paint.DocStyledRows(m.agents.doc(in), max(width, 1), columnStyle()), width)
+			return a.HoveredAgentID(in)
 		},
 		Holds: func() bool {
-			return !m.agents.isEditorOpen() && (m.agents.hasNoAgentPane(in) || in.Room.Pattern.HasSaid(m.agents.hoveredAgentID(in)))
+			return !a.isEditorOpen() && (a.hasNoAgentPane(in) || in.Room.Pattern.HasSaid(a.HoveredAgentID(in)))
 		},
 	}
 }
 
 func (a *agentsScreen) openRename(in screen.Inputs) screen.Request {
-	row, ok := a.hoveredRow(in)
+	row, ok := a.HoveredRow(in)
 	if !ok {
 		return nil
 	}
@@ -402,7 +403,7 @@ func (a *agentsScreen) openRename(in screen.Inputs) screen.Request {
 }
 
 func (a *agentsScreen) reconcileRename(in screen.Inputs) {
-	reconcileRename(&a.renameSlot, a.rows(in), a.list().hovered(in), agentRowName)
+	reconcileRename(&a.renameSlot, a.rows(in), a.list().Hovered(in), agentRowName)
 }
 
 func (a *agentsScreen) settleRename(in screen.Inputs, row string, err error) {
@@ -411,6 +412,6 @@ func (a *agentsScreen) settleRename(in screen.Inputs, row string, err error) {
 	}
 }
 
-func (a *agentsScreen) dispatches(*model) []keys.Table {
+func (a *agentsScreen) Dispatches() []keys.Table {
 	return []keys.Table{a.actions(screen.Inputs{}), a.archived.actions(screen.Inputs{})}
 }

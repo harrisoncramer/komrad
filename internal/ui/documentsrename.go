@@ -52,7 +52,7 @@ func (d *documentsScreen) openRename(in screen.Inputs) screen.Request {
 
 // reconcileRename drops an open rename once the cursor leaves its row.
 func (d *documentsScreen) reconcileRename(in screen.Inputs) {
-	if d.renaming != nil && !reconcileNameEdit(d.renaming.NameEdit, d.rows(in), d.activeList().hovered(in), func(r documentRow) string { return r.item.name }) {
+	if d.renaming != nil && !reconcileNameEdit(d.renaming.NameEdit, d.rows(in), d.ActiveList().Hovered(in), func(r documentRow) string { return r.item.name }) {
 		d.renaming = nil
 	}
 }
@@ -118,13 +118,13 @@ func (d *documentsScreen) settleRename(in screen.Inputs, row string, err error) 
 	d.reconcileRename(in)
 }
 
-func (d *documentsScreen) isRenaming() bool {
+func (d *documentsScreen) IsRenaming() bool {
 	return d.renaming != nil && !d.renaming.IsLanded()
 }
 
-func (d *documentsScreen) typedLine() (field.Line, bool) {
+func (d *documentsScreen) TypedLine() (field.Line, bool) {
 	switch {
-	case d.isRenaming():
+	case d.IsRenaming():
 		return d.renaming.Input(), true
 	case d.history != nil && d.history.filter.typing:
 		return d.history.filter.input, true

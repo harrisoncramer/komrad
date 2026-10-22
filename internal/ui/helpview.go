@@ -38,7 +38,7 @@ func (m *model) Help(help legend.Help, above ...string) string {
 	if m.filter.typing {
 		help = filterHelp(m.filter.mode)
 	}
-	if r, ok := m.active().(renamer); ok && r.isRenaming() {
+	if r, ok := m.active().(renamer); ok && r.IsRenaming() {
 		help = renameHelp()
 	}
 	if m.isViewsOpen() {

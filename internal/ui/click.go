@@ -107,17 +107,17 @@ func (m *model) clickerOf(name zone.Name) (clicker, bool) {
 	case zoneParentMenu:
 		return clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickSubmenu(key, true) }), true
 	case zoneFiles:
-		return m.stopClicker(stopBlock, clickFunc(func(m *model, path string, _ int) tea.Cmd { return m.apply(m.review.clickFile(m.inputs(), path)) })), true
+		return m.stopClicker(stopBlock, popupClick(popupHost.ClickFile)), true
 	case zoneDetails:
 		return m.stopClicker(stopRecord, requestClick(func(m *model, key string, nth int) screen.Request {
-			return m.detailsList().click(m.inputs(), key, nth)
+			return m.detailsList().Click(m.inputs(), key, nth)
 		})), true
 	case zoneList:
 		if lister, ok := m.active().(activeLister); ok {
-			return m.listClicker(lister.activeList()), true
+			return m.listClicker(lister.ActiveList()), true
 		}
 	case zoneSide:
-		return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.apply(m.review.clickSide(m.inputs(), key)) })), true
+		return m.stopClicker(stopBlock, popupClick(popupHost.ClickSide)), true
 	case zoneColumn, zoneBlock:
 	}
 
@@ -140,4 +140,16 @@ func (m *model) clickBlock(x, y int) tea.Cmd {
 	}
 
 	return m.focusBlockIn(m.findSidebarBlocks(), x, y)
+}
+
+// popupClick is a click the screen up answers while it hosts a popup.
+func popupClick(click func(p popupHost, in screen.Inputs, key string) screen.Request) clicker {
+	return requestClick(func(m *model, key string, _ int) screen.Request {
+		p, ok := m.active().(popupHost)
+		if !ok {
+			return nil
+		}
+
+		return click(p, m.inputs(), key)
+	})
 }

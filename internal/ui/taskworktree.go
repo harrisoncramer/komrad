@@ -30,11 +30,22 @@ func isStale(read panel.WorktreeInspection, now time.Time) bool {
 // inspectTaskWorktree asks for the hovered task's directory where nothing stands for it or
 // what stands is stale.
 func (m *model) inspectTaskWorktree(now time.Time) screen.Request {
-	task, ok := m.hoveredRecordTask()
+	r, ok := m.active().(hoveredAgentReporter)
+	if !ok {
+		return nil
+	}
+
+	return inspectRecordTask(r, m.inputs(), now)
+}
+
+// inspectRecordTask asks for the directory of the task the screen's record is about where
+// nothing stands for it or what stands is stale.
+func inspectRecordTask(r hoveredAgentReporter, in screen.Inputs, now time.Time) screen.Request {
+	task, ok := recordTask(r, in)
 	if !ok || task.Cwd == "" {
 		return nil
 	}
-	if read, asked := m.inspections[task.Cwd]; asked && !isStale(read, now) {
+	if read, asked := in.Inspections[task.Cwd]; asked && !isStale(read, now) {
 		return nil
 	}
 
@@ -121,14 +132,14 @@ func checkoutFields(params checkoutFieldsParams) []record.Field {
 }
 
 // buildCheckoutParams is a task's checkout as the listing and the reads hold it.
-func (m *model) buildCheckoutParams(task panel.Task) checkoutFieldsParams {
-	worktree, read := taskWorktree(m.inspections, task.Cwd)
+func buildCheckoutParams(inspections map[string]panel.WorktreeInspection, now time.Time, task panel.Task) checkoutFieldsParams {
+	worktree, read := taskWorktree(inspections, task.Cwd)
 
 	return checkoutFieldsParams{
 		task:     task,
 		worktree: worktree,
 		read:     read,
-		now:      m.clock.Now(),
+		now:      now,
 	}
 }
 
@@ -165,7 +176,7 @@ func (m *model) hoveredRecordAgent() (panel.AgentRow, bool) {
 		return panel.AgentRow{}, false
 	}
 
-	row, ok := screen.hoveredRow(m.inputs())
+	row, ok := screen.HoveredRow(m.inputs())
 	if !ok {
 		return panel.AgentRow{}, false
 	}
@@ -182,12 +193,17 @@ func (m *model) hoveredRecordAgent() (panel.AgentRow, bool) {
 // hoveredRecordTask is the task whose checkout the record under the agents list or the archive
 // shows, and none on any other screen or row.
 func (m *model) hoveredRecordTask() (panel.Task, bool) {
-	screen, ok := m.active().(hoveredAgentReporter)
+	r, ok := m.active().(hoveredAgentReporter)
 	if !ok {
 		return panel.Task{}, false
 	}
 
-	row, ok := screen.hoveredRow(m.inputs())
+	return recordTask(r, m.inputs())
+}
+
+// recordTask is the task whose checkout the screen's record shows, and none on a row with none.
+func recordTask(r hoveredAgentReporter, in screen.Inputs) (panel.Task, bool) {
+	row, ok := r.HoveredRow(in)
 	switch {
 	case !ok:
 		return panel.Task{}, false
@@ -197,5 +213,5 @@ func (m *model) hoveredRecordTask() (panel.Task, bool) {
 		return panel.Task{}, false
 	}
 
-	return m.listing.Tasks.FindForAgent(row.item.Agent), true
+	return in.Listing.Tasks.FindForAgent(row.item.Agent), true
 }

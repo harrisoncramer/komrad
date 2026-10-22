@@ -161,7 +161,7 @@ func (s messagesState) clampedCursor() int {
 }
 
 func (m *model) canReadMessages() bool {
-	return !m.active().takesEveryKey()
+	return !m.active().TakesEveryKey()
 }
 
 func (m *model) isMessagesFocused() bool {

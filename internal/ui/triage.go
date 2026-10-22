@@ -585,7 +585,7 @@ func (m *model) settleTriage() {
 	case reading && m.agents.triage.frozen == nil:
 		m.agents.triage.frozen = xslice.Map(zoneHeads(zone), func(i int) string { return zone[i].item.Agent.ID })
 	case !reading && m.agents.triage.frozen != nil:
-		hovered := m.agents.list().hovered(m.inputs())
+		hovered := m.agents.list().Hovered(m.inputs())
 		m.agents.triage.frozen = nil
 		m.agents.apply(m.inputs(), hovered)
 	}

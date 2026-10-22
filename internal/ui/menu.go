@@ -18,11 +18,11 @@ func (m *model) buildMenu() (menu.Menu, bool) {
 	var hasItem, hasBand bool
 
 	if screen, ok := m.active().(itemMenuBuilder); ok {
-		item, hasItem = screen.buildItemMenu(m.inputs(), m)
+		item, hasItem = screen.BuildItemMenu(m.inputs(), m)
 	}
 
 	if screen, ok := m.active().(screenMenuBuilder); ok {
-		band, hasBand = screen.buildScreenMenu(m.inputs(), m)
+		band, hasBand = screen.BuildScreenMenu(m.inputs(), m)
 	}
 
 	switch {
@@ -35,7 +35,7 @@ func (m *model) buildMenu() (menu.Menu, bool) {
 	}
 }
 
-func (a *agentsScreen) buildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
+func (a *agentsScreen) BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
 	if a.list().isSelecting() {
 		chosen := chosenAgents(a.Selected, a.rows(in))
 		if len(chosen) == 0 {
@@ -56,7 +56,7 @@ func (a *agentsScreen) buildItemMenu(in screen.Inputs, nest menu.Nester) (menu.M
 		return menu.Menu{}, false
 	}
 
-	row, ok := a.hoveredRow(in)
+	row, ok := a.HoveredRow(in)
 	if !ok {
 		return menu.Menu{}, false
 	}
@@ -93,7 +93,7 @@ func (a *agentsScreen) buildItemMenu(in screen.Inputs, nest menu.Nester) (menu.M
 	return a.agentRowMenu(in, item), true
 }
 
-func (w *schedulesScreen) buildItemMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
+func (w *schedulesScreen) BuildItemMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
 	item, ok := w.selected(in)
 	if !ok {
 		return menu.Menu{}, false
@@ -102,8 +102,8 @@ func (w *schedulesScreen) buildItemMenu(in screen.Inputs, _ menu.Nester) (menu.M
 	return menu.WithNested(w.scheduleMenu(item.schedule), "archive", w.deps.keys.Menu.Archive, w.scheduleArchiveMenu(item.schedule)), true
 }
 
-// buildScreenMenu builds the schedules screen's own band, for writing a new schedule.
-func (w *schedulesScreen) buildScreenMenu(_ screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
+// BuildScreenMenu builds the schedules screen's own band, for writing a new schedule.
+func (w *schedulesScreen) BuildScreenMenu(_ screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
 	return menu.Menu{
 		Title: "schedules",
 		Entries: []menu.Entry{

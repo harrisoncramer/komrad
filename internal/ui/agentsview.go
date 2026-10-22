@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"time"
 
 	"komrad/config"
 	"komrad/internal/glyph"
@@ -14,14 +15,14 @@ import (
 	"komrad/internal/view"
 )
 
-func (a *agentsScreen) details(m *model, in screen.Inputs) record.Details {
-	r, ok := a.hoveredRow(in)
+func (a *agentsScreen) Details(in screen.Inputs) record.Details {
+	r, ok := a.HoveredRow(in)
 	if !ok {
 		return record.Details{}
 	}
 
 	if r.isTask() {
-		return taskDetails(m, in, a.deps.glyphs, r)
+		return taskDetails(in, a.deps.clock.Now(), a.deps.glyphs, r)
 	}
 
 	if r.header {
@@ -31,14 +32,14 @@ func (a *agentsScreen) details(m *model, in screen.Inputs) record.Details {
 		}
 	}
 
-	return agentDetails(m, in, a.deps.glyphs, r)
+	return agentDetails(in, a.deps.clock.Now(), a.deps.glyphs, r)
 }
 
 // taskDetails is the record for a task's row, with the rule's tags too while the task is live.
-func taskDetails(m *model, in screen.Inputs, glyphs glyph.Set, r agentRow) record.Details {
+func taskDetails(in screen.Inputs, now time.Time, glyphs glyph.Set, r agentRow) record.Details {
 	var tags []string
 	if r.task.ArchivedAt == nil {
-		tags = taskDetailsTags(m, *r.task)
+		tags = taskDetailsTags(in.Inspections, *r.task)
 	}
 	var writerFields []record.Field
 	if writer, ok := r.writer(); ok {
@@ -49,14 +50,14 @@ func taskDetails(m *model, in screen.Inputs, glyphs glyph.Set, r agentRow) recor
 	return record.Details{
 		ID:      r.task.ID,
 		Notices: agentNotices(glyphs, in.Room.Spinner, in.Listing.Tasks, r),
-		Fields:  taskFields(m.buildCheckoutParams(*r.task), writerFields),
+		Fields:  taskFields(buildCheckoutParams(in.Inspections, now, *r.task), writerFields),
 		Tags:    tags,
 	}
 }
 
 // agentDetails is the record for an agent's row, carrying its task's checkout where no task
 // header stands over it and the rule's tags too while the agent is live.
-func agentDetails(m *model, in screen.Inputs, glyphs glyph.Set, r agentRow) record.Details {
+func agentDetails(in screen.Inputs, now time.Time, glyphs glyph.Set, r agentRow) record.Details {
 	task := in.Listing.Tasks.FindForAgent(r.item.Agent)
 	params := agentFieldsParams{
 		agent:    r.item.Agent,
@@ -67,9 +68,9 @@ func agentDetails(m *model, in screen.Inputs, glyphs glyph.Set, r agentRow) reco
 	if r.underTask {
 		params.headerCwd = task.Cwd
 	} else {
-		params.checkout = checkoutFields(m.buildCheckoutParams(task))
+		params.checkout = checkoutFields(buildCheckoutParams(in.Inspections, now, task))
 		if r.item.Agent.ArchivedAt == nil {
-			tags = taskDetailsTags(m, task)
+			tags = taskDetailsTags(in.Inspections, task)
 		}
 	}
 
@@ -83,7 +84,7 @@ func agentDetails(m *model, in screen.Inputs, glyphs glyph.Set, r agentRow) reco
 
 // doc is the markdown rendered beside the list for a row with no pane of its own.
 func (a *agentsScreen) doc(in screen.Inputs) string {
-	r, ok := a.hoveredRow(in)
+	r, ok := a.HoveredRow(in)
 	item, held := r.paneItem()
 
 	switch {

@@ -265,7 +265,7 @@ func (m *model) filteredRows() ([]list.Row, bool) {
 		return nil, false
 	}
 
-	return l.filterRows(m.inputs()), true
+	return l.FilterRows(m.inputs()), true
 }
 
 func (m *model) filteredList() (keyedList, bool) {
@@ -278,7 +278,7 @@ func (m *model) filteredList() (keyedList, bool) {
 		return nil, false
 	}
 
-	return lister.activeList(), true
+	return lister.ActiveList(), true
 }
 
 // beginFilter starts a search from nothing, keeping the cursor on the row it was on.
@@ -287,7 +287,7 @@ func (m *model) beginFilter() {
 
 	var opts []filterOption
 	if screen, ok := m.active().(queryGrammarer); ok && !m.isDetailsFocused(m.inputs()) {
-		if grammar, reads := screen.queryGrammar(); reads {
+		if grammar, reads := screen.QueryGrammar(); reads {
 			opts = append(opts, withGrammar(grammar, m.clock))
 		}
 	}
@@ -325,12 +325,12 @@ func (m *model) enterScreen(next screen.ID) tea.Cmd {
 // leaveScreen hands the keys back from the block of the screen going down and puts down what it had open.
 func (m *model) leaveScreen() tea.Cmd {
 	if b, ok := m.active().(columnFocuser); ok {
-		b.blurBlock()
+		b.BlurBlock()
 	}
 	m.reading.focused = false
 
 	if l, ok := m.active().(screenLeaver); ok {
-		return m.apply(l.leaveScreen(m))
+		return m.apply(l.LeaveScreen())
 	}
 
 	return nil
@@ -445,12 +445,12 @@ func (m *model) hoveredFilterKey() string {
 		return ""
 	}
 
-	return l.hovered(m.inputs())
+	return l.Hovered(m.inputs())
 }
 
 func (m *model) placeFilteredCursor(hovered string) {
 	if l, ok := m.filteredList(); ok {
-		m.apply(l.place(m.inputs(), hovered))
+		m.apply(l.Place(m.inputs(), hovered))
 	}
 }
 
@@ -550,7 +550,7 @@ func (m *model) clickSearch(key string) tea.Cmd {
 func (m *model) filterBy(query string) {
 	var opts []filterOption
 	if s, ok := m.active().(queryGrammarer); ok {
-		if grammar, reads := s.queryGrammar(); reads {
+		if grammar, reads := s.QueryGrammar(); reads {
 			opts = append(opts, withGrammar(grammar, m.clock))
 		}
 	}

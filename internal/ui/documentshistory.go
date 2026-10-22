@@ -190,9 +190,8 @@ type documentVersionReadMsg struct {
 
 // readHistoryCmd lists the writes of the document being stepped through, then reads
 // the one stood on and the one before it.
-func (m *model) readHistoryCmd() tea.Cmd {
-	d := &m.documents
-	if !d.isSteppingHovered(m.inputs()) {
+func (d *documentsScreen) readHistoryCmd(in screen.Inputs) tea.Cmd {
+	if !d.isSteppingHovered(in) {
 		return nil
 	}
 
@@ -219,7 +218,7 @@ func (m *model) readHistoryCmd() tea.Cmd {
 	var cmds []tea.Cmd
 	for _, at := range []int{h.at, h.at + 1} {
 		if at < len(h.versions) {
-			cmds = append(cmds, m.readVersionCmd(h.versions[at].version))
+			cmds = append(cmds, d.readVersionCmd(h.versions[at].version))
 		}
 	}
 
@@ -227,8 +226,7 @@ func (m *model) readHistoryCmd() tea.Cmd {
 }
 
 // readVersionCmd reads one write of the document being stepped through, once.
-func (m *model) readVersionCmd(version int32) tea.Cmd {
-	d := &m.documents
+func (d *documentsScreen) readVersionCmd(version int32) tea.Cmd {
 	h, clients := d.history, d.deps.clients
 	if _, asked := h.reads[version]; asked {
 		return nil
@@ -258,7 +256,7 @@ func (m *model) readVersionCmd(version int32) tea.Cmd {
 	}
 }
 
-func (d *documentsScreen) applyVersionsListed(m *model, msg documentVersionsListedMsg) screen.Request {
+func (d *documentsScreen) applyVersionsListed(in screen.Inputs, msg documentVersionsListedMsg) screen.Request {
 	h := d.history
 	if h == nil || h.item.id != msg.id {
 		return nil
@@ -273,7 +271,7 @@ func (d *documentsScreen) applyVersionsListed(m *model, msg documentVersionsList
 
 	h.versions, h.at = msg.versions, 0
 
-	return screen.Cmd(m.readHistoryCmd())
+	return screen.Cmd(d.readHistoryCmd(in))
 }
 
 func (d *documentsScreen) applyVersionRead(msg documentVersionReadMsg) {
@@ -285,8 +283,8 @@ func (d *documentsScreen) applyVersionRead(msg documentVersionReadMsg) {
 	h.reads[msg.version] = msg.read
 }
 
-// buildFrame builds the diff of the write stepped to once it is rendered beside the list.
-func (d *documentsScreen) buildFrame(_ *model, in screen.Inputs) {
+// BuildFrame builds the diff of the write stepped to once it is rendered beside the list.
+func (d *documentsScreen) BuildFrame(in screen.Inputs) {
 	if in.Room.Split.On && d.isSteppingHovered(in) {
 		d.history.keepDiff(in.Room.Dark)
 	}

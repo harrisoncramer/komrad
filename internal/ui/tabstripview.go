@@ -18,7 +18,7 @@ func (m *model) tabbedHeader(title, tally string) string {
 func (m *model) tabsLine() string {
 	t, _ := m.activeTabs()
 
-	strip := t.tabs()
+	strip := t.Tabs()
 
-	return strip.View(*t.tabsState(), m.paneWidth(), m.spanMarker(zoneTabs, strip.StopKeys())) + "\n"
+	return strip.View(*t.TabsState(), m.paneWidth(), m.spanMarker(zoneTabs, strip.StopKeys())) + "\n"
 }
