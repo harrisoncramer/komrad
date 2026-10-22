@@ -2,7 +2,6 @@ package ui
 
 import (
 	"slices"
-	"strconv"
 
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/screen"
@@ -29,6 +28,17 @@ func (f requestClick) click(m *model, key string, nth int) tea.Cmd {
 
 var formZones = []zone.Name{zoneMenu, zoneParentMenu}
 
+var searchStops = map[string]stop{
+	zone.SearchList:  stopList,
+	zone.SearchBlock: stopBlock,
+}
+
+func isSearchAt(key string, at stop) bool {
+	to, ok := searchStops[key]
+
+	return ok && to == at
+}
+
 func (m *model) routeClick(click tea.MouseClickMsg) tea.Cmd {
 	if click.Button != tea.MouseLeft || m.writes.held.active {
 		return nil
@@ -45,7 +55,7 @@ func (m *model) routeClick(click tea.MouseClickMsg) tea.Cmd {
 
 		return tea.Batch(m.closeForm(), m.routeClick(click))
 	}
-	if marked && hit.Zone == zoneSearch && hit.Key == strconv.Itoa(int(m.atStop())) && m.isSearchTyping() {
+	if marked && hit.Zone == zone.Search && isSearchAt(hit.Key, m.atStop()) && m.isSearchTyping() {
 		return nil
 	}
 
@@ -75,7 +85,7 @@ func (m *model) clickerOf(name zone.Name) (clicker, bool) {
 		return clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickKind(key) }), true
 	case zoneTabs:
 		return clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickTab(key) }), true
-	case zoneSearch:
+	case zone.Search:
 		return clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickSearch(key) }), true
 	case zoneMessages:
 		return clickFunc(func(m *model, _ string, _ int) tea.Cmd { return m.clickMessages() }), true

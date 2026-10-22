@@ -3,7 +3,6 @@ package ui
 import (
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -528,8 +527,8 @@ func (m *model) matchAt(delta int) (string, bool) {
 }
 
 func (m *model) clickSearch(key string) tea.Cmd {
-	to, err := strconv.Atoi(key)
-	if err != nil {
+	to, ok := searchStops[key]
+	if !ok {
 		return nil
 	}
 
@@ -537,7 +536,7 @@ func (m *model) clickSearch(key string) tea.Cmd {
 		m.closeViews()
 	}
 
-	entered := m.enterStop(stop(to))
+	entered := m.enterStop(to)
 	if m.isTyping() {
 		return entered
 	}

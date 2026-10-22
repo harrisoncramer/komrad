@@ -16,6 +16,13 @@ import (
 // Name names a block the panel renders inside its own pane.
 type Name string
 
+const Search Name = "search"
+
+const (
+	SearchList  = "list"
+	SearchBlock = "block"
+)
+
 // Hit is the marked row under a cell.
 type Hit struct {
 	Zone Name

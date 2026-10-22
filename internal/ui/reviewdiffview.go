@@ -8,6 +8,7 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/zone"
 
 	glamouransi "charm.land/glamour/v2/ansi"
 	"github.com/charmbracelet/x/ansi"
@@ -43,7 +44,7 @@ func (r *reviewScreen) Column(in screen.Inputs) column.Spec {
 func (r reviewScreen) bandView(in screen.Inputs) string {
 	search := r.diff.filter.view(r.deps.glyphs)
 	if in.Room.Marks {
-		search = searchMark(stopList, r.measureBandWidth(in), search)
+		search = zone.MarkKey(zone.Search, r.measureBandWidth(in), 0, zone.SearchList) + search
 	}
 
 	return r.rangeView(in) + search + diffMatchCount(&r.diff.Pane, r.diff.filter)

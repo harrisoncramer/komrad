@@ -82,7 +82,7 @@ func (l *logsScreen) block(in screen.Inputs, width int) []string {
 
 	search := paint.FitRow(list.Blank+l.logFilterLine(l.deps.glyphs), width)
 	if in.Room.Marks {
-		search = searchMark(stopBlock, width, search)
+		search = zone.MarkKey(zone.Search, width, 0, zone.SearchBlock) + search
 	}
 
 	return append(rows, search)

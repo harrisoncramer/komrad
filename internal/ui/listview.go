@@ -4,6 +4,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/zone"
 	"komrad/internal/view"
 
 	"charm.land/lipgloss/v2"
@@ -105,7 +106,7 @@ func (m *model) headerLines(title, tally, tabs string) string {
 		header += "\n"
 	}
 
-	return m.viewsBar() + header + tabs + m.markSearch(stopList, m.paneWidth(), m.filter.line(m.glyphs)) + "\n\n"
+	return m.viewsBar() + header + tabs + m.markSearch(zone.SearchList, m.paneWidth(), m.filter.line(m.glyphs)) + "\n\n"
 }
 
 // headedListView renders a list under its header, padded out to the record and the legend under it.

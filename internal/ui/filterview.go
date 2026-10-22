@@ -6,6 +6,7 @@ import (
 	"komrad/internal/glyph"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/zone"
 
 	"charm.land/lipgloss/v2"
 )
@@ -55,7 +56,7 @@ func (f filterState) head(params headParams) []string {
 	indent := strings.Repeat(" ", docMargin())
 	search := paint.FitRow(indent+f.line(params.glyphs)+params.count, params.width)
 	if params.marks {
-		search = searchMark(stopBlock, params.width, search)
+		search = zone.MarkKey(zone.Search, params.width, 0, zone.SearchBlock) + search
 	}
 
 	head := []string{search}

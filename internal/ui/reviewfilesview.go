@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/zone"
 	"komrad/internal/view"
 
 	"charm.land/lipgloss/v2"
@@ -60,7 +61,7 @@ func (r reviewScreen) filesView(in screen.Inputs, lines int) string {
 
 	header := ansi.Truncate(r.filesFilter.line(r.deps.glyphs), max(width, 0), "…")
 	if in.Room.Marks {
-		header = searchMark(stopBlock, width, header)
+		header = zone.MarkKey(zone.Search, width, 0, zone.SearchBlock) + header
 	}
 	header += "\n"
 	if lines < 0 {
