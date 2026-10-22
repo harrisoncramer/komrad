@@ -293,7 +293,6 @@ type model struct {
 	documents       documentsScreen
 	logs            logsScreen
 	statusChecks    statusChecksScreen
-	statusCheckLogs statusCheckLogsScreen
 	// inspections is what the server answered for each worktree directory.
 	inspections map[string]panel.WorktreeInspection
 	lastScreen  lastScreen
@@ -447,6 +446,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		top:           top,
 		editorCommand: deps.Settings.Editor,
 		draftDir:      deps.Settings.DraftDir,
+		glyphs:        deps.Glyphs,
 	}
 	statusChecks := statusChecksDeps{
 		keys:    deps.Keys,
@@ -522,11 +522,10 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 			clients:  clients,
 			top:      top,
 		}},
-		statusChecks:    statusChecksScreen{deps: statusChecks},
-		statusCheckLogs: statusCheckLogsScreen{deps: statusChecks},
-		warm:            newWarmupState(),
-		loading:         loadingState{style: cmp.Or(deps.Loader, loader.Braille)},
-		reactors:        newWorldReactors(),
+		statusChecks: statusChecksScreen{deps: statusChecks},
+		warm:         newWarmupState(),
+		loading:      loadingState{style: cmp.Or(deps.Loader, loader.Braille)},
+		reactors:     newWorldReactors(),
 	}
 
 	if m.clip == nil {

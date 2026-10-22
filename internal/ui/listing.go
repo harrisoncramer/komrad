@@ -94,7 +94,7 @@ func (m *model) afterListing() tea.Cmd {
 	active := m.active()
 	var staged tea.Cmd
 	if s, ok := active.(rowStager); ok && active.doesRenderFromListing() && !m.form.isActive() {
-		staged = m.apply(s.stage(m, m.inputs()))
+		staged = m.apply(s.stage())
 	}
 
 	m.restageBeside()
@@ -376,9 +376,9 @@ func (m *model) landOnMade(made screen.Made, keyMoved bool) tea.Cmd {
 
 	m.agents.showHiddenFor(m, made.Agent)
 
-	rows := m.agents.rows(m, m.inputs())
-	if key := findLandingKey(rows, m.agents.list().hovered(m, m.inputs()), made.Row); !keyMoved && list.IndexOf(rows, key) >= 0 {
-		m.agents.apply(m, m.inputs(), key)
+	rows := m.agents.rows(m.inputs())
+	if key := findLandingKey(rows, m.agents.list().hovered(m.inputs()), made.Row); !keyMoved && list.IndexOf(rows, key) >= 0 {
+		m.agents.apply(m.inputs(), key)
 	}
 
 	if made.Pane == "" {

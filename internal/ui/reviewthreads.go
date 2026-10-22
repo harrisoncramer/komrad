@@ -33,19 +33,19 @@ func (t *reviewThreads) set(threads []*agentv1.ReviewThread) {
 
 // followWorld renders what the world now holds of the review.
 func (r *reviewScreen) followWorld(m *model, in screen.Inputs) screen.Request {
-	r.followThreads(m, in)
+	r.followThreads(in)
 
-	return r.followNotices(m)
+	return r.followNotices(m, in)
 }
 
 // followThreads renders the conversation the world holds on a live agent, once the reader has stopped
 // typing.
-func (r *reviewScreen) followThreads(m *model, in screen.Inputs) {
+func (r *reviewScreen) followThreads(in screen.Inputs) {
 	if r.diff.View() == nil || r.takesEveryKey() {
 		return
 	}
 
-	if _, live := r.agentRow(m); !live {
+	if _, live := r.agentRow(in); !live {
 		return
 	}
 
@@ -54,7 +54,7 @@ func (r *reviewScreen) followThreads(m *model, in screen.Inputs) {
 		return
 	}
 
-	r.applyThreads(m, threads)
+	r.applyThreads(in, threads)
 }
 
 func isSameThread(a, b *agentv1.ReviewThread) bool {

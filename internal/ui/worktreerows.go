@@ -163,7 +163,7 @@ type worktreeRowsKey struct {
 	filter   list.PatternKey
 }
 
-func (w *worktreesScreen) rows(m *model, in screen.Inputs) []worktreeRow {
+func (w *worktreesScreen) rows(in screen.Inputs) []worktreeRow {
 	order := stripOrder(worktreesTabs(), w.sort)
 	key := worktreeRowsKey{
 		revision: w.revision,

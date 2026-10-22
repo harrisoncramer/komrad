@@ -4,7 +4,6 @@ import (
 	"slices"
 
 	"komrad/internal/ui/legend"
-	"komrad/internal/ui/screen"
 	"komrad/internal/ui/tabs"
 
 	"charm.land/bubbles/v2/key"
@@ -18,20 +17,20 @@ func (m *model) activeKinds() (kindSwitcher, bool) {
 	return k, ok
 }
 
-func (m *model) isKindsRendered(in screen.Inputs) bool {
+func (m *model) isKindsRendered() bool {
 	_, ok := m.activeKinds()
 
-	return ok && m.kindsFit(in)
+	return ok && m.kindsFit()
 }
 
-func (m *model) isKindsFocused(in screen.Inputs) bool {
+func (m *model) isKindsFocused() bool {
 	k, ok := m.activeKinds()
 
-	return ok && *k.kindsFocused(m) && m.kindsFit(in)
+	return ok && *k.kindsFocused(m) && m.kindsFit()
 }
 
-func (m *model) kindsFit(in screen.Inputs) bool {
-	params, fits := m.listFitsTabs(in)
+func (m *model) kindsFit() bool {
+	params, fits := m.listFitsTabs()
 
 	return fits && !params.HidesKinds
 }
@@ -44,7 +43,7 @@ func (m *model) blurKinds() {
 
 func (m *model) focusKinds() {
 	k, ok := m.activeKinds()
-	if !ok || !m.kindsFit(m.inputs()) || !k.kindsSwitch(m) {
+	if !ok || !m.kindsFit() || !k.kindsSwitch() {
 		return
 	}
 
@@ -55,7 +54,7 @@ func (m *model) focusKinds() {
 
 func (m *model) clickKind(label string) tea.Cmd {
 	k, ok := m.activeKinds()
-	if !ok || !k.kindsSwitch(m) {
+	if !ok || !k.kindsSwitch() {
 		return nil
 	}
 
@@ -88,7 +87,7 @@ func (m *model) updateKinds(press tea.KeyPressMsg) tea.Cmd {
 }
 
 func (m *model) kindsBinding() key.Binding {
-	if k, ok := m.activeKinds(); !ok || !k.kindsSwitch(m) {
+	if k, ok := m.activeKinds(); !ok || !k.kindsSwitch() {
 		return key.Binding{}
 	}
 

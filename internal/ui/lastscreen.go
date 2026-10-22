@@ -35,11 +35,11 @@ func (m *model) screenedAgentID() (string, bool) {
 		return "", false
 	}
 
-	return screen.screenedAgentID(m, m.inputs())
+	return screen.screenedAgentID(m.inputs())
 }
 
-func (a *archivedAgents) screenedAgentID(m *model, in screen.Inputs) (string, bool) {
-	row, ok := a.hoveredRow(m, in)
+func (a *archivedAgents) screenedAgentID(in screen.Inputs) (string, bool) {
+	row, ok := a.hoveredRow(in)
 	if !ok {
 		return "", false
 	}
@@ -49,14 +49,14 @@ func (a *archivedAgents) screenedAgentID(m *model, in screen.Inputs) (string, bo
 	return item.Agent.ID, ok
 }
 
-func (a *agentsScreen) screenedAgentID(m *model, in screen.Inputs) (string, bool) {
-	item, ok := a.hoveredResting(m, in)
+func (a *agentsScreen) screenedAgentID(in screen.Inputs) (string, bool) {
+	item, ok := a.hoveredResting(in)
 
 	return item.Agent.ID, ok
 }
 
-func (w *worktreesScreen) screenedAgentID(m *model, in screen.Inputs) (string, bool) {
-	row, ok := w.hovered(m, in)
+func (w *worktreesScreen) screenedAgentID(in screen.Inputs) (string, bool) {
+	row, ok := w.hovered(in)
 	if !ok {
 		return "", false
 	}
@@ -138,13 +138,13 @@ func (m *model) screenNotice() string {
 
 func (a *archivedAgents) screenNotice(m *model, in screen.Inputs) string {
 	restore := a.deps.keys.ArchiveMenu.Restore
-	if target, ok := a.menuTarget(m, in); ok {
+	if target, ok := a.menuTarget(in); ok {
 		if _, err := target.opensAgent(in.Listing); err == nil {
 			restore = a.deps.keys.ArchiveMenu.RestoreOpen
 		}
 	}
 
-	return "archived" + separated + "press " + m.menuChordLabel(a.deps.keys.Menu.Archive, restore) + " to restore"
+	return "archived" + separated + "press " + menuChordLabel(a.deps.keys, a.deps.keys.Menu.Archive, restore) + " to restore"
 }
 
 func (a *agentsScreen) screenNotice(m *model, in screen.Inputs) string {

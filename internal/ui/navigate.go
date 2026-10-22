@@ -11,47 +11,51 @@ import (
 // navigable is a section the movement keys walk, some rows at a time or to either end.
 type navigable interface {
 	// moveBy walks down the section by rows, up it when rows is negative.
-	moveBy(m *model, rows int) screen.Request
+	moveBy(in screen.Inputs, rows int) screen.Request
 	// moveToEnd lands on the top of the section for a negative direction and the bottom for a
 	// positive one.
-	moveToEnd(m *model, direction int) screen.Request
+	moveToEnd(in screen.Inputs, direction int) screen.Request
 }
 
-// navSteps is the rows a page key and a scroll key move a section.
-type navSteps struct {
+// navActionsParams is the section the movement keys walk, the keys bound to them, and the rows a
+// page key and a scroll key move it.
+type navActionsParams struct {
+	keys   config.Keybindings
+	nav    navigable
+	in     screen.Inputs
 	page   int
 	scroll int
 }
 
 // navActions is the move, jump, page and scroll keys walking a section.
-func navActions(n navigable, steps navSteps) []keys.Action[*model] {
-	return []keys.Action[*model]{
+func navActions[S any](params navActionsParams) []keys.Action[S] {
+	return []keys.Action[S]{
 		{
 			ID:   keys.Move,
 			Keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
-			Nav: func(m *model, pressed string) screen.Request {
-				return n.moveBy(m, keys.DirectionOf(pressed, m.keys.Nav.Up))
+			Nav: func(_ S, pressed string) screen.Request {
+				return params.nav.moveBy(params.in, keys.DirectionOf(pressed, params.keys.Nav.Up))
 			},
 		},
 		{
 			ID:   keys.Jump,
 			Keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Top, k.Nav.Bottom) },
-			Nav: func(m *model, pressed string) screen.Request {
-				return n.moveToEnd(m, keys.DirectionOf(pressed, m.keys.Nav.Top))
+			Nav: func(_ S, pressed string) screen.Request {
+				return params.nav.moveToEnd(params.in, keys.DirectionOf(pressed, params.keys.Nav.Top))
 			},
 		},
 		{
 			ID:   keys.NavPage,
 			Keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
-			Nav: func(m *model, pressed string) screen.Request {
-				return n.moveBy(m, keys.DirectionOf(pressed, m.keys.Nav.PageUp)*steps.page)
+			Nav: func(_ S, pressed string) screen.Request {
+				return params.nav.moveBy(params.in, keys.DirectionOf(pressed, params.keys.Nav.PageUp)*params.page)
 			},
 		},
 		{
 			ID:   keys.ColumnScroll,
 			Keys: func(k config.Keybindings) []string { return slices.Concat(k.Column.ScrollDown, k.Column.ScrollUp) },
-			Nav: func(m *model, pressed string) screen.Request {
-				return n.moveBy(m, keys.DirectionOf(pressed, m.keys.Column.ScrollUp)*steps.scroll)
+			Nav: func(_ S, pressed string) screen.Request {
+				return params.nav.moveBy(params.in, keys.DirectionOf(pressed, params.keys.Column.ScrollUp)*params.scroll)
 			},
 		},
 	}

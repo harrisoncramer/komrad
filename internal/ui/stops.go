@@ -37,7 +37,7 @@ func (m *model) listStops() []stop {
 		stops = append(stops, stopTerminal)
 	}
 
-	if m.isDetailsRendered(in, m.hoveredDetails(in)) {
+	if m.isDetailsRendered(m.hoveredDetails(in)) {
 		stops = append(stops, stopRecord)
 	}
 
@@ -62,7 +62,7 @@ func (m *model) enterStop(to stop) tea.Cmd {
 		m.enterSidebar(to)
 		m.blurDetails()
 		if b, ok := m.active().(columnFocuser); ok && m.isScreenBlockRendered() {
-			b.focusBlock(m)
+			b.focusBlock()
 		} else {
 			m.focusDoc()
 		}
@@ -100,7 +100,7 @@ func (m *model) atStop() stop {
 		return stopBlock
 	}
 
-	if b, ok := m.active().(columnFocuser); ok && b.isBlockFocused(m, m.inputs()) {
+	if b, ok := m.active().(columnFocuser); ok && b.isBlockFocused(m.inputs()) {
 		return stopBlock
 	}
 
@@ -116,7 +116,7 @@ func (m *model) toggleStop() tea.Cmd {
 
 	at := m.atStop()
 	if at == stopList && m.isDormantHovered() {
-		return m.apply(m.agents.openHovered(m, m.inputs()))
+		return m.apply(m.agents.openHovered(m.inputs()))
 	}
 
 	stops := m.listStops()
@@ -139,7 +139,7 @@ func (m *model) isDormantHovered() bool {
 		return false
 	}
 
-	item, ok := m.agents.hoveredResting(m, m.inputs())
+	item, ok := m.agents.hoveredResting(m.inputs())
 
 	return ok && !item.Alive
 }
@@ -148,7 +148,7 @@ func (m *model) isDormantHovered() bool {
 func (m *model) isScreenBlockRendered() bool {
 	b, ok := m.active().(columnFocuser)
 
-	return ok && b.isBlockRendered(m, m.inputs())
+	return ok && b.isBlockRendered(m.inputs())
 }
 
 // findFocusPane finds the agent's pane the picker stops at, empty where the stage holds none or

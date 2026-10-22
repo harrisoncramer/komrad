@@ -27,7 +27,7 @@ func (r reviewScreen) measurePopupInner(in screen.Inputs) int {
 // popupBody is what the popup holds where the cursor stands and how far it is scrolled back from
 // the end: the editor while the reader writes, under the conversation it replies in, the
 // conversation on the line otherwise, and nothing on a line with no thread.
-func (r reviewScreen) popupBody(m *model, in screen.Inputs, inner int) (string, int) {
+func (r reviewScreen) popupBody(in screen.Inputs, inner int) (string, int) {
 	switch {
 	case r.loading || r.diff.View() == nil || r.diff.View().Len() == 0:
 		return "", 0
@@ -37,10 +37,10 @@ func (r reviewScreen) popupBody(m *model, in screen.Inputs, inner int) (string, 
 			return r.threads.editor.view(), 0
 		}
 
-		return withSection(r.threadView(m, thread, inner), r.threads.editor.view(), inner), 0
+		return withSection(r.threadView(in, thread, inner), r.threads.editor.view(), inner), 0
 	}
 
-	id, body, ok := r.conversationAtCursor(m, in, inner)
+	id, body, ok := r.conversationAtCursor(in, inner)
 	if !ok {
 		return "", 0
 	}
@@ -50,13 +50,13 @@ func (r reviewScreen) popupBody(m *model, in screen.Inputs, inner int) (string, 
 
 // conversationAtCursor is the conversation on the cursor's row, wrapped to inner, and none while the
 // sidebar has the keys.
-func (r reviewScreen) conversationAtCursor(m *model, in screen.Inputs, inner int) (string, string, bool) {
-	if r.isBlockFocused(m, in) {
+func (r reviewScreen) conversationAtCursor(in screen.Inputs, inner int) (string, string, bool) {
+	if r.isBlockFocused(in) {
 		return "", "", false
 	}
 
 	if thread, ok := r.diff.threadAtCursor(); ok {
-		return thread.GetId(), r.threadView(m, thread, inner), true
+		return thread.GetId(), r.threadView(in, thread, inner), true
 	}
 
 	return "", "", false

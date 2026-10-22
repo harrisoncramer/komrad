@@ -77,16 +77,16 @@ type sideRow struct {
 
 // sideRows is every row over the file tree, the stack first, then the forge, what waits on the
 // person and the description.
-func (r reviewScreen) sideRows(m *model, in screen.Inputs) []sideRow {
+func (r reviewScreen) sideRows(in screen.Inputs) []sideRow {
 	if r.diff.View() == nil {
 		return nil
 	}
 
 	sections := [][]sideRow{
-		r.stackRows(m),
-		r.forgeRows(m),
+		r.stackRows(in),
+		r.forgeRows(in),
 		r.needRows(),
-		r.descriptionRows(m, in),
+		r.descriptionRows(in),
 	}
 
 	var rows []sideRow
@@ -103,9 +103,9 @@ func (r reviewScreen) sideRows(m *model, in screen.Inputs) []sideRow {
 }
 
 // sideStops is the rows of the sidebar the cursor rests on.
-func (r reviewScreen) sideStops(m *model, in screen.Inputs) []sideCursor {
+func (r reviewScreen) sideStops(in screen.Inputs) []sideCursor {
 	var stops []sideCursor
-	for _, row := range r.sideRows(m, in) {
+	for _, row := range r.sideRows(in) {
 		if row.kind.isStop() {
 			stops = append(stops, row.sideCursor)
 		}
@@ -116,8 +116,8 @@ func (r reviewScreen) sideStops(m *model, in screen.Inputs) []sideCursor {
 
 // findSide is the row over the file tree the cursor rests on, false while it rests on the tree or on a row
 // since gone from the sidebar.
-func (r reviewScreen) findSide(m *model, in screen.Inputs) (sideCursor, bool) {
-	if r.side == nil || !slices.Contains(r.sideStops(m, in), *r.side) {
+func (r reviewScreen) findSide(in screen.Inputs) (sideCursor, bool) {
+	if r.side == nil || !slices.Contains(r.sideStops(in), *r.side) {
 		return sideCursor{}, false
 	}
 
@@ -134,14 +134,14 @@ func (r reviewScreen) sideAt(stops []sideCursor) int {
 }
 
 // findTask is the task under review.
-func (r reviewScreen) findTask(m *model) panel.Task {
-	return m.listing.Tasks[r.taskID]
+func (r reviewScreen) findTask(in screen.Inputs) panel.Task {
+	return in.Listing.Tasks[r.taskID]
 }
 
 // stackRows is the task's stack: its ancestors, itself, and its descendants.
-func (r reviewScreen) stackRows(m *model) []sideRow {
-	task := r.findTask(m)
-	tasks := m.listing.Tasks
+func (r reviewScreen) stackRows(in screen.Inputs) []sideRow {
+	task := r.findTask(in)
+	tasks := in.Listing.Tasks
 	ancestors := tasks.AncestorsOf(task)
 	children := tasks.ChildrenOf(task.ID)
 	if len(ancestors) == 0 && len(children) == 0 {
@@ -192,13 +192,13 @@ func stackRow(tasks panel.Tasks, task panel.Task, kind sideKind, depth int) side
 }
 
 // forgeRows is what the pull request's forge says of it: its review decision and who commented.
-func (r reviewScreen) forgeRows(m *model) []sideRow {
-	task := r.findTask(m)
+func (r reviewScreen) forgeRows(in screen.Inputs) []sideRow {
+	task := r.findTask(in)
 	if task.PullRequest.Number == 0 {
 		return nil
 	}
 
-	rows := []sideRow{{sideCursor: sideCursor{kind: sideHeading}, text: r.forgeName(m)}}
+	rows := []sideRow{{sideCursor: sideCursor{kind: sideHeading}, text: r.forgeName(in)}}
 	if said := decisionSaid(task.PullRequest.MergeReadiness.Decision); said != "" {
 		rows = append(rows, sideRow{sideCursor: sideCursor{kind: sideForge, id: "decision"}, text: said})
 	}
@@ -323,8 +323,8 @@ func isWaitingOnWriter(thread *agentv1.ReviewThread) bool {
 }
 
 // descriptionRows is the pull request's title, and its description once opened.
-func (r reviewScreen) descriptionRows(m *model, in screen.Inputs) []sideRow {
-	pullRequest, ok := r.currentPullRequest(m)
+func (r reviewScreen) descriptionRows(in screen.Inputs) []sideRow {
+	pullRequest, ok := r.currentPullRequest(in)
 	if !ok {
 		return nil
 	}
@@ -350,8 +350,8 @@ func (r reviewScreen) descriptionRows(m *model, in screen.Inputs) []sideRow {
 }
 
 // moveSide walks the rows over the file tree, false while the move stays on the tree.
-func (r *reviewScreen) moveSide(m *model, rows int) (screen.Request, bool) {
-	stops := r.sideStops(m, m.inputs())
+func (r *reviewScreen) moveSide(in screen.Inputs, rows int) (screen.Request, bool) {
+	stops := r.sideStops(in)
 	tree := r.readFilesTree()
 	at := r.sideAt(stops)
 	if at < 0 {
@@ -367,7 +367,7 @@ func (r *reviewScreen) moveSide(m *model, rows int) (screen.Request, bool) {
 	if next >= len(stops) && len(tree.rows) > 0 {
 		r.side = nil
 
-		return r.landOnRow(m, tree.rows[min(next-len(stops), len(tree.rows)-1)]), true
+		return r.landOnRow(in, tree.rows[min(next-len(stops), len(tree.rows)-1)]), true
 	}
 
 	r.restOnSide(stops[min(next, len(stops)-1)])
@@ -376,13 +376,12 @@ func (r *reviewScreen) moveSide(m *model, rows int) (screen.Request, bool) {
 }
 
 // moveSideToTop puts the cursor on the first row over the file tree, false while the cursor is on the tree.
-func (r *reviewScreen) moveSideToTop(m *model) bool {
-	in := m.inputs()
-	if _, ok := r.findSide(m, in); !ok {
+func (r *reviewScreen) moveSideToTop(in screen.Inputs) bool {
+	if _, ok := r.findSide(in); !ok {
 		return false
 	}
 
-	r.restOnSide(r.sideStops(m, in)[0])
+	r.restOnSide(r.sideStops(in)[0])
 
 	return true
 }
@@ -394,15 +393,15 @@ func (r *reviewScreen) restOnSide(cursor sideCursor) {
 }
 
 // isSideFocused reports whether the rows over the file tree hold the review's keys.
-func (r *reviewScreen) isSideFocused(m *model, in screen.Inputs) bool {
-	_, ok := r.findSide(m, in)
+func (r *reviewScreen) isSideFocused(in screen.Inputs) bool {
+	_, ok := r.findSide(in)
 
-	return ok && r.isBlockFocused(m, in)
+	return ok && r.isBlockFocused(in)
 }
 
 // chooseSide does what the row under the sidebar's cursor is for.
-func (r *reviewScreen) chooseSide(m *model, in screen.Inputs) screen.Request {
-	side, ok := r.findSide(m, in)
+func (r *reviewScreen) chooseSide(in screen.Inputs) screen.Request {
+	side, ok := r.findSide(in)
 	if !ok {
 		return nil
 	}
@@ -411,9 +410,9 @@ func (r *reviewScreen) chooseSide(m *model, in screen.Inputs) screen.Request {
 	case sideDescription:
 		r.openDescription = !r.openDescription
 	case sideNeed:
-		return r.landOnThread(m, side.id)
+		return r.landOnThread(in, side.id)
 	case sideTask:
-		return r.openStackedReview(m, in, side.id)
+		return r.openStackedReview(in, side.id)
 	case sideHeading, sideBlank, sideThisTask, sideForge, sideWaiting, sideDescriptionLine:
 	}
 
@@ -421,8 +420,8 @@ func (r *reviewScreen) chooseSide(m *model, in screen.Inputs) screen.Request {
 }
 
 // chooseDesc says what choosing the row under the sidebar's cursor does, empty when it does nothing.
-func (r reviewScreen) chooseDesc(m *model) string {
-	side, ok := r.findSide(m, m.inputs())
+func (r reviewScreen) chooseDesc(in screen.Inputs) string {
+	side, ok := r.findSide(in)
 	if !ok {
 		return ""
 	}
@@ -446,10 +445,10 @@ func (r reviewScreen) chooseDesc(m *model) string {
 
 // landOnThread puts the diff's cursor on a thread, widening the diff when the range on screen
 // leaves it out.
-func (r *reviewScreen) landOnThread(m *model, id string) screen.Request {
+func (r *reviewScreen) landOnThread(in screen.Inputs, id string) screen.Request {
 	r.blurBlock()
 	if y, ok := r.diff.View().GetThreadRow(id); ok && r.diff.isThreadOnScreen(r.threads.list, id) {
-		return r.moveCursor(m, y)
+		return r.moveCursor(in, y)
 	}
 
 	r.diff.widen()
@@ -460,8 +459,8 @@ func (r *reviewScreen) landOnThread(m *model, id string) screen.Request {
 }
 
 // openStackedReview leaves this review for the review of another task in the stack.
-func (r *reviewScreen) openStackedReview(m *model, in screen.Inputs, taskID string) screen.Request {
-	if said := r.stackedOffSaid(m, taskID); said != "" {
+func (r *reviewScreen) openStackedReview(in screen.Inputs, taskID string) screen.Request {
+	if said := r.stackedOffSaid(in, taskID); said != "" {
 		return screen.NewNote(screen.Warning, said)
 	}
 
@@ -471,9 +470,9 @@ func (r *reviewScreen) openStackedReview(m *model, in screen.Inputs, taskID stri
 }
 
 // stackedOffSaid is why the review of a task in the stack cannot open, empty when it can.
-func (r reviewScreen) stackedOffSaid(m *model, taskID string) string {
-	task := m.listing.Tasks[taskID]
-	writer, ok := m.listing.FindTaskWriter(task)
+func (r reviewScreen) stackedOffSaid(in screen.Inputs, taskID string) string {
+	task := in.Listing.Tasks[taskID]
+	writer, ok := in.Listing.FindTaskWriter(task)
 	switch {
 	case r.edit.atEditor:
 		return "close the editor first"
@@ -481,7 +480,7 @@ func (r reviewScreen) stackedOffSaid(m *model, taskID string) string {
 		return "its worktree is gone"
 	case !ok || writer.Agent.ArchivedAt != nil:
 		return "its writer is archived"
-	case !m.listing.IsReviewable(writer.Agent):
+	case !in.Listing.IsReviewable(writer.Agent):
 		return errReviewNoCheckout.Error()
 	}
 
@@ -496,16 +495,16 @@ func (r *reviewScreen) sideMenu(m *model, in screen.Inputs, side sideCursor) (me
 
 	task := in.Listing.Tasks[side.id]
 	review := menu.Leaving("review", r.deps.keys.Menu.Review, func() screen.Request {
-		return m.review.openStackedReview(m, m.inputs(), task.ID)
+		return m.review.openStackedReview(m.inputs(), task.ID)
 	})
 
 	return menu.Menu{
 		Title:   task.Slug,
-		Entries: []menu.Entry{menu.DrawnOff(review, r.stackedOffSaid(m, task.ID))},
+		Entries: []menu.Entry{menu.DrawnOff(review, r.stackedOffSaid(in, task.ID))},
 	}, true
 }
 
-func (r *reviewScreen) clickSide(m *model, in screen.Inputs, key string) screen.Request {
+func (r *reviewScreen) clickSide(in screen.Inputs, key string) screen.Request {
 	cursor, ok := parseSideKey(key)
 	if !ok || !cursor.kind.isStop() {
 		return nil
@@ -513,5 +512,5 @@ func (r *reviewScreen) clickSide(m *model, in screen.Inputs, key string) screen.
 
 	r.restOnSide(cursor)
 
-	return r.chooseSide(m, in)
+	return r.chooseSide(in)
 }

@@ -65,6 +65,11 @@ type PlaceDoc struct {
 	Line, Top int
 }
 
+// Wrap wraps a diff's lines wider than its pane, or cuts them off again.
+type Wrap struct {
+	On bool
+}
+
 // Inspect asks the server for one worktree directory's standing.
 type Inspect struct {
 	Dir string
@@ -158,6 +163,9 @@ func (FocusDoc) Request() {}
 
 // Request marks PlaceDoc as a request.
 func (PlaceDoc) Request() {}
+
+// Request marks Wrap as a request.
+func (Wrap) Request() {}
 
 // Request marks Inspect as a request.
 func (Inspect) Request() {}

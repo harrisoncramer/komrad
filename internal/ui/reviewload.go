@@ -91,11 +91,11 @@ func (r *reviewScreen) open(m *model, agent panel.Agent) screen.Request {
 }
 
 // refuse backs out to the listing, for a worktree that turned out to hold nothing.
-func (r *reviewScreen) refuse(m *model, err error) screen.Request {
+func (r *reviewScreen) refuse(in screen.Inputs, err error) screen.Request {
 	name := r.agentName
 
 	return screen.Batch{
-		r.drop(m),
+		r.drop(in),
 		screen.Note{
 			Kind:    screen.Error,
 			Summary: describeRefusedReview(name, err),
@@ -105,21 +105,21 @@ func (r *reviewScreen) refuse(m *model, err error) screen.Request {
 }
 
 // abandon backs out to the listing for a diff that could not be read at all.
-func (r *reviewScreen) abandon(m *model, err error) screen.Request {
+func (r *reviewScreen) abandon(in screen.Inputs, err error) screen.Request {
 	name := r.agentName
 
-	return screen.Batch{r.drop(m), screen.Report{Summary: "Could not read the diff of " + name, Err: err}}
+	return screen.Batch{r.drop(in), screen.Report{Summary: "Could not read the diff of " + name, Err: err}}
 }
 
 // drop puts the reader back on the row they opened the review from, closing the editor and telling
 // the agent which files the reader opened in it.
-func (r *reviewScreen) drop(m *model) screen.Request {
+func (r *reviewScreen) drop(in screen.Inputs) screen.Request {
 	var unstaged screen.Request
 	if r.edit.atEditor {
 		unstaged = screen.Unstage{}
 	}
 
-	told := r.mailEdited(m)
+	told := r.mailEdited(in)
 
 	*r = reviewScreen{deps: r.deps, loads: r.loads}
 
@@ -318,7 +318,7 @@ func loadSnapshotPatch(ctx context.Context, params loadSnapshotPatchParams) (*sn
 	return &snapshotPatch{patch: patch, origin: origin}, nil
 }
 
-func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) screen.Request {
+func (r *reviewScreen) applyLoaded(m *model, in screen.Inputs, msg reviewLoadedMsg) screen.Request {
 	if msg.agentID != r.agentID || msg.load != r.loads {
 		return nil
 	}
@@ -348,7 +348,7 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) screen.Request
 
 	// Both render nothing, so both back out rather than leaving the reader in an empty viewer.
 	if isEmpty {
-		return screen.Batch{widened, r.refuse(m, msg.err)}
+		return screen.Batch{widened, r.refuse(in, msg.err)}
 	}
 
 	if msg.patch == nil && r.diff.spec.origin != nil {
@@ -358,7 +358,7 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) screen.Request
 	}
 
 	if msg.patch == nil {
-		return screen.Batch{widened, r.abandon(m, msg.err)}
+		return screen.Batch{widened, r.abandon(in, msg.err)}
 	}
 
 	r.loading = false
@@ -371,9 +371,10 @@ func (r *reviewScreen) applyLoaded(m *model, msg reviewLoadedMsg) screen.Request
 	r.diff.load(msg, m.term.isDark, r.deps.glyphs)
 	r.threads.set(msg.threads)
 
-	r.scrollToCursor(m)
+	loaded := m.inputs()
+	r.scrollToCursor(loaded)
 
-	return screen.Batch{widened, partial, r.followNotices(m)}
+	return screen.Batch{widened, partial, r.followNotices(m, loaded)}
 }
 
 // load renders a patch just read, over the one on screen, and puts the cursor back where the
@@ -434,7 +435,7 @@ func indexViewedFiles(viewed []*agentv1.ReviewViewedFile, patch *diff.Patch) map
 	return held
 }
 
-func (r *reviewScreen) applyWrote(m *model, msg reviewWroteMsg) screen.Request {
+func (r *reviewScreen) applyWrote(in screen.Inputs, msg reviewWroteMsg) screen.Request {
 	if msg.agentID != r.agentID || r.diff.View() == nil {
 		return nil
 	}
@@ -442,7 +443,7 @@ func (r *reviewScreen) applyWrote(m *model, msg reviewWroteMsg) screen.Request {
 	if msg.err != nil {
 		refused := screen.Report{Summary: "Could not write on " + r.agentName, Err: msg.err}
 		if msg.unsent != nil {
-			return screen.Batch{refused, r.restoreMessage(m, *msg.unsent)}
+			return screen.Batch{refused, r.restoreMessage(in, *msg.unsent)}
 		}
 
 		return refused
@@ -458,14 +459,14 @@ func (r *reviewScreen) applyWrote(m *model, msg reviewWroteMsg) screen.Request {
 	case msg.readErr != nil:
 		requests = append(requests, screen.Report{Summary: "Could not read the review of " + r.agentName + " back", Err: msg.readErr})
 	default:
-		r.applyThreads(m, msg.threads)
+		r.applyThreads(in, msg.threads)
 	}
 
 	return requests
 }
 
 // applyThreads renders the review as it now stands, keeping the reader where they were.
-func (r *reviewScreen) applyThreads(m *model, threads []*agentv1.ReviewThread) {
+func (r *reviewScreen) applyThreads(in screen.Inputs, threads []*agentv1.ReviewThread) {
 	r.threads.set(threads)
 
 	rendered := r.diff.threadsOnScreen(threads)
@@ -476,15 +477,15 @@ func (r *reviewScreen) applyThreads(m *model, threads []*agentv1.ReviewThread) {
 	r.diff.View().PinThreads(rendered)
 	r.diff.Keep(place, ok)
 
-	r.scrollToCursor(m)
+	r.scrollToCursor(in)
 }
 
 // toggleAgentThreads shows or hides the conversations agents opened.
-func (r *reviewScreen) toggleAgentThreads(m *model) screen.Request {
+func (r *reviewScreen) toggleAgentThreads(in screen.Inputs) screen.Request {
 	r.diff.hidesAgentThreads = !r.diff.hidesAgentThreads
 
 	if r.diff.View() != nil {
-		r.applyThreads(m, r.threads.list)
+		r.applyThreads(in, r.threads.list)
 	}
 
 	return nil
@@ -522,23 +523,23 @@ func (r *reviewScreen) reload() screen.Request {
 	}))
 }
 
-func (r *reviewScreen) back(m *model) screen.Request {
+func (r *reviewScreen) back(in screen.Inputs) screen.Request {
 	if r.edit.atEditor {
-		return r.closeEdit(m)
+		return r.closeEdit(in)
 	}
 
 	// The drop is the one way off this screen, and it puts the reader back on the row they came
 	// from.
-	return r.drop(m)
+	return r.drop(in)
 }
 
 // backFromDiff hands the keys to the file tree, or leaves the screen where no tree renders.
-func (r *reviewScreen) backFromDiff(m *model, in screen.Inputs) screen.Request {
-	if r.edit.atEditor || !r.isBlockRendered(m, in) {
-		return r.back(m)
+func (r *reviewScreen) backFromDiff(in screen.Inputs) screen.Request {
+	if r.edit.atEditor || !r.isBlockRendered(in) {
+		return r.back(in)
 	}
 
-	r.focusBlock(m)
+	r.focusBlock()
 
 	return nil
 }

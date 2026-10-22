@@ -58,8 +58,8 @@ func (r *reviewScreen) forgeThreadAtCursor() (*agentv1.ReviewThread, bool) {
 }
 
 // forgeName is the name of the forge that holds the pull request.
-func (r reviewScreen) forgeName(m *model) string {
-	pullRequest, ok := r.currentPullRequest(m)
+func (r reviewScreen) forgeName(in screen.Inputs) string {
+	pullRequest, ok := r.currentPullRequest(in)
 	if !ok {
 		return forge.Name("")
 	}
@@ -68,8 +68,8 @@ func (r reviewScreen) forgeName(m *model) string {
 }
 
 // forgeRef names the pull request that receives a reply.
-func (r reviewScreen) forgeRef(m *model) string {
-	pullRequest, ok := r.currentPullRequest(m)
+func (r reviewScreen) forgeRef(in screen.Inputs) string {
+	pullRequest, ok := r.currentPullRequest(in)
 	if !ok {
 		return "the pull request"
 	}
@@ -96,7 +96,7 @@ func (r *reviewScreen) doesOfferForgeRetry() bool {
 }
 
 // retryForgeReply sends again the reply the forge refused in the thread under the cursor.
-func (r *reviewScreen) retryForgeReply(m *model) screen.Request {
+func (r *reviewScreen) retryForgeReply(in screen.Inputs) screen.Request {
 	thread, ok := r.forgeThreadAtCursor()
 	if !ok {
 		return nil
@@ -109,7 +109,7 @@ func (r *reviewScreen) retryForgeReply(m *model) screen.Request {
 
 	agents, id := r.deps.clients.Agents, reply.GetId()
 
-	return r.writeMsg(m, "retrying the reply", nil, func(ctx context.Context) (string, error) {
+	return r.writeMsg(in, "retrying the reply", nil, func(ctx context.Context) (string, error) {
 		res, err := agents.RetryForgeReply(ctx, connect.NewRequest(&agentv1.RetryForgeReplyRequest{
 			Id: id,
 		}))
@@ -142,7 +142,7 @@ func forgeReplyNotice(reply *agentv1.ForgeReply) (string, error) {
 }
 
 // discardForgeReply throws away the reply the forge refused in the thread under the cursor.
-func (r *reviewScreen) discardForgeReply(m *model) screen.Request {
+func (r *reviewScreen) discardForgeReply(in screen.Inputs) screen.Request {
 	thread, ok := r.forgeThreadAtCursor()
 	if !ok {
 		return nil
@@ -155,7 +155,7 @@ func (r *reviewScreen) discardForgeReply(m *model) screen.Request {
 
 	agents, id := r.deps.clients.Agents, reply.GetId()
 
-	return r.write(m, "discarding the reply", "reply discarded", func(ctx context.Context) error {
+	return r.write(in, "discarding the reply", "reply discarded", func(ctx context.Context) error {
 		_, err := agents.DiscardForgeReply(ctx, connect.NewRequest(&agentv1.DiscardForgeReplyRequest{
 			Id: id,
 		}))
@@ -165,14 +165,14 @@ func (r *reviewScreen) discardForgeReply(m *model) screen.Request {
 }
 
 // composeForge opens the composer on a reply to the forge.
-func (r *reviewScreen) composeForge(m *model) screen.Request {
+func (r *reviewScreen) composeForge(in screen.Inputs) screen.Request {
 	thread, ok := r.forgeThreadAtCursor()
 	if !ok {
 		return nil
 	}
 
 	compose := &reviewForgeCompose{
-		title: "reply on " + r.forgeName(m) + separated + "public on " + r.forgeRef(m),
+		title: "reply on " + r.forgeName(in) + separated + "public on " + r.forgeRef(in),
 	}
 
 	r.threads.editing = thread.GetId()
@@ -180,15 +180,15 @@ func (r *reviewScreen) composeForge(m *model) screen.Request {
 	r.threads.retrying = nil
 	r.threads.forge = compose
 
-	return r.openInput(m, newReviewInputParams{
+	return r.openInput(in, newReviewInputParams{
 		Title:       compose.title,
 		Description: reviewInputHint(fixedKeys().Editor, fixedKeys().Submit, "post"),
-		Placeholder: "what should " + r.forgeName(m) + " read?",
+		Placeholder: "what should " + r.forgeName(in) + " read?",
 	})
 }
 
 // saveForgeReply posts what the composer holds to the forge as the person's own reply.
-func (r *reviewScreen) saveForgeReply(m *model, compose *reviewForgeCompose, body string) screen.Request {
+func (r *reviewScreen) saveForgeReply(in screen.Inputs, compose *reviewForgeCompose, body string) screen.Request {
 	agents, threadID := r.deps.clients.Agents, r.threads.editing
 	kept := reviewUnsent{
 		editing: threadID,
@@ -196,7 +196,7 @@ func (r *reviewScreen) saveForgeReply(m *model, compose *reviewForgeCompose, bod
 		forge:   compose,
 	}
 
-	return r.writeMsg(m, "replying on the forge", &kept, func(ctx context.Context) (string, error) {
+	return r.writeMsg(in, "replying on the forge", &kept, func(ctx context.Context) (string, error) {
 		res, err := agents.ReplyOnForge(ctx, connect.NewRequest(&agentv1.ReplyOnForgeRequest{
 			ThreadId: threadID,
 			Body:     body,

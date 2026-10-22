@@ -55,7 +55,7 @@ func (r reviewScreen) view(m *model, in screen.Inputs, chrome screen.Chrome) str
 	// The band stands over the diff rather than over the whole window, and what it carries acts on
 	// the patch.
 	band := r.bandView(in)
-	diff := band + r.diffView(m, in, split)
+	diff := band + r.diffView(in, split)
 	if in.Room.Marks {
 		diff = zone.MarkBlock(zoneList, diff, split.Column)
 	}
@@ -83,7 +83,7 @@ func (r reviewScreen) overlayThread(m *model, in screen.Inputs, chrome screen.Ch
 	}
 
 	inner := r.measurePopupInner(in)
-	body, back := r.popupBody(m, in, inner)
+	body, back := r.popupBody(in, inner)
 	if in.Room.PopupForm {
 		body = withSection(body, chrome.Form(), inner)
 		back = 0
@@ -127,9 +127,9 @@ func (l sidebarLayout) block() string {
 // layoutSidebar gives the column to the file tree, the bar over it shrinking and then giving way
 // before the tree loses a row it needs.
 func (r reviewScreen) layoutSidebar(m *model, in screen.Inputs, chrome screen.Chrome, above ...string) sidebarLayout {
-	bare := r.layoutUnder(m, in, r.frameSidebar(m, chrome, "", above))
+	bare := r.layoutUnder(in, r.frameSidebar(m, chrome, "", above))
 	for _, bar := range chrome.Bars() {
-		if barred := r.layoutUnder(m, in, r.frameSidebar(m, chrome, bar, above)); r.doesFitUnderBar(barred, bare) {
+		if barred := r.layoutUnder(in, r.frameSidebar(m, chrome, bar, above)); r.doesFitUnderBar(barred, bare) {
 			return barred
 		}
 	}
@@ -163,26 +163,26 @@ func (r reviewScreen) frameSidebar(m *model, chrome screen.Chrome, bar string, a
 }
 
 // layoutUnder measures the sidebar under its frame.
-func (r reviewScreen) layoutUnder(m *model, in screen.Inputs, layout sidebarLayout) sidebarLayout {
+func (r reviewScreen) layoutUnder(in screen.Inputs, layout sidebarLayout) sidebarLayout {
 	layout.notes = r.notesView(in)
 	spare := layout.spare
 
 	if spare < 0 {
 		layout.change = r.changeView(in, 0)
-		layout.side = r.sideView(m, in, paint.Unbounded)
-		layout.files = r.filesView(m, in, paint.Unbounded)
+		layout.side = r.sideView(in, paint.Unbounded)
+		layout.files = r.filesView(in, paint.Unbounded)
 
 		return layout
 	}
 
 	floor := r.countFilesFloor(spare)
 	room := spare - paint.CountLines(r.placeView())
-	layout.change = r.foldChange(m, in, room-floor)
+	layout.change = r.foldChange(in, room-floor)
 	room -= paint.CountLines(layout.change)
-	layout.side = r.sideView(m, in, max(room-floor, 0))
+	layout.side = r.sideView(in, max(room-floor, 0))
 	room -= paint.CountLines(layout.side)
 	lines := max(room-paint.CountLines(layout.notes), floor)
-	layout.files = r.filesView(m, in, max(min(lines, room), 0))
+	layout.files = r.filesView(in, max(min(lines, room), 0))
 	layout.notes = cutNotes(layout.notes, room-paint.CountLines(layout.files))
 
 	return layout
@@ -190,8 +190,8 @@ func (r reviewScreen) layoutUnder(m *model, in screen.Inputs, layout sidebarLayo
 
 // foldChange is the change block in the most rows that leave the rows under it their room, else in
 // the fewest rows that fit.
-func (r reviewScreen) foldChange(m *model, in screen.Inputs, room int) string {
-	wanted := paint.CountLines(r.sideView(m, in, paint.Unbounded))
+func (r reviewScreen) foldChange(in screen.Inputs, room int) string {
+	wanted := paint.CountLines(r.sideView(in, paint.Unbounded))
 
 	var shortest string
 	for fold := range reviewChangeFolds {
@@ -221,7 +221,7 @@ func cutNotes(notes string, rows int) string {
 
 // help keeps the strip to what the screen is for.
 func (r reviewScreen) help(m *model) legend.Help {
-	own := m.helpOf(r.actions(m))
+	own := r.actions(m.inputs()).Help(&r, r.deps.keys)
 
 	return legend.Help{
 		Short: slices.Concat(own.Short, m.globalHelp()),
@@ -300,7 +300,7 @@ func (d reviewDiff) commentWhereView(thread *agentv1.ReviewThread) string {
 }
 
 // threadView is a thread's conversation wrapped to the width given, oldest message first.
-func (r reviewScreen) threadView(m *model, thread *agentv1.ReviewThread, width int) string {
+func (r reviewScreen) threadView(in screen.Inputs, thread *agentv1.ReviewThread, width int) string {
 	stamp := r.diff.laterStamp(thread)
 	answered := findAnswer(thread)
 	later := false
@@ -323,7 +323,7 @@ func (r reviewScreen) threadView(m *model, thread *agentv1.ReviewThread, width i
 		})
 	}
 
-	return out + r.forgeRepliesView(m, thread, width)
+	return out + r.forgeRepliesView(in, thread, width)
 }
 
 // originView is where a thread was written and the line it was written against, rendered only once
@@ -444,8 +444,8 @@ func (r reviewScreen) backDesc() string {
 	return "back to the agents"
 }
 
-func (r reviewScreen) diffBackDesc(m *model, in screen.Inputs) string {
-	if r.edit.atEditor || !r.isBlockRendered(m, in) {
+func (r reviewScreen) diffBackDesc(in screen.Inputs) string {
+	if r.edit.atEditor || !r.isBlockRendered(in) {
 		return r.backDesc()
 	}
 
@@ -453,8 +453,8 @@ func (r reviewScreen) diffBackDesc(m *model, in screen.Inputs) string {
 }
 
 // reloadDesc says what the reload key would do.
-func (r reviewScreen) reloadDesc(m *model) string {
-	if r.isWorktreeMoved(m) {
+func (r reviewScreen) reloadDesc(in screen.Inputs) string {
+	if r.isWorktreeMoved(in) {
 		return "catch up"
 	}
 

@@ -26,7 +26,7 @@ type screenList[T list.Keyed] struct {
 	keys   config.Keybindings
 	top    *keys.Top
 	cursor func() *list.Cursor
-	rows   func(*model, screen.Inputs) []T
+	rows   func(screen.Inputs) []T
 	// name is the text a search reads a row by, nil on a list that renders no filter.
 	name func(T) string
 	// fits is how a row meets a qualifier, nil on a list that reads none.
@@ -36,26 +36,26 @@ type screenList[T list.Keyed] struct {
 	// header is what the toggle key names a header row as.
 	header string
 	// placed follows the cursor onto a row at once, when set.
-	placed func(*model, screen.Inputs) screen.Request
+	placed func(screen.Inputs) screen.Request
 	// moved follows the cursor onto a row a key put it on, and is placed when nil.
-	moved func(*model, screen.Inputs) screen.Request
+	moved func(screen.Inputs) screen.Request
 }
 
-func (l screenList[T]) isSelecting(*model) bool {
+func (l screenList[T]) isSelecting() bool {
 	return l.cursor().Selected.IsActive()
 }
 
-func (l screenList[T]) isBrowsing(m *model) bool {
-	return !l.isSelecting(m)
+func (l screenList[T]) isBrowsing() bool {
+	return !l.isSelecting()
 }
 
 // hovered is the key of the row the cursor is on.
-func (l screenList[T]) hovered(m *model, in screen.Inputs) string {
-	return list.KeyAt(l.rows(m, in), l.cursor().Row)
+func (l screenList[T]) hovered(in screen.Inputs) string {
+	return list.KeyAt(l.rows(in), l.cursor().Row)
 }
 
-func (l screenList[T]) hoveredName(m *model, in screen.Inputs) string {
-	row, ok := list.At(l.rows(m, in), l.cursor().Row)
+func (l screenList[T]) hoveredName(in screen.Inputs) string {
+	row, ok := list.At(l.rows(in), l.cursor().Row)
 	if !ok || l.name == nil {
 		return ""
 	}
@@ -64,24 +64,24 @@ func (l screenList[T]) hoveredName(m *model, in screen.Inputs) string {
 }
 
 // place puts the cursor back on a row by key, or as near to where it was as the list allows.
-func (l screenList[T]) place(m *model, in screen.Inputs, hovered string) screen.Request {
-	rows := l.rows(m, in)
+func (l screenList[T]) place(in screen.Inputs, hovered string) screen.Request {
+	rows := l.rows(in)
 	c := l.cursor()
 	c.Row = cursor.Place(list.IndexOf(rows, hovered), c.Row, len(rows))
 	if l.placed != nil {
-		return l.placed(m, in)
+		return l.placed(in)
 	}
 
 	return nil
 }
 
-func (l screenList[T]) filterRows(m *model, in screen.Inputs) []list.Row {
+func (l screenList[T]) filterRows(in screen.Inputs) []list.Row {
 	var fits func(T) list.Fits
 	if l.fits != nil {
 		fits = l.fits(in)
 	}
 
-	return xslice.Map(l.rows(m, in), func(row T) list.Row {
+	return xslice.Map(l.rows(in), func(row T) list.Row {
 		var rowFits list.Fits
 		if fits != nil {
 			rowFits = fits(row)
@@ -95,42 +95,42 @@ func (l screenList[T]) filterRows(m *model, in screen.Inputs) []list.Row {
 	})
 }
 
-func (l screenList[T]) landed(m *model, in screen.Inputs) screen.Request {
+func (l screenList[T]) landed(in screen.Inputs) screen.Request {
 	if l.moved != nil {
-		return l.moved(m, in)
+		return l.moved(in)
 	}
 
 	if l.placed != nil {
-		return l.placed(m, in)
+		return l.placed(in)
 	}
 
 	return nil
 }
 
-func (l screenList[T]) move(m *model, in screen.Inputs, delta int) screen.Request {
-	next, ok := l.cursor().Move(delta, len(l.rows(m, in)))
+func (l screenList[T]) move(in screen.Inputs, delta int) screen.Request {
+	next, ok := l.cursor().Move(delta, len(l.rows(in)))
 	if !ok {
 		return nil
 	}
 
 	*l.cursor() = next
 
-	return l.landed(m, in)
+	return l.landed(in)
 }
 
-func (l screenList[T]) jump(m *model, in screen.Inputs, idx int) screen.Request {
-	next, ok := l.cursor().Jump(idx, len(l.rows(m, in)))
+func (l screenList[T]) jump(in screen.Inputs, idx int) screen.Request {
+	next, ok := l.cursor().Jump(idx, len(l.rows(in)))
 	if !ok {
 		return nil
 	}
 
 	*l.cursor() = next
 
-	return l.landed(m, in)
+	return l.landed(in)
 }
 
-func (l screenList[T]) click(m *model, in screen.Inputs, key string, nth int) screen.Request {
-	for i, row := range l.rows(m, in) {
+func (l screenList[T]) click(in screen.Inputs, key string, nth int) screen.Request {
+	for i, row := range l.rows(in) {
 		if row.Key() != key {
 			continue
 		}
@@ -141,72 +141,68 @@ func (l screenList[T]) click(m *model, in screen.Inputs, key string, nth int) sc
 			continue
 		}
 
-		return l.jump(m, in, i)
+		return l.jump(in, i)
 	}
 
 	return nil
 }
 
-// update hands a key to the list's table.
-func (l screenList[T]) update(m *model, key tea.KeyPressMsg, actions keys.Spec[*model]) screen.Request {
-	return actions.DispatchTop(l.top, m, l.keys, key.String())
-}
-
-// actions are the keys every list answers, in dispatch order.
-func (l screenList[T]) actions() []keys.Action[*model] {
-	var shared []keys.Action[*model]
+// listActions are the keys every list answers, in dispatch order.
+func listActions[S any, T list.Keyed](l screenList[T], in screen.Inputs) []keys.Action[S] {
+	var shared []keys.Action[S]
 	if l.refs != nil {
-		shared = append(shared, l.selectionActions()...)
+		shared = append(shared, selectionActions[S](l, in)...)
 	}
-	shared = append(shared, keys.Action[*model]{
+	shared = append(shared, keys.Action[S]{
 		ID:   keys.Quit,
 		Keys: keys.FixedQuit,
-		Nav:  func(*model, string) screen.Request { return screen.Hide{} },
+		Nav:  func(S, string) screen.Request { return screen.Hide{} },
 	})
-	shared = append(shared, navActions(l, navSteps{page: navPageStep, scroll: 1})...)
+	shared = append(shared, navActions[S](navActionsParams{keys: l.keys, nav: l, in: in, page: navPageStep, scroll: 1})...)
 	if l.name != nil {
-		shared = append(shared, l.filterActions()...)
+		shared = append(shared, filterActions[S](l, in)...)
 	}
 
 	return shared
 }
 
-func (l screenList[T]) selectionActions() []keys.Action[*model] {
-	return []keys.Action[*model]{
+func selectionActions[S any, T list.Keyed](l screenList[T], in screen.Inputs) []keys.Action[S] {
+	return []keys.Action[S]{
 		{
 			ID:   keys.SelectClear,
 			Keys: func(k config.Keybindings) []string { return k.Selection.Clear },
-			When: l.isSelecting,
-			Nav:  l.clearSelection,
+			When: func(S) bool { return l.isSelecting() },
+			Nav:  func(S, string) screen.Request { return l.clearSelection() },
 		},
 		{
 			ID:   keys.SelectToggle,
 			Keys: func(k config.Keybindings) []string { return k.Selection.Toggle },
-			Nav:  l.toggleSelection,
+			Nav:  func(S, string) screen.Request { return l.toggleSelection(in) },
 		},
 		{
 			ID:   keys.SelectRange,
 			Keys: func(k config.Keybindings) []string { return k.Selection.Range },
-			Nav:  l.extendSelection,
+			Nav:  func(S, string) screen.Request { return l.extendSelection(in) },
 		},
 	}
 }
 
-func (l screenList[T]) filterActions() []keys.Action[*model] {
-	standing := func(m *model) bool { return l.isBrowsing(m) && m.inputs().Room.Pattern.IsStanding() }
+func filterActions[S any, T list.Keyed](l screenList[T], in screen.Inputs) []keys.Action[S] {
+	browsing := func(S) bool { return l.isBrowsing() }
+	standing := func(S) bool { return l.isBrowsing() && in.Room.Pattern.IsStanding() }
 
-	return []keys.Action[*model]{
+	return []keys.Action[S]{
 		{
 			ID:   keys.FilterOpen,
 			Keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-			When: l.isBrowsing,
-			Nav:  func(*model, string) screen.Request { return screen.BeginFilter{} },
+			When: browsing,
+			Nav:  func(S, string) screen.Request { return screen.BeginFilter{} },
 		},
 		{
 			ID:   keys.FilterMatch,
 			Keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
 			When: standing,
-			Nav: func(_ *model, pressed string) screen.Request {
+			Nav: func(_ S, pressed string) screen.Request {
 				return screen.StepMatch{Delta: keys.DirectionOf(pressed, l.keys.Filter.PrevMatch)}
 			},
 		},
@@ -214,79 +210,79 @@ func (l screenList[T]) filterActions() []keys.Action[*model] {
 			ID:   keys.FilterClear,
 			Keys: keys.FixedBack,
 			When: standing,
-			Nav:  func(*model, string) screen.Request { return screen.Batch{screen.ClearFilter{}, screen.Settle{}} },
+			Nav:  func(S, string) screen.Request { return screen.Batch{screen.ClearFilter{}, screen.Settle{}} },
 		},
 	}
 }
 
-func (l screenList[T]) moveBy(m *model, rows int) screen.Request {
-	in := m.inputs()
+func (l screenList[T]) moveBy(in screen.Inputs, rows int) screen.Request {
 	if rows == 1 || rows == -1 {
-		return l.move(m, in, rows)
+		return l.move(in, rows)
 	}
 
-	return l.jump(m, in, l.cursor().Row+rows)
+	return l.jump(in, l.cursor().Row+rows)
 }
 
-func (l screenList[T]) moveToEnd(m *model, direction int) screen.Request {
-	in := m.inputs()
+func (l screenList[T]) moveToEnd(in screen.Inputs, direction int) screen.Request {
 	if direction > 0 {
-		return l.jump(m, in, len(l.rows(m, in))-1)
+		return l.jump(in, len(l.rows(in))-1)
 	}
 
-	return l.jump(m, in, 0)
+	return l.jump(in, 0)
 }
 
-func (l screenList[T]) clearSelection(*model, string) screen.Request {
+func (l screenList[T]) clearSelection() screen.Request {
 	l.cursor().Selected = list.Selection{}
 
 	return nil
 }
 
-func (l screenList[T]) toggleSelection(m *model, _ string) screen.Request {
+func (l screenList[T]) toggleSelection(in screen.Inputs) screen.Request {
 	c := l.cursor()
-	c.Selected = c.Selected.Toggle(l.refs(l.rows(m, m.inputs())), c.Row)
+	c.Selected = c.Selected.Toggle(l.refs(l.rows(in)), c.Row)
 
 	return nil
 }
 
-func (l screenList[T]) extendSelection(m *model, pressed string) screen.Request {
-	if !l.isSelecting(m) {
-		return l.toggleSelection(m, pressed)
+func (l screenList[T]) extendSelection(in screen.Inputs) screen.Request {
+	if !l.isSelecting() {
+		return l.toggleSelection(in)
 	}
 
 	c := l.cursor()
-	c.Selected = c.Selected.Extend(l.refs(l.rows(m, m.inputs())), c.Row)
+	c.Selected = c.Selected.Extend(l.refs(l.rows(in)), c.Row)
 
 	return nil
 }
 
 // selectionLegend is the three rows a standing selection is named by.
-func (l screenList[T]) selectionLegend() []keys.LegendRow[*model] {
-	return []keys.LegendRow[*model]{
+func selectionLegend[S any, T list.Keyed](l screenList[T], in screen.Inputs) []keys.LegendRow[S] {
+	selecting := func(S) bool { return l.isSelecting() }
+
+	return []keys.LegendRow[S]{
 		{
 			Of:    []keys.ID{keys.SelectToggle},
-			Desc:  l.toggleDesc,
-			Show:  l.isSelecting,
+			Desc:  func(S) string { return l.toggleDesc(in) },
+			Show:  selecting,
 			Strip: true,
 		},
 		{
 			Of:   []keys.ID{keys.SelectRange},
-			Desc: func(*model) string { return "select to nearest" },
-			Show: l.isSelecting,
+			Desc: func(S) string { return "select to nearest" },
+			Show: selecting,
 		},
 		{
 			Of:    []keys.ID{keys.SelectClear},
-			Desc:  l.clearDesc,
-			Show:  l.isSelecting,
+			Desc:  func(S) string { return l.clearDesc() },
+			Show:  selecting,
 			Strip: true,
 		},
 	}
 }
 
-func (l screenList[T]) toggleDesc(m *model) string {
+func (l screenList[T]) toggleDesc(in screen.Inputs) string {
 	c := l.cursor()
-	hovered, _ := list.At(l.refs(l.rows(m, m.inputs())), c.Row)
+	hovered, _ := list.At(l.refs(l.rows(in)), c.Row)
 
 	switch {
 	case hovered.Header:
@@ -298,30 +294,26 @@ func (l screenList[T]) toggleDesc(m *model) string {
 	return "select"
 }
 
-func (l screenList[T]) clearDesc(*model) string {
+func (l screenList[T]) clearDesc() string {
 	return fmt.Sprintf("clear %d selected", len(l.cursor().Selected.Keys))
 }
 
 // filterDescOf names the filter key by the search standing in the list.
-func filterDescOf(m *model) string {
-	return m.filter.openDesc()
+func filterDescOf[S any](in screen.Inputs) func(S) string {
+	return func(S) string { return patternMode(in.Room.Pattern).openDesc(in.Room.Pattern.Typed) }
 }
 
-func filterClearDescOf(m *model) string {
-	return m.filter.clearDesc()
+func filterClearDescOf[S any](in screen.Inputs) func(S) string {
+	return func(S) string { return patternMode(in.Room.Pattern).clearDesc() }
 }
 
 func (m *model) activeListParams(in screen.Inputs) (list.Params, bool) {
-	return m.listParamsOn(m, in)
-}
-
-func (m *model) listParamsOn(probe *model, in screen.Inputs) (list.Params, bool) {
 	l, ok := m.active().(listRenderer)
 	if !ok {
 		return list.Params{}, false
 	}
 
-	return l.listParams(probe, in), true
+	return l.listParams(m, in), true
 }
 
 // listHelp is a list screen's legend: its own rows, then the bindings every list shares.
@@ -382,13 +374,13 @@ func spareLinesOf(height int, chrome ...string) int {
 }
 
 func (m *model) listClicker(l keyedList) clicker {
-	clicked := requestClick(func(m *model, key string, nth int) screen.Request { return l.click(m, m.inputs(), key, nth) })
+	clicked := requestClick(func(m *model, key string, nth int) screen.Request { return l.click(m.inputs(), key, nth) })
 	if !m.isListFocused(m.inputs()) || m.isViewsOpen() {
 		return m.stopClicker(stopList, clicked)
 	}
 
 	return clickFunc(func(m *model, key string, nth int) tea.Cmd {
-		if key != l.hovered(m, m.inputs()) {
+		if key != l.hovered(m.inputs()) {
 			return clicked.click(m, key, nth)
 		}
 
@@ -404,5 +396,5 @@ func (m *model) listClicker(l keyedList) clicker {
 func (m *model) isHoveredHit(hit zone.Hit) bool {
 	lister, ok := m.active().(activeLister)
 
-	return ok && hit.Zone == zoneList && hit.Key == lister.activeList().hovered(m, m.inputs())
+	return ok && hit.Zone == zoneList && hit.Key == lister.activeList().hovered(m.inputs())
 }

@@ -1,12 +1,11 @@
 package ui
 
 func (m *model) tabbedHeader(title, tally string) string {
-	in := m.inputs()
 	var strips string
-	if m.isTabsRendered(in) {
+	if m.isTabsRendered() {
 		strips += m.tabsLine()
 	}
-	if m.isKindsRendered(in) {
+	if m.isKindsRendered() {
 		strips += m.kindsLine()
 	}
 	if strips == "" {

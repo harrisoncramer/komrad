@@ -21,7 +21,7 @@ func flashFieldStyle(palette paint.Palette) lipgloss.Style {
 func (m *model) detailsView() string {
 	in := m.inputs()
 	held := m.hoveredDetails(in)
-	if !m.isDetailsRendered(in, held) {
+	if !m.isDetailsRendered(held) {
 		return ""
 	}
 

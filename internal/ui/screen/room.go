@@ -50,4 +50,6 @@ type DocReader struct {
 	Line, Top int
 	// Focused is whether the document holds the keys.
 	Focused bool
+	Held    bool
+	Window  int
 }

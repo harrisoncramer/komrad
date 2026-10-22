@@ -40,13 +40,26 @@ func (f filterState) line(glyphs glyph.Set) string {
 	return line
 }
 
+type headParams struct {
+	glyphs glyph.Set
+	marks  bool
+	count  string
+	said   string
+	width  int
+}
+
 // head is the rows over a block the filter searches: the search, what the last key said, and a
 // blank row.
-func (f filterState) head(m *model, count, said string, width int) []string {
+func (f filterState) head(params headParams) []string {
 	indent := strings.Repeat(" ", docMargin())
-	head := []string{m.markSearch(stopBlock, width, fitRow(indent+f.line(m.glyphs)+count, width))}
-	if said != "" {
-		head = append(head, fitRow(indent+dimStyle().Render(said), width))
+	search := fitRow(indent+f.line(params.glyphs)+params.count, params.width)
+	if params.marks {
+		search = searchMark(stopBlock, params.width, search)
+	}
+
+	head := []string{search}
+	if params.said != "" {
+		head = append(head, fitRow(indent+dimStyle().Render(params.said), params.width))
 	}
 
 	return append(head, "")

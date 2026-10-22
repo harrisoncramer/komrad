@@ -7,7 +7,6 @@ import (
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/legend"
 	"komrad/internal/ui/list"
-	"komrad/internal/ui/screen"
 	"komrad/internal/ui/tabs"
 
 	"charm.land/bubbles/v2/key"
@@ -66,27 +65,27 @@ func (m *model) activeTabs() (tabSwitcher, bool) {
 	return t, ok
 }
 
-func (m *model) isTabsRendered(in screen.Inputs) bool {
+func (m *model) isTabsRendered() bool {
 	_, ok := m.activeTabs()
 
-	return ok && m.tabsFit(in)
+	return ok && m.tabsFit()
 }
 
-func (m *model) isTabsFocused(in screen.Inputs) bool {
+func (m *model) isTabsFocused() bool {
 	t, ok := m.activeTabs()
 
-	return ok && t.tabsState().Focused && m.tabsFit(in)
+	return ok && t.tabsState().Focused && m.tabsFit()
 }
 
-func (m *model) tabsFit(in screen.Inputs) bool {
-	_, fits := m.listFitsTabs(in)
+func (m *model) tabsFit() bool {
+	_, fits := m.listFitsTabs()
 
 	return fits
 }
 
 // listFitsTabs is the active list's params and whether the list has the room to render its strips,
 // judged with the keys on the list.
-func (m *model) listFitsTabs(in screen.Inputs) (list.Params, bool) {
+func (m *model) listFitsTabs() (list.Params, bool) {
 	probe := *m
 	t, tabbed := probe.activeTabs()
 	k, kinded := probe.activeKinds()
@@ -102,10 +101,12 @@ func (m *model) listFitsTabs(in screen.Inputs) (list.Params, bool) {
 		*k.kindsFocused(&probe) = false
 	}
 
-	params, ok := m.listParamsOn(&probe, in)
+	l, ok := m.active().(listRenderer)
 	if !ok {
 		return list.Params{}, false
 	}
+
+	params := l.listParams(&probe, probe.inputs())
 
 	if probe.term.height <= 0 {
 		return params, true
@@ -130,7 +131,7 @@ func (m *model) blurTabs() {
 
 func (m *model) focusTabs() {
 	t, ok := m.activeTabs()
-	if !ok || !m.tabsFit(m.inputs()) {
+	if !ok || !m.tabsFit() {
 		return
 	}
 

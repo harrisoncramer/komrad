@@ -30,34 +30,36 @@ type diffKeys struct {
 	pane     *diffview.Pane
 	filter   *filterState
 	// window is the size the panel renders the pane at.
-	window func(*model) diffview.Window
+	window func(screen.Inputs) diffview.Window
 	// moved is what the screen does once the reader lands somewhere new, and is nil on a screen
 	// with nothing to do.
-	moved func(*model) screen.Request
+	moved func() screen.Request
 	// refuseExpand says why the file under the cursor may not be rendered whole, and is nil on a
 	// screen that never refuses.
-	refuseExpand func(*model) string
+	refuseExpand func() string
 }
 
-func (k diffKeys) table() []keys.Action[*model] {
-	return append(navActions(k, navSteps{page: navPageStep, scroll: diffWheelStep}), []keys.Action[*model]{
+func diffTable[S any](k diffKeys, in screen.Inputs) []keys.Action[S] {
+	panning := func(S) bool { return !in.Room.Wrap }
+
+	return append(navActions[S](navActionsParams{keys: k.keys, nav: k, in: in, page: navPageStep, scroll: diffWheelStep}), []keys.Action[S]{
 		{
 			ID:   actionDiffFile,
 			Keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.NextFile, b.Diff.PrevFile) },
-			Nav: func(m *model, pressed string) screen.Request {
-				if !k.pane.JumpFile(keys.DirectionOf(pressed, k.keys.Diff.PrevFile), k.window(m)) {
+			Nav: func(_ S, pressed string) screen.Request {
+				if !k.pane.JumpFile(keys.DirectionOf(pressed, k.keys.Diff.PrevFile), k.window(in)) {
 					return nil
 				}
 
-				return k.land(m)
+				return k.land()
 			},
 		},
 		{
 			ID:   keys.FilterOpen,
 			Keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-			Nav: func(m *model, _ string) screen.Request {
+			Nav: func(S, string) screen.Request {
 				k.filter.open()
-				k.search(m)
+				k.search(in)
 
 				return nil
 			},
@@ -65,16 +67,16 @@ func (k diffKeys) table() []keys.Action[*model] {
 		{
 			ID:   actionDiffMatch,
 			Keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.NextMatch, b.Diff.PrevMatch) },
-			Nav: func(m *model, pressed string) screen.Request {
-				return k.jumpMatch(m, keys.DirectionOf(pressed, k.keys.Diff.PrevMatch))
+			Nav: func(_ S, pressed string) screen.Request {
+				return k.jumpMatch(in, keys.DirectionOf(pressed, k.keys.Diff.PrevMatch))
 			},
 		},
 		{
 			ID:   actionDiffPan,
 			Keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.PanLeft, b.Diff.PanRight) },
-			When: isPanning,
-			Nav: func(m *model, pressed string) screen.Request {
-				k.pane.PanBy(keys.DirectionOf(pressed, k.keys.Diff.PanLeft) * panStep(m.inputs()))
+			When: panning,
+			Nav: func(_ S, pressed string) screen.Request {
+				k.pane.PanBy(keys.DirectionOf(pressed, k.keys.Diff.PanLeft) * panStep(in))
 
 				return nil
 			},
@@ -82,8 +84,8 @@ func (k diffKeys) table() []keys.Action[*model] {
 		{
 			ID:   actionDiffPanReset,
 			Keys: func(b config.Keybindings) []string { return b.Diff.PanReset },
-			When: isPanning,
-			Nav: func(*model, string) screen.Request {
+			When: panning,
+			Nav: func(S, string) screen.Request {
 				k.pane.PanBy(-k.pane.Pan())
 
 				return nil
@@ -92,61 +94,61 @@ func (k diffKeys) table() []keys.Action[*model] {
 	}...)
 }
 
-// shapeTable is the keys that expand and wrap a diff pane's files.
-func (k diffKeys) shapeTable() []keys.Action[*model] {
-	return []keys.Action[*model]{
+// diffShapeTable is the keys that expand and wrap a diff pane's files.
+func diffShapeTable[S any](k diffKeys, in screen.Inputs) []keys.Action[S] {
+	return []keys.Action[S]{
 		{
 			ID:   actionDiffExpand,
 			Keys: func(b config.Keybindings) []string { return b.Diff.Expand },
-			Nav:  func(m *model, _ string) screen.Request { return k.toggleExpanded(m) },
+			Nav:  func(S, string) screen.Request { return k.toggleExpanded(in) },
 		},
 		{
 			ID:   actionDiffWrap,
 			Keys: func(b config.Keybindings) []string { return b.Diff.Wrap },
-			Nav:  func(m *model, _ string) screen.Request { return k.toggleWrap(m) },
+			Nav:  func(S, string) screen.Request { return k.toggleWrap(in) },
 		},
 	}
 }
 
-// legend is the diff's own rows of a screen's legend, in reading order.
-func (k diffKeys) legend() []keys.LegendRow[*model] {
-	return []keys.LegendRow[*model]{
-		keys.MoveRow[*model](),
-		keys.NavPageRow[*model](),
-		diffFileRow(),
-		diffSearchRow(),
-		diffMatchRow(),
-		diffPanRow(),
-		keys.JumpRow[*model](),
+// diffLegend is the diff's own rows of a screen's legend, in reading order.
+func diffLegend[S any](k diffKeys, in screen.Inputs) []keys.LegendRow[S] {
+	return []keys.LegendRow[S]{
+		keys.MoveRow[S](),
+		keys.NavPageRow[S](),
+		diffFileRow[S](),
+		diffSearchRow[S](),
+		diffMatchRow[S](),
+		diffPanRow[S](),
+		keys.JumpRow[S](),
 		{
 			Of:   []keys.ID{actionDiffExpand},
-			Desc: func(*model) string { return k.expandDesc() },
+			Desc: func(S) string { return k.expandDesc() },
 		},
-		diffWrapRow(),
+		diffWrapRow[S](in),
 	}
 }
 
-func diffFileRow() keys.LegendRow[*model] {
-	return keys.LegendRow[*model]{
+func diffFileRow[S any]() keys.LegendRow[S] {
+	return keys.LegendRow[S]{
 		Of:   []keys.ID{actionDiffFile},
-		Desc: func(*model) string { return "next/previous file" },
+		Desc: func(S) string { return "next/previous file" },
 		Label: func(k config.Keybindings) string {
 			return keys.HeadLabel(k.Diff.NextFile) + "/" + keys.HeadLabel(k.Diff.PrevFile)
 		},
 	}
 }
 
-func diffSearchRow() keys.LegendRow[*model] {
-	return keys.LegendRow[*model]{
+func diffSearchRow[S any]() keys.LegendRow[S] {
+	return keys.LegendRow[S]{
 		Of:   []keys.ID{keys.FilterOpen},
-		Desc: func(*model) string { return "search" },
+		Desc: func(S) string { return "search" },
 	}
 }
 
-func diffMatchRow() keys.LegendRow[*model] {
-	return keys.LegendRow[*model]{
+func diffMatchRow[S any]() keys.LegendRow[S] {
+	return keys.LegendRow[S]{
 		Of:   []keys.ID{actionDiffMatch},
-		Desc: func(*model) string { return "next/previous match" },
+		Desc: func(S) string { return "next/previous match" },
 		Label: func(k config.Keybindings) string {
 			return keys.HeadLabel(k.Diff.NextMatch) + "/" + keys.HeadLabel(k.Diff.PrevMatch)
 		},
@@ -154,10 +156,10 @@ func diffMatchRow() keys.LegendRow[*model] {
 }
 
 // diffPanRow is panning and its reset, which share a row.
-func diffPanRow() keys.LegendRow[*model] {
-	return keys.LegendRow[*model]{
+func diffPanRow[S any]() keys.LegendRow[S] {
+	return keys.LegendRow[S]{
 		Of:   []keys.ID{actionDiffPan, actionDiffPanReset},
-		Desc: func(*model) string { return "pan sideways" },
+		Desc: func(S) string { return "pan sideways" },
 		Label: func(k config.Keybindings) string {
 			return keys.HeadLabel(k.Diff.PanLeft) + "/" + keys.HeadLabel(k.Diff.PanRight) + "/" + keys.Label(k.Diff.PanReset)
 		},
@@ -165,24 +167,19 @@ func diffPanRow() keys.LegendRow[*model] {
 }
 
 // diffWrapRow is the key that wraps long lines or cuts them off again.
-func diffWrapRow() keys.LegendRow[*model] {
-	return keys.LegendRow[*model]{
+func diffWrapRow[S any](in screen.Inputs) keys.LegendRow[S] {
+	return keys.LegendRow[S]{
 		Of:   []keys.ID{actionDiffWrap},
-		Desc: wrapDesc,
+		Desc: func(S) string { return wrapDesc(in) },
 	}
 }
 
-func wrapDesc(m *model) string {
-	if m.diffWrap {
+func wrapDesc(in screen.Inputs) string {
+	if in.Room.Wrap {
 		return "stop wrapping lines"
 	}
 
 	return "wrap lines"
-}
-
-// isPanning reports whether long lines are cut off and panned rather than wrapped.
-func isPanning(m *model) bool {
-	return !m.diffWrap
 }
 
 // expandDesc names what the expand key does to the file under the cursor.
@@ -201,30 +198,30 @@ func (k diffKeys) expandDesc() string {
 }
 
 // updateFilter is the search prompt taking keys.
-func (k diffKeys) updateFilter(m *model, key tea.KeyPressMsg) screen.Request {
+func (k diffKeys) updateFilter(in screen.Inputs, key tea.KeyPressMsg) screen.Request {
 	if key.String() == "ctrl+c" {
 		return screen.Hide{}
 	}
 
 	if k.filter.takeKey(key, k.register) {
-		k.search(m)
+		k.search(in)
 	}
 
 	return nil
 }
 
 // search runs the pattern over the diff and moves to the first thing it finds.
-func (k diffKeys) search(m *model) {
+func (k diffKeys) search(in screen.Inputs) {
 	if k.pane.View() == nil {
 		return
 	}
 
-	k.pane.Search(k.filter.matcher, k.window(m))
+	k.pane.Search(k.filter.matcher, k.window(in))
 }
 
 // jumpMatch steps to the next or previous line the search found, wrapping at the ends.
-func (k diffKeys) jumpMatch(m *model, direction int) screen.Request {
-	moved, found := k.pane.JumpMatch(direction, k.window(m))
+func (k diffKeys) jumpMatch(in screen.Inputs, direction int) screen.Request {
+	moved, found := k.pane.JumpMatch(direction, k.window(in))
 	if !found {
 		said := "nothing to search for yet"
 		if k.filter.isStanding() {
@@ -238,30 +235,30 @@ func (k diffKeys) jumpMatch(m *model, direction int) screen.Request {
 		return nil
 	}
 
-	return k.land(m)
+	return k.land()
 }
 
 // toggleWrap wraps lines wider than the pane, or cuts them off again.
-func (k diffKeys) toggleWrap(m *model) screen.Request {
-	m.diffWrap = !m.diffWrap
+func (k diffKeys) toggleWrap(in screen.Inputs) screen.Request {
+	in.Room.Wrap = !in.Room.Wrap
 	if k.pane.View() != nil {
-		k.pane.ScrollToCursor(k.window(m))
+		k.pane.ScrollToCursor(k.window(in))
 	}
 
-	return nil
+	return screen.Wrap{On: in.Room.Wrap}
 }
 
 // toggleExpanded renders the whole of the file the cursor is in, or gives back the changed lines
 // and the few around them.
-func (k diffKeys) toggleExpanded(m *model) screen.Request {
+func (k diffKeys) toggleExpanded(in screen.Inputs) screen.Request {
 	if k.refuseExpand != nil {
-		if refused := k.refuseExpand(m); refused != "" {
+		if refused := k.refuseExpand(); refused != "" {
 			return screen.NewNote(screen.Warning, refused)
 		}
 	}
 
 	var said screen.Request
-	switch k.pane.ToggleExpanded(k.window(m)) {
+	switch k.pane.ToggleExpanded(k.window(in)) {
 	case diffview.ExpandNothing:
 		return nil
 	case diffview.ExpandNoMore:
@@ -272,48 +269,48 @@ func (k diffKeys) toggleExpanded(m *model) screen.Request {
 		said = screen.NewNote(screen.Info, "showing the changed lines")
 	}
 
-	return screen.Batch{said, k.land(m)}
+	return screen.Batch{said, k.land()}
 }
 
-func (k diffKeys) moveTo(m *model, row int) screen.Request {
-	if !k.pane.MoveTo(row, k.window(m)) {
+func (k diffKeys) moveTo(in screen.Inputs, row int) screen.Request {
+	if !k.pane.MoveTo(row, k.window(in)) {
 		return nil
 	}
 
-	return k.land(m)
+	return k.land()
 }
 
-func (k diffKeys) step(m *model, direction, rows int) screen.Request {
-	if !k.pane.Step(direction, rows, k.window(m)) {
+func (k diffKeys) step(in screen.Inputs, direction, rows int) screen.Request {
+	if !k.pane.Step(direction, rows, k.window(in)) {
 		return nil
 	}
 
-	return k.land(m)
+	return k.land()
 }
 
 // land tells the screen the reader is standing somewhere new.
-func (k diffKeys) land(m *model) screen.Request {
+func (k diffKeys) land() screen.Request {
 	if k.moved == nil {
 		return nil
 	}
 
-	return k.moved(m)
+	return k.moved()
 }
 
-func (k diffKeys) moveBy(m *model, rows int) screen.Request {
+func (k diffKeys) moveBy(in screen.Inputs, rows int) screen.Request {
 	if rows < 0 {
-		return k.step(m, -1, -rows)
+		return k.step(in, -1, -rows)
 	}
 
-	return k.step(m, 1, rows)
+	return k.step(in, 1, rows)
 }
 
-func (k diffKeys) moveToEnd(m *model, direction int) screen.Request {
+func (k diffKeys) moveToEnd(in screen.Inputs, direction int) screen.Request {
 	if direction > 0 {
-		return k.moveTo(m, k.pane.View().GetLastRow())
+		return k.moveTo(in, k.pane.View().GetLastRow())
 	}
 
-	return k.moveTo(m, k.pane.View().GetFirstRow())
+	return k.moveTo(in, k.pane.View().GetFirstRow())
 }
 
 // panStep is a third of the pane, or the smallest jump until the pane is measured.
@@ -326,11 +323,11 @@ func panStep(in screen.Inputs) int {
 	return max(split.Column/3, diffPanStep)
 }
 
-func (k diffKeys) click(m *model, key string) screen.Request {
+func (k diffKeys) click(in screen.Inputs, key string) screen.Request {
 	row, err := strconv.Atoi(key)
 	if err != nil || k.pane.View() == nil {
 		return nil
 	}
 
-	return k.moveTo(m, k.pane.View().Move(row-1, 1))
+	return k.moveTo(in, k.pane.View().Move(row-1, 1))
 }

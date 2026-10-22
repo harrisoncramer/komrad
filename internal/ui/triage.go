@@ -585,9 +585,9 @@ func (m *model) settleTriage() {
 	case reading && m.agents.triage.frozen == nil:
 		m.agents.triage.frozen = xslice.Map(zoneHeads(zone), func(i int) string { return zone[i].item.Agent.ID })
 	case !reading && m.agents.triage.frozen != nil:
-		hovered := m.agents.list().hovered(m, m.inputs())
+		hovered := m.agents.list().hovered(m.inputs())
 		m.agents.triage.frozen = nil
-		m.agents.apply(m, m.inputs(), hovered)
+		m.agents.apply(m.inputs(), hovered)
 	}
 }
 
@@ -633,10 +633,10 @@ func (a *agentsScreen) findZoneSlot(in screen.Inputs) int {
 
 // moveAfterSnooze puts the cursor on the task above the zone's slot, on the top task when the
 // slot was the top, or on the first agent of the list once the zone is empty.
-func (a *agentsScreen) moveAfterSnooze(m *model, in screen.Inputs, slot int) screen.Request {
+func (a *agentsScreen) moveAfterSnooze(in screen.Inputs, slot int) screen.Request {
 	heads := zoneHeads(a.layout(in).zone)
 	if len(heads) == 0 {
-		a.Row = firstAgentRowIndex(a.rows(m, in))
+		a.Row = firstAgentRowIndex(a.rows(in))
 
 		return screen.NewNote(screen.Info, "nothing left to triage")
 	}
@@ -648,8 +648,8 @@ func (a *agentsScreen) moveAfterSnooze(m *model, in screen.Inputs, slot int) scr
 
 // landInTriage moves the cursor off a zone row that has left the list onto the task now in its
 // slot, or into the tree once the zone is empty.
-func (a *agentsScreen) landInTriage(m *model, in screen.Inputs, selected string, slot int) {
-	rows := a.rows(m, in)
+func (a *agentsScreen) landInTriage(in screen.Inputs, selected string, slot int) {
+	rows := a.rows(in)
 	if slot < 0 || list.IndexOf(rows, selected) >= 0 {
 		return
 	}
@@ -665,8 +665,8 @@ func (a *agentsScreen) landInTriage(m *model, in screen.Inputs, selected string,
 }
 
 // jumpToTriage puts the cursor on the zone's first agent.
-func (a *agentsScreen) jumpToTriage(m *model) screen.Request {
-	if len(a.layout(m.inputs()).zone) == 0 {
+func (a *agentsScreen) jumpToTriage(in screen.Inputs) screen.Request {
+	if len(a.layout(in).zone) == 0 {
 		return screen.NewNote(screen.Info, "nothing to triage")
 	}
 

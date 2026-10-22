@@ -10,27 +10,27 @@ import (
 
 // actions is the schedules screen as one table, walked in precedence order by the dispatch and
 // named in reading order by a legend of the same ids.
-func (w *schedulesScreen) actions() keys.Spec[*model] {
+func (w *schedulesScreen) actions(in screen.Inputs) keys.Spec[*schedulesScreen] {
 	list := w.list()
-	standing := func(m *model) bool { return m.inputs().Room.Pattern.IsStanding() }
+	standing := func(*schedulesScreen) bool { return in.Room.Pattern.IsStanding() }
 
-	return keys.Spec[*model]{
-		Table: append([]keys.Action[*model]{
+	return keys.Spec[*schedulesScreen]{
+		Table: append([]keys.Action[*schedulesScreen]{
 			{
 				ID:   keys.FilterOpen,
 				Keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				Nav:  func(*model, string) screen.Request { return screen.BeginFilter{} },
+				Nav:  func(*schedulesScreen, string) screen.Request { return screen.BeginFilter{} },
 			},
 			{
 				ID:   keys.Quit,
 				Keys: keys.FixedQuit,
-				Nav:  func(m *model, _ string) screen.Request { return screen.Hide{} },
+				Nav:  func(*schedulesScreen, string) screen.Request { return screen.Hide{} },
 			},
 			{
 				ID:   keys.FilterMatch,
 				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
 				When: standing,
-				Nav: func(m *model, pressed string) screen.Request {
+				Nav: func(_ *schedulesScreen, pressed string) screen.Request {
 					return screen.StepMatch{Delta: keys.DirectionOf(pressed, w.deps.keys.Filter.PrevMatch)}
 				},
 			},
@@ -38,51 +38,53 @@ func (w *schedulesScreen) actions() keys.Spec[*model] {
 				ID:   keys.FilterClear,
 				Keys: keys.FixedBack,
 				When: standing,
-				Nav:  func(*model, string) screen.Request { return screen.Batch{screen.ClearFilter{}, screen.Settle{}} },
+				Nav: func(*schedulesScreen, string) screen.Request {
+					return screen.Batch{screen.ClearFilter{}, screen.Settle{}}
+				},
 			},
 			{
 				ID:   actionScheduleBack,
 				Keys: keys.FixedBack,
-				Nav:  func(m *model, _ string) screen.Request { return screen.PickView{} },
+				Nav:  func(*schedulesScreen, string) screen.Request { return screen.PickView{} },
 			},
 			{
 				ID:     actionScheduleRename,
 				Keys:   func(k config.Keybindings) []string { return k.Schedules.Rename },
-				Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) screen.Request { return w.openRename(m, m.inputs()) }),
+				Direct: keys.Directly(keys.NotInMenu, func(*schedulesScreen, string) screen.Request { return w.openRename(in) }),
 			},
-		}, navActions(list, navSteps{page: navPageStep, scroll: 1})...),
-		Legend: []keys.LegendRow[*model]{
+		}, navActions[*schedulesScreen](navActionsParams{keys: w.deps.keys, nav: list, in: in, page: navPageStep, scroll: 1})...),
+		Legend: []keys.LegendRow[*schedulesScreen]{
 			{
 				Of:   []keys.ID{actionScheduleRename},
-				Desc: func(*model) string { return "rename" },
+				Desc: func(*schedulesScreen) string { return "rename" },
 			},
 			{
 				Of:   []keys.ID{keys.FilterOpen},
-				Desc: filterDescOf,
+				Desc: filterDescOf[*schedulesScreen](in),
 			},
 			{
 				Of:   []keys.ID{keys.FilterMatch},
-				Desc: func(*model) string { return "next/prev match" },
+				Desc: func(*schedulesScreen) string { return "next/prev match" },
 			},
 			{
 				Of:    []keys.ID{keys.Move},
-				Desc:  func(*model) string { return "move" },
+				Desc:  func(*schedulesScreen) string { return "move" },
 				Label: keys.MoveLabel,
 			},
-			keys.NavPageRow[*model](),
-			keys.JumpRow[*model](),
+			keys.NavPageRow[*schedulesScreen](),
+			keys.JumpRow[*schedulesScreen](),
 			{
 				Of:    []keys.ID{keys.ColumnScroll},
-				Desc:  func(*model) string { return "scroll" },
+				Desc:  func(*schedulesScreen) string { return "scroll" },
 				Label: keys.ColumnScrollLabel,
 			},
 			{
 				Of:   []keys.ID{actionScheduleBack},
-				Desc: func(*model) string { return "back" },
+				Desc: func(*schedulesScreen) string { return "back" },
 			},
 			{
 				Of:    []keys.ID{keys.FilterClear},
-				Desc:  filterClearDescOf,
+				Desc:  filterClearDescOf[*schedulesScreen](in),
 				Strip: true,
 			},
 		},

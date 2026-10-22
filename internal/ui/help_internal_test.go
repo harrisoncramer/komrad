@@ -68,12 +68,9 @@ func TestEveryActionHasALegendRow(t *testing.T) {
 
 	for _, tt := range tests {
 		var unnamed []keys.ID
-		for _, spec := range specsOf(tt.screen) {
-			for _, action := range spec.Table {
-				isNamed := slices.ContainsFunc(spec.Legend, func(row keys.LegendRow[*model]) bool { return slices.Contains(row.Of, action.ID) })
-				if !isNamed && !slices.Contains(unnamed, action.ID) {
-					unnamed = append(unnamed, action.ID)
-				}
+		for _, arm := range armsOf(t, tt.screen) {
+			if !arm.named && !slices.Contains(unnamed, arm.id) {
+				unnamed = append(unnamed, arm.id)
 			}
 		}
 

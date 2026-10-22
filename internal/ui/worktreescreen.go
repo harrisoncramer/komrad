@@ -26,9 +26,9 @@ func (w *worktreesScreen) enter(m *model, in screen.Inputs, target screen.Target
 	if target.AgentID != "" && !w.scope.listsAgent(in.Listing.Worktrees, target.AgentID) {
 		w.scope = scopeAll
 	}
-	w.apply(m, in, w.list().hovered(m, in))
+	w.apply(in, w.list().hovered(in))
 
-	return screen.Batch{w.stage(m, in), screen.Settle{}}
+	return screen.Batch{w.stage(), screen.Settle{}}
 }
 
 func (w *worktreesScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen.Request {
@@ -37,7 +37,7 @@ func (w *worktreesScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen
 		return nil
 	}
 
-	return w.list().update(m, key, w.actions())
+	return w.actions(in).DispatchTop(w.deps.top, w, w.deps.keys, key.String())
 }
 
 func (w *worktreesScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
@@ -46,7 +46,7 @@ func (w *worktreesScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (scre
 		return nil, false
 	}
 
-	w.apply(m, in, w.list().hovered(m, relisted.Before(in)))
+	w.apply(in, w.list().hovered(relisted.Before(in)))
 
 	return nil, true
 }
@@ -60,13 +60,13 @@ func (w *worktreesScreen) list() screenList[worktreeRow] {
 		name:   worktreeRow.name,
 		refs:   worktreeRefs,
 		header: "repository",
-		placed: w.stage,
-		moved:  func(*model, screen.Inputs) screen.Request { return screen.Settle{} },
+		placed: func(screen.Inputs) screen.Request { return w.stage() },
+		moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
 	}
 }
 
-func (w *worktreesScreen) hovered(m *model, in screen.Inputs) (worktreeRow, bool) {
-	row, ok := list.At(w.rows(m, in), w.Row)
+func (w *worktreesScreen) hovered(in screen.Inputs) (worktreeRow, bool) {
+	row, ok := list.At(w.rows(in), w.Row)
 	if !ok || row.header {
 		return worktreeRow{}, false
 	}
@@ -74,13 +74,13 @@ func (w *worktreesScreen) hovered(m *model, in screen.Inputs) (worktreeRow, bool
 	return row, true
 }
 
-func (w *worktreesScreen) stage(*model, screen.Inputs) screen.Request {
+func (w *worktreesScreen) stage() screen.Request {
 	return screen.StageTerminal{}
 }
 
 // inspectWorktree asks the server for the hovered directory's standing.
 func (m *model) inspectWorktree() screen.Request {
-	row, ok := m.worktrees.hovered(m, m.inputs())
+	row, ok := m.worktrees.hovered(m.inputs())
 	if !ok {
 		return nil
 	}
@@ -119,7 +119,7 @@ func (m *model) inspectHoveredWorktree() screen.Request {
 		return nil
 	}
 
-	row, ok := m.worktrees.hovered(m, m.inputs())
+	row, ok := m.worktrees.hovered(m.inputs())
 	if !ok {
 		return nil
 	}
@@ -180,18 +180,18 @@ func (w *worktreesScreen) kindsFocused(*model) *bool {
 }
 
 // kindsSwitch holds the scope while any directories are selected.
-func (w *worktreesScreen) kindsSwitch(*model) bool {
+func (w *worktreesScreen) kindsSwitch() bool {
 	return !w.Selected.IsActive()
 }
 
 // stepKind moves the listing to another scope, keeping the cursor on its row when the new scope
 // lists it.
 func (w *worktreesScreen) stepKind(m *model, in screen.Inputs, delta int) screen.Request {
-	hovered := w.list().hovered(m, in)
+	hovered := w.list().hovered(in)
 	w.scope = worktreeScope(tabs.StepStop(int(w.scope), delta, len(worktreeScopeLabels)))
-	w.place(m, in, hovered)
+	w.place(in, hovered)
 
-	return screen.Batch{w.stage(m, in), screen.Settle{}}
+	return screen.Batch{w.stage(), screen.Settle{}}
 }
 
 // tally is how many directories the scope lists, what the measured ones take, and whether they
@@ -206,18 +206,18 @@ func (w *worktreesScreen) tally() string {
 	return tally
 }
 
-func (w *worktreesScreen) listParams(m *model, in screen.Inputs) list.Params {
+func (w *worktreesScreen) listParams(_ *model, in screen.Inputs) list.Params {
 	return list.Params{
 		Tally:    w.tally(),
-		Help:     w.help(m),
+		Help:     w.help(in),
 		Empty:    "no worktrees",
-		Rows:     len(w.rows(m, in)),
-		Snapshot: func(pane list.Pane) view.Snapshot { return w.snapshot(m, in, pane) },
+		Rows:     len(w.rows(in)),
+		Snapshot: func(pane list.Pane) view.Snapshot { return w.snapshot(in, pane) },
 	}
 }
 
-func (w *worktreesScreen) help(m *model) legend.Help {
-	return m.helpOf(w.actions())
+func (w *worktreesScreen) help(in screen.Inputs) legend.Help {
+	return w.actions(in).Help(w, w.deps.keys)
 }
 
 func (w *worktreesScreen) countUnder(repo string) int {
@@ -247,8 +247,8 @@ func (w *worktreesScreen) activeList() keyedList {
 	return w.list()
 }
 
-func (w *worktreesScreen) hoveredName(m *model, in screen.Inputs) string {
-	return w.list().hoveredName(m, in)
+func (w *worktreesScreen) hoveredName(in screen.Inputs) string {
+	return w.list().hoveredName(in)
 }
 
 func (w *worktreesScreen) tabs() tabs.Strip {
@@ -264,11 +264,11 @@ func (w *worktreesScreen) column(m *model, in screen.Inputs) column.Spec {
 		Floor: columnFloor,
 		Read:  column.IsAlwaysRead,
 		DocRows: func(width int) []string {
-			return m.withLastScreen(paint.DocStyledRows(m.worktrees.doc(m, in), max(width, 1), columnStyle()), width)
+			return m.withLastScreen(paint.DocStyledRows(m.worktrees.doc(in), max(width, 1), columnStyle()), width)
 		},
 	}
 }
 
 func (w *worktreesScreen) dispatches(*model) []keys.Table {
-	return []keys.Table{w.actions()}
+	return []keys.Table{w.actions(screen.Inputs{})}
 }

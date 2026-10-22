@@ -41,5 +41,5 @@ func (a *agentsScreen) hideEntry(tasks []panel.Task) menu.Entry {
 
 // toggleHidden shows the hidden tasks, or puts them away.
 func (m *model) toggleHidden() screen.Request {
-	return screen.Batch{screen.Reconcile{}, m.agents.toggleHidden(m, m.inputs())}
+	return screen.Batch{screen.Reconcile{}, m.agents.toggleHidden(m.inputs())}
 }

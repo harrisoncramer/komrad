@@ -186,7 +186,7 @@ func (a *agentsScreen) snoozeEntries(m *model, in screen.Inputs, item panel.Agen
 		Label: label,
 		Keys:  a.deps.keys.Menu.Snooze,
 		After: menu.Hold,
-		Pick:  func() screen.Request { return m.agents.toggleSnooze(m, m.inputs(), key) },
+		Pick:  func() screen.Request { return m.agents.toggleSnooze(m.inputs(), key) },
 	}}
 }
 

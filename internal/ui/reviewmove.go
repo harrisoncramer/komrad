@@ -1,18 +1,20 @@
 package ui
 
+import "komrad/internal/ui/screen"
+
 // isWorktreeMoved reports whether the agent has written since the snapshot on screen.
-func (r reviewScreen) isWorktreeMoved(m *model) bool {
-	return r.findMovedSnapshot(m) != ""
+func (r reviewScreen) isWorktreeMoved(in screen.Inputs) bool {
+	return r.findMovedSnapshot(in) != ""
 }
 
 // findMovedSnapshot is the snapshot on screen when the agent has moved past it, empty otherwise.
-func (r reviewScreen) findMovedSnapshot(m *model) string {
-	item, ok := r.agentRow(m)
+func (r reviewScreen) findMovedSnapshot(in screen.Inputs) string {
+	item, ok := r.agentRow(in)
 	if !ok {
 		return ""
 	}
 
-	moved := m.listing.Tasks.FindForAgent(item.Agent).MovedSinceSnapshot
+	moved := in.Listing.Tasks.FindForAgent(item.Agent).MovedSinceSnapshot
 	if moved == "" || moved != r.snapshot.GetSha() {
 		return ""
 	}

@@ -10,102 +10,103 @@ import (
 )
 
 // actions is the archived agents as one table and the legend that names it.
-func (a *archivedAgents) actions() keys.Spec[*model] {
-	return keys.Spec[*model]{
-		Table:  a.table(),
-		Legend: a.legend(),
+func (a *archivedAgents) actions(in screen.Inputs) keys.Spec[*archivedAgents] {
+	return keys.Spec[*archivedAgents]{
+		Table:  a.table(in),
+		Legend: a.legend(in),
 	}
 }
 
-func (a *archivedAgents) table() []keys.Action[*model] {
+func (a *archivedAgents) table(in screen.Inputs) []keys.Action[*archivedAgents] {
 	list := a.list()
+	browsing := func(*archivedAgents) bool { return list.isBrowsing() }
 
-	return append(list.actions(),
-		keys.Action[*model]{
+	return append(listActions[*archivedAgents](list, in),
+		keys.Action[*archivedAgents]{
 			ID:   actionArchiveBack,
 			Keys: keys.FixedBack,
-			When: list.isBrowsing,
-			Nav:  func(m *model, _ string) screen.Request { return screen.PickView{} },
+			When: browsing,
+			Nav:  func(*archivedAgents, string) screen.Request { return screen.PickView{} },
 		},
-		keys.Action[*model]{
+		keys.Action[*archivedAgents]{
 			ID:     actionArchiveRename,
 			Keys:   func(k config.Keybindings) []string { return k.Archive.Rename },
-			When:   list.isBrowsing,
-			Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) screen.Request { return a.openRename(m, m.inputs()) }),
+			When:   browsing,
+			Direct: keys.Directly(keys.NotInMenu, func(*archivedAgents, string) screen.Request { return a.openRename(in) }),
 		},
 	)
 }
 
-func (a *archivedAgents) legend() []keys.LegendRow[*model] {
+func (a *archivedAgents) legend(in screen.Inputs) []keys.LegendRow[*archivedAgents] {
 	list := a.list()
 
-	return slices.Concat(list.selectionLegend(), []keys.LegendRow[*model]{
+	return slices.Concat(selectionLegend[*archivedAgents](list, in), []keys.LegendRow[*archivedAgents]{
 		{
 			Of:    []keys.ID{actionArchiveRename},
-			Desc:  func(*model) string { return "rename" },
-			Show:  a.holdsARenameable,
+			Desc:  func(*archivedAgents) string { return "rename" },
+			Show:  func(*archivedAgents) bool { return a.holdsARenameable(in) },
 			Strip: true,
 		},
 		{
 			Of:   []keys.ID{keys.SelectToggle},
-			Desc: list.toggleDesc,
-			Show: a.holdsAChoosable,
+			Desc: func(*archivedAgents) string { return list.toggleDesc(in) },
+			Show: func(*archivedAgents) bool { return a.holdsAChoosable(in) },
 		},
 		{
 			Of:   []keys.ID{keys.FilterOpen},
-			Desc: filterDescOf,
+			Desc: filterDescOf[*archivedAgents](in),
 		},
-	}, keys.NavLegend[*model](), []keys.LegendRow[*model]{
+	}, keys.NavLegend[*archivedAgents](), []keys.LegendRow[*archivedAgents]{
 		{
 			Of:   []keys.ID{actionArchiveBack},
-			Desc: func(*model) string { return "back" },
+			Desc: func(*archivedAgents) string { return "back" },
 		},
 		{
 			Of:    []keys.ID{keys.FilterClear},
-			Desc:  filterClearDescOf,
+			Desc:  filterClearDescOf[*archivedAgents](in),
 			Strip: true,
 		},
 		{
 			Of:    []keys.ID{keys.FilterMatch},
-			Desc:  func(*model) string { return "next/prev match" },
+			Desc:  func(*archivedAgents) string { return "next/prev match" },
 			Strip: true,
 		},
 	})
 }
 
 // holdsAChoosable reports whether the cursor is on a row while no selection is active.
-func (a *archivedAgents) holdsAChoosable(m *model) bool {
+func (a *archivedAgents) holdsAChoosable(in screen.Inputs) bool {
 	if a.Selected.IsActive() {
 		return false
 	}
 
-	_, ok := list.At(a.listRows(m, m.inputs()), a.Row)
+	_, ok := list.At(a.listRows(in), a.Row)
 
 	return ok
 }
 
 // holdsARenameable reports whether the cursor sits on a row the user can rename.
-func (a *archivedAgents) holdsARenameable(m *model) bool {
-	_, ok := a.renameable(m, m.inputs())
+func (a *archivedAgents) holdsARenameable(in screen.Inputs) bool {
+	_, ok := a.renameable(in)
 
 	return ok
 }
 
 // holdsAnAgent reports whether the cursor is on an archived agent rather than on the folder
 // holding one.
-func (a *archivedAgents) holdsAnAgent(m *model, in screen.Inputs) bool {
+func (a *archivedAgents) holdsAnAgent(in screen.Inputs) bool {
 	if a.Selected.IsActive() {
 		return false
 	}
 
-	_, ok := a.hoveredAgent(m, in)
+	_, ok := a.hoveredAgent(in)
 
 	return ok
 }
 
 // hoveredAgentID is the archived agent under the cursor, empty on a folder.
-func (a *archivedAgents) hoveredAgentID(m *model, in screen.Inputs) string {
-	agent, ok := a.hoveredAgent(m, in)
+func (a *archivedAgents) hoveredAgentID(in screen.Inputs) string {
+	agent, ok := a.hoveredAgent(in)
 	if !ok {
 		return ""
 	}

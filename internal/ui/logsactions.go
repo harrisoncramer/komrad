@@ -10,66 +10,66 @@ import (
 )
 
 // actions is the logs screen as one table and the legend that names it.
-func (l *logsScreen) actions(m *model) keys.Spec[*model] {
-	if l.isBlockFocused(m, m.inputs()) {
-		return l.logActions()
+func (l *logsScreen) actions(in screen.Inputs) keys.Spec[*logsScreen] {
+	if l.isBlockFocused(in) {
+		return l.logActions(in)
 	}
 
-	return l.listActions()
+	return l.listActions(in)
 }
 
 // listActions is the keys on the list of log sources.
-func (l *logsScreen) listActions() keys.Spec[*model] {
-	return keys.Spec[*model]{
-		Table:  l.table(),
-		Legend: l.legend(),
+func (l *logsScreen) listActions(in screen.Inputs) keys.Spec[*logsScreen] {
+	return keys.Spec[*logsScreen]{
+		Table:  l.table(in),
+		Legend: l.legend(in),
 	}
 }
 
-func (l *logsScreen) table() []keys.Action[*model] {
-	return append(l.list().actions(),
-		keys.Action[*model]{
+func (l *logsScreen) table(in screen.Inputs) []keys.Action[*logsScreen] {
+	return append(listActions[*logsScreen](l.list(), in),
+		keys.Action[*logsScreen]{
 			ID:   actionLogsBack,
 			Keys: keys.FixedBack,
-			Nav: func(m *model, _ string) screen.Request {
+			Nav: func(*logsScreen, string) screen.Request {
 				return screen.Open{Screen: l.openedFrom, Target: screen.Target{AgentID: l.agentID}}
 			},
 		},
 	)
 }
 
-func (l *logsScreen) legend() []keys.LegendRow[*model] {
-	return slices.Concat(keys.NavLegend[*model](), []keys.LegendRow[*model]{
+func (l *logsScreen) legend(in screen.Inputs) []keys.LegendRow[*logsScreen] {
+	return slices.Concat(keys.NavLegend[*logsScreen](), []keys.LegendRow[*logsScreen]{
 		{
 			Of:   []keys.ID{keys.FilterOpen},
-			Desc: filterDescOf,
+			Desc: filterDescOf[*logsScreen](in),
 		},
 		{
 			Of:    []keys.ID{keys.FilterClear},
-			Desc:  filterClearDescOf,
+			Desc:  filterClearDescOf[*logsScreen](in),
 			Strip: true,
 		},
 		{
 			Of:    []keys.ID{keys.FilterMatch},
-			Desc:  func(*model) string { return "next/prev match" },
+			Desc:  func(*logsScreen) string { return "next/prev match" },
 			Strip: true,
 		},
 		{
 			Of:    []keys.ID{actionLogsBack},
-			Desc:  func(*model) string { return "back" },
+			Desc:  func(*logsScreen) string { return "back" },
 			Strip: true,
 		},
 	})
 }
 
 // logActions is the keys on the log once the picker has handed them to it.
-func (l *logsScreen) logActions() keys.Spec[*model] {
-	return keys.Spec[*model]{
-		Table: append(navActions(l, navSteps{page: navPageStep, scroll: columnWheelStep}), []keys.Action[*model]{
+func (l *logsScreen) logActions(in screen.Inputs) keys.Spec[*logsScreen] {
+	return keys.Spec[*logsScreen]{
+		Table: append(navActions[*logsScreen](navActionsParams{keys: l.deps.keys, nav: l, in: in, page: navPageStep, scroll: columnWheelStep}), []keys.Action[*logsScreen]{
 			{
 				ID:   actionLogsCopy,
 				Keys: func(k config.Keybindings) []string { return k.Logs.Copy },
-				Nav: func(m *model, _ string) screen.Request {
+				Nav: func(*logsScreen, string) screen.Request {
 					line, ok := l.viewer.Current()
 					if !ok {
 						return nil
@@ -81,7 +81,7 @@ func (l *logsScreen) logActions() keys.Spec[*model] {
 			{
 				ID:   keys.FilterOpen,
 				Keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				Nav: func(*model, string) screen.Request {
+				Nav: func(*logsScreen, string) screen.Request {
 					l.openLogFilter()
 
 					return nil
@@ -90,7 +90,7 @@ func (l *logsScreen) logActions() keys.Spec[*model] {
 			{
 				ID:   actionLogsBack,
 				Keys: keys.FixedBack,
-				Nav: func(m *model, _ string) screen.Request {
+				Nav: func(*logsScreen, string) screen.Request {
 					if l.logFilter.isStanding() {
 						return l.clearLogFilter()
 					}
@@ -103,25 +103,25 @@ func (l *logsScreen) logActions() keys.Spec[*model] {
 			{
 				ID:   keys.Quit,
 				Keys: keys.FixedQuit,
-				Nav:  func(m *model, _ string) screen.Request { return screen.Hide{} },
+				Nav:  func(*logsScreen, string) screen.Request { return screen.Hide{} },
 			},
 		}...),
-		Legend: []keys.LegendRow[*model]{
-			keys.MoveRow[*model](),
-			keys.NavPageRow[*model](),
-			keys.JumpRow[*model](),
+		Legend: []keys.LegendRow[*logsScreen]{
+			keys.MoveRow[*logsScreen](),
+			keys.NavPageRow[*logsScreen](),
+			keys.JumpRow[*logsScreen](),
 			{
 				Of:   []keys.ID{keys.FilterOpen},
-				Desc: func(*model) string { return "filter" },
+				Desc: func(*logsScreen) string { return "filter" },
 			},
 			{
 				Of:    []keys.ID{actionLogsCopy},
-				Desc:  func(*model) string { return "copy line" },
+				Desc:  func(*logsScreen) string { return "copy line" },
 				Strip: true,
 			},
 			{
 				Of: []keys.ID{actionLogsBack},
-				Desc: func(*model) string {
+				Desc: func(*logsScreen) string {
 					if l.logFilter.isStanding() {
 						return "clear filter"
 					}
@@ -134,6 +134,6 @@ func (l *logsScreen) logActions() keys.Spec[*model] {
 	}
 }
 
-func (l *logsScreen) help(m *model) legend.Help {
-	return m.helpOf(l.actions(m))
+func (l *logsScreen) help(in screen.Inputs) legend.Help {
+	return l.actions(in).Help(l, l.deps.keys)
 }

@@ -43,25 +43,25 @@ func (e *reviewEdit) openEditor(path, pane string) {
 }
 
 // pressEdit is the edit key, which opens the editor and closes one already open.
-func (r *reviewScreen) pressEdit(m *model) screen.Request {
+func (r *reviewScreen) pressEdit(in screen.Inputs) screen.Request {
 	if r.isHistory() && !r.edit.atEditor {
 		return nil
 	}
 
 	if r.edit.atEditor {
-		return r.closeEdit(m)
+		return r.closeEdit(in)
 	}
 
-	if reason, refused := r.isEditRefused(m); refused {
+	if reason, refused := r.isEditRefused(in); refused {
 		return screen.NewNote(screen.Warning, reason)
 	}
 
-	return r.editFile(m)
+	return r.editFile(in)
 }
 
 // isEditRefused returns why the edit key would open nothing.
-func (r reviewScreen) isEditRefused(m *model) (string, bool) {
-	if r.isWorktreeRemoved(m) {
+func (r reviewScreen) isEditRefused(in screen.Inputs) (string, bool) {
+	if r.isWorktreeRemoved(in) {
 		return worktreeRemovedSaid, true
 	}
 
@@ -69,7 +69,7 @@ func (r reviewScreen) isEditRefused(m *model) (string, bool) {
 		return "that file was deleted, so there is nothing to open", true
 	}
 
-	if reason, unreadable := r.isAgentUnreadable(m); unreadable {
+	if reason, unreadable := r.isAgentUnreadable(in); unreadable {
 		return reason, true
 	}
 
@@ -81,8 +81,8 @@ func (r reviewScreen) isEditRefused(m *model) (string, bool) {
 }
 
 // isAgentUnreadable reports whether komrad cannot say what the agent is doing.
-func (r reviewScreen) isAgentUnreadable(m *model) (string, bool) {
-	item, ok := r.agentRow(m)
+func (r reviewScreen) isAgentUnreadable(in screen.Inputs) (string, bool) {
+	item, ok := r.agentRow(in)
 	if !ok || !item.Alive || item.Agent.State != panel.StateUncertain {
 		return "", false
 	}
@@ -93,13 +93,13 @@ func (r reviewScreen) isAgentUnreadable(m *model) (string, bool) {
 
 // editFile opens the file under the cursor in the agent's own worktree, in the stage beside the
 // sidebar.
-func (r *reviewScreen) editFile(m *model) screen.Request {
+func (r *reviewScreen) editFile(in screen.Inputs) screen.Request {
 	path, line, ok := r.diff.View().GetEditTarget(r.diff.Cursor())
 	if !ok {
 		return screen.NewNote(screen.Warning, "that file was deleted, so there is nothing to open")
 	}
 
-	if reason, busy := r.isAgentBusy(m); busy {
+	if reason, busy := r.isAgentBusy(in); busy {
 		return screen.NewNote(screen.Warning, reason)
 	}
 
@@ -117,7 +117,7 @@ type reviewEditorStaged struct {
 }
 
 // applyEditorStaged keeps the editor's pane, or says there was no room for it.
-func (r *reviewScreen) applyEditorStaged(m *model, staged reviewEditorStaged) screen.Request {
+func (r *reviewScreen) applyEditorStaged(staged reviewEditorStaged) screen.Request {
 	path, pane := staged.path, staged.pane
 	if pane == "" {
 		return screen.NewNote(screen.Warning, "there is no room beside the sidebar for an editor")
@@ -128,13 +128,13 @@ func (r *reviewScreen) applyEditorStaged(m *model, staged reviewEditorStaged) sc
 	return screen.Note{
 		Kind:    screen.Info,
 		Summary: "editing " + path,
-		Detail:  m.menuChordLabel(r.deps.keys.Review.EditFile) + " to come back",
+		Detail:  menuChordLabel(r.deps.keys, r.deps.keys.Review.EditFile) + " to come back",
 	}
 }
 
 // isAgentBusy reports whether the agent may be writing in the tree the editor would open.
-func (r reviewScreen) isAgentBusy(m *model) (string, bool) {
-	item, ok := r.agentRow(m)
+func (r reviewScreen) isAgentBusy(in screen.Inputs) (string, bool) {
+	item, ok := r.agentRow(in)
 	if !ok || !item.Alive {
 		return "", false
 	}
@@ -146,7 +146,7 @@ func (r reviewScreen) isAgentBusy(m *model) (string, bool) {
 		return "the agent is writing in this worktree" + separated +
 			"two writers in one checkout cannot both win, so stop it before you edit", true
 	case panel.StateUncertain:
-		return r.isAgentUnreadable(m)
+		return r.isAgentUnreadable(in)
 	case panel.StateWaiting, panel.StateIdle, panel.StateErrored, panel.StateSettingUp,
 		panel.StateFailedToCreate, panel.StateFailedToCleanup:
 	}
@@ -155,24 +155,24 @@ func (r reviewScreen) isAgentBusy(m *model) (string, bool) {
 }
 
 // agentRow hands back the listing's row for the agent whose diff is on screen.
-func (r reviewScreen) agentRow(m *model) (panel.AgentRow, bool) {
-	return m.listing.LiveAgent(r.agentID)
+func (r reviewScreen) agentRow(in screen.Inputs) (panel.AgentRow, bool) {
+	return in.Listing.LiveAgent(r.agentID)
 }
 
 // closeEdit gives the stage back to the diff, tells the agent which files the reader opened, and
 // reads the worktree again with the reader's own writing in it.
-func (r *reviewScreen) closeEdit(m *model) screen.Request {
-	return screen.Batch{screen.Unstage{}, r.mailEdited(m), screen.Restage{}, r.catchUp()}
+func (r *reviewScreen) closeEdit(in screen.Inputs) screen.Request {
+	return screen.Batch{screen.Unstage{}, r.mailEdited(in), screen.Restage{}, r.catchUp()}
 }
 
 // mailEdited puts the editor down and tells the agent which files the reader opened in it.
-func (r *reviewScreen) mailEdited(m *model) screen.Request {
+func (r *reviewScreen) mailEdited(in screen.Inputs) screen.Request {
 	touched := r.edit.end()
 	if len(touched) == 0 {
 		return nil
 	}
 
-	item, ok := r.agentRow(m)
+	item, ok := r.agentRow(in)
 	if !ok {
 		return nil
 	}
@@ -182,7 +182,7 @@ func (r *reviewScreen) mailEdited(m *model) screen.Request {
 
 // reconcileEditor catches the editor pane going away on its own and takes the window back for the
 // diff it was covering.
-func (r *reviewScreen) reconcileEditor(m *model, in screen.Inputs) screen.Request {
+func (r *reviewScreen) reconcileEditor(_ *model, in screen.Inputs) screen.Request {
 	if !r.edit.atEditor {
 		return nil
 	}
@@ -193,7 +193,7 @@ func (r *reviewScreen) reconcileEditor(m *model, in screen.Inputs) screen.Reques
 		return nil
 	}
 
-	return r.closeEdit(m)
+	return r.closeEdit(in)
 }
 
 // editorDesc says what the edit key would do.

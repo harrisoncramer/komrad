@@ -138,15 +138,32 @@ func (f filterState) pattern() list.Pattern {
 
 // openDesc names the key that opens the search by the pattern standing.
 func (f filterState) openDesc() string {
-	if f.isStanding() {
-		return f.mode.String() + ": " + f.query()
+	return f.mode.openDesc(f.query())
+}
+
+func (f filterState) clearDesc() string {
+	return f.mode.clearDesc()
+}
+
+func (m filterMode) openDesc(query string) string {
+	if query != "" {
+		return m.String() + ": " + query
 	}
 
 	return "search"
 }
 
-func (f filterState) clearDesc() string {
-	return "clear " + f.mode.String()
+func (m filterMode) clearDesc() string {
+	return "clear " + m.String()
+}
+
+// patternMode is the mode a pattern was compiled under, read while the search is not being typed.
+func patternMode(p list.Pattern) filterMode {
+	if p.Filtering {
+		return filterModeFilter
+	}
+
+	return filterModeSearch
 }
 
 func (f *filterState) setQuery(query string) {
@@ -248,7 +265,7 @@ func (m *model) filteredRows() ([]list.Row, bool) {
 		return nil, false
 	}
 
-	return l.filterRows(m, m.inputs()), true
+	return l.filterRows(m.inputs()), true
 }
 
 func (m *model) filteredList() (keyedList, bool) {
@@ -428,12 +445,12 @@ func (m *model) hoveredFilterKey() string {
 		return ""
 	}
 
-	return l.hovered(m, m.inputs())
+	return l.hovered(m.inputs())
 }
 
 func (m *model) placeFilteredCursor(hovered string) {
 	if l, ok := m.filteredList(); ok {
-		m.apply(l.place(m, m.inputs(), hovered))
+		m.apply(l.place(m.inputs(), hovered))
 	}
 }
 
@@ -508,15 +525,6 @@ func (m *model) matchAt(delta int) (string, bool) {
 	}
 
 	return "", false
-}
-
-// filterDesc names the filter key by the search standing in the list.
-func (m *model) filterDesc() string {
-	return filterDescOf(m)
-}
-
-func (m *model) filterClearDesc() string {
-	return filterClearDescOf(m)
 }
 
 func (m *model) clickSearch(key string) tea.Cmd {

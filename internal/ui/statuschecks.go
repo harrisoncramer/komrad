@@ -13,6 +13,7 @@ import (
 	"komrad/internal/ui/legend"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/tabs"
 	"komrad/internal/view"
@@ -69,6 +70,7 @@ type statusChecksScreen struct {
 	scope             statusCheckScope
 	scopeChosen       bool
 	scopeFocus        bool
+	logs              statusCheckLogs
 }
 
 type statusCheckRow struct {
@@ -85,6 +87,7 @@ func (c *statusChecksScreen) enter(m *model, in screen.Inputs, target screen.Tar
 			deps:       c.deps,
 			agentID:    target.AgentID,
 			openedFrom: target.OpenedFrom,
+			logs:       c.logs,
 		}
 	}
 
@@ -97,7 +100,7 @@ func (c *statusChecksScreen) update(m *model, in screen.Inputs, msg tea.Msg) scr
 		return nil
 	}
 
-	return c.list().update(m, key, c.listActions())
+	return c.listActions(in).DispatchTop(c.deps.top, c, c.deps.keys, key.String())
 }
 
 func (c *statusChecksScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
@@ -116,11 +119,11 @@ func (c *statusChecksScreen) list() screenList[statusCheckRow] {
 		cursor: func() *list.Cursor { return &c.Cursor },
 		rows:   c.rows,
 		name:   statusCheckRowName,
-		moved:  func(*model, screen.Inputs) screen.Request { return screen.Settle{} },
+		moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
 	}
 }
 
-func (c *statusChecksScreen) rows(m *model, in screen.Inputs) []statusCheckRow {
+func (c *statusChecksScreen) rows(in screen.Inputs) []statusCheckRow {
 	return list.Narrowed(in.Room.Pattern, list.NarrowedParams[statusCheckRow]{
 		Rows: xslice.Map(xslice.Filter(c.commit.items, c.shownScope().holds), func(item statusCheckItem) statusCheckRow {
 			return statusCheckRow{item: item}
@@ -134,13 +137,13 @@ func statusCheckRowName(row statusCheckRow) string {
 	return row.item.name
 }
 
-func (c *statusChecksScreen) listParams(m *model, in screen.Inputs) list.Params {
+func (c *statusChecksScreen) listParams(_ *model, in screen.Inputs) list.Params {
 	return list.Params{
 		Tally:    c.commit.tally(c.deps.clock.Now()),
-		Help:     c.help(m),
-		Empty:    c.emptyLine(m),
-		Rows:     len(c.rows(m, in)),
-		Snapshot: func(pane list.Pane) view.Snapshot { return c.snapshot(m, in, pane) },
+		Help:     c.help(in),
+		Empty:    c.emptyLine(in),
+		Rows:     len(c.rows(in)),
+		Snapshot: func(pane list.Pane) view.Snapshot { return c.snapshot(in, pane) },
 	}
 }
 
@@ -194,75 +197,75 @@ func (c *statusChecksScreen) kindsFocused(*model) *bool {
 	return &c.scopeFocus
 }
 
-func (c *statusChecksScreen) kindsSwitch(*model) bool {
+func (c *statusChecksScreen) kindsSwitch() bool {
 	return true
 }
 
 // stepKind moves the listing to another scope, keeping the cursor on its row when the new scope lists it.
 func (c *statusChecksScreen) stepKind(m *model, in screen.Inputs, delta int) screen.Request {
-	hovered := c.list().hovered(m, in)
+	hovered := c.list().hovered(in)
 	c.scope = statusCheckScope(tabs.StepStop(int(c.shownScope()), delta, len(statusCheckScopeLabels)))
 	c.scopeChosen = true
 
-	return screen.Batch{c.list().place(m, in, hovered), screen.Settle{}}
+	return screen.Batch{c.list().place(in, hovered), screen.Settle{}}
 }
 
-func (c *statusChecksScreen) listActions() keys.Spec[*model] {
-	return keys.Spec[*model]{
-		Table: append(c.list().actions(),
-			keys.Action[*model]{
+func (c *statusChecksScreen) listActions(in screen.Inputs) keys.Spec[*statusChecksScreen] {
+	return keys.Spec[*statusChecksScreen]{
+		Table: append(listActions[*statusChecksScreen](c.list(), in),
+			keys.Action[*statusChecksScreen]{
 				ID:   actionStatusChecksBack,
 				Keys: keys.FixedBack,
-				Nav: func(m *model, _ string) screen.Request {
+				Nav: func(*statusChecksScreen, string) screen.Request {
 					return screen.Open{Screen: c.openedFrom, Target: screen.Target{AgentID: c.agentID}}
 				},
 			},
-			keys.Action[*model]{
+			keys.Action[*statusChecksScreen]{
 				ID:   actionStatusChecksLogs,
 				Keys: keys.FixedOpen,
-				Nav: func(m *model, _ string) screen.Request {
+				Nav: func(*statusChecksScreen, string) screen.Request {
 					return screen.Open{Screen: screen.StatusCheckLogs, Target: screen.Target{AgentID: c.agentID, OpenedFrom: screen.StatusChecks}}
 				},
 			},
 		),
-		Legend: slices.Concat(keys.NavLegend[*model](), []keys.LegendRow[*model]{
+		Legend: slices.Concat(keys.NavLegend[*statusChecksScreen](), []keys.LegendRow[*statusChecksScreen]{
 			{
 				Of:   []keys.ID{keys.FilterOpen},
-				Desc: filterDescOf,
+				Desc: filterDescOf[*statusChecksScreen](in),
 			},
 			{
 				Of:    []keys.ID{keys.FilterClear},
-				Desc:  filterClearDescOf,
+				Desc:  filterClearDescOf[*statusChecksScreen](in),
 				Strip: true,
 			},
 			{
 				Of:    []keys.ID{keys.FilterMatch},
-				Desc:  func(*model) string { return "next/prev match" },
+				Desc:  func(*statusChecksScreen) string { return "next/prev match" },
 				Strip: true,
 			},
 			{
 				Of:    []keys.ID{actionStatusChecksBack},
-				Desc:  func(*model) string { return "back" },
+				Desc:  func(*statusChecksScreen) string { return "back" },
 				Strip: true,
 			},
 			{
 				Of:    []keys.ID{actionStatusChecksLogs},
-				Desc:  func(*model) string { return "logs" },
+				Desc:  func(*statusChecksScreen) string { return "logs" },
 				Strip: true,
 			},
 		}),
 	}
 }
 
-func (c *statusChecksScreen) help(m *model) legend.Help {
-	return m.helpOf(c.listActions())
+func (c *statusChecksScreen) help(in screen.Inputs) legend.Help {
+	return c.listActions(in).Help(c, c.deps.keys)
 }
 
 func (c *statusChecksScreen) parent() screen.ID {
 	return c.openedFrom
 }
 
-func (c *statusChecksScreen) crumbs(_ *model, in screen.Inputs) screen.Crumbs {
+func (c *statusChecksScreen) crumbs(in screen.Inputs) screen.Crumbs {
 	name := c.agentID
 	if item, ok := in.Listing.AnyAgent(c.agentID); ok {
 		name = in.Listing.AgentName(item.Agent)
@@ -282,7 +285,7 @@ func (c *statusChecksScreen) takesEveryKey() bool {
 func (c *statusChecksScreen) column(m *model, in screen.Inputs) column.Spec {
 	return column.Spec{
 		Floor:   columnFloor,
-		DocRows: func(width int) []string { return m.statusChecks.docRows(m, in, width) },
+		DocRows: func(width int) []string { return m.statusChecks.docRows(in, width) },
 	}
 }
 
@@ -291,7 +294,7 @@ func (c *statusChecksScreen) stageResting(*model, screen.Inputs) screen.Request 
 }
 
 func (c *statusChecksScreen) dispatches(*model) []keys.Table {
-	return []keys.Table{c.listActions()}
+	return []keys.Table{c.listActions(screen.Inputs{})}
 }
 
 var (
@@ -316,13 +319,13 @@ type statusChecksListedMsg struct {
 }
 
 // statusChecksPullRequestID is the pull request the agent's row stands for, empty when it has none.
-func (m *model) statusChecksPullRequestID(agentID string) string {
-	item, ok := m.listing.AnyAgent(agentID)
+func statusChecksPullRequestID(listing panel.Listing, agentID string) string {
+	item, ok := listing.AnyAgent(agentID)
 	if !ok {
 		return ""
 	}
 
-	pullRequests := m.listing.Tasks.FindForAgent(item.Agent).PullRequests
+	pullRequests := listing.Tasks.FindForAgent(item.Agent).PullRequests
 	if len(pullRequests) == 0 {
 		return ""
 	}
@@ -338,7 +341,7 @@ func (m *model) readStatusChecksCmd() tea.Cmd {
 	}
 
 	c := &m.statusChecks
-	pullRequestID := m.statusChecksPullRequestID(c.agentID)
+	pullRequestID := statusChecksPullRequestID(m.listing, c.agentID)
 	if pullRequestID == "" || c.listing {
 		return nil
 	}
@@ -388,9 +391,11 @@ func (c *statusChecksScreen) applyListed(m *model, in screen.Inputs, msg statusC
 		return nil
 	}
 
-	hovered := c.list().hovered(m, in)
+	hovered := c.list().hovered(in)
 	c.commit, c.err = msg.commit, nil
-	requests := screen.Batch{c.list().place(m, in, hovered), m.statusCheckLogs.reanchor(m, m.inputsFor(&m.statusCheckLogs)), screen.Cmd(m.statusCheckLogs.readsCmd(m))}
+	logs := c.logsScreen()
+	logsIn := m.inputsFor(logs)
+	requests := screen.Batch{c.list().place(in, hovered), logs.reanchor(logsIn), screen.Cmd(logs.readsCmd(logsIn))}
 	if !msg.headRead {
 		c.listedHead = ""
 

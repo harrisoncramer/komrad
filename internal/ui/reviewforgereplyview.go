@@ -4,6 +4,7 @@ import (
 	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"charm.land/lipgloss/v2"
@@ -15,7 +16,7 @@ func forgeMark(glyphs glyph.Set) string {
 }
 
 // forgeRepliesView is what the thread has said back to the forge.
-func (r reviewScreen) forgeRepliesView(m *model, thread *agentv1.ReviewThread, width int) string {
+func (r reviewScreen) forgeRepliesView(in screen.Inputs, thread *agentv1.ReviewThread, width int) string {
 	mirrored := mirroredCommentIDs(thread)
 
 	out := ""
@@ -23,14 +24,14 @@ func (r reviewScreen) forgeRepliesView(m *model, thread *agentv1.ReviewThread, w
 		if reply.GetState() == agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT && mirrored[reply.GetForgeCommentId()] {
 			continue
 		}
-		out += r.forgeReplyView(m, reply, width)
+		out += r.forgeReplyView(in, reply, width)
 	}
 
 	return out
 }
 
-func (r reviewScreen) forgeReplyView(m *model, reply *agentv1.ForgeReply, width int) string {
-	name := r.forgeName(m)
+func (r reviewScreen) forgeReplyView(in screen.Inputs, reply *agentv1.ForgeReply, width int) string {
+	name := r.forgeName(in)
 
 	posting := ""
 	switch reply.GetState() {

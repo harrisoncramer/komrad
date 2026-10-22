@@ -52,6 +52,7 @@ func (m *model) docReaderOf(in screen.Inputs) screen.DocReader {
 		Line:    m.reading.Line,
 		Top:     m.reading.Top,
 		Focused: m.reading.focused && m.isDocReadable(in) && in.Room.ListFocused,
+		Held:    m.reading.focused,
 	}
 }
 
@@ -59,14 +60,22 @@ func (m *model) docReaderOf(in screen.Inputs) screen.DocReader {
 // under the search.
 func (m *model) docLayout() ([]string, int, bool) {
 	in := m.inputs()
-	split := in.Room.Split
-	if !split.On || !m.isDocReadable(in) {
+	if in.Room.Doc.Window == 0 {
 		return nil, 0, false
 	}
 
-	rows := m.columnRows(in, split)
+	return m.columnRows(in, in.Room.Split), in.Room.Doc.Window, true
+}
 
-	return rows, max(split.Rows-len(m.docHead(in, rows, split.Column)), 1), true
+// docWindowOf is the rows of the window under the search over the document, and zero while the
+// block beside the list is no document the panel walks.
+func (m *model) docWindowOf(in screen.Inputs) int {
+	split := in.Room.Split
+	if !split.On || !m.isDocReadable(in) {
+		return 0
+	}
+
+	return max(split.Rows-len(m.docHead(in, nil, split.Column)), 1)
 }
 
 // moveDocTo puts the cursor on a row of the document and brings the window round to it.

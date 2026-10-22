@@ -29,7 +29,7 @@ func (d *documentsScreen) pressEdit(m *model, in screen.Inputs) screen.Request {
 		return d.closeEdit(m)
 	}
 
-	item, ok := d.hovered(m, in)
+	item, ok := d.hovered(in)
 	if !ok {
 		return nil
 	}

@@ -83,17 +83,17 @@ type activeLister interface {
 
 type keyedList interface {
 	// hovered is the key of the row the cursor is on, read before the pattern changes.
-	hovered(m *model, in screen.Inputs) string
+	hovered(in screen.Inputs) string
 
 	// place puts the cursor back on that row, or as near to where it was as the narrowed list
 	// allows.
-	place(m *model, in screen.Inputs, key string) screen.Request
+	place(in screen.Inputs, key string) screen.Request
 
 	// filterRows is every row on screen with the text a search reads, in the order they are
 	// rendered.
-	filterRows(m *model, in screen.Inputs) []list.Row
+	filterRows(in screen.Inputs) []list.Row
 
-	click(m *model, in screen.Inputs, key string, nth int) screen.Request
+	click(in screen.Inputs, key string, nth int) screen.Request
 }
 
 // kindSwitcher is a screen that lists more than one kind of resource and switches between them
@@ -108,7 +108,7 @@ type kindSwitcher interface {
 	stepKind(m *model, in screen.Inputs, delta int) screen.Request
 
 	// kindsSwitch is whether the kind listed may change.
-	kindsSwitch(m *model) bool
+	kindsSwitch() bool
 }
 
 // tabSwitcher is a screen with a strip of tabs over its list.
@@ -122,14 +122,14 @@ type tabSwitcher interface {
 // columnFocuser is a screen whose block beside the list can take the keys and be scrolled.
 type columnFocuser interface {
 	// isBlockRendered is whether the block is rendered with something in it to take the keys.
-	isBlockRendered(m *model, in screen.Inputs) bool
+	isBlockRendered(in screen.Inputs) bool
 
 	// isBlockFocused is whether the block holds the keys.
-	isBlockFocused(m *model, in screen.Inputs) bool
+	isBlockFocused(in screen.Inputs) bool
 
-	focusBlock(m *model)
+	focusBlock()
 	blurBlock()
-	doesScrollColumn(m *model, in screen.Inputs) bool
+	doesScrollColumn(in screen.Inputs) bool
 	scrollColumn(m *model, rows int) screen.Request
 }
 
@@ -139,18 +139,18 @@ type crumbRenderer interface {
 	parent() screen.ID
 
 	// crumbs is the trail under the parent, down to the page.
-	crumbs(m *model, in screen.Inputs) screen.Crumbs
+	crumbs(in screen.Inputs) screen.Crumbs
 }
 
 // hoveredAgentReporter is a screen whose cursor can rest on an agent's row.
 type hoveredAgentReporter interface {
-	hoveredAgentID(m *model, in screen.Inputs) string
-	hoveredRow(m *model, in screen.Inputs) (agentRow, bool)
+	hoveredAgentID(in screen.Inputs) string
+	hoveredRow(in screen.Inputs) (agentRow, bool)
 }
 
 // savedScreenRenderer is a screen that renders a stopped agent's saved screen beside its list.
 type savedScreenRenderer interface {
-	screenedAgentID(m *model, in screen.Inputs) (string, bool)
+	screenedAgentID(in screen.Inputs) (string, bool)
 	screenNotice(m *model, in screen.Inputs) string
 }
 
@@ -161,12 +161,12 @@ type screenLeaver interface {
 
 // rowStager is a screen that puts its hovered row on the stage.
 type rowStager interface {
-	stage(m *model, in screen.Inputs) screen.Request
+	stage() screen.Request
 }
 
 // hoveredNamer is a screen that names its hovered row at the end of the trail.
 type hoveredNamer interface {
-	hoveredName(m *model, in screen.Inputs) string
+	hoveredName(in screen.Inputs) string
 }
 
 // screenMenuBuilder is a screen that adds its own band to the menu.
@@ -227,7 +227,7 @@ func (m *model) screens() []screenModel {
 		&m.documents,
 		&m.logs,
 		&m.statusChecks,
-		&m.statusCheckLogs,
+		m.statusChecks.logsScreen(),
 	}
 }
 
@@ -257,7 +257,7 @@ func (m *model) screenOf(s screen.ID) screenModel {
 	case screen.StatusChecks:
 		return &m.statusChecks
 	case screen.StatusCheckLogs:
-		return &m.statusCheckLogs
+		return m.statusChecks.logsScreen()
 	}
 
 	// The switch carries every screen and no default, so this is what a screen added without an
@@ -380,6 +380,8 @@ func (m *model) apply(request screen.Request) tea.Cmd {
 		m.focusDoc()
 	case screen.PlaceDoc:
 		m.placeDoc(request.Line, request.Top)
+	case screen.Wrap:
+		m.diffWrap = request.On
 	case screen.Inspect:
 		return m.readWorktreeCmd(request.Dir)
 	case screen.ReadLastScreen:
