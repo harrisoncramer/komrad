@@ -1179,9 +1179,9 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x10reviewer_harness\x18\v \x01(\tR\x0freviewerHarness\x12%\n" +
 	"\x0ereviewer_flags\x18\f \x01(\tR\rreviewerFlags\x12E\n" +
 	"\revent_prompts\x18\r \x03(\v2 .workflow.v1.WorkflowEventPromptR\feventPromptsB\x0e\n" +
-	"\f_archived_at\"\xa8\x05\n" +
-	"\x13WorkflowEventPrompt\x12\xd8\x04\n" +
-	"\x05event\x18\x01 \x01(\tB\xc1\x04\xbaH\xbd\x04r\xba\x04R#pull_request.checks_failing_runningR\x1bpull_request.checks_failingR\x1bpull_request.checks_passingR\x1epull_request.changes_requestedR\x15pull_request.approvedR\x18pull_request.conflictingR\x13pull_request.behindR\x13pull_request.mergedR\x13pull_request.closedR\x1apull_request.auto_merge_onR\x10worktree.rebasedR\x0fworktree.landedR\x1aworktree.rebase_conflictedR\x16worktree.rebase_failedR\x1adocument.written_by_personR\x0freview.approvedR\x18review.changes_requestedR\x10review.commentedR\x1areview.commented_by_personR\x16review.forge_commentedR\x0freview.answeredR\x1creview.forge_reply_requestedR\x1areview.forge_reply_decidedR\x05event\x12 \n" +
+	"\f_archived_at\"\x90\x05\n" +
+	"\x13WorkflowEventPrompt\x12\xc0\x04\n" +
+	"\x05event\x18\x01 \x01(\tB\xa9\x04\xbaH\xa5\x04r\xa2\x04R#pull_request.checks_failing_runningR\x1bpull_request.checks_failingR\x1bpull_request.checks_passingR\x1epull_request.changes_requestedR\x15pull_request.approvedR\x18pull_request.conflictingR\x13pull_request.behindR\x13pull_request.mergedR\x13pull_request.closedR\x1apull_request.auto_merge_onR\x10worktree.rebasedR\x0fworktree.landedR\x1aworktree.rebase_conflictedR\x1adocument.written_by_personR\x0freview.approvedR\x18review.changes_requestedR\x10review.commentedR\x1areview.commented_by_personR\x16review.forge_commentedR\x0freview.answeredR\x1creview.forge_reply_requestedR\x1areview.forge_reply_decidedR\x05event\x12 \n" +
 	"\x06prompt\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x18\xf4\x03R\x06prompt\x12\x14\n" +
 	"\x05muted\x18\x03 \x01(\bR\x05muted\"\\\n" +
 	"\x14WorkflowEventPrompts\x12D\n" +

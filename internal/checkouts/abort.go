@@ -47,10 +47,6 @@ func (s *Service) Abort(ctx context.Context, ref string) (*AbortResult, error) {
 		return nil, err
 	}
 
-	if err := refuseWriterNotAtRest(*target); err != nil {
-		return nil, err
-	}
-
 	result, err := s.abort(ctx, *target)
 	if err != nil {
 		return nil, err

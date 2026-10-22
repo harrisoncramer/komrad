@@ -61,9 +61,10 @@ func (f *retargetingForge) SetBase(_ context.Context, url, base string) error {
 // TestRebaseRefusals covers every state of the task a rebase declines.
 func TestRebaseRefusals(t *testing.T) {
 	tests := []struct {
-		name    string
-		lay     func(t *testing.T, fixture *rebaseFixture) string
-		wantErr error
+		name       string
+		lay        func(t *testing.T, fixture *rebaseFixture) string
+		beforeMove func(t *testing.T, fixture *rebaseFixture, task string)
+		wantErr    error
 	}{
 		{
 			name: "a task no id or slug names",
@@ -135,6 +136,18 @@ func TestRebaseRefusals(t *testing.T) {
 			wantErr: errWriterNotAtRest,
 		},
 		{
+			name: "a writer that starts a turn after the rebase read it",
+			lay: func(t *testing.T, fixture *rebaseFixture) string {
+				return *fixture.seed(t, agentstore.Agent{Pane: "%1"}).TaskID
+			},
+			beforeMove: func(t *testing.T, fixture *rebaseFixture, task string) {
+				writer, err := fixture.stores.Agents.GetTaskWriter(t.Context(), task)
+				require.NoError(t, err)
+				require.NoError(t, fixture.stores.Agents.SetStateByID(t.Context(), writer.ID, agentstore.StateThinking))
+			},
+			wantErr: errWriterNotAtRest,
+		},
+		{
 			name: "a task whose tree something else is working in",
 			lay: func(t *testing.T, fixture *rebaseFixture) string {
 				return *fixture.seed(t, agentstore.Agent{Cwd: "/locked"}).TaskID
@@ -152,6 +165,9 @@ func TestRebaseRefusals(t *testing.T) {
 			require.True(t, taken)
 			t.Cleanup(release)
 			rebaser := &gittest.Mover{State: git.TreeState{Branch: "agent/a1"}}
+			if tt.beforeMove != nil {
+				rebaser.BeforeReadTree = func() { tt.beforeMove(t, fixture, ref) }
+			}
 
 			_, err := fixture.newService(NewServiceParams{Git: rebaser, Locks: locks}).Rebase(t.Context(), RebaseParams{Task: ref})
 

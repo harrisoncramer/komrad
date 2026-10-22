@@ -169,7 +169,6 @@ type Channel struct {
 	SendErr     error
 	Sent        []string
 	Forgotten   []string
-	Interrupts  int
 }
 
 // Ready is true unless RefuseReady is set.
@@ -188,13 +187,6 @@ func (c *Channel) Send(_ context.Context, _ harness.Target, text string) (bool, 
 	c.Sent = append(c.Sent, text)
 
 	return true, nil
-}
-
-// Interrupt counts the interrupt.
-func (c *Channel) Interrupt(context.Context, harness.Target) error {
-	c.Interrupts++
-
-	return nil
 }
 
 // Forget records the agent forgotten.
@@ -220,9 +212,6 @@ type Observer struct {
 	Exited bool
 	// RunningErr is what asking whether the CLI is running fails with.
 	RunningErr error
-	// BeforeFirst runs ahead of the first observation.
-	BeforeFirst func()
-	began       bool
 }
 
 // Observe answers the next observation in the run.
@@ -230,10 +219,6 @@ func (o *Observer) Observe(context.Context, harness.Target) (harness.Observation
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	if !o.began && o.BeforeFirst != nil {
-		o.BeforeFirst()
-	}
-	o.began = true
 	if o.Err != nil {
 		return harness.Observation{}, o.Err
 	}

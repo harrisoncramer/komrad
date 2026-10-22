@@ -166,15 +166,6 @@ func NewService(params NewServiceParams) *Service {
 	}
 }
 
-// refuseWriterNotAtRest refuses a move while the task's writer is not between turns.
-func refuseWriterNotAtRest(target checkoutTarget) error {
-	if target.writer == nil || isAtRest(*target.writer) {
-		return nil
-	}
-
-	return fmt.Errorf("%w: %q is not between turns", errWriterNotAtRest, target.writer.Name)
-}
-
 // buildParkRef names where a checkout is held before it is moved, under the space for that kind of move.
 func buildParkRef(space parkSpace, taskID string) string {
 	return fmt.Sprintf("refs/komrad/%s/%s/%d", space, taskID, time.Now().UnixNano())
@@ -234,7 +225,8 @@ func readWriter(ctx context.Context, agents *agentstore.AgentStore, task tasksto
 }
 
 // recheckWriter reads the task's writer again once its checkout is locked, waiting out a launch
-// claiming the task as it does, and refuses a writer that came back since the target was read.
+// claiming the task as it does, and refuses a writer that came back since the target was read or
+// one that is not between turns.
 func (s *Service) recheckWriter(ctx context.Context, target checkoutTarget) error {
 	return s.tx.InTx(ctx, func(db store.DBTX) error {
 		if _, err := taskstore.NewTaskStore(db).GetUndeletedForUpdate(ctx, target.task.ID); err != nil {
@@ -250,6 +242,9 @@ func (s *Service) recheckWriter(ctx context.Context, target checkoutTarget) erro
 		}
 		if target.writer == nil {
 			return fmt.Errorf("%w: %q started writing task %q", errBusy, writer.Name, target.task.Slug)
+		}
+		if !isAtRest(*writer) {
+			return fmt.Errorf("%w: %q is not between turns", errWriterNotAtRest, writer.Name)
 		}
 
 		return nil

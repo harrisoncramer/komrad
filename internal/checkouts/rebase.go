@@ -206,10 +206,6 @@ func (s *Service) Rebase(ctx context.Context, params RebaseParams) (*RebaseResul
 		return &RebaseResult{RebasePlan: *plan}, nil
 	}
 
-	if err := refuseWriterNotAtRest(*target); err != nil {
-		return nil, err
-	}
-
 	result, err := s.rebase(ctx, *target)
 	if err != nil {
 		return nil, err

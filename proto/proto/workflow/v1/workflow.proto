@@ -62,7 +62,6 @@ message WorkflowEventPrompt {
       "worktree.rebased",
       "worktree.landed",
       "worktree.rebase_conflicted",
-      "worktree.rebase_failed",
       "document.written_by_person",
       "review.approved",
       "review.changes_requested",
