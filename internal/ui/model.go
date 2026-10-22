@@ -239,7 +239,7 @@ type Deps struct {
 	Tasks           taskv1connect.TaskServiceClient
 	Watcher         Watcher
 	Clock           screen.Clock
-	ClipboardWriter ClipboardWriter
+	ClipboardWriter clipboardWriter
 	Editor          Editor
 	Keys            config.Keybindings
 	Glyphs          glyph.Set
@@ -312,7 +312,7 @@ type model struct {
 	glyphs       glyph.Set
 	// shell is what tmux starts a pane's process with, read once.
 	shell   string
-	clip    ClipboardWriter
+	clip    clipboardWriter
 	post    *postbox
 	clock   screen.Clock
 	watcher Watcher

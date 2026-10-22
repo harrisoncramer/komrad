@@ -7,8 +7,8 @@ import (
 	"github.com/atotto/clipboard"
 )
 
-// ClipboardWriter writes what the panel copies to the clipboard.
-type ClipboardWriter interface {
+// clipboardWriter writes what the panel copies to the clipboard.
+type clipboardWriter interface {
 	WriteAll(text string) error
 }
 
