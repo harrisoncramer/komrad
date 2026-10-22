@@ -305,11 +305,7 @@ func (m *model) docActions() keys.Spec[*model] {
 					return keys.HeadLabel(k.Filter.NextMatch) + "/" + keys.HeadLabel(k.Filter.PrevMatch)
 				},
 			},
-			{
-				Of:    []keys.ID{keys.Jump},
-				Desc:  func(*model) string { return "top/bottom" },
-				Label: keys.JumpLabel,
-			},
+			keys.JumpRow[*model](),
 			{
 				Of:    []keys.ID{keys.ColumnBack},
 				Desc:  func(*model) string { return "back to the list" },
