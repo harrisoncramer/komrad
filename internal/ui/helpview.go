@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/submitting"
 
@@ -16,7 +17,7 @@ import (
 // maxHelpColumns is the widest the expanded legend goes.
 const maxHelpColumns = 3
 
-func (m *model) renderHelp(k keyMap, above ...string) string {
+func (m *model) renderHelp(k legend.Help, above ...string) string {
 	in := m.inputs()
 	if m.isDetailsFocused(in) {
 		k = m.detailsHelp()
@@ -48,16 +49,16 @@ func (m *model) renderHelp(k keyMap, above ...string) string {
 	status := "\n" + m.statusRow(width) + "\n"
 
 	if !m.helpExpanded {
-		return fitLegend(view.ShortHelpView(byLabel(k.short)), width) + status
+		return fitLegend(view.ShortHelpView(byLabel(k.Short)), width) + status
 	}
 
 	// bubbles truncates a column wider than it was given to a single ellipsis rather than wrapping
 	// it, so a legend the sidebar cannot hold gives way to its short form, a width of zero being a
 	// panel that has not been told how wide it is and which bubbles reads as no limit.
-	columns := helpColumns(byLabel(k.full), width)
+	columns := helpColumns(byLabel(k.Full), width)
 	full := fitLegend(view.FullHelpView(columns), width) + status
 	if (width > 0 && helpWidth(columns) > width) || !m.doesLegendLeaveARow(full, above) {
-		return fitLegend(view.ShortHelpView(m.refusedExpansion(byLabel(k.short))), width) + status
+		return fitLegend(view.ShortHelpView(m.refusedExpansion(byLabel(k.Short))), width) + status
 	}
 
 	return full

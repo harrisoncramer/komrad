@@ -6,6 +6,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/reader"
 	"komrad/internal/ui/screen"
 
@@ -329,19 +330,19 @@ func (m *model) docActions() keys.Spec[*model] {
 }
 
 // docHelp is the legend while the document beside the list holds the keys.
-func (m *model) docHelp() keyMap {
+func (m *model) docHelp() legend.Help {
 	own := m.helpOf(m.docActions())
 	if m.screen == screen.Documents {
 		screen := m.helpOf(m.documents.docKeys())
-		own = keyMap{
-			short: slices.Concat(own.short, screen.short),
-			full:  slices.Concat(own.full, screen.full),
+		own = legend.Help{
+			Short: slices.Concat(own.Short, screen.Short),
+			Full:  slices.Concat(own.Full, screen.Full),
 		}
 	}
 
-	return keyMap{
-		short: slices.Concat(own.short, m.globalHelp()),
-		full:  slices.Concat(own.full, m.fullGlobalHelp()),
+	return legend.Help{
+		Short: slices.Concat(own.Short, m.globalHelp()),
+		Full:  slices.Concat(own.Full, m.fullGlobalHelp()),
 	}
 }
 

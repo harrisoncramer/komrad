@@ -9,6 +9,7 @@ import (
 	"komrad/internal/ui/column"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/screen"
 
 	"charm.land/bubbles/v2/key"
@@ -302,15 +303,15 @@ func (m *model) removeMessage(at int) {
 	m.messages.items = slices.Delete(slices.Clone(m.messages.items), at, at+1)
 }
 
-func (m *model) messagesHelp() keyMap {
+func (m *model) messagesHelp() legend.Help {
 	copyMessage := binding(m.keys.Details.Copy, "copy")
 	dismiss := binding(m.keys.Messages.Dismiss, "dismiss")
 	dismissAll := binding(m.keys.Messages.DismissAll, "dismiss all")
 	back := binding(slices.Concat([]string{"esc"}, m.keys.Messages.Open), "back to list")
 
-	return keyMap{
-		short: []key.Binding{copyMessage, dismiss, dismissAll, back, m.helpBinding()},
-		full:  []key.Binding{copyMessage, dismiss, dismissAll, back, m.moveBinding(), m.helpBinding()},
+	return legend.Help{
+		Short: []key.Binding{copyMessage, dismiss, dismissAll, back, m.helpBinding()},
+		Full:  []key.Binding{copyMessage, dismiss, dismissAll, back, m.moveBinding(), m.helpBinding()},
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/ui/column"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
@@ -214,7 +215,7 @@ func (w *worktreesScreen) listParams(m *model, in screen.Inputs) screenListParam
 	}
 }
 
-func (w *worktreesScreen) help(m *model) keyMap {
+func (w *worktreesScreen) help(m *model) legend.Help {
 	return m.helpOf(w.actions())
 }
 

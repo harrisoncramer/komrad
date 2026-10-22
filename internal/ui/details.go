@@ -8,6 +8,7 @@ import (
 	"komrad/config"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/screen"
 
@@ -249,12 +250,12 @@ func (m *model) detailsActions() keys.Spec[*model] {
 	}
 }
 
-func (m *model) detailsHelp() keyMap {
+func (m *model) detailsHelp() legend.Help {
 	own := m.helpOf(m.detailsActions())
 
-	return keyMap{
-		short: slices.Concat(own.short, m.globalHelp()),
-		full:  slices.Concat(own.full, m.fullGlobalHelp()),
+	return legend.Help{
+		Short: slices.Concat(own.Short, m.globalHelp()),
+		Full:  slices.Concat(own.Full, m.fullGlobalHelp()),
 	}
 }
 

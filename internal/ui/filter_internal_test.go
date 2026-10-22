@@ -140,7 +140,7 @@ func TestFilterHelpNamesTheOtherMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, filterHelp(tt.mode).short[1].Help().Desc)
+			assert.Equal(t, tt.want, filterHelp(tt.mode).Short[1].Help().Desc)
 		})
 	}
 }

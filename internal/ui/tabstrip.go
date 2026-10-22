@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/screen"
 
 	"charm.land/bubbles/v2/key"
@@ -331,13 +332,13 @@ func (m *model) tabsBinding() key.Binding {
 	return binding(m.keys.Tabs.Focus, t.tabs().legend)
 }
 
-func (m *model) tabsHelp() keyMap {
+func (m *model) tabsHelp() legend.Help {
 	column := stopsMoveBinding("move")
 	direction := binding(slices.Concat(m.keys.Nav.Down, m.keys.Nav.Up), "sort down/up, flip")
 	back := binding([]string{"enter", "esc"}, "back to the list")
 
-	return keyMap{
-		short: []key.Binding{column, direction, back, m.helpBinding()},
-		full:  slices.Concat([]key.Binding{column, direction, back}, m.fullGlobalHelp()),
+	return legend.Help{
+		Short: []key.Binding{column, direction, back, m.helpBinding()},
+		Full:  slices.Concat([]key.Binding{column, direction, back}, m.fullGlobalHelp()),
 	}
 }

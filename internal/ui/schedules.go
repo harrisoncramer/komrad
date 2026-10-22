@@ -9,6 +9,7 @@ import (
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
@@ -260,7 +261,7 @@ func (w *schedulesScreen) listParams(m *model, in screen.Inputs) screenListParam
 	}
 }
 
-func (w *schedulesScreen) help(m *model) keyMap {
+func (w *schedulesScreen) help(m *model) legend.Help {
 	return m.helpOf(w.actions())
 }
 

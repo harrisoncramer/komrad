@@ -7,6 +7,7 @@ import (
 	"komrad/internal/ui/column"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
@@ -310,7 +311,7 @@ func (a *agentsScreen) listParams(m *model, in screen.Inputs) screenListParams {
 	}
 }
 
-func (a *agentsScreen) help(m *model) keyMap {
+func (a *agentsScreen) help(m *model) legend.Help {
 	return m.helpOf(a.actions())
 }
 

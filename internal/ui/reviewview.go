@@ -8,6 +8,7 @@ import (
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/screen"
@@ -210,13 +211,13 @@ func cutNotes(notes string, rows int) string {
 }
 
 // help keeps the strip to what the screen is for.
-func (r reviewScreen) help(m *model) keyMap {
+func (r reviewScreen) help(m *model) legend.Help {
 	own := m.helpOf(r.actions(m))
 
-	return keyMap{
-		short: slices.Concat(own.short, m.globalHelp()),
-		full: slices.Concat(
-			own.full,
+	return legend.Help{
+		Short: slices.Concat(own.Short, m.globalHelp()),
+		Full: slices.Concat(
+			own.Full,
 			m.fullGlobalHelp(),
 		),
 	}

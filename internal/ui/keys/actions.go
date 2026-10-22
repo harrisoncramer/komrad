@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 
@@ -110,21 +111,22 @@ func (s Spec[S]) Dispatch(state S, bindings config.Keybindings, pressed string) 
 }
 
 // Help builds the short and the full legend from the same table the dispatch reads.
-func (s Spec[S]) Help(state S, bindings config.Keybindings) (short, full []key.Binding) {
+func (s Spec[S]) Help(state S, bindings config.Keybindings) legend.Help {
+	var help legend.Help
 	for _, row := range s.Legend {
 		if !s.isRowShown(state, row) {
 			continue
 		}
 
 		binding := s.rowBinding(state, bindings, row)
-		full = append(full, binding)
+		help.Full = append(help.Full, binding)
 
 		if row.Strip {
-			short = append(short, binding)
+			help.Short = append(help.Short, binding)
 		}
 	}
 
-	return short, full
+	return help
 }
 
 func (s Spec[S]) isRowShown(state S, row LegendRow[S]) bool {

@@ -9,6 +9,7 @@ import (
 	"komrad/internal/ui/api"
 	"komrad/internal/ui/column"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
@@ -364,7 +365,7 @@ func findAgentName(l panel.Listing, agentID string) string {
 	return agentID
 }
 
-func (d *documentsScreen) help(m *model) keyMap {
+func (d *documentsScreen) help(m *model) legend.Help {
 	return m.helpOf(d.actions(m))
 }
 

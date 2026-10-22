@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/api"
 	"komrad/internal/ui/column"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/screen"
@@ -252,7 +253,7 @@ func (c *statusChecksScreen) listActions() keys.Spec[*model] {
 	}
 }
 
-func (c *statusChecksScreen) help(m *model) keyMap {
+func (c *statusChecksScreen) help(m *model) legend.Help {
 	return m.helpOf(c.listActions())
 }
 

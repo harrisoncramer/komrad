@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/screen"
 
 	"charm.land/bubbles/v2/key"
@@ -162,8 +163,8 @@ func (m *model) viewsBinding() key.Binding {
 	return binding(m.keys.Views.Next, "switch view")
 }
 
-func (m *model) viewsHelp() keyMap {
+func (m *model) viewsHelp() legend.Help {
 	bindings := []key.Binding{stopsMoveBinding("switch"), binding([]string{"esc"}, "done")}
 
-	return keyMap{short: bindings, full: bindings}
+	return legend.Help{Short: bindings, Full: bindings}
 }

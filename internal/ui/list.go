@@ -8,6 +8,7 @@ import (
 	"komrad/config"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/legend"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/paint"
@@ -318,7 +319,7 @@ type screenListParams struct {
 	title string
 	tally string
 	// help is the screen's own legend, rendered ahead of the bindings every list shares.
-	help func(*model) keyMap
+	help func(*model) legend.Help
 	// empty is what the list says over no rows, and blank on a list that renders its window anyway.
 	empty string
 	// rows is how many rows the list holds.
@@ -338,12 +339,12 @@ func (m *model) activeListParams(in screen.Inputs) (screenListParams, bool) {
 }
 
 // listHelpOf is a screen's legend as the root renders it under the list.
-func (m *model) listHelpOf(params screenListParams) keyMap {
+func (m *model) listHelpOf(params screenListParams) legend.Help {
 	return m.listHelp(params.help(m))
 }
 
 // listHelp is a list screen's legend: its own rows, then the bindings every list shares.
-func (m *model) listHelp(own keyMap) keyMap {
+func (m *model) listHelp(own legend.Help) legend.Help {
 	// A disabled binding renders nothing but still takes a cell of the expanded legend.
 	var tabs []key.Binding
 	if b := m.tabsBinding(); b.Enabled() {
@@ -353,10 +354,10 @@ func (m *model) listHelp(own keyMap) keyMap {
 		tabs = append(tabs, b)
 	}
 
-	return keyMap{
-		short: slices.Concat(own.short, m.globalHelp()),
-		full: slices.Concat(
-			own.full,
+	return legend.Help{
+		Short: slices.Concat(own.Short, m.globalHelp()),
+		Full: slices.Concat(
+			own.Full,
 			tabs,
 			m.fullGlobalHelp(),
 		),
