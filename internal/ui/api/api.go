@@ -848,14 +848,22 @@ func (a Clients) CreateDocumentType(name, typeContext string) error {
 	})
 }
 
+// WriteDocumentTypeParams is a write over a document type's version.
+type WriteDocumentTypeParams struct {
+	ID      string
+	Version int32
+	Name    string
+	Context string
+}
+
 // WriteDocumentType rewrites a document type.
-func (a Clients) WriteDocumentType(id string, version int32, name, typeContext string) error {
+func (a Clients) WriteDocumentType(params WriteDocumentTypeParams) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.Agents.WriteDocumentType(ctx, connect.NewRequest(&agentv1.WriteDocumentTypeRequest{
-			Id:      &id,
-			Version: &version,
-			Name:    name,
-			Context: typeContext,
+			Id:      &params.ID,
+			Version: &params.Version,
+			Name:    params.Name,
+			Context: params.Context,
 		}))
 	})
 }

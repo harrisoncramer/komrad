@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 
@@ -130,7 +131,12 @@ func (a *agentsScreen) applyEditorStaged(m *model, staged agentEditorStaged) scr
 		return refused
 	}
 
-	return append(refused, a.deps.clients.ReleaseWrite("Could not let "+edit.agent.Name+" go", edit.agent, abandonedSaid, m.edited[edit.agent.ID]))
+	return append(refused, a.deps.clients.ReleaseWrite(api.ReleaseWriteParams{
+		Summary: "Could not let " + edit.agent.Name + " go",
+		Agent:   edit.agent,
+		Said:    abandonedSaid,
+		Edited:  m.edited[edit.agent.ID],
+	}))
 }
 
 func (a *agentsScreen) closeEdit(m *model) screen.Request {
@@ -149,7 +155,12 @@ func (a *agentsScreen) closeEdit(m *model) screen.Request {
 		return screen.Unstage{}
 	}
 
-	return screen.Batch{screen.Unstage{}, a.deps.clients.ReleaseWrite("Could not let "+edit.agent.Name+" go", edit.agent, editedSaid, m.edited[edit.agent.ID])}
+	return screen.Batch{screen.Unstage{}, a.deps.clients.ReleaseWrite(api.ReleaseWriteParams{
+		Summary: "Could not let " + edit.agent.Name + " go",
+		Agent:   edit.agent,
+		Said:    editedSaid,
+		Edited:  m.edited[edit.agent.ID],
+	})}
 }
 
 func (a *agentsScreen) reconcileEditor(m *model) screen.Request {

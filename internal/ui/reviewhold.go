@@ -153,7 +153,12 @@ func (m *model) releaseAbandonedPause(msg reviewPausedMsg) screen.Request {
 		return nil
 	}
 
-	return m.api.ReleaseWrite("Could not let "+item.Agent.Name+" go", item.Agent, abandonedSaid, m.edited[item.Agent.ID])
+	return m.api.ReleaseWrite(api.ReleaseWriteParams{
+		Summary: "Could not let " + item.Agent.Name + " go",
+		Agent:   item.Agent,
+		Said:    abandonedSaid,
+		Edited:  m.edited[item.Agent.ID],
+	})
 }
 
 // endHold lets the agent go and tells it which files the reader opened while it was stopped.
@@ -174,5 +179,10 @@ func (r *reviewScreen) endHold(m *model, said string) screen.Request {
 
 	agent, name := item.Agent, r.agentName
 
-	return r.deps.clients.ReleaseWrite("Could not let "+name+" go", agent, said, m.edited[agent.ID])
+	return r.deps.clients.ReleaseWrite(api.ReleaseWriteParams{
+		Summary: "Could not let " + name + " go",
+		Agent:   agent,
+		Said:    said,
+		Edited:  m.edited[agent.ID],
+	})
 }

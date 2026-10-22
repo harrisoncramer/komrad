@@ -2,6 +2,7 @@ package ui
 
 import (
 	"komrad/internal/assemble"
+	"komrad/internal/ui/api"
 	"komrad/internal/ui/panel"
 
 	tea "charm.land/bubbletea/v2"
@@ -23,7 +24,12 @@ func (strandedHoldReactor) react(m *model, changed assemble.Changed) tea.Cmd {
 			continue
 		}
 
-		cmds = append(cmds, m.apply(m.api.ReleaseWrite("Could not let "+agent.Name+" go", agent, strandedSaid, m.edited[agent.ID])))
+		cmds = append(cmds, m.apply(m.api.ReleaseWrite(api.ReleaseWriteParams{
+			Summary: "Could not let " + agent.Name + " go",
+			Agent:   agent,
+			Said:    strandedSaid,
+			Edited:  m.edited[agent.ID],
+		})))
 	}
 
 	return tea.Batch(cmds...)

@@ -57,41 +57,41 @@ func (r *rowRename) save(clients api.Clients) (screen.Request, bool) {
 		renamed.Name = name
 		id := r.schedule.ID
 
-		return clients.RenameWrite(
-			"renaming "+r.Was(),
-			fmt.Sprintf("Could not rename schedule %q", r.Was()),
-			r.Key(),
-			func(a api.Clients) error { return a.UpdateSchedule(id, renamed) },
-		), true
+		return clients.RenameWrite(api.RenameWriteParams{
+			Doing:   "renaming " + r.Was(),
+			Summary: fmt.Sprintf("Could not rename schedule %q", r.Was()),
+			Row:     r.Key(),
+			Write:   func(a api.Clients) error { return a.UpdateSchedule(id, renamed) },
+		}), true
 	case r.task != nil:
 		id := r.task.ID
 
-		return clients.RenameWrite(
-			"renaming "+r.Was(),
-			fmt.Sprintf("Could not rename task %q", r.Was()),
-			r.Key(),
-			func(a api.Clients) error { return a.UpdateTask(api.UpdateTaskParams{ID: id, Slug: &name}) },
-		), true
+		return clients.RenameWrite(api.RenameWriteParams{
+			Doing:   "renaming " + r.Was(),
+			Summary: fmt.Sprintf("Could not rename task %q", r.Was()),
+			Row:     r.Key(),
+			Write:   func(a api.Clients) error { return a.UpdateTask(api.UpdateTaskParams{ID: id, Slug: &name}) },
+		}), true
 	case r.workflow != nil:
 		renamed := *r.workflow
 		renamed.Name = name
 
-		return clients.RenameWrite(
-			"renaming "+r.Was(),
-			fmt.Sprintf("Could not rename workflow %q", r.Was()),
-			r.Key(),
-			func(a api.Clients) error { return a.UpdateWorkflow(renamed) },
-		), true
+		return clients.RenameWrite(api.RenameWriteParams{
+			Doing:   "renaming " + r.Was(),
+			Summary: fmt.Sprintf("Could not rename workflow %q", r.Was()),
+			Row:     r.Key(),
+			Write:   func(a api.Clients) error { return a.UpdateWorkflow(renamed) },
+		}), true
 	}
 
 	agent := r.agent
 
-	return clients.RenameWrite(
-		"renaming "+r.Was(),
-		fmt.Sprintf("Could not rename agent %q", r.Was()),
-		r.Key(),
-		func(a api.Clients) error { return a.RenameAgent(agent, name) },
-	), true
+	return clients.RenameWrite(api.RenameWriteParams{
+		Doing:   "renaming " + r.Was(),
+		Summary: fmt.Sprintf("Could not rename agent %q", r.Was()),
+		Row:     r.Key(),
+		Write:   func(a api.Clients) error { return a.RenameAgent(agent, name) },
+	}), true
 }
 
 // renameSlot is the rename a list screen has open, nil when none is.

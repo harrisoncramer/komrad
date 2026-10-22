@@ -454,12 +454,12 @@ func restoreAgents(clients api.Clients, agents []panel.Agent) screen.Request {
 		return nil
 	}
 
-	return clients.AwaitingWrite(
-		"restoring "+describeAgents(agents),
-		fmt.Sprintf("Could not restore %s", describeAgents(agents)),
-		screen.Awaits{Shown: screen.RowsIn(screen.ListAgents, panel.IDs(agents)...)},
-		func(a api.Clients) error { return a.RestoreAgents(panel.IDs(agents)) },
-	)
+	return clients.AwaitingWrite(api.AwaitingWriteParams{
+		Doing:   "restoring " + describeAgents(agents),
+		Summary: fmt.Sprintf("Could not restore %s", describeAgents(agents)),
+		Awaits:  screen.Awaits{Shown: screen.RowsIn(screen.ListAgents, panel.IDs(agents)...)},
+		Write:   func(a api.Clients) error { return a.RestoreAgents(panel.IDs(agents)) },
+	})
 }
 
 // confirmDeleteWorkflow asks what goes before it deletes an archived workflow.
@@ -467,12 +467,12 @@ func confirmDeleteWorkflow(m *model, clients api.Clients, workflow panel.Workflo
 	confirm := deleteWorkflowConfirm(workflow, workflow.Worktree.Enabled && !isWorkflowOnDeletedList(m.listing, workflow.ID))
 
 	return confirm.open(m, func() screen.Request {
-		return clients.AwaitingWrite(
-			"deleting "+workflow.Name,
-			fmt.Sprintf("Could not delete workflow %q", workflow.Name),
-			awaitDeleted(confirm.values.deletesRecords(), screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)),
-			func(a api.Clients) error { return a.DeleteWorkflow(workflow.ID, confirm.values.deletesRecords()) },
-		)
+		return clients.AwaitingWrite(api.AwaitingWriteParams{
+			Doing:   "deleting " + workflow.Name,
+			Summary: fmt.Sprintf("Could not delete workflow %q", workflow.Name),
+			Awaits:  awaitDeleted(confirm.values.deletesRecords(), screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)),
+			Write:   func(a api.Clients) error { return a.DeleteWorkflow(workflow.ID, confirm.values.deletesRecords()) },
+		})
 	})
 }
 

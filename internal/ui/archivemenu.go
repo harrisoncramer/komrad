@@ -125,21 +125,21 @@ func restoreArchived(clients api.Clients, target archived) screen.Request {
 	case target.schedule != nil:
 		schedule := *target.schedule
 
-		return clients.AwaitingWrite(
-			"restoring "+schedule.Name,
-			fmt.Sprintf("Could not restore schedule %q", schedule.Name),
-			screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedSchedules, schedule.ID)},
-			func(c api.Clients) error { return c.RestoreSchedule(schedule.ID) },
-		)
+		return clients.AwaitingWrite(api.AwaitingWriteParams{
+			Doing:   "restoring " + schedule.Name,
+			Summary: fmt.Sprintf("Could not restore schedule %q", schedule.Name),
+			Awaits:  screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedSchedules, schedule.ID)},
+			Write:   func(c api.Clients) error { return c.RestoreSchedule(schedule.ID) },
+		})
 	case target.workflow != nil:
 		workflow := *target.workflow
 
-		return clients.AwaitingWrite(
-			"restoring "+workflow.Name,
-			fmt.Sprintf("Could not restore workflow %q", workflow.Name),
-			screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)},
-			func(c api.Clients) error { return c.RestoreWorkflow(workflow.ID) },
-		)
+		return clients.AwaitingWrite(api.AwaitingWriteParams{
+			Doing:   "restoring " + workflow.Name,
+			Summary: fmt.Sprintf("Could not restore workflow %q", workflow.Name),
+			Awaits:  screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)},
+			Write:   func(c api.Clients) error { return c.RestoreWorkflow(workflow.ID) },
+		})
 	}
 
 	return restoreAgents(clients, target.work.chosen)

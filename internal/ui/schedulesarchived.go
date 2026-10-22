@@ -156,12 +156,12 @@ func confirmDeleteSchedule(clients api.Clients, schedule panel.Schedule) screen.
 				return nil
 			}
 
-			return clients.AwaitingWrite(
-				"deleting "+schedule.Name,
-				fmt.Sprintf("Could not delete schedule %q", schedule.Name),
-				screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedSchedules, schedule.ID)},
-				func(c api.Clients) error { return c.DeleteSchedule(schedule.ID) },
-			)
+			return clients.AwaitingWrite(api.AwaitingWriteParams{
+				Doing:   "deleting " + schedule.Name,
+				Summary: fmt.Sprintf("Could not delete schedule %q", schedule.Name),
+				Awaits:  screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedSchedules, schedule.ID)},
+				Write:   func(c api.Clients) error { return c.DeleteSchedule(schedule.ID) },
+			})
 		},
 		Narrow:          true,
 		ClosesOnRefusal: true,

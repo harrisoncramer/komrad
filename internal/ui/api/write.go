@@ -10,16 +10,28 @@ import (
 
 // Write is a write whose landing carries only whether it failed.
 func (a Clients) Write(doing, summary string, write func(Clients) error) screen.Write {
-	return a.AwaitingWrite(doing, summary, screen.Awaits{}, write)
+	return a.AwaitingWrite(AwaitingWriteParams{
+		Doing:   doing,
+		Summary: summary,
+		Write:   write,
+	})
+}
+
+// AwaitingWriteParams is a write and the rows the panel waits on once it lands.
+type AwaitingWriteParams struct {
+	Doing   string
+	Summary string
+	Awaits  screen.Awaits
+	Write   func(Clients) error
 }
 
 // AwaitingWrite is a write that is held, once it lands, until the panel shows what it did.
-func (a Clients) AwaitingWrite(doing, summary string, awaits screen.Awaits, write func(Clients) error) screen.Write {
+func (a Clients) AwaitingWrite(params AwaitingWriteParams) screen.Write {
 	return screen.Write{
-		Doing:   doing,
-		Summary: summary,
+		Doing:   params.Doing,
+		Summary: params.Summary,
 		Send: func() screen.Landed {
-			return screen.Landed{Err: write(a), Awaits: awaits}
+			return screen.Landed{Err: params.Write(a), Awaits: params.Awaits}
 		},
 	}
 }
@@ -85,33 +97,49 @@ type RenameSettled struct {
 	Err error
 }
 
-// RenameWrite sends a name typed over a row, handing the outcome to the screens that type names.
-func (a Clients) RenameWrite(doing, summary, row string, write func(Clients) error) screen.Write {
-	return screen.Write{
-		Doing:   doing,
-		Summary: summary,
-		Send: func() screen.Landed {
-			err := write(a)
+// RenameWriteParams is a name typed over a row and the write that sends it.
+type RenameWriteParams struct {
+	Doing   string
+	Summary string
+	Row     string
+	Write   func(Clients) error
+}
 
-			return screen.Landed{Err: err, Then: RenameSettled{Row: row, Err: err}}
+// RenameWrite sends a name typed over a row, handing the outcome to the screens that type names.
+func (a Clients) RenameWrite(params RenameWriteParams) screen.Write {
+	return screen.Write{
+		Doing:   params.Doing,
+		Summary: params.Summary,
+		Send: func() screen.Landed {
+			err := params.Write(a)
+
+			return screen.Landed{Err: err, Then: RenameSettled{Row: params.Row, Err: err}}
 		},
 	}
 }
 
+// ReleaseWriteParams is an agent to let go, what it is told, and the files a reader had open over it.
+type ReleaseWriteParams struct {
+	Summary string
+	Agent   panel.Agent
+	Said    string
+	Edited  []string
+}
+
 // ReleaseWrite lets an agent go, naming the files a reader had open over it.
-func (a Clients) ReleaseWrite(summary string, agent panel.Agent, said string, edited []string) screen.Write {
+func (a Clients) ReleaseWrite(params ReleaseWriteParams) screen.Write {
 	let := screen.Released{
-		ID:    agent.ID,
-		Name:  agent.Name,
-		Files: slices.Clone(edited),
+		ID:    params.Agent.ID,
+		Name:  params.Agent.Name,
+		Files: slices.Clone(params.Edited),
 	}
 
 	return screen.Write{
-		Doing:   "letting " + agent.Name + " go",
-		Summary: summary,
+		Doing:   "letting " + params.Agent.Name + " go",
+		Summary: params.Summary,
 		Send: func() screen.Landed {
 			return screen.Landed{
-				Err:      a.Release(agent, said+touchedSaid(let.Files)),
+				Err:      a.Release(params.Agent, params.Said+touchedSaid(let.Files)),
 				Released: &let,
 			}
 		},

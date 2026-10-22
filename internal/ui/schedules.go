@@ -240,12 +240,12 @@ func schedulePrefill(schedule panel.Schedule) panel.ScheduleConfig {
 }
 
 func (w *schedulesScreen) archiveSchedule(schedule panel.Schedule) screen.Request {
-	return w.deps.clients.AwaitingWrite(
-		"archiving "+schedule.Name,
-		fmt.Sprintf("Could not archive schedule %q", schedule.Name),
-		screen.Awaits{Gone: screen.RowsIn(screen.ListSchedules, schedule.ID)},
-		func(a api.Clients) error { return a.ArchiveSchedule(schedule.ID) },
-	)
+	return w.deps.clients.AwaitingWrite(api.AwaitingWriteParams{
+		Doing:   "archiving " + schedule.Name,
+		Summary: fmt.Sprintf("Could not archive schedule %q", schedule.Name),
+		Awaits:  screen.Awaits{Gone: screen.RowsIn(screen.ListSchedules, schedule.ID)},
+		Write:   func(a api.Clients) error { return a.ArchiveSchedule(schedule.ID) },
+	})
 }
 
 func (w *schedulesScreen) listParams(m *model) screenListParams {

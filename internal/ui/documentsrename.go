@@ -91,14 +91,14 @@ func (d *documentsScreen) saveRename() screen.Request {
 	}
 	item.name = name
 
-	return d.deps.clients.RenameWrite(
-		"renaming "+rename.Was(),
-		fmt.Sprintf("Could not rename document %q", rename.Was()),
-		rename.Key(),
-		func(a api.Clients) error {
+	return d.deps.clients.RenameWrite(api.RenameWriteParams{
+		Doing:   "renaming " + rename.Was(),
+		Summary: fmt.Sprintf("Could not rename document %q", rename.Was()),
+		Row:     rename.Key(),
+		Write: func(a api.Clients) error {
 			return a.WriteDocument(api.WriteDocumentParams{ID: item.id, Version: read.version, Name: item.name, Type: item.typeName, Body: read.body})
 		},
-	)
+	})
 }
 
 // settleRename marks the field saved once its write has landed, or open for another try when it

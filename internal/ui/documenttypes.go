@@ -50,7 +50,12 @@ func (d *documentsScreen) editTypeForm(t *agentv1.DocumentType) form.Form {
 		doing:   "editing",
 		refused: "Could not edit",
 		write: func(a api.Clients) error {
-			return a.WriteDocumentType(t.GetId(), t.GetVersion(), strings.TrimSpace(values.Name), values.Context)
+			return a.WriteDocumentType(api.WriteDocumentTypeParams{
+				ID:      t.GetId(),
+				Version: t.GetVersion(),
+				Name:    strings.TrimSpace(values.Name),
+				Context: values.Context,
+			})
 		},
 	})
 }
