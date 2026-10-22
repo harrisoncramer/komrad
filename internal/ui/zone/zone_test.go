@@ -20,6 +20,16 @@ func TestScan(t *testing.T) {
 		want  map[zone.Name]panes.Rect
 	}{
 		{
+			name:  "an empty block is not marked",
+			frame: zone.MarkBlock("list", "", 4),
+			want:  map[zone.Name]panes.Rect{},
+		},
+		{
+			name:  "an end with no start is ignored",
+			frame: "\x1b_kze:list:\x1b\\",
+			want:  map[zone.Name]panes.Rect{},
+		},
+		{
 			name:  "a block on one line",
 			frame: "ab" + zone.MarkBlock("list", "cd", 4) + "ef",
 			want:  map[zone.Name]panes.Rect{"list": {Pane: "list", Left: 2, Top: 0, Width: 4, Height: 1}},
@@ -33,16 +43,6 @@ func TestScan(t *testing.T) {
 			name:  "a block ending on a line of its own leaves that line out",
 			frame: zone.MarkBlock("details", "one\ntwo\n", 3),
 			want:  map[zone.Name]panes.Rect{"details": {Pane: "details", Left: 0, Top: 0, Width: 3, Height: 2}},
-		},
-		{
-			name:  "an empty block is not marked",
-			frame: zone.MarkBlock("list", "", 4),
-			want:  map[zone.Name]panes.Rect{},
-		},
-		{
-			name:  "an end with no start is ignored",
-			frame: "\x1b_kze:list:\x1b\\",
-			want:  map[zone.Name]panes.Rect{},
 		},
 	}
 
@@ -68,6 +68,12 @@ func TestHitAt(t *testing.T) {
 		wantOK bool
 	}{
 		{
+			name:   "a column past every mark",
+			x:      10,
+			want:   zone.Hit{},
+			wantOK: false,
+		},
+		{
 			name:   "a column under the outer mark only",
 			x:      0,
 			want:   zone.Hit{Zone: "parentmenu", Key: "1"},
@@ -78,10 +84,6 @@ func TestHitAt(t *testing.T) {
 			x:      3,
 			want:   zone.Hit{Zone: "menu", Key: "row:7", Nth: 2},
 			wantOK: true,
-		},
-		{
-			name: "a column past every mark",
-			x:    10,
 		},
 	}
 
