@@ -5,8 +5,25 @@ export type Field = {
   repeated: boolean;
   map: boolean;
   oneof: string;
-  rules: string[];
+  required: boolean;
+  constraints: Constraints;
   description: string;
+};
+
+export type Constraints = {
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  format?: string;
+  minimum?: number;
+  exclusiveMinimum?: number;
+  maximum?: number;
+  exclusiveMaximum?: number;
+  minItems?: number;
+  maxItems?: number;
+  uniqueItems?: boolean;
+  items?: Constraints;
+  rules?: string[];
 };
 
 export type Oneof = {

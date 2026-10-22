@@ -9,7 +9,6 @@ package rpcapi
 
 import (
 	"context"
-	"fmt"
 	"iter"
 	"slices"
 	"time"
@@ -247,6 +246,10 @@ func IsUUID(field protoreflect.FieldDescriptor) bool {
 		rules = rules.GetRepeated().GetItems()
 	}
 
+	return isUUID(rules)
+}
+
+func isUUID(rules *validate.FieldRules) bool {
 	return rules.GetString().GetUuid() || rules.GetString().GetTuuid() || rules.GetBytes().GetUuid()
 }
 
@@ -260,32 +263,6 @@ func IsOneofRequired(oneof protoreflect.OneofDescriptor) bool {
 	rules, ok := proto.GetExtension(opts, validate.E_Oneof).(*validate.OneofRules)
 
 	return ok && rules.GetRequired()
-}
-
-// DescribeRules spells out what the server refuses of a field, in the order a reader weighs them.
-func DescribeRules(field protoreflect.FieldDescriptor) []string {
-	var parts []string
-	if IsRequired(field) {
-		parts = append(parts, "required")
-	}
-
-	rules := getRules(field)
-	if text := rules.GetString(); text != nil {
-		if limit := text.GetMaxLen(); limit > 0 {
-			parts = append(parts, fmt.Sprintf("at most %d characters", limit))
-		}
-		if pattern := text.GetPattern(); pattern != "" {
-			parts = append(parts, "matching "+pattern)
-		}
-	}
-
-	if number := rules.GetInt32(); number != nil {
-		if number.GetGte() > 0 || number.GetLte() > 0 {
-			parts = append(parts, fmt.Sprintf("between %d and %d", number.GetGte(), number.GetLte()))
-		}
-	}
-
-	return parts
 }
 
 func getIdempotencyLevel(method protoreflect.MethodDescriptor) descriptorpb.MethodOptions_IdempotencyLevel {

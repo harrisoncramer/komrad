@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"komrad/internal/rpcapi"
+	agentv1 "komrad/proto/gen/agent/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -172,4 +174,45 @@ func fieldByPath(message protoreflect.MessageDescriptor, path []string) protoref
 	}
 
 	return fieldByPath(field.Message(), path[1:])
+}
+
+// TestDescribeField pins the flag help a field's type, requirement and constraints read as.
+func TestDescribeField(t *testing.T) {
+	createAgent := (&agentv1.CreateAgentRequest{}).ProtoReflect().Descriptor()
+
+	tests := []struct {
+		message protoreflect.MessageDescriptor
+		field   string
+		want    string
+	}{
+		{message: createAgent, field: "prompt", want: "string, required, at most 50000 characters"},
+		{message: createAgent, field: "harness", want: "string, at most 40 characters, matching ^[a-z0-9-]*$"},
+		{message: createAgent, field: "workflow_id", want: "uuid, required"},
+		{message: createAgent, field: "task_slug", want: "string, not empty"},
+		{
+			message: createAgent,
+			field:   "title",
+			want:    "string, at most 200 characters, must not contain control characters",
+		},
+		{message: (&agentv1.GetLastTurnsRequest{}).ProtoReflect().Descriptor(), field: "turns", want: "int32, between 1 and 20"},
+		{message: (&agentv1.GetDocumentRequest{}).ProtoReflect().Descriptor(), field: "version", want: "int32, more than 0"},
+		{
+			message: (&agentv1.ArchiveAgentsRequest{}).ProtoReflect().Descriptor(),
+			field:   "ids",
+			want:    "uuid, required, no repeats",
+		},
+		{
+			message: (&workflowv1.WorktreeConfig{}).ProtoReflect().Descriptor(),
+			field:   "copy_paths",
+			want:    "string, at most 50 items, each at most 255 characters, each must be a relative path, with no leading / or ~ and no .. segment",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.message.Name())+"."+tt.field, func(t *testing.T) {
+			field := tt.message.Fields().ByName(protoreflect.Name(tt.field))
+			require.NotNil(t, field)
+			assert.Equal(t, tt.want, describeField(field))
+		})
+	}
 }

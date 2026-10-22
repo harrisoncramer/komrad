@@ -58,14 +58,15 @@ type oneofDoc struct {
 }
 
 type fieldDoc struct {
-	Name        string   `json:"name"`
-	Type        string   `json:"type"`
-	Ref         string   `json:"ref"`
-	Repeated    bool     `json:"repeated"`
-	Map         bool     `json:"map"`
-	Oneof       string   `json:"oneof"`
-	Rules       []string `json:"rules"`
-	Description string   `json:"description"`
+	Name        string             `json:"name"`
+	Type        string             `json:"type"`
+	Ref         string             `json:"ref"`
+	Repeated    bool               `json:"repeated"`
+	Map         bool               `json:"map"`
+	Oneof       string             `json:"oneof"`
+	Required    bool               `json:"required"`
+	Constraints rpcapi.Constraints `json:"constraints"`
+	Description string             `json:"description"`
 }
 
 type enumDoc struct {
@@ -179,7 +180,8 @@ func addMessage(doc apiDoc, notes comments, message protoreflect.MessageDescript
 			Name:        string(field.Name()),
 			Repeated:    field.IsList(),
 			Map:         field.IsMap(),
-			Rules:       append([]string{}, rpcapi.DescribeRules(field)...),
+			Required:    rpcapi.IsRequired(field),
+			Constraints: rpcapi.GetConstraints(field),
 			Description: notes.of(field),
 		}
 

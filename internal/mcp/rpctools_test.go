@@ -172,8 +172,8 @@ func TestToolDescription(t *testing.T) {
 	}
 }
 
-// TestInputSchema confirms what the server rejects empty is described as required and
-// everything else can be left out.
+// TestInputSchema confirms each field carries its constraints and only what the server rejects
+// empty is required.
 func TestInputSchema(t *testing.T) {
 	agentService := agentv1.File_agent_v1_agent_proto.Services().Get(0)
 
@@ -185,9 +185,15 @@ func TestInputSchema(t *testing.T) {
 		wantRequired []string
 	}{
 		{
-			service:      agentService,
-			method:       "CreateAgent",
-			wantFields:   map[string]map[string]any{"prompt": {"type": "string"}, "workflow_id": {"type": "string"}},
+			service: agentService,
+			method:  "CreateAgent",
+			wantFields: map[string]map[string]any{
+				"prompt":      {"type": "string", "minLength": float64(1), "maxLength": float64(50000)},
+				"workflow_id": {"type": "string", "format": "uuid"},
+				"title": {
+					"type": "string", "maxLength": float64(200), "description": "must not contain control characters",
+				},
+			},
 			wantRequired: []string{"prompt", "workflow_id"},
 		},
 		{
@@ -195,14 +201,30 @@ func TestInputSchema(t *testing.T) {
 			method:     "ListAgents",
 			wantFields: map[string]map[string]any{"pagination": nil},
 			wantNested: map[string]map[string]map[string]any{
-				"pagination": {"limit": {"type": "integer"}, "cursor": {"type": "string"}},
+				"pagination": {
+					"limit":  {"type": "integer", "minimum": float64(0)},
+					"cursor": {"type": "string", "maxLength": float64(2048)},
+				},
 			},
 		},
 		{
 			service:      agentService,
 			method:       "GetAgent",
-			wantFields:   map[string]map[string]any{"id": {"type": "string"}},
+			wantFields:   map[string]map[string]any{"id": {"type": "string", "format": "uuid"}},
 			wantRequired: []string{"id"},
+		},
+		{
+			service: agentService,
+			method:  "ArchiveAgents",
+			wantFields: map[string]map[string]any{
+				"ids": {
+					"type":        "array",
+					"items":       map[string]any{"type": "string", "format": "uuid"},
+					"minItems":    float64(1),
+					"uniqueItems": true,
+				},
+			},
+			wantRequired: []string{"ids"},
 		},
 		{
 			service: taskv1.File_task_v1_task_proto.Services().Get(0),

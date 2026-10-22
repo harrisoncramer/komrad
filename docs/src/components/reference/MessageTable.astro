@@ -3,6 +3,7 @@ import Heading from "./Heading.astro";
 import Required from "./Required.astro";
 import { anchor, api, prose } from "../../reference";
 import { codeLink } from "../../reference/refs";
+import { describeConstraints } from "../../reference/constraints";
 import type { Field, Message, Oneof } from "../../reference/types";
 
 type Props = {
@@ -16,7 +17,7 @@ const { name, message } = Astro.props;
 const id = anchor(name);
 const tone = (type: string) => (/int|fixed|float|double/.test(type) ? "number" : type);
 const typeName = (field: Field) => (field.repeated && !field.map ? `${field.type}[]` : field.type);
-const rules = (field: Field) => field.rules.filter((rule) => rule !== "required");
+const rules = (field: Field) => describeConstraints(field.constraints, field.required);
 const inMessage = codeLink({ messages: [name] });
 const forField = (field: Field) => codeLink({ messages: [name], enum: api.enums[field.ref] ? field.ref : undefined });
 
@@ -85,7 +86,7 @@ for (const field of message.fields) {
                       {typeName(row.field)}
                     </span>
                   )}
-                  {row.field.rules.includes("required") && <Required />}
+                  {row.field.required && <Required />}
                   {rules(row.field).map((rule) => (
                     <p class="rules">{rule}</p>
                   ))}
