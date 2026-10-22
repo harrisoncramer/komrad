@@ -1127,12 +1127,12 @@ func buildRebasingGitAgent() []proto.Message {
 }
 
 // answerPushed has the push answer with what the plan said it would send.
-func answerPushed(h *paneltest.Panel, planned *agentv1.PlanPushResponse) {
+func answerPushed(harness *paneltest.Panel, planned *agentv1.PlanPushResponse) {
 	if planned == nil {
 		return
 	}
 
-	h.Answer(agentv1connect.AgentServicePushWorktreeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+	harness.Answer(agentv1connect.AgentServicePushWorktreeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&agentv1.PushWorktreeResponse{
 			Branch:  planned.GetBranch(),
 			Commits: planned.GetCommits(),
@@ -1189,8 +1189,8 @@ func newMergePlan() *forgev1.PlanForgePullRequestMergeResponse {
 }
 
 // answerMergePlan has the forge say the pull request could merge the way the plan says.
-func answerMergePlan(h *paneltest.Panel, plan *forgev1.PlanForgePullRequestMergeResponse) {
-	h.Answer(forgev1connect.ForgeServicePlanForgePullRequestMergeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+func answerMergePlan(harness *paneltest.Panel, plan *forgev1.PlanForgePullRequestMergeResponse) {
+	harness.Answer(forgev1connect.ForgeServicePlanForgePullRequestMergeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(plan), nil
 	})
 }
