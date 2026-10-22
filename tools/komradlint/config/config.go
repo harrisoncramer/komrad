@@ -91,11 +91,11 @@ type ErrorTextConfig struct {
 	Exclude []string `json:"exclude"`
 }
 
-// BlackBoxConfig settles which types a test inside their package may not drive.
+// BlackBoxConfig settles which types no test may drive.
 type BlackBoxConfig struct {
 	// Skip turns the rule off.
 	Skip bool `json:"skip"`
-	// Types is the types held behind the external test package, spelled as the import path, a
+	// Types is the types held behind the harness, spelled as the import path, a
 	// dot and the type's name, such as komrad/internal/ui.model.
 	Types []string `json:"types"`
 	// Exclude is unanchored regexps over the file path.

@@ -55,9 +55,11 @@ starting a new one.
 
 ## Panel
 
-A screen test is in `package ui_test`, in the file named for its screen. It builds the panel
-with `paneltest.Start`, or the `open<Screen>` helper beside the screen's tests, and then does
-three things:
+A domain's stories live in `package <domain>_test` through `paneltest`, such as
+`package logs_test`, in the file named for the screen. The root keeps the stories for routing,
+stops, menus, clicks and moves between domains in `package ui_test`. A story builds the panel with
+`paneltest.Start`, or the `open<Screen>` helper beside the screen's tests, and then does three
+things:
 
 - feeds it watch events with `harness.Watch`, built from `paneltest.Snapshot`, `paneltest.Puts`
   and `paneltest.Deleted`;
@@ -78,7 +80,7 @@ the next editor the panel opens writes back, and `harness.Edited` lists the file
 
 A test never names the model or anything unexported. When `paneltest` cannot express something a
 person could see, add it to `paneltest` as a reader of the frame or a fake's record, never as a
-way into the model. The `black_box` rule flags any test in `package ui` that drives the model.
+way into the model. The `black_box` rule flags any test that drives the model or a domain's screen.
 
 A small pure helper with real logic, such as a sort or a matcher, keeps a table test in
 `package ui`, in the file named for the helper's source file.
