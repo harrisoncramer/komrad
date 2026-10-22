@@ -190,7 +190,7 @@ func (h *documentHistory) head(in screen.Inputs, glyphs glyph.Set, item document
 
 	count := strings.TrimRight(diffMatchCount(&h.pane, h.filter), "\n")
 
-	return append(rows, h.filter.head(headParams{glyphs: glyphs, marks: in.Room.Marks, count: count, width: width})...)
+	return append(rows, filterHead(h.filter, filterHeadParams{glyphs: glyphs, marks: in.Room.Marks, count: count, width: width})...)
 }
 
 // notice names the write stepped to, who made it and how long ago.

@@ -7,6 +7,7 @@ import (
 	"komrad/internal/diff"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/filter"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/screen"
@@ -59,7 +60,7 @@ func (r reviewScreen) filesView(in screen.Inputs, lines int) string {
 		rows = append(rows, paint.Panel.Style(paint.ToneMuted).Render(strings.Repeat(" ", filesGutter)+reviewNoFileWord))
 	}
 
-	header := ansi.Truncate(r.filesFilter.line(r.deps.glyphs), max(width, 0), "…")
+	header := ansi.Truncate(r.filesFilter.Line(r.deps.glyphs), max(width, 0), "…")
 	if in.Room.Marks {
 		header = zone.MarkKey(zone.Search, width, 0, zone.SearchBlock) + header
 	}
@@ -88,7 +89,7 @@ type renderTreeRowParams struct {
 	Focused bool
 	Width   int
 	Columns statColumns
-	Filter  filterState
+	Filter  filter.State
 	Caret   view.Caret
 }
 
@@ -112,7 +113,7 @@ func (r reviewScreen) renderTreeRow(params renderTreeRowParams) string {
 		lead = list.ArrowOf(params.Caret) + strings.Repeat(" ", filesGutter-2+2*row.Depth)
 	}
 	fit := fitTreeRowParams{
-		Left:  params.Filter.highlight(paint.Panel, row.Name, style),
+		Left:  params.Filter.Highlight(paint.Panel, row.Name, style),
 		Width: width - lipgloss.Width(lead),
 	}
 

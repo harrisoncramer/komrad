@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/ui/column"
 	"komrad/internal/ui/field"
+	"komrad/internal/ui/filter"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/layout"
@@ -391,7 +392,7 @@ func (m *model) apply(request screen.Request) tea.Cmd {
 
 		return tea.Batch(left, m.apply(request.Then()))
 	case screen.ResetFilter:
-		m.filter = filterState{}
+		m.filter = filter.State{}
 	case screen.BeginFilter:
 		m.beginFilter()
 	case screen.StepMatch:

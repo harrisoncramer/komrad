@@ -422,7 +422,7 @@ func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool, glyphs glyph.Set) {
 
 	// The pattern is the screen's rather than the view's, so a view built from nothing is given
 	// it back once the marks and the threads have settled the rows it walks.
-	view.SetPattern(d.filter.matcher)
+	view.SetPattern(d.filter.Matcher)
 	d.Replace(view, d.restore)
 	d.restore = nil
 }

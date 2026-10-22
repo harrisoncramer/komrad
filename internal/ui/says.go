@@ -45,7 +45,7 @@ func (m *model) saidAgentID() (string, bool) {
 		return "", false
 	}
 
-	return agentID, agentID != "" && m.filter.pattern().HasSaid(agentID)
+	return agentID, agentID != "" && m.filter.Pattern().HasSaid(agentID)
 }
 
 // isSaidRead reports whether the column holds the conversation of the agent and text it was read for.
@@ -55,7 +55,7 @@ func (s saidTranscript) isSaidRead(agentID, text string) bool {
 
 func (m *model) readSaidCmd() tea.Cmd {
 	agentID, ok := m.saidAgentID()
-	text := m.filter.qualifiers.said.text
+	text := m.filter.Qualifiers.Said.Text
 	if !ok || m.said.isSaidRead(agentID, text) {
 		return nil
 	}
@@ -106,7 +106,7 @@ func (m *model) openSaid() {
 // layoutSaid renders the conversation for the column when it has not been rendered at the column's width, and reports whether it is rendered.
 func (m *model) layoutSaid() bool {
 	agentID, ok := m.saidAgentID()
-	if !ok || !m.said.answered || !m.said.isSaidRead(agentID, m.filter.qualifiers.said.text) {
+	if !ok || !m.said.answered || !m.said.isSaidRead(agentID, m.filter.Qualifiers.Said.Text) {
 		return false
 	}
 
@@ -121,7 +121,7 @@ func (m *model) layoutSaid() bool {
 
 	m.said.rows, m.said.line = saidRows(saidRowsParams{
 		said:  m.said,
-		hits:  m.filter.pattern().SaidHits(agentID),
+		hits:  m.filter.Pattern().SaidHits(agentID),
 		width: split.Column,
 	})
 	m.said.width = split.Column

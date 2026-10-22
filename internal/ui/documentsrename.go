@@ -126,8 +126,8 @@ func (d *documentsScreen) TypedLine() (field.Line, bool) {
 	switch {
 	case d.IsRenaming():
 		return d.renaming.Input(), true
-	case d.history != nil && d.history.filter.typing:
-		return d.history.filter.input, true
+	case d.history != nil && d.history.filter.Typing:
+		return d.history.filter.Input, true
 	}
 
 	return field.Line{}, false

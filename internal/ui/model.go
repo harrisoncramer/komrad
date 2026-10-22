@@ -24,6 +24,7 @@ import (
 	"komrad/internal/panes"
 	"komrad/internal/ui/api"
 	"komrad/internal/ui/editor"
+	"komrad/internal/ui/filter"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/layout"
 	"komrad/internal/ui/panel"
@@ -298,7 +299,7 @@ type model struct {
 	lastScreen  lastScreen
 	said        saidTranscript
 	review      reviewScreen
-	filter      filterState
+	filter      filter.State
 	form        formState
 	// register is the text vim last yanked or deleted in any field, nil when vim is off.
 	register *vim.Register

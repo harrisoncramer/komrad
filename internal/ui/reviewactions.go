@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"komrad/config"
+	"komrad/internal/ui/filter"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/screen"
@@ -140,7 +141,7 @@ func (r *reviewScreen) stepThread(in screen.Inputs, pressed string) screen.Reque
 
 // filesActions is the keys on the file tree, which walk it a row at a time with the diff following.
 func (r *reviewScreen) filesActions(in screen.Inputs) keys.Spec[*reviewScreen] {
-	standing := func(*reviewScreen) bool { return r.filesFilter.isStanding() }
+	standing := func(*reviewScreen) bool { return r.filesFilter.IsStanding() }
 
 	return keys.Spec[*reviewScreen]{
 		Table: append(navActions[*reviewScreen](navActionsParams{keys: r.deps.keys, nav: filesNav{r}, in: in, page: navPageStep, scroll: 1}), []keys.Action[*reviewScreen]{
@@ -164,7 +165,7 @@ func (r *reviewScreen) filesActions(in screen.Inputs) keys.Spec[*reviewScreen] {
 			},
 			{
 				ID:   keys.FilterOpen,
-				Keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
+				Keys: func(config.Keybindings) []string { return []string{filter.OpenKey} },
 				Nav: func(*reviewScreen, string) screen.Request {
 					r.openFilesFilter()
 
@@ -184,7 +185,7 @@ func (r *reviewScreen) filesActions(in screen.Inputs) keys.Spec[*reviewScreen] {
 				Keys: keys.FixedBack,
 				When: standing,
 				Nav: func(*reviewScreen, string) screen.Request {
-					r.filesFilter.abandon()
+					r.filesFilter.Abandon()
 
 					return nil
 				},
@@ -216,7 +217,7 @@ func (r *reviewScreen) filesActions(in screen.Inputs) keys.Spec[*reviewScreen] {
 			},
 			{
 				Of:   []keys.ID{keys.FilterOpen},
-				Desc: func(*reviewScreen) string { return r.filesFilter.openDesc() },
+				Desc: func(*reviewScreen) string { return r.filesFilter.OpenDesc() },
 			},
 			{
 				Of:   []keys.ID{keys.FilterMatch},
@@ -224,12 +225,12 @@ func (r *reviewScreen) filesActions(in screen.Inputs) keys.Spec[*reviewScreen] {
 			},
 			{
 				Of:   []keys.ID{keys.FilterClear},
-				Desc: func(*reviewScreen) string { return r.filesFilter.clearDesc() },
+				Desc: func(*reviewScreen) string { return r.filesFilter.ClearDesc() },
 			},
 			{
 				Of:    []keys.ID{actionReviewBack},
 				Desc:  func(*reviewScreen) string { return r.backDesc() },
-				Show:  func(*reviewScreen) bool { return !r.filesFilter.isStanding() },
+				Show:  func(*reviewScreen) bool { return !r.filesFilter.IsStanding() },
 				Strip: true,
 			},
 		},

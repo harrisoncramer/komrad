@@ -42,7 +42,7 @@ func (r *reviewScreen) Column(in screen.Inputs) column.Spec {
 
 // bandView is what stands over the diff: the range it runs over and the pattern it is searched for.
 func (r reviewScreen) bandView(in screen.Inputs) string {
-	search := r.diff.filter.view(r.deps.glyphs)
+	search := r.diff.filter.View(r.deps.glyphs)
 	if in.Room.Marks {
 		search = zone.MarkKey(zone.Search, r.measureBandWidth(in), 0, zone.SearchList) + search
 	}

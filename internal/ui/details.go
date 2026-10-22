@@ -6,6 +6,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/filter"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/legend"
 	"komrad/internal/ui/list"
@@ -51,7 +52,7 @@ func (m *model) hoveredDetails(in screen.Inputs) record.Details {
 // detailsRows is the record's fields as its search leaves them.
 func (m *model) detailsRows(held record.Details) []detailsRow {
 	rows := make([]detailsRow, 0, len(held.Fields))
-	pattern := m.filter.pattern()
+	pattern := m.filter.Pattern()
 	group := ""
 	for i, field := range held.Fields {
 		if field.Label != "" {
@@ -128,7 +129,7 @@ func (m *model) detailsFit() bool {
 
 	// Only the list's legend is measured with the search; a focused record shrinks to the room
 	// its own legend leaves.
-	probe.filter = filterState{}
+	probe.filter = filter.State{}
 	if focused := probe.Help(probe.detailsHelp(), header); strings.Count(focused, "\n") > strings.Count(legend, "\n") {
 		legend = focused
 	}
@@ -211,7 +212,7 @@ func (m *model) detailsActions() keys.Spec[*model] {
 			},
 			{
 				Of:   []keys.ID{keys.FilterOpen},
-				Desc: func(*model) string { return m.filter.openDesc() },
+				Desc: func(*model) string { return m.filter.OpenDesc() },
 			},
 			{
 				Of:   []keys.ID{keys.FilterMatch},
@@ -219,7 +220,7 @@ func (m *model) detailsActions() keys.Spec[*model] {
 			},
 			{
 				Of:   []keys.ID{keys.FilterClear},
-				Desc: func(*model) string { return m.filter.clearDesc() },
+				Desc: func(*model) string { return m.filter.ClearDesc() },
 			},
 			{
 				Of:    []keys.ID{keys.Move},

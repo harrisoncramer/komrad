@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/ui/filter"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/legend"
 	"komrad/lib/xslice"
@@ -45,9 +46,9 @@ func (m *model) moveBinding() key.Binding {
 	)
 }
 
-func filterHelp(mode filterMode) legend.Help {
+func filterHelp(mode filter.Mode) legend.Help {
 	done := binding([]string{"enter"}, "keep filter")
-	flip := binding([]string{"tab"}, mode.flipped().String()+" instead")
+	flip := binding([]string{"tab"}, mode.Flipped().String()+" instead")
 	drop := binding([]string{"esc"}, "cancel")
 
 	return legend.Help{Short: []key.Binding{done, flip, drop}, Full: []key.Binding{done, flip, drop}}

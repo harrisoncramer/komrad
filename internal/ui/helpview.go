@@ -35,8 +35,8 @@ func (m *model) Help(help legend.Help, above ...string) string {
 	if in.Room.MessagesFocused {
 		help = m.messagesHelp()
 	}
-	if m.filter.typing {
-		help = filterHelp(m.filter.mode)
+	if m.filter.Typing {
+		help = filterHelp(m.filter.Mode)
 	}
 	if r, ok := m.active().(renamer); ok && r.IsRenaming() {
 		help = renameHelp()
