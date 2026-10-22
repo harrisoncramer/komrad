@@ -47,7 +47,7 @@ func NewNameEdit(key, name string) *NameEdit {
 	return &NameEdit{
 		key:   key,
 		was:   name,
-		input: NewLine(name),
+		input: newLine(name),
 	}
 }
 

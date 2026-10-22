@@ -41,8 +41,8 @@ const (
 	LineEntered
 )
 
-// NewLine is a focused line holding value, with the cursor after it.
-func NewLine(value string) Line {
+// newLine is a focused line holding value, with the cursor after it.
+func newLine(value string) Line {
 	model := textinput.New()
 	model.Prompt = ""
 	model.KeyMap.Paste.SetEnabled(false)
@@ -63,7 +63,7 @@ func (l Line) Value() string {
 
 // Set replaces the text, puts the cursor after it and leaves vim until normalKey is pressed.
 func (l *Line) Set(value string) {
-	*l = NewLine(value)
+	*l = newLine(value)
 }
 
 // Insert puts the cursor after the text and leaves vim until normalKey is pressed again, as a
