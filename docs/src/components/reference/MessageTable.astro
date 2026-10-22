@@ -8,12 +8,10 @@ type Props = {
   message: Message;
 };
 
-type Row = { field: Field; member: boolean } | { oneof: Oneof; members: string[] };
+type Row = { field: Field; member: boolean } | { oneof: Oneof };
 
 const { name, message } = Astro.props;
 const id = anchor(name);
-const list = (names: string[]) =>
-  names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`;
 
 const rows: Row[] = [];
 const drawn = new Set<string>();
@@ -27,9 +25,8 @@ for (const field of message.fields) {
 
   const oneof = message.oneofs.find((candidate) => candidate.name === field.oneof);
   if (!oneof) throw new Error(`api.json has no oneof ${field.oneof} on ${name}`);
-  const members = message.fields.filter((candidate) => candidate.oneof === field.oneof);
-  rows.push({ oneof, members: members.map((member) => member.name) });
-  for (const member of members) {
+  rows.push({ oneof });
+  for (const member of message.fields.filter((candidate) => candidate.oneof === field.oneof)) {
     rows.push({ field: member, member: true });
   }
 }
@@ -66,7 +63,7 @@ for (const field of message.fields) {
                 </td>
                 <td>
                   {row.oneof.description && <Fragment set:html={prose(row.oneof.description)} />}
-                  <p class="rules">{`${row.oneof.required ? "set exactly one" : "set at most one"} of ${list(row.members)}`}</p>
+                  {row.oneof.required && <p class="rules">required</p>}
                 </td>
               </tr>
             ) : (
