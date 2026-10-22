@@ -93,11 +93,6 @@ type Row struct {
 	ID   string
 }
 
-// RowsIn names the given ids as rows of one list.
-func RowsIn(list List, ids ...string) []Row {
-	return xslice.Map(ids, func(id string) Row { return Row{List: list, ID: id} })
-}
-
 // Stage puts a pane on the stage with the keys in it, and hands the pane's id back to the screen
 // that asked, empty where the split was refused.
 type Stage struct {
@@ -110,3 +105,8 @@ func (Write) Request() {}
 
 // Request marks Stage as a request.
 func (Stage) Request() {}
+
+// RowsIn names the given ids as rows of one list.
+func RowsIn(list List, ids ...string) []Row {
+	return xslice.Map(ids, func(id string) Row { return Row{List: list, ID: id} })
+}
