@@ -227,11 +227,6 @@ func (m *model) active() screenModel {
 	return m.screenOf(m.screen)
 }
 
-// isUp reports whether the screen is the one up.
-func (m *model) isUp(s screenModel) bool {
-	return m.active() == s
-}
-
 // screens is every screen the root holds, up or not.
 func (m *model) screens() []screenModel {
 	return []screenModel{
