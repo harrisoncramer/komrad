@@ -227,7 +227,7 @@ func (m *model) detailsActions() keys.Spec[*model] {
 			{
 				Of:    []keys.ID{keys.Move},
 				Desc:  func(*model) string { return "move" },
-				Label: func(k config.Keybindings) string { return keys.Label(k.Nav.Up) + "/" + keys.Label(k.Nav.Down) },
+				Label: keys.MoveLabel,
 			},
 			{
 				Of:    []keys.ID{keys.Jump},
