@@ -59,8 +59,8 @@ func (m *model) planGitCmd(op gitOp) tea.Cmd {
 	})
 }
 
-// runGit runs the operation and reports what it did.
-func (m *model) runGit(op gitOp) screen.Write {
+// gitOpWrite is the write that runs the operation and reports what it did.
+func (m *model) gitOpWrite(op gitOp) screen.Write {
 	clients := m.api
 
 	return screen.Write{
@@ -107,7 +107,7 @@ func (m *model) openGitConfirm(op gitOp, buildForm gitConfirmForm) tea.Cmd {
 				return nil
 			}
 
-			return m.runGit(op)
+			return m.gitOpWrite(op)
 		},
 		Narrow:          true,
 		ClosesOnRefusal: true,

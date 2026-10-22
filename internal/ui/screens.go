@@ -339,7 +339,7 @@ func (m *model) apply(request screen.Request) tea.Cmd {
 	case menu.Open:
 		return m.openForm(submenuState(nil, newSubmenuLevel(request.Menu)))
 	case form.Open:
-		return m.openForm(hostedForm(request.Form))
+		return m.openForm(openedFormState(request.Form))
 	case screen.Batch:
 		return tea.Batch(xslice.Map(request, m.apply)...)
 	}

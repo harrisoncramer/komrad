@@ -18,7 +18,7 @@ func (m *model) updateSubforms(msg tea.Msg) tea.Cmd {
 		return m.updateForm(msg)
 	}
 
-	focused := m.form.form.GetFocusedField()
+	focused := m.form.rendered.GetFocusedField()
 	if focused == nil || focused.GetKey() != form.SubformsKey {
 		return m.updateForm(msg)
 	}
@@ -29,12 +29,12 @@ func (m *model) updateSubforms(msg tea.Msg) tea.Cmd {
 		return nil
 	}
 
-	return m.openForm(subformState(m.form.Form, m.form.Subforms[index], renderedGray(m.form.form)))
+	return m.openForm(subformState(m.form.Form, m.form.Subforms[index], renderedGray(m.form.rendered)))
 }
 
 // subformState is a subform on screen, the top form it was opened from rendered gray to its left.
 func subformState(top form.Form, sub form.Subform, rendered []string) formState {
-	state := hostedForm(form.Form{
+	state := openedFormState(form.Form{
 		Build: func(in form.Inputs) (*huh.Form, []string) {
 			return form.Of(fixedKeys(), sub.Fields(in)...)
 		},
@@ -47,7 +47,7 @@ func subformState(top form.Form, sub form.Subform, rendered []string) formState 
 		return []string{strings.Join(rendered[:min(len(rendered), max(height, 0))], "\n")}
 	}
 	state.back = func(m *model) tea.Cmd {
-		cmd := m.openForm(hostedForm(top))
+		cmd := m.openForm(openedFormState(top))
 
 		return tea.Batch(append([]tea.Cmd{cmd}, m.focusFieldCmds(form.SubformsKey)...)...)
 	}

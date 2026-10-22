@@ -24,7 +24,7 @@ type formFieldEditedMsg struct {
 // openFormFieldEditor opens the editor on the field with the cursor, and reports whether the
 // key belonged to the panel.
 func (m *model) openFormFieldEditor() (tea.Cmd, bool) {
-	focused := m.form.form.GetFocusedField()
+	focused := m.form.rendered.GetFocusedField()
 	if focused == nil {
 		return nil, false
 	}
@@ -101,7 +101,7 @@ func (m *model) rerenderFormOn(key string) tea.Cmd {
 func (m *model) focusFieldCmds(key string) []tea.Cmd {
 	var cmds []tea.Cmd
 	for range max(slices.Index(m.form.order, key), 0) {
-		cmds = append(cmds, m.form.form.NextField())
+		cmds = append(cmds, m.form.rendered.NextField())
 	}
 
 	return cmds

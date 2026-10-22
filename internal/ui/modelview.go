@@ -148,8 +148,8 @@ func (m *model) heldFormView() string {
 }
 
 func (m *model) joinedFormView() string {
-	view := m.form.form.View()
-	if m.form.form.State == huh.StateCompleted {
+	view := m.form.rendered.View()
+	if m.form.rendered.State == huh.StateCompleted {
 		view = m.form.frozen
 	}
 	if write, ok := m.heldWrite(); ok {

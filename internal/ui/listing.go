@@ -170,7 +170,7 @@ func (m *model) write(doing, summary string, write func(api) error) screen.Write
 	return m.awaitingWrite(doing, summary, screen.Awaits{}, write)
 }
 
-// awaitingWrite sends a write that is held, once it lands, until the panel shows what it did.
+// awaitingWrite is a write that is held, once it lands, until the panel shows what it did.
 func (m *model) awaitingWrite(doing, summary string, awaits screen.Awaits, write func(api) error) screen.Write {
 	clients := m.api
 
@@ -241,7 +241,7 @@ func (m *model) forgetSpoken(agentID string, carried []string) {
 	m.edited[agentID] = kept
 }
 
-// releaseWrite lets an agent go, naming the files a reader had open over it.
+// releaseWrite is the write that lets an agent go, naming the files a reader had open over it.
 func (m *model) releaseWrite(summary string, agent panel.Agent, said string) screen.Write {
 	clients := m.api
 	let := screen.Released{
@@ -262,7 +262,7 @@ func (m *model) releaseWrite(summary string, agent panel.Agent, said string) scr
 	}
 }
 
-// rowWrite sends a write whose landing takes the panel to the row it made.
+// rowWrite is a write whose landing takes the panel to the row it made.
 func (m *model) rowWrite(doing, summary string, write func(api) (*screen.Made, error)) screen.Write {
 	clients := m.api
 

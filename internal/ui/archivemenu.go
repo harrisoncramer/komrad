@@ -240,8 +240,9 @@ func (m *model) archiveChosenAgents(work chosenWork) tea.Cmd {
 	}))
 }
 
-// deleteChosenAgents deletes the task of each chosen writer, with its agents when records go too.
-func (m *model) deleteChosenAgents(work chosenWork, records bool) screen.Write {
+// deleteChosenWrite is the write that deletes the task of each chosen writer, with its agents when
+// records go too.
+func (m *model) deleteChosenWrite(work chosenWork, records bool) screen.Write {
 	subject := describeAgents(work.chosen)
 
 	return m.archivingWrite(archivingWriteParams{
@@ -260,7 +261,7 @@ func confirmDeleteChosenAgents(m *model, work chosenWork) tea.Cmd {
 	confirm := deleteChosenConfirm(work, m.listing.HasAnyWorktreeToDelete(work.wholeTasks))
 
 	return confirm.open(m, func() screen.Request {
-		return m.deleteChosenAgents(work, confirm.values.deletesRecords())
+		return m.deleteChosenWrite(work, confirm.values.deletesRecords())
 	})
 }
 

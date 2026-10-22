@@ -65,7 +65,12 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 			case entry.Opens != nil:
 				return m.pushSubmenu(stack, newSubmenuLevel(*entry.Opens))
 			case entry.Form != nil:
-				return m.stackBeside(parents, stack, level, hostedForm(entry.Form()))
+				beside := openedFormState(entry.Form())
+				if level.menu.InPlace {
+					return m.stackForm(parents, stack, beside)
+				}
+
+				return m.stackForm(stack, stack, beside)
 			case entry.Pick == nil:
 				return m.closeForm()
 			}
@@ -90,16 +95,6 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 	}
 
 	return state
-}
-
-// stackBeside renders a form an entry opens to the right of the menu, or in the menu's place when
-// the menu is in place.
-func (m *model) stackBeside(parents, stack []submenuLevel, level submenuLevel, form formState) tea.Cmd {
-	if level.menu.InPlace {
-		return m.stackForm(parents, stack, form)
-	}
-
-	return m.stackForm(stack, stack, form)
 }
 
 // pushSubmenu renders a menu to the right of the one that opened it.

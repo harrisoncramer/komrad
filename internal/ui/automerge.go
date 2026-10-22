@@ -40,9 +40,9 @@ func autoMergeRefusal(task panel.Task) error {
 	return nil
 }
 
-// setAutoMerge asks the forge to merge the task's pull request once its checks and reviews pass,
-// or to stop waiting to.
-func (m *model) setAutoMerge(task panel.Task, params mergeParams, on bool) screen.Write {
+// autoMergeWrite is the write that asks the forge to merge the task's pull request once its
+// checks and reviews pass, or to stop waiting to.
+func (m *model) autoMergeWrite(task panel.Task, params mergeParams, on bool) screen.Write {
 	clients := m.api
 	ref := task.PullRequest.Ref()
 	doing, said := "cancelling auto-merge on "+ref, " no longer merges on its own"

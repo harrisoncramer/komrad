@@ -97,7 +97,7 @@ func (m *model) runMerge(taskID string, choice mergeChoice) tea.Cmd {
 			return m.apply(screen.Report{Summary: "Could not change auto-merge on the " + task.PullRequest.Noun() + " of " + task.Slug, Err: err})
 		}
 		if task.PullRequest.MergeReadiness.AutoMerge {
-			return m.apply(m.setAutoMerge(task, mergeParams{url: task.PullRequest.URL, headSHA: task.PullRequest.HeadSHA}, false))
+			return m.apply(m.autoMergeWrite(task, mergeParams{url: task.PullRequest.URL, headSHA: task.PullRequest.HeadSHA}, false))
 		}
 	case mergeChoiceMergeRebase:
 		if err := mergeRebaseRefusal(m.listing, task); err != nil {
@@ -169,7 +169,7 @@ func (m *model) openMergeForm(task panel.Task, choice mergeChoice, plan *forgev1
 				return form.Refuse{Err: err}
 			}
 
-			return m.sendMerge(task, choice, *params)
+			return m.mergeWrite(task, choice, *params)
 		},
 		Narrow:          true,
 		ClosesOnRefusal: true,
@@ -187,17 +187,17 @@ func mergeOptionOf(plan *forgev1.PlanForgePullRequestMergeResponse, method forge
 	return nil
 }
 
-// sendMerge does what the merge menu entry asked for, the way the form says.
-func (m *model) sendMerge(task panel.Task, choice mergeChoice, params mergeParams) screen.Write {
+// mergeWrite is the write that does what the merge menu entry asked for, the way the form says.
+func (m *model) mergeWrite(task panel.Task, choice mergeChoice, params mergeParams) screen.Write {
 	switch choice {
 	case mergeChoiceAutoMerge:
-		return m.setAutoMerge(task, params, true)
+		return m.autoMergeWrite(task, params, true)
 	case mergeChoiceMergeRebase:
-		return m.runGit(mergeRebaseOp(task, params))
+		return m.gitOpWrite(mergeRebaseOp(task, params))
 	case mergeChoiceMerge, mergeChoiceMergeArchive:
 	}
 
-	return m.runGit(mergeOp(task, choice == mergeChoiceMergeArchive, params))
+	return m.gitOpWrite(mergeOp(task, choice == mergeChoiceMergeArchive, params))
 }
 
 func mergeOp(task panel.Task, archive bool, params mergeParams) gitOp {

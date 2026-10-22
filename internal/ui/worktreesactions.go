@@ -181,7 +181,7 @@ func confirmDeleteMixed(m *model, deletion worktreeDeletion) tea.Cmd {
 	confirm := deleteMixedConfirm(deletion, len(m.listing.AgentsOnTasks(deletion.tasks)))
 
 	return confirm.open(m, func() screen.Request {
-		return screen.Batch{m.deleteTasks(deletion.tasks, confirm.values.deletesRecords()), deleteWorktrees(m, deletion)}
+		return screen.Batch{m.deleteTasksWrite(deletion.tasks, confirm.values.deletesRecords()), deleteWorktreesWrite(m, deletion)}
 	})
 }
 
@@ -192,12 +192,12 @@ func confirmDeleteWorktrees(m *model, deletion worktreeDeletion) tea.Cmd {
 	}
 
 	return deleteWorktreesConfirm(deletion).open(m, func() screen.Request {
-		return deleteWorktrees(m, deletion)
+		return deleteWorktreesWrite(m, deletion)
 	})
 }
 
-// deleteWorktrees queues the deletion as one background job.
-func deleteWorktrees(m *model, deletion worktreeDeletion) screen.Write {
+// deleteWorktreesWrite is the write that queues the deletion as one background job.
+func deleteWorktreesWrite(m *model, deletion worktreeDeletion) screen.Write {
 	dirs := deletion.dirs()
 	subject := label.Count(len(dirs), "worktree", "worktrees")
 

@@ -131,8 +131,9 @@ func (m *model) archiveTasks(tasks []panel.Task) tea.Cmd {
 	}))
 }
 
-// deleteTasks deletes the tasks' worktrees, and with records the tasks for good with everything on them.
-func (m *model) deleteTasks(tasks []panel.Task, records bool) screen.Write {
+// deleteTasksWrite is the write that deletes the tasks' worktrees, and with records the tasks for
+// good with everything on them.
+func (m *model) deleteTasksWrite(tasks []panel.Task, records bool) screen.Write {
 	return m.archivingWrite(archivingWriteParams{
 		doing:   "deleting " + describeTasks(tasks),
 		summary: "Could not delete " + describeTasks(tasks),
@@ -148,7 +149,7 @@ func confirmDeleteTasks(m *model, tasks []panel.Task) tea.Cmd {
 	confirm := deleteTasksConfirm(tasks, len(m.listing.AgentsOnTasks(tasks)), m.listing.HasAnyWorktreeToDelete(tasks))
 
 	return confirm.open(m, func() screen.Request {
-		return m.deleteTasks(tasks, confirm.values.deletesRecords())
+		return m.deleteTasksWrite(tasks, confirm.values.deletesRecords())
 	})
 }
 

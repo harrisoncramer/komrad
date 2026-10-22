@@ -16,7 +16,9 @@ import (
 // pointer.
 type formState struct {
 	form.Form
-	form *huh.Form
+
+	// rendered is the huh form on screen.
+	rendered *huh.Form
 
 	// isMenu says the form is the space menu.
 	isMenu bool
@@ -53,8 +55,8 @@ type formState struct {
 	vim *field.Vim
 }
 
-// hostedForm is the slot a form opened through form.Open takes.
-func hostedForm(f form.Form) formState {
+// openedFormState is the form state a form.Open puts on screen.
+func openedFormState(f form.Form) formState {
 	state := formState{
 		Form:   f,
 		update: (*model).updateForm,
@@ -69,7 +71,7 @@ func hostedForm(f form.Form) formState {
 
 // isActive reports whether a form is up and holding the keys.
 func (f formState) isActive() bool {
-	return f.form != nil
+	return f.rendered != nil
 }
 
 // isOpening reports whether a form is on screen or is about to be, which the built form cannot
@@ -85,12 +87,12 @@ func (m *model) openForm(f formState) tea.Cmd {
 	m.reconcileSolo()
 	m.form.vim = field.NewVim(m.register)
 
-	m.form.form = m.form.Built
-	if m.form.form == nil {
-		m.form.form, m.form.order = m.form.Build(m.formInputs())
+	m.form.rendered = m.form.Built
+	if m.form.rendered == nil {
+		m.form.rendered, m.form.order = m.form.Build(m.formInputs())
 	}
 
-	return tea.Batch(m.form.form.Init(), formResized())
+	return tea.Batch(m.form.rendered.Init(), formResized())
 }
 
 // formInputs is what a form reads of the panel as it is built or answered.
@@ -221,7 +223,7 @@ func (m *model) holdForm() tea.Cmd {
 	if !m.form.isActive() {
 		return nil
 	}
-	if m.form.form.State == huh.StateCompleted {
+	if m.form.rendered.State == huh.StateCompleted {
 		return m.rebuildForm()
 	}
 
@@ -236,7 +238,7 @@ func (m *model) rerenderOpenForm() tea.Cmd {
 	}
 
 	key := ""
-	if focused := m.form.form.GetFocusedField(); focused != nil {
+	if focused := m.form.rendered.GetFocusedField(); focused != nil {
 		key = focused.GetKey()
 	}
 
@@ -249,7 +251,7 @@ func (m *model) rebuildForm() tea.Cmd {
 	}
 
 	built, order := m.form.Build(m.formInputs())
-	m.form.form = built
+	m.form.rendered = built
 	m.form.order = order
 
 	return tea.Batch(built.Init(), formResized())
@@ -295,7 +297,7 @@ func (m *model) refuseForm(refused form.Refuse) tea.Cmd {
 	if refused.Field != "" {
 		return m.rerenderFormOn(refused.Field)
 	}
-	if m.form.form.State == huh.StateCompleted {
+	if m.form.rendered.State == huh.StateCompleted {
 		return m.rebuildForm()
 	}
 
@@ -321,7 +323,7 @@ func (m *model) updateForm(msg tea.Msg) tea.Cmd {
 
 	cmd := m.stepForm(msg)
 
-	switch m.form.form.State {
+	switch m.form.rendered.State {
 	case huh.StateCompleted:
 		if m.writes.held.active {
 			return cmd
@@ -335,7 +337,7 @@ func (m *model) updateForm(msg tea.Msg) tea.Cmd {
 
 	if m.form.Reshaped != nil && m.form.Reshaped() {
 		key := ""
-		if focused := m.form.form.GetFocusedField(); focused != nil {
+		if focused := m.form.rendered.GetFocusedField(); focused != nil {
 			key = focused.GetKey()
 		}
 
@@ -348,12 +350,12 @@ func (m *model) updateForm(msg tea.Msg) tea.Cmd {
 // stepForm hands a message to huh, keeping the form as rendered before a key that may finish it.
 func (m *model) stepForm(msg tea.Msg) tea.Cmd {
 	if _, ok := msg.(tea.KeyPressMsg); ok && m.form.Build == nil {
-		m.form.frozen = m.form.form.View()
+		m.form.frozen = m.form.rendered.View()
 	}
 
-	form, cmd := m.form.form.Update(msg)
+	form, cmd := m.form.rendered.Update(msg)
 	if updated, ok := form.(*huh.Form); ok {
-		m.form.form = updated
+		m.form.rendered = updated
 	}
 
 	return cmd

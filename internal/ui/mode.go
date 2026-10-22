@@ -44,7 +44,7 @@ func (m *model) findMode() (paint.Tone, string) {
 // isEditing reports whether a text field holds the keys and is taking typed text.
 func (m *model) isEditing() bool {
 	if m.form.isActive() {
-		focused := m.form.form.GetFocusedField()
+		focused := m.form.rendered.GetFocusedField()
 
 		return focused != nil && field.IsText(focused) && m.form.vim.IsInserting(focused.GetKey())
 	}

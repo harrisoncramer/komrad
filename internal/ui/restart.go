@@ -90,12 +90,12 @@ func openRestart(m *model, target restartTarget) tea.Cmd {
 			return restartForm(fixedKeys(), values, target)
 		},
 		Editable: []form.Editable{{Key: "note", Value: &values.Note}},
-		Submit:   func(form.Inputs) screen.Request { return m.restartAgent(target.agent, *values) },
+		Submit:   func(form.Inputs) screen.Request { return m.restartWrite(target.agent, *values) },
 	}})
 }
 
-// restartAgent relaunches the agent on a new conversation in the same directory.
-func (m *model) restartAgent(agent panel.Agent, values restartValues) screen.Write {
+// restartWrite is the write that relaunches the agent on a new conversation in the same directory.
+func (m *model) restartWrite(agent panel.Agent, values restartValues) screen.Write {
 	clients := m.api
 
 	return screen.Write{
