@@ -42,7 +42,7 @@ type diffKeys struct {
 func diffTable[S any](k diffKeys, in screen.Inputs) []keys.Action[S] {
 	panning := func(S) bool { return !in.Room.Wrap }
 
-	return append(navActions[S](k.keys, k, in, navSteps{page: navPageStep, scroll: diffWheelStep}), []keys.Action[S]{
+	return append(navActions[S](navActionsParams{keys: k.keys, nav: k, in: in, page: navPageStep, scroll: diffWheelStep}), []keys.Action[S]{
 		{
 			ID:   actionDiffFile,
 			Keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.NextFile, b.Diff.PrevFile) },

@@ -105,6 +105,7 @@ func (m *model) listFitsTabs() (list.Params, bool) {
 	if !ok {
 		return list.Params{}, false
 	}
+
 	params := l.listParams(&probe, probe.inputs())
 
 	if probe.term.height <= 0 {

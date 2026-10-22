@@ -61,7 +61,8 @@ func TestReviewAnswer(t *testing.T) {
 			Whole: gittest.PatchOfBothFiles + gittest.PatchOfATallFile,
 			Since: gittest.PatchOfATallFile,
 		})
-		server.repo.Patches[gittest.NamePair(gittest.SnapshotSHA, gittest.NameSnapshot(server.repo.Tree))] = gittest.PatchOfTheSecondFile + gittest.PatchOfATallFile
+		server.repo.Patches[gittest.NamePair(gittest.SnapshotSHA, gittest.NameSnapshot(server.repo.Tree))] =
+			gittest.PatchOfTheSecondFile + gittest.PatchOfATallFile
 		server.snapshots = append(server.snapshots, &agentv1.ReviewSnapshot{
 			Id:      "snapshot-3",
 			TaskId:  "t1",
