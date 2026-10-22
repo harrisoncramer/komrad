@@ -86,18 +86,9 @@ func (m *model) withListing(change func(*panel.Listing)) tea.Cmd {
 	return tea.Batch(relisted, rerendered, m.finishParked(), m.afterListing())
 }
 
-// readStatusChecksCmd lists the status checks again while they or their logs are up.
-func (m *model) readStatusChecksCmd() tea.Cmd {
-	if m.screen != screen.StatusChecks && m.screen != screen.StatusCheckLogs {
-		return nil
-	}
-
-	return m.statusChecks.readStatusChecksCmd(m.inputs())
-}
-
 // afterListing asks for what the hovered rows are owed and stages the screen over them.
 func (m *model) afterListing() tea.Cmd {
-	inspect := tea.Batch(m.apply(m.worktrees.inspectUnread(m.inputsFor(&m.worktrees))), m.apply(m.inspectTaskWorktree(m.clock.Now())), m.documents.readDocumentsCmd(m.inputsFor(&m.documents)), m.readStatusChecksCmd(), m.readMovedLastScreenCmd())
+	inspect := tea.Batch(m.apply(m.worktrees.inspectUnread(m.inputsFor(&m.worktrees))), m.apply(m.inspectTaskWorktree(m.clock.Now())), m.documents.readDocumentsCmd(m.inputsFor(&m.documents)), m.readMovedLastScreenCmd())
 
 	// A screen that renders what it holds beside its own list stages nothing at all.
 	active := m.active()

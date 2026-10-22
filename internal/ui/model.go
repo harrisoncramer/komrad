@@ -23,6 +23,7 @@ import (
 	"komrad/internal/loader"
 	"komrad/internal/panes"
 	"komrad/internal/ui/api"
+	"komrad/internal/ui/checks"
 	"komrad/internal/ui/editor"
 	"komrad/internal/ui/filter"
 	"komrad/internal/ui/keys"
@@ -294,7 +295,7 @@ type model struct {
 	worktrees       worktreesScreen
 	documents       documentsScreen
 	logs            logs.Screen
-	statusChecks    statusChecksScreen
+	statusChecks    checks.Screen
 	// inspections is what the server answered for each worktree directory.
 	inspections map[string]panel.WorktreeInspection
 	lastScreen  lastScreen
@@ -450,13 +451,6 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		draftDir:      deps.Settings.DraftDir,
 		glyphs:        deps.Glyphs,
 	}
-	statusChecks := statusChecksDeps{
-		keys:    deps.Keys,
-		glyphs:  deps.Glyphs,
-		clock:   clock,
-		clients: clients,
-		top:     top,
-	}
 
 	m := model{
 		term: terminalState{
@@ -524,10 +518,16 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 			Clients:  clients,
 			Top:      top,
 		}),
-		statusChecks: statusChecksScreen{deps: statusChecks},
-		warm:         newWarmupState(),
-		loading:      loadingState{style: cmp.Or(deps.Loader, loader.Braille)},
-		reactors:     newWorldReactors(),
+		statusChecks: checks.New(checks.Deps{
+			Keys:    deps.Keys,
+			Glyphs:  deps.Glyphs,
+			Clock:   clock,
+			Clients: clients,
+			Top:     top,
+		}),
+		warm:     newWarmupState(),
+		loading:  loadingState{style: cmp.Or(deps.Loader, loader.Braille)},
+		reactors: newWorldReactors(),
 	}
 
 	if m.clip == nil {

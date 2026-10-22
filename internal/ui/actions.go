@@ -19,9 +19,6 @@ const (
 	actionDocumentsBack
 	actionDocumentsOlder
 	actionDocumentsNewer
-	actionStatusChecksBack
-	actionStatusChecksLogs
-	actionStatusCheckLogsBack
 	actionDiffFile
 	actionDiffMatch
 	actionDiffPan

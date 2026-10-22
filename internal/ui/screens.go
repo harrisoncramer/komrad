@@ -3,6 +3,7 @@ package ui
 import (
 	"image"
 
+	"komrad/internal/ui/checks"
 	"komrad/internal/ui/column"
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/filter"
@@ -238,7 +239,7 @@ func (m *model) screens() []screenModel {
 		&m.documents,
 		&m.logs,
 		&m.statusChecks,
-		m.statusChecks.logsScreen(),
+		m.statusChecks.Logs(),
 	}
 }
 
@@ -268,7 +269,7 @@ func (m *model) screenOf(s screen.ID) screenModel {
 	case screen.StatusChecks:
 		return &m.statusChecks
 	case screen.StatusCheckLogs:
-		return m.statusChecks.logsScreen()
+		return m.statusChecks.Logs()
 	}
 
 	// The switch carries every screen and no default, so this is what a screen added without an
@@ -283,6 +284,22 @@ var (
 	_ screenLeaver  = (*logs.Screen)(nil)
 	_ lineTyper     = (*logs.Screen)(nil)
 	_ kindSwitcher  = (*logs.Screen)(nil)
+)
+
+var (
+	_ kindSwitcher    = (*checks.Screen)(nil)
+	_ activeLister    = (*checks.Screen)(nil)
+	_ crumbRenderer   = (*checks.Screen)(nil)
+	_ loadingReporter = (*checks.Screen)(nil)
+)
+
+var (
+	_ kindSwitcher    = checks.Logs{}
+	_ activeLister    = checks.Logs{}
+	_ crumbRenderer   = checks.Logs{}
+	_ loadingReporter = checks.Logs{}
+	_ screenLeaver    = checks.Logs{}
+	_ docNamer        = checks.Logs{}
 )
 
 // stageEditor puts an editor on the stage with the keys in it, and answers the pane it was

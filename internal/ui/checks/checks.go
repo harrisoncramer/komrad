@@ -1,4 +1,6 @@
-package ui
+// Package checks holds the screen that lists the status checks on an agent's pull request and the
+// screen that reads their logs.
+package checks
 
 import (
 	"slices"
@@ -25,8 +27,16 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// statusCheckItem is one check as the listing reported it.
-type statusCheckItem struct {
+const (
+	actionBack keys.ID = keys.Own + iota
+	actionLogs
+	actionLogsBack
+)
+
+const separated = " " + glyph.Separator + " "
+
+// check is one check as the listing reported it.
+type check struct {
 	providerID string
 	checkID    string
 	name       string
@@ -35,55 +45,61 @@ type statusCheckItem struct {
 	passed     bool
 	startedAt  time.Time
 	finishedAt time.Time
-	steps      []statusCheckItem
+	steps      []check
 	log        *pullrequestv1.CheckLog
 }
 
-// statusCheckCommit is the checks read on the pull request's newest head.
-type statusCheckCommit struct {
+// commit is the checks read on the pull request's newest head.
+type commit struct {
 	headSHA     string
 	firstReadAt time.Time
-	items       []statusCheckItem
+	items       []check
 }
 
-// statusChecksDeps is what the status checks screens are given at launch.
-type statusChecksDeps struct {
-	keys    config.Keybindings
-	glyphs  glyph.Set
-	clock   screen.Clock
-	clients api.Clients
-	top     *keys.Top
+// Deps is what the status checks screens are given at launch.
+type Deps struct {
+	Keys    config.Keybindings
+	Glyphs  glyph.Set
+	Clock   screen.Clock
+	Clients api.Clients
+	Top     *keys.Top
 }
 
-// statusChecksScreen lists the status checks on the newest head of the pull request opened from one agent's branch.
-type statusChecksScreen struct {
-	deps statusChecksDeps
+// Screen lists the status checks on the newest head of the pull request opened from one agent's branch.
+type Screen struct {
+	deps Deps
 	list.Cursor
 	agentID           string
 	openedFrom        screen.ID
-	commit            statusCheckCommit
+	commit            commit
 	listedPullRequest string
 	listedHead        string
 	listed            bool
 	listing           bool
 	err               error
-	scope             statusCheckScope
+	scope             scope
 	scopeChosen       bool
 	scopeFocus        bool
-	logs              statusCheckLogs
+	logs              logs
 }
 
-type statusCheckRow struct {
-	item statusCheckItem
+// New is the status checks screen built from what it is given at launch.
+func New(deps Deps) Screen {
+	return Screen{deps: deps}
 }
 
-func (r statusCheckRow) Key() string {
+type checkRow struct {
+	item check
+}
+
+func (r checkRow) Key() string {
 	return "status-check:" + r.item.providerID
 }
 
-func (c *statusChecksScreen) Enter(in screen.Inputs, target screen.Target) screen.Request {
+// Enter lists the status checks, starting afresh when the screen opens for an agent.
+func (c *Screen) Enter(in screen.Inputs, target screen.Target) screen.Request {
 	if target.AgentID != "" {
-		*c = statusChecksScreen{
+		*c = Screen{
 			deps:       c.deps,
 			agentID:    target.AgentID,
 			openedFrom: target.OpenedFrom,
@@ -91,54 +107,59 @@ func (c *statusChecksScreen) Enter(in screen.Inputs, target screen.Target) scree
 		}
 	}
 
-	return screen.Cmd(c.readStatusChecksCmd(in))
+	return screen.Cmd(c.readCmd(in))
 }
 
-func (c *statusChecksScreen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
+// Update sends a key to the screen's table.
+func (c *Screen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return nil
 	}
 
-	return c.listActions(in).DispatchTop(c.deps.top, c, c.deps.keys, key.String())
+	return c.listActions(in).DispatchTop(c.deps.Top, c, c.deps.Keys, key.String())
 }
 
-func (c *statusChecksScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
-	listed, ok := msg.(statusChecksListedMsg)
-	if !ok {
-		return nil, false
+// Receive takes the status checks as they are listed, and lists them again once the listing moves.
+func (c *Screen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
+	switch msg := msg.(type) {
+	case listedMsg:
+		return c.applyListed(in, msg), true
+	case screen.Relisted:
+		return screen.Cmd(c.readCmd(in)), true
 	}
 
-	return c.applyListed(in, listed), true
+	return nil, false
 }
 
-func (c *statusChecksScreen) list() keys.ScreenList[statusCheckRow] {
-	return keys.ScreenList[statusCheckRow]{
-		Keys:   c.deps.keys,
+func (c *Screen) list() keys.ScreenList[checkRow] {
+	return keys.ScreenList[checkRow]{
+		Keys:   c.deps.Keys,
 		Cursor: func() *list.Cursor { return &c.Cursor },
 		Rows:   c.rows,
-		Name:   statusCheckRowName,
+		Name:   checkRowName,
 		Moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
 	}
 }
 
-func (c *statusChecksScreen) rows(in screen.Inputs) []statusCheckRow {
-	return list.Narrowed(in.Room.Pattern, list.NarrowedParams[statusCheckRow]{
-		Rows: xslice.Map(xslice.Filter(c.commit.items, c.shownScope().holds), func(item statusCheckItem) statusCheckRow {
-			return statusCheckRow{item: item}
+func (c *Screen) rows(in screen.Inputs) []checkRow {
+	return list.Narrowed(in.Room.Pattern, list.NarrowedParams[checkRow]{
+		Rows: xslice.Map(xslice.Filter(c.commit.items, c.shownScope().holds), func(item check) checkRow {
+			return checkRow{item: item}
 		}),
-		Depth: func(statusCheckRow) int { return 0 },
-		Name:  statusCheckRowName,
+		Depth: func(checkRow) int { return 0 },
+		Name:  checkRowName,
 	})
 }
 
-func statusCheckRowName(row statusCheckRow) string {
+func checkRowName(row checkRow) string {
 	return row.item.name
 }
 
-func (c *statusChecksScreen) ListParams(in screen.Inputs) list.Params {
+// ListParams is the list of status checks as the root renders it.
+func (c *Screen) ListParams(in screen.Inputs) list.Params {
 	return list.Params{
-		Tally:    c.commit.tally(c.deps.clock.Now()),
+		Tally:    c.commit.tally(c.deps.Clock.Now()),
 		Help:     c.help(in),
 		Empty:    c.emptyLine(in),
 		Rows:     len(c.rows(in)),
@@ -146,125 +167,130 @@ func (c *statusChecksScreen) ListParams(in screen.Inputs) list.Params {
 	}
 }
 
-// statusCheckScope is which of the status checks the status checks screen lists.
-type statusCheckScope int
+// scope is which of the status checks the status checks screen lists.
+type scope int
 
 const (
-	statusCheckScopeAll statusCheckScope = iota
-	statusCheckScopeNotPassing
-	statusCheckScopeActive
-	statusCheckScopeFailing
+	scopeAll scope = iota
+	scopeNotPassing
+	scopeActive
+	scopeFailing
 )
 
-var statusCheckScopeLabels = []string{"all", "not passing", "active", "failing"}
+var scopeLabels = []string{"all", "not passing", "active", "failing"}
 
 // holds reports whether the scope lists the status check.
-func (s statusCheckScope) holds(item statusCheckItem) bool {
+func (s scope) holds(item check) bool {
 	switch s {
-	case statusCheckScopeNotPassing:
+	case scopeNotPassing:
 		return !item.passed
-	case statusCheckScopeActive:
-		return isStatusCheckInFlight(item)
-	case statusCheckScopeFailing:
-		return isStatusCheckFinished(item) && !item.passed
-	case statusCheckScopeAll:
+	case scopeActive:
+		return isInFlight(item)
+	case scopeFailing:
+		return isFinished(item) && !item.passed
+	case scopeAll:
 	}
 
 	return true
 }
 
-func (c *statusChecksScreen) shownScope() statusCheckScope {
+func (c *Screen) shownScope() scope {
 	switch {
 	case c.scopeChosen:
 		return c.scope
-	case slices.ContainsFunc(c.commit.items, statusCheckScopeNotPassing.holds):
-		return statusCheckScopeNotPassing
+	case slices.ContainsFunc(c.commit.items, scopeNotPassing.holds):
+		return scopeNotPassing
 	}
 
-	return statusCheckScopeAll
+	return scopeAll
 }
 
-func (c *statusChecksScreen) Kinds() tabs.Stops {
+// Kinds is the row of scopes the status checks are listed under.
+func (c *Screen) Kinds() tabs.Stops {
 	return tabs.Stops{
-		Labels: statusCheckScopeLabels,
+		Labels: scopeLabels,
 		Focus:  tabs.NoStop,
 		Lit:    int(c.shownScope()),
 	}
 }
 
-func (c *statusChecksScreen) KindsFocused() *bool {
+// KindsFocused is whether the row of scopes holds the keys.
+func (c *Screen) KindsFocused() *bool {
 	return &c.scopeFocus
 }
 
-func (c *statusChecksScreen) KindsSwitch() bool {
+// KindsSwitch reports that the scope may always change.
+func (c *Screen) KindsSwitch() bool {
 	return true
 }
 
 // StepKind moves the listing to another scope, keeping the cursor on its row when the new scope lists it.
-func (c *statusChecksScreen) StepKind(in screen.Inputs, delta int) screen.Request {
+func (c *Screen) StepKind(in screen.Inputs, delta int) screen.Request {
 	hovered := c.list().Hovered(in)
-	c.scope = statusCheckScope(tabs.StepStop(int(c.shownScope()), delta, len(statusCheckScopeLabels)))
+	c.scope = scope(tabs.StepStop(int(c.shownScope()), delta, len(scopeLabels)))
 	c.scopeChosen = true
 
 	return screen.Batch{c.list().Place(in, hovered), screen.Settle{}}
 }
 
-func (c *statusChecksScreen) listActions(in screen.Inputs) keys.Spec[*statusChecksScreen] {
-	return keys.Spec[*statusChecksScreen]{
-		Table: append(keys.ListActions[*statusChecksScreen](c.list(), in),
-			keys.Action[*statusChecksScreen]{
-				ID:   actionStatusChecksBack,
+func (c *Screen) listActions(in screen.Inputs) keys.Spec[*Screen] {
+	return keys.Spec[*Screen]{
+		Table: append(keys.ListActions[*Screen](c.list(), in),
+			keys.Action[*Screen]{
+				ID:   actionBack,
 				Keys: keys.FixedBack,
-				Nav: func(*statusChecksScreen, string) screen.Request {
+				Nav: func(*Screen, string) screen.Request {
 					return screen.Open{Screen: c.openedFrom, Target: screen.Target{AgentID: c.agentID}}
 				},
 			},
-			keys.Action[*statusChecksScreen]{
-				ID:   actionStatusChecksLogs,
+			keys.Action[*Screen]{
+				ID:   actionLogs,
 				Keys: keys.FixedOpen,
-				Nav: func(*statusChecksScreen, string) screen.Request {
+				Nav: func(*Screen, string) screen.Request {
 					return screen.Open{Screen: screen.StatusCheckLogs, Target: screen.Target{AgentID: c.agentID, OpenedFrom: screen.StatusChecks}}
 				},
 			},
 		),
-		Legend: slices.Concat(keys.NavLegend[*statusChecksScreen](), []keys.LegendRow[*statusChecksScreen]{
+		Legend: slices.Concat(keys.NavLegend[*Screen](), []keys.LegendRow[*Screen]{
 			{
 				Of:   []keys.ID{keys.FilterOpen},
-				Desc: keys.FilterDescOf[*statusChecksScreen](in),
+				Desc: keys.FilterDescOf[*Screen](in),
 			},
 			{
 				Of:    []keys.ID{keys.FilterClear},
-				Desc:  keys.FilterClearDescOf[*statusChecksScreen](in),
+				Desc:  keys.FilterClearDescOf[*Screen](in),
 				Strip: true,
 			},
 			{
 				Of:    []keys.ID{keys.FilterMatch},
-				Desc:  func(*statusChecksScreen) string { return "next/prev match" },
+				Desc:  func(*Screen) string { return "next/prev match" },
 				Strip: true,
 			},
 			{
-				Of:    []keys.ID{actionStatusChecksBack},
-				Desc:  func(*statusChecksScreen) string { return "back" },
+				Of:    []keys.ID{actionBack},
+				Desc:  func(*Screen) string { return "back" },
 				Strip: true,
 			},
 			{
-				Of:    []keys.ID{actionStatusChecksLogs},
-				Desc:  func(*statusChecksScreen) string { return "logs" },
+				Of:    []keys.ID{actionLogs},
+				Desc:  func(*Screen) string { return "logs" },
 				Strip: true,
 			},
 		}),
 	}
 }
 
-func (c *statusChecksScreen) help(in screen.Inputs) legend.Help {
-	return c.listActions(in).Help(c, c.deps.keys)
+func (c *Screen) help(in screen.Inputs) legend.Help {
+	return c.listActions(in).Help(c, c.deps.Keys)
 }
 
-func (c *statusChecksScreen) Parent() screen.ID {
+// Parent is the screen the status checks were opened from.
+func (c *Screen) Parent() screen.ID {
 	return c.openedFrom
 }
 
-func (c *statusChecksScreen) Crumbs(in screen.Inputs) screen.Crumbs {
+// Crumbs is the trail down to the agent's status checks.
+func (c *Screen) Crumbs(in screen.Inputs) screen.Crumbs {
 	name := c.agentID
 	if item, ok := in.Listing.AnyAgent(c.agentID); ok {
 		name = in.Listing.AgentName(item.Agent)
@@ -273,52 +299,51 @@ func (c *statusChecksScreen) Crumbs(in screen.Inputs) screen.Crumbs {
 	return screen.Crumbs{Trail: []string{name, "status checks"}}
 }
 
-func (c *statusChecksScreen) DoesRenderFromListing() bool {
+// DoesRenderFromListing reports that the screen names the agent from the listing.
+func (c *Screen) DoesRenderFromListing() bool {
 	return true
 }
 
-func (c *statusChecksScreen) TakesEveryKey() bool {
+// TakesEveryKey reports that nothing on the screen takes every key.
+func (c *Screen) TakesEveryKey() bool {
 	return false
 }
 
-func (c *statusChecksScreen) Column(in screen.Inputs) column.Spec {
+// Column is the hovered status check's steps rendered in the block beside the list.
+func (c *Screen) Column(in screen.Inputs) column.Spec {
 	return column.Spec{
 		Floor:   column.Narrowest,
 		DocRows: func(width int) []string { return c.docRows(in, width) },
 	}
 }
 
-func (c *statusChecksScreen) StageResting(screen.Inputs) screen.Request {
+// StageResting stages nothing for the row the cursor rests on.
+func (c *Screen) StageResting(screen.Inputs) screen.Request {
 	return nil
 }
 
-func (c *statusChecksScreen) Dispatches() []keys.Table {
+// Dispatches is the screen's one table.
+func (c *Screen) Dispatches() []keys.Table {
 	return []keys.Table{c.listActions(screen.Inputs{})}
 }
 
-var (
-	_ kindSwitcher    = (*statusChecksScreen)(nil)
-	_ activeLister    = (*statusChecksScreen)(nil)
-	_ crumbRenderer   = (*statusChecksScreen)(nil)
-	_ loadingReporter = (*statusChecksScreen)(nil)
-)
-
-func (c *statusChecksScreen) ActiveList() keys.KeyedList {
+// ActiveList is the list of status checks the filter narrows.
+func (c *Screen) ActiveList() keys.KeyedList {
 	return c.list()
 }
 
-// statusChecksListedMsg is the status checks on one pull request's newest head come back.
-type statusChecksListedMsg struct {
+// listedMsg is the status checks on one pull request's newest head come back.
+type listedMsg struct {
 	agentID       string
 	pullRequestID string
 	headSHA       string
 	headRead      bool
-	commit        statusCheckCommit
+	commit        commit
 	err           error
 }
 
-// statusChecksPullRequestID is the pull request the agent's row stands for, empty when it has none.
-func statusChecksPullRequestID(listing panel.Listing, agentID string) string {
+// pullRequestOf is the pull request the agent's row stands for, empty when it has none.
+func pullRequestOf(listing panel.Listing, agentID string) string {
 	item, ok := listing.AnyAgent(agentID)
 	if !ok {
 		return ""
@@ -332,14 +357,14 @@ func statusChecksPullRequestID(listing panel.Listing, agentID string) string {
 	return pullRequests[0].ID
 }
 
-// readStatusChecksCmd lists the status checks again when the agent's pull request or its head has moved since
+// readCmd lists the status checks again when the agent's pull request or its head has moved since
 // they were last listed, once at a time.
-func (c *statusChecksScreen) readStatusChecksCmd(in screen.Inputs) tea.Cmd {
+func (c *Screen) readCmd(in screen.Inputs) tea.Cmd {
 	if !in.Up {
 		return nil
 	}
 
-	pullRequestID := statusChecksPullRequestID(in.Listing, c.agentID)
+	pullRequestID := pullRequestOf(in.Listing, c.agentID)
 	if pullRequestID == "" || c.listing {
 		return nil
 	}
@@ -351,12 +376,12 @@ func (c *statusChecksScreen) readStatusChecksCmd(in screen.Inputs) tea.Cmd {
 	}
 
 	c.listing = true
-	agentID, clients := c.agentID, c.deps.clients
+	agentID, clients := c.agentID, c.deps.Clients
 
 	return func() tea.Msg {
 		listed, err := clients.ListStatusChecks(pullRequestID)
 		if err != nil {
-			return statusChecksListedMsg{
+			return listedMsg{
 				agentID:       agentID,
 				pullRequestID: pullRequestID,
 				headSHA:       head,
@@ -364,19 +389,19 @@ func (c *statusChecksScreen) readStatusChecksCmd(in screen.Inputs) tea.Cmd {
 			}
 		}
 
-		commit, headRead := headStatusCheckCommit(listed.GetReadings(), head)
+		read, headRead := headCommit(listed.GetReadings(), head)
 
-		return statusChecksListedMsg{
+		return listedMsg{
 			agentID:       agentID,
 			pullRequestID: pullRequestID,
 			headSHA:       head,
 			headRead:      headRead,
-			commit:        commit,
+			commit:        read,
 		}
 	}
 }
 
-func (c *statusChecksScreen) applyListed(in screen.Inputs, msg statusChecksListedMsg) screen.Request {
+func (c *Screen) applyListed(in screen.Inputs, msg listedMsg) screen.Request {
 	if msg.agentID != c.agentID {
 		return nil
 	}
@@ -398,38 +423,39 @@ func (c *statusChecksScreen) applyListed(in screen.Inputs, msg statusChecksListe
 		return requests
 	}
 
-	return append(requests, screen.Cmd(c.readStatusChecksCmd(in)))
+	return append(requests, screen.Cmd(c.readCmd(in)))
 }
 
-func isStatusCheckFinished(item statusCheckItem) bool {
+func isFinished(item check) bool {
 	return item.state == pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED
 }
 
-func isStatusCheckInFlight(item statusCheckItem) bool {
-	return !isStatusCheckFinished(item) && !isStatusCheckUnknown(item)
+func isInFlight(item check) bool {
+	return !isFinished(item) && !isUnknown(item)
 }
 
-func isStatusCheckUnknown(item statusCheckItem) bool {
+func isUnknown(item check) bool {
 	return item.state == pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_UNKNOWN
 }
 
-func (c *statusChecksScreen) IsLoading(screen.Inputs) bool {
-	return slices.ContainsFunc(c.commit.items, isStatusCheckInFlight)
+// IsLoading reports whether any status check is still running.
+func (c *Screen) IsLoading(screen.Inputs) bool {
+	return slices.ContainsFunc(c.commit.items, isInFlight)
 }
 
-func newStatusCheckItem(check *pullrequestv1.StatusCheck) statusCheckItem {
-	return statusCheckItem{
-		providerID: check.GetProviderId(),
-		checkID:    check.GetId(),
-		name:       check.GetName(),
-		state:      check.GetState(),
-		conclusion: check.GetConclusion(),
-		passed:     check.GetPassed(),
-		startedAt:  dates.Parse(check.GetStartedAt()),
-		finishedAt: dates.Parse(check.GetFinishedAt()),
-		log:        check.GetLog(),
-		steps: xslice.Map(check.GetSteps(), func(step *pullrequestv1.StatusCheckStep) statusCheckItem {
-			return statusCheckItem{
+func newCheck(status *pullrequestv1.StatusCheck) check {
+	return check{
+		providerID: status.GetProviderId(),
+		checkID:    status.GetId(),
+		name:       status.GetName(),
+		state:      status.GetState(),
+		conclusion: status.GetConclusion(),
+		passed:     status.GetPassed(),
+		startedAt:  dates.Parse(status.GetStartedAt()),
+		finishedAt: dates.Parse(status.GetFinishedAt()),
+		log:        status.GetLog(),
+		steps: xslice.Map(status.GetSteps(), func(step *pullrequestv1.StatusCheckStep) check {
+			return check{
 				name:       step.GetName(),
 				state:      step.GetState(),
 				conclusion: step.GetConclusion(),
@@ -441,29 +467,29 @@ func newStatusCheckItem(check *pullrequestv1.StatusCheck) statusCheckItem {
 	}
 }
 
-// headStatusCheckCommit is the reading of the given head, and false when that head has not been read yet.
-func headStatusCheckCommit(readings []*pullrequestv1.StatusCheckReading, head string) (statusCheckCommit, bool) {
+// headCommit is the reading of the given head, and false when that head has not been read yet.
+func headCommit(readings []*pullrequestv1.StatusCheckReading, head string) (commit, bool) {
 	i := slices.IndexFunc(readings, func(reading *pullrequestv1.StatusCheckReading) bool {
 		return reading.GetHeadSha() == head
 	})
 	if i < 0 {
-		return statusCheckCommit{}, false
+		return commit{}, false
 	}
 
-	return newStatusCheckCommit(readings[i]), true
+	return newCommit(readings[i]), true
 }
 
-// newStatusCheckCommit is one head's reading.
-func newStatusCheckCommit(reading *pullrequestv1.StatusCheckReading) statusCheckCommit {
-	return statusCheckCommit{
+// newCommit is one head's reading.
+func newCommit(reading *pullrequestv1.StatusCheckReading) commit {
+	return commit{
 		headSHA:     reading.GetHeadSha(),
 		firstReadAt: dates.Parse(reading.GetFirstReadAt()),
-		items:       xslice.Map(reading.GetStatusChecks(), newStatusCheckItem),
+		items:       xslice.Map(reading.GetStatusChecks(), newCheck),
 	}
 }
 
 // tally is the commit's short hash and how long ago its checks were first read, empty when no commit was read.
-func (c statusCheckCommit) tally(now time.Time) string {
+func (c commit) tally(now time.Time) string {
 	var parts []string
 	if c.headSHA != "" {
 		parts = append(parts, xsha.Short(c.headSHA))
