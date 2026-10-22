@@ -239,7 +239,7 @@ type Deps struct {
 	Tasks           taskv1connect.TaskServiceClient
 	Watcher         Watcher
 	Clock           screen.Clock
-	Clipboard       Clipboard
+	ClipboardWriter ClipboardWriter
 	Editor          Editor
 	Keys            config.Keybindings
 	Glyphs          glyph.Set
@@ -312,7 +312,7 @@ type model struct {
 	glyphs       glyph.Set
 	// shell is what tmux starts a pane's process with, read once.
 	shell   string
-	clip    Clipboard
+	clip    ClipboardWriter
 	post    *postbox
 	clock   screen.Clock
 	watcher Watcher
@@ -414,7 +414,7 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 			tasks:        deps.Tasks,
 		},
 		session:         deps.Session,
-		clip:            deps.Clipboard,
+		clip:            deps.ClipboardWriter,
 		clock:           deps.Clock,
 		watcher:         deps.Watcher,
 		editor:          deps.Editor,

@@ -206,7 +206,7 @@ func Start(t *testing.T, params Params) *Panel {
 		Tasks:           remote.Tasks,
 		Watcher:         p.watcher,
 		Clock:           p.clock,
-		Clipboard:       p.clip,
+		ClipboardWriter: p.clip,
 		Editor:          p.editor,
 		Keys:            keybindings,
 		Loader:          params.Loader,
