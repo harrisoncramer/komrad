@@ -5,6 +5,7 @@ package testparsed
 import (
 	uuid "github.com/google/uuid"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 	protoconv "komrad/lib/protoconv"
 	testpb "komrad/lib/protoconv/internal/testpb"
 	time "time"
@@ -360,6 +361,84 @@ func ParseEither(m *testpb.Either) (*Either, error) {
 		parsed.Id = &value
 	}
 	parsed.Name = m.Name
+
+	return parsed, nil
+}
+
+// Wrapped is testpb.Wrapped with the values its rules describe converted.
+type Wrapped struct {
+	Owner   *uuid.UUID
+	Must    uuid.UUID
+	Trimmed *uuid.UUID
+	Binary  *uuid.UUID
+	Name    *wrapperspb.StringValue
+	Target  isWrapped_Target
+}
+
+type isWrapped_Target interface {
+	isWrapped_Target()
+}
+
+// Wrapped_Id is testpb.Wrapped_Id with its value converted.
+type Wrapped_Id struct {
+	Id uuid.UUID
+}
+
+func (*Wrapped_Id) isWrapped_Target() {}
+
+// Wrapped_Label is testpb.Wrapped_Label with its value converted.
+type Wrapped_Label struct {
+	Label string
+}
+
+func (*Wrapped_Label) isWrapped_Target() {}
+
+// ParseWrapped converts a testpb.Wrapped into its parsed form.
+func ParseWrapped(m *testpb.Wrapped) (*Wrapped, error) {
+	if m == nil {
+		return nil, protoconv.ErrMissing
+	}
+
+	var err error
+	parsed := &Wrapped{}
+	if m.Owner != nil {
+		value, err := protoconv.UUID(m.Owner.GetValue())
+		if err != nil {
+			return nil, protoconv.Field("owner", err)
+		}
+		parsed.Owner = &value
+	}
+	if m.Must == nil {
+		return nil, protoconv.Field("must", protoconv.ErrMissing)
+	}
+	if parsed.Must, err = protoconv.UUID(m.Must.GetValue()); err != nil {
+		return nil, protoconv.Field("must", err)
+	}
+	if m.Trimmed != nil {
+		value, err := protoconv.TrimmedUUID(m.Trimmed.GetValue())
+		if err != nil {
+			return nil, protoconv.Field("trimmed", err)
+		}
+		parsed.Trimmed = &value
+	}
+	if m.Binary != nil {
+		value, err := protoconv.BytesUUID(m.Binary.GetValue())
+		if err != nil {
+			return nil, protoconv.Field("binary", err)
+		}
+		parsed.Binary = &value
+	}
+	parsed.Name = m.Name
+	switch member := m.Target.(type) {
+	case *testpb.Wrapped_Id:
+		value, err := protoconv.UUID(member.Id.GetValue())
+		if err != nil {
+			return nil, protoconv.Field("id", err)
+		}
+		parsed.Target = &Wrapped_Id{Id: value}
+	case *testpb.Wrapped_Label:
+		parsed.Target = &Wrapped_Label{Label: member.Label}
+	}
 
 	return parsed, nil
 }

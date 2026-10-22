@@ -11,6 +11,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -703,6 +704,128 @@ func (x *Either) GetName() string {
 	return ""
 }
 
+type Wrapped struct {
+	state   protoimpl.MessageState  `protogen:"open.v1"`
+	Owner   *wrapperspb.StringValue `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	Must    *wrapperspb.StringValue `protobuf:"bytes,2,opt,name=must,proto3" json:"must,omitempty"`
+	Trimmed *wrapperspb.StringValue `protobuf:"bytes,3,opt,name=trimmed,proto3" json:"trimmed,omitempty"`
+	Binary  *wrapperspb.BytesValue  `protobuf:"bytes,4,opt,name=binary,proto3" json:"binary,omitempty"`
+	Name    *wrapperspb.StringValue `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`
+	// Types that are valid to be assigned to Target:
+	//
+	//	*Wrapped_Id
+	//	*Wrapped_Label
+	Target        isWrapped_Target `protobuf_oneof:"target"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Wrapped) Reset() {
+	*x = Wrapped{}
+	mi := &file_shapes_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Wrapped) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Wrapped) ProtoMessage() {}
+
+func (x *Wrapped) ProtoReflect() protoreflect.Message {
+	mi := &file_shapes_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Wrapped.ProtoReflect.Descriptor instead.
+func (*Wrapped) Descriptor() ([]byte, []int) {
+	return file_shapes_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *Wrapped) GetOwner() *wrapperspb.StringValue {
+	if x != nil {
+		return x.Owner
+	}
+	return nil
+}
+
+func (x *Wrapped) GetMust() *wrapperspb.StringValue {
+	if x != nil {
+		return x.Must
+	}
+	return nil
+}
+
+func (x *Wrapped) GetTrimmed() *wrapperspb.StringValue {
+	if x != nil {
+		return x.Trimmed
+	}
+	return nil
+}
+
+func (x *Wrapped) GetBinary() *wrapperspb.BytesValue {
+	if x != nil {
+		return x.Binary
+	}
+	return nil
+}
+
+func (x *Wrapped) GetName() *wrapperspb.StringValue {
+	if x != nil {
+		return x.Name
+	}
+	return nil
+}
+
+func (x *Wrapped) GetTarget() isWrapped_Target {
+	if x != nil {
+		return x.Target
+	}
+	return nil
+}
+
+func (x *Wrapped) GetId() *wrapperspb.StringValue {
+	if x != nil {
+		if x, ok := x.Target.(*Wrapped_Id); ok {
+			return x.Id
+		}
+	}
+	return nil
+}
+
+func (x *Wrapped) GetLabel() string {
+	if x != nil {
+		if x, ok := x.Target.(*Wrapped_Label); ok {
+			return x.Label
+		}
+	}
+	return ""
+}
+
+type isWrapped_Target interface {
+	isWrapped_Target()
+}
+
+type Wrapped_Id struct {
+	Id *wrapperspb.StringValue `protobuf:"bytes,6,opt,name=id,proto3,oneof"`
+}
+
+type Wrapped_Label struct {
+	Label string `protobuf:"bytes,7,opt,name=label,proto3,oneof"`
+}
+
+func (*Wrapped_Id) isWrapped_Target() {}
+
+func (*Wrapped_Label) isWrapped_Target() {}
+
 type Ping struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Pong          *Pong                  `protobuf:"bytes,1,opt,name=pong,proto3" json:"pong,omitempty"`
@@ -713,7 +836,7 @@ type Ping struct {
 
 func (x *Ping) Reset() {
 	*x = Ping{}
-	mi := &file_shapes_proto_msgTypes[7]
+	mi := &file_shapes_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -725,7 +848,7 @@ func (x *Ping) String() string {
 func (*Ping) ProtoMessage() {}
 
 func (x *Ping) ProtoReflect() protoreflect.Message {
-	mi := &file_shapes_proto_msgTypes[7]
+	mi := &file_shapes_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -738,7 +861,7 @@ func (x *Ping) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Ping.ProtoReflect.Descriptor instead.
 func (*Ping) Descriptor() ([]byte, []int) {
-	return file_shapes_proto_rawDescGZIP(), []int{7}
+	return file_shapes_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Ping) GetPong() *Pong {
@@ -765,7 +888,7 @@ type Pong struct {
 
 func (x *Pong) Reset() {
 	*x = Pong{}
-	mi := &file_shapes_proto_msgTypes[8]
+	mi := &file_shapes_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -777,7 +900,7 @@ func (x *Pong) String() string {
 func (*Pong) ProtoMessage() {}
 
 func (x *Pong) ProtoReflect() protoreflect.Message {
-	mi := &file_shapes_proto_msgTypes[8]
+	mi := &file_shapes_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -790,7 +913,7 @@ func (x *Pong) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Pong.ProtoReflect.Descriptor instead.
 func (*Pong) Descriptor() ([]byte, []int) {
-	return file_shapes_proto_rawDescGZIP(), []int{8}
+	return file_shapes_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Pong) GetPing() *Ping {
@@ -816,7 +939,7 @@ type Outer struct {
 
 func (x *Outer) Reset() {
 	*x = Outer{}
-	mi := &file_shapes_proto_msgTypes[9]
+	mi := &file_shapes_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -828,7 +951,7 @@ func (x *Outer) String() string {
 func (*Outer) ProtoMessage() {}
 
 func (x *Outer) ProtoReflect() protoreflect.Message {
-	mi := &file_shapes_proto_msgTypes[9]
+	mi := &file_shapes_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -841,7 +964,7 @@ func (x *Outer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Outer.ProtoReflect.Descriptor instead.
 func (*Outer) Descriptor() ([]byte, []int) {
-	return file_shapes_proto_rawDescGZIP(), []int{9}
+	return file_shapes_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *Outer) GetInner() *Outer_Inner {
@@ -862,7 +985,7 @@ type Untouched struct {
 
 func (x *Untouched) Reset() {
 	*x = Untouched{}
-	mi := &file_shapes_proto_msgTypes[10]
+	mi := &file_shapes_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -874,7 +997,7 @@ func (x *Untouched) String() string {
 func (*Untouched) ProtoMessage() {}
 
 func (x *Untouched) ProtoReflect() protoreflect.Message {
-	mi := &file_shapes_proto_msgTypes[10]
+	mi := &file_shapes_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -887,7 +1010,7 @@ func (x *Untouched) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Untouched.ProtoReflect.Descriptor instead.
 func (*Untouched) Descriptor() ([]byte, []int) {
-	return file_shapes_proto_rawDescGZIP(), []int{10}
+	return file_shapes_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *Untouched) GetName() string {
@@ -920,7 +1043,7 @@ type HyphenatedRule struct {
 
 func (x *HyphenatedRule) Reset() {
 	*x = HyphenatedRule{}
-	mi := &file_shapes_proto_msgTypes[11]
+	mi := &file_shapes_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -932,7 +1055,7 @@ func (x *HyphenatedRule) String() string {
 func (*HyphenatedRule) ProtoMessage() {}
 
 func (x *HyphenatedRule) ProtoReflect() protoreflect.Message {
-	mi := &file_shapes_proto_msgTypes[11]
+	mi := &file_shapes_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -945,7 +1068,7 @@ func (x *HyphenatedRule) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HyphenatedRule.ProtoReflect.Descriptor instead.
 func (*HyphenatedRule) Descriptor() ([]byte, []int) {
-	return file_shapes_proto_rawDescGZIP(), []int{11}
+	return file_shapes_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *HyphenatedRule) GetValue() string {
@@ -964,7 +1087,7 @@ type TrimmedRule struct {
 
 func (x *TrimmedRule) Reset() {
 	*x = TrimmedRule{}
-	mi := &file_shapes_proto_msgTypes[12]
+	mi := &file_shapes_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -976,7 +1099,7 @@ func (x *TrimmedRule) String() string {
 func (*TrimmedRule) ProtoMessage() {}
 
 func (x *TrimmedRule) ProtoReflect() protoreflect.Message {
-	mi := &file_shapes_proto_msgTypes[12]
+	mi := &file_shapes_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -989,7 +1112,7 @@ func (x *TrimmedRule) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TrimmedRule.ProtoReflect.Descriptor instead.
 func (*TrimmedRule) Descriptor() ([]byte, []int) {
-	return file_shapes_proto_rawDescGZIP(), []int{12}
+	return file_shapes_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *TrimmedRule) GetValue() string {
@@ -1008,7 +1131,7 @@ type BinaryRule struct {
 
 func (x *BinaryRule) Reset() {
 	*x = BinaryRule{}
-	mi := &file_shapes_proto_msgTypes[13]
+	mi := &file_shapes_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1020,7 +1143,7 @@ func (x *BinaryRule) String() string {
 func (*BinaryRule) ProtoMessage() {}
 
 func (x *BinaryRule) ProtoReflect() protoreflect.Message {
-	mi := &file_shapes_proto_msgTypes[13]
+	mi := &file_shapes_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1033,7 +1156,7 @@ func (x *BinaryRule) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BinaryRule.ProtoReflect.Descriptor instead.
 func (*BinaryRule) Descriptor() ([]byte, []int) {
-	return file_shapes_proto_rawDescGZIP(), []int{13}
+	return file_shapes_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *BinaryRule) GetValue() []byte {
@@ -1052,7 +1175,7 @@ type Outer_Inner struct {
 
 func (x *Outer_Inner) Reset() {
 	*x = Outer_Inner{}
-	mi := &file_shapes_proto_msgTypes[20]
+	mi := &file_shapes_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1064,7 +1187,7 @@ func (x *Outer_Inner) String() string {
 func (*Outer_Inner) ProtoMessage() {}
 
 func (x *Outer_Inner) ProtoReflect() protoreflect.Message {
-	mi := &file_shapes_proto_msgTypes[20]
+	mi := &file_shapes_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1077,7 +1200,7 @@ func (x *Outer_Inner) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Outer_Inner.ProtoReflect.Descriptor instead.
 func (*Outer_Inner) Descriptor() ([]byte, []int) {
-	return file_shapes_proto_rawDescGZIP(), []int{9, 0}
+	return file_shapes_proto_rawDescGZIP(), []int{10, 0}
 }
 
 func (x *Outer_Inner) GetId() string {
@@ -1091,7 +1214,7 @@ var File_shapes_proto protoreflect.FileDescriptor
 
 const file_shapes_proto_rawDesc = "" +
 	"\n" +
-	"\fshapes.proto\x12\x0eprotoconv.test\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc0\x03\n" +
+	"\fshapes.proto\x12\x0eprotoconv.test\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1egoogle/protobuf/wrappers.proto\"\xc0\x03\n" +
 	"\x06Single\x12\x18\n" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\x12\"\n" +
 	"\atrimmed\x18\x02 \x01(\tB\b\xbaH\x05r\x03\x88\x02\x01R\atrimmed\x12#\n" +
@@ -1169,7 +1292,16 @@ const file_shapes_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name:\x11\xbaH\x0e\"\f\n" +
 	"\x02id\n" +
-	"\x04name\x10\x01\"D\n" +
+	"\x04name\x10\x01\"\x94\x03\n" +
+	"\aWrapped\x12<\n" +
+	"\x05owner\x18\x01 \x01(\v2\x1c.google.protobuf.StringValueB\b\xbaH\x05r\x03\xb0\x01\x01R\x05owner\x12=\n" +
+	"\x04must\x18\x02 \x01(\v2\x1c.google.protobuf.StringValueB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x04must\x12@\n" +
+	"\atrimmed\x18\x03 \x01(\v2\x1c.google.protobuf.StringValueB\b\xbaH\x05r\x03\x88\x02\x01R\atrimmed\x12<\n" +
+	"\x06binary\x18\x04 \x01(\v2\x1b.google.protobuf.BytesValueB\a\xbaH\x04z\x02x\x01R\x06binary\x120\n" +
+	"\x04name\x18\x05 \x01(\v2\x1c.google.protobuf.StringValueR\x04name\x128\n" +
+	"\x02id\x18\x06 \x01(\v2\x1c.google.protobuf.StringValueB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x02id\x12\x16\n" +
+	"\x05label\x18\a \x01(\tH\x00R\x05labelB\b\n" +
+	"\x06target\"D\n" +
 	"\x04Ping\x12(\n" +
 	"\x04pong\x18\x01 \x01(\v2\x14.protoconv.test.PongR\x04pong\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"J\n" +
@@ -1209,66 +1341,75 @@ func file_shapes_proto_rawDescGZIP() []byte {
 }
 
 var file_shapes_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_shapes_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_shapes_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
 var file_shapes_proto_goTypes = []any{
-	(Colour)(0),                   // 0: protoconv.test.Colour
-	(*Single)(nil),                // 1: protoconv.test.Single
-	(*Times)(nil),                 // 2: protoconv.test.Times
-	(*Lists)(nil),                 // 3: protoconv.test.Lists
-	(*Plain)(nil),                 // 4: protoconv.test.Plain
-	(*Nested)(nil),                // 5: protoconv.test.Nested
-	(*Choice)(nil),                // 6: protoconv.test.Choice
-	(*Either)(nil),                // 7: protoconv.test.Either
-	(*Ping)(nil),                  // 8: protoconv.test.Ping
-	(*Pong)(nil),                  // 9: protoconv.test.Pong
-	(*Outer)(nil),                 // 10: protoconv.test.Outer
-	(*Untouched)(nil),             // 11: protoconv.test.Untouched
-	(*HyphenatedRule)(nil),        // 12: protoconv.test.HyphenatedRule
-	(*TrimmedRule)(nil),           // 13: protoconv.test.TrimmedRule
-	(*BinaryRule)(nil),            // 14: protoconv.test.BinaryRule
-	nil,                           // 15: protoconv.test.Times.ByNameEntry
-	nil,                           // 16: protoconv.test.Lists.ByNameEntry
-	nil,                           // 17: protoconv.test.Lists.ByIdEntry
-	nil,                           // 18: protoconv.test.Lists.BothEntry
-	nil,                           // 19: protoconv.test.Lists.PlainEntry
-	nil,                           // 20: protoconv.test.Nested.ByNumberEntry
-	(*Outer_Inner)(nil),           // 21: protoconv.test.Outer.Inner
-	(*timestamppb.Timestamp)(nil), // 22: google.protobuf.Timestamp
+	(Colour)(0),                    // 0: protoconv.test.Colour
+	(*Single)(nil),                 // 1: protoconv.test.Single
+	(*Times)(nil),                  // 2: protoconv.test.Times
+	(*Lists)(nil),                  // 3: protoconv.test.Lists
+	(*Plain)(nil),                  // 4: protoconv.test.Plain
+	(*Nested)(nil),                 // 5: protoconv.test.Nested
+	(*Choice)(nil),                 // 6: protoconv.test.Choice
+	(*Either)(nil),                 // 7: protoconv.test.Either
+	(*Wrapped)(nil),                // 8: protoconv.test.Wrapped
+	(*Ping)(nil),                   // 9: protoconv.test.Ping
+	(*Pong)(nil),                   // 10: protoconv.test.Pong
+	(*Outer)(nil),                  // 11: protoconv.test.Outer
+	(*Untouched)(nil),              // 12: protoconv.test.Untouched
+	(*HyphenatedRule)(nil),         // 13: protoconv.test.HyphenatedRule
+	(*TrimmedRule)(nil),            // 14: protoconv.test.TrimmedRule
+	(*BinaryRule)(nil),             // 15: protoconv.test.BinaryRule
+	nil,                            // 16: protoconv.test.Times.ByNameEntry
+	nil,                            // 17: protoconv.test.Lists.ByNameEntry
+	nil,                            // 18: protoconv.test.Lists.ByIdEntry
+	nil,                            // 19: protoconv.test.Lists.BothEntry
+	nil,                            // 20: protoconv.test.Lists.PlainEntry
+	nil,                            // 21: protoconv.test.Nested.ByNumberEntry
+	(*Outer_Inner)(nil),            // 22: protoconv.test.Outer.Inner
+	(*timestamppb.Timestamp)(nil),  // 23: google.protobuf.Timestamp
+	(*wrapperspb.StringValue)(nil), // 24: google.protobuf.StringValue
+	(*wrapperspb.BytesValue)(nil),  // 25: google.protobuf.BytesValue
 }
 var file_shapes_proto_depIdxs = []int32{
 	0,  // 0: protoconv.test.Single.colour:type_name -> protoconv.test.Colour
-	22, // 1: protoconv.test.Times.at:type_name -> google.protobuf.Timestamp
-	22, // 2: protoconv.test.Times.maybe:type_name -> google.protobuf.Timestamp
-	22, // 3: protoconv.test.Times.each:type_name -> google.protobuf.Timestamp
-	15, // 4: protoconv.test.Times.by_name:type_name -> protoconv.test.Times.ByNameEntry
-	22, // 5: protoconv.test.Times.skipped:type_name -> google.protobuf.Timestamp
-	16, // 6: protoconv.test.Lists.by_name:type_name -> protoconv.test.Lists.ByNameEntry
-	17, // 7: protoconv.test.Lists.by_id:type_name -> protoconv.test.Lists.ByIdEntry
-	18, // 8: protoconv.test.Lists.both:type_name -> protoconv.test.Lists.BothEntry
-	19, // 9: protoconv.test.Lists.plain:type_name -> protoconv.test.Lists.PlainEntry
+	23, // 1: protoconv.test.Times.at:type_name -> google.protobuf.Timestamp
+	23, // 2: protoconv.test.Times.maybe:type_name -> google.protobuf.Timestamp
+	23, // 3: protoconv.test.Times.each:type_name -> google.protobuf.Timestamp
+	16, // 4: protoconv.test.Times.by_name:type_name -> protoconv.test.Times.ByNameEntry
+	23, // 5: protoconv.test.Times.skipped:type_name -> google.protobuf.Timestamp
+	17, // 6: protoconv.test.Lists.by_name:type_name -> protoconv.test.Lists.ByNameEntry
+	18, // 7: protoconv.test.Lists.by_id:type_name -> protoconv.test.Lists.ByIdEntry
+	19, // 8: protoconv.test.Lists.both:type_name -> protoconv.test.Lists.BothEntry
+	20, // 9: protoconv.test.Lists.plain:type_name -> protoconv.test.Lists.PlainEntry
 	4,  // 10: protoconv.test.Lists.plains:type_name -> protoconv.test.Plain
 	1,  // 11: protoconv.test.Nested.single:type_name -> protoconv.test.Single
 	1,  // 12: protoconv.test.Nested.must:type_name -> protoconv.test.Single
 	1,  // 13: protoconv.test.Nested.many:type_name -> protoconv.test.Single
-	20, // 14: protoconv.test.Nested.by_number:type_name -> protoconv.test.Nested.ByNumberEntry
+	21, // 14: protoconv.test.Nested.by_number:type_name -> protoconv.test.Nested.ByNumberEntry
 	4,  // 15: protoconv.test.Nested.plain:type_name -> protoconv.test.Plain
 	5,  // 16: protoconv.test.Nested.child:type_name -> protoconv.test.Nested
 	1,  // 17: protoconv.test.Nested.ignored:type_name -> protoconv.test.Single
 	1,  // 18: protoconv.test.Choice.single:type_name -> protoconv.test.Single
-	22, // 19: protoconv.test.Choice.at:type_name -> google.protobuf.Timestamp
+	23, // 19: protoconv.test.Choice.at:type_name -> google.protobuf.Timestamp
 	4,  // 20: protoconv.test.Choice.plain:type_name -> protoconv.test.Plain
-	9,  // 21: protoconv.test.Ping.pong:type_name -> protoconv.test.Pong
-	8,  // 22: protoconv.test.Pong.ping:type_name -> protoconv.test.Ping
-	21, // 23: protoconv.test.Outer.inner:type_name -> protoconv.test.Outer.Inner
-	4,  // 24: protoconv.test.Untouched.plain:type_name -> protoconv.test.Plain
-	11, // 25: protoconv.test.Untouched.children:type_name -> protoconv.test.Untouched
-	22, // 26: protoconv.test.Times.ByNameEntry.value:type_name -> google.protobuf.Timestamp
-	1,  // 27: protoconv.test.Nested.ByNumberEntry.value:type_name -> protoconv.test.Single
-	28, // [28:28] is the sub-list for method output_type
-	28, // [28:28] is the sub-list for method input_type
-	28, // [28:28] is the sub-list for extension type_name
-	28, // [28:28] is the sub-list for extension extendee
-	0,  // [0:28] is the sub-list for field type_name
+	24, // 21: protoconv.test.Wrapped.owner:type_name -> google.protobuf.StringValue
+	24, // 22: protoconv.test.Wrapped.must:type_name -> google.protobuf.StringValue
+	24, // 23: protoconv.test.Wrapped.trimmed:type_name -> google.protobuf.StringValue
+	25, // 24: protoconv.test.Wrapped.binary:type_name -> google.protobuf.BytesValue
+	24, // 25: protoconv.test.Wrapped.name:type_name -> google.protobuf.StringValue
+	24, // 26: protoconv.test.Wrapped.id:type_name -> google.protobuf.StringValue
+	10, // 27: protoconv.test.Ping.pong:type_name -> protoconv.test.Pong
+	9,  // 28: protoconv.test.Pong.ping:type_name -> protoconv.test.Ping
+	22, // 29: protoconv.test.Outer.inner:type_name -> protoconv.test.Outer.Inner
+	4,  // 30: protoconv.test.Untouched.plain:type_name -> protoconv.test.Plain
+	12, // 31: protoconv.test.Untouched.children:type_name -> protoconv.test.Untouched
+	23, // 32: protoconv.test.Times.ByNameEntry.value:type_name -> google.protobuf.Timestamp
+	1,  // 33: protoconv.test.Nested.ByNumberEntry.value:type_name -> protoconv.test.Single
+	34, // [34:34] is the sub-list for method output_type
+	34, // [34:34] is the sub-list for method input_type
+	34, // [34:34] is the sub-list for extension type_name
+	34, // [34:34] is the sub-list for extension extendee
+	0,  // [0:34] is the sub-list for field type_name
 }
 
 func init() { file_shapes_proto_init() }
@@ -1284,13 +1425,17 @@ func file_shapes_proto_init() {
 		(*Choice_At)(nil),
 		(*Choice_Plain)(nil),
 	}
+	file_shapes_proto_msgTypes[7].OneofWrappers = []any{
+		(*Wrapped_Id)(nil),
+		(*Wrapped_Label)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shapes_proto_rawDesc), len(file_shapes_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   21,
+			NumMessages:   22,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

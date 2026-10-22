@@ -4,6 +4,7 @@ package protoconv.test;
 
 import "buf/validate/validate.proto";
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
 
 option go_package = "komrad/lib/protoconv/internal/testpb";
 
@@ -94,6 +95,21 @@ message Either {
 
   string id = 1 [(buf.validate.field).string.uuid = true];
   string name = 2;
+}
+
+message Wrapped {
+  google.protobuf.StringValue owner = 1 [(buf.validate.field).string.uuid = true];
+  google.protobuf.StringValue must = 2 [
+    (buf.validate.field).string.uuid = true,
+    (buf.validate.field).required = true
+  ];
+  google.protobuf.StringValue trimmed = 3 [(buf.validate.field).string.tuuid = true];
+  google.protobuf.BytesValue binary = 4 [(buf.validate.field).bytes.uuid = true];
+  google.protobuf.StringValue name = 5;
+  oneof target {
+    google.protobuf.StringValue id = 6 [(buf.validate.field).string.uuid = true];
+    string label = 7;
+  }
 }
 
 message Ping {

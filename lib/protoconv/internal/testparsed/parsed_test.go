@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"komrad/lib/protoconv"
 	"komrad/lib/protoconv/internal/testparsed"
@@ -434,6 +435,68 @@ func TestParseEither(t *testing.T) {
 			name:  "an empty id named by a oneof rule converts to nil",
 			input: &testpb.Either{Name: "name"},
 			want:  &testparsed.Either{Name: "name"},
+		},
+	})
+}
+
+// TestParseWrapped covers ids held in string and bytes wrappers.
+func TestParseWrapped(t *testing.T) {
+	name := wrapperspb.String("name")
+	runParseTests(t, testparsed.ParseWrapped, []parseTest[*testpb.Wrapped, testparsed.Wrapped]{
+		{
+			name:     "a required wrapped id left unset is missing",
+			input:    &testpb.Wrapped{},
+			wantPath: "must",
+			wantErr:  protoconv.ErrMissing,
+		},
+		{
+			name:     "a required wrapped id set to nothing is refused",
+			input:    &testpb.Wrapped{Must: wrapperspb.String("")},
+			wantPath: "must",
+		},
+		{
+			name:     "an optional wrapped id set to a bad id is refused",
+			input:    &testpb.Wrapped{Must: wrapperspb.String(first), Owner: wrapperspb.String("bad")},
+			wantPath: "owner",
+		},
+		{
+			name:     "a wrapped trimmed id with hyphens is refused",
+			input:    &testpb.Wrapped{Must: wrapperspb.String(first), Trimmed: wrapperspb.String(first)},
+			wantPath: "trimmed",
+		},
+		{
+			name:     "a wrapped binary id of fifteen bytes is refused",
+			input:    &testpb.Wrapped{Must: wrapperspb.String(first), Binary: wrapperspb.Bytes(firstID[:15])},
+			wantPath: "binary",
+		},
+		{
+			name:     "a bad wrapped id in a oneof is refused",
+			input:    &testpb.Wrapped{Must: wrapperspb.String(first), Target: &testpb.Wrapped_Id{Id: wrapperspb.String("bad")}},
+			wantPath: "id",
+		},
+		{
+			name:  "unset wrapped ids convert to nil",
+			input: &testpb.Wrapped{Must: wrapperspb.String(first)},
+			want:  &testparsed.Wrapped{Must: firstID},
+		},
+		{
+			name: "every wrapped id converts",
+			input: &testpb.Wrapped{
+				Owner:   wrapperspb.String(second),
+				Must:    wrapperspb.String(first),
+				Trimmed: wrapperspb.String(trimmed),
+				Binary:  wrapperspb.Bytes(secondID[:]),
+				Name:    name,
+				Target:  &testpb.Wrapped_Id{Id: wrapperspb.String(second)},
+			},
+			want: &testparsed.Wrapped{
+				Owner:   &secondID,
+				Must:    firstID,
+				Trimmed: &firstID,
+				Binary:  &secondID,
+				Name:    name,
+				Target:  &testparsed.Wrapped_Id{Id: secondID},
+			},
 		},
 	})
 }

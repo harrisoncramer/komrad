@@ -21,7 +21,11 @@ const (
 	timePackage      = protogen.GoImportPath("time")
 )
 
-const timestampName protoreflect.FullName = "google.protobuf.Timestamp"
+const (
+	timestampName   protoreflect.FullName = "google.protobuf.Timestamp"
+	stringValueName protoreflect.FullName = "google.protobuf.StringValue"
+	bytesValueName  protoreflect.FullName = "google.protobuf.BytesValue"
+)
 
 // ErrSamePackage is a message whose parsed type would land in the Go package of the message itself.
 var ErrSamePackage = errors.New("a parsed type cannot share the Go package of its message")
@@ -164,7 +168,7 @@ func (g *generator) leafOf(value slot) leaf {
 		return leafRaw
 	}
 
-	kind := value.field.Desc.Kind()
+	kind := unwrappedKind(value.field)
 	if kind == protoreflect.StringKind && value.rules.GetString().GetUuid() {
 		return leafUUID
 	}
@@ -556,7 +560,12 @@ func (g *generator) parseOneof(parse *body, oneof *protogen.Oneof) {
 
 // convert is the call converting the value source holds.
 func (g *generator) convert(value slot, source string) []any {
-	switch g.leafOf(value) {
+	conversion := g.leafOf(value)
+	if conversion.isUUID() && isWrapper(value.field) {
+		source += ".GetValue()"
+	}
+
+	switch conversion {
 	case leafUUID:
 		return []any{protoconvPackage.Ident("UUID"), "(", source, ")"}
 	case leafTrimmedUUID:
@@ -692,6 +701,26 @@ func realOneof(field *protogen.Field) *protogen.Oneof {
 
 func oneofInterface(oneof *protogen.Oneof) string {
 	return "is" + oneof.GoIdent.GoName
+}
+
+// unwrappedKind is the kind of the value the field holds, seeing through a string or bytes wrapper as protovalidate does.
+func unwrappedKind(field *protogen.Field) protoreflect.Kind {
+	if field.Message == nil {
+		return field.Desc.Kind()
+	}
+
+	switch field.Message.Desc.FullName() {
+	case stringValueName:
+		return protoreflect.StringKind
+	case bytesValueName:
+		return protoreflect.BytesKind
+	}
+
+	return field.Desc.Kind()
+}
+
+func isWrapper(field *protogen.Field) bool {
+	return field.Message != nil && unwrappedKind(field) != field.Desc.Kind()
 }
 
 func isOptionalUUID(fieldPlan plan) bool {
