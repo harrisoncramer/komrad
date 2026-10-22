@@ -117,7 +117,7 @@ func (r *reviewScreen) drop(m *model) tea.Cmd {
 
 	*r = reviewScreen{loads: r.loads}
 
-	return tea.Batch(m.apply(screen.Open{Screen: screen.Agents, Target: screen.Target{}}), letGo)
+	return tea.Batch(m.apply(screen.Open{Screen: screen.Agents}), letGo)
 }
 
 // describeRefusedReview says which of the two empty diffs this is: an agent that has written
