@@ -160,7 +160,7 @@ type worktreeRowsKey struct {
 	scope    worktreeScope
 	order    sortOrder
 	flat     bool
-	filter   filterKey
+	filter   list.PatternKey
 }
 
 func (w *worktreesScreen) rows(m *model, in screen.Inputs) []worktreeRow {
@@ -170,18 +170,18 @@ func (w *worktreesScreen) rows(m *model, in screen.Inputs) []worktreeRow {
 		scope:    w.scope,
 		order:    order,
 		flat:     w.sort.flat,
-		filter:   m.filter.key(),
+		filter:   in.Room.Pattern.Key(),
 	}
 
 	return w.built.read(key, func() []worktreeRow {
-		return narrowed(m.filter, narrowedParams[worktreeRow]{
-			rows: worktreeRows(worktreeRowsParams{
+		return list.Narrowed(in.Room.Pattern, list.NarrowedParams[worktreeRow]{
+			Rows: worktreeRows(worktreeRowsParams{
 				items: w.shown(),
 				order: order,
 				flat:  w.sort.flat,
 			}),
-			depth: worktreeRowDepth,
-			name:  worktreeRow.name,
+			Depth: worktreeRowDepth,
+			Name:  worktreeRow.name,
 		})
 	})
 }

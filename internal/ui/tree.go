@@ -366,26 +366,26 @@ func sortedAgents(items []panel.AgentRow, columns []sortColumn[panel.AgentRow], 
 
 // rows are the rows the keyboard can reach.
 func (a *agentsScreen) rows(m *model, in screen.Inputs) []agentRow {
-	return a.layout(m, in).cursorRows()
+	return a.layout(in).cursorRows()
 }
 
 // layout is the list as rendered, or as it would be rendered when nothing has cached it.
-func (a *agentsScreen) layout(m *model, in screen.Inputs) agentsLayout {
+func (a *agentsScreen) layout(in screen.Inputs) agentsLayout {
 	if a.rendered != nil {
 		return *a.rendered
 	}
 
-	return a.buildLayout(m, in)
+	return a.buildLayout(in)
 }
 
-func (a *agentsScreen) buildFrame(m *model, in screen.Inputs) {
-	layout := a.buildLayout(m, in)
+func (a *agentsScreen) buildFrame(_ *model, in screen.Inputs) {
+	layout := a.buildLayout(in)
 	a.rendered = &layout
 }
 
-func (a *agentsScreen) buildLayout(m *model, in screen.Inputs) agentsLayout {
+func (a *agentsScreen) buildLayout(in screen.Inputs) agentsLayout {
 	zone, waiting := buildZone(a.triage, in.Listing, a.showHidden)
-	tree := a.buildTree(m, in)
+	tree := a.buildTree(in)
 
 	return agentsLayout{
 		zone:    zone,
@@ -400,21 +400,21 @@ type agentTreeKey struct {
 	order      sortOrder
 	flat       bool
 	showHidden bool
-	filter     filterKey
+	filter     list.PatternKey
 }
 
-func (a *agentsScreen) buildTree(m *model, in screen.Inputs) []agentRow {
+func (a *agentsScreen) buildTree(in screen.Inputs) []agentRow {
 	order := agentsTabs().order(a.sort)
 	key := agentTreeKey{
 		generation: in.Listing.Generation,
 		order:      order,
 		flat:       a.sort.flat,
 		showHidden: a.showHidden,
-		filter:     m.filter.key(),
+		filter:     in.Room.Pattern.Key(),
 	}
 
 	return a.tree.read(key, func() []agentRow {
-		return narrowedAgentRows(m, in.Listing, treeRows(treeRowsParams{
+		return narrowedAgentRows(in, treeRows(treeRowsParams{
 			workflows:         in.Listing.Workflows,
 			agents:            sortedAgents(in.Listing.Agents, agentSorts, order),
 			showHidden:        a.showHidden,
@@ -425,17 +425,17 @@ func (a *agentsScreen) buildTree(m *model, in screen.Inputs) []agentRow {
 	})
 }
 
-func narrowedAgentRows(m *model, l panel.Listing, rows []agentRow) []agentRow {
-	return narrowed(m.filter, narrowedParams[agentRow]{
-		rows:  rows,
-		depth: agentRowDepth,
-		name:  agentRowName,
-		fits:  m.agentRowFits(l),
+func narrowedAgentRows(in screen.Inputs, rows []agentRow) []agentRow {
+	return list.Narrowed(in.Room.Pattern, list.NarrowedParams[agentRow]{
+		Rows:  rows,
+		Depth: agentRowDepth,
+		Name:  agentRowName,
+		Fits:  agentRowFits(in),
 	})
 }
 
 func (a *agentsScreen) hoveredRow(m *model, in screen.Inputs) (agentRow, bool) {
-	return a.layout(m, in).cursorRow(a.Row)
+	return a.layout(in).cursorRow(a.Row)
 }
 
 func (a *agentsScreen) hoveredWorkflow(m *model, in screen.Inputs) (panel.Workflow, bool) {

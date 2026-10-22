@@ -20,7 +20,7 @@ func (m *model) docHead(in screen.Inputs, rows []string, width int) []string {
 
 	count := ""
 	if r.filter.isSearched() {
-		count = dimStyle().Render("  " + reader.Count(reader.Matches(r.filter.pattern, rows), r.Line))
+		count = dimStyle().Render("  " + reader.Count(reader.Matches(r.filter.matcher, rows), r.Line))
 	}
 
 	return r.filter.head(m, count, r.said, width)
@@ -37,7 +37,7 @@ func (m *model) docBlock(in screen.Inputs, split column.Split) []string {
 	focused := in.Room.Doc.Focused
 	rendered := make([]string, len(rows))
 	for i, row := range rows {
-		rendered[i] = paint.Panel.HighlightStyled(row, reader.Spans(r.filter.pattern, row))
+		rendered[i] = paint.Panel.HighlightStyled(row, reader.Spans(r.filter.matcher, row))
 		if focused && i == r.Line {
 			rendered[i] = paint.Panel.PaintRow(rendered[i], split.Column)
 		}

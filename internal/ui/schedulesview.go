@@ -46,7 +46,7 @@ func (w *schedulesScreen) docRows(m *model, in screen.Inputs, width int) []strin
 }
 
 func (w *schedulesScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
-	return scheduleSnapshot(m, pane, scheduleSnapshotParams{
+	return scheduleSnapshot(in, pane, scheduleSnapshotParams{
 		rows:     w.listRows(m, in),
 		cursor:   w.Row,
 		renaming: w.renamingField(),
@@ -59,7 +59,7 @@ type scheduleSnapshotParams struct {
 	renaming *field.NameEdit
 }
 
-func scheduleSnapshot(m *model, pane list.Pane, params scheduleSnapshotParams) view.Snapshot {
+func scheduleSnapshot(in screen.Inputs, pane list.Pane, params scheduleSnapshotParams) view.Snapshot {
 	return view.Snapshot{
 		Rows: xslice.Map(params.rows, func(item scheduleItem) view.Row {
 			name := scheduleItemName(item)
@@ -72,7 +72,7 @@ func scheduleSnapshot(m *model, pane list.Pane, params scheduleSnapshotParams) v
 				Key:     item.Key(),
 				Kind:    view.KindResult,
 				Name:    name,
-				Matches: matchesIn(m.filter.pattern, name),
+				Matches: matchesIn(in.Room.Pattern.Regexp, name),
 				Process: process,
 				Cells:   []view.Cell{scheduleIcon(item.schedule.Enabled)},
 				Tail:    view.Cell{Text: item.schedule.Cron, Tone: paint.ToneMuted},

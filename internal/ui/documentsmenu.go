@@ -64,7 +64,7 @@ func (d *documentsScreen) buildScreenMenu(m *model, in screen.Inputs) (menu.Menu
 		return menu.Menu{}, false
 	}
 
-	_, named := m.namedAgentID()
+	_, named := d.namedAgentID(in)
 
 	return menu.Menu{
 		Title: "documents",

@@ -42,7 +42,7 @@ func (m *model) detailsView() string {
 
 	pane := m.paneWidth()
 	body := dimStyle().Render("  nothing matches")
-	if fields := m.detailsRows(held); len(fields) > 0 || !m.filter.doesNarrow(sectionRecord) {
+	if fields := m.detailsRows(held); len(fields) > 0 || !m.filter.pattern().DoesNarrow(list.SectionRecord) {
 		snapshot := m.detailsSnapshot(fields, m.detailsCursor(held), pane)
 		body = view.Window(view.WindowParams{
 			List:    list.Prepare(m.glyphs, snapshot),
@@ -158,13 +158,13 @@ func (m *model) detailsSnapshot(fields []detailsRow, cursor, pane int) view.Snap
 				Kind:     view.KindResult,
 				Lead:     padRight(row.field.label, labels),
 				Name:     row.field.value,
-				Matches:  matchesIn(m.filter.pattern, row.field.value),
+				Matches:  matchesIn(m.filter.matcher, row.field.value),
 				Process:  view.ProcessNone,
 				Tail:     row.field.tail,
 				Selected: m.details.flashed > 0 && row.id == flashed,
 			}
 		}),
-		Caret:   m.caretOf(m.inputs(), sectionRecord),
+		Caret:   m.caretOf(m.inputs(), list.SectionRecord),
 		Focused: list.KeyAt(fields, cursor),
 		Pane:    pane,
 		Columns: view.Columns{},

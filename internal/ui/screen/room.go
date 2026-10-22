@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"komrad/internal/ui/column"
+	"komrad/internal/ui/list"
 	"komrad/internal/view"
 )
 
@@ -41,6 +42,7 @@ type Room struct {
 	Spinner string
 	Now     time.Time
 	Marks   bool
+	Pattern list.Pattern
 }
 
 // DocReader is where the reader stands in the document beside the list.

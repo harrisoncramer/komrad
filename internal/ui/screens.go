@@ -89,16 +89,9 @@ type keyedList interface {
 
 	// filterRows is every row on screen with the text a search reads, in the order they are
 	// rendered.
-	filterRows(m *model, in screen.Inputs) []filterRow
+	filterRows(m *model, in screen.Inputs) []list.Row
 
 	click(m *model, in screen.Inputs, key string, nth int) screen.Request
-}
-
-// filterRow is one row a search can land on: the key that names it and the text it matches by.
-type filterRow struct {
-	key  string
-	name string
-	fits clauseFits
 }
 
 // kindSwitcher is a screen that lists more than one kind of resource and switches between them

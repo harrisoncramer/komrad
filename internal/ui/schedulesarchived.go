@@ -106,19 +106,19 @@ func (a *archivedSchedules) list() screenList[scheduleItem] {
 		cursor: func() *list.Cursor { return &a.Cursor },
 		rows:   a.listRows,
 		name:   func(item scheduleItem) string { return item.schedule.Name },
-		fits:   (*model).scheduleItemFits,
+		fits:   scheduleItemFits,
 		placed: a.stage,
 		moved:  func(m *model, in screen.Inputs) screen.Request { return screen.Batch{a.stage(m, in), screen.Settle{}} },
 	}
 }
 
 func (a *archivedSchedules) listRows(m *model, in screen.Inputs) []scheduleItem {
-	return a.built.read(m.listingKey(in.Listing), func() []scheduleItem {
-		return narrowed(m.filter, narrowedParams[scheduleItem]{
-			rows:  xslice.Map(in.Listing.ArchivedSchedules, scheduleItemOf),
-			depth: func(scheduleItem) int { return 0 },
-			name:  func(item scheduleItem) string { return item.schedule.Name },
-			fits:  m.scheduleItemFits(in.Listing),
+	return a.built.read(listingKeyOf(in), func() []scheduleItem {
+		return list.Narrowed(in.Room.Pattern, list.NarrowedParams[scheduleItem]{
+			Rows:  xslice.Map(in.Listing.ArchivedSchedules, scheduleItemOf),
+			Depth: func(scheduleItem) int { return 0 },
+			Name:  func(item scheduleItem) string { return item.schedule.Name },
+			Fits:  scheduleItemFits(in),
 		})
 	})
 }
@@ -186,7 +186,7 @@ func (a *archivedSchedules) listParams(m *model, in screen.Inputs) list.Params {
 		Rows:  len(a.listRows(m, in)),
 		Empty: "no archived schedules",
 		Snapshot: func(pane list.Pane) view.Snapshot {
-			return scheduleSnapshot(m, pane, scheduleSnapshotParams{
+			return scheduleSnapshot(in, pane, scheduleSnapshotParams{
 				rows:   a.listRows(m, in),
 				cursor: a.Row,
 			})

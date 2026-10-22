@@ -182,7 +182,7 @@ func (m *model) findDocMatch() {
 		return
 	}
 
-	if line, found := reader.From(reader.Matches(r.filter.pattern, rows), r.origin); found {
+	if line, found := reader.From(reader.Matches(r.filter.matcher, rows), r.origin); found {
 		m.moveDocTo(line)
 	}
 }
@@ -195,7 +195,7 @@ func (m *model) jumpDocMatch(pressed string) {
 		return
 	}
 
-	line, found := reader.Jump(reader.Matches(r.filter.pattern, rows), r.Line, keys.DirectionOf(pressed, m.keys.Filter.PrevMatch))
+	line, found := reader.Jump(reader.Matches(r.filter.matcher, rows), r.Line, keys.DirectionOf(pressed, m.keys.Filter.PrevMatch))
 	if !found {
 		r.said = "nothing to search for yet"
 		if r.filter.isSearched() {

@@ -120,12 +120,12 @@ func (c *statusChecksScreen) list() screenList[statusCheckRow] {
 }
 
 func (c *statusChecksScreen) rows(m *model, in screen.Inputs) []statusCheckRow {
-	return narrowed(m.filter, narrowedParams[statusCheckRow]{
-		rows: xslice.Map(xslice.Filter(c.commit.items, c.shownScope().holds), func(item statusCheckItem) statusCheckRow {
+	return list.Narrowed(in.Room.Pattern, list.NarrowedParams[statusCheckRow]{
+		Rows: xslice.Map(xslice.Filter(c.commit.items, c.shownScope().holds), func(item statusCheckItem) statusCheckRow {
 			return statusCheckRow{item: item}
 		}),
-		depth: func(statusCheckRow) int { return 0 },
-		name:  statusCheckRowName,
+		Depth: func(statusCheckRow) int { return 0 },
+		Name:  statusCheckRowName,
 	})
 }
 

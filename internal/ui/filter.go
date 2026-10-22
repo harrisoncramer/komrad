@@ -13,6 +13,7 @@ import (
 	"komrad/internal/searchsyntax"
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/screen"
 	"komrad/internal/vim"
 
@@ -58,11 +59,11 @@ func (m filterMode) String() string {
 type filterState struct {
 	typing  bool
 	input   field.Line
-	pattern *regexp.Regexp
+	matcher *regexp.Regexp
 	broken  bool
 	mode    filterMode
 	// openedIn is the section the keys were in when the search opened.
-	openedIn sidebarSection
+	openedIn list.Section
 	// origin is the row the cursor sat on when the search opened, which abandoning it returns to.
 	origin string
 	// appliedAt is the row the cursor sat on when the search was last applied.
@@ -76,7 +77,7 @@ type filterState struct {
 
 // qualifierState is the qualifiers a search reads and what the server found for its says: one.
 type qualifierState struct {
-	grammar *queryGrammar
+	grammar *list.Grammar
 	// clock is what the grammar reads relative dates against.
 	clock      screen.Clock
 	clauses    []searchsyntax.Clause
@@ -97,7 +98,7 @@ func withDebounce(wait time.Duration) filterOption {
 	}
 }
 
-func withGrammar(grammar queryGrammar, clock screen.Clock) filterOption {
+func withGrammar(grammar list.Grammar, clock screen.Clock) filterOption {
 	return func(f *filterState) {
 		f.qualifiers.grammar, f.qualifiers.clock = &grammar, clock
 	}
@@ -117,6 +118,24 @@ func (f filterState) isStanding() bool {
 	return f.query() != ""
 }
 
+func (f filterState) pattern() list.Pattern {
+	return list.Pattern{
+		Typed:      f.query(),
+		Query:      f.compiledQuery,
+		Regexp:     f.matcher,
+		Broken:     f.broken,
+		Clauses:    f.qualifiers.clauses,
+		CompiledAt: f.qualifiers.compiledAt,
+		Filtering:  f.mode == filterModeFilter && !f.typing,
+		OpenedIn:   f.openedIn,
+		Said: list.Said{
+			Text:    f.qualifiers.said.text,
+			Hits:    f.qualifiers.said.hits,
+			Waiting: f.qualifiers.said.waiting,
+		},
+	}
+}
+
 // openDesc names the key that opens the search by the pattern standing.
 func (f filterState) openDesc() string {
 	if f.isStanding() {
@@ -128,17 +147,6 @@ func (f filterState) openDesc() string {
 
 func (f filterState) clearDesc() string {
 	return "clear " + f.mode.String()
-}
-
-// isNarrowing reports whether the pattern is taking rows off the screen.
-func (f filterState) isNarrowing() bool {
-	return f.mode == filterModeFilter && f.hasQuery() && !f.typing
-}
-
-// doesNarrow reports whether the pattern is taking rows off one pane, which it does only in the
-// pane it was typed in.
-func (f filterState) doesNarrow(section sidebarSection) bool {
-	return f.isNarrowing() && f.openedIn == section
 }
 
 func (f *filterState) setQuery(query string) {
@@ -166,12 +174,7 @@ func (f filterState) isTooShort() bool {
 }
 
 func (f filterState) isSearched() bool {
-	return f.hasQuery() || f.broken
-}
-
-// hasQuery reports whether a pattern or a qualifier stands to match rows by.
-func (f filterState) hasQuery() bool {
-	return !f.broken && (f.pattern != nil || len(f.qualifiers.clauses) > 0)
+	return f.pattern().HasQuery() || f.broken
 }
 
 func (f filterState) isSettled() bool {
@@ -199,7 +202,7 @@ func (f *filterState) settle(query string) bool {
 // compile reads the pattern out of what the user typed.
 func (f *filterState) compile() {
 	query := f.query()
-	f.pattern, f.broken, f.compiledQuery = nil, false, query
+	f.matcher, f.broken, f.compiledQuery = nil, false, query
 	f.problem, f.qualifiers.clauses = "", nil
 	defer f.askSaid()
 
@@ -210,7 +213,7 @@ func (f *filterState) compile() {
 	expr := query
 	if f.qualifiers.grammar != nil {
 		f.qualifiers.compiledAt = f.qualifiers.clock.Now()
-		parsed, err := f.qualifiers.grammar.parse(query, f.qualifiers.compiledAt)
+		parsed, err := f.qualifiers.grammar.Parse(query, f.qualifiers.compiledAt)
 		if err != nil {
 			f.fail(errui.GetReason(err))
 
@@ -234,66 +237,18 @@ func (f *filterState) compile() {
 		return
 	}
 
-	f.pattern = pattern
-}
-
-func (f filterState) doesMatch(name string) bool {
-	if f.pattern == nil {
-		return true
-	}
-
-	return f.pattern.MatchString(name)
-}
-
-// clauseFits reports whether a row meets one qualifier.
-type clauseFits func(searchsyntax.Clause) bool
-
-// admits reports whether a row's name matches the pattern and the row meets the qualifiers.
-func (f filterState) admits(name string, fits clauseFits) bool {
-	return f.doesMatch(name) && f.holds(fits)
-}
-
-// holds reports whether a row meets one of the qualifiers given under each key and none of the
-// ones left out.
-func (f filterState) holds(fits clauseFits) bool {
-	if len(f.qualifiers.clauses) == 0 {
-		return true
-	}
-	if fits == nil {
-		return false
-	}
-
-	met := map[string]bool{}
-	for _, clause := range f.qualifiers.clauses {
-		if clause.Negated {
-			if fits(clause) {
-				return false
-			}
-
-			continue
-		}
-
-		met[clause.Key] = met[clause.Key] || fits(clause)
-	}
-
-	for _, ok := range met {
-		if !ok {
-			return false
-		}
-	}
-
-	return true
+	f.matcher = pattern
 }
 
 // filteredRows is every row the search can land on in the pane holding the keys, and false on a
 // screen that renders no filter.
-func (m *model) filteredRows() ([]filterRow, bool) {
-	list, ok := m.filteredList()
+func (m *model) filteredRows() ([]list.Row, bool) {
+	l, ok := m.filteredList()
 	if !ok {
 		return nil, false
 	}
 
-	return list.filterRows(m, m.inputs()), true
+	return l.filterRows(m, m.inputs()), true
 }
 
 func (m *model) filteredList() (keyedList, bool) {
@@ -437,7 +392,7 @@ func (m *model) applyFilter() {
 	if !ok {
 		found = ""
 	}
-	if m.filter.isNarrowing() && m.isFilterRowShown(hovered) {
+	if m.filter.pattern().IsNarrowing() && m.isFilterRowShown(hovered) {
 		found = hovered
 	}
 
@@ -449,7 +404,7 @@ func (m *model) applyFilter() {
 func (m *model) isFilterRowShown(key string) bool {
 	rows, _ := m.filteredRows()
 
-	return slices.ContainsFunc(rows, func(row filterRow) bool { return row.key == key })
+	return slices.ContainsFunc(rows, func(row list.Row) bool { return row.Key == key })
 }
 
 // jumpIntoDetails gives the record the keys and lands them on its nearest match when a search is
@@ -468,17 +423,17 @@ func (m *model) jumpIntoDetails() tea.Cmd {
 }
 
 func (m *model) hoveredFilterKey() string {
-	list, ok := m.filteredList()
+	l, ok := m.filteredList()
 	if !ok {
 		return ""
 	}
 
-	return list.hovered(m, m.inputs())
+	return l.hovered(m, m.inputs())
 }
 
 func (m *model) placeFilteredCursor(hovered string) {
-	if list, ok := m.filteredList(); ok {
-		m.apply(list.place(m, m.inputs(), hovered))
+	if l, ok := m.filteredList(); ok {
+		m.apply(l.place(m, m.inputs(), hovered))
 	}
 }
 
@@ -510,67 +465,6 @@ func agentRowDepth(row agentRow) int {
 	return 1
 }
 
-type narrowedParams[T any] struct {
-	rows []T
-	// depth is how far a row is indented.
-	depth func(T) int
-	name  func(T) string
-	fits  func(T) clauseFits
-}
-
-// narrowed is the rows a filter leaves on screen: each match, the rows above it and the rows
-// under it.
-func narrowed[T any](filter filterState, params narrowedParams[T]) []T {
-	if !filter.doesNarrow(sectionList) {
-		return params.rows
-	}
-
-	rows := params.rows
-	matched := make([]bool, len(rows))
-	for i, row := range rows {
-		var fits clauseFits
-		if params.fits != nil {
-			fits = params.fits(row)
-		}
-		matched[i] = filter.admits(params.name(row), fits)
-	}
-
-	keep := make([]bool, len(rows))
-
-	// The stack holds the rows the one being read sits under, and lit counts how many of those
-	// the pattern matched.
-	var stack []int
-	lit := 0
-	for i, row := range rows {
-		depth := params.depth(row)
-		for len(stack) > 0 && params.depth(rows[stack[len(stack)-1]]) >= depth {
-			if matched[stack[len(stack)-1]] {
-				lit--
-			}
-			stack = stack[:len(stack)-1]
-		}
-
-		keep[i] = matched[i] || lit > 0
-		if matched[i] {
-			for _, above := range stack {
-				keep[above] = true
-			}
-			lit++
-		}
-
-		stack = append(stack, i)
-	}
-
-	kept := make([]T, 0, len(rows))
-	for i, row := range rows {
-		if keep[i] {
-			kept = append(kept, row)
-		}
-	}
-
-	return kept
-}
-
 // stepFilterMatch walks the cursor delta rows the search matches along.
 func (m *model) stepFilterMatch(delta int) tea.Cmd {
 	if found, ok := m.matchAt(delta); ok {
@@ -584,14 +478,15 @@ func (m *model) stepFilterMatch(delta int) tea.Cmd {
 // row and wrapping at either end, the hovered row itself counting for a step of nothing.
 func (m *model) matchAt(delta int) (string, bool) {
 	rows, ok := m.filteredRows()
-	if !ok || !m.filter.hasQuery() || len(rows) == 0 {
+	pattern := m.filter.pattern()
+	if !ok || !pattern.HasQuery() || len(rows) == 0 {
 		return "", false
 	}
 
 	start := 0
 	hovered := m.hoveredFilterKey()
 	for i, row := range rows {
-		if row.key == hovered {
+		if row.Key == hovered {
 			start = i
 
 			break
@@ -607,8 +502,8 @@ func (m *model) matchAt(delta int) (string, bool) {
 
 	for ; step <= len(rows); step++ {
 		at := ((start+walk*step)%len(rows) + len(rows)) % len(rows)
-		if m.filter.admits(rows[at].name, rows[at].fits) {
-			return rows[at].key, true
+		if pattern.Admits(rows[at].Name, rows[at].Fits) {
+			return rows[at].Key, true
 		}
 	}
 
@@ -654,7 +549,7 @@ func (m *model) filterBy(query string) {
 
 	m.filter.open(opts...)
 	m.filter.mode = filterModeFilter
-	m.filter.openedIn = sectionList
+	m.filter.openedIn = list.SectionList
 	m.filter.setQuery(query)
 	m.applyFilter()
 }

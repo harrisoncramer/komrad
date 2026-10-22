@@ -171,7 +171,7 @@ func (a *archivedAgents) list() screenList[agentRow] {
 		cursor: func() *list.Cursor { return &a.Cursor },
 		rows:   a.listRows,
 		name:   agentRowName,
-		fits:   (*model).agentRowFits,
+		fits:   agentRowFits,
 		refs:   refsOf,
 		header: "folder",
 		placed: a.stage,
@@ -202,7 +202,7 @@ type archivedRowsKey struct {
 	generation int
 	order      sortOrder
 	flat       bool
-	filter     filterKey
+	filter     list.PatternKey
 }
 
 func (a *archivedAgents) listRows(m *model, in screen.Inputs) []agentRow {
@@ -211,11 +211,11 @@ func (a *archivedAgents) listRows(m *model, in screen.Inputs) []agentRow {
 		generation: in.Listing.Generation,
 		order:      order,
 		flat:       a.sort.flat,
-		filter:     m.filter.key(),
+		filter:     in.Room.Pattern.Key(),
 	}
 
 	return a.built.read(key, func() []agentRow {
-		return narrowedAgentRows(m, in.Listing, treeRows(treeRowsParams{
+		return narrowedAgentRows(in, treeRows(treeRowsParams{
 			workflows:         a.headers(in.Listing),
 			agents:            sortedAgents(a.listedAgents(in.Listing), archivedAgentSorts, order),
 			showHidden:        true,
@@ -543,7 +543,7 @@ func (a *archivedAgents) column(m *model, in screen.Inputs) column.Spec {
 		Read:  column.IsAlwaysRead,
 		DocRows: func(width int) []string {
 			if agentID, ok := a.screenedAgentID(m, in); ok {
-				if rows := m.saidColumnRows(agentID, width); rows != nil {
+				if rows := m.said.columnRows(in.Room.Pattern, agentID, width); rows != nil {
 					return rows
 				}
 			}

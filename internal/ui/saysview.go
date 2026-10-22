@@ -5,27 +5,28 @@ import (
 	"strings"
 
 	"komrad/internal/errui"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 )
 
-// saidColumnRows is the conversation of an agent the server found saying the text of a says:
+// columnRows is the conversation of an agent the server found saying the text of a says:
 // qualifier, rendered for the column, and none when it was found saying nothing.
-func (m *model) saidColumnRows(agentID string, width int) []string {
-	hits := m.filter.saidHits(agentID)
+func (s saidTranscript) columnRows(pattern list.Pattern, agentID string, width int) []string {
+	hits := pattern.SaidHits(agentID)
 	if len(hits) == 0 {
 		return nil
 	}
 
-	if !m.said.isSaidRead(agentID, m.filter.qualifiers.said.text) || !m.said.answered {
+	if !s.isSaidRead(agentID, pattern.Said.Text) || !s.answered {
 		return paint.DocStyledRows("_reading the conversation…_", max(width, 1), columnStyle())
 	}
 
-	if m.said.rows != nil && m.said.width == width {
-		return m.said.rows
+	if s.rows != nil && s.width == width {
+		return s.rows
 	}
 
 	rows, _ := saidRows(saidRowsParams{
-		said:  m.said,
+		said:  s,
 		hits:  hits,
 		width: width,
 	})
@@ -35,7 +36,7 @@ func (m *model) saidColumnRows(agentID string, width int) []string {
 
 type saidRowsParams struct {
 	said  saidTranscript
-	hits  []saidHit
+	hits  []list.SaidHit
 	width int
 }
 
@@ -55,9 +56,9 @@ func saidRows(params saidRowsParams) ([]string, int) {
 	for _, hit := range params.hits {
 		spans = append(spans, paint.MatchSpans(paint.MatchSpansParams{
 			Content: content,
-			Offset:  hit.offset,
-			Length:  hit.length,
-			Terms:   paint.MarkedTerms(hit.snippet),
+			Offset:  hit.Offset,
+			Length:  hit.Length,
+			Terms:   paint.MarkedTerms(hit.Snippet),
 		})...)
 	}
 	slices.SortFunc(spans, func(x, y paint.Span) int { return x.Start - y.Start })

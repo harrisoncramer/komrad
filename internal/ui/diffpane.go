@@ -219,7 +219,7 @@ func (k diffKeys) search(m *model) {
 		return
 	}
 
-	k.pane.Search(k.filter.pattern, k.window(m))
+	k.pane.Search(k.filter.matcher, k.window(m))
 }
 
 // jumpMatch steps to the next or previous line the search found, wrapping at the ends.
