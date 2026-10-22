@@ -56,6 +56,7 @@ func (m Mode) String() string {
 	return "search"
 }
 
+// State is a screen's search line, what was typed into it and the pattern compiled from it.
 type State struct {
 	Typing  bool
 	Input   field.Line
