@@ -28,7 +28,7 @@ func TestLoaderSpinsWhileChecksRun(t *testing.T) {
 	var rendered []string
 	for range 5 {
 		rendered = append(rendered, readChecksFrame(t, harness))
-		require.True(t, isSpinning(harness), "the loader stopped ticking with checks still running")
+		require.True(t, harness.IsSpinning(), "the loader stopped ticking with checks still running")
 	}
 
 	assert.Equal(t, []string{"◜", "◝", "◞", "◟", "◜"}, rendered)
@@ -55,7 +55,7 @@ func TestLoaderSpinsForATaskWithoutItsWriter(t *testing.T) {
 	require.Equal(t, []string{"  backend", "◜ └─ fix-login", "     └─ checker"}, paneltest.ListRows(harness.Frame()))
 
 	harness.Advance(loader.Interval)
-	assert.True(t, isSpinning(harness), "the task row's spinner froze")
+	assert.True(t, harness.IsSpinning(), "the task row's spinner froze")
 }
 
 // TestLoaderStopsTicking covers the loader tick going quiet once no rendered row is loading.
@@ -104,12 +104,12 @@ func TestLoaderStopsTicking(t *testing.T) {
 			harness := tt.open(t)
 
 			if tt.leave != nil {
-				require.True(t, isSpinning(harness), "the loader never started")
+				require.True(t, harness.IsSpinning(), "the loader never started")
 				tt.leave(harness)
 				harness.Advance(loader.Interval)
 			}
 
-			assert.False(t, isSpinning(harness))
+			assert.False(t, harness.IsSpinning())
 		})
 	}
 }
@@ -142,14 +142,14 @@ func TestLoaderSpinsWhileAnAgentSetsUp(t *testing.T) {
 			var rendered []string
 			for range 3 {
 				rendered = append(rendered, readWriteFrame(t, harness.Frame(), tt.doing))
-				require.True(t, isSpinning(harness), "the loader stopped ticking with the agent still setting up")
+				require.True(t, harness.IsSpinning(), "the loader stopped ticking with the agent still setting up")
 			}
 
 			assert.Equal(t, []string{"◜", "◝", "◞"}, rendered)
 
 			harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), newRunning()))
 			harness.Advance(loader.Interval)
-			assert.False(t, isSpinning(harness), "the loader goes quiet once the agent is up")
+			assert.False(t, harness.IsSpinning(), "the loader goes quiet once the agent is up")
 		})
 	}
 }
@@ -173,7 +173,7 @@ func TestLoaderSpinsWhileAWriteIsInFlight(t *testing.T) {
 	var rendered []string
 	for range 3 {
 		rendered = append(rendered, readWriteFrame(t, harness.Frame(), "creating workflow web…"))
-		require.True(t, isSpinning(harness), "the loader stopped ticking with the write in flight")
+		require.True(t, harness.IsSpinning(), "the loader stopped ticking with the write in flight")
 	}
 
 	assert.Equal(t, []string{"◜", "◝", "◞"}, rendered)
@@ -181,7 +181,7 @@ func TestLoaderSpinsWhileAWriteIsInFlight(t *testing.T) {
 	harness.Release(create)
 	harness.Watch(paneltest.Puts(paneltest.Workflow("w2", "web")))
 	harness.Advance(loader.Interval)
-	assert.False(t, isSpinning(harness), "the loader goes quiet once the write lands")
+	assert.False(t, harness.IsSpinning(), "the loader goes quiet once the write lands")
 }
 
 func openAgentsWithPullRequest(state pullrequestv1.PullRequestState) func(t *testing.T) *paneltest.Panel {
@@ -235,11 +235,4 @@ func readWriteFrame(t *testing.T, frame, doing string) string {
 	require.Fail(t, "nothing is rendered doing "+doing)
 
 	return ""
-}
-
-func isSpinning(harness *paneltest.Panel) bool {
-	before := harness.Frame()
-	harness.Advance(loader.Interval)
-
-	return harness.Frame() != before
 }

@@ -205,6 +205,35 @@ func TestSubpagesInArchive(t *testing.T) {
 	})
 }
 
+// TestStatusChecksOpen covers the status checks screen opening from the subpages menu.
+func TestStatusChecksOpen(t *testing.T) {
+	t.Parallel()
+
+	t.Run("a task with no pull request has no status checks to list", func(t *testing.T) {
+		t.Parallel()
+
+		harness := paneltest.OpenAgents(t, buildSubpagesAgents()...)
+		harness.MoveToRow("task-author")
+		harness.Press("space", "x")
+
+		frame := harness.Frame()
+		assert.Equal(t, screen.StatusChecks, paneltest.Screen(harness.Frame()))
+		assert.Contains(t, frame, "agents › author › status checks")
+		assert.Contains(t, frame, "no pull request")
+	})
+
+	t.Run("back returns to the list on the agent it opened for", func(t *testing.T) {
+		t.Parallel()
+
+		harness := paneltest.OpenAgents(t, buildSubpagesAgents()...)
+		harness.MoveToRow("task-author")
+		harness.Press("space", "x", "esc")
+
+		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
+		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "author")
+	})
+}
+
 // openSubpages opens the subpages menu from the agents list on the row named.
 func openSubpages(t *testing.T, row string) *paneltest.Panel {
 	t.Helper()

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"komrad/internal/loader"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 	"komrad/proto/gen/worktree/v1/worktreev1connect"
 
@@ -42,6 +43,14 @@ func (p *Panel) AnswerWorktreeReads() {
 
 		return connect.NewResponse(&worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: read.GetDir()}}), nil
 	})
+}
+
+// IsSpinning reports whether the frame changes as the loader ticks once.
+func (p *Panel) IsSpinning() bool {
+	before := p.Frame()
+	p.Advance(loader.Interval)
+
+	return p.Frame() != before
 }
 
 // MoveToRow puts the list's cursor on the row named the one given.

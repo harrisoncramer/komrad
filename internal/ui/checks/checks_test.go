@@ -7,8 +7,8 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paneltest"
-	"komrad/internal/ui/screen"
 	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 
@@ -16,35 +16,6 @@ import (
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 )
-
-// TestStatusChecksOpen covers the screen opening from the subpages menu.
-func TestStatusChecksOpen(t *testing.T) {
-	t.Parallel()
-
-	t.Run("a task with no pull request has no status checks to list", func(t *testing.T) {
-		t.Parallel()
-
-		harness := paneltest.OpenAgents(t, buildSubpagesAgents()...)
-		harness.MoveToRow("task-author")
-		harness.Press("space", "x")
-
-		frame := harness.Frame()
-		assert.Equal(t, screen.StatusChecks, paneltest.Screen(harness.Frame()))
-		assert.Contains(t, frame, "agents › author › status checks")
-		assert.Contains(t, frame, "no pull request")
-	})
-
-	t.Run("back returns to the list on the agent it opened for", func(t *testing.T) {
-		t.Parallel()
-
-		harness := paneltest.OpenAgents(t, buildSubpagesAgents()...)
-		harness.MoveToRow("task-author")
-		harness.Press("space", "x", "esc")
-
-		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
-		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "author")
-	})
-}
 
 // TestStatusChecksList covers the status checks listed for the agent's pull request.
 func TestStatusChecksList(t *testing.T) {
@@ -102,7 +73,7 @@ func TestStatusChecksList(t *testing.T) {
 
 		harness := openStatusChecks(t, listed)
 
-		assert.True(t, isSpinning(harness))
+		assert.True(t, harness.IsSpinning())
 	})
 
 	t.Run("the spinner rests once every status check has finished", func(t *testing.T) {
@@ -112,7 +83,7 @@ func TestStatusChecksList(t *testing.T) {
 			newStatusCheck("1", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SUCCESS"),
 		))
 
-		assert.False(t, isSpinning(harness))
+		assert.False(t, harness.IsSpinning())
 	})
 
 	t.Run("the cursor moves through the status checks", func(t *testing.T) {
@@ -343,7 +314,7 @@ func TestStatusChecksSteps(t *testing.T) {
 		frame := harness.Frame()
 		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckUnknown)+" e2e")
 		assert.Contains(t, frame, "unknown")
-		assert.False(t, isSpinning(harness))
+		assert.False(t, harness.IsSpinning())
 	})
 }
 
@@ -403,9 +374,7 @@ func TestStatusChecksNewestHead(t *testing.T) {
 	}
 
 	moveHead := func(harness *paneltest.Panel, head string) {
-		pullRequest := newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN)[2].(*pullrequestv1.PullRequest)
-		pullRequest.HeadSha = head
-		harness.Watch(paneltest.Puts(pullRequest))
+		harness.Watch(paneltest.Puts(newPullRequest(head)))
 	}
 
 	pushed := func(harness *paneltest.Panel) {
@@ -464,13 +433,40 @@ func openStatusChecks(t *testing.T, answer func(*paneltest.Panel)) *paneltest.Pa
 func openStatusChecksOn(t *testing.T, head string, answer func(*paneltest.Panel)) *paneltest.Panel {
 	t.Helper()
 
-	rows := newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN)
-	rows[2].(*pullrequestv1.PullRequest).HeadSha = head
-	harness := openNoticed(t, paneltest.Params{}, rows...)
+	agent := &agentv1.Agent{
+		Id:         "n1",
+		Name:       "worker",
+		WorkflowId: "w1",
+		Cwd:        "/repo",
+		State:      agentv1.AgentState_AGENT_STATE_WAITING,
+	}
+	task := paneltest.TaskOf(agent)
+	task.RepositoryUrl = xptr.Ptr(repositoryURL)
+	task.Branch = xptr.Ptr("agent/n1")
+
+	harness := paneltest.Start(t, paneltest.Params{})
+	harness.AnswerWorktreeReads()
+	harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), agent, &pullrequestv1.Repository{Url: repositoryURL}, newPullRequest(head), task))
+	harness.Press("g", "g", "j")
 	answer(harness)
 	harness.Press("space", "x")
 
 	return harness
+}
+
+const repositoryURL = "https://github.com/harrisoncramer/komrad"
+
+func newPullRequest(head string) *pullrequestv1.PullRequest {
+	return &pullrequestv1.PullRequest{
+		Id:                "pr-1",
+		RepositoryUrl:     repositoryURL,
+		HeadRepositoryUrl: repositoryURL,
+		HeadBranch:        "agent/n1",
+		Number:            7,
+		State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+		OpenedAt:          "2026-09-19T12:00:00Z",
+		HeadSha:           head,
+	}
 }
 
 func answerStatusChecks(checks ...*pullrequestv1.StatusCheck) func(*paneltest.Panel) {
