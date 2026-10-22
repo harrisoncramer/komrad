@@ -1798,14 +1798,12 @@
       "fields": [
         {
           "name": "task_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "task",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The task, by id."
         },
         {
@@ -1817,6 +1815,13 @@
           "oneof": "task",
           "rules": [],
           "description": "The task, by slug."
+        }
+      ],
+      "oneofs": [
+        {
+          "name": "task",
+          "description": "The task whose sequence to abort.",
+          "required": true
         }
       ]
     },
@@ -1854,7 +1859,8 @@
           "rules": [],
           "description": "The ref that keeps the checkout as it was before the abort, conflicts included."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.AddReviewMessageRequest": {
       "name": "AddReviewMessageRequest",
@@ -1862,14 +1868,13 @@
       "fields": [
         {
           "name": "thread_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The thread to reply in, by id."
         },
@@ -1906,7 +1911,8 @@
           "rules": [],
           "description": "Whether the reply says the change the thread asks for is made. Komrad then saves a snapshot of the worktree and pins it to the reply."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.AddReviewMessageResponse": {
       "name": "AddReviewMessageResponse",
@@ -1932,7 +1938,8 @@
           "rules": [],
           "description": "A reminder to set `addressed`, given when a plain reply goes on a thread whose worktree has changed since the thread was created. Empty otherwise."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.AdoptRequest": {
       "name": "AdoptRequest",
@@ -1953,14 +1960,13 @@
         },
         {
           "name": "workflow_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The workflow to create the agent in, by id. The workflow's directory picks the repository."
         },
@@ -2025,7 +2031,8 @@
           ],
           "description": "A key that makes a retry safe. A repeat with the same key returns the agent already created."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.AdoptResponse": {
       "name": "AdoptResponse",
@@ -2051,7 +2058,8 @@
           "rules": [],
           "description": "Whether the branch already had an agent, which komrad returned instead of creating one."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.Agent": {
       "name": "Agent",
@@ -2357,7 +2365,8 @@
           "rules": [],
           "description": "The CLI hooks the agent's latest launch installed, as the CLI names its events. Empty when that launch failed or never ran."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.AgentRow": {
       "name": "AgentRow",
@@ -2433,7 +2442,8 @@
           "rules": [],
           "description": "The comments the person has left on the agent's work. Unset while there are none."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ArchiveAgentsRequest": {
       "name": "ArchiveAgentsRequest",
@@ -2441,7 +2451,7 @@
       "fields": [
         {
           "name": "ids",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": true,
           "map": false,
@@ -2451,7 +2461,8 @@
           ],
           "description": "The agents to archive, by id."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.CommentCounts": {
       "name": "CommentCounts",
@@ -2487,7 +2498,8 @@
           "rules": [],
           "description": "How many comments hold a reply the person has not read."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.CreateAgentRequest": {
       "name": "CreateAgentRequest",
@@ -2532,14 +2544,13 @@
         },
         {
           "name": "workflow_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The workflow to create the agent in, by id. The agent uses the workflow's directory, flags and context."
         },
@@ -2580,14 +2591,12 @@
         },
         {
           "name": "task_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "task",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The task, by id."
         },
         {
@@ -2627,14 +2636,12 @@
         },
         {
           "name": "depends_on_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "depends_on",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The task, by id."
         },
         {
@@ -2646,6 +2653,18 @@
           "oneof": "depends_on",
           "rules": [],
           "description": "The task, by slug."
+        }
+      ],
+      "oneofs": [
+        {
+          "name": "task",
+          "description": "The task in `workflow_id` to put the agent on. Unset to create a task with the agent as its writer. An agent that joins as a reviewer cannot set `provision_enabled` to true.",
+          "required": false
+        },
+        {
+          "name": "depends_on",
+          "description": "The task in `workflow_id` the new task depends on. The new task's branch starts from that task's branch on origin, and komrad rebases it as that branch moves and re-targets it onto the base branch once that task merges. Unset to start from the workflow's base branch. Cannot be set with a task to put the agent on.",
+          "required": false
         }
       ]
     },
@@ -2663,7 +2682,8 @@
           "rules": [],
           "description": "The agent as created."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.CreateReviewThreadRequest": {
       "name": "CreateReviewThreadRequest",
@@ -2671,14 +2691,12 @@
       "fields": [
         {
           "name": "task_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "task",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The task, by id."
         },
         {
@@ -2794,6 +2812,13 @@
           "rules": [],
           "description": "The lines proposed in place of the range. Empty for a plain comment."
         }
+      ],
+      "oneofs": [
+        {
+          "name": "task",
+          "description": "The task whose diff to comment on. Unset uses the caller's own task.",
+          "required": false
+        }
       ]
     },
     "agent.v1.CreateReviewThreadResponse": {
@@ -2810,7 +2835,8 @@
           "rules": [],
           "description": "The thread as created. A reviewer agent's thread stays private until its review is released. The person's thread is released at once."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.DeleteDocumentRequest": {
       "name": "DeleteDocumentRequest",
@@ -2818,18 +2844,18 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The document to delete, by id."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.DeleteDocumentTypeRequest": {
       "name": "DeleteDocumentTypeRequest",
@@ -2837,18 +2863,18 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The document type to delete, by id."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.DeleteMailRequest": {
       "name": "DeleteMailRequest",
@@ -2856,7 +2882,7 @@
       "fields": [
         {
           "name": "ids",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": true,
           "map": false,
@@ -2866,7 +2892,8 @@
           ],
           "description": "The mail to delete, by id, read or not. The recipient never sees unread mail once deleted."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.Document": {
       "name": "Document",
@@ -2962,7 +2989,8 @@
           "rules": [],
           "description": "The id of the task the agent was on when the document was created. Unset for an orchestrator's documents."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.DocumentHit": {
       "name": "DocumentHit",
@@ -3008,7 +3036,8 @@
           "rules": [],
           "description": "The text around the match, with the matched words marked."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.DocumentType": {
       "name": "DocumentType",
@@ -3064,7 +3093,8 @@
           "rules": [],
           "description": "When the document type was last written, in RFC 3339."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.DocumentTypeVersion": {
       "name": "DocumentTypeVersion",
@@ -3100,7 +3130,8 @@
           "rules": [],
           "description": "When this version was written, in RFC 3339."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.DocumentVersion": {
       "name": "DocumentVersion",
@@ -3156,7 +3187,8 @@
           "rules": [],
           "description": "When this version was written, in RFC 3339."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ForgeOrigin": {
       "name": "ForgeOrigin",
@@ -3192,7 +3224,8 @@
           "rules": [],
           "description": "When the forge comment was last edited, in RFC 3339. Unset when it was never edited."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ForgeReply": {
       "name": "ForgeReply",
@@ -3298,7 +3331,8 @@
           "rules": [],
           "description": "When the reply was written, in RFC 3339."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ForwardLastTurnsRequest": {
       "name": "ForwardLastTurnsRequest",
@@ -3306,27 +3340,25 @@
       "fields": [
         {
           "name": "from_agent_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The agent whose newest turns to forward, by id."
         },
         {
           "name": "to_agent_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The agent to forward them to, by id."
         },
@@ -3364,7 +3396,8 @@
           "rules": [],
           "description": "The most bytes to forward for each turn. A longer turn loses its start, so its end stays. Unset uses the default."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ForwardLastTurnsResponse": {
       "name": "ForwardLastTurnsResponse",
@@ -3430,7 +3463,8 @@
           "rules": [],
           "description": "Why the recipient will not read the mail soon. Unset when the recipient is running."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.GetAgentRequest": {
       "name": "GetAgentRequest",
@@ -3438,18 +3472,18 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The agent to get, by id. Archived agents are included."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.GetAgentResponse": {
       "name": "GetAgentResponse",
@@ -3535,7 +3569,8 @@
           "rules": [],
           "description": "The agent's task. Unset for an agent on no task."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.GetDocumentRequest": {
       "name": "GetDocumentRequest",
@@ -3543,14 +3578,13 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The document to read, by id."
         },
@@ -3564,7 +3598,8 @@
           "rules": [],
           "description": "The version to read. Unset reads the newest."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.GetDocumentResponse": {
       "name": "GetDocumentResponse",
@@ -3580,7 +3615,8 @@
           "rules": [],
           "description": "The document, with its text."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.GetDocumentTypeRequest": {
       "name": "GetDocumentTypeRequest",
@@ -3608,7 +3644,8 @@
           "rules": [],
           "description": "The version to read. Unset reads the newest."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.GetDocumentTypeResponse": {
       "name": "GetDocumentTypeResponse",
@@ -3624,7 +3661,8 @@
           "rules": [],
           "description": "The document type, with its context."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.GetLastTurnsRequest": {
       "name": "GetLastTurnsRequest",
@@ -3632,14 +3670,13 @@
       "fields": [
         {
           "name": "agent_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The agent whose transcript to read, by id."
         },
@@ -3665,7 +3702,8 @@
           "rules": [],
           "description": "The most bytes to return for each turn. A longer turn loses its start, so its end stays. Unset uses the default."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.GetLastTurnsResponse": {
       "name": "GetLastTurnsResponse",
@@ -3681,7 +3719,8 @@
           "rules": [],
           "description": "The newest agent turns and the prompts between them, oldest first."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.GetReviewRequest": {
       "name": "GetReviewRequest",
@@ -3689,18 +3728,18 @@
       "fields": [
         {
           "name": "review_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The review to read, by id."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.GetReviewResponse": {
       "name": "GetReviewResponse",
@@ -3736,7 +3775,8 @@
           "rules": [],
           "description": "The review's threads, by file and line."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.GetTranscriptRequest": {
       "name": "GetTranscriptRequest",
@@ -3744,14 +3784,13 @@
       "fields": [
         {
           "name": "agent_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The agent whose transcript to read, by id."
         },
@@ -3777,7 +3816,8 @@
           ],
           "description": "The `next_page_token` from the previous response. Unset to start at the beginning."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.GetTranscriptResponse": {
       "name": "GetTranscriptResponse",
@@ -3803,7 +3843,8 @@
           "rules": [],
           "description": "The cursor for the next window. Unset at the end of the transcript."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ListAgentsRequest": {
       "name": "ListAgentsRequest",
@@ -3839,7 +3880,8 @@
           "rules": [],
           "description": "How much of each agent to return. `VIEW_FULL` returns every prompt in full and can make a very large response."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ListAgentsResponse": {
       "name": "ListAgentsResponse",
@@ -3865,7 +3907,8 @@
           "rules": [],
           "description": "The cursor for the next page. Unset on the last page."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ListDocumentTypeVersionsRequest": {
       "name": "ListDocumentTypeVersionsRequest",
@@ -3873,18 +3916,18 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The document type whose versions to list, by id."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ListDocumentTypeVersionsResponse": {
       "name": "ListDocumentTypeVersionsResponse",
@@ -3900,7 +3943,8 @@
           "rules": [],
           "description": "Every version of the document type, newest first."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ListDocumentTypesResponse": {
       "name": "ListDocumentTypesResponse",
@@ -3916,7 +3960,8 @@
           "rules": [],
           "description": "Every document type, by name, with its context."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ListDocumentVersionsRequest": {
       "name": "ListDocumentVersionsRequest",
@@ -3924,18 +3969,18 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The document whose versions to list, by id."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ListDocumentVersionsResponse": {
       "name": "ListDocumentVersionsResponse",
@@ -3951,7 +3996,8 @@
           "rules": [],
           "description": "Every version of the document, newest first."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ListDocumentsRequest": {
       "name": "ListDocumentsRequest",
@@ -3959,14 +4005,12 @@
       "fields": [
         {
           "name": "agent_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The agent whose documents to list, by id. Unset lists every agent's, archived agents included."
         },
         {
@@ -3993,14 +4037,12 @@
         },
         {
           "name": "task_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "task",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The task, by id."
         },
         {
@@ -4012,6 +4054,13 @@
           "oneof": "task",
           "rules": [],
           "description": "The task, by slug."
+        }
+      ],
+      "oneofs": [
+        {
+          "name": "task",
+          "description": "The task whose documents to list. Unset lists every task's.",
+          "required": false
         }
       ]
     },
@@ -4039,7 +4088,8 @@
           "rules": [],
           "description": "The cursor for the next page. Unset on the last page."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ListMailRequest": {
       "name": "ListMailRequest",
@@ -4047,14 +4097,12 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The agent whose mail to list, by id. Unset lists the caller's own."
         },
         {
@@ -4077,7 +4125,8 @@
           "rules": [],
           "description": "Whether to list the mail the agent received or sent."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ListMailResponse": {
       "name": "ListMailResponse",
@@ -4103,7 +4152,8 @@
           "rules": [],
           "description": "The cursor for the next page. Unset on the last page."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ListReviewSnapshotsRequest": {
       "name": "ListReviewSnapshotsRequest",
@@ -4111,14 +4161,12 @@
       "fields": [
         {
           "name": "task_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "task",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The task, by id."
         },
         {
@@ -4130,6 +4178,13 @@
           "oneof": "task",
           "rules": [],
           "description": "The task, by slug."
+        }
+      ],
+      "oneofs": [
+        {
+          "name": "task",
+          "description": "The task whose snapshots to list. Unset uses the caller's own task.",
+          "required": false
         }
       ]
     },
@@ -4147,7 +4202,8 @@
           "rules": [],
           "description": "Every snapshot of the task, oldest first."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ListReviewThreadsRequest": {
       "name": "ListReviewThreadsRequest",
@@ -4155,14 +4211,12 @@
       "fields": [
         {
           "name": "task_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "task",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The task, by id."
         },
         {
@@ -4174,6 +4228,13 @@
           "oneof": "task",
           "rules": [],
           "description": "The task, by slug."
+        }
+      ],
+      "oneofs": [
+        {
+          "name": "task",
+          "description": "The task whose threads to list. Unset uses the caller's own task.",
+          "required": false
         }
       ]
     },
@@ -4191,7 +4252,8 @@
           "rules": [],
           "description": "The threads on the task's diff, with their comments. An agent sees only released comments."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ListReviewsRequest": {
       "name": "ListReviewsRequest",
@@ -4199,14 +4261,12 @@
       "fields": [
         {
           "name": "task_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "task",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The task, by id."
         },
         {
@@ -4218,6 +4278,13 @@
           "oneof": "task",
           "rules": [],
           "description": "The task, by slug."
+        }
+      ],
+      "oneofs": [
+        {
+          "name": "task",
+          "description": "The task whose reviews to list. Unset uses the caller's own task.",
+          "required": false
         }
       ]
     },
@@ -4235,7 +4302,8 @@
           "rules": [],
           "description": "Every review on the task, in snapshot order."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.LogRequest": {
       "name": "LogRequest",
@@ -4243,14 +4311,12 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The agent the line is about, by id. Unset for the caller."
         },
         {
@@ -4278,7 +4344,8 @@
           ],
           "description": "The hook whose run the line belongs to. A running hook finds its name in `KOMRAD_SCRIPT`."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.Mail": {
       "name": "Mail",
@@ -4384,7 +4451,8 @@
           "rules": [],
           "description": "Who wrote the mail and why."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.PickForkPointRequest": {
       "name": "PickForkPointRequest",
@@ -4392,14 +4460,12 @@
       "fields": [
         {
           "name": "task_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "task",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The task, by id."
         },
         {
@@ -4424,6 +4490,13 @@
           ],
           "description": "The commit the child's own commits sit on, which its branch must hold. Any name git reads as a commit."
         }
+      ],
+      "oneofs": [
+        {
+          "name": "task",
+          "description": "The child task.",
+          "required": true
+        }
       ]
     },
     "agent.v1.PickForkPointResponse": {
@@ -4440,7 +4513,8 @@
           "rules": [],
           "description": "The full name of the commit recorded."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.PlanPushRequest": {
       "name": "PlanPushRequest",
@@ -4448,14 +4522,12 @@
       "fields": [
         {
           "name": "task_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "task",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The task, by id."
         },
         {
@@ -4467,6 +4539,13 @@
           "oneof": "task",
           "rules": [],
           "description": "The task, by slug."
+        }
+      ],
+      "oneofs": [
+        {
+          "name": "task",
+          "description": "The task whose branch to plan a push of.",
+          "required": true
         }
       ]
     },
@@ -4524,7 +4603,8 @@
           "rules": [],
           "description": "Whether origin already has every commit on the branch."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.PlanRebaseRequest": {
       "name": "PlanRebaseRequest",
@@ -4532,14 +4612,12 @@
       "fields": [
         {
           "name": "task_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "task",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The task, by id."
         },
         {
@@ -4561,6 +4639,13 @@
           "oneof": "",
           "rules": [],
           "description": "Plan a re-target of a child onto the workflow's base branch, rebasing only its own commits, in place of a rebase onto its parent."
+        }
+      ],
+      "oneofs": [
+        {
+          "name": "task",
+          "description": "The task whose branch to plan a rebase of.",
+          "required": true
         }
       ]
     },
@@ -4648,7 +4733,8 @@
           "rules": [],
           "description": "The paths a merge of the base branch would conflict on. A rebase can conflict where a merge does not, so this is a warning only."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.PullRequestStanding": {
       "name": "PullRequestStanding",
@@ -4724,7 +4810,8 @@
           "rules": [],
           "description": "The forge the current pull request is on, such as `github`. Unset for `UNREAD` and `NONE`."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.PushWorktreeRequest": {
       "name": "PushWorktreeRequest",
@@ -4732,14 +4819,12 @@
       "fields": [
         {
           "name": "task_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "task",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The task, by id."
         },
         {
@@ -4751,6 +4836,13 @@
           "oneof": "task",
           "rules": [],
           "description": "The task, by slug."
+        }
+      ],
+      "oneofs": [
+        {
+          "name": "task",
+          "description": "The task whose branch to push to origin.",
+          "required": true
         }
       ]
     },
@@ -4798,7 +4890,8 @@
           "rules": [],
           "description": "The commit origin's copy of the branch now points at."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ReadMailRequest": {
       "name": "ReadMailRequest",
@@ -4806,17 +4899,16 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The agent whose unread mail to read, by id. Unset reads the caller's own."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ReadMailResponse": {
       "name": "ReadMailResponse",
@@ -4832,7 +4924,8 @@
           "rules": [],
           "description": "All the unread mail, oldest first, now marked read."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.RebaseWorktreeRequest": {
       "name": "RebaseWorktreeRequest",
@@ -4840,14 +4933,12 @@
       "fields": [
         {
           "name": "task_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "task",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The task, by id."
         },
         {
@@ -4869,6 +4960,13 @@
           "oneof": "",
           "rules": [],
           "description": "Re-target a child onto the workflow's base branch, rebasing only its own commits, so it no longer has a parent."
+        }
+      ],
+      "oneofs": [
+        {
+          "name": "task",
+          "description": "The task whose branch to rebase onto the base branch.",
+          "required": true
         }
       ]
     },
@@ -4956,7 +5054,8 @@
           "rules": [],
           "description": "How many of the branch's commits the rebase replayed."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ReleaseReviewRequest": {
       "name": "ReleaseReviewRequest",
@@ -4964,14 +5063,12 @@
       "fields": [
         {
           "name": "task_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "task",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The task, by id."
         },
         {
@@ -5005,6 +5102,13 @@
             "at most 1500 characters"
           ],
           "description": "What the reviewer says about the work as a whole. The writer reads it before the threads."
+        }
+      ],
+      "oneofs": [
+        {
+          "name": "task",
+          "description": "The task the review is on. Unset uses the caller's own task.",
+          "required": false
         }
       ]
     },
@@ -5042,7 +5146,8 @@
           "rules": [],
           "description": "The absolute path of the file the review was written to."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.RequestReviewRequest": {
       "name": "RequestReviewRequest",
@@ -5063,14 +5168,12 @@
         },
         {
           "name": "agent_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The agent whose work to review, by id. Unset for the caller."
         },
         {
@@ -5122,7 +5225,8 @@
           ],
           "description": "The flags for the reviewer's CLI. Empty to use the workflow's flags."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.RequestReviewResponse": {
       "name": "RequestReviewResponse",
@@ -5148,7 +5252,8 @@
           "rules": [],
           "description": "What the caller does next: how the review arrives and how to answer it."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.RestartAgentRequest": {
       "name": "RestartAgentRequest",
@@ -5156,14 +5261,13 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The writer or orchestrator to restart, by id."
         },
@@ -5204,7 +5308,8 @@
           ],
           "description": "The flags for the agent's CLI. Empty to keep the agent's flags, or, when `harness` changes, to use the workflow's flags if the workflow runs that harness and the CLI's default flags if not."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.RestartAgentResponse": {
       "name": "RestartAgentResponse",
@@ -5220,7 +5325,8 @@
           "rules": [],
           "description": "The agent as restarted, running."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.RestoreAgentsRequest": {
       "name": "RestoreAgentsRequest",
@@ -5228,7 +5334,7 @@
       "fields": [
         {
           "name": "ids",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": true,
           "map": false,
@@ -5238,7 +5344,8 @@
           ],
           "description": "The archived agents to restore, by id."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.RestoreAgentsResponse": {
       "name": "RestoreAgentsResponse",
@@ -5254,7 +5361,8 @@
           "rules": [],
           "description": "The agents as restored, dormant."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ResumeAgentRequest": {
       "name": "ResumeAgentRequest",
@@ -5262,18 +5370,18 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The dormant agent to resume, by id."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ResumeAgentResponse": {
       "name": "ResumeAgentResponse",
@@ -5289,7 +5397,8 @@
           "rules": [],
           "description": "The agent as resumed, running."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.RetryAgentRequest": {
       "name": "RetryAgentRequest",
@@ -5297,14 +5406,13 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The agent whose failed create to retry, by id."
         },
@@ -5345,7 +5453,8 @@
           ],
           "description": "The new harness. Empty to keep the agent's harness."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.RetryAgentResponse": {
       "name": "RetryAgentResponse",
@@ -5361,7 +5470,8 @@
           "rules": [],
           "description": "The agent as launched again, running."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.Review": {
       "name": "Review",
@@ -5507,7 +5617,8 @@
           "rules": [],
           "description": "The forge login of the author of a review copied from the forge. Empty otherwise."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ReviewMessage": {
       "name": "ReviewMessage",
@@ -5663,7 +5774,8 @@
           "rules": [],
           "description": "The id of the snapshot taken as the agent read the person's comment, which an addressed reply is compared against. Unset until then, and on every other comment."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ReviewSnapshot": {
       "name": "ReviewSnapshot",
@@ -5729,7 +5841,8 @@
           "rules": [],
           "description": "When the snapshot was taken, in RFC 3339."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ReviewThread": {
       "name": "ReviewThread",
@@ -5945,7 +6058,8 @@
           "rules": [],
           "description": "The id of the agent that opened the thread. Unset when the person or a forge user opened it."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.ReviewThreadInContext": {
       "name": "ReviewThreadInContext",
@@ -5971,7 +6085,8 @@
           "rules": [],
           "description": "The snapshot's lines around the thread's range, each prefixed with its line number, and `\u003e\u003e` on the lines the thread is about. Empty when the snapshot cannot be read."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.SearchDocumentsRequest": {
       "name": "SearchDocumentsRequest",
@@ -5992,14 +6107,12 @@
         },
         {
           "name": "agent_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The agent whose documents to search, by id. Unset searches every agent's, archived agents included."
         },
         {
@@ -6026,7 +6139,8 @@
           ],
           "description": "How many documents to return across `matches` and `near`. Zero returns up to fifty."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.SearchDocumentsResponse": {
       "name": "SearchDocumentsResponse",
@@ -6052,7 +6166,8 @@
           "rules": [],
           "description": "The documents that contain a word only inside a longer word, closest first."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.SearchHit": {
       "name": "SearchHit",
@@ -6158,7 +6273,8 @@
           "rules": [],
           "description": "When the turn was written. Unset when the CLI's log was gone before komrad read the time."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.SearchTranscriptsRequest": {
       "name": "SearchTranscriptsRequest",
@@ -6189,17 +6305,16 @@
         },
         {
           "name": "agent_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The agent whose transcript to search, by id. Unset searches the caller's own, unless a qualifier names other agents."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.SearchTranscriptsResponse": {
       "name": "SearchTranscriptsResponse",
@@ -6235,7 +6350,8 @@
           "rules": [],
           "description": "The cursor for the next page of both lists. Unset on the last page."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.SendMailRequest": {
       "name": "SendMailRequest",
@@ -6243,14 +6359,12 @@
       "fields": [
         {
           "name": "to_agent_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "to",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The agent, by id."
         },
         {
@@ -6278,15 +6392,20 @@
         },
         {
           "name": "reply_to",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The id of the mail this one answers, so the two read as a thread."
+        }
+      ],
+      "oneofs": [
+        {
+          "name": "to",
+          "description": "The agent to send to.",
+          "required": true
         }
       ]
     },
@@ -6314,7 +6433,8 @@
           "rules": [],
           "description": "Why the recipient will not read the mail soon. Unset when the recipient is running."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.SetReviewThreadResolvedRequest": {
       "name": "SetReviewThreadResolvedRequest",
@@ -6322,14 +6442,13 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The thread to resolve or reopen, by id."
         },
@@ -6343,7 +6462,8 @@
           "rules": [],
           "description": "Whether the thread is resolved. False reopens the thread."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.SetReviewThreadResolvedResponse": {
       "name": "SetReviewThreadResolvedResponse",
@@ -6359,7 +6479,8 @@
           "rules": [],
           "description": "The thread as updated."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.StartOrchestratorRequest": {
       "name": "StartOrchestratorRequest",
@@ -6367,14 +6488,13 @@
       "fields": [
         {
           "name": "workflow_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The workflow whose orchestrator to resume or create, by id."
         },
@@ -6390,7 +6510,8 @@
           ],
           "description": "The prompt for a new orchestrator. Empty to use komrad's default prompt."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.StartOrchestratorResponse": {
       "name": "StartOrchestratorResponse",
@@ -6406,7 +6527,8 @@
           "rules": [],
           "description": "The orchestrator, running."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.TakeReviewSnapshotRequest": {
       "name": "TakeReviewSnapshotRequest",
@@ -6414,14 +6536,12 @@
       "fields": [
         {
           "name": "task_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "task",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The task, by id."
         },
         {
@@ -6433,6 +6553,13 @@
           "oneof": "task",
           "rules": [],
           "description": "The task, by slug."
+        }
+      ],
+      "oneofs": [
+        {
+          "name": "task",
+          "description": "The task whose worktree to save. Unset uses the caller's own task.",
+          "required": false
         }
       ]
     },
@@ -6450,7 +6577,8 @@
           "rules": [],
           "description": "The snapshot to review. The newest existing snapshot when the worktree has not changed."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.Turn": {
       "name": "Turn",
@@ -6496,7 +6624,8 @@
           "rules": [],
           "description": "Whether the start of the text was cut to fit `max_bytes`."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.UpdateAgentRequest": {
       "name": "UpdateAgentRequest",
@@ -6504,14 +6633,13 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The agent to rename, by id."
         },
@@ -6528,7 +6656,8 @@
           ],
           "description": "The agent's new name."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.WriteDocumentRequest": {
       "name": "WriteDocumentRequest",
@@ -6536,14 +6665,12 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The document to rewrite, by id. Unset creates a document."
         },
         {
@@ -6604,15 +6731,20 @@
         },
         {
           "name": "agent_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The agent to write the document for, by id. An agent may name only itself."
+        }
+      ],
+      "oneofs": [
+        {
+          "name": "source",
+          "description": "The source of the document's text.",
+          "required": true
         }
       ]
     },
@@ -6630,7 +6762,8 @@
           "rules": [],
           "description": "The document as written, without its text."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.WriteDocumentTypeRequest": {
       "name": "WriteDocumentTypeRequest",
@@ -6638,14 +6771,12 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The document type to rewrite, by id. Unset creates a document type."
         },
         {
@@ -6683,7 +6814,8 @@
           "rules": [],
           "description": "The document type's `version` when last read. Required on a rewrite."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "agent.v1.WriteDocumentTypeResponse": {
       "name": "WriteDocumentTypeResponse",
@@ -6699,7 +6831,8 @@
           "rules": [],
           "description": "The document type as written."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "config.v1.GetConfigResponse": {
       "name": "GetConfigResponse",
@@ -6735,7 +6868,8 @@
           "rules": [],
           "description": "The build version of the server."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "doctor.v1.Finding": {
       "name": "Finding",
@@ -6811,7 +6945,8 @@
           "rules": [],
           "description": "What to do about the problem. Empty when there is nothing to do."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "doctor.v1.RunDoctorResponse": {
       "name": "RunDoctorResponse",
@@ -6837,7 +6972,8 @@
           "rules": [],
           "description": "The findings counted by status."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "doctor.v1.Summary": {
       "name": "Summary",
@@ -6903,7 +7039,8 @@
           "rules": [],
           "description": "Whether no check failed."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "forge.v1.CheckForgesResponse": {
       "name": "CheckForgesResponse",
@@ -6919,7 +7056,8 @@
           "rules": [],
           "description": "One check for each connection, in the order `list_forges` returns them."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "forge.v1.CommitMessage": {
       "name": "CommitMessage",
@@ -6945,7 +7083,8 @@
           "rules": [],
           "description": "The rest of the commit's message. Empty writes a headline alone."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "forge.v1.DisconnectForgeRequest": {
       "name": "DisconnectForgeRequest",
@@ -6961,7 +7100,8 @@
           "rules": [],
           "description": "The host to disconnect."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "forge.v1.Forge": {
       "name": "Forge",
@@ -7057,7 +7197,8 @@
           "rules": [],
           "description": "When the connection was created, in RFC 3339."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "forge.v1.ForgeCheck": {
       "name": "ForgeCheck",
@@ -7093,7 +7234,8 @@
           "rules": [],
           "description": "The kind of problem, `refused`, `no_credential` or `unreachable`. Empty when there is none."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "forge.v1.ForgePullRequest": {
       "name": "ForgePullRequest",
@@ -7269,7 +7411,8 @@
           "rules": [],
           "description": "When the pull request closed, in RFC 3339, merged or not. Unset while the pull request is open."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "forge.v1.ListForgePullRequestsRequest": {
       "name": "ListForgePullRequestsRequest",
@@ -7310,7 +7453,8 @@
           "rules": [],
           "description": "The page to read. The page size defaults to twenty and is at most a hundred."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "forge.v1.ListForgePullRequestsResponse": {
       "name": "ListForgePullRequestsResponse",
@@ -7336,7 +7480,8 @@
           "rules": [],
           "description": "The cursor for the next page. Unset on the last page."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "forge.v1.ListForgesResponse": {
       "name": "ListForgesResponse",
@@ -7352,7 +7497,8 @@
           "rules": [],
           "description": "Every connection, by host."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "forge.v1.MergeForgePullRequestRequest": {
       "name": "MergeForgePullRequestRequest",
@@ -7417,7 +7563,8 @@
           ],
           "description": "The head commit the caller expects. The forge refuses to merge once the branch has moved past it. Empty accepts any head."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "forge.v1.MergeOption": {
       "name": "MergeOption",
@@ -7453,7 +7600,8 @@
           "rules": [],
           "description": "The message the forge writes for the method by itself. Unset for a method that writes no commit of its own."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "forge.v1.PlanForgePullRequestMergeRequest": {
       "name": "PlanForgePullRequestMergeRequest",
@@ -7472,7 +7620,8 @@
           ],
           "description": "The pull request to plan, by web address. The address's host picks the forge connection."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "forge.v1.PlanForgePullRequestMergeResponse": {
       "name": "PlanForgePullRequestMergeResponse",
@@ -7508,7 +7657,8 @@
           "rules": [],
           "description": "The pull request's head commit when the plan was read."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "forge.v1.RequestForgePullRequestRereviewRequest": {
       "name": "RequestForgePullRequestRereviewRequest",
@@ -7527,7 +7677,8 @@
           ],
           "description": "The pull request to ask for reviews on, by web address. The address's host picks the forge connection."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "forge.v1.SetForgePullRequestAutoMergeRequest": {
       "name": "SetForgePullRequestAutoMergeRequest",
@@ -7602,7 +7753,8 @@
           ],
           "description": "The rest of the commit the merge writes. Unset leaves it to the forge, and empty writes a headline alone."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "forge.v1.SetForgePullRequestDraftRequest": {
       "name": "SetForgePullRequestDraftRequest",
@@ -7631,12 +7783,14 @@
           "rules": [],
           "description": "Whether the pull request is a draft. False marks the pull request ready for review."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "google.protobuf.Empty": {
       "name": "Empty",
       "description": "",
-      "fields": []
+      "fields": [],
+      "oneofs": []
     },
     "hook.v1.Hook": {
       "name": "Hook",
@@ -7692,7 +7846,8 @@
           "rules": [],
           "description": "The header lines that could not be read. Each one leaves its setting at the default."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "hook.v1.ListHooksResponse": {
       "name": "ListHooksResponse",
@@ -7708,7 +7863,8 @@
           "rules": [],
           "description": "Every file in the hooks directory, executable or not."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "log.v1.GetLogLinesRequest": {
       "name": "GetLogLinesRequest",
@@ -7727,7 +7883,8 @@
           ],
           "description": "The trace id to read, from a failed call or from `list_recent_traces`."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "log.v1.GetLogLinesResponse": {
       "name": "GetLogLinesResponse",
@@ -7743,7 +7900,8 @@
           "rules": [],
           "description": "Every line written under the trace id, in the order they were written."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "log.v1.ListAgentLogSourcesRequest": {
       "name": "ListAgentLogSourcesRequest",
@@ -7751,18 +7909,18 @@
       "fields": [
         {
           "name": "agent_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The agent whose log sources to list, by id."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "log.v1.ListAgentLogSourcesResponse": {
       "name": "ListAgentLogSourcesResponse",
@@ -7778,7 +7936,8 @@
           "rules": [],
           "description": "The server log first, then each hook run the agent recorded, newest first."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "log.v1.ListRecentTracesRequest": {
       "name": "ListRecentTracesRequest",
@@ -7796,7 +7955,8 @@
           ],
           "description": "How many of the newest traces to list. Zero lists twenty."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "log.v1.ListRecentTracesResponse": {
       "name": "ListRecentTracesResponse",
@@ -7812,7 +7972,8 @@
           "rules": [],
           "description": "The newest traces in the log, oldest first."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "log.v1.ListTaskLogSourcesRequest": {
       "name": "ListTaskLogSourcesRequest",
@@ -7820,18 +7981,18 @@
       "fields": [
         {
           "name": "task_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The task whose log sources to list, by id."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "log.v1.ListTaskLogSourcesResponse": {
       "name": "ListTaskLogSourcesResponse",
@@ -7847,7 +8008,8 @@
           "rules": [],
           "description": "Each hook run recorded on the task, by the task or any agent on it, newest first."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "log.v1.LogLine": {
       "name": "LogLine",
@@ -7893,7 +8055,8 @@
           "rules": [],
           "description": "The line's other fields, under the keys the log gives them."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "log.v1.LogSource": {
       "name": "LogSource",
@@ -7959,7 +8122,8 @@
           "rules": [],
           "description": "Whether the hook run failed. Set only on a task's log sources."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "log.v1.ReadAgentLogsRequest": {
       "name": "ReadAgentLogsRequest",
@@ -7967,7 +8131,7 @@
       "fields": [
         {
           "name": "agent_ids",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": true,
           "map": false,
@@ -8023,7 +8187,8 @@
           ],
           "description": "A Go regular expression each line must match. Empty matches every line. Only the last 64 MB of the source is searched."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "log.v1.ReadAgentLogsResponse": {
       "name": "ReadAgentLogsResponse",
@@ -8069,7 +8234,8 @@
           "rules": [],
           "description": "Whether more lines remain past the cursor, which another call returns at once."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "log.v1.TraceSummary": {
       "name": "TraceSummary",
@@ -8115,7 +8281,8 @@
           "rules": [],
           "description": "How many lines the log has under the trace."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "pagination.v1.Pagination": {
       "name": "Pagination",
@@ -8143,7 +8310,8 @@
           ],
           "description": "The `next_page_token` from the previous response. Unset to start from the first page."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "pullrequest.v1.ListPullRequestsRequest": {
       "name": "ListPullRequestsRequest",
@@ -8184,7 +8352,8 @@
           "rules": [],
           "description": "The page to read. The page size defaults to twenty and is at most a hundred."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "pullrequest.v1.ListPullRequestsResponse": {
       "name": "ListPullRequestsResponse",
@@ -8210,7 +8379,8 @@
           "rules": [],
           "description": "The cursor for the next page. Unset on the last page."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "pullrequest.v1.MergeReadiness": {
       "name": "MergeReadiness",
@@ -8276,7 +8446,8 @@
           "rules": [],
           "description": "Whether the forge would let komrad turn auto-merge on now. The forge refuses for a draft, a pull request with nothing left to wait for, and a repository that does not allow auto-merge."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "pullrequest.v1.PullRequest": {
       "name": "PullRequest",
@@ -8492,7 +8663,8 @@
           "rules": [],
           "description": "The pull request's description. Empty when it has none."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "schedule.v1.ArchiveScheduleRequest": {
       "name": "ArchiveScheduleRequest",
@@ -8500,18 +8672,18 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The schedule to archive, by id."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "schedule.v1.CreateScheduleRequest": {
       "name": "CreateScheduleRequest",
@@ -8589,27 +8761,30 @@
         },
         {
           "name": "workflow_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "target",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The workflow to create a task in, by id. The writer takes the workflow's directory and flags."
         },
         {
           "name": "orchestrator_agent_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "target",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The orchestrator to mail the prompt to, by id."
+        }
+      ],
+      "oneofs": [
+        {
+          "name": "target",
+          "description": "What each run does.",
+          "required": true
         }
       ]
     },
@@ -8627,7 +8802,8 @@
           "rules": [],
           "description": "The schedule as created."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "schedule.v1.DeleteScheduleRequest": {
       "name": "DeleteScheduleRequest",
@@ -8635,18 +8811,18 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The archived schedule to delete, by id."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "schedule.v1.GetScheduleRequest": {
       "name": "GetScheduleRequest",
@@ -8654,18 +8830,18 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The schedule to get, by id."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "schedule.v1.GetScheduleResponse": {
       "name": "GetScheduleResponse",
@@ -8681,7 +8857,8 @@
           "rules": [],
           "description": "The schedule, with its prompt in full."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "schedule.v1.ListScheduleRunsRequest": {
       "name": "ListScheduleRunsRequest",
@@ -8689,14 +8866,13 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The schedule whose runs to list, by id."
         },
@@ -8712,7 +8888,8 @@
           ],
           "description": "How many of the newest runs to return. Zero returns twenty."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "schedule.v1.ListScheduleRunsResponse": {
       "name": "ListScheduleRunsResponse",
@@ -8728,7 +8905,8 @@
           "rules": [],
           "description": "The schedule's runs on record, newest first."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "schedule.v1.ListSchedulesRequest": {
       "name": "ListSchedulesRequest",
@@ -8764,7 +8942,8 @@
           "rules": [],
           "description": "Whether to list only archived schedules instead of live ones."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "schedule.v1.ListSchedulesResponse": {
       "name": "ListSchedulesResponse",
@@ -8790,7 +8969,8 @@
           "rules": [],
           "description": "The cursor for the next page. Unset on the last page."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "schedule.v1.RestoreScheduleRequest": {
       "name": "RestoreScheduleRequest",
@@ -8798,18 +8978,18 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The archived schedule to restore, by id."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "schedule.v1.Schedule": {
       "name": "Schedule",
@@ -8965,7 +9145,8 @@
           "rules": [],
           "description": "When the schedule was archived. Unset while the schedule is live."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "schedule.v1.ScheduleRun": {
       "name": "ScheduleRun",
@@ -9041,7 +9222,8 @@
           "rules": [],
           "description": "Why the run was skipped, or the error from its last failed attempt. Empty when the run completed."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "schedule.v1.SetScheduleEnabledRequest": {
       "name": "SetScheduleEnabledRequest",
@@ -9049,14 +9231,13 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The schedule to enable or disable, by id."
         },
@@ -9070,7 +9251,8 @@
           "rules": [],
           "description": "Whether the schedule is enabled. False keeps the schedule's record and runs."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "schedule.v1.UpdateScheduleRequest": {
       "name": "UpdateScheduleRequest",
@@ -9078,14 +9260,13 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The schedule to update, by id."
         },
@@ -9151,26 +9332,22 @@
         },
         {
           "name": "workflow_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "target",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The workflow to create a task in, by id."
         },
         {
           "name": "orchestrator_agent_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "target",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The orchestrator to mail the prompt to, by id."
         },
         {
@@ -9183,6 +9360,13 @@
           "rules": [],
           "description": "Whether tasks from later runs start hidden. Existing tasks keep theirs."
         }
+      ],
+      "oneofs": [
+        {
+          "name": "target",
+          "description": "What later runs do.",
+          "required": true
+        }
       ]
     },
     "task.v1.ArchiveTaskRequest": {
@@ -9191,14 +9375,12 @@
       "fields": [
         {
           "name": "task_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "task",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The task, by id."
         },
         {
@@ -9210,6 +9392,13 @@
           "oneof": "task",
           "rules": [],
           "description": "The task, by slug."
+        }
+      ],
+      "oneofs": [
+        {
+          "name": "task",
+          "description": "The task to archive.",
+          "required": true
         }
       ]
     },
@@ -9258,18 +9447,18 @@
         },
         {
           "name": "workflow_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The workflow to create the task in, by id."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "task.v1.CreateTaskResponse": {
       "name": "CreateTaskResponse",
@@ -9285,7 +9474,8 @@
           "rules": [],
           "description": "The task as created."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "task.v1.DeleteTasksRequest": {
       "name": "DeleteTasksRequest",
@@ -9293,7 +9483,7 @@
       "fields": [
         {
           "name": "task_ids",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": true,
           "map": false,
@@ -9321,7 +9511,8 @@
           "rules": [],
           "description": "The tasks to delete, by slug."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "task.v1.DiffStat": {
       "name": "DiffStat",
@@ -9347,7 +9538,8 @@
           "rules": [],
           "description": "How many lines the checkout removes."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "task.v1.GetTaskRequest": {
       "name": "GetTaskRequest",
@@ -9355,14 +9547,12 @@
       "fields": [
         {
           "name": "task_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "task",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The task, by id."
         },
         {
@@ -9374,6 +9564,13 @@
           "oneof": "task",
           "rules": [],
           "description": "The task, by slug."
+        }
+      ],
+      "oneofs": [
+        {
+          "name": "task",
+          "description": "The task to get.",
+          "required": true
         }
       ]
     },
@@ -9391,7 +9588,8 @@
           "rules": [],
           "description": "The task, with the goal in full."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "task.v1.ListTasksRequest": {
       "name": "ListTasksRequest",
@@ -9399,14 +9597,13 @@
       "fields": [
         {
           "name": "workflow_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The workflow whose tasks to list, by id."
         },
@@ -9420,7 +9617,8 @@
           "rules": [],
           "description": "Whether to list only archived tasks instead of live ones."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "task.v1.ListTasksResponse": {
       "name": "ListTasksResponse",
@@ -9436,7 +9634,8 @@
           "rules": [],
           "description": "The workflow's tasks, newest first."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "task.v1.Parent": {
       "name": "Parent",
@@ -9482,7 +9681,8 @@
           "rules": [],
           "description": "Why the cascade cannot rebase the child onto its parent."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "task.v1.SetTaskHiddenRequest": {
       "name": "SetTaskHiddenRequest",
@@ -9490,14 +9690,12 @@
       "fields": [
         {
           "name": "task_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "task",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The task, by id."
         },
         {
@@ -9520,6 +9718,13 @@
           "rules": [],
           "description": "Whether to hide the task. False shows the task again."
         }
+      ],
+      "oneofs": [
+        {
+          "name": "task",
+          "description": "The task to hide or show.",
+          "required": true
+        }
       ]
     },
     "task.v1.SetTaskNotesRequest": {
@@ -9528,14 +9733,12 @@
       "fields": [
         {
           "name": "task_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "task",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The task, by id."
         },
         {
@@ -9572,6 +9775,13 @@
           ],
           "description": "The `notes_updated_at` that `get_task` returned with the notes. Unset when the notes were never written."
         }
+      ],
+      "oneofs": [
+        {
+          "name": "task",
+          "description": "The task whose notes to write.",
+          "required": true
+        }
       ]
     },
     "task.v1.SetTaskNotesResponse": {
@@ -9588,7 +9798,8 @@
           "rules": [],
           "description": "The task, with the new notes."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "task.v1.Task": {
       "name": "Task",
@@ -9854,7 +10065,8 @@
           "rules": [],
           "description": "How many snapshots komrad has taken of the task's checkout."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "task.v1.UpdateTaskRequest": {
       "name": "UpdateTaskRequest",
@@ -9862,14 +10074,12 @@
       "fields": [
         {
           "name": "task_id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "task",
-          "rules": [
-            "a UUID"
-          ],
+          "rules": [],
           "description": "The task, by id."
         },
         {
@@ -9943,6 +10153,13 @@
           ],
           "description": "The `notes_updated_at` the notes were read with. Unset when the notes were never written."
         }
+      ],
+      "oneofs": [
+        {
+          "name": "task",
+          "description": "The task to update.",
+          "required": true
+        }
       ]
     },
     "task.v1.UpdateTaskResponse": {
@@ -9959,7 +10176,8 @@
           "rules": [],
           "description": "The task as updated."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "workflow.v1.ArchiveWorkflowRequest": {
       "name": "ArchiveWorkflowRequest",
@@ -9967,18 +10185,18 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The workflow to archive, by id."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "workflow.v1.CreateWorkflowRequest": {
       "name": "CreateWorkflowRequest",
@@ -10101,7 +10319,8 @@
           "rules": [],
           "description": "The workflow's event prompts. Unset uses komrad's default prompt for each event, and an empty list sets none."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "workflow.v1.CreateWorkflowResponse": {
       "name": "CreateWorkflowResponse",
@@ -10117,7 +10336,8 @@
           "rules": [],
           "description": "The workflow as created."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "workflow.v1.DeleteWorkflowRequest": {
       "name": "DeleteWorkflowRequest",
@@ -10125,14 +10345,13 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The archived workflow to delete, by id."
         },
@@ -10146,7 +10365,8 @@
           "rules": [],
           "description": "Whether to delete the agents, transcripts, documents, mail, notes and reviews of the workflow's tasks too. False deletes only the tasks' worktrees and keeps the workflow archived."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "workflow.v1.GetWorkflowRequest": {
       "name": "GetWorkflowRequest",
@@ -10154,18 +10374,18 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The workflow to get, by id."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "workflow.v1.GetWorkflowResponse": {
       "name": "GetWorkflowResponse",
@@ -10181,7 +10401,8 @@
           "rules": [],
           "description": "The workflow, with its context in full."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "workflow.v1.ListWorkflowsRequest": {
       "name": "ListWorkflowsRequest",
@@ -10217,7 +10438,8 @@
           "rules": [],
           "description": "How much of each workflow to return."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "workflow.v1.ListWorkflowsResponse": {
       "name": "ListWorkflowsResponse",
@@ -10243,7 +10465,8 @@
           "rules": [],
           "description": "The cursor for the next page. Unset on the last page."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "workflow.v1.RestoreWorkflowRequest": {
       "name": "RestoreWorkflowRequest",
@@ -10251,18 +10474,18 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The archived workflow to restore, by id."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "workflow.v1.RestoreWorkflowResponse": {
       "name": "RestoreWorkflowResponse",
@@ -10278,7 +10501,8 @@
           "rules": [],
           "description": "The workflow as restored."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "workflow.v1.UpdateWorkflowRequest": {
       "name": "UpdateWorkflowRequest",
@@ -10286,14 +10510,13 @@
       "fields": [
         {
           "name": "id",
-          "type": "string",
+          "type": "uuid",
           "ref": "",
           "repeated": false,
           "map": false,
           "oneof": "",
           "rules": [
-            "required",
-            "a UUID"
+            "required"
           ],
           "description": "The workflow to update, by id."
         },
@@ -10414,7 +10637,8 @@
           "rules": [],
           "description": "The workflow's event prompts, in full."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "workflow.v1.Workflow": {
       "name": "Workflow",
@@ -10550,7 +10774,8 @@
           "rules": [],
           "description": "The prompts komrad adds to the mail it sends the workflow's agents about events, one for each event."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "workflow.v1.WorkflowEventPrompt": {
       "name": "WorkflowEventPrompt",
@@ -10588,7 +10813,8 @@
           "rules": [],
           "description": "Whether the event is muted. A muted event sends no mail of its own, and updates the agent's unread mail without its prompt."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "workflow.v1.WorkflowEventPrompts": {
       "name": "WorkflowEventPrompts",
@@ -10604,7 +10830,8 @@
           "rules": [],
           "description": "The event prompts, one for each event."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "workflow.v1.WorkflowHook": {
       "name": "WorkflowHook",
@@ -10636,7 +10863,8 @@
           ],
           "description": "The hook's script, by file name in the hooks directory."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "workflow.v1.WorktreeConfig": {
       "name": "WorktreeConfig",
@@ -10718,7 +10946,8 @@
           ],
           "description": "The shell command run in each worktree before an agent starts or resumes there, such as one that installs the repository's tools. Empty runs nothing."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "worktree.v1.Commit": {
       "name": "Commit",
@@ -10754,7 +10983,8 @@
           "rules": [],
           "description": "When the commit was made, in RFC 3339."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "worktree.v1.DeleteWorktreesRequest": {
       "name": "DeleteWorktreesRequest",
@@ -10772,7 +11002,8 @@
           ],
           "description": "The worktrees to delete, by the paths `list_worktrees` returns."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "worktree.v1.Entry": {
       "name": "Entry",
@@ -10808,7 +11039,8 @@
           "rules": [],
           "description": "Whether the entry is a directory."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "worktree.v1.GetWorktreeRequest": {
       "name": "GetWorktreeRequest",
@@ -10836,7 +11068,8 @@
           "rules": [],
           "description": "Whether to fetch the base branch from origin before comparing. False compares with the base branch as last fetched."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "worktree.v1.GetWorktreeResponse": {
       "name": "GetWorktreeResponse",
@@ -11032,7 +11265,8 @@
           "rules": [],
           "description": "Whether every commit counted in `unpulled` has landed."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "worktree.v1.ListWorktreesResponse": {
       "name": "ListWorktreesResponse",
@@ -11068,7 +11302,8 @@
           "rules": [],
           "description": "The worktree directories that could not be read."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "worktree.v1.Refusal": {
       "name": "Refusal",
@@ -11134,7 +11369,8 @@
           "rules": [],
           "description": "What failed. Empty unless a step broke."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "worktree.v1.RemoveUnownedWorktreesRequest": {
       "name": "RemoveUnownedWorktreesRequest",
@@ -11152,7 +11388,8 @@
           ],
           "description": "The worktrees to remove, by the paths `list_worktrees` returns."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "worktree.v1.RemoveUnownedWorktreesResponse": {
       "name": "RemoveUnownedWorktreesResponse",
@@ -11178,7 +11415,8 @@
           "rules": [],
           "description": "The worktrees kept, each with the reason."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "worktree.v1.Worktree": {
       "name": "Worktree",
@@ -11304,7 +11542,8 @@
           "rules": [],
           "description": "The task the worktree belongs to. Unset when no task owns it."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "worktree.v1.WorktreeAgent": {
       "name": "WorktreeAgent",
@@ -11350,7 +11589,8 @@
           "rules": [],
           "description": "When the agent was archived, in RFC 3339. Unset while the agent is live."
         }
-      ]
+      ],
+      "oneofs": []
     },
     "worktree.v1.WorktreeTask": {
       "name": "WorktreeTask",
@@ -11396,7 +11636,8 @@
           "rules": [],
           "description": "Whether the branch existed before the task was put on it. Deleting the task never deletes such a branch."
         }
-      ]
+      ],
+      "oneofs": []
     }
   },
   "enums": {

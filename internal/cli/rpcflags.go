@@ -198,8 +198,11 @@ func declareListFlag(cmd *cobra.Command, field protoreflect.FieldDescriptor, fla
 
 func describeField(field protoreflect.FieldDescriptor) string {
 	parts := []string{field.Kind().String()}
-	if field.Kind() == protoreflect.EnumKind {
+	switch {
+	case field.Kind() == protoreflect.EnumKind:
 		parts = []string{strings.Join(rpcapi.EnumNames(field.Enum()), "|")}
+	case rpcapi.IsUUID(field):
+		parts = []string{"uuid"}
 	}
 
 	return strings.Join(append(parts, rpcapi.DescribeRules(field)...), ", ")

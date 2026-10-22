@@ -240,6 +240,11 @@
   font-size: 0.85em;
 }
 
+.doc-content tr.oneof-member td:first-child {
+  padding-left: 1.75rem;
+  box-shadow: inset 2px 0 var(--color-app-background-medium);
+}
+
 .doc-content .type h3 {
   font-size: 1.3em;
   margin-bottom: 0.5rem;
@@ -429,6 +434,16 @@
   .doc-content td:last-child {
     flex-basis: 100%;
     margin-top: 0.4rem;
+  }
+
+  .doc-content tr.oneof-member {
+    padding-left: 1rem;
+    box-shadow: inset 2px 0 var(--color-app-background-medium);
+  }
+
+  .doc-content tr.oneof-member td:first-child {
+    padding-left: 0;
+    box-shadow: none;
   }
 
   .doc-content td[data-sep] {

@@ -228,6 +228,31 @@ func IsRequired(field protoreflect.FieldDescriptor) bool {
 	return rules.GetString().GetMinLen() > 0 || rules.GetString().GetUuid() || rules.GetRepeated().GetMinItems() > 0
 }
 
+// IsUUID reports whether the server refuses any value of the field, of a list's items or of a map's values but a UUID.
+func IsUUID(field protoreflect.FieldDescriptor) bool {
+	rules := getRules(field)
+	switch {
+	case field.IsMap():
+		rules = rules.GetMap().GetValues()
+	case field.IsList():
+		rules = rules.GetRepeated().GetItems()
+	}
+
+	return rules.GetString().GetUuid() || rules.GetString().GetTuuid() || rules.GetBytes().GetUuid()
+}
+
+// IsOneofRequired reports whether the server refuses a request setting none of the oneof's fields.
+func IsOneofRequired(oneof protoreflect.OneofDescriptor) bool {
+	opts, ok := oneof.Options().(*descriptorpb.OneofOptions)
+	if !ok || !proto.HasExtension(opts, validate.E_Oneof) {
+		return false
+	}
+
+	rules, ok := proto.GetExtension(opts, validate.E_Oneof).(*validate.OneofRules)
+
+	return ok && rules.GetRequired()
+}
+
 // DescribeRules spells out what the server refuses of a field, in the order a reader weighs them.
 func DescribeRules(field protoreflect.FieldDescriptor) []string {
 	var parts []string
@@ -242,9 +267,6 @@ func DescribeRules(field protoreflect.FieldDescriptor) []string {
 		}
 		if pattern := text.GetPattern(); pattern != "" {
 			parts = append(parts, "matching "+pattern)
-		}
-		if text.GetUuid() {
-			parts = append(parts, "a UUID")
 		}
 	}
 

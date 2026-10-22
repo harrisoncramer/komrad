@@ -46,6 +46,13 @@ type messageDoc struct {
 	Name        string     `json:"name"`
 	Description string     `json:"description"`
 	Fields      []fieldDoc `json:"fields"`
+	Oneofs      []oneofDoc `json:"oneofs"`
+}
+
+type oneofDoc struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Required    bool   `json:"required"`
 }
 
 type fieldDoc struct {
@@ -137,8 +144,22 @@ func addMessage(doc apiDoc, notes comments, message protoreflect.MessageDescript
 		Name:        string(message.Name()),
 		Description: notes.of(message),
 		Fields:      []fieldDoc{},
+		Oneofs:      []oneofDoc{},
 	}
 	doc.Messages[name] = entry
+
+	for i := range message.Oneofs().Len() {
+		oneof := message.Oneofs().Get(i)
+		if oneof.IsSynthetic() {
+			continue
+		}
+
+		entry.Oneofs = append(entry.Oneofs, oneofDoc{
+			Name:        string(oneof.Name()),
+			Description: notes.of(oneof),
+			Required:    rpcapi.IsOneofRequired(oneof),
+		})
+	}
 
 	for i := range message.Fields().Len() {
 		field := message.Fields().Get(i)
@@ -161,6 +182,9 @@ func addMessage(doc apiDoc, notes comments, message protoreflect.MessageDescript
 		}
 
 		described.Type, described.Ref = fieldType(value)
+		if rpcapi.IsUUID(field) {
+			described.Type = "uuid"
+		}
 
 		switch {
 		case value.Kind() == protoreflect.EnumKind:

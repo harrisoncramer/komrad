@@ -94,6 +94,10 @@ func recordMessages(messages protoreflect.MessageDescriptors, record func(protor
 			record(message.Fields().Get(f))
 		}
 
+		for o := range message.Oneofs().Len() {
+			record(message.Oneofs().Get(o))
+		}
+
 		recordEnums(message.Enums(), record)
 		recordMessages(message.Messages(), record)
 	}

@@ -9,10 +9,17 @@ export type Field = {
   description: string;
 };
 
+export type Oneof = {
+  name: string;
+  description: string;
+  required: boolean;
+};
+
 export type Message = {
   name: string;
   description: string;
   fields: Field[];
+  oneofs: Oneof[];
 };
 
 export type Enum = {

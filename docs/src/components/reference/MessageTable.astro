@@ -1,15 +1,38 @@
 ---
 import Heading from "./Heading.astro";
 import { anchor, prose } from "../../reference";
-import type { Message } from "../../reference/types";
+import type { Field, Message, Oneof } from "../../reference/types";
 
 type Props = {
   name: string;
   message: Message;
 };
 
+type Row = { field: Field; member: boolean } | { oneof: Oneof; members: string[] };
+
 const { name, message } = Astro.props;
 const id = anchor(name);
+const list = (names: string[]) =>
+  names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`;
+
+const rows: Row[] = [];
+const drawn = new Set<string>();
+for (const field of message.fields) {
+  if (!field.oneof) {
+    rows.push({ field, member: false });
+    continue;
+  }
+  if (drawn.has(field.oneof)) continue;
+  drawn.add(field.oneof);
+
+  const oneof = message.oneofs.find((candidate) => candidate.name === field.oneof);
+  if (!oneof) throw new Error(`api.json has no oneof ${field.oneof} on ${name}`);
+  const members = message.fields.filter((candidate) => candidate.oneof === field.oneof);
+  rows.push({ oneof, members: members.map((member) => member.name) });
+  for (const member of members) {
+    rows.push({ field: member, member: true });
+  }
+}
 ---
 
 <section class="type">
@@ -30,26 +53,41 @@ const id = anchor(name);
           </tr>
         </thead>
         <tbody>
-          {message.fields.map((field) => (
-            <tr id={`${id}-${field.name}`}>
-              <td>
-                <a class="row-anchor" href={`#${id}-${field.name}`}>
-                  <code>{field.name}</code>
-                </a>
-              </td>
-              <td class="type-cell" data-sep=":">
-                {field.map && "map of "}
-                {field.repeated && !field.map && "list of "}
-                {field.ref ? <a href={`#${anchor(field.ref)}`}>{field.type}</a> : field.type}
-              </td>
-              <td>
-                {field.description && <Fragment set:html={prose(field.description)} />}
-                {(field.rules.length > 0 || field.oneof) && (
-                  <p class="rules">{[...field.rules, ...(field.oneof ? [`one of ${field.oneof}`] : [])].join(", ")}</p>
-                )}
-              </td>
-            </tr>
-          ))}
+          {rows.map((row) =>
+            "oneof" in row ? (
+              <tr id={`${id}-${row.oneof.name}`} class="oneof">
+                <td>
+                  <a class="row-anchor" href={`#${id}-${row.oneof.name}`}>
+                    <code>{row.oneof.name}</code>
+                  </a>
+                </td>
+                <td class="type-cell" data-sep=":">
+                  one of
+                </td>
+                <td>
+                  {row.oneof.description && <Fragment set:html={prose(row.oneof.description)} />}
+                  <p class="rules">{`${row.oneof.required ? "set exactly one" : "set at most one"} of ${list(row.members)}`}</p>
+                </td>
+              </tr>
+            ) : (
+              <tr id={`${id}-${row.field.name}`} class={row.member ? "oneof-member" : undefined}>
+                <td>
+                  <a class="row-anchor" href={`#${id}-${row.field.name}`}>
+                    <code>{row.field.name}</code>
+                  </a>
+                </td>
+                <td class="type-cell" data-sep=":">
+                  {row.field.map && "map of "}
+                  {row.field.repeated && !row.field.map && "list of "}
+                  {row.field.ref ? <a href={`#${anchor(row.field.ref)}`}>{row.field.type}</a> : row.field.type}
+                </td>
+                <td>
+                  {row.field.description && <Fragment set:html={prose(row.field.description)} />}
+                  {row.field.rules.length > 0 && <p class="rules">{row.field.rules.join(", ")}</p>}
+                </td>
+              </tr>
+            ),
+          )}
         </tbody>
       </table>
     </div>

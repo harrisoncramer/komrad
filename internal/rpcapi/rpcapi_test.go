@@ -53,6 +53,49 @@ func TestIsRequired(t *testing.T) {
 	}
 }
 
+// TestIsUUID checks a field reads as a UUID whether the rule sits on the field or on a list's items.
+func TestIsUUID(t *testing.T) {
+	tests := []struct {
+		message protoreflect.MessageDescriptor
+		field   string
+		want    bool
+	}{
+		{message: (&agentv1.SendMailRequest{}).ProtoReflect().Descriptor(), field: "to_agent_id", want: true},
+		{message: (&agentv1.SendMailRequest{}).ProtoReflect().Descriptor(), field: "reply_to", want: true},
+		{message: (&agentv1.SendMailRequest{}).ProtoReflect().Descriptor(), field: "to_agent_name", want: false},
+		{message: (&agentv1.ArchiveAgentsRequest{}).ProtoReflect().Descriptor(), field: "ids", want: true},
+		{message: (&agentv1.Agent{}).ProtoReflect().Descriptor(), field: "id", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.message.Name())+"."+tt.field, func(t *testing.T) {
+			field := tt.message.Fields().ByName(protoreflect.Name(tt.field))
+			require.NotNil(t, field)
+			assert.Equal(t, tt.want, IsUUID(field))
+		})
+	}
+}
+
+// TestIsOneofRequired checks only a oneof carrying the required rule must be set.
+func TestIsOneofRequired(t *testing.T) {
+	tests := []struct {
+		message protoreflect.MessageDescriptor
+		oneof   string
+		want    bool
+	}{
+		{message: (&agentv1.SendMailRequest{}).ProtoReflect().Descriptor(), oneof: "to", want: true},
+		{message: (&agentv1.CreateAgentRequest{}).ProtoReflect().Descriptor(), oneof: "task", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.message.Name())+"."+tt.oneof, func(t *testing.T) {
+			oneof := tt.message.Oneofs().ByName(protoreflect.Name(tt.oneof))
+			require.NotNil(t, oneof)
+			assert.Equal(t, tt.want, IsOneofRequired(oneof))
+		})
+	}
+}
+
 // TestGetCallTimeout covers a call that waits on hooks carrying no deadline of its own, the server bounding it by the hooks.timeout setting.
 func TestGetCallTimeout(t *testing.T) {
 	tests := []struct {
