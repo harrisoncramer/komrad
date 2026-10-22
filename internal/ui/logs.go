@@ -628,7 +628,7 @@ func (l *logsScreen) kindsSwitch(*model) bool {
 
 // stepKind renders the server log in another format.
 func (l *logsScreen) stepKind(m *model, in screen.Inputs, delta int) screen.Request {
-	l.format = logview.Format(tabs.Step(int(l.format), delta, len(logFormatLabels)))
+	l.format = logview.Format(tabs.StepStop(int(l.format), delta, len(logFormatLabels)))
 	if row, ok := list.At(l.rows(m, in), l.Row); ok {
 		l.applyFormat(row)
 	}

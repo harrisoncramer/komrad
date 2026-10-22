@@ -207,7 +207,7 @@ func (d *documentsScreen) kindsSwitch(*model) bool {
 
 // stepKind moves the view between documents and their types.
 func (d *documentsScreen) stepKind(m *model, in screen.Inputs, delta int) screen.Request {
-	d.kind = documentKind(tabs.Step(int(d.kind), delta, len(d.kinds(m).Labels)))
+	d.kind = documentKind(tabs.StepStop(int(d.kind), delta, len(d.kinds(m).Labels)))
 	d.history, d.focus = nil, false
 
 	return screen.Batch{screen.ResetFilter{}, screen.StageTerminal{}, screen.Settle{}}

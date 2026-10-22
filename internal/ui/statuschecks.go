@@ -201,7 +201,7 @@ func (c *statusChecksScreen) kindsSwitch(*model) bool {
 // stepKind moves the listing to another scope, keeping the cursor on its row when the new scope lists it.
 func (c *statusChecksScreen) stepKind(m *model, in screen.Inputs, delta int) screen.Request {
 	hovered := c.list().hovered(m, in)
-	c.scope = statusCheckScope(tabs.Step(int(c.shownScope()), delta, len(statusCheckScopeLabels)))
+	c.scope = statusCheckScope(tabs.StepStop(int(c.shownScope()), delta, len(statusCheckScopeLabels)))
 	c.scopeChosen = true
 
 	return screen.Batch{c.list().place(m, in, hovered), screen.Settle{}}

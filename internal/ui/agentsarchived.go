@@ -79,7 +79,7 @@ func (a *agentsScreen) kindsSwitch(*model) bool {
 // stepKind moves the agents view to its other kind, back on the row it last stood on.
 func (a *agentsScreen) stepKind(m *model, _ screen.Inputs, delta int) screen.Request {
 	return screen.Leave{Then: func() screen.Request {
-		a.kind = agentsKind(tabs.Step(int(a.kind), delta, len(a.kinds(m).Labels)))
+		a.kind = agentsKind(tabs.StepStop(int(a.kind), delta, len(a.kinds(m).Labels)))
 		var staged screen.Request
 		if shown := a.shownArchive(); shown != nil {
 			shown.Selected = list.Selection{}

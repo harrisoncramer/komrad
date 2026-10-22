@@ -54,7 +54,7 @@ func (w *schedulesScreen) kindsSwitch(*model) bool {
 // stepKind moves the schedules view to its other kind, back on the row it last stood on.
 func (w *schedulesScreen) stepKind(m *model, in screen.Inputs, delta int) screen.Request {
 	return screen.Leave{Then: func() screen.Request {
-		w.kind = schedulesKind(tabs.Step(int(w.kind), delta, len(w.kinds(m).Labels)))
+		w.kind = schedulesKind(tabs.StepStop(int(w.kind), delta, len(w.kinds(m).Labels)))
 
 		return screen.Batch{screen.ResetFilter{}, screen.StageTerminal{}, screen.Settle{}}
 	}}

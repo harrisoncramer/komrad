@@ -10,6 +10,14 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
+func (d Direction) glyph() string {
+	if d == Up {
+		return glyph.Up
+	}
+
+	return glyph.Down
+}
+
 func (s Stops) parts() []string {
 	muted := paint.Panel.Style(paint.ToneMuted)
 	lit := paint.Panel.Style(paint.TonePrimary)

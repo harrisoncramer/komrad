@@ -80,7 +80,7 @@ func (m *model) closeViews() {
 func (m *model) stepView(delta int) tea.Cmd {
 	entries := viewEntries()
 
-	return m.enterView(entries[tabs.Step(m.viewIndex(), delta, len(entries))])
+	return m.enterView(entries[tabs.StepStop(m.viewIndex(), delta, len(entries))])
 }
 
 // viewsDelta is how far a press steps through the views, and zero for a press that steps none.

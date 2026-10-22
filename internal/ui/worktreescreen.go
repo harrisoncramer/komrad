@@ -188,7 +188,7 @@ func (w *worktreesScreen) kindsSwitch(*model) bool {
 // lists it.
 func (w *worktreesScreen) stepKind(m *model, in screen.Inputs, delta int) screen.Request {
 	hovered := w.list().hovered(m, in)
-	w.scope = worktreeScope(tabs.Step(int(w.scope), delta, len(worktreeScopeLabels)))
+	w.scope = worktreeScope(tabs.StepStop(int(w.scope), delta, len(worktreeScopeLabels)))
 	w.place(m, in, hovered)
 
 	return screen.Batch{w.stage(m, in), screen.Settle{}}

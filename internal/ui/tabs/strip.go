@@ -1,35 +1,19 @@
 // Package tabs holds the rows of stops over a list: the tab strip and the kinds row.
 package tabs
 
-import (
-	"slices"
-
-	"komrad/internal/glyph"
-)
-
-type Direction int
+import "slices"
 
 const (
 	Down Direction = iota
 	Up
 )
 
-// Flip is the other way the arrow points.
-func (d Direction) Flip() Direction {
-	if d == Up {
-		return Down
-	}
+// NoStop is a focus or a lit stop that stands on none of the row.
+const NoStop = -1
 
-	return Up
-}
+const FlatLabel = "flat"
 
-func (d Direction) glyph() string {
-	if d == Up {
-		return glyph.Up
-	}
-
-	return glyph.Down
-}
+type Direction int
 
 // Stops is a row of labels the tab keys walk, the focused one rendered as the cursor and the lit one
 // as the choice in force.
@@ -38,14 +22,6 @@ type Stops struct {
 	Focus  int
 	Lit    int
 	Mark   func(int, string) string
-}
-
-// NoStop is a focus or a lit stop that stands on none of the row.
-const NoStop = -1
-
-// Step is the stop delta along from at in a row of count, wrapping at both ends.
-func Step(at, delta, count int) int {
-	return (at + delta + count) % count
 }
 
 type Option struct {
@@ -62,8 +38,6 @@ type Strip struct {
 	Grouped string
 }
 
-const FlatLabel = "flat"
-
 type State struct {
 	Chosen    string
 	Direction Direction
@@ -74,6 +48,20 @@ type State struct {
 	OnGroup bool
 	// Flat says the headings are off.
 	Flat bool
+}
+
+// StepStop is the stop delta along from at in a row of count, wrapping at both ends.
+func StepStop(at, delta, count int) int {
+	return (at + delta + count) % count
+}
+
+// Flip is the other way the arrow points.
+func (d Direction) Flip() Direction {
+	if d == Up {
+		return Down
+	}
+
+	return Up
 }
 
 // Leave takes the focus off the strip and back to the chosen column.
@@ -91,20 +79,6 @@ func (s Strip) IndexOf(state State) int {
 	return at
 }
 
-// focusIndex is the stop the focus stands on, the group stop being one past the columns.
-func (s Strip) focusIndex(state State) int {
-	if state.OnGroup {
-		return len(s.Options)
-	}
-
-	at := slices.IndexFunc(s.Options, func(option Option) bool { return option.ID == state.Focus })
-	if at < 0 {
-		return s.IndexOf(state)
-	}
-
-	return at
-}
-
 // CountStops is the stops on the strip, the group stop included.
 func (s Strip) CountStops() int {
 	if s.Grouped != "" {
@@ -116,7 +90,7 @@ func (s Strip) CountStops() int {
 
 // Step moves the focus along the strip, wrapping at both ends, and chooses nothing.
 func (s Strip) Step(state *State, delta int) {
-	at := Step(s.focusIndex(*state), delta, s.CountStops())
+	at := StepStop(s.focusIndex(*state), delta, s.CountStops())
 	state.OnGroup = at == len(s.Options)
 	if state.OnGroup {
 		state.Focus = ""
@@ -130,4 +104,18 @@ func (s Strip) Step(state *State, delta int) {
 func (s Strip) Choose(state *State, direction Direction) {
 	state.Chosen, state.Direction = s.Options[s.focusIndex(*state)].ID, direction
 	state.Focus = ""
+}
+
+// focusIndex is the stop the focus stands on, the group stop being one past the columns.
+func (s Strip) focusIndex(state State) int {
+	if state.OnGroup {
+		return len(s.Options)
+	}
+
+	at := slices.IndexFunc(s.Options, func(option Option) bool { return option.ID == state.Focus })
+	if at < 0 {
+		return s.IndexOf(state)
+	}
+
+	return at
 }
