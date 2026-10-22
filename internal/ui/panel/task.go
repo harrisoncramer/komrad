@@ -74,7 +74,7 @@ func (t Task) IsWorktreeRemoved() bool {
 // Tasks is the panel's tasks keyed by id.
 type Tasks map[string]Task
 
-// FindForAgent is the agent's task, or one spelled from the agent when the index holds none.
+// FindForAgent is the agent's task, or one spelled from the agent when none has its id.
 func (t Tasks) FindForAgent(agent Agent) Task {
 	if task, ok := t[agent.TaskID]; ok {
 		return task
