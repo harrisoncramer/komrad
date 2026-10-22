@@ -105,7 +105,7 @@ func (r documentTypeRow) Key() string {
 }
 
 // enter opens on every agent's documents, filtered down to the task or agent the target names when one is.
-func (d *documentsScreen) enter(m *model, target screen.Target) screen.Request {
+func (d *documentsScreen) enter(m *model, in screen.Inputs, target screen.Target) screen.Request {
 	var requests screen.Batch
 	if !target.Resume {
 		d.agentID, d.taskID = target.AgentID, target.TaskID
@@ -116,7 +116,7 @@ func (d *documentsScreen) enter(m *model, target screen.Target) screen.Request {
 		}
 		switch {
 		case target.TaskID != "":
-			requests = append(requests, screen.Filter{Query: taskClause(m.listing.Tasks[target.TaskID].Slug)})
+			requests = append(requests, screen.Filter{Query: taskClause(in.Listing.Tasks[target.TaskID].Slug)})
 		case target.AgentID != "":
 			requests = append(requests, screen.Filter{Query: agentClause(findAgentName(m, target.AgentID))})
 		}
@@ -125,8 +125,8 @@ func (d *documentsScreen) enter(m *model, target screen.Target) screen.Request {
 	return append(requests, screen.StageTerminal{}, screen.Settle{})
 }
 
-func (d *documentsScreen) update(m *model, msg tea.Msg) screen.Request {
-	d.reconcileRename(m)
+func (d *documentsScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen.Request {
+	d.reconcileRename(m, in)
 	if d.isRenaming() {
 		return d.updateRename(msg)
 	}
@@ -151,10 +151,10 @@ func (d *documentsScreen) update(m *model, msg tea.Msg) screen.Request {
 	return d.list().update(m, key, d.actions(m))
 }
 
-func (d *documentsScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) {
+func (d *documentsScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 	switch msg := msg.(type) {
 	case documentsListedMsg:
-		return d.applyListed(m, msg), true
+		return d.applyListed(m, in, msg), true
 	case documentReadMsg:
 		d.applyRead(msg)
 
@@ -168,7 +168,7 @@ func (d *documentsScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) 
 	case documentEditorStaged:
 		return d.applyEditorStaged(msg), true
 	case api.RenameSettled:
-		d.settleRename(m, msg.Row, msg.Err)
+		d.settleRename(m, in, msg.Row, msg.Err)
 
 		return nil, true
 	}
@@ -192,8 +192,8 @@ func (d *documentsScreen) kinds(*model) stops {
 	}
 }
 
-func (d *documentsScreen) kindsFit(m *model) bool {
-	return m.listFitsTabs(d.listParams(m))
+func (d *documentsScreen) kindsFit(m *model, in screen.Inputs) bool {
+	return m.listFitsTabs(d.listParams(m, in))
 }
 
 func (d *documentsScreen) kindsFocused(*model) *bool {
@@ -206,7 +206,7 @@ func (d *documentsScreen) kindsSwitch(*model) bool {
 }
 
 // stepKind moves the view between documents and their types.
-func (d *documentsScreen) stepKind(m *model, delta int) screen.Request {
+func (d *documentsScreen) stepKind(m *model, in screen.Inputs, delta int) screen.Request {
 	d.kind = documentKind(stepStop(int(d.kind), delta, len(d.kinds(m).labels)))
 	d.history, d.focus = nil, false
 
@@ -221,8 +221,8 @@ func (d *documentsScreen) list() screenList[documentRow] {
 		rows:   d.rows,
 		name:   documentRowName,
 		fits:   (*model).documentRowFits,
-		placed: func(*model) screen.Request { return screen.StageTerminal{} },
-		moved: func(*model) screen.Request {
+		placed: func(*model, screen.Inputs) screen.Request { return screen.StageTerminal{} },
+		moved: func(*model, screen.Inputs) screen.Request {
 			d.history, d.focus = nil, false
 
 			return screen.Settle{}
@@ -237,8 +237,8 @@ func (d *documentsScreen) documentTypeList() screenList[documentTypeRow] {
 		cursor: func() *list.Cursor { return &d.documentTypes },
 		rows:   d.documentTypeRows,
 		name:   documentTypeRowName,
-		placed: func(*model) screen.Request { return screen.StageTerminal{} },
-		moved:  func(*model) screen.Request { return screen.Settle{} },
+		placed: func(*model, screen.Inputs) screen.Request { return screen.StageTerminal{} },
+		moved:  func(*model, screen.Inputs) screen.Request { return screen.Settle{} },
 	}
 }
 
@@ -249,7 +249,7 @@ type documentRowsKey struct {
 	taskID   string
 }
 
-func (d *documentsScreen) rows(m *model) []documentRow {
+func (d *documentsScreen) rows(m *model, in screen.Inputs) []documentRow {
 	key := documentRowsKey{
 		revision: d.revision,
 		listing:  m.listingKey(),
@@ -269,10 +269,10 @@ func (d *documentsScreen) rows(m *model) []documentRow {
 	})
 }
 
-func (d *documentsScreen) documentTypeRows(m *model) []documentTypeRow {
+func (d *documentsScreen) documentTypeRows(m *model, in screen.Inputs) []documentTypeRow {
 	return d.builtTypes.read(m.listingKey(), func() []documentTypeRow {
 		return narrowed(m.filter, narrowedParams[documentTypeRow]{
-			rows: xslice.Map(m.listing.DocumentTypes, func(t *agentv1.DocumentType) documentTypeRow {
+			rows: xslice.Map(in.Listing.DocumentTypes, func(t *agentv1.DocumentType) documentTypeRow {
 				return documentTypeRow{documentType: t}
 			}),
 			depth: func(documentTypeRow) int { return 0 },
@@ -289,42 +289,42 @@ func documentTypeRowName(row documentTypeRow) string {
 	return row.documentType.GetName()
 }
 
-func (d *documentsScreen) hovered(m *model) (documentItem, bool) {
+func (d *documentsScreen) hovered(m *model, in screen.Inputs) (documentItem, bool) {
 	if d.kind != documentKindDocuments {
 		return documentItem{}, false
 	}
 
-	row, ok := list.At(d.rows(m), d.Row)
+	row, ok := list.At(d.rows(m, in), d.Row)
 
 	return row.item, ok
 }
 
 // hoveredDocumentType is the document type the cursor is on, nil for none.
-func (d *documentsScreen) hoveredDocumentType(m *model) *agentv1.DocumentType {
+func (d *documentsScreen) hoveredDocumentType(m *model, in screen.Inputs) *agentv1.DocumentType {
 	if d.kind != documentKindTypes {
 		return nil
 	}
 
-	row, _ := list.At(d.documentTypeRows(m), d.documentTypes.Row)
+	row, _ := list.At(d.documentTypeRows(m, in), d.documentTypes.Row)
 
 	return row.documentType
 }
 
-func (d *documentsScreen) listParams(m *model) screenListParams {
+func (d *documentsScreen) listParams(m *model, in screen.Inputs) screenListParams {
 	if d.kind == documentKindTypes {
 		return screenListParams{
 			help:     d.help,
 			empty:    "no document types",
-			rows:     len(d.documentTypeRows(m)),
-			snapshot: func(pane list.Pane) view.Snapshot { return d.documentTypeSnapshot(m, pane) },
+			rows:     len(d.documentTypeRows(m, in)),
+			snapshot: func(pane list.Pane) view.Snapshot { return d.documentTypeSnapshot(m, in, pane) },
 		}
 	}
 
 	return screenListParams{
 		help:     d.help,
 		empty:    d.emptyLine(),
-		rows:     len(d.rows(m)),
-		snapshot: func(pane list.Pane) view.Snapshot { return d.snapshot(m, pane) },
+		rows:     len(d.rows(m, in)),
+		snapshot: func(pane list.Pane) view.Snapshot { return d.snapshot(m, in, pane) },
 	}
 }
 
@@ -333,14 +333,14 @@ func (d *documentsScreen) parent() screen.ID {
 }
 
 // crumbs runs down to the version stepped to, and counts the documents while none is.
-func (d *documentsScreen) crumbs(m *model) crumbs {
+func (d *documentsScreen) crumbs(m *model, in screen.Inputs) crumbs {
 	var trail crumbs
 	if d.kind == documentKindTypes {
-		trail.tally = fmt.Sprint(len(m.listing.DocumentTypes))
+		trail.tally = fmt.Sprint(len(in.Listing.DocumentTypes))
 
 		return trail
 	}
-	if item, ok := d.hovered(m); ok && d.history != nil && d.history.item.id == item.id && len(d.history.versions) > 0 {
+	if item, ok := d.hovered(m, in); ok && d.history != nil && d.history.item.id == item.id && len(d.history.versions) > 0 {
 		current := d.history.versions[d.history.at]
 		trail.trail = append(trail.trail, item.name, fmt.Sprintf("v%d of %d", current.version, d.history.versions[0].version))
 
@@ -353,7 +353,7 @@ func (d *documentsScreen) crumbs(m *model) crumbs {
 	return trail
 }
 
-func (d *documentsScreen) back(m *model) screen.Request {
+func (d *documentsScreen) back(m *model, in screen.Inputs) screen.Request {
 	return screen.PickView{}
 }
 
@@ -461,7 +461,7 @@ func (m *model) listDocumentsCmd(written documentsWritten) tea.Cmd {
 	}
 }
 
-func (d *documentsScreen) applyListed(m *model, msg documentsListedMsg) screen.Request {
+func (d *documentsScreen) applyListed(m *model, in screen.Inputs, msg documentsListedMsg) screen.Request {
 	d.listing = false
 	if msg.err != nil {
 		d.err = msg.err
@@ -469,10 +469,10 @@ func (d *documentsScreen) applyListed(m *model, msg documentsListedMsg) screen.R
 		return nil
 	}
 
-	hovered := d.list().hovered(m)
+	hovered := d.list().hovered(m, in)
 	d.items, d.listedAt, d.listedCount, d.listed, d.err = msg.items, msg.written.newest, msg.written.count, true, nil
 	d.revision++
-	d.keepCursor(m, hovered)
+	d.keepCursor(m, in, hovered)
 
 	return screen.Cmd(m.readDocumentsCmd())
 }
@@ -481,7 +481,7 @@ func (d *documentsScreen) applyListed(m *model, msg documentsListedMsg) screen.R
 // the listing, once at a time.
 func (m *model) readHoveredDocumentCmd() tea.Cmd {
 	d := &m.documents
-	item, ok := d.hovered(m)
+	item, ok := d.hovered(m, m.inputs())
 	if !ok {
 		return nil
 	}
@@ -538,7 +538,7 @@ var (
 	_ recordRenderer   = (*documentsScreen)(nil)
 )
 
-func (d *documentsScreen) stage(*model) screen.Request {
+func (d *documentsScreen) stage(*model, screen.Inputs) screen.Request {
 	return screen.StageTerminal{}
 }
 
@@ -557,11 +557,11 @@ func (d *documentsScreen) isSearchTyping() bool {
 func (d *documentsScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
-		docRows: func(m *model, width int) []string {
-			return m.documents.docRows(m, width)
+		docRows: func(m *model, in screen.Inputs, width int) []string {
+			return m.documents.docRows(m, in, width)
 		},
-		holds: func(m *model) bool { return m.documents.editing == nil },
-		read:  func(m *model) bool { return !m.documents.isSteppingHovered(m) },
+		holds: func(m *model, _ screen.Inputs) bool { return m.documents.editing == nil },
+		read:  func(m *model, in screen.Inputs) bool { return !m.documents.isSteppingHovered(m, in) },
 	}
 }
 
@@ -577,10 +577,10 @@ func (d *documentsScreen) dispatches(m *model) []keys.Table {
 	return []keys.Table{d.listActions(), d.diffActions(), m.docActions(), d.docKeys()}
 }
 
-func (d *documentsScreen) detailsFit(m *model) bool {
-	return m.listFitsDetails(d.listParams(m))
+func (d *documentsScreen) detailsFit(m *model, in screen.Inputs) bool {
+	return m.listFitsDetails(d.listParams(m, in))
 }
 
-func (d *documentsScreen) detailsRoom(m *model) int {
-	return m.listRecordRoom(d.listParams(m))
+func (d *documentsScreen) detailsRoom(m *model, in screen.Inputs) int {
+	return m.listRecordRoom(d.listParams(m, in))
 }

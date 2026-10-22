@@ -38,9 +38,9 @@ func (m *model) saidAgentID() (string, bool) {
 	var agentID string
 	switch screen := m.active().(type) {
 	case *agentsScreen:
-		agentID = screen.hoveredAgentID(m)
+		agentID = screen.hoveredAgentID(m, m.inputs())
 	case *archivedAgents:
-		agentID, _ = screen.screenedAgentID(m)
+		agentID, _ = screen.screenedAgentID(m, m.inputs())
 	default:
 		return "", false
 	}

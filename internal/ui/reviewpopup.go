@@ -27,7 +27,7 @@ func (r reviewScreen) measurePopupInner(m *model) int {
 // popupBody is what the popup holds where the cursor stands and how far it is scrolled back from
 // the end: the editor while the reader writes, under the conversation it replies in, the
 // conversation on the line otherwise, and nothing on a line with no thread.
-func (r reviewScreen) popupBody(m *model, inner int) (string, int) {
+func (r reviewScreen) popupBody(m *model, in screen.Inputs, inner int) (string, int) {
 	switch {
 	case r.loading || r.diff.View() == nil || r.diff.View().Len() == 0:
 		return "", 0
@@ -40,7 +40,7 @@ func (r reviewScreen) popupBody(m *model, inner int) (string, int) {
 		return withSection(r.threadView(m, thread, inner), r.threads.editor.view(), inner), 0
 	}
 
-	id, body, ok := r.conversationAtCursor(m, inner)
+	id, body, ok := r.conversationAtCursor(m, in, inner)
 	if !ok {
 		return "", 0
 	}
@@ -50,8 +50,8 @@ func (r reviewScreen) popupBody(m *model, inner int) (string, int) {
 
 // conversationAtCursor is the conversation on the cursor's row, wrapped to inner, and none while the
 // sidebar has the keys.
-func (r reviewScreen) conversationAtCursor(m *model, inner int) (string, string, bool) {
-	if r.isBlockFocused(m) {
+func (r reviewScreen) conversationAtCursor(m *model, in screen.Inputs, inner int) (string, string, bool) {
+	if r.isBlockFocused(m, in) {
 		return "", "", false
 	}
 
@@ -63,8 +63,8 @@ func (r reviewScreen) conversationAtCursor(m *model, inner int) (string, string,
 }
 
 // placeThread is where a popup holding a body stands beside the cursor's row of the review.
-func (r reviewScreen) placeThread(m *model, body string) popupSlot {
-	return placePopup(r.popupAnchor(m), r.measurePopupStage(m), len(splitPopupRows(body))+2)
+func (r reviewScreen) placeThread(m *model, in screen.Inputs, body string) popupSlot {
+	return placePopup(r.popupAnchor(m), r.measurePopupStage(m, in), len(splitPopupRows(body))+2)
 }
 
 // isPopupForm reports whether the form stands in the review's popup rather than in a column of its own.
@@ -73,17 +73,17 @@ func (m *model) isPopupForm() bool {
 }
 
 // measurePopupRoom is the rows inside the tallest popup the review has room for beside the cursor.
-func (r reviewScreen) measurePopupRoom(m *model) int {
-	return placePopup(r.popupAnchor(m), r.measurePopupStage(m), popupHeight).room()
+func (r reviewScreen) measurePopupRoom(m *model, in screen.Inputs) int {
+	return placePopup(r.popupAnchor(m), r.measurePopupStage(m, in), popupHeight).room()
 }
 
 // measurePopupStage is the rows the popup stands over, the band and the diff beside the sidebar or
 // the band and the sidebar without a split, less the bar at the top that carries the messages.
-func (r reviewScreen) measurePopupStage(m *model) popupStage {
+func (r reviewScreen) measurePopupStage(m *model, in screen.Inputs) popupStage {
 	split := m.screenColumnSplit()
 	if !split.On {
 		band := r.bandView(m)
-		layout := r.layoutSidebar(m, band)
+		layout := r.layoutSidebar(m, in, band)
 
 		cursor := paint.CountLines(band+layout.bar+layout.change+layout.block()+r.placeView()) - 1
 
@@ -99,7 +99,7 @@ func (r reviewScreen) measurePopupStage(m *model) popupStage {
 	first, height := r.diff.GetCursorLines(r.diffWindow(m))
 
 	return popupStage{
-		top:        strings.Count(r.layoutSidebar(m).bar, "\n"),
+		top:        strings.Count(r.layoutSidebar(m, in).bar, "\n"),
 		cursor:     above + first,
 		cursorLast: above + first + height - 1,
 		rows:       above + split.Rows,

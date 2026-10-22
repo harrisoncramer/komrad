@@ -33,9 +33,9 @@ type documentEntry struct {
 	run   func(d *documentsScreen, m *model) screen.Request
 }
 
-func (d *documentsScreen) buildItemMenu(m *model) (menu.Menu, bool) {
+func (d *documentsScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
 	if d.kind == documentKindTypes {
-		t := d.hoveredDocumentType(m)
+		t := d.hoveredDocumentType(m, in)
 
 		return d.documentTypeMenu(t), t != nil
 	}
@@ -47,7 +47,7 @@ func (d *documentsScreen) buildItemMenu(m *model) (menu.Menu, bool) {
 }
 
 // buildScreenMenu builds the documents screen's own band, for writing a new document or type.
-func (d *documentsScreen) buildScreenMenu(m *model) (menu.Menu, bool) {
+func (d *documentsScreen) buildScreenMenu(m *model, _ screen.Inputs) (menu.Menu, bool) {
 	if d.kind == documentKindTypes {
 		return menu.Menu{
 			Title: "document types",
@@ -84,7 +84,7 @@ func (d *documentsScreen) buildScreenMenu(m *model) (menu.Menu, bool) {
 // documentMenu is the actions on the hovered document, or on the editor open over the list,
 // false for neither.
 func documentMenu(m *model, d *documentsScreen) (menu.Menu, bool) {
-	item, hovered := d.hovered(m)
+	item, hovered := d.hovered(m, m.inputs())
 	if !hovered && d.editing == nil {
 		return menu.Menu{}, false
 	}
@@ -102,7 +102,7 @@ func documentMenu(m *model, d *documentsScreen) (menu.Menu, bool) {
 					Label: d.editLabel(),
 					Keys:  d.deps.keys.DocumentMenu.Edit,
 				},
-				run: (*documentsScreen).pressEdit,
+				run: func(d *documentsScreen, m *model) screen.Request { return d.pressEdit(m, m.inputs()) },
 			},
 			{
 				entry: menu.Entry{
@@ -110,7 +110,7 @@ func documentMenu(m *model, d *documentsScreen) (menu.Menu, bool) {
 					Keys:  d.deps.keys.DocumentMenu.Rename,
 					Off:   !hovered || d.editing != nil,
 				},
-				run: (*documentsScreen).openRename,
+				run: func(d *documentsScreen, m *model) screen.Request { return d.openRename(m, m.inputs()) },
 			},
 		}),
 	}

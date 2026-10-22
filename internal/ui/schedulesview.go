@@ -9,12 +9,13 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 )
 
-func (w *schedulesScreen) details(m *model) details {
-	item, ok := w.selected(m)
+func (w *schedulesScreen) details(m *model, in screen.Inputs) details {
+	item, ok := w.selected(m, in)
 	if !ok {
 		return details{}
 	}
@@ -35,8 +36,8 @@ func scheduleDetails(m *model, item scheduleItem) details {
 // docRows is the document rendered beside the list at a width: the notice for an empty list, or
 // the schedule the cursor is on with the firings River holds for it between its next run and
 // its prompt.
-func (w *schedulesScreen) docRows(m *model, width int) []string {
-	item, ok := w.selected(m)
+func (w *schedulesScreen) docRows(m *model, in screen.Inputs, width int) []string {
+	item, ok := w.selected(m, in)
 	if !ok {
 		return paint.DocStyledRows(noSchedulesMarkdown, width, columnStyle())
 	}
@@ -44,13 +45,13 @@ func (w *schedulesScreen) docRows(m *model, width int) []string {
 	return scheduleDocRows(item, width)
 }
 
-func (w *schedulesScreen) view(m *model) string {
-	return m.columnListView(w.listParams(m))
+func (w *schedulesScreen) view(m *model, in screen.Inputs) string {
+	return m.columnListView(w.listParams(m, in))
 }
 
-func (w *schedulesScreen) snapshot(m *model, pane list.Pane) view.Snapshot {
+func (w *schedulesScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
 	return scheduleSnapshot(m, pane, scheduleSnapshotParams{
-		rows:     w.listRows(m),
+		rows:     w.listRows(m, in),
 		cursor:   w.Row,
 		renaming: w.renamingField(),
 	})

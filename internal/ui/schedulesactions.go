@@ -48,7 +48,7 @@ func (w *schedulesScreen) actions() keys.Spec[*model] {
 			{
 				ID:     actionScheduleRename,
 				Keys:   func(k config.Keybindings) []string { return k.Schedules.Rename },
-				Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) screen.Request { return w.openRename(m) }),
+				Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) screen.Request { return w.openRename(m, m.inputs()) }),
 			},
 		}, navActions(list, navSteps{page: navPageStep, scroll: 1})...),
 		Legend: []keys.LegendRow[*model]{

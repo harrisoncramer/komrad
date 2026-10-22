@@ -17,13 +17,13 @@ func (m *model) activeKinds() (kindSwitcher, bool) {
 func (m *model) isKindsRendered() bool {
 	k, ok := m.activeKinds()
 
-	return ok && k.kindsFit(m)
+	return ok && k.kindsFit(m, m.inputs())
 }
 
 func (m *model) isKindsFocused() bool {
 	k, ok := m.activeKinds()
 
-	return ok && *k.kindsFocused(m) && k.kindsFit(m)
+	return ok && *k.kindsFocused(m) && k.kindsFit(m, m.inputs())
 }
 
 func (m *model) blurKinds() {
@@ -34,7 +34,7 @@ func (m *model) blurKinds() {
 
 func (m *model) focusKinds() {
 	k, ok := m.activeKinds()
-	if !ok || !k.kindsFit(m) || !k.kindsSwitch(m) {
+	if !ok || !k.kindsFit(m, m.inputs()) || !k.kindsSwitch(m) {
 		return
 	}
 
@@ -63,14 +63,14 @@ func (m *model) clickKind(label string) tea.Cmd {
 		return cmd
 	}
 
-	return tea.Batch(cmd, m.apply(k.stepKind(m, at-row.lit)))
+	return tea.Batch(cmd, m.apply(k.stepKind(m, m.inputs(), at-row.lit)))
 }
 
 func (m *model) updateKinds(press tea.KeyPressMsg) tea.Cmd {
 	k, _ := m.activeKinds()
 
 	cmd := m.pressStrip(press.String(), stripKeys{
-		step:  func(delta int) tea.Cmd { return m.apply(k.stepKind(m, delta)) },
+		step:  func(delta int) tea.Cmd { return m.apply(k.stepKind(m, m.inputs(), delta)) },
 		close: func() { *k.kindsFocused(m) = false },
 	})
 

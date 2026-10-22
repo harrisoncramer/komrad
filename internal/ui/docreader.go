@@ -37,7 +37,7 @@ func (m *model) isDocReadable() bool {
 	}
 
 	spec := m.columnOf()
-	if spec.read == nil || !spec.read(m) {
+	if spec.read == nil || !spec.read(m, m.inputs()) {
 		return false
 	}
 
@@ -339,7 +339,7 @@ func (m *model) docHelp() keyMap {
 }
 
 // isAlwaysRead is the read of a block that is a document whatever the screen is showing.
-func isAlwaysRead(*model) bool {
+func isAlwaysRead(*model, screen.Inputs) bool {
 	return true
 }
 

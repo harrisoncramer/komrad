@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"image"
 	"slices"
 
 	"komrad/internal/ui/diffview"
@@ -13,8 +14,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-func (r *reviewScreen) updateKey(m *model, key tea.KeyPressMsg) screen.Request {
-	if request, ok := r.takeKey(m, key); ok {
+func (r *reviewScreen) updateKey(m *model, in screen.Inputs, key tea.KeyPressMsg) screen.Request {
+	if request, ok := r.takeKey(m, in, key); ok {
 		r.deps.top.Drop()
 
 		return request
@@ -24,7 +25,7 @@ func (r *reviewScreen) updateKey(m *model, key tea.KeyPressMsg) screen.Request {
 }
 
 // takeKey handles a key before the screen's actions see it, and false for one it leaves to them.
-func (r *reviewScreen) takeKey(m *model, key tea.KeyPressMsg) (screen.Request, bool) {
+func (r *reviewScreen) takeKey(m *model, in screen.Inputs, key tea.KeyPressMsg) (screen.Request, bool) {
 	if r.threads.composing {
 		return r.updateComposer(m, key), true
 	}
@@ -49,7 +50,7 @@ func (r *reviewScreen) takeKey(m *model, key tea.KeyPressMsg) (screen.Request, b
 		return nil, true
 	}
 
-	if keys.IsBound(k, slices.Concat(r.deps.keys.Column.ScrollDown, r.deps.keys.Column.ScrollUp)) && r.scrollPopup(m, keys.DirectionOf(k, r.deps.keys.Column.ScrollUp)*diffWheelStep) {
+	if keys.IsBound(k, slices.Concat(r.deps.keys.Column.ScrollDown, r.deps.keys.Column.ScrollUp)) && r.scrollPopup(m, in, keys.DirectionOf(k, r.deps.keys.Column.ScrollUp)*diffWheelStep) {
 		return nil, true
 	}
 
@@ -162,7 +163,7 @@ func (r *reviewScreen) moveCursor(m *model, next int) screen.Request {
 	return r.diffKeys().moveTo(m, next)
 }
 
-func (r *reviewScreen) doesScrollColumn(*model) bool {
+func (r *reviewScreen) doesScrollColumn(*model, screen.Inputs) bool {
 	return true
 }
 
@@ -197,15 +198,15 @@ func (r *reviewScreen) scrollList(m *model, rows int) screen.Request {
 	return requests
 }
 
-// scrollPopupAt moves the conversation in the popup when the cell at x and y is inside it.
-func (r *reviewScreen) scrollPopupAt(m *model, x, y, rows int) bool {
-	body, _ := r.popupBody(m, r.measurePopupInner(m))
-	if body == "" || !r.placeThread(m, body).contains(x, y) {
+// scrollPopupAt moves the conversation in the popup when the cell at is inside it.
+func (r *reviewScreen) scrollPopupAt(m *model, in screen.Inputs, at image.Point, rows int) bool {
+	body, _ := r.popupBody(m, in, r.measurePopupInner(m))
+	if body == "" || !r.placeThread(m, in, body).contains(at.X, at.Y) {
 		return false
 	}
 
 	if !r.isWriting() {
-		r.scrollPopup(m, rows*diffWheelStep)
+		r.scrollPopup(m, in, rows*diffWheelStep)
 	}
 
 	return true
@@ -218,21 +219,21 @@ func (r *reviewScreen) scrollToCursor(m *model) {
 
 // scrollPopup moves the conversation in the popup down by rows, up when rows is negative, and
 // reports whether there was a conversation there to move.
-func (r *reviewScreen) scrollPopup(m *model, rows int) bool {
-	id, body, ok := r.conversationAtCursor(m, r.measurePopupInner(m))
+func (r *reviewScreen) scrollPopup(m *model, in screen.Inputs, rows int) bool {
+	id, body, ok := r.conversationAtCursor(m, in, r.measurePopupInner(m))
 	if !ok {
 		return false
 	}
 
-	r.threads.scroll.move(id, body, rows, r.placeThread(m, body).room())
+	r.threads.scroll.move(id, body, rows, r.placeThread(m, in, body).room())
 
 	return true
 }
 
 // scrollSidebarAt walks the file tree or the pull request description when row y is inside it,
 // without focusing it.
-func (r *reviewScreen) scrollSidebarAt(m *model, y, rows int) (screen.Request, bool) {
-	section, ok := r.sidebarNavAt(m, y)
+func (r *reviewScreen) scrollSidebarAt(m *model, in screen.Inputs, y, rows int) (screen.Request, bool) {
+	section, ok := r.sidebarNavAt(m, in, y)
 	if !ok {
 		return nil, false
 	}
@@ -245,14 +246,14 @@ func (r *reviewScreen) scrollSidebarAt(m *model, y, rows int) (screen.Request, b
 }
 
 // sidebarNavAt is the sidebar section rendered on row y, and false for a row the wheel leaves alone.
-func (r *reviewScreen) sidebarNavAt(m *model, y int) (navigable, bool) {
+func (r *reviewScreen) sidebarNavAt(m *model, in screen.Inputs, y int) (navigable, bool) {
 	if !m.screenColumnSplit().On {
 		return nil, false
 	}
 
-	layout := r.layoutSidebar(m)
+	layout := r.layoutSidebar(m, in)
 	filesTop := paint.CountLines(layout.bar + layout.change + layout.side)
-	if y >= filesTop && y < filesTop+paint.CountLines(layout.files) && r.isBlockRendered(m) {
+	if y >= filesTop && y < filesTop+paint.CountLines(layout.files) && r.isBlockRendered(m, in) {
 		return filesNav{r}, true
 	}
 

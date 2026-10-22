@@ -393,7 +393,7 @@ func (r *reviewScreen) restOnSide(cursor sideCursor) {
 }
 
 // chooseSide does what the row under the sidebar's cursor is for, false when it is for nothing.
-func (r *reviewScreen) chooseSide(m *model) (screen.Request, bool) {
+func (r *reviewScreen) chooseSide(m *model, in screen.Inputs) (screen.Request, bool) {
 	side, ok := r.findSide(m)
 	if !ok {
 		return nil, false
@@ -407,7 +407,7 @@ func (r *reviewScreen) chooseSide(m *model) (screen.Request, bool) {
 	case sideNeed:
 		return r.landOnThread(m, side.id), true
 	case sideTask:
-		return r.openStackedReview(m, side.id), true
+		return r.openStackedReview(m, in, side.id), true
 	case sideHeading, sideBlank, sideThisTask, sideForge, sideWaiting, sideDescriptionLine:
 	}
 
@@ -465,12 +465,12 @@ func (r *reviewScreen) landOnThread(m *model, id string) screen.Request {
 }
 
 // openStackedReview leaves this review for the review of another task in the stack.
-func (r *reviewScreen) openStackedReview(m *model, taskID string) screen.Request {
+func (r *reviewScreen) openStackedReview(m *model, in screen.Inputs, taskID string) screen.Request {
 	if said := r.stackedOffSaid(m, taskID); said != "" {
 		return screen.NewNote(screen.Warning, said)
 	}
 
-	writer, _ := m.listing.FindTaskWriter(m.listing.Tasks[taskID])
+	writer, _ := in.Listing.FindTaskWriter(in.Listing.Tasks[taskID])
 	letGo := r.endHold(m, abandonedSaid)
 
 	return screen.Batch{letGo, screen.Open{Screen: screen.Review, Target: screen.Target{AgentID: writer.Agent.ID}}}
@@ -495,14 +495,14 @@ func (r reviewScreen) stackedOffSaid(m *model, taskID string) string {
 }
 
 // sideMenu is the band on the row under the sidebar's cursor, false for a row with none.
-func (r *reviewScreen) sideMenu(m *model, side sideCursor) (menu.Menu, bool) {
+func (r *reviewScreen) sideMenu(m *model, in screen.Inputs, side sideCursor) (menu.Menu, bool) {
 	if side.kind != sideTask {
 		return menu.Menu{}, false
 	}
 
-	task := m.listing.Tasks[side.id]
+	task := in.Listing.Tasks[side.id]
 	review := menu.Leaving("review", r.deps.keys.Menu.Review, func() screen.Request {
-		return m.review.openStackedReview(m, task.ID)
+		return m.review.openStackedReview(m, m.inputs(), task.ID)
 	})
 
 	return menu.Menu{
@@ -511,14 +511,14 @@ func (r *reviewScreen) sideMenu(m *model, side sideCursor) (menu.Menu, bool) {
 	}, true
 }
 
-func (r *reviewScreen) clickSide(m *model, key string) screen.Request {
+func (r *reviewScreen) clickSide(m *model, in screen.Inputs, key string) screen.Request {
 	cursor, ok := parseSideKey(key)
 	if !ok || !cursor.kind.isStop() {
 		return nil
 	}
 
 	r.restOnSide(cursor)
-	chosen, _ := r.chooseSide(m)
+	chosen, _ := r.chooseSide(m, in)
 
 	return chosen
 }

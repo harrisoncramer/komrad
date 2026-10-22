@@ -20,18 +20,18 @@ func (a *agentsScreen) isEditorOpen() bool {
 }
 
 // releaseEdit closes the open editor and lets its agent go, unless the agent is still pausing.
-func (a *agentsScreen) releaseEdit(m *model) screen.Request {
+func (a *agentsScreen) releaseEdit(in screen.Inputs) screen.Request {
 	if a.editing == nil || a.editing.pausing {
 		return nil
 	}
 
-	return screen.Batch{a.closeEdit(m), screen.Restage{}}
+	return screen.Batch{a.closeEdit(in), screen.Restage{}}
 }
 
 // pressEdit opens an editor on the agent's worktree, or closes the one already open.
-func (a *agentsScreen) pressEdit(m *model, item panel.AgentRow) screen.Request {
+func (a *agentsScreen) pressEdit(in screen.Inputs, item panel.AgentRow) screen.Request {
 	if a.editing != nil {
-		return a.releaseEdit(m)
+		return a.releaseEdit(in)
 	}
 
 	agent := item.Agent
@@ -43,7 +43,7 @@ func (a *agentsScreen) pressEdit(m *model, item panel.AgentRow) screen.Request {
 		}
 	}
 
-	if agent.Cwd == "" || m.listing.Tasks.FindForAgent(agent).IsWorktreeRemoved() {
+	if agent.Cwd == "" || in.Listing.Tasks.FindForAgent(agent).IsWorktreeRemoved() {
 		return refuse("it has no worktree to open")
 	}
 
@@ -106,7 +106,7 @@ func (a *agentsScreen) openEditor() screen.Request {
 }
 
 // applyEditorStaged keeps the editor's pane, or gives the edit up when there was no room for it.
-func (a *agentsScreen) applyEditorStaged(m *model, staged agentEditorStaged) screen.Request {
+func (a *agentsScreen) applyEditorStaged(in screen.Inputs, staged agentEditorStaged) screen.Request {
 	if a.editing == nil {
 		return nil
 	}
@@ -135,11 +135,11 @@ func (a *agentsScreen) applyEditorStaged(m *model, staged agentEditorStaged) scr
 		Summary: "Could not let " + edit.agent.Name + " go",
 		Agent:   edit.agent,
 		Said:    abandonedSaid,
-		Edited:  m.edited[edit.agent.ID],
+		Edited:  in.Holds[edit.agent.ID],
 	}))
 }
 
-func (a *agentsScreen) closeEdit(m *model) screen.Request {
+func (a *agentsScreen) closeEdit(in screen.Inputs) screen.Request {
 	if a.editing == nil {
 		return nil
 	}
@@ -159,20 +159,20 @@ func (a *agentsScreen) closeEdit(m *model) screen.Request {
 		Summary: "Could not let " + edit.agent.Name + " go",
 		Agent:   edit.agent,
 		Said:    editedSaid,
-		Edited:  m.edited[edit.agent.ID],
+		Edited:  in.Holds[edit.agent.ID],
 	})}
 }
 
-func (a *agentsScreen) reconcileEditor(m *model) screen.Request {
+func (a *agentsScreen) reconcileEditor(m *model, in screen.Inputs) screen.Request {
 	if !a.isEditorOpen() || a.deps.panes.IsPaneAlive(a.editing.pane) {
 		return nil
 	}
 
-	return screen.Batch{a.closeEdit(m), screen.Restage{}}
+	return screen.Batch{a.closeEdit(in), screen.Restage{}}
 }
 
 func (a *agentsScreen) leaveScreen(m *model) screen.Request {
 	a.renaming = nil
 
-	return a.closeEdit(m)
+	return a.closeEdit(m.inputs())
 }

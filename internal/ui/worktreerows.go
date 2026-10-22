@@ -13,6 +13,7 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 )
@@ -162,7 +163,7 @@ type worktreeRowsKey struct {
 	filter   filterKey
 }
 
-func (w *worktreesScreen) rows(m *model) []worktreeRow {
+func (w *worktreesScreen) rows(m *model, in screen.Inputs) []worktreeRow {
 	order := worktreesTabs().order(w.sort)
 	key := worktreeRowsKey{
 		revision: w.revision,

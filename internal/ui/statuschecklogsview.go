@@ -11,6 +11,7 @@ import (
 	"komrad/internal/glyph"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
@@ -19,12 +20,12 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-func (c *statusCheckLogsScreen) view(m *model) string {
-	return m.columnListView(c.listParams(m))
+func (c *statusCheckLogsScreen) view(m *model, in screen.Inputs) string {
+	return m.columnListView(c.listParams(m, in))
 }
 
-func (c *statusCheckLogsScreen) snapshot(m *model, pane list.Pane) view.Snapshot {
-	rows := c.rows(m)
+func (c *statusCheckLogsScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
+	rows := c.rows(m, in)
 
 	return view.Snapshot{
 		Rows: xslice.Map(rows, func(r statusCheckLogRow) view.Row {

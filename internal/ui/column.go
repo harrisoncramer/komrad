@@ -7,6 +7,7 @@ import (
 	"komrad/internal/ui/column"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 )
 
 const (
@@ -45,34 +46,34 @@ type columnSpec struct {
 
 	// doc is the markdown the block is rendered from, and is nil on a screen that renders and scrolls
 	// its block itself.
-	doc func(*model) string
+	doc func(*model, screen.Inputs) string
 
 	// docRows renders the block's rows at a width in place of doc, for a document with rows markdown
 	// cannot style.
-	docRows func(*model, int) []string
+	docRows func(*model, screen.Inputs, int) []string
 
 	// read reports whether the block is a document the keys can be handed to, and is nil on a
 	// screen whose block never is.
-	read          func(*model) bool
+	read          func(*model, screen.Inputs) bool
 	searchOptions []filterOption
 
 	// holds reports whether the screen is rendering its own block at all, and is nil on a screen that
 	// always is.
-	holds func(*model) bool
+	holds func(*model, screen.Inputs) bool
 
 	// rows is the row budget the block is actually rendered in, and is nil on a screen with nothing
 	// standing over it.
-	rows func(*model, column.Split) int
+	rows func(*model, screen.Inputs, column.Split) int
 
 	// beside is the agent the screen keeps on the stage beside its block, and is nil on a screen that
 	// keeps none.
-	beside func(*model) (panel.AgentRow, bool)
+	beside func(*model, screen.Inputs) (panel.AgentRow, bool)
 }
 
 // isHeld reports whether the screen is rendering its own block rather than handing its columns to
 // another process.
 func (s columnSpec) isHeld(m *model) bool {
-	return s.holds == nil || s.holds(m)
+	return s.holds == nil || s.holds(m, m.inputs())
 }
 
 // sidebarColumns is how wide the panel's own list is rendered while it holds the window, and the
@@ -129,7 +130,7 @@ func (m *model) columnSplit() column.Split {
 
 	// Only ever asked of a block rendered in the other column.
 	if spec := m.columnOf(); spec.rows != nil {
-		split.Rows = max(spec.rows(m, split), 1)
+		split.Rows = max(spec.rows(m, m.inputs(), split), 1)
 	}
 
 	return split
@@ -182,7 +183,7 @@ func (m *model) isStageBeside() bool {
 		return false
 	}
 
-	_, live := spec.beside(m)
+	_, live := spec.beside(m, m.inputs())
 
 	return live
 }
@@ -267,7 +268,7 @@ func (m *model) paneWidth() int {
 func (m *model) docShown() string {
 	hovered := m.hoveredDetails().id
 	if f, ok := m.active().(activeLister); ok {
-		hovered = f.activeList().hovered(m)
+		hovered = f.activeList().hovered(m, m.inputs())
 	}
 	if n, ok := m.active().(docNamer); ok {
 		hovered = n.docName(m)
@@ -303,11 +304,11 @@ func (m *model) columnDoc(split column.Split) docWindow {
 func (m *model) columnRows(split column.Split) []string {
 	spec := m.columnOf()
 	if spec.docRows != nil {
-		return spec.docRows(m, split.Column)
+		return spec.docRows(m, m.inputs(), split.Column)
 	}
 	if spec.doc == nil {
 		return nil
 	}
 
-	return paint.DocStyledRows(spec.doc(m), max(split.Column, 1), columnStyle())
+	return paint.DocStyledRows(spec.doc(m, m.inputs()), max(split.Column, 1), columnStyle())
 }

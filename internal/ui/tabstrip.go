@@ -188,13 +188,13 @@ func (m *model) activeTabs() (tabSwitcher, bool) {
 func (m *model) isTabsRendered() bool {
 	t, ok := m.activeTabs()
 
-	return ok && t.tabsFit(m)
+	return ok && t.tabsFit(m, m.inputs())
 }
 
 func (m *model) isTabsFocused() bool {
 	t, ok := m.activeTabs()
 
-	return ok && t.tabsState().focused && t.tabsFit(m)
+	return ok && t.tabsState().focused && t.tabsFit(m, m.inputs())
 }
 
 // listFitsTabs is whether a list has the room to render its strips, judged with the keys on the
@@ -233,7 +233,7 @@ func (m *model) blurTabs() {
 
 func (m *model) focusTabs() {
 	t, ok := m.activeTabs()
-	if !ok || !t.tabsFit(m) {
+	if !ok || !t.tabsFit(m, m.inputs()) {
 		return
 	}
 

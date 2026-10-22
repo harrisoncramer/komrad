@@ -50,7 +50,7 @@ func (m *model) settleUnstaged(agents []panel.Agent, killed bool) {
 	}
 
 	if stager, ok := m.active().(rowStager); ok {
-		m.apply(stager.stage(m))
+		m.apply(stager.stage(m, m.inputs()))
 	}
 }
 
@@ -77,30 +77,30 @@ func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 		return nil
 	}
 
-	return tea.Batch(m.apply(m.active().stageResting(m)), m.wakeCwdSyncCmd())
+	return tea.Batch(m.apply(m.active().stageResting(m, m.inputs())), m.wakeCwdSyncCmd())
 }
 
-func (w *worktreesScreen) stageResting(m *model) screen.Request {
-	return screen.Batch{w.stage(m), m.inspectWorktree(), screen.ReadLastScreen{}}
+func (w *worktreesScreen) stageResting(m *model, in screen.Inputs) screen.Request {
+	return screen.Batch{w.stage(m, in), m.inspectWorktree(), screen.ReadLastScreen{}}
 }
 
-func (d *documentsScreen) stageResting(m *model) screen.Request {
-	return screen.Batch{d.stage(m), screen.Cmd(m.readDocumentsCmd())}
+func (d *documentsScreen) stageResting(m *model, in screen.Inputs) screen.Request {
+	return screen.Batch{d.stage(m, in), screen.Cmd(m.readDocumentsCmd())}
 }
 
-func (w *schedulesScreen) stageResting(*model) screen.Request {
+func (w *schedulesScreen) stageResting(*model, screen.Inputs) screen.Request {
 	return screen.Restage{}
 }
 
-func (l *logsScreen) stageResting(m *model) screen.Request {
-	return l.switchSource(m)
+func (l *logsScreen) stageResting(m *model, in screen.Inputs) screen.Request {
+	return l.switchSource(m, in)
 }
 
-func (a *agentsScreen) stageResting(m *model) screen.Request {
+func (a *agentsScreen) stageResting(m *model, in screen.Inputs) screen.Request {
 	return screen.Batch{screen.Restage{}, screen.ReadLastScreen{}, m.inspectTaskWorktree(a.deps.clock.Now())}
 }
 
-func (r *reviewScreen) stageResting(m *model) screen.Request {
+func (r *reviewScreen) stageResting(m *model, in screen.Inputs) screen.Request {
 	if r.hold.atEditor {
 		return r.markThreadRead(m)
 	}
@@ -150,10 +150,10 @@ func (m *model) stageSelection() {
 // and the hovered agent on a screen that keeps none.
 func (m *model) stagedAgent() (panel.AgentRow, bool) {
 	if beside := m.active().column().beside; beside != nil {
-		return beside(m)
+		return beside(m, m.inputs())
 	}
 
-	return m.agents.hoveredPane(m)
+	return m.agents.hoveredPane(m, m.inputs())
 }
 
 // reclaimStageKeys puts the keys back on the panel when they sit on the pane in the stage.

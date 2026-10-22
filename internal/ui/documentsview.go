@@ -10,14 +10,15 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 	"komrad/lib/dates"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
-func (d *documentsScreen) view(m *model) string {
-	return m.columnListView(d.listParams(m))
+func (d *documentsScreen) view(m *model, in screen.Inputs) string {
+	return m.columnListView(d.listParams(m, in))
 }
 
 func (d *documentsScreen) emptyLine() string {
@@ -36,8 +37,8 @@ func documentColumns() view.Columns {
 	return view.Columns{{Kind: view.ColumnText, Width: ageColumns}}
 }
 
-func (d *documentsScreen) snapshot(m *model, pane list.Pane) view.Snapshot {
-	rows := d.rows(m)
+func (d *documentsScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
+	rows := d.rows(m, in)
 	picked := pickedRows(m.filter, rows, m.documentRowFits)
 	now := m.clock.Now()
 	caret := pane.Caret
@@ -63,8 +64,8 @@ func (d *documentsScreen) snapshot(m *model, pane list.Pane) view.Snapshot {
 	}
 }
 
-func (d *documentsScreen) details(m *model) details {
-	item, ok := d.hovered(m)
+func (d *documentsScreen) details(m *model, in screen.Inputs) details {
+	item, ok := d.hovered(m, in)
 	if !ok {
 		return details{}
 	}
@@ -79,8 +80,8 @@ func (d *documentsScreen) details(m *model) details {
 	}
 }
 
-func (d *documentsScreen) documentTypeSnapshot(m *model, pane list.Pane) view.Snapshot {
-	rows := d.documentTypeRows(m)
+func (d *documentsScreen) documentTypeSnapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
+	rows := d.documentTypeRows(m, in)
 	now := m.clock.Now()
 
 	return view.Snapshot{
@@ -102,8 +103,8 @@ func (d *documentsScreen) documentTypeSnapshot(m *model, pane list.Pane) view.Sn
 }
 
 // doc is the markdown rendered beside the list for the document the cursor is on.
-func (d *documentsScreen) doc(m *model) string {
-	item, ok := d.hovered(m)
+func (d *documentsScreen) doc(m *model, in screen.Inputs) string {
+	item, ok := d.hovered(m, in)
 	if !ok {
 		return renderDocument("Documents", "_"+d.emptyLine()+"_", "", "")
 	}
@@ -135,17 +136,17 @@ func documentProse(name, body string) string {
 
 // docRows is the document rendered beside the list at a width: the write stepped to and what it
 // changed, or the document as it stands.
-func (d *documentsScreen) docRows(m *model, width int) []string {
+func (d *documentsScreen) docRows(m *model, in screen.Inputs, width int) []string {
 	if d.kind == documentKindTypes {
-		return paint.DocStyledRows(documentTypeFrom(d.hoveredDocumentType(m), m.clock.Now()), max(width, 1), columnStyle())
+		return paint.DocStyledRows(documentTypeFrom(d.hoveredDocumentType(m, in), m.clock.Now()), max(width, 1), columnStyle())
 	}
 
-	item, ok := d.hovered(m)
+	item, ok := d.hovered(m, in)
 	if !ok {
-		return paint.DocStyledRows(d.doc(m), max(width, 1), columnStyle())
+		return paint.DocStyledRows(d.doc(m, in), max(width, 1), columnStyle())
 	}
-	if !d.isSteppingHovered(m) {
-		return m.filter.markSaid(item.id, paint.DocStyledRows(d.doc(m), max(width, 1), columnStyle()))
+	if !d.isSteppingHovered(m, in) {
+		return m.filter.markSaid(item.id, paint.DocStyledRows(d.doc(m, in), max(width, 1), columnStyle()))
 	}
 
 	h := d.history

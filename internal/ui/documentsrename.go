@@ -27,8 +27,8 @@ func (d *documentsScreen) renamingField() *field.NameEdit {
 }
 
 // openRename types over the name of the item under the cursor once its text has been read.
-func (d *documentsScreen) openRename(m *model) screen.Request {
-	item, ok := d.hovered(m)
+func (d *documentsScreen) openRename(m *model, in screen.Inputs) screen.Request {
+	item, ok := d.hovered(m, in)
 	if !ok || d.editing != nil {
 		return nil
 	}
@@ -51,8 +51,8 @@ func (d *documentsScreen) openRename(m *model) screen.Request {
 }
 
 // reconcileRename drops an open rename once the cursor leaves its row.
-func (d *documentsScreen) reconcileRename(m *model) {
-	if d.renaming != nil && !reconcileNameEdit(d.renaming.NameEdit, d.rows(m), d.activeList().hovered(m), func(r documentRow) string { return r.item.name }) {
+func (d *documentsScreen) reconcileRename(m *model, in screen.Inputs) {
+	if d.renaming != nil && !reconcileNameEdit(d.renaming.NameEdit, d.rows(m, in), d.activeList().hovered(m, in), func(r documentRow) string { return r.item.name }) {
 		d.renaming = nil
 	}
 }
@@ -109,13 +109,13 @@ func (d *documentsScreen) saveRename() screen.Request {
 
 // settleRename marks the field saved once its write has landed, or open for another try when it
 // failed.
-func (d *documentsScreen) settleRename(m *model, row string, err error) {
+func (d *documentsScreen) settleRename(m *model, in screen.Inputs, row string, err error) {
 	if d.renaming == nil {
 		return
 	}
 	d.renaming.Settle(row, err)
 
-	d.reconcileRename(m)
+	d.reconcileRename(m, in)
 }
 
 func (d *documentsScreen) isRenaming() bool {

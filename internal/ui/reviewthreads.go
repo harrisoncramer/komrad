@@ -32,15 +32,15 @@ func (t *reviewThreads) set(threads []*agentv1.ReviewThread) {
 }
 
 // followWorld renders what the world now holds of the review.
-func (r *reviewScreen) followWorld(m *model) screen.Request {
-	r.followThreads(m)
+func (r *reviewScreen) followWorld(m *model, in screen.Inputs) screen.Request {
+	r.followThreads(m, in)
 
 	return r.followNotices(m)
 }
 
 // followThreads renders the conversation the world holds on a live agent, once the reader has stopped
 // typing.
-func (r *reviewScreen) followThreads(m *model) {
+func (r *reviewScreen) followThreads(m *model, in screen.Inputs) {
 	if r.diff.View() == nil || r.takesEveryKey() {
 		return
 	}
@@ -49,7 +49,7 @@ func (r *reviewScreen) followThreads(m *model) {
 		return
 	}
 
-	threads := assemble.ReviewThreads(m.listing.World, r.agentID)
+	threads := assemble.ReviewThreads(in.Listing.World, r.agentID)
 	if slices.EqualFunc(threads, r.threads.list, isSameThread) {
 		return
 	}

@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"charm.land/lipgloss/v2"
@@ -37,31 +38,31 @@ const reviewChangeFolds = 2
 
 // view renders the diff and, beside it, the file tree, with the thread the cursor is standing on
 // in a popup over them.
-func (r reviewScreen) view(m *model) string {
+func (r reviewScreen) view(m *model, in screen.Inputs) string {
 	split := m.screenColumnSplit()
 	if !split.On && m.term.paneMeasure > 0 {
-		return r.sidebarView(m)
+		return r.sidebarView(m, in)
 	}
 	if !split.On {
 		band := r.bandView(m)
-		layout := r.layoutSidebar(m, band)
+		layout := r.layoutSidebar(m, in, band)
 
-		return r.overlayThread(m, strings.TrimRight(band+r.renderSidebar(layout, layout.block()), "\n"))
+		return r.overlayThread(m, in, strings.TrimRight(band+r.renderSidebar(layout, layout.block()), "\n"))
 	}
 
 	// The band stands over the diff rather than over the whole window, and what it carries acts on
 	// the patch.
 	band := r.bandView(m)
-	area := band + r.diffView(m, split)
+	area := band + r.diffView(m, in, split)
 	diff := m.markZone(zoneList, area, split.Column)
 
-	return r.overlayThread(m, m.joinColumns(split, r.sidebarView(m), diff))
+	return r.overlayThread(m, in, m.joinColumns(split, r.sidebarView(m, in), diff))
 }
 
 // sidebarView is the sidebar rendered as one half of a split, trimmed so the two halves are the same
 // height.
-func (r reviewScreen) sidebarView(m *model) string {
-	layout := r.layoutSidebar(m)
+func (r reviewScreen) sidebarView(m *model, in screen.Inputs) string {
+	layout := r.layoutSidebar(m, in)
 	block := m.markZone(zoneBlock, layout.block(), lineWidthOf(m.paneWidth()))
 
 	return strings.TrimRight(r.renderSidebar(layout, block), "\n")
@@ -69,13 +70,13 @@ func (r reviewScreen) sidebarView(m *model) string {
 
 // overlayThread renders the popup over an area, and leaves the area alone where the popup has
 // nothing to hold or the frame is rendered to find its blocks.
-func (r reviewScreen) overlayThread(m *model, area string) string {
+func (r reviewScreen) overlayThread(m *model, in screen.Inputs, area string) string {
 	if m.isMarkingZones() {
 		return area
 	}
 
 	inner := r.measurePopupInner(m)
-	body, back := r.popupBody(m, inner)
+	body, back := r.popupBody(m, in, inner)
 	if m.isPopupForm() && m.form.isActive() {
 		body = withSection(body, m.heldFormView(), inner)
 		back = 0
@@ -84,7 +85,7 @@ func (r reviewScreen) overlayThread(m *model, area string) string {
 		return area
 	}
 
-	slot := r.placeThread(m, body)
+	slot := r.placeThread(m, in, body)
 
 	return overlayPopup(area, renderPopup(body, back, slot), slot)
 }
@@ -118,10 +119,10 @@ func (l sidebarLayout) block() string {
 
 // layoutSidebar gives the column to the file tree, the bar over it shrinking and then giving way
 // before the tree loses a row it needs.
-func (r reviewScreen) layoutSidebar(m *model, above ...string) sidebarLayout {
-	bare := r.layoutUnder(m, "", above)
+func (r reviewScreen) layoutSidebar(m *model, in screen.Inputs, above ...string) sidebarLayout {
+	bare := r.layoutUnder(m, in, "", above)
 	for _, bar := range m.viewsBars() {
-		if barred := r.layoutUnder(m, bar, above); r.doesFitUnderBar(barred, bare) {
+		if barred := r.layoutUnder(m, in, bar, above); r.doesFitUnderBar(barred, bare) {
 			return barred
 		}
 	}
@@ -143,7 +144,7 @@ func (r reviewScreen) doesFitUnderBar(barred, bare sidebarLayout) bool {
 }
 
 // layoutUnder measures the sidebar with bar over it.
-func (r reviewScreen) layoutUnder(m *model, bar string, above []string) sidebarLayout {
+func (r reviewScreen) layoutUnder(m *model, in screen.Inputs, bar string, above []string) sidebarLayout {
 	help := m.renderHelp(r.help(m), slices.Concat(above, []string{r.placeView()})...)
 	rule := m.renderRecord(slices.Concat(above, []string{bar, help})...)
 	spare := m.listLines(slices.Concat(above, []string{bar, help, rule})...)
@@ -158,20 +159,20 @@ func (r reviewScreen) layoutUnder(m *model, bar string, above []string) sidebarL
 
 	if spare < 0 {
 		layout.change = r.changeView(m, 0)
-		layout.side = r.sideView(m, paint.Unbounded)
-		layout.files = r.filesView(m, paint.Unbounded)
+		layout.side = r.sideView(m, in, paint.Unbounded)
+		layout.files = r.filesView(m, in, paint.Unbounded)
 
 		return layout
 	}
 
 	floor := r.countFilesFloor(spare)
 	room := spare - paint.CountLines(r.placeView())
-	layout.change = r.foldChange(m, room-floor)
+	layout.change = r.foldChange(m, in, room-floor)
 	room -= paint.CountLines(layout.change)
-	layout.side = r.sideView(m, max(room-floor, 0))
+	layout.side = r.sideView(m, in, max(room-floor, 0))
 	room -= paint.CountLines(layout.side)
 	lines := max(room-paint.CountLines(layout.notes), floor)
-	layout.files = r.filesView(m, max(min(lines, room), 0))
+	layout.files = r.filesView(m, in, max(min(lines, room), 0))
 	layout.notes = cutNotes(layout.notes, room-paint.CountLines(layout.files))
 
 	return layout
@@ -179,8 +180,8 @@ func (r reviewScreen) layoutUnder(m *model, bar string, above []string) sidebarL
 
 // foldChange is the change block in the most rows that leave the rows under it their room, else in
 // the fewest rows that fit.
-func (r reviewScreen) foldChange(m *model, room int) string {
-	wanted := paint.CountLines(r.sideView(m, paint.Unbounded))
+func (r reviewScreen) foldChange(m *model, in screen.Inputs, room int) string {
+	wanted := paint.CountLines(r.sideView(m, in, paint.Unbounded))
 
 	var shortest string
 	for fold := range reviewChangeFolds {
@@ -433,8 +434,8 @@ func (r reviewScreen) backDesc() string {
 	return "back to the agents"
 }
 
-func (r reviewScreen) diffBackDesc(m *model) string {
-	if r.hold.isHeld() || !r.isBlockRendered(m) {
+func (r reviewScreen) diffBackDesc(m *model, in screen.Inputs) string {
+	if r.hold.isHeld() || !r.isBlockRendered(m, in) {
 		return r.backDesc()
 	}
 

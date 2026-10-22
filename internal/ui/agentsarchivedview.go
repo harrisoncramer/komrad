@@ -4,11 +4,12 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 )
 
-func (a *archivedAgents) details(m *model) details {
-	r, ok := list.At(a.listRows(m), a.Row)
+func (a *archivedAgents) details(m *model, in screen.Inputs) details {
+	r, ok := list.At(a.listRows(m, in), a.Row)
 	if !ok {
 		return details{}
 	}
@@ -20,7 +21,7 @@ func (a *archivedAgents) details(m *model) details {
 	if r.header {
 		return details{
 			id:     r.workflow.ID,
-			fields: workflowFields(r.workflow, m.listing.ArchivedCount(r.workflow.ID)),
+			fields: workflowFields(r.workflow, in.Listing.ArchivedCount(r.workflow.ID)),
 		}
 	}
 
@@ -28,8 +29,8 @@ func (a *archivedAgents) details(m *model) details {
 }
 
 // doc is the markdown rendered beside the list for the row the cursor is on.
-func (a *archivedAgents) doc(m *model) string {
-	r, ok := list.At(a.listRows(m), a.Row)
+func (a *archivedAgents) doc(m *model, in screen.Inputs) string {
+	r, ok := list.At(a.listRows(m, in), a.Row)
 	switch {
 	case !ok:
 		return a.emptyMarkdown()
@@ -43,8 +44,8 @@ func (a *archivedAgents) doc(m *model) string {
 }
 
 // docRows is the block rendered beside the list at a width for the row the cursor is on.
-func (a *archivedAgents) docRows(m *model, width int) []string {
-	return paint.DocStyledRows(a.doc(m), width, columnStyle())
+func (a *archivedAgents) docRows(m *model, in screen.Inputs, width int) []string {
+	return paint.DocStyledRows(a.doc(m, in), width, columnStyle())
 }
 
 // archiveDocument is what the panel renders beside an archived agent's row.
@@ -56,27 +57,27 @@ func archiveDocument(agent panel.Agent) string {
 	return archiveMarkdown(agent)
 }
 
-func (a *archivedAgents) view(m *model) string {
-	return m.columnListView(a.listParams(m))
+func (a *archivedAgents) view(m *model, in screen.Inputs) string {
+	return m.columnListView(a.listParams(m, in))
 }
 
 // snapshot is the archived agents' rows as the plain data the shared rendering reads.
-func (a *archivedAgents) snapshot(m *model, pane list.Pane) view.Snapshot {
-	rows := a.listRows(m)
-	work := splitChosen(m.listing, chosenAgents(a.Selected, rows))
+func (a *archivedAgents) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
+	rows := a.listRows(m, in)
+	work := splitChosen(in.Listing, chosenAgents(a.Selected, rows))
 
 	return agentsSnapshot(snapshotParams{
 		rows:         rows,
 		selected:     a.Selected,
 		wholeTasks:   panel.TaskIDs(work.wholeTasks),
-		scheduled:    m.listing.ScheduledWorkflows(),
-		workflowDirs: m.listing.WorkflowDirs(),
+		scheduled:    in.Listing.ScheduledWorkflows(),
+		workflowDirs: in.Listing.WorkflowDirs(),
 		focused:      list.KeyAt(rows, a.Row),
 		caret:        pane.Caret,
 		loaderFrame:  m.loading.frame(),
 		matcher:      m.filter.pattern,
 		picked:       pickedRows(m.filter, rows, m.agentRowFits),
-		tasks:        m.listing.Tasks,
+		tasks:        in.Listing.Tasks,
 		renaming:     a.renamingField(),
 		showHidden:   true,
 		flat:         a.sort.flat,

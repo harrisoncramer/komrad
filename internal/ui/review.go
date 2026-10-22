@@ -90,7 +90,7 @@ func (r reviewScreen) parent() screen.ID {
 }
 
 // crumbs runs through the agent whose work is under review.
-func (r reviewScreen) crumbs(*model) crumbs {
+func (r reviewScreen) crumbs(*model, screen.Inputs) crumbs {
 	return crumbs{trail: []string{r.agentName, "review"}}
 }
 
@@ -115,31 +115,31 @@ func (r reviewScreen) isBusy() bool {
 }
 
 // isDiffFocused is whether the patch holds the keys.
-func (r reviewScreen) isDiffFocused(m *model) bool {
-	return m.isListFocused() && !r.isWriting() && !r.isBlockFocused(m)
+func (r reviewScreen) isDiffFocused(m *model, in screen.Inputs) bool {
+	return m.isListFocused() && !r.isWriting() && !r.isBlockFocused(m, in)
 }
 
-func (r *reviewScreen) update(m *model, msg tea.Msg) screen.Request {
+func (r *reviewScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen.Request {
 	var keyed screen.Request
 	if key, ok := msg.(tea.KeyPressMsg); ok {
-		keyed = r.updateKey(m, key)
+		keyed = r.updateKey(m, in, key)
 	}
 
-	return screen.Batch{keyed, r.followWorld(m)}
+	return screen.Batch{keyed, r.followWorld(m, in)}
 }
 
-func (r *reviewScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) {
+func (r *reviewScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 	switch msg := msg.(type) {
 	case reviewEditorStaged:
 		return r.applyEditorStaged(m, msg), true
 	case reviewLoadedMsg, reviewPausedMsg, reviewWroteMsg, messageEditedMsg:
-		if !m.isUp(r) {
+		if !in.Up {
 			return nil, true
 		}
 
 		routed := r.route(m, msg)
 
-		return screen.Batch{routed, r.followWorld(m)}, true
+		return screen.Batch{routed, r.followWorld(m, in)}, true
 	}
 
 	return nil, false
@@ -161,7 +161,7 @@ func (r *reviewScreen) route(m *model, msg tea.Msg) screen.Request {
 }
 
 // enter leaves the review as it stands.
-func (r *reviewScreen) enter(*model, screen.Target) screen.Request {
+func (r *reviewScreen) enter(*model, screen.Inputs, screen.Target) screen.Request {
 	return nil
 }
 

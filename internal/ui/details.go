@@ -51,7 +51,7 @@ func (m *model) hoveredDetails() details {
 		return details{}
 	}
 
-	return d.details(m)
+	return d.details(m, m.inputs())
 }
 
 // detailsRows is the record's fields as its search leaves them.
@@ -90,7 +90,7 @@ func (m *model) detailsList() screenList[detailsRow] {
 	return screenList[detailsRow]{
 		keys:   m.keys,
 		cursor: m.detailsRowCursor,
-		rows:   func(m *model) []detailsRow { return m.detailsRows(m.hoveredDetails()) },
+		rows:   func(m *model, _ screen.Inputs) []detailsRow { return m.detailsRows(m.hoveredDetails()) },
 		name:   func(row detailsRow) string { return row.text },
 	}
 }
@@ -114,7 +114,7 @@ func (m *model) isDetailsRendered(held details) bool {
 		return true
 	}
 
-	return m.detailsFits.read(m.shownScreen(), func() bool { return d.detailsFit(m) })
+	return m.detailsFits.read(m.shownScreen(), func() bool { return d.detailsFit(m, m.inputs()) })
 }
 
 // listFitsDetails is whether the record's share fits under a list, judged with the keys on the
@@ -289,7 +289,7 @@ func (m *model) grownDetailsLines(held details) int {
 		return lines
 	}
 
-	return max(min(lines, d.detailsRoom(m)-detailsChromeLines-1), 0)
+	return max(min(lines, d.detailsRoom(m, m.inputs())-detailsChromeLines-1), 0)
 }
 
 // detailsWanted is the lines the whole record takes: its notices, a blank under them, and every
