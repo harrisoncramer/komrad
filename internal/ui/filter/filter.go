@@ -95,12 +95,13 @@ type said struct {
 	Queued  bool
 }
 
+// Option sets how a search compiles what is typed into it.
+type Option func(*State)
+
 // Fail marks the search broken for the reason given.
 func (f *State) Fail(reason string) {
 	f.Broken, f.problem = true, reason
 }
-
-type Option func(*State)
 
 // WithDebounce holds compiling the pattern until typing rests for wait.
 func WithDebounce(wait time.Duration) Option {
