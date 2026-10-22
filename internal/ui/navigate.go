@@ -59,12 +59,12 @@ func navActions(n navigable, steps navSteps) []keys.Action[*model] {
 }
 
 // dispatchTop settles the doubled top key ahead of the table.
-func (m *model) dispatchTop(s keys.Spec[*model], k string) tea.Cmd {
-	if !m.takeTopPress(k) && m.isTopHeld() {
+func (m *model) dispatchTop(spec keys.Spec[*model], pressed string) tea.Cmd {
+	if !m.takeTopPress(pressed) && m.isTopHeld() {
 		return nil
 	}
 
-	return s.Dispatch(m, m.keys, k)
+	return spec.Dispatch(m, m.keys, pressed)
 }
 
 // isTopHeld reports whether the last press opened the doubled top key and is waiting on its pair.
