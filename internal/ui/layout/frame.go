@@ -11,8 +11,7 @@ import (
 	"komrad/internal/panes"
 )
 
-// besideShare is the thousandths of the columns right of the sidebar's list the sidebar takes while
-// the stage is beside it, until a nudge moves the edge between them.
+// besideShare is the block's share of the columns right of the sidebar's list before any nudge.
 const besideShare = 650
 
 type Frame struct {
@@ -75,8 +74,8 @@ type Frame struct {
 	// beside is whether the sidebar is drawn across part of the stage, with the stage beside it.
 	beside bool
 
-	// blockShare is the thousandths of the columns right of the sidebar's list a nudge left to the block,
-	// zero until one.
+	// blockShare is the thousandths of the columns right of the sidebar's list the block takes while
+	// the stage is beside it.
 	blockShare int
 
 	// column is the pane split off the columns the sidebar took from the stage, empty while none is
@@ -118,9 +117,10 @@ func WithTerminalCommand(command []string) option {
 // New builds the frame the panel lays out around itself, at the geometry the config asks for.
 func New(tmux Tmux, layout config.Layout, options ...option) *Frame {
 	frame := &Frame{
-		tmux:  tmux,
-		spec:  newSpec(layout),
-		shown: map[region]shown{},
+		tmux:       tmux,
+		spec:       newSpec(layout),
+		shown:      map[region]shown{},
+		blockShare: besideShare,
 	}
 
 	for _, option := range options {
@@ -948,12 +948,7 @@ func (f *Frame) sidebarCols() int {
 func (f *Frame) besideCols(window int) int {
 	cols := f.chosenCols()
 
-	share := besideShare
-	if f.blockShare > 0 {
-		share = f.blockShare
-	}
-
-	return cols + 1 + max(window-cols-1, 0)*share/1000
+	return cols + 1 + max(window-cols-1, 0)*f.blockShare/1000
 }
 
 // unfoldStage splits the stage back off the info pane it gave its rows to.
