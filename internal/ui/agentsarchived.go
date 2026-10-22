@@ -539,7 +539,7 @@ func (a *archivedAgents) tabsState() *tabsState {
 func (a *archivedAgents) column(m *model, in screen.Inputs) column.Spec {
 	return column.Spec{
 		Floor: columnFloor,
-		Read:  column.Always,
+		Read:  column.IsAlwaysRead,
 		DocRows: func(width int) []string {
 			if agentID, ok := a.screenedAgentID(m, in); ok {
 				if rows := m.saidColumnRows(agentID, width); rows != nil {

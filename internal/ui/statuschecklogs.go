@@ -290,7 +290,7 @@ func (c *statusCheckLogsScreen) takesEveryKey() bool {
 func (c *statusCheckLogsScreen) column(m *model, in screen.Inputs) column.Spec {
 	return column.Spec{
 		Floor:           columnFloor,
-		Read:            column.Always,
+		Read:            column.IsAlwaysRead,
 		SearchDebounce:  statusCheckLogSearchDebounce,
 		SearchMinLength: statusCheckLogSearchMinLength,
 		DocRows: func(width int) []string {

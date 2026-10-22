@@ -383,7 +383,7 @@ func (a *agentsScreen) tabsState() *tabsState {
 func (a *agentsScreen) column(m *model, in screen.Inputs) column.Spec {
 	return column.Spec{
 		Floor: columnFloor,
-		Read:  column.Always,
+		Read:  column.IsAlwaysRead,
 		DocRows: func(width int) []string {
 			if !m.agents.isHoveringNotes(m) {
 				if rows := m.saidColumnRows(m.agents.hoveredAgentID(m, in), width); rows != nil {

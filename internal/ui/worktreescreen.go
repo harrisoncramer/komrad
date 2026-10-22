@@ -260,7 +260,7 @@ func (w *worktreesScreen) tabsState() *tabsState {
 func (w *worktreesScreen) column(m *model, in screen.Inputs) column.Spec {
 	return column.Spec{
 		Floor: columnFloor,
-		Read:  column.Always,
+		Read:  column.IsAlwaysRead,
 		DocRows: func(width int) []string {
 			return m.withLastScreen(paint.DocStyledRows(m.worktrees.doc(m, in), max(width, 1), columnStyle()), width)
 		},

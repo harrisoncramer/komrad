@@ -225,7 +225,7 @@ func (a *archivedSchedules) hoveredName(m *model, in screen.Inputs) string {
 func (a *archivedSchedules) column(m *model, in screen.Inputs) column.Spec {
 	return column.Spec{
 		Floor: columnFloor,
-		Read:  column.Always,
+		Read:  column.IsAlwaysRead,
 		DocRows: func(width int) []string {
 			return a.docRows(m, in, width)
 		},

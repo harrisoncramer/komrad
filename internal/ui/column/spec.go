@@ -42,7 +42,7 @@ func (s Spec) IsHeld() bool {
 	return s.Holds == nil || s.Holds()
 }
 
-// Always is the Read of a block that is a document whatever the screen is showing.
-func Always() bool {
+// IsAlwaysRead is the Read of a block that is a document whatever the screen is showing.
+func IsAlwaysRead() bool {
 	return true
 }
