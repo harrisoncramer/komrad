@@ -31,8 +31,7 @@ type Room struct {
 	// Caret is how the list's arrow stands.
 	Caret view.Caret
 	// Doc is where the reader stands in the document beside the list.
-	Doc     DocReader
-	Pattern list.Pattern
+	Doc DocReader
 	// Dark is whether the terminal's background is dark.
 	Dark bool
 	// Wrap is whether a diff wraps its long lines.
@@ -43,6 +42,7 @@ type Room struct {
 	Spinner string
 	Now     time.Time
 	Marks   bool
+	Pattern list.Pattern
 }
 
 // DocReader is where the reader stands in the document beside the list.
