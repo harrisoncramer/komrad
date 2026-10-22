@@ -61,13 +61,13 @@ func (r *reviewScreen) ownTable() []keys.Action[*model] {
 			ID:   actionReviewBase,
 			Keys: func(k config.Keybindings) []string { return k.Review.Base },
 			When: func(*model) bool { return r.doesWalk() },
-			Nav:  func(m *model, _ string) screen.Request { return r.stepBase() },
+			Nav:  func(*model, string) screen.Request { return r.stepBase() },
 		},
 		{
 			ID:   actionReviewBaseForward,
 			Keys: func(k config.Keybindings) []string { return k.Review.BaseForward },
 			When: func(*model) bool { return r.doesWalk() },
-			Nav:  func(m *model, _ string) screen.Request { return r.stepBaseForward() },
+			Nav:  func(*model, string) screen.Request { return r.stepBaseForward() },
 		},
 	}
 }
