@@ -435,7 +435,12 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		top:            top,
 		editorSettings: editorSettings,
 	}
-	schedules := schedulesDeps{keys: deps.Keys, register: register, clients: clients, top: top}
+	schedules := schedulesDeps{
+		keys:     deps.Keys,
+		register: register,
+		clients:  clients,
+		top:      top,
+	}
 	documents := documentsDeps{
 		keys:          deps.Keys,
 		register:      register,
@@ -445,7 +450,13 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		editorCommand: deps.Settings.Editor,
 		draftDir:      deps.Settings.DraftDir,
 	}
-	statusChecks := statusChecksDeps{keys: deps.Keys, glyphs: deps.Glyphs, clock: clock, clients: clients, top: top}
+	statusChecks := statusChecksDeps{
+		keys:    deps.Keys,
+		glyphs:  deps.Glyphs,
+		clock:   clock,
+		clients: clients,
+		top:     top,
+	}
 
 	m := model{
 		term: terminalState{
@@ -497,7 +508,11 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 			editorSettings: editorSettings,
 		}},
 		worktrees: worktreesScreen{
-			deps: worktreesDeps{keys: deps.Keys, clients: clients, top: top},
+			deps: worktreesDeps{
+				keys:    deps.Keys,
+				clients: clients,
+				top:     top,
+			},
 			sort: tabsState{flat: true},
 		},
 		documents: documentsScreen{deps: documents},
