@@ -55,6 +55,7 @@
   --color-app-green: #8fd4a8;
   --color-app-cyan: #7fd6e0;
   --color-app-magenta: #c7a6ff;
+  --color-app-orange: #f59563;
   --color-app-red: #ff8a8a;
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -260,13 +261,13 @@
 }
 
 .doc-content .type-name:is([data-tone="timestamp"], [data-tone="duration"]) {
-  color: color-mix(in srgb, var(--color-app-red) 55%, var(--color-app-gray-dim));
+  color: color-mix(in srgb, var(--color-app-orange) 65%, var(--color-app-gray-dim));
 }
 
 .doc-content abbr.required {
   margin-left: 0.15rem;
   text-decoration: none;
-  color: color-mix(in srgb, var(--color-app-red) 70%, var(--color-app-gray-dim));
+  color: var(--color-app-gray-light);
   cursor: help;
 }
 
