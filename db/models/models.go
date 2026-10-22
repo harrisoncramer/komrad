@@ -1213,7 +1213,7 @@ type Task struct {
 	RepositoryUrl *string
 	// The commit the task's checkout has checked out, null when the checkout is gone or git cannot read it.
 	HeadSha *string
-	// What the latest rebase of the task's checkout came to, as the result or the failure; null until its first rebase.
+	// What the latest rebase of the task's checkout came to; null until its first rebase.
 	LastRebase []byte
 	// What git has part-way through the task's checkout and waiting on somebody, null while it has no checkout.
 	Sequence NullAgentSequence
