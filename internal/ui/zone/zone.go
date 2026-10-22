@@ -16,8 +16,10 @@ import (
 // Name names a block the panel renders inside its own pane.
 type Name string
 
+// Search names the search line over a list or a block.
 const Search Name = "search"
 
+// SearchList and SearchBlock key the search line by the list or the block it searches.
 const (
 	SearchList  = "list"
 	SearchBlock = "block"
