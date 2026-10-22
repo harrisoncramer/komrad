@@ -129,7 +129,7 @@ func (a *agentsScreen) applyEditorStaged(m *model, staged agentEditorStaged) tea
 		return nil
 	}
 
-	return m.releaseCmd("Could not let "+edit.agent.Name+" go", edit.agent, abandonedSaid)
+	return m.apply(m.releaseWrite("Could not let "+edit.agent.Name+" go", edit.agent, abandonedSaid))
 }
 
 func (a *agentsScreen) closeEdit(m *model) tea.Cmd {
@@ -150,7 +150,7 @@ func (a *agentsScreen) closeEdit(m *model) tea.Cmd {
 		return nil
 	}
 
-	return m.releaseCmd("Could not let "+edit.agent.Name+" go", edit.agent, editedSaid)
+	return m.apply(m.releaseWrite("Could not let "+edit.agent.Name+" go", edit.agent, editedSaid))
 }
 
 func (a *agentsScreen) reconcileEditor(m *model) tea.Cmd {

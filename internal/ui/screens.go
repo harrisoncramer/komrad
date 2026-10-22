@@ -2,10 +2,12 @@ package ui
 
 import (
 	"komrad/internal/ui/field"
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/layout"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/screen"
+	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -336,6 +338,10 @@ func (m *model) apply(request screen.Request) tea.Cmd {
 		return m.route(request.Staged(m.stageEditor(request.Content)))
 	case menu.Open:
 		return m.openForm(submenuState(nil, newSubmenuLevel(request.Menu)))
+	case form.Open:
+		return m.openForm(hostedForm(request.Form))
+	case screen.Batch:
+		return tea.Batch(xslice.Map(request, m.apply)...)
 	}
 
 	return nil

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"komrad/config"
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 
@@ -13,7 +14,6 @@ import (
 // deleteChosenConfirm asks what goes when the tasks of chosen agents are deleted.
 func deleteChosenConfirm(work chosenWork, offersWorktree bool) worktreeConfirm {
 	return worktreeConfirm{
-		kind:            formArchiveDelete,
 		title:           "Delete " + describeTasks(work.wholeTasks) + "?",
 		dirs:            taskDirs(work.wholeTasks),
 		startsConfirmed: true,
@@ -24,7 +24,6 @@ func deleteChosenConfirm(work chosenWork, offersWorktree bool) worktreeConfirm {
 // deleteWorkflowConfirm asks what goes when an archived workflow is deleted.
 func deleteWorkflowConfirm(workflow panel.Workflow, offersWorktree bool) worktreeConfirm {
 	return worktreeConfirm{
-		kind:            formArchiveDelete,
 		title:           fmt.Sprintf("Delete workflow %q?", workflow.Name),
 		startsConfirmed: true,
 		values:          newDeleteFormValues(offersWorktree),
@@ -32,7 +31,7 @@ func deleteWorkflowConfirm(workflow panel.Workflow, offersWorktree bool) worktre
 }
 
 func deleteScheduleForm(name string, keys config.FixedKeys) (*huh.Form, *bool) {
-	return confirmForm(
+	return form.Confirm(
 		fmt.Sprintf("Permanently delete schedule %q?", name),
 		"Komrad deletes its run history too and keeps the agents it launched.",
 		"Delete",
@@ -48,7 +47,6 @@ func deleteTasksConfirm(tasks []panel.Task, agentCount int, offersWorktree bool)
 	}
 
 	return worktreeConfirm{
-		kind:            formArchiveDelete,
 		title:           "Delete " + describeTasks(tasks) + "?",
 		warning:         warning,
 		dirs:            taskDirs(tasks),

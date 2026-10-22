@@ -36,12 +36,12 @@ func (m *model) isDocReadable() bool {
 		return false
 	}
 
-	spec, ok := m.columnOf()
-	if !ok || spec.read == nil || !spec.read(m) {
+	spec := m.columnOf()
+	if spec.read == nil || !spec.read(m) {
 		return false
 	}
 
-	_, ok = m.screenColumnSplit()
+	_, ok := m.screenColumnSplit()
 
 	return ok
 }
@@ -275,8 +275,7 @@ func (m *model) docActions() keys.Spec[*model] {
 				Keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
 				Nav: func(*model, string) tea.Cmd {
 					m.settleTail()
-					spec, _ := m.columnOf()
-					m.reading.filter.open(spec.searchOptions...)
+					m.reading.filter.open(m.columnOf().searchOptions...)
 					m.reading.origin = m.reading.Line
 
 					return nil

@@ -6,8 +6,6 @@ import (
 
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 const autoMergeTimeout = 30 * time.Second
@@ -44,7 +42,7 @@ func autoMergeRefusal(task panel.Task) error {
 
 // setAutoMerge asks the forge to merge the task's pull request once its checks and reviews pass,
 // or to stop waiting to.
-func (m *model) setAutoMerge(task panel.Task, params mergeParams, on bool) tea.Cmd {
+func (m *model) setAutoMerge(task panel.Task, params mergeParams, on bool) screen.Write {
 	clients := m.api
 	ref := task.PullRequest.Ref()
 	doing, said := "cancelling auto-merge on "+ref, " no longer merges on its own"
@@ -52,7 +50,7 @@ func (m *model) setAutoMerge(task panel.Task, params mergeParams, on bool) tea.C
 		doing, said = "queueing "+ref+" to merge", " merges when ready"
 	}
 
-	return m.apply(screen.Write{
+	return screen.Write{
 		Doing:   doing,
 		Summary: "Could not change auto-merge on " + ref + " of " + task.Slug,
 		Send: func() screen.Landed {
@@ -61,5 +59,5 @@ func (m *model) setAutoMerge(task panel.Task, params mergeParams, on bool) tea.C
 				Notice: &screen.Notice{Summary: task.Slug + ": " + ref + said, Detail: task.PullRequest.Title},
 			}
 		},
-	})
+	}
 }

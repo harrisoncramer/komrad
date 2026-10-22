@@ -2,13 +2,11 @@ package ui
 
 import (
 	"komrad/config"
+	"komrad/internal/ui/field"
+	"komrad/internal/ui/form"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/screen"
 
-	"komrad/internal/ui/field"
-	"komrad/internal/ui/keys"
-	"komrad/internal/ui/paint"
-
-	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
@@ -17,7 +15,7 @@ import (
 // formState is the form rendered over whichever screen is up, held by value around huh's own
 // pointer.
 type formState struct {
-	kind formKind
+	form.Form
 	form *huh.Form
 
 	// isMenu says the form is the space menu.
@@ -35,26 +33,12 @@ type formState struct {
 	// back is what the back key does, nil for closing the form.
 	back func(*model) tea.Cmd
 
-	// beside opens a form to the right of this one, nil for a form that keeps nothing beside it.
-	beside func(*model, formState) tea.Cmd
-
 	// update is the form's own message handler, so the panel need not ask which form is up before
 	// handing it a message.
 	update func(*model, tea.Msg) tea.Cmd
 
-	// submit is what the answered form does, closed over the values huh writes through and whatever
-	// the form is about.
-	submit func(*model) tea.Cmd
-
-	// rebuild renders the form again around those same values, and lists the fields the cursor can
-	// reach in the order they are rendered.
-	rebuild func(*model) (*huh.Form, []string)
-
-	// reshaped reports whether an answer has changed which fields the form renders.
-	reshaped func() bool
-
-	// editable are the text fields the panel's editor key can open.
-	editable []editableText
+	// answer is what the answered form does.
+	answer func(*model) tea.Cmd
 
 	// order lists the keys of the fields the cursor can reach, in the order they are rendered.
 	order []string
@@ -62,49 +46,36 @@ type formState struct {
 	// frozen is the form as the panel rendered it before the key that finished it.
 	frozen string
 
-	// keepsOnRefusal says a refused write leaves the form up to be fixed and submitted again.
-	keepsOnRefusal bool
-	refusal        string
+	// refusal is why the last answer was refused.
+	refusal string
 
 	// vim is vim's state for the form's text fields, nil when vim is off.
 	vim *field.Vim
 }
 
-// formKind names the form on screen, for the legend and for what closing it means.
-type formKind int
+// hostedForm is the slot a form opened through form.Open takes.
+func hostedForm(f form.Form) formState {
+	state := formState{
+		Form:   f,
+		update: (*model).updateForm,
+		answer: (*model).submitForm,
+	}
+	if len(f.Subforms) > 0 {
+		state.update = (*model).updateSubforms
+	}
 
-const (
-	formNone formKind = iota
-	formAgent
-	formReviewer
-	formAdopt
-	formAgentRebase
-	formAgentPush
-	formAgentAbort
-	formMerge
-	formAgentRetry
-	formMenu
-	formWorkflow
-	formTask
-	formWorkflowArchive
-	formSchedule
-	formScheduleArchive
-	formDocument
-	formDocumentType
-	formDocumentTypeDelete
-	formArchiveDelete
-	formWorktreesDelete
-)
+	return state
+}
 
 // isActive reports whether a form is up and holding the keys.
 func (f formState) isActive() bool {
 	return f.form != nil
 }
 
-// isOpening reports whether a form is on screen or is about to be, which the kind answers and
-// the built form cannot, a form being built only once its column is settled.
+// isOpening reports whether a form is on screen or is about to be, which the built form cannot
+// answer, a form being built only once its column is settled.
 func (f formState) isOpening() bool {
-	return f.kind != formNone
+	return f.Built != nil || f.Build != nil
 }
 
 // openForm puts a form on screen over the screen the panel is already on, taking the window
@@ -114,33 +85,17 @@ func (m *model) openForm(f formState) tea.Cmd {
 	m.reconcileSolo()
 	m.form.vim = field.NewVim(m.register)
 
+	m.form.form = m.form.Built
 	if m.form.form == nil {
-		m.form.form, m.form.order = m.form.rebuild(m)
+		m.form.form, m.form.order = m.form.Build(m.formInputs())
 	}
 
 	return tea.Batch(m.form.form.Init(), formResized())
 }
 
-// rebuildableFormParams is what a rebuildable form is opened from.
-type rebuildableFormParams struct {
-	Kind     formKind
-	Build    func(*model) (*huh.Form, []string)
-	Reshaped func() bool
-	Editable []editableText
-	Submit   func(*model) tea.Cmd
-}
-
-// rebuildableForm is a form the panel rebuilds from one builder.
-func rebuildableForm(params rebuildableFormParams) formState {
-	return formState{
-		kind:           params.Kind,
-		keepsOnRefusal: true,
-		update:         (*model).updateForm,
-		submit:         params.Submit,
-		rebuild:        params.Build,
-		reshaped:       params.Reshaped,
-		editable:       params.Editable,
-	}
+// formInputs is what a form reads of the panel as it is built or answered.
+func (m *model) formInputs() form.Inputs {
+	return form.Inputs{Listing: m.listing, Inspections: m.inspections}
 }
 
 // formColumnFloor is the narrowest a form is worth rendering beside a list at, being a field's
@@ -152,21 +107,12 @@ const formMaxWidth = 60
 
 // formColumn is the form rendered beside the list it was opened over, so the row it is about is
 // still on screen while it is answered.
-func formColumn(kind formKind) (columnSpec, bool) {
-	switch kind {
-	case formAgent, formReviewer, formAdopt, formAgentRetry, formWorkflow, formTask, formSchedule,
-		formDocument, formDocumentType:
-		return columnSpec{floor: formColumnFloor}, true
-	case formMerge, formMenu, formAgentRebase, formAgentPush, formAgentAbort, formWorkflowArchive, formScheduleArchive,
-		formArchiveDelete, formWorktreesDelete, formDocumentTypeDelete:
-		return columnSpec{floor: columnFloor}, true
-	case formNone:
-		return columnSpec{}, false
+func formColumn(narrow bool) columnSpec {
+	if narrow {
+		return columnSpec{floor: columnFloor}
 	}
 
-	// The switch carries every kind and no default, so this is what a form added without an arm
-	// compiles to until the exhaustive check refuses it.
-	return columnSpec{}, false
+	return columnSpec{floor: formColumnFloor}
 }
 
 // formResizedMsg tells the form on screen how much room it has.
@@ -263,103 +209,6 @@ func holdSubmit(write func(*model) tea.Cmd) func(*model) tea.Cmd {
 	}
 }
 
-// formOf renders a group of fields as one form, and lists the keys of the fields the cursor can
-// reach, in the order they are rendered.
-func formOf(fixed config.FixedKeys, fields ...huh.Field) (*huh.Form, []string) {
-	return titledFormOf(fixed, "", fields...)
-}
-
-// titledFormOf is formOf under a title that heads every field.
-func titledFormOf(fixed config.FixedKeys, title string, fields ...huh.Field) (*huh.Form, []string) {
-	form := huh.NewForm(huh.NewGroup(fields...).Title(title)).
-		WithShowHelp(true).
-		WithKeyMap(multiFieldKeyMap(fixed)).
-		WithTheme(paint.Panel.FormTheme())
-
-	reached := make([]string, 0, len(fields))
-	for _, field := range fields {
-		if field.Skip() {
-			continue
-		}
-
-		reached = append(reached, field.GetKey())
-	}
-
-	return form, reached
-}
-
-// textField is a text field whose editor the panel opens rather than huh.
-func textField(key string) *huh.Text {
-	return huh.NewText().Key(key).ExternalEditor(false)
-}
-
-func formKeyMap(fixed config.FixedKeys) *huh.KeyMap {
-	quit := append(append([]string{}, fixed.Back...), fixed.Quit...)
-
-	km := huh.NewDefaultKeyMap()
-	km.Quit = key.NewBinding(key.WithKeys(quit...), key.WithHelp(keys.Label(fixed.Back), "back"))
-
-	return km
-}
-
-func multiFieldKeyMap(fixed config.FixedKeys) *huh.KeyMap {
-	submit := key.NewBinding(key.WithKeys(fixed.Submit...), key.WithHelp(keys.Label(fixed.Submit), "submit"))
-
-	next := key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "next"))
-
-	km := formKeyMap(fixed)
-	km.Input.Next = next
-	km.Input.Submit = submit
-	km.Text.Next = next
-	km.Text.NewLine = key.NewBinding(key.WithKeys("ctrl+j", "alt+enter"), key.WithHelp("ctrl+j", "new line"))
-	km.Text.Submit = submit
-	km.Select.Next = next
-	km.Select.Submit = submit
-	km.Confirm.Next = next
-	km.Confirm.Submit = submit
-
-	return km
-}
-
-func confirmForm(title, description, affirmative string, fixed config.FixedKeys) (*huh.Form, *bool) {
-	confirmed := true
-
-	return confirmFormStartingOn(confirmFormStartingOnParams{
-		answer:      &confirmed,
-		title:       title,
-		description: description,
-		affirmative: affirmative,
-		keys:        fixed,
-	}), &confirmed
-}
-
-type confirmFormStartingOnParams struct {
-	// answer is where the form writes, holding the answer it starts on.
-	answer      *bool
-	title       string
-	description string
-	affirmative string
-	keys        config.FixedKeys
-}
-
-// confirmFormStartingOn builds a confirmation sitting on one of its two answers.
-func confirmFormStartingOn(params confirmFormStartingOnParams) *huh.Form {
-	form, _ := formOf(params.keys, confirmField(params.answer, params.description, params.affirmative).Title(params.title))
-
-	return form
-}
-
-// confirmField asks to go ahead or cancel, writing the answer to answer.
-func confirmField(answer *bool, description, affirmative string) *huh.Confirm {
-	return huh.NewConfirm().
-		Key("confirm").
-		Description(description).
-		Affirmative(affirmative).
-		Negative("Cancel").
-		WithButtonAlignment(lipgloss.Left).
-		Value(answer)
-}
-
 // holdForm keeps the form up while the write it was submitted for is in flight, so a refusal
 // lands back on the form that caused it.
 func (m *model) holdForm() tea.Cmd {
@@ -395,15 +244,15 @@ func (m *model) rerenderOpenForm() tea.Cmd {
 }
 
 func (m *model) rebuildForm() tea.Cmd {
-	if m.form.rebuild == nil {
+	if m.form.Build == nil {
 		return nil
 	}
 
-	form, order := m.form.rebuild(m)
-	m.form.form = form
+	built, order := m.form.Build(m.formInputs())
+	m.form.form = built
 	m.form.order = order
 
-	return tea.Batch(form.Init(), formResized())
+	return tea.Batch(built.Init(), formResized())
 }
 
 // detachForm gives the keyboard back while the write the form was held for runs on, and
@@ -421,7 +270,33 @@ func (m *model) detachForm() tea.Cmd {
 
 // answerForm runs what the form on screen was filled in to do.
 func (m *model) answerForm() tea.Cmd {
-	return m.form.submit(m)
+	return m.form.answer(m)
+}
+
+// submitForm runs what the form was filled in to ask for, holding it up while a write that began is
+// in flight.
+func (m *model) submitForm() tea.Cmd {
+	if m.form.Submit == nil {
+		return m.closeForm()
+	}
+
+	request := m.form.Submit(m.formInputs())
+	if refused, ok := request.(form.Refuse); ok {
+		return m.refuseForm(refused.Err)
+	}
+
+	return holdSubmit(func(m *model) tea.Cmd { return m.apply(request) })(m)
+}
+
+// refuseForm leaves the form up with why its answer was refused, rendering it again when huh had
+// finished it.
+func (m *model) refuseForm(err error) tea.Cmd {
+	m.form.refusal = err.Error()
+	if m.form.form.State == huh.StateCompleted {
+		return m.rebuildForm()
+	}
+
+	return formResized()
 }
 
 // updateForm hands a message to the form on screen, and answers it either when huh says it is
@@ -455,7 +330,7 @@ func (m *model) updateForm(msg tea.Msg) tea.Cmd {
 	case huh.StateNormal:
 	}
 
-	if m.form.reshaped != nil && m.form.reshaped() {
+	if m.form.Reshaped != nil && m.form.Reshaped() {
 		key := ""
 		if focused := m.form.form.GetFocusedField(); focused != nil {
 			key = focused.GetKey()
@@ -469,7 +344,7 @@ func (m *model) updateForm(msg tea.Msg) tea.Cmd {
 
 // stepForm hands a message to huh, keeping the form as rendered before a key that may finish it.
 func (m *model) stepForm(msg tea.Msg) tea.Cmd {
-	if _, ok := msg.(tea.KeyPressMsg); ok && m.form.rebuild == nil {
+	if _, ok := msg.(tea.KeyPressMsg); ok && m.form.Build == nil {
 		m.form.frozen = m.form.form.View()
 	}
 

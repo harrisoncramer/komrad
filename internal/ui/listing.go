@@ -166,26 +166,26 @@ func (m *model) send(write screen.Write) tea.Cmd {
 	}
 }
 
-func (m *model) writeCmd(doing, summary string, write func(api) error) tea.Cmd {
-	return m.awaitingWriteCmd(doing, summary, screen.Awaits{}, write)
+func (m *model) write(doing, summary string, write func(api) error) screen.Write {
+	return m.awaitingWrite(doing, summary, screen.Awaits{}, write)
 }
 
-// awaitingWriteCmd sends a write that is held, once it lands, until the panel shows what it did.
-func (m *model) awaitingWriteCmd(doing, summary string, awaits screen.Awaits, write func(api) error) tea.Cmd {
+// awaitingWrite sends a write that is held, once it lands, until the panel shows what it did.
+func (m *model) awaitingWrite(doing, summary string, awaits screen.Awaits, write func(api) error) screen.Write {
 	clients := m.api
 
-	return m.apply(screen.Write{
+	return screen.Write{
 		Doing:   doing,
 		Summary: summary,
 		Send: func() screen.Landed {
 			return screen.Landed{Err: write(clients), Awaits: awaits}
 		},
-	})
+	}
 }
 
-// archivingWriteCmdParams is a write that archives agents, their panes taken off the stage before it
+// archivingWriteParams is a write that archives agents, their panes taken off the stage before it
 // is sent.
-type archivingWriteCmdParams struct {
+type archivingWriteParams struct {
 	doing   string
 	summary string
 	agents  []panel.Agent
@@ -193,10 +193,10 @@ type archivingWriteCmdParams struct {
 	write   func(api) error
 }
 
-func (m *model) archivingWriteCmd(params archivingWriteCmdParams) tea.Cmd {
+func (m *model) archivingWrite(params archivingWriteParams) screen.Write {
 	clients := m.api
 
-	return m.apply(screen.Write{
+	return screen.Write{
 		Doing:   params.doing,
 		Summary: params.summary,
 		Unstage: params.agents,
@@ -205,7 +205,7 @@ func (m *model) archivingWriteCmd(params archivingWriteCmdParams) tea.Cmd {
 
 			return screen.Landed{Err: err, Awaits: params.awaits, Killed: err == nil}
 		},
-	})
+	}
 }
 
 // noteEdited keeps the files a reader opened over a paused agent until whoever holds that pause
@@ -241,8 +241,8 @@ func (m *model) forgetSpoken(agentID string, carried []string) {
 	m.edited[agentID] = kept
 }
 
-// releaseCmd lets an agent go, naming the files a reader had open over it.
-func (m *model) releaseCmd(summary string, agent panel.Agent, said string) tea.Cmd {
+// releaseWrite lets an agent go, naming the files a reader had open over it.
+func (m *model) releaseWrite(summary string, agent panel.Agent, said string) screen.Write {
 	clients := m.api
 	let := screen.Released{
 		ID:    agent.ID,
@@ -250,7 +250,7 @@ func (m *model) releaseCmd(summary string, agent panel.Agent, said string) tea.C
 		Files: slices.Clone(m.edited[agent.ID]),
 	}
 
-	return m.apply(screen.Write{
+	return screen.Write{
 		Doing:   "letting " + agent.Name + " go",
 		Summary: summary,
 		Send: func() screen.Landed {
@@ -259,14 +259,14 @@ func (m *model) releaseCmd(summary string, agent panel.Agent, said string) tea.C
 				Released: &let,
 			}
 		},
-	})
+	}
 }
 
-// rowWriteCmd sends a write whose landing takes the panel to the row it made.
-func (m *model) rowWriteCmd(doing, summary string, write func(api) (*screen.Made, error)) tea.Cmd {
+// rowWrite sends a write whose landing takes the panel to the row it made.
+func (m *model) rowWrite(doing, summary string, write func(api) (*screen.Made, error)) screen.Write {
 	clients := m.api
 
-	return m.apply(screen.Write{
+	return screen.Write{
 		Doing:   doing,
 		Summary: summary,
 		Send: func() screen.Landed {
@@ -277,23 +277,23 @@ func (m *model) rowWriteCmd(doing, summary string, write func(api) (*screen.Made
 
 			return screen.Landed{Made: made}
 		},
-	})
+	}
 }
 
-// agentWriteCmd is rowWriteCmd for a write answering with an agent, whose row is shown in the
+// agentWrite is rowWrite for a write answering with an agent, whose row is shown in the
 // pane the agent is running in.
-func (m *model) agentWriteCmd(doing, summary string, write func(api) (*agentv1.Agent, error)) tea.Cmd {
-	return m.paneWriteCmd(doing, summary, false, write)
+func (m *model) agentWrite(doing, summary string, write func(api) (*agentv1.Agent, error)) screen.Write {
+	return m.paneWrite(doing, summary, false, write)
 }
 
-// openingWriteCmd is agentWriteCmd for a write that puts a conversation back in a pane, which
+// openingWrite is agentWrite for a write that puts a conversation back in a pane, which
 // ends with the keyboard in that pane the way the open key over a live agent does.
-func (m *model) openingWriteCmd(doing, summary string, write func(api) (*agentv1.Agent, error)) tea.Cmd {
-	return m.paneWriteCmd(doing, summary, true, write)
+func (m *model) openingWrite(doing, summary string, write func(api) (*agentv1.Agent, error)) screen.Write {
+	return m.paneWrite(doing, summary, true, write)
 }
 
-func (m *model) paneWriteCmd(doing, summary string, focus bool, write func(api) (*agentv1.Agent, error)) tea.Cmd {
-	return m.rowWriteCmd(doing, summary, func(clients api) (*screen.Made, error) {
+func (m *model) paneWrite(doing, summary string, focus bool, write func(api) (*agentv1.Agent, error)) screen.Write {
+	return m.rowWrite(doing, summary, func(clients api) (*screen.Made, error) {
 		agent, err := write(clients)
 		if err != nil {
 			return nil, err
@@ -314,8 +314,8 @@ func madeAgent(agent *agentv1.Agent, focus bool) *screen.Made {
 	}
 }
 
-func (m *model) retryCmd(agent panel.Agent, values retryFormValues) tea.Cmd {
-	return m.agentWriteCmd("retrying "+agent.Name, fmt.Sprintf("Could not retry agent %q", agent.Name), func(clients api) (*agentv1.Agent, error) {
+func (m *model) retryWrite(agent panel.Agent, values retryFormValues) screen.Write {
+	return m.agentWrite("retrying "+agent.Name, fmt.Sprintf("Could not retry agent %q", agent.Name), func(clients api) (*agentv1.Agent, error) {
 		return clients.retryAgent(retryAgentParams{
 			ID:      agent.ID,
 			Flags:   values.Flags,
@@ -325,8 +325,8 @@ func (m *model) retryCmd(agent panel.Agent, values retryFormValues) tea.Cmd {
 	})
 }
 
-func (m *model) createCmd(params createAgentParams) tea.Cmd {
-	return m.agentWriteCmd(startingLabel(params.Title), "Could not start the agent", func(clients api) (*agentv1.Agent, error) {
+func (m *model) createWrite(params createAgentParams) screen.Write {
+	return m.agentWrite(startingLabel(params.Title), "Could not start the agent", func(clients api) (*agentv1.Agent, error) {
 		return clients.createAgent(params)
 	})
 }
@@ -339,10 +339,10 @@ func startingLabel(title string) string {
 	return "starting the agent"
 }
 
-func (m *model) adoptCmd(params adoptParams) tea.Cmd {
+func (m *model) adoptWrite(params adoptParams) screen.Write {
 	clients := m.api
 
-	return m.apply(screen.Write{
+	return screen.Write{
 		Doing:   "adopting " + params.Ref,
 		Summary: "Could not adopt",
 		Send: func() screen.Landed {
@@ -363,11 +363,11 @@ func (m *model) adoptCmd(params adoptParams) tea.Cmd {
 
 			return landed
 		},
-	})
+	}
 }
 
-func (m *model) createWorkflowCmd(cfg panel.WorkflowConfig) tea.Cmd {
-	return m.rowWriteCmd("creating workflow "+cfg.Name, "Could not create the workflow", func(clients api) (*screen.Made, error) {
+func (m *model) createWorkflowWrite(cfg panel.WorkflowConfig) screen.Write {
+	return m.rowWrite("creating workflow "+cfg.Name, "Could not create the workflow", func(clients api) (*screen.Made, error) {
 		workflow, err := clients.createWorkflow(cfg)
 		if err != nil {
 			return nil, err
@@ -465,7 +465,7 @@ func (m *model) finishWrite(result writeResult) tea.Cmd {
 
 		switch {
 		case landed.Replaces:
-		case landed.Err == nil || !m.form.keepsOnRefusal:
+		case landed.Err == nil || m.form.ClosesOnRefusal:
 			cmds = append(cmds, m.closeForm())
 		default:
 			m.form.refusal = errui.GetReason(landed.Err)

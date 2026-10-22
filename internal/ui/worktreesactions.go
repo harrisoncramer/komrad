@@ -180,8 +180,8 @@ func confirmDeleteChosen(m *model, deletion worktreeDeletion) tea.Cmd {
 func confirmDeleteMixed(m *model, deletion worktreeDeletion) tea.Cmd {
 	confirm := deleteMixedConfirm(deletion, len(m.listing.AgentsOnTasks(deletion.tasks)))
 
-	return confirm.open(m, func(m *model) tea.Cmd {
-		return tea.Batch(m.deleteTasks(deletion.tasks, confirm.values.deletesRecords()), deleteWorktreesCmd(m, deletion))
+	return confirm.open(m, func() screen.Request {
+		return screen.Batch{m.deleteTasks(deletion.tasks, confirm.values.deletesRecords()), deleteWorktrees(m, deletion)}
 	})
 }
 
@@ -191,19 +191,19 @@ func confirmDeleteWorktrees(m *model, deletion worktreeDeletion) tea.Cmd {
 		return nil
 	}
 
-	return deleteWorktreesConfirm(deletion).open(m, func(m *model) tea.Cmd {
-		return deleteWorktreesCmd(m, deletion)
+	return deleteWorktreesConfirm(deletion).open(m, func() screen.Request {
+		return deleteWorktrees(m, deletion)
 	})
 }
 
-// deleteWorktreesCmd queues the deletion as one background job.
-func deleteWorktreesCmd(m *model, deletion worktreeDeletion) tea.Cmd {
+// deleteWorktrees queues the deletion as one background job.
+func deleteWorktrees(m *model, deletion worktreeDeletion) screen.Write {
 	dirs := deletion.dirs()
 	subject := label.Count(len(dirs), "worktree", "worktrees")
 
 	clients := m.api
 
-	return m.apply(screen.Write{
+	return screen.Write{
 		Doing:   "deleting " + subject,
 		Summary: "Could not delete " + subject,
 		Send: func() screen.Landed {
@@ -216,7 +216,7 @@ func deleteWorktreesCmd(m *model, deletion worktreeDeletion) tea.Cmd {
 				},
 			}
 		},
-	})
+	}
 }
 
 func (w *worktreesScreen) buildItemMenu(m *model) (menu.Menu, bool) {

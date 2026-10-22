@@ -434,13 +434,13 @@ func (a *archivedAgents) buildItemMenu(m *model) (menu.Menu, bool) {
 
 // restoreAndResumeCmd takes the agents out of the archive and puts the resumed agent's conversation back in a pane.
 func restoreAndResumeCmd(m *model, agents []panel.Agent, resumed panel.Agent) tea.Cmd {
-	return m.openingWriteCmd("restoring "+resumed.Name, fmt.Sprintf("Could not restore and open agent %q", resumed.Name), func(a api) (*agentv1.Agent, error) {
+	return m.apply(m.openingWrite("restoring "+resumed.Name, fmt.Sprintf("Could not restore and open agent %q", resumed.Name), func(a api) (*agentv1.Agent, error) {
 		if err := a.restoreAgents(panel.IDs(agents)); err != nil {
 			return nil, err
 		}
 
 		return a.resumeAgent(resumed.ID)
-	})
+	}))
 }
 
 func restoreAgentsCmd(m *model, agents []panel.Agent) tea.Cmd {
@@ -448,20 +448,20 @@ func restoreAgentsCmd(m *model, agents []panel.Agent) tea.Cmd {
 		return nil
 	}
 
-	return m.awaitingWriteCmd(
+	return m.apply(m.awaitingWrite(
 		"restoring "+describeAgents(agents),
 		fmt.Sprintf("Could not restore %s", describeAgents(agents)),
 		screen.Awaits{Shown: screen.RowsIn(screen.ListAgents, panel.IDs(agents)...)},
 		func(a api) error { return a.restoreAgents(panel.IDs(agents)) },
-	)
+	))
 }
 
 // confirmDeleteWorkflow asks what goes before it deletes an archived workflow.
 func confirmDeleteWorkflow(m *model, workflow panel.Workflow) tea.Cmd {
 	confirm := deleteWorkflowConfirm(workflow, workflow.Worktree.Enabled && !isWorkflowOnDeletedList(m.listing, workflow.ID))
 
-	return confirm.open(m, func(m *model) tea.Cmd {
-		return m.awaitingWriteCmd(
+	return confirm.open(m, func() screen.Request {
+		return m.awaitingWrite(
 			"deleting "+workflow.Name,
 			fmt.Sprintf("Could not delete workflow %q", workflow.Name),
 			awaitDeleted(confirm.values.deletesRecords(), screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)),

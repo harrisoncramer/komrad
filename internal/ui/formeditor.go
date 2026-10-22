@@ -8,21 +8,17 @@ import (
 	"slices"
 	"strings"
 
+	"komrad/internal/ui/form"
+
 	tea "charm.land/bubbletea/v2"
 )
 
-// editableText is a form's text field and the string the panel renders it from.
-type editableText struct {
-	key   string
-	value *string
-}
-
 // formFieldEditedMsg is what the editor wrote for one field of the form on screen.
 type formFieldEditedMsg struct {
-	kind formKind
-	key  string
-	text string
-	err  error
+	// value is the string the field was opened on.
+	value *string
+	text  string
+	err   error
 }
 
 // openFormFieldEditor opens the editor on the field with the cursor, and reports whether the
@@ -34,20 +30,18 @@ func (m *model) openFormFieldEditor() (tea.Cmd, bool) {
 	}
 
 	key := focused.GetKey()
-	index := slices.IndexFunc(m.form.editable, func(field editableText) bool { return field.key == key })
+	index := slices.IndexFunc(m.form.Editable, func(field form.Editable) bool { return field.Key == key })
 	if index < 0 {
 		return nil, false
 	}
 
-	field := m.form.editable[index]
+	value := m.form.Editable[index].Value
 	path := formFieldDraftPath(key)
-	if err := os.WriteFile(path, []byte(*field.value), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(*value), 0o600); err != nil {
 		m.report("Your editor could not be opened on that field", err)
 
 		return nil, true
 	}
-
-	kind := m.form.kind
 
 	// The field is a file with nothing above it, so the editor opens on line one.
 	//nolint:noctx // the editor runs until the field is closed, so it takes no deadline
@@ -56,19 +50,17 @@ func (m *model) openFormFieldEditor() (tea.Cmd, bool) {
 	return tea.ExecProcess(open, func(err error) tea.Msg {
 		if err != nil {
 			return formFieldEditedMsg{
-				kind: kind,
-				key:  key,
-				err:  err,
+				value: value,
+				err:   err,
 			}
 		}
 
 		text, err := os.ReadFile(path)
 
 		return formFieldEditedMsg{
-			kind: kind,
-			key:  key,
-			text: string(text),
-			err:  err,
+			value: value,
+			text:  string(text),
+			err:   err,
 		}
 	}), true
 }
@@ -80,7 +72,8 @@ func formFieldDraftPath(key string) string {
 
 // applyFormFieldEdited writes what the editor wrote back into the field it was opened on.
 func (m *model) applyFormFieldEdited(msg formFieldEditedMsg) tea.Cmd {
-	if !m.form.isActive() || m.form.kind != msg.kind {
+	index := slices.IndexFunc(m.form.Editable, func(field form.Editable) bool { return field.Value == msg.value })
+	if !m.form.isActive() || index < 0 {
 		return nil
 	}
 	if msg.err != nil {
@@ -89,14 +82,9 @@ func (m *model) applyFormFieldEdited(msg formFieldEditedMsg) tea.Cmd {
 		return nil
 	}
 
-	index := slices.IndexFunc(m.form.editable, func(field editableText) bool { return field.key == msg.key })
-	if index < 0 {
-		return nil
-	}
+	*msg.value = strings.TrimRight(msg.text, "\n")
 
-	*m.form.editable[index].value = strings.TrimRight(msg.text, "\n")
-
-	return m.rerenderFormOn(msg.key)
+	return m.rerenderFormOn(m.form.Editable[index].Key)
 }
 
 // rerenderFormOn renders the form again and leaves the cursor on the field named.

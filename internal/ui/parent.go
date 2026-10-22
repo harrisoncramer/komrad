@@ -6,7 +6,9 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	taskv1 "komrad/proto/gen/task/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -51,23 +53,24 @@ func openPickForkPoint(m *model, task panel.Task) tea.Cmd {
 	values := &pickForkPointValues{}
 	parent := m.listing.Tasks[task.Parent.GetTaskId()].Slug
 
-	return m.openForm(rebuildableForm(rebuildableFormParams{
-		Kind:  formTask,
-		Build: func(m *model) (*huh.Form, []string) { return pickForkPointForm(fixedKeys(), values, task.Slug, parent) },
-		Submit: holdSubmit(func(m *model) tea.Cmd {
+	return m.apply(form.Open{Form: form.Form{
+		Build: func(form.Inputs) (*huh.Form, []string) {
+			return pickForkPointForm(fixedKeys(), values, task.Slug, parent)
+		},
+		Submit: func(form.Inputs) screen.Request {
 			commit := strings.TrimSpace(values.Commit)
 
-			return m.writeCmd(
+			return m.write(
 				"picking the fork point of "+task.Slug,
 				fmt.Sprintf("Could not pick the fork point of task %q on %s", task.Slug, parent),
 				func(a api) error { return a.pickForkPoint(task.ID, commit) },
 			)
-		}),
-	}))
+		},
+	}})
 }
 
 func pickForkPointForm(keys config.FixedKeys, values *pickForkPointValues, slug, parent string) (*huh.Form, []string) {
-	return formOf(keys,
+	return form.Of(keys,
 		huh.NewInput().Key("commit").Title(fmt.Sprintf("Fork point of %q on %s", slug, parent)).
 			Description(fmt.Sprintf("the newest commit of %s the branch still holds, where its own commits begin", parent)).
 			Validate(checkForkPoint).Value(&values.Commit),

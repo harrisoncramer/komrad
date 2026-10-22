@@ -276,7 +276,7 @@ type model struct {
 	statusChecks    statusChecksScreen
 	statusCheckLogs statusCheckLogsScreen
 	// inspections is what the server answered for each worktree directory.
-	inspections map[string]worktreeInspection
+	inspections map[string]panel.WorktreeInspection
 	lastScreen  lastScreen
 	said        saidTranscript
 	review      reviewScreen

@@ -3,6 +3,7 @@ package ui
 import (
 	"komrad/config"
 	"komrad/internal/ui/field"
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/paint"
 	"komrad/internal/vim"
 
@@ -48,7 +49,7 @@ func newReviewInput(params newReviewInputParams) (reviewInput, tea.Cmd) {
 	body := new(string)
 	*body = params.Body
 
-	text := textField(reviewInputKey).
+	text := form.Text(reviewInputKey).
 		Title(params.Title).
 		Description(params.Description).
 		Placeholder(params.Placeholder).
@@ -116,7 +117,7 @@ func (i reviewInput) value() string {
 
 // reviewInputKeyMap leaves submitting to the composer around the field.
 func reviewInputKeyMap(keys config.FixedKeys) *huh.KeyMap {
-	km := formKeyMap(keys)
+	km := form.QuitKeyMap(keys)
 	km.Text.NewLine = key.NewBinding(key.WithKeys("ctrl+j", "alt+enter"))
 	km.Text.Next = key.NewBinding()
 	km.Text.Prev = key.NewBinding()

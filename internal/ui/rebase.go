@@ -31,7 +31,6 @@ type rebasePlan struct {
 
 func rebaseOp(taskID, name string, ontoBase bool) gitOp {
 	return gitOp{
-		kind:       formAgentRebase,
 		planning:   "planning the rebase of " + name,
 		planFailed: "Could not work out what a rebase would do",
 		plan: func(clients api) (gitConfirmForm, error) {

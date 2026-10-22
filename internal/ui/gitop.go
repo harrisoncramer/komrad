@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"komrad/config"
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
@@ -11,7 +12,6 @@ import (
 )
 
 type gitOp struct {
-	kind       formKind
 	planning   string
 	planFailed string
 	plan       func(api) (gitConfirmForm, error)
@@ -59,16 +59,16 @@ func (m *model) planGitCmd(op gitOp) tea.Cmd {
 	})
 }
 
-// runGitCmd runs the operation and reports what it did.
-func (m *model) runGitCmd(op gitOp) tea.Cmd {
+// runGit runs the operation and reports what it did.
+func (m *model) runGit(op gitOp) screen.Write {
 	clients := m.api
 
-	return m.apply(screen.Write{
+	return screen.Write{
 		Doing: op.running,
 		Send: func() screen.Landed {
 			return screen.Landed{Then: gitDoneMsg{report: op.run(clients)}}
 		},
-	})
+	}
 }
 
 // applyGitPlanned opens the confirmation, or says why there is nothing to confirm.
@@ -93,23 +93,23 @@ func (m *model) applyGitDone(msg gitDoneMsg) tea.Cmd {
 }
 
 func (m *model) openGitConfirm(op gitOp, buildForm gitConfirmForm) tea.Cmd {
-	form, confirmed := buildForm(fixedKeys())
+	built, confirmed := buildForm(fixedKeys())
 
-	return m.openForm(formState{
-		kind:   op.kind,
-		form:   form,
-		update: (*model).updateForm,
-		submit: holdSubmit(func(m *model) tea.Cmd {
-			if !*confirmed {
-				return nil
-			}
-
-			return m.runGitCmd(op)
-		}),
-		rebuild: func(*model) (*huh.Form, []string) {
+	return m.apply(form.Open{Form: form.Form{
+		Built: built,
+		Build: func(form.Inputs) (*huh.Form, []string) {
 			held, _ := buildForm(fixedKeys())
 
 			return held, nil
 		},
-	})
+		Submit: func(form.Inputs) screen.Request {
+			if !*confirmed {
+				return nil
+			}
+
+			return m.runGit(op)
+		},
+		Narrow:          true,
+		ClosesOnRefusal: true,
+	}})
 }

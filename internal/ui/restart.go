@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"komrad/config"
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
@@ -84,21 +85,20 @@ func openRestart(m *model, target restartTarget) tea.Cmd {
 		Flags:   target.agent.Flags,
 	}
 
-	return m.openForm(rebuildableForm(rebuildableFormParams{
-		Kind: formAgent,
-		Build: func(m *model) (*huh.Form, []string) {
+	return m.apply(form.Open{Form: form.Form{
+		Build: func(form.Inputs) (*huh.Form, []string) {
 			return restartForm(fixedKeys(), values, target)
 		},
-		Editable: []editableText{{key: "note", value: &values.Note}},
-		Submit:   holdSubmit(func(m *model) tea.Cmd { return m.restartAgent(target.agent, *values) }),
-	}))
+		Editable: []form.Editable{{Key: "note", Value: &values.Note}},
+		Submit:   func(form.Inputs) screen.Request { return m.restartAgent(target.agent, *values) },
+	}})
 }
 
 // restartAgent relaunches the agent on a new conversation in the same directory.
-func (m *model) restartAgent(agent panel.Agent, values restartValues) tea.Cmd {
+func (m *model) restartAgent(agent panel.Agent, values restartValues) screen.Write {
 	clients := m.api
 
-	return m.apply(screen.Write{
+	return screen.Write{
 		Doing:   "restarting " + m.listing.AgentName(agent),
 		Summary: fmt.Sprintf("Could not restart agent %q", m.listing.AgentName(agent)),
 		Unstage: []panel.Agent{agent},
@@ -115,12 +115,12 @@ func (m *model) restartAgent(agent panel.Agent, values restartValues) tea.Cmd {
 
 			return screen.Landed{Made: madeAgent(restarted, false)}
 		},
-	})
+	}
 }
 
 func restartForm(fixed config.FixedKeys, values *restartValues, target restartTarget) (*huh.Form, []string) {
-	return formOf(fixed,
-		textField("note").Title(fmt.Sprintf("Restart %q on %q with a new conversation", target.agent.Name, target.on)).
+	return form.Of(fixed,
+		form.Text("note").Title(fmt.Sprintf("Restart %q on %q with a new conversation", target.agent.Name, target.on)).
 			Description(fmt.Sprintf("what the agent is told on top of %s; %s opens $EDITOR; %s submits", target.briefing, keys.Label(fixed.Editor), keys.Label(fixed.Submit))).
 			Value(&values.Note),
 		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),

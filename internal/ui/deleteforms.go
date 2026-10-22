@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"komrad/config"
+	"komrad/internal/ui/form"
 
 	"charm.land/huh/v2"
 )
@@ -55,7 +56,7 @@ func (v *deleteFormValues) form(keys config.FixedKeys, title string, confirm *hu
 	}
 	options = append(options, huh.NewOption("records", chooseRecords))
 
-	return titledFormOf(keys, title,
+	return form.TitledOf(keys, title,
 		huh.NewMultiSelect[string]().Key(deleteFormKey).Options(options...).Value(&v.chosen),
 		confirm,
 	)

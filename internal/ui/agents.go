@@ -75,14 +75,14 @@ func (m *model) archiveAgents(agents []panel.Agent) tea.Cmd {
 		return nil
 	}
 
-	return m.archivingWriteCmd(archivingWriteCmdParams{
+	return m.apply(m.archivingWrite(archivingWriteParams{
 		doing:   "archiving " + describeAgents(agents),
 		summary: fmt.Sprintf("Could not archive %s", describeAgents(agents)),
 		agents:  agents,
 		write: func(a api) error {
 			return a.archiveAgents(panel.IDs(agents))
 		},
-	})
+	}))
 }
 
 // openHovered attaches to whatever the cursor is on, which for a workflow is the orchestrator
@@ -263,7 +263,7 @@ func (a *agentsScreen) help(m *model) keyMap {
 
 // startOrchestrator brings the workflow's orchestrator back and puts the keyboard in its pane.
 func startOrchestrator(m *model, workflow panel.Workflow) tea.Cmd {
-	return m.rowWriteCmd(
+	return m.apply(m.rowWrite(
 		"starting the orchestrator of "+workflow.Name,
 		fmt.Sprintf("Could not reach the orchestrator of workflow %q", workflow.Name),
 		func(a api) (*screen.Made, error) {
@@ -282,7 +282,7 @@ func startOrchestrator(m *model, workflow panel.Workflow) tea.Cmd {
 				Focus:   true,
 			}, nil
 		},
-	)
+	))
 }
 
 var (
