@@ -183,8 +183,9 @@ func (m *model) awaitingWriteCmd(doing, summary string, awaits screen.Awaits, wr
 	})
 }
 
-// archiving is a write that archives agents, their panes taken off the stage before it is sent.
-type archiving struct {
+// archivingWriteCmdParams is a write that archives agents, their panes taken off the stage before it
+// is sent.
+type archivingWriteCmdParams struct {
 	doing   string
 	summary string
 	agents  []panel.Agent
@@ -192,17 +193,17 @@ type archiving struct {
 	write   func(api) error
 }
 
-func (m *model) archivingWriteCmd(archive archiving) tea.Cmd {
+func (m *model) archivingWriteCmd(params archivingWriteCmdParams) tea.Cmd {
 	clients := m.api
 
 	return m.apply(screen.Write{
-		Doing:   archive.doing,
-		Summary: archive.summary,
-		Unstage: archive.agents,
+		Doing:   params.doing,
+		Summary: params.summary,
+		Unstage: params.agents,
 		Send: func() screen.Landed {
-			err := archive.write(clients)
+			err := params.write(clients)
 
-			return screen.Landed{Err: err, Awaits: archive.awaits, Killed: err == nil}
+			return screen.Landed{Err: err, Awaits: params.awaits, Killed: err == nil}
 		},
 	})
 }

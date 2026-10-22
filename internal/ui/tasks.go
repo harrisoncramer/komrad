@@ -113,7 +113,7 @@ func taskDirs(tasks []panel.Task) []string {
 
 // archiveTasks archives the tasks along with the live agents on them.
 func (m *model) archiveTasks(tasks []panel.Task) tea.Cmd {
-	return m.archivingWriteCmd(archiving{
+	return m.archivingWriteCmd(archivingWriteCmdParams{
 		doing:   "archiving " + describeTasks(tasks),
 		summary: "Could not archive " + describeTasks(tasks),
 		agents:  m.listing.AgentsOnTasks(tasks),
@@ -131,7 +131,7 @@ func (m *model) archiveTasks(tasks []panel.Task) tea.Cmd {
 
 // deleteTasks deletes the tasks' worktrees, and with records the tasks for good with everything on them.
 func (m *model) deleteTasks(tasks []panel.Task, records bool) tea.Cmd {
-	return m.archivingWriteCmd(archiving{
+	return m.archivingWriteCmd(archivingWriteCmdParams{
 		doing:   "deleting " + describeTasks(tasks),
 		summary: "Could not delete " + describeTasks(tasks),
 		agents:  m.listing.AgentsOnTasks(tasks),

@@ -75,7 +75,7 @@ func (m *model) getAvailableHooks() []string {
 }
 
 func (m *model) archiveWorkflow(workflow panel.Workflow) tea.Cmd {
-	return m.archivingWriteCmd(archiving{
+	return m.archivingWriteCmd(archivingWriteCmdParams{
 		doing:   "archiving " + workflow.Name,
 		summary: fmt.Sprintf("Could not archive workflow %q", workflow.Name),
 		agents:  m.listing.AgentsOf(workflow.ID),

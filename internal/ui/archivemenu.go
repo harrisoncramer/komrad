@@ -221,7 +221,7 @@ func chosenArchiveMenu(m *model, work chosenWork) menu.Menu {
 func (m *model) archiveChosenAgents(work chosenWork) tea.Cmd {
 	subject := describeAgents(work.chosen)
 
-	return m.archivingWriteCmd(archiving{
+	return m.archivingWriteCmd(archivingWriteCmdParams{
 		doing:   "archiving " + subject,
 		summary: "Could not archive " + subject,
 		agents:  work.affected(m.listing),
@@ -244,7 +244,7 @@ func (m *model) archiveChosenAgents(work chosenWork) tea.Cmd {
 func (m *model) deleteChosenAgents(work chosenWork, records bool) tea.Cmd {
 	subject := describeAgents(work.chosen)
 
-	return m.archivingWriteCmd(archiving{
+	return m.archivingWriteCmd(archivingWriteCmdParams{
 		doing:   "deleting " + subject,
 		summary: "Could not delete " + subject,
 		agents:  work.affected(m.listing),

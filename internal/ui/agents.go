@@ -75,7 +75,7 @@ func (m *model) archiveAgents(agents []panel.Agent) tea.Cmd {
 		return nil
 	}
 
-	return m.archivingWriteCmd(archiving{
+	return m.archivingWriteCmd(archivingWriteCmdParams{
 		doing:   "archiving " + describeAgents(agents),
 		summary: fmt.Sprintf("Could not archive %s", describeAgents(agents)),
 		agents:  agents,
