@@ -37,7 +37,7 @@ A task can depend on another task, so a large change can go up as a stack of sma
 
 Komrad keeps the child on its parent's newest commit, and on the base branch once the parent merges. It stops and tells the writer when a rebase conflicts, when the parent's pull request closes without merging, or when it can no longer tell where the child's own commits begin. The task's git menu re-targets the child onto the base branch with <Key name="git.rebase_onto_base" />, or picks a new fork point with <Key name="git.pick_fork_point" />.
 
-Komrad rebases a stack itself, so an agent never rebases a child by hand, and Claude's `git rebase` and `git pull --rebase` are refused on a child.
+Komrad rebases a stack itself, so an agent never rebases a child by hand.
 
 The review's sidebar lists every task in the stack. Move the cursor onto one and press <Key name="review.toggle_folder" /> to open its review.
 

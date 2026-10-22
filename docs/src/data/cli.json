@@ -773,8 +773,8 @@
     "parent": "hook",
     "usage": "komrad hook pre-tool-use",
     "aliases": [],
-    "short": "Record the tool an agent is about to run, and refuse a rebase on a stacked task",
-    "long": "Record the tool an agent is about to run, and refuse a rebase on a stacked task.\n\nClaude runs this before every tool call, handing it the call on stdin. Komrad\nkeeps the name of the tool against the agent so the panel can say what it is\ndoing, and sends nothing else: a tool's input can carry a secret.\n\nA shell call that starts a git rebase, or a git pull that rebases, is refused\non a task stacked on another, since komrad rebases the stack itself. The command\nis read here and never leaves the hook. A rebase komrad asked for after its own\none conflicted is let through.",
+    "short": "Record the tool an agent is about to run",
+    "long": "Record the tool an agent is about to run.\n\nClaude runs this before every tool call, handing it the call on stdin. Komrad\nkeeps the name of the tool against the agent so the panel can say what it is\ndoing, and reads nothing else: a tool's input can carry a secret.",
     "example": "",
     "flags": [],
     "inherited": [

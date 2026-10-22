@@ -177,48 +177,6 @@ func TestReadReportOnCapturedPayloads(t *testing.T) {
 	}
 }
 
-// TestReadShellCommand covers the command line read out of a tool event.
-func TestReadShellCommand(t *testing.T) {
-	captured, err := os.ReadFile(filepath.Join("testdata", "pre_tool_use_hook_payload.json"))
-	require.NoError(t, err)
-
-	tests := []struct {
-		name    string
-		payload string
-		want    string
-		wantErr bool
-	}{
-		{
-			name:    "a shell call taken off a real run",
-			payload: string(captured),
-			want:    "echo hi",
-		},
-		{
-			name:    "a call of another tool",
-			payload: `{"tool_name":"Read","tool_input":{"file_path":"/tmp/a"}}`,
-		},
-		{
-			name:    "a payload that will not parse",
-			payload: `{`,
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			command, err := ReadShellCommand([]byte(tt.payload))
-			if tt.wantErr {
-				require.Error(t, err)
-
-				return
-			}
-
-			require.NoError(t, err)
-			assert.Equal(t, tt.want, command)
-		})
-	}
-}
-
 // TestEveryInstalledHookIsRead pins the direction the subcommand test cannot cover: an event
 // komrad installs but takes no reading from would fire on every occurrence and be refused.
 func TestEveryInstalledHookIsRead(t *testing.T) {
