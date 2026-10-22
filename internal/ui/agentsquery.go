@@ -13,6 +13,7 @@ import (
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xptr"
+	"komrad/lib/xstr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	paginationv1 "komrad/proto/gen/pagination/v1"
 
@@ -70,11 +71,11 @@ func agentRowFits(in screen.Inputs) func(agentRow) list.Fits {
 			if r.isTask() {
 				writer, ok := r.writer()
 
-				return clause.Key == searchsyntax.KeyTask && containsFold(r.task.Slug, clause.Value) ||
+				return clause.Key == searchsyntax.KeyTask && xstr.ContainsFold(r.task.Slug, clause.Value) ||
 					ok && agentFits(in, writer, clause)
 			}
 			if clause.Key == searchsyntax.KeyWorkflow {
-				return containsFold(r.workflow.Name, clause.Value)
+				return xstr.ContainsFold(r.workflow.Name, clause.Value)
 			}
 			if r.orchestrator == nil {
 				return false
@@ -89,13 +90,13 @@ func agentFits(in screen.Inputs, row panel.AgentRow, clause searchsyntax.Clause)
 	agent := row.Agent
 	switch clause.Key {
 	case searchsyntax.KeyAgent:
-		return containsFold(agent.Name, clause.Value)
+		return xstr.ContainsFold(agent.Name, clause.Value)
 	case searchsyntax.KeyWorkflow:
-		return containsFold(in.Listing.WorkflowName(agent.WorkflowID), clause.Value)
+		return xstr.ContainsFold(in.Listing.WorkflowName(agent.WorkflowID), clause.Value)
 	case searchsyntax.KeyIs:
 		return strings.EqualFold(string(agent.Role), clause.Value)
 	case searchsyntax.KeyTask:
-		return containsFold(in.Listing.Tasks.FindForAgent(agent).Slug, clause.Value)
+		return xstr.ContainsFold(in.Listing.Tasks.FindForAgent(agent).Slug, clause.Value)
 	case searchsyntax.KeyHarness:
 		return strings.EqualFold(agent.Harness, clause.Value)
 	case searchsyntax.KeyPR:
@@ -118,10 +119,6 @@ func agentFits(in screen.Inputs, row panel.AgentRow, clause searchsyntax.Clause)
 	}
 
 	return false
-}
-
-func containsFold(s, sub string) bool {
-	return strings.Contains(strings.ToLower(s), strings.ToLower(sub))
 }
 
 func (a *archivedAgents) QueryGrammar() (list.Grammar, bool) {

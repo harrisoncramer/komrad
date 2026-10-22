@@ -246,3 +246,44 @@ func TestJoinSome(t *testing.T) {
 		})
 	}
 }
+
+// TestContainsFold pins that the match ignores case on both sides.
+func TestContainsFold(t *testing.T) {
+	tests := []struct {
+		name string
+		s    string
+		sub  string
+		want bool
+	}{
+		{
+			name: "same case",
+			s:    "fix auth",
+			sub:  "auth",
+			want: true,
+		},
+		{
+			name: "different case",
+			s:    "Fix Auth",
+			sub:  "fIX a",
+			want: true,
+		},
+		{
+			name: "empty sub matches",
+			s:    "fix auth",
+			sub:  "",
+			want: true,
+		},
+		{
+			name: "missing",
+			s:    "fix auth",
+			sub:  "login",
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, ContainsFold(tt.s, tt.sub))
+		})
+	}
+}

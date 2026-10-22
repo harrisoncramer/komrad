@@ -7,6 +7,7 @@ import (
 	"komrad/internal/searchsyntax"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/screen"
+	"komrad/lib/xstr"
 )
 
 var schedulesQuery = list.Grammar{Syntax: searchsyntax.Schedules, Check: checkSchedulesClause}
@@ -32,9 +33,9 @@ func scheduleItemFits(in screen.Inputs) func(scheduleItem) list.Fits {
 		return func(clause searchsyntax.Clause) bool {
 			switch clause.Key {
 			case searchsyntax.KeyName:
-				return containsFold(item.schedule.Name, clause.Value)
+				return xstr.ContainsFold(item.schedule.Name, clause.Value)
 			case searchsyntax.KeyWorkflow:
-				return containsFold(in.Listing.WorkflowName(item.schedule.WorkflowID), clause.Value)
+				return xstr.ContainsFold(in.Listing.WorkflowName(item.schedule.WorkflowID), clause.Value)
 			case searchsyntax.KeyIs:
 				return !item.schedule.Enabled
 			}

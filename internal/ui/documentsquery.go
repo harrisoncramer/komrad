@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/api"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/screen"
+	"komrad/lib/xstr"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"connectrpc.com/connect"
@@ -55,18 +56,18 @@ func (d *documentsScreen) documentRowFits(in screen.Inputs) func(documentRow) li
 					return item.agentID == agentID
 				}
 
-				return containsFold(findAgentName(in.Listing, item.agentID), clause.Value)
+				return xstr.ContainsFold(findAgentName(in.Listing, item.agentID), clause.Value)
 			case searchsyntax.KeyTask:
 				if taskID, ok := d.openedForTask(in, clause.Value); ok {
 					return item.taskID == taskID
 				}
 				task, ok := in.Listing.Tasks[item.taskID]
 
-				return ok && containsFold(task.Slug, clause.Value)
+				return ok && xstr.ContainsFold(task.Slug, clause.Value)
 			case searchsyntax.KeyWorkflow:
 				agent, ok := in.Listing.AnyAgent(item.agentID)
 
-				return ok && containsFold(in.Listing.WorkflowName(agent.Agent.WorkflowID), clause.Value)
+				return ok && xstr.ContainsFold(in.Listing.WorkflowName(agent.Agent.WorkflowID), clause.Value)
 			case searchsyntax.KeyType:
 				return strings.EqualFold(item.typeName, clause.Value)
 			case searchsyntax.KeySince:
