@@ -1,7 +1,6 @@
 package reviews
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -123,7 +122,7 @@ func requireAcceptable(message reviewstore.Message, thread []reviewstore.Message
 func rootOf(message reviewstore.Message, thread []reviewstore.Message) reviewstore.Message {
 	root := message
 	for _, other := range thread {
-		if bytes.Compare(other.ID[:], root.ID[:]) < 0 {
+		if store.CompareIDs(other.ID, root.ID) < 0 {
 			root = other
 		}
 	}

@@ -3,7 +3,6 @@
 package mail
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"slices"
@@ -240,7 +239,7 @@ func (s *MailStore) ClaimByID(ctx context.Context, toAgentID uuid.UUID, ids []uu
 	claimed := xslice.Map(rows, fromRow)
 
 	slices.SortFunc(claimed, func(a, b Mail) int {
-		return bytes.Compare(a.ID[:], b.ID[:])
+		return store.CompareIDs(a.ID, b.ID)
 	})
 
 	return claimed, nil
@@ -306,7 +305,7 @@ func (s *MailStore) Delete(ctx context.Context, ids []uuid.UUID) error {
 
 // CountExchanged is how much plain mail two agents have written to each other, in either
 // direction, leaving out the mail komrad wrote itself.
-func (s *MailStore) CountExchanged(ctx context.Context, one uuid.UUID, other uuid.UUID) (int64, error) {
+func (s *MailStore) CountExchanged(ctx context.Context, one, other uuid.UUID) (int64, error) {
 	count, err := s.queries.CountMailExchangedBetweenAgents(ctx, models.CountMailExchangedBetweenAgentsParams{
 		One:   one,
 		Other: other,

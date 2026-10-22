@@ -1,7 +1,6 @@
 package reviews
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -679,12 +678,7 @@ func (s *ReviewService) isThreadHeld(ctx context.Context, threadID uuid.UUID) (b
 		return false, nil
 	}
 
-	root := messages[0]
-	for _, message := range messages {
-		if bytes.Compare(message.ID[:], root.ID[:]) < 0 {
-			root = message
-		}
-	}
+	root := rootOf(messages[0], messages)
 	if !root.Held {
 		return false, nil
 	}

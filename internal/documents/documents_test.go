@@ -228,7 +228,7 @@ func TestListDocumentsByTask(t *testing.T) {
 		},
 		{
 			name: "a task named by its id",
-			task: uuid.MustParse(task.ID.String()),
+			task: task.ID,
 		},
 	}
 

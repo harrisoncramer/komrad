@@ -92,6 +92,16 @@ func TestUpdate(t *testing.T) {
 			wantErr: store.ErrNameTaken,
 		},
 		{
+			name: "a type that does not exist is not found",
+			params: documenttypestore.UpdateParams{
+				ID:      uuid.New(),
+				Name:    "ghost",
+				Context: "none",
+				Version: 1,
+			},
+			wantErr: store.ErrNotFound,
+		},
+		{
 			name: "a rename carries the documents written as it",
 			params: documenttypestore.UpdateParams{
 				ID:      postmortem.ID,

@@ -531,7 +531,7 @@ func seed(t *testing.T, st *testStore, name, pane string, state agentstore.State
 	return seedInWorkflow(t, st, uuid.Nil, name, pane, state)
 }
 
-func seedInWorkflow(t *testing.T, st *testStore, workflowID uuid.UUID, name string, pane string, state agentstore.State) agentstore.Agent {
+func seedInWorkflow(t *testing.T, st *testStore, workflowID uuid.UUID, name, pane string, state agentstore.State) agentstore.Agent {
 	t.Helper()
 	ctx := t.Context()
 
@@ -830,7 +830,5 @@ func archiveWriters(ctx context.Context, lifecycle *LifecycleService, ids []uuid
 
 // taskByID names a task by the id the store gave it.
 func taskByID(id uuid.UUID) oneofs.Task {
-	parsed := uuid.MustParse(id.String())
-
-	return oneofs.Task{TaskId: &parsed}
+	return oneofs.Task{TaskId: &id}
 }

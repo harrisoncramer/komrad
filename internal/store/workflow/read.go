@@ -1,7 +1,6 @@
 package workflow
 
 import (
-	"bytes"
 	"cmp"
 	"context"
 	"errors"
@@ -42,7 +41,7 @@ func (s *WorkflowStore) List(ctx context.Context) ([]Workflow, error) {
 func byName(a, b Workflow) int {
 	return cmp.Or(
 		strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)),
-		bytes.Compare(a.ID[:], b.ID[:]),
+		store.CompareIDs(a.ID, b.ID),
 	)
 }
 

@@ -20,9 +20,8 @@ import (
 	runstore "komrad/internal/store/run"
 	workflowstore "komrad/internal/store/workflow"
 
-	"google.golang.org/protobuf/types/known/structpb"
-
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // defaultAgentLogLimit is how many lines a read of agent logs answers when the caller names no count.

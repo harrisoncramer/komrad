@@ -1226,7 +1226,7 @@ func TestRestoreAgentsWithNothingArchived(t *testing.T) {
 	assert.Len(t, restored, 2)
 }
 
-func seedRunningIn(t *testing.T, st *testStore, tmux paneStamper, workflowID uuid.UUID, name string, pane string) agentstore.Agent {
+func seedRunningIn(t *testing.T, st *testStore, tmux paneStamper, workflowID uuid.UUID, name, pane string) agentstore.Agent {
 	t.Helper()
 
 	agent := seedInWorkflow(t, st, workflowID, name, pane, agentstore.StateThinking)

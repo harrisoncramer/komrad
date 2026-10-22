@@ -21,6 +21,7 @@ import (
 
 	"komrad/internal/logging"
 	"komrad/internal/panes"
+	"komrad/lib/xuuid"
 
 	"github.com/google/uuid"
 )
@@ -145,7 +146,7 @@ func (c *Client) GetPaneOwner(pane string) uuid.UUID {
 		return uuid.Nil
 	}
 
-	return parseOwner(c.value("show-options", "-p", "-qv", "-t", pane, paneOwnerOption))
+	return xuuid.ParseOrNil(c.value("show-options", "-p", "-qv", "-t", pane, paneOwnerOption))
 }
 
 // HasCLIExited reports whether the CLI launched in a pane has exited.
@@ -192,7 +193,7 @@ func (c *Client) GetPanes() (map[string]PaneStatus, error) {
 		pane, rest, _ := strings.Cut(line, " ")
 		owner, command, _ := strings.Cut(rest, " ")
 		if pane != "" {
-			panes[pane] = PaneStatus{Owner: parseOwner(owner), Command: command}
+			panes[pane] = PaneStatus{Owner: xuuid.ParseOrNil(owner), Command: command}
 		}
 	}
 
@@ -721,13 +722,4 @@ func (c *Client) CheckPaneRunningCLI(pane string) (bool, error) {
 	}
 
 	return command != "" && !PaneStatus{Command: command}.IsRunningShell(), nil
-}
-
-func parseOwner(value string) uuid.UUID {
-	owner, err := uuid.Parse(value)
-	if err != nil {
-		return uuid.Nil
-	}
-
-	return owner
 }

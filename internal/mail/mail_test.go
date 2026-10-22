@@ -922,7 +922,7 @@ func TestFindRecipientByID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := svc.FindRecipient(t.Context(), FindRecipientParams{
-				To: oneofs.To{ToAgentId: xptr.Ptr(uuid.MustParse(tt.id.String()))},
+				To: oneofs.To{ToAgentId: xptr.Ptr(tt.id)},
 			})
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)

@@ -30,7 +30,7 @@ type runRecord struct {
 
 // claimRunLog names the file one run writes to and creates it empty, taking the number under
 // the lock and by an exclusive create.
-func (s *ScriptService) claimRunLog(ctx context.Context, agentID uuid.UUID, trigger string, name string) (string, int) {
+func (s *ScriptService) claimRunLog(ctx context.Context, agentID uuid.UUID, trigger, name string) (string, int) {
 	if s.logsDir == "" || agentID == uuid.Nil {
 		return "", 0
 	}

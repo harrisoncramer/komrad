@@ -18,9 +18,8 @@ import (
 
 	schedulestore "komrad/internal/store/schedule"
 
-	"google.golang.org/protobuf/types/known/emptypb"
-
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const defaultRunLimit = 20

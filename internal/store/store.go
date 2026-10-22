@@ -9,6 +9,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -309,6 +310,11 @@ func NewID() (uuid.UUID, error) {
 	}
 
 	return id, nil
+}
+
+// CompareIDs orders two ids by when they were minted, as uuidv7 holds its time in its leading bytes.
+func CompareIDs(a, b uuid.UUID) int {
+	return bytes.Compare(a[:], b[:])
 }
 
 const maxFailureReasonLen = 480

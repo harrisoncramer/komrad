@@ -347,7 +347,7 @@ func TestList(t *testing.T) {
 		TaskID: author.TaskID,
 	})
 
-	write := func(agentID uuid.UUID, name string, typeName string) uuid.UUID {
+	write := func(agentID uuid.UUID, name, typeName string) uuid.UUID {
 		created, err := stores.Documents.Create(ctx, documentstore.CreateParams{
 			AgentID: agentID,
 			Name:    name,
@@ -588,7 +588,7 @@ func TestSearch(t *testing.T) {
 	other := stores.SeedAgent(t, agentstore.Agent{Name: "other"})
 	leaving := stores.SeedAgent(t, agentstore.Agent{Name: "leaving"})
 
-	write := func(agentID uuid.UUID, name string, typeName string, body string) uuid.UUID {
+	write := func(agentID uuid.UUID, name, typeName, body string) uuid.UUID {
 		created, err := stores.Documents.Create(ctx, documentstore.CreateParams{
 			AgentID: agentID,
 			Name:    name,

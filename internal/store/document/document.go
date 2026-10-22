@@ -377,7 +377,7 @@ func (s *DocumentStore) Search(ctx context.Context, params SearchParams) (*Resul
 }
 
 // searchHit is the hit for one document a search found, with its snippet.
-func searchHit(id uuid.UUID, agentID uuid.UUID, name string, snippet string) SearchHit {
+func searchHit(id, agentID uuid.UUID, name, snippet string) SearchHit {
 	return SearchHit{
 		ID:      id,
 		AgentID: agentID,

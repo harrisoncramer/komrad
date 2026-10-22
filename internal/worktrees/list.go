@@ -18,6 +18,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
 	"komrad/lib/xslice"
+	"komrad/lib/xuuid"
 
 	"github.com/google/uuid"
 )
@@ -242,7 +243,7 @@ func (l *Lister) answerer(ctx context.Context) (func(dir string) Worktree, error
 
 	return func(dir string) Worktree {
 		worktree := read(dir)
-		if summary, ok := tasks[parseTaskID(dir)]; ok {
+		if summary, ok := tasks[xuuid.ParseOrNil(filepath.Base(dir))]; ok {
 			worktree.Task = describeTask(summary)
 		}
 		worktree.Occupants = listOccupants(dir, rows)
@@ -386,7 +387,7 @@ func readBranch(gitdir string) string {
 // listOccupants is every agent working in a directory, those provisioned for its task included,
 // live ones first and then newer before older.
 func listOccupants(dir string, rows []agentstore.AgentDir) []Agent {
-	taskID := parseTaskID(dir)
+	taskID := xuuid.ParseOrNil(filepath.Base(dir))
 	working := xslice.Filter(rows, func(row agentstore.AgentDir) bool {
 		return (taskID != uuid.Nil && row.ProvisionedTaskID == taskID) || filepath.Clean(row.Cwd) == dir
 	})
@@ -407,15 +408,6 @@ func compareOccupants(a, b agentstore.AgentDir) int {
 	}
 
 	return b.CreatedAt.Compare(a.CreatedAt)
-}
-
-func parseTaskID(dir string) uuid.UUID {
-	taskID, err := uuid.Parse(filepath.Base(dir))
-	if err != nil {
-		return uuid.Nil
-	}
-
-	return taskID
 }
 
 func describeAgent(row agentstore.AgentDir) Agent {

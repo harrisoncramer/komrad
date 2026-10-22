@@ -9,6 +9,7 @@ import (
 
 	"komrad/config"
 	"komrad/lib/xslice"
+	"komrad/lib/xuuid"
 
 	"github.com/google/uuid"
 )
@@ -293,7 +294,5 @@ func describeCount(count int, singular, plural string) string {
 }
 
 func isTaskDir(tasks map[uuid.UUID]bool, name string) bool {
-	taskID, err := uuid.Parse(name)
-
-	return err == nil && tasks[taskID]
+	return tasks[xuuid.ParseOrNil(name)]
 }

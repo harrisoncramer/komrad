@@ -9,6 +9,7 @@ import (
 	"komrad/internal/jobs/internaljobs"
 	agentstore "komrad/internal/store/agent"
 	worktreestore "komrad/internal/store/worktree"
+	"komrad/lib/xuuid"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -70,11 +71,9 @@ func (d *WorktreeDelete) ListClaimedDirs(ctx context.Context) ([]string, error) 
 func parseTaskIDs(dirs []string) []uuid.UUID {
 	var ids []uuid.UUID
 	for _, dir := range dirs {
-		id, err := uuid.Parse(filepath.Base(dir))
-		if err != nil {
-			continue
+		if id := xuuid.ParseOrNil(filepath.Base(dir)); id != uuid.Nil {
+			ids = append(ids, id)
 		}
-		ids = append(ids, id)
 	}
 
 	return ids

@@ -45,7 +45,7 @@ func (h *Harness) recallLogPath(sessionID string) string {
 	return h.logPaths[sessionID]
 }
 
-func (h *Harness) rememberLogPath(sessionID string, path string) {
+func (h *Harness) rememberLogPath(sessionID, path string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 

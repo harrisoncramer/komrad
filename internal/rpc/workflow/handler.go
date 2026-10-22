@@ -18,9 +18,8 @@ import (
 
 	workflowstore "komrad/internal/store/workflow"
 
-	"google.golang.org/protobuf/types/known/emptypb"
-
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type workflowReadWriter interface {

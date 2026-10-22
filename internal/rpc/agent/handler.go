@@ -25,9 +25,8 @@ import (
 	agentstore "komrad/internal/store/agent"
 	rowstore "komrad/internal/store/row"
 
-	"google.golang.org/protobuf/types/known/emptypb"
-
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type agentCreator interface {

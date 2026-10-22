@@ -49,7 +49,7 @@ func open(t *testing.T) *harness {
 }
 
 // createAgent puts a live agent on a branch of a repository in a workflow.
-func (h *harness) createAgent(t *testing.T, workflowID uuid.UUID, name string, repositoryURL string, branch string) uuid.UUID {
+func (h *harness) createAgent(t *testing.T, workflowID uuid.UUID, name, repositoryURL, branch string) uuid.UUID {
 	t.Helper()
 	ctx := t.Context()
 

@@ -3,7 +3,6 @@
 package review
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"time"
@@ -445,7 +444,7 @@ func holdThreads(messages []Message) []Message {
 	roots := map[uuid.UUID]Message{}
 	accepted := map[uuid.UUID]bool{}
 	for _, message := range messages {
-		if root, ok := roots[message.ThreadID]; !ok || bytes.Compare(message.ID[:], root.ID[:]) < 0 {
+		if root, ok := roots[message.ThreadID]; !ok || store.CompareIDs(message.ID, root.ID) < 0 {
 			roots[message.ThreadID] = message
 		}
 		if message.AcceptedFrom != nil {

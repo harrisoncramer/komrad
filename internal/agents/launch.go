@@ -857,7 +857,7 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*pl
 	}, nil
 }
 
-func (s *LaunchService) uniqueAgentName(ctx context.Context, workflowID uuid.UUID, title string, prompt string) string {
+func (s *LaunchService) uniqueAgentName(ctx context.Context, workflowID uuid.UUID, title, prompt string) string {
 	base := agentstore.SanitizeName(strings.TrimSpace(title))
 	if base == "" {
 		base = xstr.Slug(xstr.FirstLine(prompt), 24)

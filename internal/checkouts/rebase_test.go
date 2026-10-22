@@ -622,7 +622,5 @@ func TestALateRebaseRetryTellsTheLatestRebase(t *testing.T) {
 
 // taskByID names a task by the id the store gave it.
 func taskByID(id uuid.UUID) oneofs.Task {
-	parsed := uuid.MustParse(id.String())
-
-	return oneofs.Task{TaskId: &parsed}
+	return oneofs.Task{TaskId: &id}
 }

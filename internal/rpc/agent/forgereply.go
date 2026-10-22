@@ -11,9 +11,8 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1komrad"
 
-	"google.golang.org/protobuf/types/known/emptypb"
-
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type forgeReplier interface {
