@@ -152,7 +152,7 @@ func TestTabStripStep(t *testing.T) {
 	}
 }
 
-func buildStrip() tabs.Strip {
+func buildGroupedStrip() tabs.Strip {
 	return tabs.Strip{
 		Title:  "f",
 		Legend: "sort",
@@ -162,12 +162,6 @@ func buildStrip() tabs.Strip {
 			{ID: "name", Label: "name"},
 		},
 		Fallback: "size",
+		Grouped:  "repo",
 	}
-}
-
-func buildGroupedStrip() tabs.Strip {
-	strip := buildStrip()
-	strip.Grouped = "repo"
-
-	return strip
 }
