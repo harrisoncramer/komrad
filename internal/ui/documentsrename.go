@@ -96,7 +96,13 @@ func (d *documentsScreen) saveRename() screen.Request {
 		Summary: fmt.Sprintf("Could not rename document %q", rename.Was()),
 		Row:     rename.Key(),
 		Write: func(a api.Clients) error {
-			return a.WriteDocument(api.WriteDocumentParams{ID: item.id, Version: read.version, Name: item.name, Type: item.typeName, Body: read.body})
+			return a.WriteDocument(api.WriteDocumentParams{
+				ID:      item.id,
+				Version: read.version,
+				Name:    item.name,
+				Type:    item.typeName,
+				Body:    read.body,
+			})
 		},
 	})
 }
