@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"komrad/config"
+	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
@@ -13,10 +14,11 @@ import (
 
 // actions is the documents screen as one table and the legend that names it.
 func (d *documentsScreen) actions(m *model) keys.Spec[*model] {
+	in := m.inputs()
 	switch {
-	case d.isDiffFocused(m) && d.isDiffRendered(m, m.inputs()):
+	case d.isDiffFocused(in) && d.isDiffRendered(m, in):
 		return d.diffActions()
-	case d.isDiffFocused(m):
+	case d.isDiffFocused(in):
 		return d.stepActions()
 	}
 
@@ -189,7 +191,7 @@ func (d *documentsScreen) diffKeys() diffKeys {
 		register: d.deps.register,
 		pane:     &h.pane,
 		filter:   &h.filter,
-		window:   d.diffWindow,
+		window:   func(m *model) diffview.Window { return d.diffWindow(m, m.inputs()) },
 	}
 }
 
@@ -200,21 +202,21 @@ func (d *documentsScreen) updateDiff(m *model, key tea.KeyPressMsg) screen.Reque
 
 // isDiffRendered reports whether the panel renders a write's change as a diff beside the list.
 func (d *documentsScreen) isDiffRendered(m *model, in screen.Inputs) bool {
-	if !m.screenColumnSplit().On {
+	if !in.Room.Split.On {
 		return false
 	}
 
-	return d.isSteppingHovered(m, in) && d.history.isRendered(m.term.isDark)
+	return d.isSteppingHovered(m, in) && d.history.isRendered(in.Room.Dark)
 }
 
 // isDiffFocused reports whether the diff of the write stepped to holds the keys.
-func (d *documentsScreen) isDiffFocused(m *model) bool {
-	return d.focus && d.history != nil && m.isListFocused()
+func (d *documentsScreen) isDiffFocused(in screen.Inputs) bool {
+	return d.focus && d.history != nil && in.Room.ListFocused
 }
 
 // isBlockFocused reports whether the diff of one of its writes holds the keys.
 func (d *documentsScreen) isBlockFocused(m *model, in screen.Inputs) bool {
-	return d.isDiffFocused(m)
+	return d.isDiffFocused(in)
 }
 
 func (d *documentsScreen) isBlockRendered(m *model, in screen.Inputs) bool {

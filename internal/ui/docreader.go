@@ -31,35 +31,41 @@ type docReader struct {
 }
 
 // isDocReadable reports whether the block beside the list is a document the panel walks itself.
-func (m *model) isDocReadable() bool {
-	if m.isMessagesFocused() {
+func (m *model) isDocReadable(in screen.Inputs) bool {
+	if in.Room.MessagesFocused {
 		return false
 	}
 
-	spec := m.columnOf()
-	if spec.read == nil || !spec.read(m, m.inputs()) {
+	spec := m.columnOf(in)
+	if spec.Read == nil || !spec.Read() {
 		return false
 	}
 
-	return m.screenColumnSplit().On
+	return in.Room.Split.On
 }
 
-// isDocFocused reports whether the document beside the list holds the keys.
-func (m *model) isDocFocused() bool {
-	return m.reading.focused && m.isDocReadable() && m.isListFocused()
+// docReaderOf is where the reader stands in the document beside the list, and whether the document
+// holds the keys.
+func (m *model) docReaderOf(in screen.Inputs) screen.DocReader {
+	return screen.DocReader{
+		Line:    m.reading.Line,
+		Top:     m.reading.Top,
+		Focused: m.reading.focused && m.isDocReadable(in) && in.Room.ListFocused,
+	}
 }
 
 // docLayout is the document rendered for the block beside the list, and the rows of the window
 // under the search.
 func (m *model) docLayout() ([]string, int, bool) {
-	split := m.screenColumnSplit()
-	if !split.On || !m.isDocReadable() {
+	in := m.inputs()
+	split := in.Room.Split
+	if !split.On || !m.isDocReadable(in) {
 		return nil, 0, false
 	}
 
-	rows := m.columnRows(split)
+	rows := m.columnRows(in, split)
 
-	return rows, max(split.Rows-len(m.docHead(rows, split.Column)), 1), true
+	return rows, max(split.Rows-len(m.docHead(in, rows, split.Column)), 1), true
 }
 
 // moveDocTo puts the cursor on a row of the document and brings the window round to it.
@@ -107,7 +113,7 @@ func (m *model) focusDoc() {
 func (m *model) scrollDoc(delta int) {
 	m.settleTail()
 
-	if m.isDocFocused() {
+	if m.inputs().Room.Doc.Focused {
 		m.moveDocTo(m.reading.Line + delta)
 
 		return
@@ -121,11 +127,12 @@ func (m *model) scrollDoc(delta int) {
 // dropStaleDoc forgets where the reader stood once the block shows another row, and hands the
 // keys back from a document the block no longer renders.
 func (m *model) dropStaleDoc() {
-	if shown := m.docShown(); m.reading.shown != shown {
+	in := m.inputs()
+	if shown := m.docShown(in); m.reading.shown != shown {
 		m.reading = docReader{shown: shown, tail: m.isScreenShown()}
 	}
 
-	if m.reading.focused && !m.isDocReadable() {
+	if m.reading.focused && !m.isDocReadable(in) {
 		m.reading.focused = false
 	}
 }
@@ -281,7 +288,7 @@ func (m *model) docActions() keys.Spec[*model] {
 				Keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
 				Nav: func(*model, string) screen.Request {
 					m.settleTail()
-					m.reading.filter.open(m.columnOf().searchOptions...)
+					m.reading.filter.open(m.docSearchOptions()...)
 					m.reading.origin = m.reading.Line
 
 					return nil
@@ -338,11 +345,6 @@ func (m *model) docHelp() keyMap {
 	}
 }
 
-// isAlwaysRead is the read of a block that is a document whatever the screen is showing.
-func isAlwaysRead(*model, screen.Inputs) bool {
-	return true
-}
-
 // wheelDoc moves the window over the document, carrying the cursor along when it leaves the window.
 func (m *model) wheelDoc(delta int) {
 	m.settleTail()
@@ -362,4 +364,12 @@ func (m *model) clickDocLine(key string) tea.Cmd {
 	m.moveDocTo(line)
 
 	return nil
+}
+
+// docSearchOptions is how long the search over the document waits for the typing to stop and the
+// shortest pattern it runs.
+func (m *model) docSearchOptions() []filterOption {
+	spec := m.columnOf(m.inputs())
+
+	return []filterOption{withDebounce(spec.SearchDebounce), withMinLength(spec.SearchMinLength)}
 }

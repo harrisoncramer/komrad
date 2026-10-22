@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 )
 
@@ -16,21 +17,21 @@ const (
 )
 
 // keyholder is the section whose cursor the arrow keys would move.
-func (m *model) keyholder() sidebarSection {
+func (m *model) keyholder(in screen.Inputs) sidebarSection {
 	if m.isViewsOpen() {
 		return sectionViews
 	}
 
-	return m.keyholderBehindViews()
+	return m.keyholderBehindViews(in)
 }
 
-func (m *model) keyholderBehindViews() sidebarSection {
+func (m *model) keyholderBehindViews(in screen.Inputs) sidebarSection {
 	switch {
-	case m.isTabsFocused():
+	case m.isTabsFocused(in):
 		return sectionTabs
-	case m.isKindsFocused():
+	case m.isKindsFocused(in):
 		return sectionKinds
-	case m.isDetailsFocused():
+	case m.isDetailsFocused(in):
 		return sectionRecord
 	}
 
@@ -43,15 +44,25 @@ func (m *model) doKeysMoveCursors() bool {
 }
 
 // caretOf is how a section's arrow stands this frame.
-func (m *model) caretOf(section sidebarSection) view.Caret {
-	if m.keyholderBehindViews() != section {
+func (m *model) caretOf(in screen.Inputs, section sidebarSection) view.Caret {
+	if m.keyholderBehindViews(in) != section {
 		return view.CaretAbsent
 	}
 
 	return view.CaretRendered
 }
 
+// listCaret is how the list's arrow stands, which is rendered while the document beside it holds
+// the keys.
+func (m *model) listCaret(in screen.Inputs) view.Caret {
+	if in.Room.Doc.Focused {
+		return view.CaretRendered
+	}
+
+	return m.caretOf(in, sectionList)
+}
+
 // isListFocused reports whether the keys are the list's.
-func (m *model) isListFocused() bool {
-	return m.doKeysMoveCursors() && m.keyholder() == sectionList
+func (m *model) isListFocused(in screen.Inputs) bool {
+	return m.doKeysMoveCursors() && m.keyholder(in) == sectionList
 }

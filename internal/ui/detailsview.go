@@ -18,14 +18,15 @@ func flashFieldStyle(palette paint.Palette) lipgloss.Style {
 }
 
 func (m *model) detailsView() string {
-	held := m.hoveredDetails()
-	if !m.isDetailsRendered(held) {
+	in := m.inputs()
+	held := m.hoveredDetails(in)
+	if !m.isDetailsRendered(in, held) {
 		return ""
 	}
 
 	lines := m.detailsLines()
 	if m.details.focused {
-		lines = m.grownDetailsLines(held)
+		lines = m.grownDetailsLines(in, held)
 	}
 	if lines == 0 {
 		return ""
@@ -162,7 +163,7 @@ func (m *model) detailsSnapshot(fields []detailsRow, cursor, pane int) view.Snap
 				Selected: m.details.flashed > 0 && row.id == flashed,
 			}
 		}),
-		Caret:   m.caretOf(sectionRecord),
+		Caret:   m.caretOf(m.inputs(), sectionRecord),
 		Focused: list.KeyAt(fields, cursor),
 		Pane:    pane,
 		Columns: view.Columns{},

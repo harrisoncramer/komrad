@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"komrad/internal/ui/column"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/reader"
@@ -167,7 +168,7 @@ func (c *statusCheckLogsScreen) rows(m *model, in screen.Inputs) []statusCheckLo
 
 // anchor puts the hovered row's header at the top of the document.
 func (c *statusCheckLogsScreen) anchor(m *model, in screen.Inputs) screen.Request {
-	split := m.screenColumnSplit()
+	split := in.Room.Split
 	if !split.On {
 		return nil
 	}
@@ -211,10 +212,6 @@ func (c *statusCheckLogsScreen) kinds(m *model) stops {
 
 func (c *statusCheckLogsScreen) kindsFocused(m *model) *bool {
 	return m.statusChecks.kindsFocused(m)
-}
-
-func (c *statusCheckLogsScreen) kindsFit(m *model, in screen.Inputs) bool {
-	return m.listFitsTabs(c.listParams(m, in))
 }
 
 func (c *statusCheckLogsScreen) kindsSwitch(*model) bool {
@@ -290,12 +287,13 @@ func (c *statusCheckLogsScreen) takesEveryKey() bool {
 	return false
 }
 
-func (c *statusCheckLogsScreen) column() columnSpec {
-	return columnSpec{
-		floor:         columnFloor,
-		read:          isAlwaysRead,
-		searchOptions: []filterOption{withDebounce(statusCheckLogSearchDebounce), withMinLength(statusCheckLogSearchMinLength)},
-		docRows: func(m *model, in screen.Inputs, width int) []string {
+func (c *statusCheckLogsScreen) column(m *model, in screen.Inputs) column.Spec {
+	return column.Spec{
+		Floor:           columnFloor,
+		Read:            column.IsAlwaysRead,
+		SearchDebounce:  statusCheckLogSearchDebounce,
+		SearchMinLength: statusCheckLogSearchMinLength,
+		DocRows: func(width int) []string {
 			return m.statusCheckLogs.doc(m, width).rows
 		},
 	}
@@ -341,8 +339,8 @@ func (c *statusCheckLogsScreen) isLoading(m *model, in screen.Inputs) bool {
 	return false
 }
 
-func (c *statusCheckLogsScreen) buildFrame(m *model, _ screen.Inputs) {
-	if split := m.screenColumnSplit(); split.On {
+func (c *statusCheckLogsScreen) buildFrame(m *model, in screen.Inputs) {
+	if split := in.Room.Split; split.On {
 		c.keepDoc(m, split.Column)
 	}
 }

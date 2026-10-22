@@ -69,7 +69,7 @@ func sourceLabel(source *logv1.LogSource) string {
 // block is the log rendered at the width and height of the block beside the sidebar, its lines
 // pinned to the prompt at its foot.
 func (l *logsScreen) block(m *model, in screen.Inputs, width int) []string {
-	split := m.screenColumnSplit()
+	split := in.Room.Split
 	if !split.On {
 		return nil
 	}

@@ -168,7 +168,7 @@ func (r reviewScreen) countFilesFloor(spare int) int {
 }
 
 func (r *reviewScreen) isBlockRendered(m *model, in screen.Inputs) bool {
-	if !m.screenColumnSplit().On {
+	if !in.Room.Split.On {
 		return false
 	}
 
@@ -176,7 +176,7 @@ func (r *reviewScreen) isBlockRendered(m *model, in screen.Inputs) bool {
 }
 
 func (r *reviewScreen) isBlockFocused(m *model, in screen.Inputs) bool {
-	return r.focus == reviewFocusFiles && m.isListFocused() && !r.isWriting() && r.isBlockRendered(m, in)
+	return r.focus == reviewFocusFiles && in.Room.ListFocused && !r.isWriting() && r.isBlockRendered(m, in)
 }
 
 func (r *reviewScreen) focusBlock(*model) {

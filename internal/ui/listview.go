@@ -9,19 +9,6 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// listPane is the column that renders a list this frame and where its cursor stands.
-func (m *model) listPane(width int) list.Pane {
-	caret := m.caretOf(sectionList)
-	if m.isDocFocused() {
-		caret = view.CaretRendered
-	}
-
-	return list.Pane{
-		Width: width,
-		Caret: caret,
-	}
-}
-
 func (m *model) columnListView(params screenListParams) string {
 	return m.columnView(func(m *model) string { return m.screenListView(params) })
 }
@@ -56,9 +43,10 @@ func (m *model) screenListView(params screenListParams) string {
 		return m.headedListView(header, []string{dimStyle().Render(m.emptyListLine(params.empty))}, 0, below)
 	}
 
-	pane := m.paneWidth()
+	in := m.inputs()
+	pane := in.Room.Width
 	lines := m.listLines(header, below)
-	snapshot := params.snapshot(m.listPane(pane))
+	snapshot := params.snapshot(list.Pane{Width: pane, Caret: in.Room.Caret})
 	window := view.Window(view.WindowParams{
 		List:    list.Prepare(m.glyphs, snapshot),
 		Palette: paint.Panel,

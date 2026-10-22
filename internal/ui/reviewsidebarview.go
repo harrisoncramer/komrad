@@ -19,12 +19,12 @@ const (
 
 // sideView is the rows over the file tree cut to lines rows, windowed on the row the cursor is on.
 func (r reviewScreen) sideView(m *model, in screen.Inputs, lines int) string {
-	sideRows := r.sideRows(m)
+	sideRows := r.sideRows(m, in)
 	if len(sideRows) == 0 || lines == 0 {
 		return ""
 	}
 
-	width := lineWidthOf(m.paneWidth())
+	width := lineWidthOf(in.Room.Width)
 	focused := r.isBlockFocused(m, in)
 	rows := make([]string, 0, len(sideRows))
 	keys := make([]string, 0, len(sideRows))

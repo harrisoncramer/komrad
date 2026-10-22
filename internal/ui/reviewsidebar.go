@@ -77,7 +77,7 @@ type sideRow struct {
 
 // sideRows is every row over the file tree, the stack first, then the forge, what waits on the
 // person and the description.
-func (r reviewScreen) sideRows(m *model) []sideRow {
+func (r reviewScreen) sideRows(m *model, in screen.Inputs) []sideRow {
 	if r.diff.View() == nil {
 		return nil
 	}
@@ -86,7 +86,7 @@ func (r reviewScreen) sideRows(m *model) []sideRow {
 		r.stackRows(m),
 		r.forgeRows(m),
 		r.needRows(),
-		r.descriptionRows(m),
+		r.descriptionRows(m, in),
 	}
 
 	var rows []sideRow
@@ -103,9 +103,9 @@ func (r reviewScreen) sideRows(m *model) []sideRow {
 }
 
 // sideStops is the rows of the sidebar the cursor rests on.
-func (r reviewScreen) sideStops(m *model) []sideCursor {
+func (r reviewScreen) sideStops(m *model, in screen.Inputs) []sideCursor {
 	var stops []sideCursor
-	for _, row := range r.sideRows(m) {
+	for _, row := range r.sideRows(m, in) {
 		if row.kind.isStop() {
 			stops = append(stops, row.sideCursor)
 		}
@@ -116,8 +116,8 @@ func (r reviewScreen) sideStops(m *model) []sideCursor {
 
 // findSide is the row over the file tree the cursor rests on, false while it rests on the tree or on a row
 // since gone from the sidebar.
-func (r reviewScreen) findSide(m *model) (sideCursor, bool) {
-	if r.side == nil || !slices.Contains(r.sideStops(m), *r.side) {
+func (r reviewScreen) findSide(m *model, in screen.Inputs) (sideCursor, bool) {
+	if r.side == nil || !slices.Contains(r.sideStops(m, in), *r.side) {
 		return sideCursor{}, false
 	}
 
@@ -323,7 +323,7 @@ func isWaitingOnWriter(thread *agentv1.ReviewThread) bool {
 }
 
 // descriptionRows is the pull request's title, and its description once opened.
-func (r reviewScreen) descriptionRows(m *model) []sideRow {
+func (r reviewScreen) descriptionRows(m *model, in screen.Inputs) []sideRow {
 	pullRequest, ok := r.currentPullRequest(m)
 	if !ok {
 		return nil
@@ -341,7 +341,7 @@ func (r reviewScreen) descriptionRows(m *model) []sideRow {
 		rows = append(rows, sideRow{sideCursor: sideCursor{kind: sideDescriptionLine, id: "author"}, text: "@" + pullRequest.Author})
 	}
 
-	width := lineWidthOf(m.paneWidth()) - len(sideMarkBlank) - len(descriptionIndent)
+	width := lineWidthOf(in.Room.Width) - len(sideMarkBlank) - len(descriptionIndent)
 	for at, line := range pullRequestBodyRows(pullRequest.Body, width) {
 		rows = append(rows, sideRow{sideCursor: sideCursor{kind: sideDescriptionLine, id: strconv.Itoa(at)}, text: line})
 	}
@@ -351,7 +351,7 @@ func (r reviewScreen) descriptionRows(m *model) []sideRow {
 
 // moveSide walks the rows over the file tree, false while the move stays on the tree.
 func (r *reviewScreen) moveSide(m *model, rows int) (screen.Request, bool) {
-	stops := r.sideStops(m)
+	stops := r.sideStops(m, m.inputs())
 	tree := r.readFilesTree()
 	at := r.sideAt(stops)
 	if at < 0 {
@@ -377,11 +377,12 @@ func (r *reviewScreen) moveSide(m *model, rows int) (screen.Request, bool) {
 
 // moveSideToTop puts the cursor on the first row over the file tree, false while the cursor is on the tree.
 func (r *reviewScreen) moveSideToTop(m *model) bool {
-	if _, ok := r.findSide(m); !ok {
+	in := m.inputs()
+	if _, ok := r.findSide(m, in); !ok {
 		return false
 	}
 
-	r.restOnSide(r.sideStops(m)[0])
+	r.restOnSide(r.sideStops(m, in)[0])
 
 	return true
 }
@@ -394,14 +395,14 @@ func (r *reviewScreen) restOnSide(cursor sideCursor) {
 
 // isSideFocused reports whether the rows over the file tree hold the review's keys.
 func (r *reviewScreen) isSideFocused(m *model, in screen.Inputs) bool {
-	_, ok := r.findSide(m)
+	_, ok := r.findSide(m, in)
 
 	return ok && r.isBlockFocused(m, in)
 }
 
 // chooseSide does what the row under the sidebar's cursor is for.
 func (r *reviewScreen) chooseSide(m *model, in screen.Inputs) screen.Request {
-	side, ok := r.findSide(m)
+	side, ok := r.findSide(m, in)
 	if !ok {
 		return nil
 	}
@@ -421,7 +422,7 @@ func (r *reviewScreen) chooseSide(m *model, in screen.Inputs) screen.Request {
 
 // chooseDesc says what choosing the row under the sidebar's cursor does, empty when it does nothing.
 func (r reviewScreen) chooseDesc(m *model) string {
-	side, ok := r.findSide(m)
+	side, ok := r.findSide(m, m.inputs())
 	if !ok {
 		return ""
 	}

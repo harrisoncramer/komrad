@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/screen"
+	"komrad/internal/view"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -21,20 +22,20 @@ func (r reviewScreen) filesView(m *model, in screen.Inputs, lines int) string {
 	case lines == 0:
 		return ""
 	case r.loading:
-		return m.loading.frame() + " " + dimStyle().Render(reviewLoadingWord) + "\n"
+		return in.Room.Spinner + " " + dimStyle().Render(reviewLoadingWord) + "\n"
 	case r.diff.View() == nil || r.diff.View().Len() == 0:
 		return dimStyle().Render(reviewEmptyWord) + "\n"
 	}
 
-	width := lineWidthOf(m.paneWidth())
+	width := lineWidthOf(in.Room.Width)
 	tree := r.readFilesTree()
-	_, onSide := r.findSide(m)
+	_, onSide := r.findSide(m, in)
 	focused := r.isBlockFocused(m, in) && !onSide
 	columns := measureStatColumns(r.deps.glyphs, tree.rows)
 	rows := make([]string, 0, len(tree.rows))
 	keys := make([]string, 0, len(tree.rows))
 	for at, row := range tree.rows {
-		rows = append(rows, r.renderTreeRow(m, renderTreeRowParams{
+		rows = append(rows, r.renderTreeRow(renderTreeRowParams{
 			Row:     row,
 			Current: at == tree.current,
 			Closed:  r.closedFolders[row.Path],
@@ -42,6 +43,7 @@ func (r reviewScreen) filesView(m *model, in screen.Inputs, lines int) string {
 			Width:   width,
 			Columns: columns,
 			Filter:  r.filesFilter,
+			Caret:   in.Room.Caret,
 		}))
 		keys = append(keys, row.Path)
 	}
@@ -82,11 +84,12 @@ type renderTreeRowParams struct {
 	Width   int
 	Columns statColumns
 	Filter  filterState
+	Caret   view.Caret
 }
 
 // renderTreeRow renders one row of the tree: its mark, its place in the tree, its name, and what it
 // holds.
-func (r reviewScreen) renderTreeRow(m *model, params renderTreeRowParams) string {
+func (r reviewScreen) renderTreeRow(params renderTreeRowParams) string {
 	row, width := params.Row, params.Width
 	style := lipgloss.NewStyle()
 	mark := " "
@@ -101,7 +104,7 @@ func (r reviewScreen) renderTreeRow(m *model, params renderTreeRowParams) string
 
 	lead := style.Render(mark) + strings.Repeat(" ", filesGutter-1+2*row.Depth)
 	if params.Current && params.Focused {
-		lead = list.ArrowOf(m.listPane(width).Caret) + strings.Repeat(" ", filesGutter-2+2*row.Depth)
+		lead = list.ArrowOf(params.Caret) + strings.Repeat(" ", filesGutter-2+2*row.Depth)
 	}
 	fit := fitTreeRowParams{
 		Left:  params.Filter.highlight(paint.Panel, row.Name, style),

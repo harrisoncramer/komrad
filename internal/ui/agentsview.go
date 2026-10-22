@@ -20,7 +20,7 @@ func (a *agentsScreen) details(m *model, in screen.Inputs) details {
 	}
 
 	if r.isTask() {
-		return taskDetails(m, a.deps.glyphs, r)
+		return taskDetails(m, in, a.deps.glyphs, r)
 	}
 
 	if r.header {
@@ -30,11 +30,11 @@ func (a *agentsScreen) details(m *model, in screen.Inputs) details {
 		}
 	}
 
-	return agentDetails(m, a.deps.glyphs, r)
+	return agentDetails(m, in, a.deps.glyphs, r)
 }
 
 // taskDetails is the record for a task's row, with the rule's tags too while the task is live.
-func taskDetails(m *model, glyphs glyph.Set, r agentRow) details {
+func taskDetails(m *model, in screen.Inputs, glyphs glyph.Set, r agentRow) details {
 	var tags []string
 	if r.task.ArchivedAt == nil {
 		tags = taskDetailsTags(m, *r.task)
@@ -42,12 +42,12 @@ func taskDetails(m *model, glyphs glyph.Set, r agentRow) details {
 	var writerFields []recordField
 	if writer, ok := r.writer(); ok {
 		writerFields = append([]recordField{{label: "agent", value: label.OrDash(writer.Agent.Harness)}},
-			sessionFields(writer.Agent, m.listing.ScheduleName(writer.Agent))...)
+			sessionFields(writer.Agent, in.Listing.ScheduleName(writer.Agent))...)
 	}
 
 	return details{
 		id:      r.task.ID,
-		notices: agentNotices(glyphs, m.loading.frame(), m.listing.Tasks, r),
+		notices: agentNotices(glyphs, in.Room.Spinner, in.Listing.Tasks, r),
 		fields:  taskFields(m.buildCheckoutParams(*r.task), writerFields),
 		tags:    tags,
 	}
@@ -55,12 +55,12 @@ func taskDetails(m *model, glyphs glyph.Set, r agentRow) details {
 
 // agentDetails is the record for an agent's row, carrying its task's checkout where no task
 // header stands over it and the rule's tags too while the agent is live.
-func agentDetails(m *model, glyphs glyph.Set, r agentRow) details {
-	task := m.listing.Tasks.FindForAgent(r.item.Agent)
+func agentDetails(m *model, in screen.Inputs, glyphs glyph.Set, r agentRow) details {
+	task := in.Listing.Tasks.FindForAgent(r.item.Agent)
 	params := agentFieldsParams{
 		agent:    r.item.Agent,
 		task:     task.Slug,
-		schedule: m.listing.ScheduleName(r.item.Agent),
+		schedule: in.Listing.ScheduleName(r.item.Agent),
 	}
 	var tags []string
 	if r.underTask {
@@ -74,7 +74,7 @@ func agentDetails(m *model, glyphs glyph.Set, r agentRow) details {
 
 	return details{
 		id:      r.item.Agent.ID,
-		notices: agentNotices(glyphs, m.loading.frame(), m.listing.Tasks, r),
+		notices: agentNotices(glyphs, in.Room.Spinner, in.Listing.Tasks, r),
 		fields:  agentFields(params),
 		tags:    tags,
 	}
@@ -95,9 +95,9 @@ func (a *agentsScreen) doc(m *model, in screen.Inputs) string {
 	case r.header && !held:
 		return workflowContextMarkdown(r.workflow)
 	case item.Agent.State == panel.StateSettingUp && item.Agent.Pane != "":
-		return startingPlaceholder(m.loading.frame())
+		return startingPlaceholder(in.Room.Spinner)
 	case item.Agent.State == panel.StateSettingUp:
-		return settingUpPlaceholder(m.loading.frame())
+		return settingUpPlaceholder(in.Room.Spinner)
 	case item.Agent.HeldAt != nil:
 		return heldPlaceholder
 	case item.Agent.State.IsFailed():
@@ -166,7 +166,7 @@ func (a *agentsScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view
 		workflowDirs: in.Listing.WorkflowDirs(),
 		focused:      list.KeyAt(layout.cursorRows(), a.Row),
 		caret:        pane.Caret,
-		loaderFrame:  m.loading.frame(),
+		loaderFrame:  in.Room.Spinner,
 		matcher:      m.filter.pattern,
 		picked:       pickedRows(m.filter, layout.cursorRows(), m.agentRowFits(in.Listing)),
 		tasks:        in.Listing.Tasks,

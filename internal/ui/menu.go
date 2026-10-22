@@ -10,7 +10,7 @@ import (
 
 // buildMenu is the hovered row's band over the screen's, false when the screen offers neither.
 func (m *model) buildMenu() (menu.Menu, bool) {
-	if m.isDetailsFocused() {
+	if m.isDetailsFocused(m.inputs()) {
 		return menu.Menu{}, false
 	}
 

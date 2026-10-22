@@ -8,6 +8,7 @@ import (
 	"komrad/config"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/api"
+	"komrad/internal/ui/column"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint/label"
@@ -187,10 +188,6 @@ func (c *statusChecksScreen) kinds(*model) stops {
 	}
 }
 
-func (c *statusChecksScreen) kindsFit(m *model, in screen.Inputs) bool {
-	return m.listFitsTabs(c.listParams(m, in))
-}
-
 func (c *statusChecksScreen) kindsFocused(*model) *bool {
 	return &c.scopeFocus
 }
@@ -280,10 +277,10 @@ func (c *statusChecksScreen) takesEveryKey() bool {
 	return false
 }
 
-func (c *statusChecksScreen) column() columnSpec {
-	return columnSpec{
-		floor:   columnFloor,
-		docRows: func(m *model, in screen.Inputs, width int) []string { return m.statusChecks.docRows(m, in, width) },
+func (c *statusChecksScreen) column(m *model, in screen.Inputs) column.Spec {
+	return column.Spec{
+		Floor:   columnFloor,
+		DocRows: func(width int) []string { return m.statusChecks.docRows(m, in, width) },
 	}
 }
 

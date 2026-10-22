@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"komrad/internal/ui/api"
+	"komrad/internal/ui/column"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
@@ -42,10 +43,6 @@ func (w *schedulesScreen) kinds(*model) stops {
 
 func (w *schedulesScreen) kindsFocused(*model) *bool {
 	return &w.kindFocus
-}
-
-func (w *schedulesScreen) kindsFit(m *model, in screen.Inputs) bool {
-	return m.listFitsTabs(w.listParams(m, in))
 }
 
 func (w *schedulesScreen) kindsSwitch(*model) bool {
@@ -91,10 +88,6 @@ func (a *archivedSchedules) kinds(m *model) stops {
 
 func (a *archivedSchedules) kindsFocused(m *model) *bool {
 	return m.schedules.kindsFocused(m)
-}
-
-func (a *archivedSchedules) kindsFit(m *model, in screen.Inputs) bool {
-	return m.listFitsTabs(a.listParams(m, in))
 }
 
 func (a *archivedSchedules) kindsSwitch(*model) bool {
@@ -221,14 +214,6 @@ func (a *archivedSchedules) takesEveryKey() bool {
 	return false
 }
 
-func (a *archivedSchedules) detailsFit(m *model, in screen.Inputs) bool {
-	return m.listFitsDetails(a.listParams(m, in))
-}
-
-func (a *archivedSchedules) detailsRoom(m *model, in screen.Inputs) int {
-	return m.listRecordRoom(a.listParams(m, in))
-}
-
 func (a *archivedSchedules) activeList() keyedList {
 	return a.list()
 }
@@ -237,11 +222,11 @@ func (a *archivedSchedules) hoveredName(m *model, in screen.Inputs) string {
 	return a.list().hoveredName(m, in)
 }
 
-func (a *archivedSchedules) column() columnSpec {
-	return columnSpec{
-		floor: columnFloor,
-		read:  isAlwaysRead,
-		docRows: func(m *model, in screen.Inputs, width int) []string {
+func (a *archivedSchedules) column(m *model, in screen.Inputs) column.Spec {
+	return column.Spec{
+		Floor: columnFloor,
+		Read:  column.IsAlwaysRead,
+		DocRows: func(width int) []string {
 			return a.docRows(m, in, width)
 		},
 	}

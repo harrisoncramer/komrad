@@ -297,7 +297,7 @@ func (m *model) filteredRows() ([]filterRow, bool) {
 }
 
 func (m *model) filteredList() (keyedList, bool) {
-	if m.isDetailsFocused() {
+	if m.isDetailsFocused(m.inputs()) {
 		return m.detailsList(), true
 	}
 
@@ -314,7 +314,7 @@ func (m *model) beginFilter() {
 	origin := m.hoveredFilterKey()
 
 	var opts []filterOption
-	if screen, ok := m.active().(queryGrammarer); ok && !m.isDetailsFocused() {
+	if screen, ok := m.active().(queryGrammarer); ok && !m.isDetailsFocused(m.inputs()) {
 		if grammar, reads := screen.queryGrammar(); reads {
 			opts = append(opts, withGrammar(grammar, m.clock))
 		}
@@ -322,7 +322,7 @@ func (m *model) beginFilter() {
 
 	filter := &m.filter
 	filter.open(opts...)
-	filter.openedIn = m.keyholder()
+	filter.openedIn = m.keyholder(m.inputs())
 	filter.origin = origin
 	m.placeFilteredCursor(origin)
 }
@@ -399,7 +399,7 @@ func (m *model) clearFilter() {
 	origin, openedIn := filter.origin, filter.openedIn
 	filter.abandon()
 	filter.origin = ""
-	if openedIn == m.keyholder() {
+	if openedIn == m.keyholder(m.inputs()) {
 		m.placeFilteredCursor(origin)
 	}
 	m.reconcileSolo()
@@ -456,7 +456,7 @@ func (m *model) isFilterRowShown(key string) bool {
 // up.
 func (m *model) jumpIntoDetails() tea.Cmd {
 	cmd := m.focusDetails()
-	if !m.isDetailsFocused() {
+	if !m.isDetailsFocused(m.inputs()) {
 		return cmd
 	}
 

@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"komrad/config"
+	"komrad/internal/ui/column"
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
@@ -111,12 +112,12 @@ const formMaxWidth = 60
 
 // formColumn is the form rendered beside the list it was opened over, so the row it is about is
 // still on screen while it is answered.
-func formColumn(narrow bool) columnSpec {
+func formColumn(narrow bool) column.Spec {
 	if narrow {
-		return columnSpec{floor: columnFloor}
+		return column.Spec{Floor: columnFloor}
 	}
 
-	return columnSpec{floor: formColumnFloor}
+	return column.Spec{Floor: formColumnFloor}
 }
 
 // formResizedMsg tells the form on screen how much room it has.
@@ -169,11 +170,12 @@ func (m *model) formBox() (width, height int) {
 
 // formArea is the columns and rows the form and what it renders to its left share.
 func (m *model) formArea() (width, height int) {
+	in := m.inputs()
 	if m.isPopupForm() {
-		return m.review.measurePopupInner(m), m.review.measurePopupRoom(m, m.inputs())
+		return m.review.measurePopupInner(in), m.review.measurePopupRoom(m, in)
 	}
 
-	if split := m.columnGeometry(); split.On {
+	if split := in.Room.Geometry; split.On {
 		return split.Column, split.Rows
 	}
 

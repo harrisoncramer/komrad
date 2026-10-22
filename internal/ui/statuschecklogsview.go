@@ -36,7 +36,7 @@ func (c *statusCheckLogsScreen) snapshot(m *model, in screen.Inputs, pane list.P
 				Name:    name,
 				Matches: matchesIn(m.filter.pattern, name),
 				Process: view.ProcessNone,
-				Cells:   []view.Cell{statusCheckIcon(r.item, m.loading.frame())},
+				Cells:   []view.Cell{statusCheckIcon(r.item, in.Room.Spinner)},
 			}
 			if r.step != nil {
 				row.Kind = view.KindChild

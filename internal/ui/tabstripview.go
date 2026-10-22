@@ -82,11 +82,12 @@ func (s tabStrip) view(state tabsState, width int, mark func(int, string) string
 }
 
 func (m *model) tabbedHeader(title, tally string) string {
+	in := m.inputs()
 	var strips string
-	if m.isTabsRendered() {
+	if m.isTabsRendered(in) {
 		strips += m.tabsLine()
 	}
-	if m.isKindsRendered() {
+	if m.isKindsRendered(in) {
 		strips += m.kindsLine()
 	}
 	if strips == "" {

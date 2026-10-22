@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"komrad/internal/ui/column"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/screen"
@@ -83,8 +84,8 @@ func (m *model) isMessagesFlashing() bool {
 	return m.messages.flashing && len(m.messages.items) > 0
 }
 
-func buildMessagesColumn() columnSpec {
-	return columnSpec{floor: columnFloor}
+func buildMessagesColumn() column.Spec {
+	return column.Spec{Floor: columnFloor}
 }
 
 func formatMessageText(held message) string {

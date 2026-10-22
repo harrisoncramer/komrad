@@ -167,7 +167,7 @@ func (m *model) focusBlockIn(blocks []sidebarBlock, x, y int) tea.Cmd {
 }
 
 func (m *model) scrollSidebar(rows int) tea.Cmd {
-	if m.isDetailsFocused() {
+	if m.isDetailsFocused(m.inputs()) {
 		return m.pressWheel(rows)
 	}
 

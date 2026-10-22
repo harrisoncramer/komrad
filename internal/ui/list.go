@@ -324,6 +324,17 @@ type screenListParams struct {
 	// rows is how many rows the list holds.
 	rows     int
 	snapshot func(list.Pane) view.Snapshot
+	// hidesKinds keeps the row of kinds off however much room the list has.
+	hidesKinds bool
+}
+
+func (m *model) activeListParams(in screen.Inputs) (screenListParams, bool) {
+	l, ok := m.active().(listRenderer)
+	if !ok {
+		return screenListParams{}, false
+	}
+
+	return l.listParams(m, in), true
 }
 
 // listHelpOf is a screen's legend as the root renders it under the list.
@@ -390,7 +401,7 @@ func spareLinesOf(height int, chrome ...string) int {
 
 func (m *model) listClicker(l keyedList) clicker {
 	clicked := requestClick(func(m *model, key string, nth int) screen.Request { return l.click(m, m.inputs(), key, nth) })
-	if !m.isListFocused() || m.isViewsOpen() {
+	if !m.isListFocused(m.inputs()) || m.isViewsOpen() {
 		return m.stopClicker(stopList, clicked)
 	}
 

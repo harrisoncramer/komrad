@@ -287,22 +287,22 @@ func (d *documentsScreen) applyVersionRead(msg documentVersionReadMsg) {
 
 // buildFrame builds the diff of the write stepped to once it is rendered beside the list.
 func (d *documentsScreen) buildFrame(m *model, in screen.Inputs) {
-	if m.screenColumnSplit().On && d.isSteppingHovered(m, in) {
-		d.history.keepDiff(m.term.isDark)
+	if in.Room.Split.On && d.isSteppingHovered(m, in) {
+		d.history.keepDiff(in.Room.Dark)
 	}
 }
 
 // diffWindow is the size the panel renders the diff at, under the rows over it.
-func (d *documentsScreen) diffWindow(m *model) diffview.Window {
-	split := m.screenColumnSplit()
-	item, hovered := d.hovered(m, m.inputs())
+func (d *documentsScreen) diffWindow(m *model, in screen.Inputs) diffview.Window {
+	split := in.Room.Split
+	item, hovered := d.hovered(m, in)
 	if !split.On || !hovered || d.history == nil {
-		return diffview.Window{Height: 1, Wrap: m.diffWrap}
+		return diffview.Window{Height: 1, Wrap: in.Room.Wrap}
 	}
 
 	return diffview.Window{
 		Width:  split.Column,
-		Height: max(split.Rows-len(d.history.head(m, item, split.Column)), 1),
-		Wrap:   m.diffWrap,
+		Height: max(split.Rows-len(d.history.head(m, in, item, split.Column)), 1),
+		Wrap:   in.Room.Wrap,
 	}
 }

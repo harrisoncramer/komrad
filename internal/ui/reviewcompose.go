@@ -66,7 +66,7 @@ func reviewInputHint(editor, submit []string, said string) string {
 
 // openInput puts a field in the popup, sized to the room inside it.
 func (r *reviewScreen) openInput(m *model, params newReviewInputParams) screen.Request {
-	params.Width = reviewInputWidth(r.measurePopupInner(m))
+	params.Width = reviewInputWidth(r.measurePopupInner(m.inputs()))
 	params.Keys = fixedKeys()
 	params.Register = r.deps.register
 
@@ -341,7 +341,7 @@ func (r *reviewScreen) toggleViewed(m *model) screen.Request {
 	doing, notice := "opening the file again", "file opened again"
 	if viewed {
 		doing, notice = "marking the file viewed", "file viewed"
-		r.diff.MoveTo(r.diff.View().JumpFile(r.diff.Cursor(), 1), r.diffWindow(m))
+		r.diff.MoveTo(r.diff.View().JumpFile(r.diff.Cursor(), 1), r.diffWindow(m.inputs()))
 	}
 
 	r.scrollToCursor(m)

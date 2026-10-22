@@ -40,9 +40,9 @@ func documentColumns() view.Columns {
 func (d *documentsScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
 	rows := d.rows(m, in)
 	picked := pickedRows(m.filter, rows, m.documentRowFits(in.Listing))
-	now := m.clock.Now()
+	now := in.Room.Now
 	caret := pane.Caret
-	if d.isDiffFocused(m) {
+	if d.isDiffFocused(in) {
 		caret = view.CaretRendered
 	}
 
@@ -82,7 +82,7 @@ func (d *documentsScreen) details(m *model, in screen.Inputs) details {
 
 func (d *documentsScreen) documentTypeSnapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
 	rows := d.documentTypeRows(m, in)
-	now := m.clock.Now()
+	now := in.Room.Now
 
 	return view.Snapshot{
 		Rows: xslice.Map(rows, func(r documentTypeRow) view.Row {
@@ -110,7 +110,7 @@ func (d *documentsScreen) doc(m *model, in screen.Inputs) string {
 	}
 
 	read, asked := d.bodies[item.id]
-	notice := fmt.Sprintf("_%s, written %s ago_", item.typeName, label.AgeAt(item.updatedAt, m.clock.Now()))
+	notice := fmt.Sprintf("_%s, written %s ago_", item.typeName, label.AgeAt(item.updatedAt, in.Room.Now))
 	switch {
 	case !asked || (read.pending && read.body == ""):
 		return renderDocument(item.name, notice, "_reading…_", "")
@@ -138,7 +138,7 @@ func documentProse(name, body string) string {
 // changed, or the document as it stands.
 func (d *documentsScreen) docRows(m *model, in screen.Inputs, width int) []string {
 	if d.kind == documentKindTypes {
-		return paint.DocStyledRows(documentTypeFrom(d.hoveredDocumentType(m, in), m.clock.Now()), max(width, 1), columnStyle())
+		return paint.DocStyledRows(documentTypeFrom(d.hoveredDocumentType(m, in), in.Room.Now), max(width, 1), columnStyle())
 	}
 
 	item, ok := d.hovered(m, in)
@@ -150,34 +150,34 @@ func (d *documentsScreen) docRows(m *model, in screen.Inputs, width int) []strin
 	}
 
 	h := d.history
-	head := h.head(m, item, width)
+	head := h.head(m, in, item, width)
 	if h.err != nil || h.versions == nil {
 		return head
 	}
 
-	if !h.isRendered(m.term.isDark) {
+	if !h.isRendered(in.Room.Dark) {
 		return append(head, h.changeRows(width)...)
 	}
 
 	held := diffview.DimCursor
-	if d.isDiffFocused(m) {
+	if d.isDiffFocused(in) {
 		held = diffview.LiveCursor
 	}
 
-	window := d.diffWindow(m)
+	window := d.diffWindow(m, in)
 	window.Width = width
 
 	return append(head, m.markDiff(&h.pane, window, h.pane.Render(window, held))...)
 }
 
 // head is the rows over the change: which write it is and the search.
-func (h *documentHistory) head(m *model, item documentItem, width int) []string {
+func (h *documentHistory) head(m *model, in screen.Inputs, item documentItem, width int) []string {
 	notice := "_reading its versions…_"
 	switch {
 	case h.err != nil:
 		notice = "could not list its versions: " + errui.GetReason(h.err)
 	case h.versions != nil:
-		notice = h.notice(m.clock.Now())
+		notice = h.notice(in.Room.Now)
 	}
 
 	rows := paint.DocStyledRows(renderDocument(item.name, notice, "", ""), width, columnStyle())

@@ -21,7 +21,7 @@ func (m *model) findModeEnd() int {
 		return gutter + m.term.width
 	}
 
-	if split := m.columnGeometry(); split.On {
+	if split := m.inputs().Room.Geometry; split.On {
 		return gutter + split.Sidebar
 	}
 
@@ -65,7 +65,7 @@ func (m *model) typedLine() (field.Line, bool) {
 	switch {
 	case m.filter.typing:
 		return m.filter.input, true
-	case m.reading.filter.typing && m.isDocReadable():
+	case m.reading.filter.typing && m.isDocReadable(m.inputs()):
 		return m.reading.filter.input, true
 	}
 

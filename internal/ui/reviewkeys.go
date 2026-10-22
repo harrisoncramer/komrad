@@ -65,7 +65,7 @@ func (r *reviewScreen) diffKeys() diffKeys {
 		register: r.deps.register,
 		pane:     &r.diff.Pane,
 		filter:   &r.diff.filter,
-		window:   r.diffWindow,
+		window:   func(m *model) diffview.Window { return r.diffWindow(m.inputs()) },
 		moved: func(m *model) screen.Request {
 			r.threads.scroll.reset()
 
@@ -86,16 +86,16 @@ func (r *reviewScreen) refuseExpand(m *model) string {
 }
 
 // diffWindow is the window that renders the diff, zero-sized without a split.
-func (r *reviewScreen) diffWindow(m *model) diffview.Window {
-	split := m.screenColumnSplit()
+func (r *reviewScreen) diffWindow(in screen.Inputs) diffview.Window {
+	split := in.Room.Split
 	if !split.On {
-		return diffview.Window{Wrap: m.diffWrap}
+		return diffview.Window{Wrap: in.Room.Wrap}
 	}
 
 	return diffview.Window{
 		Width:  split.Column,
 		Height: split.Rows,
-		Wrap:   m.diffWrap,
+		Wrap:   in.Room.Wrap,
 	}
 }
 
@@ -200,7 +200,7 @@ func (r *reviewScreen) scrollList(m *model, rows int) screen.Request {
 
 // scrollPopupAt moves the conversation in the popup when the popup holds the cell.
 func (r *reviewScreen) scrollPopupAt(m *model, in screen.Inputs, at image.Point, rows int) bool {
-	body, _ := r.popupBody(m, in, r.measurePopupInner(m))
+	body, _ := r.popupBody(m, in, r.measurePopupInner(in))
 	if body == "" || !r.placeThread(m, in, body).contains(at.X, at.Y) {
 		return false
 	}
@@ -214,13 +214,13 @@ func (r *reviewScreen) scrollPopupAt(m *model, in screen.Inputs, at image.Point,
 
 // scrollToCursor moves the window only when the cursor is about to leave it.
 func (r *reviewScreen) scrollToCursor(m *model) {
-	r.diff.ScrollToCursor(r.diffWindow(m))
+	r.diff.ScrollToCursor(r.diffWindow(m.inputs()))
 }
 
 // scrollPopup moves the conversation in the popup down by rows, up when rows is negative, and
 // reports whether there was a conversation there to move.
 func (r *reviewScreen) scrollPopup(m *model, in screen.Inputs, rows int) bool {
-	id, body, ok := r.conversationAtCursor(m, in, r.measurePopupInner(m))
+	id, body, ok := r.conversationAtCursor(m, in, r.measurePopupInner(in))
 	if !ok {
 		return false
 	}
@@ -247,7 +247,7 @@ func (r *reviewScreen) scrollSidebarAt(m *model, in screen.Inputs, y, rows int) 
 
 // sidebarNavAt is the sidebar section rendered on row y, and false for a row the wheel leaves alone.
 func (r *reviewScreen) sidebarNavAt(m *model, in screen.Inputs, y int) (navigable, bool) {
-	if !m.screenColumnSplit().On {
+	if !in.Room.Split.On {
 		return nil, false
 	}
 

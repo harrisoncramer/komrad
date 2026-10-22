@@ -7,6 +7,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/api"
+	"komrad/internal/ui/column"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
@@ -145,7 +146,7 @@ func (d *documentsScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen
 		return d.diffKeys().updateFilter(m, key)
 	}
 
-	if d.isDiffFocused(m) {
+	if d.isDiffFocused(in) {
 		return d.updateDiff(m, key)
 	}
 
@@ -191,10 +192,6 @@ func (d *documentsScreen) kinds(*model) stops {
 		focus:  noStop,
 		lit:    int(d.kind),
 	}
-}
-
-func (d *documentsScreen) kindsFit(m *model, in screen.Inputs) bool {
-	return m.listFitsTabs(d.listParams(m, in))
 }
 
 func (d *documentsScreen) kindsFocused(*model) *bool {
@@ -555,14 +552,14 @@ func (d *documentsScreen) isSearchTyping() bool {
 	return d.history != nil && d.history.filter.typing
 }
 
-func (d *documentsScreen) column() columnSpec {
-	return columnSpec{
-		floor: columnFloor,
-		docRows: func(m *model, in screen.Inputs, width int) []string {
+func (d *documentsScreen) column(m *model, in screen.Inputs) column.Spec {
+	return column.Spec{
+		Floor: columnFloor,
+		DocRows: func(width int) []string {
 			return m.documents.docRows(m, in, width)
 		},
-		holds: func(m *model, _ screen.Inputs) bool { return m.documents.editing == nil },
-		read:  func(m *model, in screen.Inputs) bool { return !m.documents.isSteppingHovered(m, in) },
+		Holds: func() bool { return m.documents.editing == nil },
+		Read:  func() bool { return !m.documents.isSteppingHovered(m, in) },
 	}
 }
 
@@ -576,12 +573,4 @@ func (d *documentsScreen) activeList() keyedList {
 
 func (d *documentsScreen) dispatches(m *model) []keys.Table {
 	return []keys.Table{d.listActions(), d.diffActions(), m.docActions(), d.docKeys()}
-}
-
-func (d *documentsScreen) detailsFit(m *model, in screen.Inputs) bool {
-	return m.listFitsDetails(d.listParams(m, in))
-}
-
-func (d *documentsScreen) detailsRoom(m *model, in screen.Inputs) int {
-	return m.listRecordRoom(d.listParams(m, in))
 }

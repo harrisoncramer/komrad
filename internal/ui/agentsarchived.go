@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"komrad/internal/ui/api"
+	"komrad/internal/ui/column"
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
@@ -66,10 +67,6 @@ func (a *agentsScreen) kinds(*model) stops {
 
 func (a *agentsScreen) kindsFocused(*model) *bool {
 	return &a.kindFocus
-}
-
-func (a *agentsScreen) kindsFit(m *model, in screen.Inputs) bool {
-	return m.listFitsTabs(a.listParams(m, in))
 }
 
 // kindsSwitch holds the agents view on its kind while the user selects any of its agents.
@@ -155,10 +152,6 @@ func (a *archivedAgents) kinds(m *model) stops {
 
 func (a *archivedAgents) kindsFocused(m *model) *bool {
 	return m.agents.kindsFocused(m)
-}
-
-func (a *archivedAgents) kindsFit(m *model, in screen.Inputs) bool {
-	return m.listFitsTabs(a.listParams(m, in))
 }
 
 // kindsSwitch holds the archived agents on their kind while the user selects any of them.
@@ -527,14 +520,6 @@ func (a *archivedAgents) takesEveryKey() bool {
 	return a.isRenaming()
 }
 
-func (a *archivedAgents) detailsFit(m *model, in screen.Inputs) bool {
-	return m.listFitsDetails(a.listParams(m, in))
-}
-
-func (a *archivedAgents) detailsRoom(m *model, in screen.Inputs) int {
-	return m.listRecordRoom(a.listParams(m, in))
-}
-
 func (a *archivedAgents) activeList() keyedList {
 	return a.list()
 }
@@ -551,15 +536,11 @@ func (a *archivedAgents) tabsState() *tabsState {
 	return &a.sort
 }
 
-func (a *archivedAgents) tabsFit(m *model, in screen.Inputs) bool {
-	return m.listFitsTabs(a.listParams(m, in))
-}
-
-func (a *archivedAgents) column() columnSpec {
-	return columnSpec{
-		floor: columnFloor,
-		read:  isAlwaysRead,
-		docRows: func(m *model, in screen.Inputs, width int) []string {
+func (a *archivedAgents) column(m *model, in screen.Inputs) column.Spec {
+	return column.Spec{
+		Floor: columnFloor,
+		Read:  column.IsAlwaysRead,
+		DocRows: func(width int) []string {
 			if agentID, ok := a.screenedAgentID(m, in); ok {
 				if rows := m.saidColumnRows(agentID, width); rows != nil {
 					return rows
