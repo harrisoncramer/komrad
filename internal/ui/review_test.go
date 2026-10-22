@@ -340,7 +340,7 @@ func TestReviewCursor(t *testing.T) {
 	t.Run("the wheel over the diff leaves a comment being written on its line", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 		harness.Press("space", "c")
-		typeText(harness, "still here")
+		harness.Type("still here")
 
 		wheelOver(harness, paneltest.DefaultWidth-1)
 		harness.Press("enter")
@@ -465,7 +465,7 @@ func TestReviewThreads(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
 		harness.Press("space", "c")
-		typeText(harness, "this should say hello")
+		harness.Type("this should say hello")
 		harness.Press("enter")
 
 		harness.AssertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
@@ -488,7 +488,7 @@ func TestReviewThreads(t *testing.T) {
 		harness := openReview(t, server)
 
 		harness.Press("space", "c")
-		typeText(harness, "this should say hello")
+		harness.Type("this should say hello")
 		harness.Press("enter")
 		harness.Watch(server.buildSnapshot())
 
@@ -522,7 +522,7 @@ func TestReviewThreads(t *testing.T) {
 			connect.NewError(connect.CodeFailedPrecondition, errors.New("not now")))
 
 		harness.Press("space", "c")
-		typeText(harness, "this should say hello")
+		harness.Type("this should say hello")
 		harness.Press("enter")
 
 		frame := harness.Frame()
@@ -537,7 +537,7 @@ func TestReviewThreads(t *testing.T) {
 		harness.Hold(agentv1connect.AgentServiceCreateReviewThreadProcedure)
 
 		harness.Press("space", "c")
-		typeText(harness, "this should say hello")
+		harness.Type("this should say hello")
 		harness.Press("enter")
 		harness.Press("j", "j", "j")
 		harness.Release(agentv1connect.AgentServiceCreateReviewThreadProcedure)
@@ -631,7 +631,7 @@ func TestReviewThreads(t *testing.T) {
 		require.Contains(t, harness.Frame(), "reply in this thread")
 
 		harness.Press("c")
-		typeText(harness, "yes, that is it")
+		harness.Type("yes, that is it")
 		harness.Press("enter")
 
 		harness.AssertSentTo(agentv1connect.AgentServiceAddReviewMessageProcedure, &agentv1.AddReviewMessageRequest{
@@ -652,7 +652,7 @@ func TestReviewThreads(t *testing.T) {
 		harness.Hold(agentv1connect.AgentServiceAddReviewMessageProcedure)
 
 		harness.Press("space", "c")
-		typeText(harness, "yes, that is it")
+		harness.Type("yes, that is it")
 		harness.Press("enter")
 		harness.Press("t")
 		harness.Release(agentv1connect.AgentServiceAddReviewMessageProcedure)
@@ -693,7 +693,7 @@ func TestReviewThreads(t *testing.T) {
 		harness := openReview(t, server)
 
 		harness.Press("t", "space", "c")
-		typeText(harness, "because")
+		harness.Type("because")
 		harness.Press("enter")
 
 		harness.AssertSentTo(agentv1connect.AgentServiceAddReviewMessageProcedure, &agentv1.AddReviewMessageRequest{
@@ -959,7 +959,7 @@ func TestReviewSearch(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
 		harness.Press("/")
-		typeText(harness, "goodbye")
+		harness.Type("goodbye")
 
 		frame := harness.Frame()
 		assert.Equal(t, "greet.go:4", paneltest.ReviewCursor(frame))
@@ -976,7 +976,7 @@ func TestReviewSearch(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
 		harness.Press("/")
-		typeText(harness, "goodbye")
+		harness.Type("goodbye")
 		harness.Press("esc")
 
 		frame := harness.Frame()
@@ -988,7 +988,7 @@ func TestReviewSearch(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
 		harness.Press("/")
-		typeText(harness, "return")
+		harness.Type("return")
 		harness.Press("enter")
 		first := paneltest.ReviewCursor(harness.Frame())
 
@@ -1007,7 +1007,7 @@ func TestReviewSearch(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
 		harness.Press("/")
-		typeText(harness, "return")
+		harness.Type("return")
 		harness.Press("enter", "g", "g")
 
 		assert.Contains(t, paneltest.StageText(harness.Frame()), "2 matches")
@@ -1020,7 +1020,7 @@ func TestReviewSearch(t *testing.T) {
 		assert.Contains(t, readEngineLine(harness.Frame()), "nothing to search for yet")
 
 		harness.Press("/")
-		typeText(harness, "wallaby")
+		harness.Type("wallaby")
 		harness.Press("enter", "n")
 
 		frame := harness.Frame()
@@ -1053,7 +1053,7 @@ func TestReviewSearch(t *testing.T) {
 		require.Contains(t, paneltest.HoveredRow(harness.Frame()), "auth")
 
 		harness.Press("space", "r", "/")
-		typeText(harness, "goodbye")
+		harness.Type("goodbye")
 		harness.Press("enter", "esc", "esc")
 
 		frame := harness.Frame()
@@ -1267,7 +1267,7 @@ func TestReviewWatch(t *testing.T) {
 		server := newReviewServer(t)
 		harness := openReview(t, server)
 		harness.Press("j", "space", "c")
-		typeText(harness, "half a thought")
+		harness.Type("half a thought")
 
 		server.threads = []*agentv1.ReviewThread{newThreadOnFirstLine(newHumanMessage("m0", "fix it"), newAgentMessage("m1", "fixed it"))}
 		harness.Watch(server.buildSnapshot())
@@ -1342,7 +1342,7 @@ func TestReviewReload(t *testing.T) {
 		server := newReviewServer(t)
 		harness := openReview(t, server)
 		harness.Press("/")
-		typeText(harness, "hello")
+		harness.Type("hello")
 		harness.Press("enter", "l")
 		before := harness.Frame()
 
@@ -1360,7 +1360,7 @@ func TestReviewReload(t *testing.T) {
 		server := newReviewServer(t)
 		harness := openReview(t, server)
 		harness.Press("/")
-		typeText(harness, "greet.go")
+		harness.Type("greet.go")
 		harness.Press("enter")
 		header := paneltest.ReviewCursor(harness.Frame())
 		require.Contains(t, paneltest.StageText(harness.Frame()), "1 of 1")
@@ -1378,7 +1378,7 @@ func TestReviewReload(t *testing.T) {
 	t.Run("the reload key keeps the search and its matches", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 		harness.Press("/")
-		typeText(harness, "return")
+		harness.Type("return")
 		harness.Press("enter", "space", "R")
 
 		assert.Contains(t, paneltest.StageText(harness.Frame()), "1 of 2")
@@ -1530,7 +1530,7 @@ func TestReviewOwnComments(t *testing.T) {
 		harness := openReview(t, newYoursServer(t, newYourThread(gittest.File, 1)))
 
 		harness.Press("space", "c")
-		typeText(harness, "still reads like a changelog")
+		harness.Type("still reads like a changelog")
 		harness.Press("enter")
 
 		harness.AssertSentTo(agentv1connect.AgentServiceAddReviewMessageProcedure, &agentv1.AddReviewMessageRequest{
@@ -1685,7 +1685,7 @@ func TestReviewExpand(t *testing.T) {
 		harness.Press("space", "E", "G")
 		require.Equal(t, "tall.go:13", paneltest.ReviewCursor(harness.Frame()))
 		harness.Press("space", "c")
-		typeText(harness, "unchanged and wrong")
+		harness.Type("unchanged and wrong")
 		harness.Press("enter")
 
 		sent := harness.Sent(agentv1connect.AgentServiceCreateReviewThreadProcedure)
@@ -1796,7 +1796,7 @@ func TestReviewSnapshots(t *testing.T) {
 		harness := openReview(t, newEarlierReviewServer(t))
 
 		harness.Press("<", "space", "c")
-		typeText(harness, "this line")
+		harness.Type("this line")
 		harness.Press("enter")
 
 		harness.AssertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
@@ -1862,7 +1862,7 @@ func TestReviewSnapshots(t *testing.T) {
 		server.historyErr = errors.New("the server went away")
 
 		harness.Press("space", "c")
-		typeText(harness, "hello")
+		harness.Type("hello")
 		require.Contains(t, harness.Frame(), "  Comment")
 		harness.Release(agentv1connect.AgentServiceOpenReviewHistoryProcedure)
 
@@ -1970,7 +1970,7 @@ func TestReviewComposer(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
 		harness.Press("/")
-		typeText(harness, "greet.go")
+		harness.Type("greet.go")
 		harness.Press("enter", "space", "c")
 
 		frame := harness.Frame()
@@ -2066,7 +2066,7 @@ func TestReviewEdit(t *testing.T) {
 		harness := openReview(t, newReviewServerOver(repo))
 
 		harness.Press("/")
-		typeText(harness, "Gone")
+		harness.Type("Gone")
 		harness.Press("enter", "space", "e")
 
 		frame := harness.Frame()
@@ -2575,16 +2575,6 @@ func newAgentMessage(id, body string) *agentv1.ReviewMessage {
 		AuthorKind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
 		AuthorAgentId: xptr.Ptr("a1"),
 		Body:          body,
-	}
-}
-
-func typeText(harness *paneltest.Panel, text string) {
-	for _, letter := range text {
-		key := string(letter)
-		if key == " " {
-			key = "space"
-		}
-		harness.Press(key)
 	}
 }
 

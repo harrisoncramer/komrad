@@ -403,6 +403,18 @@ func Sidebar(frame string) []string {
 	})
 }
 
+// Search is the filter's prompt under the views, empty while none is rendered.
+func Search(frame string) string {
+	for _, line := range BelowViews(frame) {
+		prompt := strings.TrimSpace(ansi.Truncate(line, ListWidth(frame), ""))
+		if strings.HasPrefix(prompt, "/") || strings.HasPrefix(prompt, "▽") {
+			return prompt
+		}
+	}
+
+	return ""
+}
+
 // SidebarProse is the sidebar's words joined on single spaces.
 func SidebarProse(frame string) string {
 	return JoinProse(Sidebar(frame))

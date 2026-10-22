@@ -58,3 +58,5 @@ func (p *Panel) MoveToRow(name string) {
 
 	require.Contains(p.t, strings.Fields(HoveredRow(p.Frame())), name, "no row is named %q", name)
 }
+
+var WidenListPresses = slices.Repeat([]string{"ctrl+space", "l"}, 10)

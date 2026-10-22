@@ -80,7 +80,7 @@ func TestMenu(t *testing.T) {
 				name: "off an agent",
 				open: func(t *testing.T) *paneltest.Panel {
 					harness := openSchedules(t, buildSchedules()...)
-					harness.Press(widenListPresses...)
+					harness.Press(paneltest.WidenListPresses...)
 
 					return harness
 				},

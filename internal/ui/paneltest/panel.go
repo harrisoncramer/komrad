@@ -252,6 +252,19 @@ func (p *Panel) Press(presses ...string) {
 	}
 }
 
+// Type presses each letter of text in turn, a space as space.
+func (p *Panel) Type(text string) {
+	p.t.Helper()
+
+	for _, letter := range text {
+		key := string(letter)
+		if key == " " {
+			key = "space"
+		}
+		p.Press(key)
+	}
+}
+
 // Send hands the panel a message from its terminal, such as a size, a click or a turn of the wheel.
 func (p *Panel) Send(msg tea.Msg) {
 	p.t.Helper()

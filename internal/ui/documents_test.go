@@ -52,7 +52,7 @@ func TestDocumentsOpen(t *testing.T) {
 
 		frame := harness.Frame()
 		assert.Equal(t, screen.Documents, paneltest.Screen(harness.Frame()))
-		assert.Equal(t, "▽ task:task-author", readSearch(frame))
+		assert.Equal(t, "▽ task:task-author", paneltest.Search(frame))
 		assert.Contains(t, paneltest.StageText(frame), "Design the cache")
 		assert.NotContains(t, strings.Join(paneltest.ListRows(frame), "\n"), "Quiet notes")
 		harness.AssertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{
@@ -80,7 +80,7 @@ func TestDocumentsOpen(t *testing.T) {
 
 		frame := harness.Frame()
 		rows := strings.Join(paneltest.ListRows(frame), "\n")
-		assert.Equal(t, "▽ agent:komrad", readSearch(frame))
+		assert.Equal(t, "▽ agent:komrad", paneltest.Search(frame))
 		assert.Contains(t, rows, "Workflow plan")
 		assert.NotContains(t, rows, "Design the cache")
 	})
@@ -162,7 +162,7 @@ func TestDocumentsOpen(t *testing.T) {
 		harness.Press("esc")
 
 		assert.Equal(t, screen.Documents, paneltest.Screen(harness.Frame()))
-		assert.NotContains(t, readSearch(harness.Frame()), "agent:author")
+		assert.NotContains(t, paneltest.Search(harness.Frame()), "agent:author")
 	})
 
 	t.Run("closing the menu comes back to the same agent's documents", func(t *testing.T) {
@@ -340,7 +340,7 @@ func TestDocumentsFilter(t *testing.T) {
 				}
 			}
 			assert.Equal(t, tt.wantNames, names)
-			assert.True(t, strings.HasPrefix(readSearch(frame), tt.wantSearch), readSearch(frame))
+			assert.True(t, strings.HasPrefix(paneltest.Search(frame), tt.wantSearch), paneltest.Search(frame))
 		})
 	}
 }
@@ -370,7 +370,7 @@ func TestDocumentsSays(t *testing.T) {
 	frame := harness.Frame()
 	assert.Equal(t, []string{`"tuesday"`}, asked)
 	assert.Equal(t, []string{"Rollout report"}, paneltest.ListRows(frame))
-	assert.Equal(t, "▽ says:tuesday", readSearch(frame))
+	assert.Equal(t, "▽ says:tuesday", paneltest.Search(frame))
 	assert.Regexp(t, marked, findRawLine(harness.RawFrame(), line), "the word found is lit in the document")
 	assert.Regexp(t, picked, paneltest.RawListRow(harness.RawFrame(), "Rollout report"), "the document found is lit in the list")
 

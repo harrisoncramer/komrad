@@ -598,7 +598,7 @@ func TestAgentsRecord(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := paneltest.OpenAgents(t, tt.rows...)
 
-			harness.Press(append(tt.press, widenListPresses...)...)
+			harness.Press(append(tt.press, paneltest.WidenListPresses...)...)
 
 			frame := harness.Frame()
 			for label, value := range tt.want {
@@ -973,7 +973,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 			harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, tt.answer)
 			harness.Watch(paneltest.Snapshot(buildRecordedTask()...))
 
-			harness.Press(append([]string{"pick:record"}, widenListPresses...)...)
+			harness.Press(append([]string{"pick:record"}, paneltest.WidenListPresses...)...)
 
 			frame := harness.Frame()
 			for label, value := range tt.want {
@@ -992,7 +992,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 
 		harness.Press("f", "shift+tab", "j", "esc")
 		harness.Advance(time.Second)
-		harness.Press(append([]string{"pick:record"}, widenListPresses...)...)
+		harness.Press(append([]string{"pick:record"}, paneltest.WidenListPresses...)...)
 
 		frame := harness.Frame()
 		assert.Equal(t, "agent/auth", paneltest.RecordField(frame, "branch"))
@@ -1069,14 +1069,14 @@ func TestAgentsRecordWorktree(t *testing.T) {
 				name:     "a wide rule carries every change waiting in the directory",
 				read:     buildWorktreeRead(),
 				diffStat: changed,
-				presses:  widenListPresses,
+				presses:  paneltest.WidenListPresses,
 				want:     "2 modified · 1 untracked · ↑2 unpushed · ↓1 unpulled · +200 −100",
 			},
 			{
 				name:     "unpulled commits the base already holds are left off",
 				read:     unpulledLanded,
 				diffStat: changed,
-				presses:  widenListPresses,
+				presses:  paneltest.WidenListPresses,
 				want:     "2 modified · 1 untracked · ↑2 unpushed · +200 −100",
 			},
 			{
@@ -1166,7 +1166,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 		harness.Advance(time.Second)
 		harness.Refuse(worktreev1connect.WorktreeServiceGetWorktreeProcedure, connect.NewError(connect.CodeInternal, errors.New("context deadline exceeded")))
 
-		harness.Press(append([]string{"pick:record"}, widenListPresses...)...)
+		harness.Press(append([]string{"pick:record"}, paneltest.WidenListPresses...)...)
 
 		frame := harness.Frame()
 		assert.Equal(t, "could not read: context deadline exceeded", paneltest.RecordField(frame, "worktree"))
@@ -1284,7 +1284,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 	t.Run("tab narrows the record to the fields it matches and the rows under them", func(t *testing.T) {
 		harness := openAgentRecord(t)
 
-		harness.Press(append([]string{"/", "_", "i", "d", "tab", "enter"}, widenListPresses...)...)
+		harness.Press(append([]string{"/", "_", "i", "d", "tab", "enter"}, paneltest.WidenListPresses...)...)
 
 		frame := harness.Frame()
 		assert.Contains(t, frame, "▽ _id")
@@ -1311,13 +1311,13 @@ func TestAgentsRecordSearch(t *testing.T) {
 		harness.Press("/", "s", "i", "z", "esc")
 
 		frame := harness.Frame()
-		assert.Equal(t, "/", readSearch(frame))
+		assert.Equal(t, "/", paneltest.Search(frame))
 		assert.Regexp(t, `^directory\s`, paneltest.RecordCursor(frame), "the record keeps the keys and its cursor")
 
 		harness.Press("/", "s", "i", "z", "enter", "esc")
 
 		frame = harness.Frame()
-		assert.Equal(t, "/", readSearch(frame), "the first escape clears the search")
+		assert.Equal(t, "/", paneltest.Search(frame), "the first escape clears the search")
 		assert.NotEmpty(t, paneltest.RecordCursor(frame))
 
 		harness.Press("esc")
@@ -1330,7 +1330,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 		harness.Press("/", "s", "i", "z", "tab", "enter", "pick:record")
 
 		frame := harness.Frame()
-		assert.Equal(t, "▽ siz", readSearch(frame))
+		assert.Equal(t, "▽ siz", paneltest.Search(frame))
 		assert.Len(t, slices.DeleteFunc(paneltest.Record(frame), isBlank), 1)
 	})
 
@@ -1341,7 +1341,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 
 		frame := harness.Frame()
 		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
-		assert.Equal(t, "/", readSearch(frame))
+		assert.Equal(t, "/", paneltest.Search(frame))
 	})
 
 	t.Run("a focused record keeps the keys through its search in a tight pane", func(t *testing.T) {
@@ -2037,7 +2037,7 @@ func TestAgentsWatchedEdits(t *testing.T) {
 			task,
 			&pullrequestv1.Repository{Url: repositoryURL},
 		)
-		harness.Press(widenListPresses...)
+		harness.Press(paneltest.WidenListPresses...)
 
 		harness.Watch(paneltest.Puts(&pullrequestv1.PullRequest{
 			Id:                "pr-1",
@@ -2077,7 +2077,7 @@ func TestAgentsWatchedEdits(t *testing.T) {
 			task,
 			&pullrequestv1.Repository{Url: repositoryURL},
 		)
-		harness.Press(widenListPresses...)
+		harness.Press(paneltest.WidenListPresses...)
 
 		harness.Watch(paneltest.Puts(&pullrequestv1.PullRequest{
 			Id:                "pr-1",
@@ -2388,17 +2388,6 @@ func openWorktreeRecord(t *testing.T, params paneltest.Params) *paneltest.Panel 
 	harness.Press("pick:record")
 
 	return harness
-}
-
-func readSearch(frame string) string {
-	for _, line := range paneltest.BelowViews(frame) {
-		prompt := strings.TrimSpace(ansi.Truncate(line, paneltest.ListWidth(frame), ""))
-		if strings.HasPrefix(prompt, "/") || strings.HasPrefix(prompt, "▽") {
-			return prompt
-		}
-	}
-
-	return ""
 }
 
 func findRecordCursor(frame string) int {

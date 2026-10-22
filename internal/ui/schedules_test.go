@@ -54,7 +54,7 @@ func TestSchedulesKeys(t *testing.T) {
 		},
 		{
 			name:         "new with no workflows says why rather than opening the form",
-			press:        append(widenListPresses, "space", "c"),
+			press:        append(paneltest.WidenListPresses, "space", "c"),
 			wantRendered: []string{"Could not create a schedule"},
 			wantAbsent:   []string{scheduleForm},
 		},
@@ -298,7 +298,7 @@ func TestSchedulesFilter(t *testing.T) {
 
 			frame := harness.Frame()
 			assert.Equal(t, tt.wantRows, readScheduleRows(frame))
-			assert.True(t, strings.HasPrefix(readSearch(frame), tt.wantSearch), readSearch(frame))
+			assert.True(t, strings.HasPrefix(paneltest.Search(frame), tt.wantSearch), paneltest.Search(frame))
 		})
 	}
 }
@@ -572,11 +572,11 @@ func TestSchedulesForm(t *testing.T) {
 		harness := openSchedules(t, buildSchedules()...)
 		harness.Refuse(schedulev1connect.ScheduleServiceCreateScheduleProcedure, errors.New("cron must be five fields"))
 
-		harness.Press(widenListPresses...)
+		harness.Press(paneltest.WidenListPresses...)
 		harness.Press("space", "c", "tab")
-		typeText(harness, "x")
+		harness.Type("x")
 		harness.Press("tab")
-		typeText(harness, "0 9 * * *")
+		harness.Type("0 9 * * *")
 		harness.Press("enter")
 
 		harness.AssertSentTo(schedulev1connect.ScheduleServiceCreateScheduleProcedure, &schedulev1.CreateScheduleRequest{
@@ -594,7 +594,7 @@ func TestSchedulesForm(t *testing.T) {
 	t.Run("an orchestrator schedule mails the orchestrator picked in place of a workflow", func(t *testing.T) {
 		harness := openSchedules(t, append(buildSchedules(), paneltest.Orchestrator())...)
 
-		harness.Press(widenListPresses...)
+		harness.Press(paneltest.WidenListPresses...)
 		harness.Press("space", "c", "down")
 		form := paneltest.StageText(harness.Frame())
 		assert.Contains(t, form, "› orchestrator  api")
@@ -602,9 +602,9 @@ func TestSchedulesForm(t *testing.T) {
 		assert.NotContains(t, form, "Hide its tasks?")
 
 		harness.Press("tab")
-		typeText(harness, "nightly")
+		harness.Type("nightly")
 		harness.Press("tab")
-		typeText(harness, "0 9 * * *")
+		harness.Type("0 9 * * *")
 		harness.Press("enter")
 
 		harness.AssertSentTo(schedulev1connect.ScheduleServiceCreateScheduleProcedure, &schedulev1.CreateScheduleRequest{
@@ -618,16 +618,16 @@ func TestSchedulesForm(t *testing.T) {
 	t.Run("with no live orchestrator only a task schedule is offered", func(t *testing.T) {
 		harness := openSchedules(t, buildSchedules()...)
 
-		harness.Press(widenListPresses...)
+		harness.Press(paneltest.WidenListPresses...)
 		harness.Press("space", "c", "down")
 		form := paneltest.StageText(harness.Frame())
 		assert.Contains(t, form, "start an orchestrator to mail one instead")
 		assert.NotContains(t, form, "mail one already running")
 
 		harness.Press("tab")
-		typeText(harness, "nightly")
+		harness.Type("nightly")
 		harness.Press("tab")
-		typeText(harness, "0 9 * * *")
+		harness.Type("0 9 * * *")
 		harness.Press("enter")
 
 		harness.AssertSentTo(schedulev1connect.ScheduleServiceCreateScheduleProcedure, &schedulev1.CreateScheduleRequest{
@@ -641,13 +641,13 @@ func TestSchedulesForm(t *testing.T) {
 	t.Run("flipping the kind keeps what was typed and the cursor on the kind", func(t *testing.T) {
 		harness := openSchedules(t, append(buildSchedules(), paneltest.Orchestrator())...)
 
-		harness.Press(widenListPresses...)
+		harness.Press(paneltest.WidenListPresses...)
 		harness.Press("space", "c", "tab")
-		typeText(harness, "nightly")
+		harness.Type("nightly")
 		harness.Press("tab")
-		typeText(harness, "0 9 * * *")
+		harness.Type("0 9 * * *")
 		harness.Press("tab", "tab")
-		typeText(harness, "check CI")
+		harness.Type("check CI")
 		harness.Press("shift+tab", "shift+tab", "shift+tab", "shift+tab", "down")
 		require.Contains(t, paneltest.StageText(harness.Frame()), "› orchestrator  api")
 		harness.Press("up")
@@ -658,7 +658,7 @@ func TestSchedulesForm(t *testing.T) {
 		assert.Contains(t, form, "> nightly")
 		assert.Contains(t, form, "check CI")
 		harness.Press("tab")
-		typeText(harness, "-brief")
+		harness.Type("-brief")
 		harness.Press("enter")
 
 		harness.AssertSentTo(schedulev1connect.ScheduleServiceCreateScheduleProcedure, &schedulev1.CreateScheduleRequest{
@@ -694,7 +694,7 @@ func TestSchedulesForm(t *testing.T) {
 		harness := openSchedules(t, buildSchedules()...)
 		harness.Refuse(schedulev1connect.ScheduleServiceSetScheduleEnabledProcedure, errors.New("cron must be five fields"))
 
-		harness.Press(widenListPresses...)
+		harness.Press(paneltest.WidenListPresses...)
 		harness.Press("space", "p")
 
 		assert.Contains(t, harness.Frame(), `Could not pause schedule "morning-ci"`)
@@ -706,7 +706,7 @@ func TestSchedulesForm(t *testing.T) {
 		harness := openSchedules(t, paneltest.Workflow("w1", "api"), hidden)
 
 		harness.Press("space", "e", "tab", "tab", "tab", "tab")
-		typeText(harness, " harder")
+		harness.Type(" harder")
 		harness.Press("enter")
 
 		harness.AssertSentTo(schedulev1connect.ScheduleServiceUpdateScheduleProcedure, &schedulev1.UpdateScheduleRequest{
@@ -742,7 +742,7 @@ func TestSchedulesForm(t *testing.T) {
 
 		harness.Watch(paneltest.Puts(paneltest.Workflow("w2", "brandnew")))
 
-		typeText(harness, "x")
+		harness.Type("x")
 
 		form := paneltest.StageText(harness.Frame())
 		assert.Contains(t, form, "brandnew  —")

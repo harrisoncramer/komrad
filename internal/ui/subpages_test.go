@@ -136,7 +136,7 @@ func TestSubpages(t *testing.T) {
 		t.Parallel()
 
 		harness := paneltest.OpenAgents(t, buildSubpagesAgents()...)
-		harness.Press(widenListPresses...)
+		harness.Press(paneltest.WidenListPresses...)
 		harness.MoveToRow("task-quiet")
 		harness.Press("?")
 
@@ -199,7 +199,7 @@ func TestSubpagesInArchive(t *testing.T) {
 		harness.Advance(time.Second)
 
 		require.Equal(t, screen.Documents, paneltest.Screen(harness.Frame()))
-		assert.Equal(t, "▽ agent:author", readSearch(harness.Frame()))
+		assert.Equal(t, "▽ agent:author", paneltest.Search(harness.Frame()))
 		harness.AssertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{
 			Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](100)},
 		})
