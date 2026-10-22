@@ -68,6 +68,10 @@ X-Request-Id: 019991a6-8b0e-7c3d-9e1f-2a3b4c5d6e7f
       three ways. The service answers this machine only: a request carrying an <code>Origin</code> header from anywhere
       else is refused.
     </p>
+    <p>
+      An asterisk after a type on a method page marks a field the request must set. A oneof groups fields that are
+      alternatives. Its name is only a label, and the request sets one of its fields at the top level.
+    </p>
   </section>
 
   <section class="convention">

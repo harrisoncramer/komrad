@@ -260,6 +260,13 @@
   color: color-mix(in srgb, var(--color-app-red) 55%, var(--color-app-gray-dim));
 }
 
+.doc-content abbr.required {
+  margin-left: 0.15rem;
+  text-decoration: none;
+  color: color-mix(in srgb, var(--color-app-red) 70%, var(--color-app-gray-dim));
+  cursor: help;
+}
+
 .doc-content tr.oneof td {
   border-bottom-color: transparent;
 }

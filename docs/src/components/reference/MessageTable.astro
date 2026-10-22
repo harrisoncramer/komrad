@@ -1,5 +1,6 @@
 ---
 import Heading from "./Heading.astro";
+import Required from "./Required.astro";
 import { anchor, prose } from "../../reference";
 import type { Field, Message, Oneof } from "../../reference/types";
 
@@ -13,6 +14,7 @@ type Row = { field: Field; member: boolean } | { oneof: Oneof };
 const { name, message } = Astro.props;
 const id = anchor(name);
 const tone = (type: string) => (/int|fixed|float|double/.test(type) ? "number" : type);
+const rules = (field: Field) => field.rules.filter((rule) => rule !== "required");
 
 const rows: Row[] = [];
 const drawn = new Set<string>();
@@ -61,11 +63,9 @@ for (const field of message.fields) {
                 </td>
                 <td class="type-cell" data-sep=":">
                   one of
+                  {row.oneof.required && <Required />}
                 </td>
-                <td>
-                  {row.oneof.description && <Fragment set:html={prose(row.oneof.description)} />}
-                  {row.oneof.required && <p class="rules">required</p>}
-                </td>
+                <td>{row.oneof.description && <Fragment set:html={prose(row.oneof.description)} />}</td>
               </tr>
             ) : (
               <tr id={`${id}-${row.field.name}`} class={row.member ? "oneof-member" : undefined}>
@@ -84,10 +84,11 @@ for (const field of message.fields) {
                       {row.field.type}
                     </span>
                   )}
+                  {row.field.rules.includes("required") && <Required />}
                 </td>
                 <td>
                   {row.field.description && <Fragment set:html={prose(row.field.description)} />}
-                  {row.field.rules.length > 0 && <p class="rules">{row.field.rules.join(", ")}</p>}
+                  {rules(row.field).length > 0 && <p class="rules">{rules(row.field).join(", ")}</p>}
                 </td>
               </tr>
             ),
