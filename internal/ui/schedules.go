@@ -56,13 +56,13 @@ func scheduleItemName(item scheduleItem) string {
 }
 
 // enter lands the cursor once the root has put the screen up.
-func (w *schedulesScreen) enter(m *model, _ screen.Target) screen.Request {
-	w.Row = cursor.Clamp(w.Row, len(w.listRows(m)))
+func (w *schedulesScreen) enter(m *model, in screen.Inputs, _ screen.Target) screen.Request {
+	w.Row = cursor.Clamp(w.Row, len(w.listRows(m, in)))
 
 	return screen.Settle{}
 }
 
-func (w *schedulesScreen) update(m *model, msg tea.Msg) screen.Request {
+func (w *schedulesScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen.Request {
 	if _, ok := msg.(tea.PasteMsg); ok && w.isRenaming() {
 		return w.updateRename(w.deps.register, w.deps.clients, msg)
 	}
@@ -72,7 +72,7 @@ func (w *schedulesScreen) update(m *model, msg tea.Msg) screen.Request {
 		return nil
 	}
 
-	w.reconcileRename(m)
+	w.reconcileRename(m, in)
 	if w.isRenaming() {
 		return w.updateRename(w.deps.register, w.deps.clients, msg)
 	}
@@ -80,13 +80,13 @@ func (w *schedulesScreen) update(m *model, msg tea.Msg) screen.Request {
 	return w.actions().DispatchTop(w.deps.top, m, w.deps.keys, key.String())
 }
 
-func (w *schedulesScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) {
+func (w *schedulesScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 	settled, ok := msg.(api.RenameSettled)
 	if !ok {
 		return nil, false
 	}
 
-	w.settleRename(m, settled.Row, settled.Err)
+	w.settleRename(m, in, settled.Row, settled.Err)
 
 	return nil, true
 }
@@ -99,14 +99,14 @@ func (w *schedulesScreen) list() screenList[scheduleItem] {
 		rows:   w.listRows,
 		name:   scheduleItemName,
 		fits:   (*model).scheduleItemFits,
-		moved:  func(*model) screen.Request { return screen.Settle{} },
+		moved:  func(*model, screen.Inputs) screen.Request { return screen.Settle{} },
 	}
 }
 
-func (w *schedulesScreen) listRows(m *model) []scheduleItem {
+func (w *schedulesScreen) listRows(m *model, in screen.Inputs) []scheduleItem {
 	return w.built.read(m.listingKey(), func() []scheduleItem {
 		return narrowed(m.filter, narrowedParams[scheduleItem]{
-			rows:  xslice.Map(m.listing.Schedules, scheduleItemOf),
+			rows:  xslice.Map(in.Listing.Schedules, scheduleItemOf),
 			depth: func(scheduleItem) int { return 0 },
 			name:  scheduleItemName,
 			fits:  m.scheduleItemFits,
@@ -114,14 +114,14 @@ func (w *schedulesScreen) listRows(m *model) []scheduleItem {
 	})
 }
 
-func (w *schedulesScreen) selected(m *model) (scheduleItem, bool) {
-	return list.At(w.listRows(m), w.Row)
+func (w *schedulesScreen) selected(m *model, in screen.Inputs) (scheduleItem, bool) {
+	return list.At(w.listRows(m, in), w.Row)
 }
 
 // apply takes a fresh listing, keeping the cursor on the schedule it was on.
-func (w *schedulesScreen) apply(m *model, hovered string) screen.Request {
-	placed := w.list().place(m, hovered)
-	w.reconcileRename(m)
+func (w *schedulesScreen) apply(m *model, in screen.Inputs, hovered string) screen.Request {
+	placed := w.list().place(m, in, hovered)
+	w.reconcileRename(m, in)
 
 	return placed
 }
@@ -248,12 +248,12 @@ func (w *schedulesScreen) archiveSchedule(schedule panel.Schedule) screen.Reques
 	})
 }
 
-func (w *schedulesScreen) listParams(m *model) screenListParams {
+func (w *schedulesScreen) listParams(m *model, in screen.Inputs) screenListParams {
 	return screenListParams{
 		help:     w.help,
 		empty:    "no schedules yet",
-		rows:     len(w.listRows(m)),
-		snapshot: func(pane list.Pane) view.Snapshot { return w.snapshot(m, pane) },
+		rows:     len(w.listRows(m, in)),
+		snapshot: func(pane list.Pane) view.Snapshot { return w.snapshot(m, in, pane) },
 	}
 }
 
@@ -280,20 +280,20 @@ func (w *schedulesScreen) takesEveryKey() bool {
 	return w.isRenaming()
 }
 
-func (w *schedulesScreen) detailsFit(m *model) bool {
-	return m.listFitsDetails(w.listParams(m))
+func (w *schedulesScreen) detailsFit(m *model, in screen.Inputs) bool {
+	return m.listFitsDetails(w.listParams(m, in))
 }
 
-func (w *schedulesScreen) detailsRoom(m *model) int {
-	return m.listRecordRoom(w.listParams(m))
+func (w *schedulesScreen) detailsRoom(m *model, in screen.Inputs) int {
+	return m.listRecordRoom(w.listParams(m, in))
 }
 
 func (w *schedulesScreen) activeList() keyedList {
 	return w.list()
 }
 
-func (w *schedulesScreen) hoveredName(m *model) string {
-	return w.list().hoveredName(m)
+func (w *schedulesScreen) hoveredName(m *model, in screen.Inputs) string {
+	return w.list().hoveredName(m, in)
 }
 
 // column is the hovered schedule's own record rendered beside the list.
@@ -301,27 +301,27 @@ func (w *schedulesScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
 		read:  isAlwaysRead,
-		docRows: func(m *model, width int) []string {
-			return m.schedules.docRows(m, width)
+		docRows: func(m *model, in screen.Inputs, width int) []string {
+			return m.schedules.docRows(m, in, width)
 		},
 	}
 }
 
-func (w *schedulesScreen) openRename(m *model) screen.Request {
-	if item, ok := w.selected(m); ok {
+func (w *schedulesScreen) openRename(m *model, in screen.Inputs) screen.Request {
+	if item, ok := w.selected(m, in); ok {
 		w.renaming = renameScheduleRow(item)
 	}
 
 	return nil
 }
 
-func (w *schedulesScreen) reconcileRename(m *model) {
-	reconcileRename(&w.renameSlot, w.listRows(m), w.list().hovered(m), scheduleItemName)
+func (w *schedulesScreen) reconcileRename(m *model, in screen.Inputs) {
+	reconcileRename(&w.renameSlot, w.listRows(m, in), w.list().hovered(m, in), scheduleItemName)
 }
 
-func (w *schedulesScreen) settleRename(m *model, row string, err error) {
+func (w *schedulesScreen) settleRename(m *model, in screen.Inputs, row string, err error) {
 	if w.settleField(row, err) {
-		w.reconcileRename(m)
+		w.reconcileRename(m, in)
 	}
 }
 

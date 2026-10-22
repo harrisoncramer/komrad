@@ -293,7 +293,7 @@ func (m *model) filteredRows() ([]filterRow, bool) {
 		return nil, false
 	}
 
-	return list.filterRows(m), true
+	return list.filterRows(m, m.inputs()), true
 }
 
 func (m *model) filteredList() (keyedList, bool) {
@@ -473,12 +473,12 @@ func (m *model) hoveredFilterKey() string {
 		return ""
 	}
 
-	return list.hovered(m)
+	return list.hovered(m, m.inputs())
 }
 
 func (m *model) placeFilteredCursor(hovered string) {
 	if list, ok := m.filteredList(); ok {
-		m.apply(list.place(m, hovered))
+		m.apply(list.place(m, m.inputs(), hovered))
 	}
 }
 

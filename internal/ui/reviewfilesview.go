@@ -9,13 +9,14 @@ import (
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/screen"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
 // filesView is the FILES block cut to lines rows, windowed on the row the cursor is in.
-func (r reviewScreen) filesView(m *model, lines int) string {
+func (r reviewScreen) filesView(m *model, in screen.Inputs, lines int) string {
 	switch {
 	case lines == 0:
 		return ""
@@ -28,7 +29,7 @@ func (r reviewScreen) filesView(m *model, lines int) string {
 	width := lineWidthOf(m.paneWidth())
 	tree := r.readFilesTree()
 	_, onSide := r.findSide(m)
-	focused := r.isBlockFocused(m) && !onSide
+	focused := r.isBlockFocused(m, in) && !onSide
 	columns := measureStatColumns(r.deps.glyphs, tree.rows)
 	rows := make([]string, 0, len(tree.rows))
 	keys := make([]string, 0, len(tree.rows))

@@ -37,13 +37,11 @@ func (m *model) isDocReadable() bool {
 	}
 
 	spec := m.columnOf()
-	if spec.read == nil || !spec.read(m) {
+	if spec.read == nil || !spec.read(m, m.inputs()) {
 		return false
 	}
 
-	_, ok := m.screenColumnSplit()
-
-	return ok
+	return m.screenColumnSplit().On
 }
 
 // isDocFocused reports whether the document beside the list holds the keys.
@@ -54,14 +52,14 @@ func (m *model) isDocFocused() bool {
 // docLayout is the document rendered for the block beside the list, and the rows of the window
 // under the search.
 func (m *model) docLayout() ([]string, int, bool) {
-	split, ok := m.screenColumnSplit()
-	if !ok || !m.isDocReadable() {
+	split := m.screenColumnSplit()
+	if !split.On || !m.isDocReadable() {
 		return nil, 0, false
 	}
 
 	rows := m.columnRows(split)
 
-	return rows, max(split.rows-len(m.docHead(rows, split.column)), 1), true
+	return rows, max(split.Rows-len(m.docHead(rows, split.Column)), 1), true
 }
 
 // moveDocTo puts the cursor on a row of the document and brings the window round to it.
@@ -341,7 +339,7 @@ func (m *model) docHelp() keyMap {
 }
 
 // isAlwaysRead is the read of a block that is a document whatever the screen is showing.
-func isAlwaysRead(*model) bool {
+func isAlwaysRead(*model, screen.Inputs) bool {
 	return true
 }
 

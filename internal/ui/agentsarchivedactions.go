@@ -31,7 +31,7 @@ func (a *archivedAgents) table() []keys.Action[*model] {
 			ID:     actionArchiveRename,
 			Keys:   func(k config.Keybindings) []string { return k.Archive.Rename },
 			When:   list.isBrowsing,
-			Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) screen.Request { return a.openRename(m) }),
+			Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) screen.Request { return a.openRename(m, m.inputs()) }),
 		},
 	)
 }
@@ -79,33 +79,33 @@ func (a *archivedAgents) holdsAChoosable(m *model) bool {
 		return false
 	}
 
-	_, ok := list.At(a.listRows(m), a.Row)
+	_, ok := list.At(a.listRows(m, m.inputs()), a.Row)
 
 	return ok
 }
 
 // holdsARenameable reports whether the cursor sits on a row the user can rename.
 func (a *archivedAgents) holdsARenameable(m *model) bool {
-	_, ok := a.renameable(m)
+	_, ok := a.renameable(m, m.inputs())
 
 	return ok
 }
 
 // holdsAnAgent reports whether the cursor is on an archived agent rather than on the folder
 // holding one.
-func (a *archivedAgents) holdsAnAgent(m *model) bool {
+func (a *archivedAgents) holdsAnAgent(m *model, in screen.Inputs) bool {
 	if a.Selected.IsActive() {
 		return false
 	}
 
-	_, ok := a.hoveredAgent(m)
+	_, ok := a.hoveredAgent(m, in)
 
 	return ok
 }
 
 // hoveredAgentID is the archived agent under the cursor, empty on a folder.
-func (a *archivedAgents) hoveredAgentID(m *model) string {
-	agent, ok := a.hoveredAgent(m)
+func (a *archivedAgents) hoveredAgentID(m *model, in screen.Inputs) string {
+	agent, ok := a.hoveredAgent(m, in)
 	if !ok {
 		return ""
 	}

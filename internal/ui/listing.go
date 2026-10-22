@@ -70,16 +70,16 @@ func (m *model) withListing(change func(*panel.Listing)) tea.Cmd {
 	m.frame.Begin()
 	defer m.frame.Flush()
 
-	treeRow := m.agents.list().hovered(m)
+	treeRow := m.agents.list().hovered(m, m.inputs())
 	triageSlot := m.agents.findZoneSlot(m)
-	scheduleRow := m.schedules.list().hovered(m)
+	scheduleRow := m.schedules.list().hovered(m, m.inputs())
 	archiveShown := m.agents.shownArchive()
 	var archivedAgentRow string
 	if archiveShown != nil {
-		archivedAgentRow = archiveShown.list().hovered(m)
+		archivedAgentRow = archiveShown.list().hovered(m, m.inputs())
 	}
-	archivedScheduleRow := m.schedules.archived.list().hovered(m)
-	worktreeRow := m.worktrees.list().hovered(m)
+	archivedScheduleRow := m.schedules.archived.list().hovered(m, m.inputs())
+	worktreeRow := m.worktrees.list().hovered(m, m.inputs())
 
 	before := slices.Clone(m.listing.Workflows)
 	beforeTypes := m.listing.DocumentTypeNames()
@@ -87,14 +87,14 @@ func (m *model) withListing(change func(*panel.Listing)) tea.Cmd {
 
 	now := m.clock.Now()
 	m.agents.triage.refresh(m.listing.Agents, m.listing.Tasks, now)
-	m.agents.apply(m, treeRow)
-	cmds := []tea.Cmd{m.apply(m.agents.followAwaitingCLI(m))}
-	m.agents.landInTriage(m, treeRow, triageSlot)
-	cmds = append(cmds, m.apply(m.schedules.apply(m, scheduleRow)))
+	m.agents.apply(m, m.inputs(), treeRow)
+	cmds := []tea.Cmd{m.apply(m.agents.followAwaitingCLI(m.inputs()))}
+	m.agents.landInTriage(m, m.inputs(), treeRow, triageSlot)
+	cmds = append(cmds, m.apply(m.schedules.apply(m, m.inputs(), scheduleRow)))
 	if archiveShown != nil {
-		archiveShown.place(m, archivedAgentRow)
+		archiveShown.place(m, m.inputs(), archivedAgentRow)
 	}
-	m.schedules.archived.place(m, archivedScheduleRow)
+	m.schedules.archived.place(m, m.inputs(), archivedScheduleRow)
 	m.applyWorktrees(m.listing.Worktrees, worktreeRow)
 	m.sizeAgentWindows()
 
@@ -116,7 +116,7 @@ func (m *model) afterListing() tea.Cmd {
 	active := m.active()
 	var staged tea.Cmd
 	if s, ok := active.(rowStager); ok && active.doesRenderFromListing() && !m.form.isActive() {
-		staged = m.apply(s.stage(m))
+		staged = m.apply(s.stage(m, m.inputs()))
 	}
 
 	m.restageBeside()
@@ -174,7 +174,7 @@ func (m *model) noteEdited(agentID string, touched []string) {
 	}
 
 	if m.edited == nil {
-		m.edited = map[string][]string{}
+		m.edited = screen.Holds{}
 	}
 
 	for _, path := range touched {
@@ -435,9 +435,9 @@ func (m *model) landOnMade(made screen.Made, keyMoved bool) tea.Cmd {
 
 	m.agents.showHiddenFor(m, made.Agent)
 
-	rows := m.agents.rows(m)
-	if key := findLandingKey(rows, m.agents.list().hovered(m), made.Row); !keyMoved && list.IndexOf(rows, key) >= 0 {
-		m.agents.apply(m, key)
+	rows := m.agents.rows(m, m.inputs())
+	if key := findLandingKey(rows, m.agents.list().hovered(m, m.inputs()), made.Row); !keyMoved && list.IndexOf(rows, key) >= 0 {
+		m.agents.apply(m, m.inputs(), key)
 	}
 
 	if made.Pane == "" {
@@ -447,7 +447,7 @@ func (m *model) landOnMade(made screen.Made, keyMoved bool) tea.Cmd {
 	}
 
 	pane := made.Pane
-	cmds = append(cmds, m.apply(m.agents.closeEdit(m)))
+	cmds = append(cmds, m.apply(m.agents.closeEdit(m.inputs())))
 	m.frame.Solo(false)
 	m.frame.ShowGuest(layout.Guest{Agent: made.Agent, Pane: pane})
 	delete(m.warm.since, pane)

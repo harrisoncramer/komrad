@@ -11,24 +11,25 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 	"komrad/lib/xsha"
 	"komrad/lib/xslice"
 )
 
-func (w *worktreesScreen) view(m *model) string {
-	return m.columnListView(w.listParams(m))
+func (w *worktreesScreen) view(m *model, in screen.Inputs) string {
+	return m.columnListView(w.listParams(m, in))
 }
 
-func (w *worktreesScreen) snapshot(m *model, pane list.Pane) view.Snapshot {
-	rows := w.rows(m)
+func (w *worktreesScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
+	rows := w.rows(m, in)
 
 	return worktreesSnapshot(worktreesSnapshotParams{
 		rows:     rows,
 		items:    w.shown(),
 		selected: w.Selected,
 		focused:  list.KeyAt(rows, w.Row),
-		live:     m.listing.Agents,
+		live:     in.Listing.Agents,
 		flat:     w.sort.flat,
 		caret:    pane.Caret,
 		matcher:  m.filter.pattern,
@@ -37,8 +38,8 @@ func (w *worktreesScreen) snapshot(m *model, pane list.Pane) view.Snapshot {
 	})
 }
 
-func (w *worktreesScreen) details(m *model) details {
-	row, ok := list.At(w.rows(m), w.Row)
+func (w *worktreesScreen) details(m *model, in screen.Inputs) details {
+	row, ok := list.At(w.rows(m, in), w.Row)
 	if !ok {
 		return details{}
 	}
@@ -190,12 +191,12 @@ func worktreeWorkflowField(l panel.Listing, item panel.Worktree) string {
 }
 
 // doc is the markdown rendered beside the list for the row the cursor is on.
-func (w *worktreesScreen) doc(m *model) string {
-	return w.gitDoc(m)
+func (w *worktreesScreen) doc(m *model, in screen.Inputs) string {
+	return w.gitDoc(m, in)
 }
 
-func (w *worktreesScreen) gitDoc(m *model) string {
-	row, ok := list.At(w.rows(m), w.Row)
+func (w *worktreesScreen) gitDoc(m *model, in screen.Inputs) string {
+	row, ok := list.At(w.rows(m, in), w.Row)
 	switch {
 	case !ok:
 		return renderDocument("Worktrees", "_no worktrees_", "", "")
@@ -203,7 +204,7 @@ func (w *worktreesScreen) gitDoc(m *model) string {
 		return renderDocument(label.Path(row.repo, homeDir()), fmt.Sprintf("_%s_", label.Count(w.countUnder(row.repo), "worktree", "worktrees")), "", "")
 	}
 
-	read, ok := m.inspections[row.item.Dir]
+	read, ok := in.Inspections[row.item.Dir]
 	switch {
 	case !ok || !read.Answered:
 		return renderDocument(row.name(), "_"+row.item.Dir+"_", "_reading the directory…_", "")

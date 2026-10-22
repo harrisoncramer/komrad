@@ -2,6 +2,7 @@ package ui
 
 import (
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -34,11 +35,11 @@ func (m *model) screenedAgentID() (string, bool) {
 		return "", false
 	}
 
-	return screen.screenedAgentID(m)
+	return screen.screenedAgentID(m, m.inputs())
 }
 
-func (a *archivedAgents) screenedAgentID(m *model) (string, bool) {
-	row, ok := a.hoveredRow(m)
+func (a *archivedAgents) screenedAgentID(m *model, in screen.Inputs) (string, bool) {
+	row, ok := a.hoveredRow(m, in)
 	if !ok {
 		return "", false
 	}
@@ -48,14 +49,14 @@ func (a *archivedAgents) screenedAgentID(m *model) (string, bool) {
 	return item.Agent.ID, ok
 }
 
-func (a *agentsScreen) screenedAgentID(m *model) (string, bool) {
-	item, ok := a.hoveredResting(m)
+func (a *agentsScreen) screenedAgentID(m *model, in screen.Inputs) (string, bool) {
+	item, ok := a.hoveredResting(m, in)
 
 	return item.Agent.ID, ok
 }
 
-func (w *worktreesScreen) screenedAgentID(m *model) (string, bool) {
-	row, ok := w.hovered(m)
+func (w *worktreesScreen) screenedAgentID(m *model, in screen.Inputs) (string, bool) {
+	row, ok := w.hovered(m, in)
 	if !ok {
 		return "", false
 	}
@@ -65,7 +66,7 @@ func (w *worktreesScreen) screenedAgentID(m *model) (string, bool) {
 		return "", false
 	}
 
-	if live, ok := m.listing.LiveAgent(occupant.ID); ok && live.Alive {
+	if live, ok := in.Listing.LiveAgent(occupant.ID); ok && live.Alive {
 		return "", false
 	}
 
@@ -132,13 +133,13 @@ func (m *model) screenNotice() string {
 		return ""
 	}
 
-	return screen.screenNotice(m)
+	return screen.screenNotice(m, m.inputs())
 }
 
-func (a *archivedAgents) screenNotice(m *model) string {
+func (a *archivedAgents) screenNotice(m *model, in screen.Inputs) string {
 	restore := a.deps.keys.ArchiveMenu.Restore
-	if target, ok := a.menuTarget(m); ok {
-		if _, err := target.opensAgent(m.listing); err == nil {
+	if target, ok := a.menuTarget(m, in); ok {
+		if _, err := target.opensAgent(in.Listing); err == nil {
 			restore = a.deps.keys.ArchiveMenu.RestoreOpen
 		}
 	}
@@ -146,8 +147,8 @@ func (a *archivedAgents) screenNotice(m *model) string {
 	return "archived" + separated + "press " + m.menuChordLabel(a.deps.keys.Menu.Archive, restore) + " to restore"
 }
 
-func (a *agentsScreen) screenNotice(m *model) string {
-	item, ok := a.hoveredResting(m)
+func (a *agentsScreen) screenNotice(m *model, in screen.Inputs) string {
+	item, ok := a.hoveredResting(m, in)
 	if ok && item.Agent.HeldAt != nil {
 		return "paused"
 	}
@@ -155,16 +156,16 @@ func (a *agentsScreen) screenNotice(m *model) string {
 	return "dormant" + separated + "press " + keys.Label(fixedKeys().Open) + " to restore"
 }
 
-func (w *worktreesScreen) screenNotice(*model) string {
+func (w *worktreesScreen) screenNotice(*model, screen.Inputs) string {
 	return "not running"
 }
 
 // columnHeight is the rows that render the block beside the list.
 func (m *model) columnHeight() int {
-	split, ok := m.columnSplit()
-	if !ok {
+	split := m.columnSplit()
+	if !split.On {
 		return 0
 	}
 
-	return split.rows
+	return split.Rows
 }

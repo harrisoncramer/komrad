@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/screen"
 
 	"github.com/charmbracelet/x/ansi"
 )
@@ -17,14 +18,14 @@ const (
 )
 
 // sideView is the rows over the file tree cut to lines rows, windowed on the row the cursor is on.
-func (r reviewScreen) sideView(m *model, lines int) string {
+func (r reviewScreen) sideView(m *model, in screen.Inputs, lines int) string {
 	sideRows := r.sideRows(m)
 	if len(sideRows) == 0 || lines == 0 {
 		return ""
 	}
 
 	width := lineWidthOf(m.paneWidth())
-	focused := r.isBlockFocused(m)
+	focused := r.isBlockFocused(m, in)
 	rows := make([]string, 0, len(sideRows))
 	keys := make([]string, 0, len(sideRows))
 	cursor := 0

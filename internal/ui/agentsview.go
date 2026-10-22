@@ -9,11 +9,12 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 )
 
-func (a *agentsScreen) details(m *model) details {
-	r, ok := a.hoveredRow(m)
+func (a *agentsScreen) details(m *model, in screen.Inputs) details {
+	r, ok := a.hoveredRow(m, in)
 	if !ok {
 		return details{}
 	}
@@ -25,7 +26,7 @@ func (a *agentsScreen) details(m *model) details {
 	if r.header {
 		return details{
 			id:     r.workflow.ID,
-			fields: workflowFields(r.workflow, m.listing.AgentCount(r.workflow.ID)),
+			fields: workflowFields(r.workflow, in.Listing.AgentCount(r.workflow.ID)),
 		}
 	}
 
@@ -80,15 +81,15 @@ func agentDetails(m *model, glyphs glyph.Set, r agentRow) details {
 }
 
 // doc is the markdown rendered beside the list for a row with no pane of its own.
-func (a *agentsScreen) doc(m *model) string {
-	r, ok := a.hoveredRow(m)
+func (a *agentsScreen) doc(m *model, in screen.Inputs) string {
+	r, ok := a.hoveredRow(m, in)
 	item, held := r.paneItem()
 
 	switch {
 	case !ok:
 		return ""
 	case a.isShowingNotes(r):
-		return taskMarkdown(m.listing.Tasks[a.notes])
+		return taskMarkdown(in.Listing.Tasks[a.notes])
 	case r.isTask() && !held:
 		return taskMarkdown(*r.task)
 	case r.header && !held:
@@ -140,17 +141,17 @@ func failedPlaceholder(agent panel.Agent) string {
 	return fmt.Sprintf("_%s failed_\n\n%s", label, reason)
 }
 
-func (a *agentsScreen) view(m *model) string {
-	if m.listing.IsEmpty() {
-		return m.welcomeView(a.listParams(m), welcomeText(a.deps.keys))
+func (a *agentsScreen) view(m *model, in screen.Inputs) string {
+	if in.Listing.IsEmpty() {
+		return m.welcomeView(a.listParams(m, in), welcomeText(a.deps.keys))
 	}
 
-	return m.columnListView(a.listParams(m))
+	return m.columnListView(a.listParams(m, in))
 }
 
-func (a *agentsScreen) snapshot(m *model, pane list.Pane) view.Snapshot {
-	layout := a.layout(m)
-	work := splitChosen(m.listing, chosenAgents(a.Selected, layout.cursorRows()))
+func (a *agentsScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
+	layout := a.layout(m, in)
+	work := splitChosen(in.Listing, chosenAgents(a.Selected, layout.cursorRows()))
 
 	return agentsSnapshot(snapshotParams{
 		rows: layout.tree,
@@ -161,14 +162,14 @@ func (a *agentsScreen) snapshot(m *model, pane list.Pane) view.Snapshot {
 		},
 		selected:     a.Selected,
 		wholeTasks:   panel.TaskIDs(work.wholeTasks),
-		scheduled:    m.listing.ScheduledWorkflows(),
-		workflowDirs: m.listing.WorkflowDirs(),
+		scheduled:    in.Listing.ScheduledWorkflows(),
+		workflowDirs: in.Listing.WorkflowDirs(),
 		focused:      list.KeyAt(layout.cursorRows(), a.Row),
 		caret:        pane.Caret,
 		loaderFrame:  m.loading.frame(),
 		matcher:      m.filter.pattern,
 		picked:       pickedRows(m.filter, layout.cursorRows(), m.agentRowFits),
-		tasks:        m.listing.Tasks,
+		tasks:        in.Listing.Tasks,
 		renaming:     a.renamingField(),
 		showHidden:   a.showHidden,
 		flat:         a.sort.flat,

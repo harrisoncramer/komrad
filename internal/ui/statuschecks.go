@@ -76,7 +76,7 @@ func (r statusCheckRow) Key() string {
 	return "status-check:" + r.item.providerID
 }
 
-func (c *statusChecksScreen) enter(m *model, target screen.Target) screen.Request {
+func (c *statusChecksScreen) enter(m *model, in screen.Inputs, target screen.Target) screen.Request {
 	if target.AgentID != "" {
 		*c = statusChecksScreen{
 			deps:       c.deps,
@@ -88,7 +88,7 @@ func (c *statusChecksScreen) enter(m *model, target screen.Target) screen.Reques
 	return screen.Cmd(m.readStatusChecksCmd())
 }
 
-func (c *statusChecksScreen) update(m *model, msg tea.Msg) screen.Request {
+func (c *statusChecksScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen.Request {
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return nil
@@ -97,13 +97,13 @@ func (c *statusChecksScreen) update(m *model, msg tea.Msg) screen.Request {
 	return c.list().update(m, key, c.listActions())
 }
 
-func (c *statusChecksScreen) receive(m *model, msg tea.Msg) (screen.Request, bool) {
+func (c *statusChecksScreen) receive(m *model, in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 	listed, ok := msg.(statusChecksListedMsg)
 	if !ok {
 		return nil, false
 	}
 
-	return c.applyListed(m, listed), true
+	return c.applyListed(m, in, listed), true
 }
 
 func (c *statusChecksScreen) list() screenList[statusCheckRow] {
@@ -113,11 +113,11 @@ func (c *statusChecksScreen) list() screenList[statusCheckRow] {
 		cursor: func() *list.Cursor { return &c.Cursor },
 		rows:   c.rows,
 		name:   statusCheckRowName,
-		moved:  func(*model) screen.Request { return screen.Settle{} },
+		moved:  func(*model, screen.Inputs) screen.Request { return screen.Settle{} },
 	}
 }
 
-func (c *statusChecksScreen) rows(m *model) []statusCheckRow {
+func (c *statusChecksScreen) rows(m *model, in screen.Inputs) []statusCheckRow {
 	return narrowed(m.filter, narrowedParams[statusCheckRow]{
 		rows: xslice.Map(xslice.Filter(c.commit.items, c.shownScope().holds), func(item statusCheckItem) statusCheckRow {
 			return statusCheckRow{item: item}
@@ -131,13 +131,13 @@ func statusCheckRowName(row statusCheckRow) string {
 	return row.item.name
 }
 
-func (c *statusChecksScreen) listParams(m *model) screenListParams {
+func (c *statusChecksScreen) listParams(m *model, in screen.Inputs) screenListParams {
 	return screenListParams{
 		tally:    c.commit.tally(c.deps.clock.Now()),
 		help:     c.help,
 		empty:    c.emptyLine(m),
-		rows:     len(c.rows(m)),
-		snapshot: func(pane list.Pane) view.Snapshot { return c.snapshot(m, pane) },
+		rows:     len(c.rows(m, in)),
+		snapshot: func(pane list.Pane) view.Snapshot { return c.snapshot(m, in, pane) },
 	}
 }
 
@@ -187,8 +187,8 @@ func (c *statusChecksScreen) kinds(*model) stops {
 	}
 }
 
-func (c *statusChecksScreen) kindsFit(m *model) bool {
-	return m.listFitsTabs(c.listParams(m))
+func (c *statusChecksScreen) kindsFit(m *model, in screen.Inputs) bool {
+	return m.listFitsTabs(c.listParams(m, in))
 }
 
 func (c *statusChecksScreen) kindsFocused(*model) *bool {
@@ -200,12 +200,12 @@ func (c *statusChecksScreen) kindsSwitch(*model) bool {
 }
 
 // stepKind moves the listing to another scope, keeping the cursor on its row when the new scope lists it.
-func (c *statusChecksScreen) stepKind(m *model, delta int) screen.Request {
-	hovered := c.list().hovered(m)
+func (c *statusChecksScreen) stepKind(m *model, in screen.Inputs, delta int) screen.Request {
+	hovered := c.list().hovered(m, in)
 	c.scope = statusCheckScope(stepStop(int(c.shownScope()), delta, len(statusCheckScopeLabels)))
 	c.scopeChosen = true
 
-	return screen.Batch{c.list().place(m, hovered), screen.Settle{}}
+	return screen.Batch{c.list().place(m, in, hovered), screen.Settle{}}
 }
 
 func (c *statusChecksScreen) listActions() keys.Spec[*model] {
@@ -263,10 +263,10 @@ func (c *statusChecksScreen) parent() screen.ID {
 	return c.openedFrom
 }
 
-func (c *statusChecksScreen) crumbs(m *model) crumbs {
+func (c *statusChecksScreen) crumbs(_ *model, in screen.Inputs) crumbs {
 	name := c.agentID
-	if item, ok := m.listing.AnyAgent(c.agentID); ok {
-		name = m.listing.AgentName(item.Agent)
+	if item, ok := in.Listing.AnyAgent(c.agentID); ok {
+		name = in.Listing.AgentName(item.Agent)
 	}
 
 	return crumbs{trail: []string{name, "status checks"}}
@@ -283,11 +283,11 @@ func (c *statusChecksScreen) takesEveryKey() bool {
 func (c *statusChecksScreen) column() columnSpec {
 	return columnSpec{
 		floor:   columnFloor,
-		docRows: func(m *model, width int) []string { return m.statusChecks.docRows(m, width) },
+		docRows: func(m *model, in screen.Inputs, width int) []string { return m.statusChecks.docRows(m, in, width) },
 	}
 }
 
-func (c *statusChecksScreen) stageResting(*model) screen.Request {
+func (c *statusChecksScreen) stageResting(*model, screen.Inputs) screen.Request {
 	return nil
 }
 
@@ -376,7 +376,7 @@ func (m *model) readStatusChecksCmd() tea.Cmd {
 	}
 }
 
-func (c *statusChecksScreen) applyListed(m *model, msg statusChecksListedMsg) screen.Request {
+func (c *statusChecksScreen) applyListed(m *model, in screen.Inputs, msg statusChecksListedMsg) screen.Request {
 	if msg.agentID != c.agentID {
 		return nil
 	}
@@ -389,9 +389,9 @@ func (c *statusChecksScreen) applyListed(m *model, msg statusChecksListedMsg) sc
 		return nil
 	}
 
-	hovered := c.list().hovered(m)
+	hovered := c.list().hovered(m, in)
 	c.commit, c.err = msg.commit, nil
-	requests := screen.Batch{c.list().place(m, hovered), m.statusCheckLogs.reanchor(m), screen.Cmd(m.statusCheckLogs.readsCmd(m))}
+	requests := screen.Batch{c.list().place(m, in, hovered), m.statusCheckLogs.reanchor(m, m.inputsFor(&m.statusCheckLogs)), screen.Cmd(m.statusCheckLogs.readsCmd(m))}
 	if !msg.headRead {
 		c.listedHead = ""
 
@@ -413,7 +413,7 @@ func isStatusCheckUnknown(item statusCheckItem) bool {
 	return item.state == pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_UNKNOWN
 }
 
-func (c *statusChecksScreen) isLoading(*model) bool {
+func (c *statusChecksScreen) isLoading(*model, screen.Inputs) bool {
 	return slices.ContainsFunc(c.commit.items, isStatusCheckInFlight)
 }
 

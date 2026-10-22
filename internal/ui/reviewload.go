@@ -533,8 +533,8 @@ func (r *reviewScreen) back(m *model) screen.Request {
 }
 
 // backFromDiff hands the keys to the file tree, or leaves the screen where no tree renders.
-func (r *reviewScreen) backFromDiff(m *model) screen.Request {
-	if r.hold.isHeld() || !r.isBlockRendered(m) {
+func (r *reviewScreen) backFromDiff(m *model, in screen.Inputs) screen.Request {
+	if r.hold.isHeld() || !r.isBlockRendered(m, in) {
 		return r.back(m)
 	}
 

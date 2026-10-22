@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"komrad/internal/ui/column"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/reader"
 )
@@ -26,10 +27,10 @@ func (m *model) docHead(rows []string, width int) []string {
 
 // docBlock is the document at the width of the block beside the list, under the search over it,
 // from where the reader has moved to.
-func (m *model) docBlock(split columnSplit) []string {
+func (m *model) docBlock(split column.Split) []string {
 	rows := m.columnRows(split)
-	head := m.docHead(rows, split.column)
-	height := max(split.rows-len(head), 1)
+	head := m.docHead(rows, split.Column)
+	height := max(split.Rows-len(head), 1)
 
 	r := m.reading
 	focused := m.isDocFocused()
@@ -37,9 +38,9 @@ func (m *model) docBlock(split columnSplit) []string {
 	for i, row := range rows {
 		rendered[i] = paint.Panel.HighlightStyled(row, reader.Spans(r.filter.pattern, row))
 		if focused && i == r.Line {
-			rendered[i] = paint.Panel.PaintRow(rendered[i], split.column)
+			rendered[i] = paint.Panel.PaintRow(rendered[i], split.Column)
 		}
-		rendered[i] = m.markRow(zoneDoc, split.column, strconv.Itoa(i), rendered[i])
+		rendered[i] = m.markRow(zoneDoc, split.Column, strconv.Itoa(i), rendered[i])
 	}
 
 	window := docWindow{

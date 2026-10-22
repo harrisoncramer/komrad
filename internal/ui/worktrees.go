@@ -9,6 +9,7 @@ import (
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 )
 
@@ -65,19 +66,19 @@ type worktreesScreen struct {
 
 // apply takes a fresh listing, keeping the cursor on the row it was on, or on the agent the
 // screen was opened for.
-func (w *worktreesScreen) apply(m *model, items []panel.Worktree, hovered string) {
+func (w *worktreesScreen) apply(m *model, in screen.Inputs, items []panel.Worktree, hovered string) {
 	w.items = items
 	w.revision++
 
 	focus := w.focus
 	w.focus = ""
 
-	rows := w.rows(m)
+	rows := w.rows(m, in)
 	if idx := rowIndexOfWorktreeAgent(rows, focus); idx >= 0 {
 		hovered = rows[idx].Key()
 	}
 
-	w.place(m, hovered)
+	w.place(m, in, hovered)
 }
 
 // shown is the directories the scope lists.
@@ -86,8 +87,8 @@ func (w *worktreesScreen) shown() []panel.Worktree {
 }
 
 // place keeps the cursor on the row it was on as the rows under it change.
-func (w *worktreesScreen) place(m *model, hovered string) {
-	rows := w.rows(m)
+func (w *worktreesScreen) place(m *model, in screen.Inputs, hovered string) {
+	rows := w.rows(m, in)
 	w.Selected = w.Selected.Pruned(worktreeRefs(rows))
 
 	w.Row = cursor.Place(list.IndexOf(rows, hovered), w.Row, len(rows))

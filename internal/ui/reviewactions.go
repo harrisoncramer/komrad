@@ -12,7 +12,7 @@ import (
 
 // actions is the keys of whichever of the diff and the sidebar holds them.
 func (r *reviewScreen) actions(m *model) keys.Spec[*model] {
-	if r.isBlockFocused(m) {
+	if r.isBlockFocused(m, m.inputs()) {
 		return r.filesActions()
 	}
 
@@ -38,7 +38,7 @@ func (r *reviewScreen) ownTable() []keys.Action[*model] {
 		{
 			ID:     actionReviewBack,
 			Keys:   keys.FixedBack,
-			Direct: keys.Directly(editorRelease, func(m *model, _ string) screen.Request { return r.backFromDiff(m) }),
+			Direct: keys.Directly(editorRelease, func(m *model, _ string) screen.Request { return r.backFromDiff(m, m.inputs()) }),
 		},
 		{
 			ID:   keys.Quit,
@@ -111,7 +111,7 @@ func (r *reviewScreen) legend() []keys.LegendRow[*model] {
 		},
 		{
 			Of:   []keys.ID{actionReviewBack},
-			Desc: func(m *model) string { return r.diffBackDesc(m) },
+			Desc: func(m *model) string { return r.diffBackDesc(m, m.inputs()) },
 		},
 	}
 }
@@ -152,7 +152,7 @@ func (r *reviewScreen) filesActions() keys.Spec[*model] {
 					return slices.Concat(keys.FixedOpen(k), k.Review.ToggleFolder)
 				},
 				Nav: func(m *model, _ string) screen.Request {
-					if request, chosen := r.chooseSide(m); chosen {
+					if request, chosen := r.chooseSide(m, m.inputs()); chosen {
 						return request
 					}
 
@@ -237,12 +237,12 @@ const (
 )
 
 // buildItemMenu builds the band on the thread under the diff's cursor.
-func (r *reviewScreen) buildItemMenu(m *model) (menu.Menu, bool) {
-	if side, ok := r.findSide(m); ok && r.isBlockFocused(m) {
-		return r.sideMenu(m, side)
+func (r *reviewScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
+	if side, ok := r.findSide(m); ok && r.isBlockFocused(m, in) {
+		return r.sideMenu(m, in, side)
 	}
 
-	if !r.isDiffFocused(m) {
+	if !r.isDiffFocused(m, in) {
 		return menu.Menu{}, false
 	}
 
@@ -298,10 +298,10 @@ func (r *reviewScreen) buildItemMenu(m *model) (menu.Menu, bool) {
 
 // buildScreenMenu builds the review's own band, for the file in the editor, how the diff is rendered
 // and the review waiting to be sent.
-func (r *reviewScreen) buildScreenMenu(m *model) (menu.Menu, bool) {
+func (r *reviewScreen) buildScreenMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
 	reachable := !r.isArchived(m)
 	_, onThread := r.diff.threadAtCursor()
-	diffFocused := r.isDiffFocused(m)
+	diffFocused := r.isDiffFocused(m, in)
 
 	edit := menu.Leaving(r.hold.editorDesc(), r.deps.keys.Review.EditFile, func() screen.Request { return m.review.pressEdit(m) })
 	entries := []menu.Entry{menu.DrawnOff(edit, r.editOffSaid(m))}
@@ -337,7 +337,7 @@ func (r *reviewScreen) buildScreenMenu(m *model) (menu.Menu, bool) {
 	entries = append(entries, menu.Leaving(r.reloadDesc(m), r.deps.keys.Review.Reload, func() screen.Request { return m.review.catchUp() }))
 	entries = append(entries, menu.Leaving(r.diff.agentThreadsDesc(), r.deps.keys.Review.AgentThreads, func() screen.Request { return m.review.toggleAgentThreads(m) }))
 
-	if task, ok := m.listing.Tasks[r.taskID]; ok {
+	if task, ok := in.Listing.Tasks[r.taskID]; ok {
 		entries = append(entries, menu.Nested("git", r.deps.keys.Menu.Git, pullRequestGitMenu(m, task)))
 	}
 

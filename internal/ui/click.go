@@ -93,10 +93,14 @@ func (m *model) clickerOf(name zone.Name) (clicker, bool) {
 		})), true
 	case zoneDiff:
 		if m.screen == screen.Review {
-			return m.stopClicker(stopList, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.apply(m.review.diffKeys().click(m, key)) })), true
+			return m.stopClicker(stopList, clickFunc(func(m *model, key string, _ int) tea.Cmd {
+				return m.apply(m.review.diffKeys().click(m, key))
+			})), true
 		}
 		if m.screen == screen.Documents {
-			return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.apply(m.documents.diffKeys().click(m, key)) })), true
+			return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd {
+				return m.apply(m.documents.diffKeys().click(m, key))
+			})), true
 		}
 	case zoneMenu:
 		return clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickSubmenu(key, false) }), true
@@ -105,13 +109,15 @@ func (m *model) clickerOf(name zone.Name) (clicker, bool) {
 	case zoneFiles:
 		return m.stopClicker(stopBlock, clickFunc(func(m *model, path string, _ int) tea.Cmd { return m.apply(m.review.clickFile(m, path)) })), true
 	case zoneDetails:
-		return m.stopClicker(stopRecord, requestClick(m.detailsList().click)), true
+		return m.stopClicker(stopRecord, requestClick(func(m *model, key string, nth int) screen.Request {
+			return m.detailsList().click(m, m.inputs(), key, nth)
+		})), true
 	case zoneList:
 		if lister, ok := m.active().(activeLister); ok {
 			return m.listClicker(lister.activeList()), true
 		}
 	case zoneSide:
-		return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.apply(m.review.clickSide(m, key)) })), true
+		return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.apply(m.review.clickSide(m, m.inputs(), key)) })), true
 	case zoneColumn, zoneBlock:
 	}
 

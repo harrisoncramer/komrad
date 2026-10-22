@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"image"
 	"slices"
 	"time"
 
@@ -115,7 +116,7 @@ func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 		return nil
 	}
 
-	if m.screen == screen.Review && !m.form.isActive() && !m.writes.held.active && !m.isMessagesFocused() && m.review.scrollPopupAt(m, x-gutter, y, rows) {
+	if m.screen == screen.Review && !m.form.isActive() && !m.writes.held.active && !m.isMessagesFocused() && m.review.scrollPopupAt(m, m.inputs(), image.Point{X: x - gutter, Y: y}, rows) {
 		return nil
 	}
 
@@ -124,7 +125,7 @@ func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 	}
 
 	if m.screen == screen.Review && !m.isOverColumn(x) {
-		if scrolled, ok := m.review.scrollSidebarAt(m, y, rows); ok {
+		if scrolled, ok := m.review.scrollSidebarAt(m, m.inputs(), y, rows); ok {
 			return m.apply(scrolled)
 		}
 	}
@@ -135,7 +136,7 @@ func (m *model) routeWheel(x, y, rows int) tea.Cmd {
 		return tea.Batch(focus, m.scrollSidebar(rows))
 	}
 
-	if screen, ok := m.active().(columnFocuser); ok && screen.doesScrollColumn(m) {
+	if screen, ok := m.active().(columnFocuser); ok && screen.doesScrollColumn(m, m.inputs()) {
 		return tea.Batch(focus, m.apply(screen.scrollColumn(m, rows*columnWheelStep)))
 	}
 

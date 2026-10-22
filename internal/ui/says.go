@@ -38,9 +38,9 @@ func (m *model) saidAgentID() (string, bool) {
 	var agentID string
 	switch screen := m.active().(type) {
 	case *agentsScreen:
-		agentID = screen.hoveredAgentID(m)
+		agentID = screen.hoveredAgentID(m, m.inputs())
 	case *archivedAgents:
-		agentID, _ = screen.screenedAgentID(m)
+		agentID, _ = screen.screenedAgentID(m, m.inputs())
 	default:
 		return "", false
 	}
@@ -110,21 +110,21 @@ func (m *model) layoutSaid() bool {
 		return false
 	}
 
-	split, ok := m.columnSplit()
-	if !ok {
+	split := m.columnSplit()
+	if !split.On {
 		return false
 	}
 
-	if m.said.rows != nil && m.said.width == split.column {
+	if m.said.rows != nil && m.said.width == split.Column {
 		return true
 	}
 
 	m.said.rows, m.said.line = saidRows(saidRowsParams{
 		said:  m.said,
 		hits:  m.filter.saidHits(agentID),
-		width: split.column,
+		width: split.Column,
 	})
-	m.said.width = split.column
+	m.said.width = split.Column
 
 	return true
 }

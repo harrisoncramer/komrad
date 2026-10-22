@@ -7,6 +7,7 @@ import (
 	"komrad/internal/loader"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 	"komrad/internal/ui/submitting"
 	"komrad/internal/view"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
@@ -37,21 +38,21 @@ func (m *model) isLoading() bool {
 
 	screen, ok := m.active().(loadingReporter)
 
-	return ok && screen.isLoading(m)
+	return ok && screen.isLoading(m, m.inputs())
 }
 
-func (a *agentsScreen) isLoading(m *model) bool {
-	return slices.ContainsFunc(a.rows(m), func(r agentRow) bool { return isRowLoading(m.listing, r) })
+func (a *agentsScreen) isLoading(m *model, in screen.Inputs) bool {
+	return slices.ContainsFunc(a.rows(m, in), func(r agentRow) bool { return isRowLoading(in.Listing, r) })
 }
 
-func (r reviewScreen) isLoading(m *model) bool {
+func (r reviewScreen) isLoading(m *model, in screen.Inputs) bool {
 	if r.loading {
 		return true
 	}
 
-	item, ok := m.listing.LiveAgent(r.agentID)
+	item, ok := in.Listing.LiveAgent(r.agentID)
 
-	return ok && isChecksRunning(m.listing.Tasks.FindForAgent(item.Agent).PullRequest)
+	return ok && isChecksRunning(in.Listing.Tasks.FindForAgent(item.Agent).PullRequest)
 }
 
 func isRowLoading(l panel.Listing, r agentRow) bool {

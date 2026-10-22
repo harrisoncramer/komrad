@@ -164,7 +164,7 @@ func (m *model) hoveredRecordAgent() (panel.AgentRow, bool) {
 		return panel.AgentRow{}, false
 	}
 
-	row, ok := screen.hoveredRow(m)
+	row, ok := screen.hoveredRow(m, m.inputs())
 	if !ok {
 		return panel.AgentRow{}, false
 	}
@@ -186,7 +186,7 @@ func (m *model) hoveredRecordTask() (panel.Task, bool) {
 		return panel.Task{}, false
 	}
 
-	row, ok := screen.hoveredRow(m)
+	row, ok := screen.hoveredRow(m, m.inputs())
 	switch {
 	case !ok:
 		return panel.Task{}, false

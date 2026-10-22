@@ -4,7 +4,7 @@ import "komrad/internal/ui/screen"
 
 // frameBuilder is a screen that builds what its frame renders once an update has settled.
 type frameBuilder interface {
-	buildFrame(m *model)
+	buildFrame(m *model, in screen.Inputs)
 }
 
 // dropFrames forgets what the screens built for the last frame, so an update reads the state it changes.
@@ -15,7 +15,7 @@ func (m *model) dropFrames() {
 // buildFrame builds what the active screen renders from the state the update left.
 func (m *model) buildFrame() {
 	if builder, ok := m.active().(frameBuilder); ok {
-		builder.buildFrame(m)
+		builder.buildFrame(m, m.inputs())
 	}
 }
 

@@ -54,15 +54,15 @@ func TestSplitOfRendersTheWidthItIsHanded(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			split, ok := splitOf(tt.width, 20, tt.sidebar, columnFloor)
+			split := splitOf(tt.width, 20, tt.sidebar, columnFloor)
 
-			require.Equal(t, tt.wantOK, ok)
-			if !ok {
+			require.Equal(t, tt.wantOK, split.On)
+			if !split.On {
 				return
 			}
 
-			assert.Equal(t, tt.wantSidebar, split.sidebar)
-			assert.Equal(t, tt.width-tt.wantSidebar, split.column)
+			assert.Equal(t, tt.wantSidebar, split.Sidebar)
+			assert.Equal(t, tt.width-tt.wantSidebar, split.Column)
 		})
 	}
 }

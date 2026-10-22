@@ -149,6 +149,7 @@ linters:
             - "**/internal/ui/pickfont/**"
             - "**/internal/ui/api/**"
             - "**/internal/ui/editor/**"
+            - "**/internal/ui/column/**"
           deny:
             - pkg: komrad/internal/ui$
               desc: a shared package sits under the panel's screens, so it never reaches back up into the root

@@ -18,17 +18,17 @@ const entriesShown = 10
 
 // enter lands on the directory of the agent the target names, remembering it as the focus for
 // the listing on its way.
-func (w *worktreesScreen) enter(m *model, target screen.Target) screen.Request {
+func (w *worktreesScreen) enter(m *model, in screen.Inputs, target screen.Target) screen.Request {
 	w.focus = target.AgentID
-	if target.AgentID != "" && !w.scope.listsAgent(m.listing.Worktrees, target.AgentID) {
+	if target.AgentID != "" && !w.scope.listsAgent(in.Listing.Worktrees, target.AgentID) {
 		w.scope = scopeAll
 	}
-	w.apply(m, m.listing.Worktrees, w.list().hovered(m))
+	w.apply(m, in, in.Listing.Worktrees, w.list().hovered(m, in))
 
-	return screen.Batch{w.stage(m), screen.Settle{}}
+	return screen.Batch{w.stage(m, in), screen.Settle{}}
 }
 
-func (w *worktreesScreen) update(m *model, msg tea.Msg) screen.Request {
+func (w *worktreesScreen) update(m *model, in screen.Inputs, msg tea.Msg) screen.Request {
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return nil
@@ -37,7 +37,7 @@ func (w *worktreesScreen) update(m *model, msg tea.Msg) screen.Request {
 	return w.list().update(m, key, w.actions())
 }
 
-func (w *worktreesScreen) receive(*model, tea.Msg) (screen.Request, bool) {
+func (w *worktreesScreen) receive(*model, screen.Inputs, tea.Msg) (screen.Request, bool) {
 	return nil, false
 }
 
@@ -51,12 +51,12 @@ func (w *worktreesScreen) list() screenList[worktreeRow] {
 		refs:   worktreeRefs,
 		header: "repository",
 		placed: w.stage,
-		moved:  func(*model) screen.Request { return screen.Settle{} },
+		moved:  func(*model, screen.Inputs) screen.Request { return screen.Settle{} },
 	}
 }
 
-func (w *worktreesScreen) hovered(m *model) (worktreeRow, bool) {
-	row, ok := list.At(w.rows(m), w.Row)
+func (w *worktreesScreen) hovered(m *model, in screen.Inputs) (worktreeRow, bool) {
+	row, ok := list.At(w.rows(m, in), w.Row)
 	if !ok || row.header {
 		return worktreeRow{}, false
 	}
@@ -64,13 +64,13 @@ func (w *worktreesScreen) hovered(m *model) (worktreeRow, bool) {
 	return row, true
 }
 
-func (w *worktreesScreen) stage(*model) screen.Request {
+func (w *worktreesScreen) stage(*model, screen.Inputs) screen.Request {
 	return screen.StageTerminal{}
 }
 
 // inspectWorktree asks the server for the hovered directory's standing.
 func (m *model) inspectWorktree() screen.Request {
-	row, ok := m.worktrees.hovered(m)
+	row, ok := m.worktrees.hovered(m, m.inputs())
 	if !ok {
 		return nil
 	}
@@ -109,7 +109,7 @@ func (m *model) inspectHoveredWorktree() screen.Request {
 		return nil
 	}
 
-	row, ok := m.worktrees.hovered(m)
+	row, ok := m.worktrees.hovered(m, m.inputs())
 	if !ok {
 		return nil
 	}
@@ -147,7 +147,7 @@ func (m *model) applyWorktrees(items []panel.Worktree, hovered string) {
 		}
 	}
 
-	m.worktrees.apply(m, items, hovered)
+	m.worktrees.apply(m, m.inputs(), items, hovered)
 }
 
 func worktreesTabs() tabStrip {
@@ -168,8 +168,8 @@ func (w *worktreesScreen) kinds(*model) stops {
 	}
 }
 
-func (w *worktreesScreen) kindsFit(m *model) bool {
-	return m.listFitsTabs(w.listParams(m))
+func (w *worktreesScreen) kindsFit(m *model, in screen.Inputs) bool {
+	return m.listFitsTabs(w.listParams(m, in))
 }
 
 func (w *worktreesScreen) kindsFocused(*model) *bool {
@@ -183,12 +183,12 @@ func (w *worktreesScreen) kindsSwitch(*model) bool {
 
 // stepKind moves the listing to another scope, keeping the cursor on its row when the new scope
 // lists it.
-func (w *worktreesScreen) stepKind(m *model, delta int) screen.Request {
-	hovered := w.list().hovered(m)
+func (w *worktreesScreen) stepKind(m *model, in screen.Inputs, delta int) screen.Request {
+	hovered := w.list().hovered(m, in)
 	w.scope = worktreeScope(stepStop(int(w.scope), delta, len(worktreeScopeLabels)))
-	w.place(m, hovered)
+	w.place(m, in, hovered)
 
-	return screen.Batch{w.stage(m), screen.Settle{}}
+	return screen.Batch{w.stage(m, in), screen.Settle{}}
 }
 
 // tally is how many directories the scope lists, what the measured ones take, and whether they
@@ -203,13 +203,13 @@ func (w *worktreesScreen) tally() string {
 	return tally
 }
 
-func (w *worktreesScreen) listParams(m *model) screenListParams {
+func (w *worktreesScreen) listParams(m *model, in screen.Inputs) screenListParams {
 	return screenListParams{
 		tally:    w.tally(),
 		help:     w.help,
 		empty:    "no worktrees",
-		rows:     len(w.rows(m)),
-		snapshot: func(pane list.Pane) view.Snapshot { return w.snapshot(m, pane) },
+		rows:     len(w.rows(m, in)),
+		snapshot: func(pane list.Pane) view.Snapshot { return w.snapshot(m, in, pane) },
 	}
 }
 
@@ -240,20 +240,20 @@ func (w *worktreesScreen) takesEveryKey() bool {
 	return false
 }
 
-func (w *worktreesScreen) detailsFit(m *model) bool {
-	return m.listFitsDetails(w.listParams(m))
+func (w *worktreesScreen) detailsFit(m *model, in screen.Inputs) bool {
+	return m.listFitsDetails(w.listParams(m, in))
 }
 
-func (w *worktreesScreen) detailsRoom(m *model) int {
-	return m.listRecordRoom(w.listParams(m))
+func (w *worktreesScreen) detailsRoom(m *model, in screen.Inputs) int {
+	return m.listRecordRoom(w.listParams(m, in))
 }
 
 func (w *worktreesScreen) activeList() keyedList {
 	return w.list()
 }
 
-func (w *worktreesScreen) hoveredName(m *model) string {
-	return w.list().hoveredName(m)
+func (w *worktreesScreen) hoveredName(m *model, in screen.Inputs) string {
+	return w.list().hoveredName(m, in)
 }
 
 func (w *worktreesScreen) tabs() tabStrip {
@@ -264,16 +264,16 @@ func (w *worktreesScreen) tabsState() *tabsState {
 	return &w.sort
 }
 
-func (w *worktreesScreen) tabsFit(m *model) bool {
-	return m.listFitsTabs(w.listParams(m))
+func (w *worktreesScreen) tabsFit(m *model, in screen.Inputs) bool {
+	return m.listFitsTabs(w.listParams(m, in))
 }
 
 func (w *worktreesScreen) column() columnSpec {
 	return columnSpec{
 		floor: columnFloor,
 		read:  isAlwaysRead,
-		docRows: func(m *model, width int) []string {
-			return m.withLastScreen(paint.DocStyledRows(m.worktrees.doc(m), max(width, 1), columnStyle()), width)
+		docRows: func(m *model, in screen.Inputs, width int) []string {
+			return m.withLastScreen(paint.DocStyledRows(m.worktrees.doc(m, in), max(width, 1), columnStyle()), width)
 		},
 	}
 }

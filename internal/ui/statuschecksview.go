@@ -9,6 +9,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 	"komrad/lib/dates"
 	"komrad/lib/xslice"
@@ -17,8 +18,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-func (c *statusChecksScreen) view(m *model) string {
-	return m.columnListView(c.listParams(m))
+func (c *statusChecksScreen) view(m *model, in screen.Inputs) string {
+	return m.columnListView(c.listParams(m, in))
 }
 
 func (c *statusChecksScreen) emptyLine(m *model) string {
@@ -51,8 +52,8 @@ func statusCheckColumns() view.Columns {
 	}
 }
 
-func (c *statusChecksScreen) snapshot(m *model, pane list.Pane) view.Snapshot {
-	rows := c.rows(m)
+func (c *statusChecksScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
+	rows := c.rows(m, in)
 
 	return view.Snapshot{
 		Rows: xslice.Map(rows, func(r statusCheckRow) view.Row {
@@ -91,8 +92,8 @@ func statusCheckIcon(item statusCheckItem, loaderFrame string) view.Cell {
 	return view.Cell{Glyph: glyph.StatusCheckFailing, Tone: paint.ToneDanger}
 }
 
-func (c *statusChecksScreen) docRows(m *model, width int) []string {
-	rows := c.rows(m)
+func (c *statusChecksScreen) docRows(m *model, in screen.Inputs, width int) []string {
+	rows := c.rows(m, in)
 	if c.Row < 0 || c.Row >= len(rows) {
 		return nil
 	}

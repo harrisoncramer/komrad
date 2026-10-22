@@ -14,7 +14,7 @@ import (
 // actions is the documents screen as one table and the legend that names it.
 func (d *documentsScreen) actions(m *model) keys.Spec[*model] {
 	switch {
-	case d.isDiffFocused(m) && d.isDiffRendered(m):
+	case d.isDiffFocused(m) && d.isDiffRendered(m, m.inputs()):
 		return d.diffActions()
 	case d.isDiffFocused(m):
 		return d.stepActions()
@@ -64,14 +64,14 @@ func (d *documentsScreen) documentTable() []keys.Action[*model] {
 			ID:   actionDocumentsOlder,
 			Keys: func(k config.Keybindings) []string { return k.Documents.Older },
 			Nav: func(m *model, _ string) screen.Request {
-				return d.stepOlder(m)
+				return d.stepOlder(m, m.inputs())
 			},
 		},
 		{
 			ID:   actionDocumentsNewer,
 			Keys: func(k config.Keybindings) []string { return k.Documents.Newer },
 			Nav: func(m *model, _ string) screen.Request {
-				return d.stepNewer(m)
+				return d.stepNewer(m, m.inputs())
 			},
 		},
 		{
@@ -151,12 +151,12 @@ func (d *documentsScreen) stepActions() keys.Spec[*model] {
 			{
 				ID:   actionDocumentsOlder,
 				Keys: func(k config.Keybindings) []string { return k.Documents.Older },
-				Nav:  func(m *model, _ string) screen.Request { return d.stepOlder(m) },
+				Nav:  func(m *model, _ string) screen.Request { return d.stepOlder(m, m.inputs()) },
 			},
 			{
 				ID:   actionDocumentsNewer,
 				Keys: func(k config.Keybindings) []string { return k.Documents.Newer },
-				Nav:  func(m *model, _ string) screen.Request { return d.stepNewer(m) },
+				Nav:  func(m *model, _ string) screen.Request { return d.stepNewer(m, m.inputs()) },
 			},
 		},
 		Legend: []keys.LegendRow[*model]{
@@ -199,12 +199,12 @@ func (d *documentsScreen) updateDiff(m *model, key tea.KeyPressMsg) screen.Reque
 }
 
 // isDiffRendered reports whether the panel renders a write's change as a diff beside the list.
-func (d *documentsScreen) isDiffRendered(m *model) bool {
-	if _, ok := m.screenColumnSplit(); !ok {
+func (d *documentsScreen) isDiffRendered(m *model, in screen.Inputs) bool {
+	if !m.screenColumnSplit().On {
 		return false
 	}
 
-	return d.isSteppingHovered(m) && d.history.isRendered(m.term.isDark)
+	return d.isSteppingHovered(m, in) && d.history.isRendered(m.term.isDark)
 }
 
 // isDiffFocused reports whether the diff of the write stepped to holds the keys.
@@ -213,12 +213,12 @@ func (d *documentsScreen) isDiffFocused(m *model) bool {
 }
 
 // isBlockFocused reports whether the diff of one of its writes holds the keys.
-func (d *documentsScreen) isBlockFocused(m *model) bool {
+func (d *documentsScreen) isBlockFocused(m *model, in screen.Inputs) bool {
 	return d.isDiffFocused(m)
 }
 
-func (d *documentsScreen) isBlockRendered(m *model) bool {
-	return d.isDiffRendered(m)
+func (d *documentsScreen) isBlockRendered(m *model, in screen.Inputs) bool {
+	return d.isDiffRendered(m, in)
 }
 
 func (d *documentsScreen) focusBlock(*model) {
@@ -236,8 +236,8 @@ func (d *documentsScreen) leaveScreen(m *model) screen.Request {
 	return d.closeEdit(m)
 }
 
-func (d *documentsScreen) doesScrollColumn(m *model) bool {
-	return d.isBlockRendered(m)
+func (d *documentsScreen) doesScrollColumn(m *model, in screen.Inputs) bool {
+	return d.isBlockRendered(m, in)
 }
 
 func (d *documentsScreen) scrollColumn(m *model, rows int) screen.Request {
@@ -254,7 +254,7 @@ func (d *documentsScreen) docKeys() keys.Spec[*model] {
 				Nav: func(m *model, _ string) screen.Request {
 					d.focus = true
 
-					return d.stepOlder(m)
+					return d.stepOlder(m, m.inputs())
 				},
 			},
 			{
@@ -274,7 +274,7 @@ func (d *documentsScreen) docKeys() keys.Spec[*model] {
 
 // isOnDocument reports whether the cursor is on a document.
 func (d *documentsScreen) isOnDocument(m *model) bool {
-	_, ok := d.hovered(m)
+	_, ok := d.hovered(m, m.inputs())
 
 	return ok
 }

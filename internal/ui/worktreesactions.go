@@ -69,7 +69,7 @@ func (w *worktreesScreen) holdsARow(m *model) bool {
 		return false
 	}
 
-	_, ok := list.At(w.rows(m), w.Row)
+	_, ok := list.At(w.rows(m, m.inputs()), w.Row)
 
 	return ok
 }
@@ -107,9 +107,9 @@ func (w *worktreesScreen) deleteWorktree(m *model, item panel.Worktree) screen.R
 }
 
 // chosenDeletion is what deleting every chosen directory takes.
-func (w *worktreesScreen) chosenDeletion(m *model) worktreeDeletion {
+func (w *worktreesScreen) chosenDeletion(m *model, in screen.Inputs) worktreeDeletion {
 	deletion := worktreeDeletion{}
-	for _, row := range w.rows(m) {
+	for _, row := range w.rows(m, in) {
 		if row.header || !w.Selected.Has(row.Key()) {
 			continue
 		}
@@ -127,9 +127,9 @@ func (w *worktreesScreen) chosenDeletion(m *model) worktreeDeletion {
 }
 
 // clearDeletion is every directory on the screen no task answers for.
-func (w *worktreesScreen) clearDeletion(m *model) worktreeDeletion {
+func (w *worktreesScreen) clearDeletion(m *model, in screen.Inputs) worktreeDeletion {
 	deletion := worktreeDeletion{}
-	for _, row := range w.rows(m) {
+	for _, row := range w.rows(m, in) {
 		if !row.header && row.item.Fate == panel.FateUnowned {
 			deletion.unowned = append(deletion.unowned, row.item)
 		}
@@ -219,9 +219,9 @@ func (w *worktreesScreen) deleteWorktreesWrite(deletion worktreeDeletion) screen
 	}
 }
 
-func (w *worktreesScreen) buildItemMenu(m *model) (menu.Menu, bool) {
+func (w *worktreesScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
 	if w.list().isSelecting(m) {
-		deletion := w.chosenDeletion(m)
+		deletion := w.chosenDeletion(m, in)
 		if deletion.chosen() == 0 {
 			return menu.Menu{}, false
 		}
@@ -231,7 +231,7 @@ func (w *worktreesScreen) buildItemMenu(m *model) (menu.Menu, bool) {
 		}))), true
 	}
 
-	row, ok := list.At(w.rows(m), w.Row)
+	row, ok := list.At(w.rows(m, in), w.Row)
 	if !ok {
 		return menu.Menu{}, false
 	}
@@ -259,8 +259,8 @@ func (w *worktreesScreen) buildItemMenu(m *model) (menu.Menu, bool) {
 }
 
 // buildScreenMenu builds the worktrees screen's own band, for clearing every directory that can go.
-func (w *worktreesScreen) buildScreenMenu(m *model) (menu.Menu, bool) {
-	clearable := w.clearDeletion(m)
+func (w *worktreesScreen) buildScreenMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
+	clearable := w.clearDeletion(m, in)
 	clearAll := menu.Leaving("delete unused worktrees", w.deps.keys.ArchiveMenu.Clear, func() screen.Request {
 		return w.confirmDeleteWorktrees(m, clearable)
 	})

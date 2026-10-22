@@ -21,8 +21,8 @@ func (m *model) findModeEnd() int {
 		return gutter + m.term.width
 	}
 
-	if split, ok := m.columnGeometry(); ok {
-		return gutter + split.sidebar
+	if split := m.columnGeometry(); split.On {
+		return gutter + split.Sidebar
 	}
 
 	return gutter + m.term.width

@@ -10,7 +10,7 @@ import (
 
 // actions is the logs screen as one table and the legend that names it.
 func (l *logsScreen) actions(m *model) keys.Spec[*model] {
-	if l.isBlockFocused(m) {
+	if l.isBlockFocused(m, m.inputs()) {
 		return l.logActions()
 	}
 

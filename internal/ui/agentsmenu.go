@@ -11,7 +11,7 @@ import (
 )
 
 // buildScreenMenu builds the agents list's own band, for starting a workflow, under every row.
-func (a *agentsScreen) buildScreenMenu(m *model) (menu.Menu, bool) {
+func (a *agentsScreen) buildScreenMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
 	return menu.Menu{
 		Title: "agents",
 		Entries: []menu.Entry{
@@ -22,7 +22,7 @@ func (a *agentsScreen) buildScreenMenu(m *model) (menu.Menu, bool) {
 
 // taskMenu is the hovered task's band: its pages, what starts or edits work on it, its git, and
 // the menus that hide, archive or delete it.
-func (a *agentsScreen) taskMenu(m *model, row agentRow) menu.Menu {
+func (a *agentsScreen) taskMenu(m *model, in screen.Inputs, row agentRow) menu.Menu {
 	task := *row.task
 	writer, _ := row.writer()
 	band := menu.Menu{
@@ -40,7 +40,7 @@ func (a *agentsScreen) taskMenu(m *model, row agentRow) menu.Menu {
 			},
 			a.restartEntries(m, task),
 			a.retryEntries(writer),
-			a.snoozeEntries(m, writer),
+			a.snoozeEntries(m, in, writer),
 			a.editEntries(m, writer),
 			[]menu.Entry{
 				menu.Nested("git", a.deps.keys.Menu.Git, gitMenu(m, task)),
@@ -139,15 +139,15 @@ func (a *agentsScreen) taskReviewEntry(m *model, writer panel.Agent) menu.Entry 
 
 // agentRowMenu is the hovered agent's band, which holds what concerns its session and leaves the
 // work to its task's row.
-func (a *agentsScreen) agentRowMenu(m *model, item panel.AgentRow) menu.Menu {
+func (a *agentsScreen) agentRowMenu(m *model, in screen.Inputs, item panel.AgentRow) menu.Menu {
 	pages := subpageEntries(m, a.deps.keys, item, []subpage{subpageLogs})
 	own := append(a.editEntries(m, item), a.retryEntries(item)...)
 	if item.Agent.TaskID == "" {
-		own = append(own, a.snoozeEntries(m, item)...)
+		own = append(own, a.snoozeEntries(m, in, item)...)
 	}
 
 	band := menu.Menu{
-		Title:   m.listing.AgentName(item.Agent),
+		Title:   in.Listing.AgentName(item.Agent),
 		Entries: slices.Concat(pages, own),
 	}
 	if item.Agent.Role == panel.RoleWriter {
@@ -170,8 +170,8 @@ func (a *agentsScreen) retryEntries(item panel.AgentRow) []menu.Entry {
 
 // snoozeEntries is the entry that snoozes or wakes the agent's task in triage, and none when it
 // is not in triage.
-func (a *agentsScreen) snoozeEntries(m *model, item panel.AgentRow) []menu.Entry {
-	triaged, ok := a.triage.findTask(item, m.listing.Agents)
+func (a *agentsScreen) snoozeEntries(m *model, in screen.Inputs, item panel.AgentRow) []menu.Entry {
+	triaged, ok := a.triage.findTask(item, in.Listing.Agents)
 	if !ok {
 		return nil
 	}
@@ -186,7 +186,7 @@ func (a *agentsScreen) snoozeEntries(m *model, item panel.AgentRow) []menu.Entry
 		Label: label,
 		Keys:  a.deps.keys.Menu.Snooze,
 		After: menu.Hold,
-		Pick:  func() screen.Request { return m.agents.toggleSnooze(m, key) },
+		Pick:  func() screen.Request { return m.agents.toggleSnooze(m, m.inputs(), key) },
 	}}
 }
 
@@ -197,7 +197,7 @@ func (a *agentsScreen) closeEditEntries(m *model) []menu.Entry {
 	}
 
 	return []menu.Entry{menu.Holding("close the editor", a.deps.keys.Menu.Edit, func() screen.Request {
-		return m.agents.releaseEdit(m)
+		return m.agents.releaseEdit(m.inputs())
 	})}
 }
 
@@ -208,7 +208,7 @@ func (a *agentsScreen) editEntries(m *model, item panel.AgentRow) []menu.Entry {
 	}
 
 	return []menu.Entry{menu.Holding("edit files", a.deps.keys.Menu.Edit, func() screen.Request {
-		return m.agents.pressEdit(m, item)
+		return m.agents.pressEdit(m.inputs(), item)
 	})}
 }
 

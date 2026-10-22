@@ -24,12 +24,12 @@ type documentEdit struct {
 }
 
 // pressEdit opens the document under the cursor in your editor, or saves and closes the one open.
-func (d *documentsScreen) pressEdit(m *model) screen.Request {
+func (d *documentsScreen) pressEdit(m *model, in screen.Inputs) screen.Request {
 	if d.editing != nil {
 		return d.closeEdit(m)
 	}
 
-	item, ok := d.hovered(m)
+	item, ok := d.hovered(m, in)
 	if !ok {
 		return nil
 	}
@@ -137,7 +137,7 @@ func (d *documentsScreen) closeEdit(m *model) screen.Request {
 }
 
 // reconcileEditor catches the editor pane going away on its own and saves what it wrote.
-func (d *documentsScreen) reconcileEditor(m *model) screen.Request {
+func (d *documentsScreen) reconcileEditor(m *model, in screen.Inputs) screen.Request {
 	if d.editing == nil || d.deps.panes.IsPaneAlive(d.editing.pane) {
 		return nil
 	}

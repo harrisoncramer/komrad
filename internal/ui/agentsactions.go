@@ -56,25 +56,25 @@ func (a *agentsScreen) rowActions() []keys.Action[*model] {
 			ID:     actionWorkflowRename,
 			Keys:   func(k config.Keybindings) []string { return k.Workflows.Rename },
 			When:   a.isHoveringWorkflow,
-			Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) screen.Request { return a.openRename(m) }),
+			Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) screen.Request { return a.openRename(m, m.inputs()) }),
 		},
 		{
 			ID:     actionAgentOpen,
 			Keys:   keys.FixedOpen,
 			When:   list.isBrowsing,
-			Direct: keys.Directly("enter is how a person reaches an agent, and the resume is incidental to that", func(m *model, _ string) screen.Request { return a.openHovered(m) }),
+			Direct: keys.Directly("enter is how a person reaches an agent, and the resume is incidental to that", func(m *model, _ string) screen.Request { return a.openHovered(m, m.inputs()) }),
 		},
 		{
 			ID:     actionAgentRename,
 			Keys:   func(k config.Keybindings) []string { return k.Agents.Rename },
 			When:   a.isHoveringAgent,
-			Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) screen.Request { return a.openRename(m) }),
+			Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) screen.Request { return a.openRename(m, m.inputs()) }),
 		},
 		{
 			ID:     actionTaskRename,
 			Keys:   func(k config.Keybindings) []string { return k.Agents.Rename },
 			When:   a.isHoveringTask,
-			Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) screen.Request { return a.openRename(m) }),
+			Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) screen.Request { return a.openRename(m, m.inputs()) }),
 		},
 	}
 }
@@ -89,26 +89,26 @@ func (a *agentsScreen) isTriageReachable(m *model) bool {
 }
 
 func (a *agentsScreen) isHoveringWorkflow(m *model) bool {
-	_, ok := a.hoveredWorkflow(m)
+	_, ok := a.hoveredWorkflow(m, m.inputs())
 
 	return a.isBrowsing(m) && ok
 }
 
 func (a *agentsScreen) isHoveringTask(m *model) bool {
-	row, ok := a.hoveredRow(m)
+	row, ok := a.hoveredRow(m, m.inputs())
 
 	return a.isBrowsing(m) && ok && row.isTask()
 }
 
 // isHoveringNotes reports whether the cursor is on the task whose notes are shown.
 func (a *agentsScreen) isHoveringNotes(m *model) bool {
-	row, ok := a.hoveredRow(m)
+	row, ok := a.hoveredRow(m, m.inputs())
 
 	return a.isBrowsing(m) && ok && a.isShowingNotes(row)
 }
 
 func (a *agentsScreen) isHoveringAgent(m *model) bool {
-	row, ok := a.hoveredRow(m)
+	row, ok := a.hoveredRow(m, m.inputs())
 
 	return a.isBrowsing(m) && (!ok || !row.header)
 }

@@ -147,7 +147,7 @@ func (r *reviewScreen) closeEdit(m *model) screen.Request {
 
 // reconcileEditor catches the editor pane going away on its own and takes the window back for the
 // diff it was covering.
-func (r *reviewScreen) reconcileEditor(m *model) screen.Request {
+func (r *reviewScreen) reconcileEditor(m *model, in screen.Inputs) screen.Request {
 	if !r.hold.atEditor {
 		return nil
 	}

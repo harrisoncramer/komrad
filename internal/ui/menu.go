@@ -18,11 +18,11 @@ func (m *model) buildMenu() (menu.Menu, bool) {
 	var hasItem, hasBand bool
 
 	if screen, ok := m.active().(itemMenuBuilder); ok {
-		item, hasItem = screen.buildItemMenu(m)
+		item, hasItem = screen.buildItemMenu(m, m.inputs())
 	}
 
 	if screen, ok := m.active().(screenMenuBuilder); ok {
-		band, hasBand = screen.buildScreenMenu(m)
+		band, hasBand = screen.buildScreenMenu(m, m.inputs())
 	}
 
 	switch {
@@ -35,14 +35,14 @@ func (m *model) buildMenu() (menu.Menu, bool) {
 	}
 }
 
-func (a *agentsScreen) buildItemMenu(m *model) (menu.Menu, bool) {
+func (a *agentsScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
 	if a.list().isSelecting(m) {
-		chosen := chosenAgents(a.Selected, a.rows(m))
+		chosen := chosenAgents(a.Selected, a.rows(m, in))
 		if len(chosen) == 0 {
 			return menu.Menu{}, false
 		}
 
-		work := splitChosen(m.listing, chosen)
+		work := splitChosen(in.Listing, chosen)
 		hideable := work.wholeTasks
 		if len(work.loneAgents) > 0 {
 			hideable = nil
@@ -56,21 +56,21 @@ func (a *agentsScreen) buildItemMenu(m *model) (menu.Menu, bool) {
 		return menu.Menu{}, false
 	}
 
-	row, ok := a.hoveredRow(m)
+	row, ok := a.hoveredRow(m, in)
 	if !ok {
 		return menu.Menu{}, false
 	}
 	if task, ok := a.taskRowOf(m, row); ok {
-		return a.taskMenu(m, task), true
+		return a.taskMenu(m, in, task), true
 	}
 
 	item, hasAgent := row.paneItem()
 
-	if workflow, ok := a.hoveredWorkflow(m); ok {
+	if workflow, ok := a.hoveredWorkflow(m, in); ok {
 		band := rowMenu(workflow.Name)
 		var orchestrator *panel.Agent
 		if hasAgent {
-			band = agentMenu(m, a.deps.keys, item, slices.Concat(a.closeEditEntries(m), a.snoozeEntries(m, item))...)
+			band = agentMenu(m, a.deps.keys, item, slices.Concat(a.closeEditEntries(m), a.snoozeEntries(m, in, item))...)
 			orchestrator = &item.Agent
 		}
 		band.Entries = append(band.Entries, a.workflowEntries(m, workflow, orchestrator)...)
@@ -84,11 +84,11 @@ func (a *agentsScreen) buildItemMenu(m *model) (menu.Menu, bool) {
 		return menu.Menu{}, false
 	}
 
-	return a.agentRowMenu(m, item), true
+	return a.agentRowMenu(m, in, item), true
 }
 
-func (w *schedulesScreen) buildItemMenu(m *model) (menu.Menu, bool) {
-	item, ok := w.selected(m)
+func (w *schedulesScreen) buildItemMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
+	item, ok := w.selected(m, in)
 	if !ok {
 		return menu.Menu{}, false
 	}
@@ -97,7 +97,7 @@ func (w *schedulesScreen) buildItemMenu(m *model) (menu.Menu, bool) {
 }
 
 // buildScreenMenu builds the schedules screen's own band, for writing a new schedule.
-func (w *schedulesScreen) buildScreenMenu(m *model) (menu.Menu, bool) {
+func (w *schedulesScreen) buildScreenMenu(m *model, in screen.Inputs) (menu.Menu, bool) {
 	return menu.Menu{
 		Title: "schedules",
 		Entries: []menu.Entry{
