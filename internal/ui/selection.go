@@ -2,181 +2,15 @@ package ui
 
 import (
 	"fmt"
-	"slices"
 
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
 )
 
-// rowRef is what the selection knows of a row.
-type rowRef struct {
-	key    string
-	header bool
-	group  string
-	// task is the key of the task the row is a header of or sits under, empty off a task.
-	task string
-	// writer is the key of the writer a task's row stands for, empty on every other row.
-	writer string
-}
-
-func (r rowRef) isTask() bool {
-	return r.header && r.task != ""
-}
-
-type selection struct {
-	keys []string
-}
-
-func (s selection) isActive() bool {
-	return len(s.keys) > 0
-}
-
-func (s selection) has(key string) bool {
-	return slices.Contains(s.keys, key)
-}
-
-func (s selection) toggle(refs []rowRef, cursor int) selection {
-	ref, ok := rowAt(refs, cursor)
-	if !ok {
-		return s
-	}
-
-	if !ref.header {
-		if s.has(ref.key) {
-			return s.without(ref.key)
-		}
-
-		return s.with(ref.key)
-	}
-
-	keys := groupKeys(refs, ref)
-	if len(keys) == 0 {
-		return s
-	}
-
-	if s.hasAll(keys) {
-		return s.without(keys...)
-	}
-
-	return s.with(keys...)
-}
-
-func (s selection) extend(refs []rowRef, cursor int) selection {
-	if ref, ok := rowAt(refs, cursor); !ok || (ref.header && !ref.isTask()) {
-		return s
-	}
-
-	first, last := cursor, cursor
-	if anchor := s.nearest(refs, cursor); anchor >= 0 {
-		first, last = min(anchor, cursor), max(anchor, cursor)
-	}
-
-	var keys []string
-	for _, r := range refs[first : last+1] {
-		switch {
-		case !r.header:
-			keys = append(keys, r.key)
-		case r.isTask():
-			keys = append(keys, groupKeys(refs, r)...)
-		}
-	}
-
-	return s.with(keys...)
-}
-
-func (s selection) pruned(refs []rowRef) selection {
-	if !s.isActive() {
-		return s
-	}
-
-	onScreen := make(map[string]bool, len(refs))
-	for _, r := range refs {
-		if !r.header {
-			onScreen[r.key] = true
-		}
-		if r.writer != "" {
-			onScreen[r.writer] = true
-		}
-	}
-
-	kept := xslice.Filter(s.keys, func(key string) bool { return onScreen[key] })
-
-	return selection{keys: kept}
-}
-
-func (s selection) nearest(refs []rowRef, cursor int) int {
-	closest := -1
-	for i, r := range refs {
-		if !s.holds(r) {
-			continue
-		}
-		if closest < 0 || rowDistance(i, cursor) < rowDistance(closest, cursor) {
-			closest = i
-		}
-	}
-
-	return closest
-}
-
-// holds reports whether the row is selected: an agent's row by its own key and a task's by its writer's.
-func (s selection) holds(r rowRef) bool {
-	if r.header {
-		return r.writer != "" && s.has(r.writer)
-	}
-
-	return s.has(r.key)
-}
-
-func (s selection) hasAll(keys []string) bool {
-	for _, key := range keys {
-		if !s.has(key) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func (s selection) with(keys ...string) selection {
-	next := slices.Clone(s.keys)
-	for _, key := range keys {
-		if !slices.Contains(next, key) {
-			next = append(next, key)
-		}
-	}
-	slices.Sort(next)
-
-	return selection{keys: next}
-}
-
-func (s selection) without(keys ...string) selection {
-	next := slices.DeleteFunc(slices.Clone(s.keys), func(key string) bool {
-		return slices.Contains(keys, key)
-	})
-
-	return selection{keys: next}
-}
-
-// groupKeys is every row under one header, which for a task header is the rows on its task.
-func groupKeys(refs []rowRef, header rowRef) []string {
-	var keys []string
-	for _, r := range refs {
-		underTask := header.task != "" && r.task == header.task
-		underWorkflow := header.task == "" && r.group == header.group
-		if !r.header && (underTask || underWorkflow) {
-			keys = append(keys, r.key)
-		}
-		if r.writer != "" && (underTask || underWorkflow) {
-			keys = append(keys, r.writer)
-		}
-	}
-
-	return keys
-}
-
 // refsOf is the tree as the selection sees it.
-func refsOf(rows []agentRow) []rowRef {
-	refs := make([]rowRef, 0, len(rows))
+func refsOf(rows []agentRow) []list.Ref {
+	refs := make([]list.Ref, 0, len(rows))
 	var task string
 	for _, row := range rows {
 		switch {
@@ -185,14 +19,14 @@ func refsOf(rows []agentRow) []rowRef {
 		case !row.underTask:
 			task = ""
 		}
-		ref := rowRef{
-			key:    toTreeRowKey(rowKey(row)),
-			header: row.header,
-			group:  workflowRowKey(row.workflow.ID),
-			task:   task,
+		ref := list.Ref{
+			Key:    toTreeRowKey(rowKey(row)),
+			Header: row.header,
+			Group:  workflowRowKey(row.workflow.ID),
+			Task:   task,
 		}
 		if writer, ok := row.writer(); ok {
-			ref.writer = agentRowKey(writer.Agent.ID)
+			ref.Writer = agentRowKey(writer.Agent.ID)
 		}
 		refs = append(refs, ref)
 	}
@@ -200,14 +34,14 @@ func refsOf(rows []agentRow) []rowRef {
 	return refs
 }
 
-func chosenAgents(sel selection, rows []agentRow) []panel.Agent {
+func chosenAgents(sel list.Selection, rows []agentRow) []panel.Agent {
 	var agents []panel.Agent
 	for _, row := range rows {
 		writer, ok := row.writer()
 		switch {
-		case !row.header && sel.has(toTreeRowKey(rowKey(row))):
+		case !row.header && sel.Has(toTreeRowKey(rowKey(row))):
 			agents = append(agents, row.item.Agent)
-		case ok && sel.has(agentRowKey(writer.Agent.ID)):
+		case ok && sel.Has(agentRowKey(writer.Agent.ID)):
 			agents = append(agents, writer.Agent)
 		}
 	}
@@ -221,8 +55,4 @@ func describeAgents(agents []panel.Agent) string {
 	}
 
 	return fmt.Sprintf("%d agents", len(agents))
-}
-
-func rowDistance(a, b int) int {
-	return max(a-b, b-a)
 }

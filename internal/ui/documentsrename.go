@@ -42,7 +42,7 @@ func (d *documentsScreen) openRename(m *model) tea.Cmd {
 	}
 
 	d.renaming = &documentRename{
-		nameEdit: openNameEdit(documentRow{item: item}.key(), item.name),
+		nameEdit: openNameEdit(documentRow{item: item}.Key(), item.name),
 		item:     item,
 		read:     read,
 	}

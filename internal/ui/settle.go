@@ -124,7 +124,7 @@ func hasWorkflow(workflows []panel.Workflow, id string) bool {
 }
 
 func hasSchedule(items []scheduleItem, id string) bool {
-	return slices.ContainsFunc(items, func(item scheduleItem) bool { return item.key() == id })
+	return slices.ContainsFunc(items, func(item scheduleItem) bool { return item.Key() == id })
 }
 
 // parkWrite keeps an answered write in flight, and its form up, until the panel shows what it did.

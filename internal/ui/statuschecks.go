@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
 	"komrad/lib/dates"
@@ -38,7 +39,7 @@ type statusCheckCommit struct {
 
 // statusChecksScreen lists the status checks on the newest head of the pull request opened from one agent's branch.
 type statusChecksScreen struct {
-	rowCursor
+	list.Cursor
 	agentID           string
 	openedFrom        screen
 	commit            statusCheckCommit
@@ -56,7 +57,7 @@ type statusCheckRow struct {
 	item statusCheckItem
 }
 
-func (r statusCheckRow) key() string {
+func (r statusCheckRow) Key() string {
 	return "status-check:" + r.item.providerID
 }
 
@@ -82,7 +83,7 @@ func (c *statusChecksScreen) update(m *model, msg tea.Msg) tea.Cmd {
 
 func (c *statusChecksScreen) list() screenList[statusCheckRow] {
 	return screenList[statusCheckRow]{
-		cursor: func() *rowCursor { return &c.rowCursor },
+		cursor: func() *list.Cursor { return &c.Cursor },
 		rows:   c.rows,
 		name:   statusCheckRowName,
 		moved:  func(m *model) tea.Cmd { return m.waitToStage() },
@@ -109,7 +110,7 @@ func (c *statusChecksScreen) listParams(m *model) screenListParams {
 		help:     c.help,
 		empty:    c.emptyLine(m),
 		rows:     len(c.rows(m)),
-		snapshot: func(pane listPane) view.Snapshot { return c.snapshot(m, pane) },
+		snapshot: func(pane list.Pane) view.Snapshot { return c.snapshot(m, pane) },
 	}
 }
 

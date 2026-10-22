@@ -7,6 +7,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/list"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -17,7 +18,7 @@ const legendRuleFloor = 2
 
 type detailsState struct {
 	focused bool
-	rowCursor
+	list.Cursor
 	row     string
 	flashed int
 }
@@ -38,7 +39,7 @@ type detailsRow struct {
 	text string
 }
 
-func (r detailsRow) key() string {
+func (r detailsRow) Key() string {
 	return r.id
 }
 
@@ -86,7 +87,7 @@ func (m *model) detailsCursor(held details) int {
 		return 0
 	}
 
-	return cursor.Clamp(m.details.cursor, len(m.detailsRows(held)))
+	return cursor.Clamp(m.details.Row, len(m.detailsRows(held)))
 }
 
 func (m *model) detailsList() screenList[detailsRow] {
@@ -97,13 +98,13 @@ func (m *model) detailsList() screenList[detailsRow] {
 	}
 }
 
-func (m *model) detailsRowCursor() *rowCursor {
+func (m *model) detailsRowCursor() *list.Cursor {
 	if held := m.hoveredDetails(); m.details.row != held.id {
-		m.details.rowCursor = rowCursor{}
+		m.details.Cursor = list.Cursor{}
 		m.details.row = held.id
 	}
 
-	return &m.details.rowCursor
+	return &m.details.Cursor
 }
 
 func (m *model) isDetailsRendered(held details) bool {

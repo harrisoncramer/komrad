@@ -9,6 +9,7 @@ import (
 
 	"komrad/internal/assemble"
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
@@ -18,7 +19,7 @@ import (
 // agentsScreen is the agents screen: the cursor in the tree of workflows and agents, how they
 // are ordered and whether the hidden ones are rendered.
 type agentsScreen struct {
-	rowCursor
+	list.Cursor
 	placed     bool
 	showHidden bool
 	sort       tabsState
@@ -454,7 +455,7 @@ func narrowedAgentRows(m *model, rows []agentRow) []agentRow {
 }
 
 func (a *agentsScreen) hoveredRow(m *model) (agentRow, bool) {
-	return a.layout(m).cursorRow(a.cursor)
+	return a.layout(m).cursorRow(a.Row)
 }
 
 func (a *agentsScreen) hoveredWorkflow(m *model) (panel.Workflow, bool) {
@@ -540,7 +541,7 @@ func firstAgentRowIndex(rows []agentRow) int {
 // nearestAgentRowIndex steers an index off a workflow when the row it used to point at was an
 // agent that just vanished.
 func nearestAgentRowIndex(rows []agentRow, idx int) int {
-	row, ok := rowAt(rows, idx)
+	row, ok := list.At(rows, idx)
 	if !ok || row.isAgentRow() {
 		return idx
 	}
@@ -601,7 +602,7 @@ func findLandingKey(rows []agentRow, hovered, key string) string {
 	if toTreeRowKey(hovered) == key {
 		return hovered
 	}
-	if rowIndexOfKey(rows, key) >= 0 {
+	if list.IndexOf(rows, key) >= 0 {
 		return key
 	}
 	if at := slices.IndexFunc(rows, func(r agentRow) bool {
@@ -611,7 +612,7 @@ func findLandingKey(rows []agentRow, hovered, key string) string {
 	}); at >= 0 {
 		return rowKey(rows[at])
 	}
-	if zoneKey := triageRowPrefix + key; rowIndexOfKey(rows, zoneKey) >= 0 {
+	if zoneKey := triageRowPrefix + key; list.IndexOf(rows, zoneKey) >= 0 {
 		return zoneKey
 	}
 
@@ -630,7 +631,7 @@ func taskRowKey(id string) string {
 	return taskRowPrefix + id
 }
 
-func (r agentRow) key() string {
+func (r agentRow) Key() string {
 	return rowKey(r)
 }
 
@@ -711,22 +712,22 @@ func (a *agentsScreen) apply(m *model, selected string) {
 
 	rows := a.rows(m)
 
-	switch idx := rowIndexOfKey(rows, selected); {
+	switch idx := list.IndexOf(rows, selected); {
 	case idx >= 0:
-		a.cursor = idx
+		a.Row = idx
 	case !placed:
-		a.cursor = firstAgentRowIndex(rows)
+		a.Row = firstAgentRowIndex(rows)
 	default:
-		clamped := cursor.Clamp(a.cursor, len(rows))
+		clamped := cursor.Clamp(a.Row, len(rows))
 		if strings.HasPrefix(toTreeRowKey(selected), "agent:") {
 			clamped = nearestAgentRowIndex(rows, clamped)
 		}
 
-		a.cursor = clamped
+		a.Row = clamped
 	}
 
 	a.placed = true
-	a.selected = a.selected.pruned(refsOf(a.rows(m)))
+	a.Selected = a.Selected.Pruned(refsOf(a.rows(m)))
 	a.reconcileRename(m)
 }
 
@@ -796,8 +797,8 @@ func (a *agentsScreen) revealAgent(m *model, id string) {
 	a.showHiddenFor(m, id)
 
 	rows := a.rows(m)
-	if idx := rowIndexOfKey(rows, findLandingKey(rows, "", agentRowKey(id))); idx >= 0 {
-		a.cursor = idx
+	if idx := list.IndexOf(rows, findLandingKey(rows, "", agentRowKey(id))); idx >= 0 {
+		a.Row = idx
 	}
 }
 
@@ -806,8 +807,8 @@ func (a *agentsScreen) revealTask(m *model, taskID, writerID string) {
 	if m.listing.tasks[taskID].Hidden {
 		a.showHidden = true
 	}
-	if idx := rowIndexOfKey(a.rows(m), taskRowKey(taskID)); idx >= 0 {
-		a.cursor = idx
+	if idx := list.IndexOf(a.rows(m), taskRowKey(taskID)); idx >= 0 {
+		a.Row = idx
 
 		return
 	}

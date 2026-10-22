@@ -1,13 +1,14 @@
 package ui
 
 import (
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 )
 
 func (a *archivedAgents) details(m *model) details {
-	r, ok := rowAt(a.listRows(m), a.cursor)
+	r, ok := list.At(a.listRows(m), a.Row)
 	if !ok {
 		return details{}
 	}
@@ -28,7 +29,7 @@ func (a *archivedAgents) details(m *model) details {
 
 // doc is the markdown rendered beside the list for the row the cursor is on.
 func (a *archivedAgents) doc(m *model) string {
-	r, ok := rowAt(a.listRows(m), a.cursor)
+	r, ok := list.At(a.listRows(m), a.Row)
 	switch {
 	case !ok:
 		return a.emptyMarkdown()
@@ -60,18 +61,18 @@ func (a *archivedAgents) view(m *model) string {
 }
 
 // snapshot is the archived agents' rows as the plain data the shared rendering reads.
-func (a *archivedAgents) snapshot(m *model, pane listPane) view.Snapshot {
+func (a *archivedAgents) snapshot(m *model, pane list.Pane) view.Snapshot {
 	rows := a.listRows(m)
-	work := splitChosen(m.listing, chosenAgents(a.selected, rows))
+	work := splitChosen(m.listing, chosenAgents(a.Selected, rows))
 
 	return agentsSnapshot(snapshotParams{
 		rows:         rows,
-		selected:     a.selected,
+		selected:     a.Selected,
 		wholeTasks:   taskIDs(work.wholeTasks),
 		scheduled:    m.listing.scheduledWorkflows(),
 		workflowDirs: m.listing.workflowDirs(),
-		focused:      rowKeyAt(rows, a.cursor),
-		caret:        pane.caret,
+		focused:      list.KeyAt(rows, a.Row),
+		caret:        pane.Caret,
 		loaderFrame:  m.loading.frame(),
 		matcher:      m.filter.pattern,
 		picked:       pickedRows(m.filter, rows, m.agentRowFits),
@@ -79,7 +80,7 @@ func (a *archivedAgents) snapshot(m *model, pane listPane) view.Snapshot {
 		renaming:     a.renamingField(),
 		showHidden:   true,
 		flat:         a.sort.flat,
-		pane:         pane.width,
+		pane:         pane.Width,
 	})
 }
 

@@ -9,6 +9,7 @@ import (
 
 	"komrad/internal/errui"
 	"komrad/internal/ui/layout"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/submitting"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -517,7 +518,7 @@ func (m *model) finishWrite(result writeResult) tea.Cmd {
 		m.agents.showHiddenFor(m, result.written.agent)
 
 		rows := m.agents.rows(m)
-		if key := findLandingKey(rows, m.agents.list().hovered(m), result.written.row); !result.keyMoved && rowIndexOfKey(rows, key) >= 0 {
+		if key := findLandingKey(rows, m.agents.list().hovered(m), result.written.row); !result.keyMoved && list.IndexOf(rows, key) >= 0 {
 			m.agents.apply(m, key)
 		}
 

@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"slices"
 
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
@@ -20,7 +21,7 @@ type snapshotParams struct {
 	// triage is the zone rendered ahead of the rows, empty on a list that renders none.
 	triage triageSnapshot
 	// selected are the agents taken into a selection several rows wide.
-	selected selection
+	selected list.Selection
 	// wholeTasks are the ids of the tasks a selection takes whole, drawn as selected themselves.
 	wholeTasks []string
 	// focused is the key of the row the cursor stands on, empty when it stands on none.
@@ -141,7 +142,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.Forge = snapshotForge(task.PullRequest)
 	row.AutoMerge = task.PullRequest.MergeReadiness.AutoMerge
 	row.LoaderFrame = params.loaderFrame
-	row.Selected = params.selected.has(toTreeRowKey(key))
+	row.Selected = params.selected.Has(toTreeRowKey(key))
 
 	return row
 }
@@ -371,7 +372,7 @@ func snapshotForge(standing panel.PullRequestStanding) view.Forge {
 // matchesOf is the stretches of a row's name the search lights, the whole of it when only qualifiers
 // picked the row.
 func (p snapshotParams) matchesOf(r agentRow, name string) []view.Span {
-	return pickedMatches(p.matcher, p.picked, r.key(), name)
+	return pickedMatches(p.matcher, p.picked, r.Key(), name)
 }
 
 // pickedMatches is the stretches of a row's name the search lights, the whole of it when only

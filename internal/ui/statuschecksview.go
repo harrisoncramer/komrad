@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
@@ -50,13 +51,13 @@ func statusCheckColumns() view.Columns {
 	}
 }
 
-func (c *statusChecksScreen) snapshot(m *model, pane listPane) view.Snapshot {
+func (c *statusChecksScreen) snapshot(m *model, pane list.Pane) view.Snapshot {
 	rows := c.rows(m)
 
 	return view.Snapshot{
 		Rows: xslice.Map(rows, func(r statusCheckRow) view.Row {
 			return view.Row{
-				Key:     r.key(),
+				Key:     r.Key(),
 				Kind:    view.KindResult,
 				Name:    r.item.name,
 				Matches: matchesIn(m.filter.pattern, r.item.name),
@@ -66,9 +67,9 @@ func (c *statusChecksScreen) snapshot(m *model, pane listPane) view.Snapshot {
 				},
 			}
 		}),
-		Caret:   pane.caret,
-		Focused: rowKeyAt(rows, c.cursor),
-		Pane:    pane.width,
+		Caret:   pane.Caret,
+		Focused: list.KeyAt(rows, c.Row),
+		Pane:    pane.Width,
 		Columns: statusCheckColumns(),
 	}
 }
@@ -92,11 +93,11 @@ func statusCheckIcon(item statusCheckItem, loaderFrame string) view.Cell {
 
 func (c *statusChecksScreen) docRows(m *model, width int) []string {
 	rows := c.rows(m)
-	if c.cursor < 0 || c.cursor >= len(rows) {
+	if c.Row < 0 || c.Row >= len(rows) {
 		return nil
 	}
 
-	item := rows[c.cursor].item
+	item := rows[c.Row].item
 	indent := strings.Repeat(" ", docMargin())
 	icon := func(item statusCheckItem) string {
 		cell := statusCheckIcon(item, m.loading.frame())

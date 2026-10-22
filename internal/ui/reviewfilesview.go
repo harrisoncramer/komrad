@@ -7,6 +7,7 @@ import (
 	"komrad/internal/diff"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 
 	"charm.land/lipgloss/v2"
@@ -99,7 +100,7 @@ func renderTreeRow(m *model, params renderTreeRowParams) string {
 
 	lead := style.Render(mark) + strings.Repeat(" ", filesGutter-1+2*row.Depth)
 	if params.Current && params.Focused {
-		lead = caretGlyph(m.listPane(width).caret) + strings.Repeat(" ", filesGutter-2+2*row.Depth)
+		lead = list.ArrowOf(m.listPane(width).Caret) + strings.Repeat(" ", filesGutter-2+2*row.Depth)
 	}
 	fit := fitTreeRowParams{
 		Left:  params.Filter.highlight(paint.Panel, row.Name, style),

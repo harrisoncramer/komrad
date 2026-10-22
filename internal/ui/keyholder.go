@@ -1,15 +1,8 @@
 package ui
 
 import (
-	"komrad/internal/glyph"
 	"komrad/internal/view"
 )
-
-// blankCursor is the room a row leaves where the arrow would stand.
-const blankCursor = "  "
-
-// rowCursorGlyph is the arrow a list renders on the row the cursor is standing on.
-var rowCursorGlyph = glyph.Focus + " "
 
 // sidebarSection is one of the sections of the panel's own pane that has a cursor of its own.
 type sidebarSection int

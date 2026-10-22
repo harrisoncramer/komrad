@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
@@ -27,7 +28,7 @@ const (
 // that kind lists and how they sort.
 type archivedAgents struct {
 	kind agentsKind
-	rowCursor
+	list.Cursor
 	sort  tabsState
 	built derived[archivedRowsKey, []agentRow]
 	renameSlot
@@ -69,7 +70,7 @@ func (a *agentsScreen) kindsFit(m *model) bool {
 
 // kindsSwitch holds the agents view on its kind while the user selects any of its agents.
 func (a *agentsScreen) kindsSwitch(*model) bool {
-	return !a.selected.isActive()
+	return !a.Selected.IsActive()
 }
 
 // stepKind moves the agents view to its other kind, back on the row it last stood on.
@@ -79,10 +80,10 @@ func (a *agentsScreen) stepKind(m *model, delta int) tea.Cmd {
 	a.kind = agentsKind(stepStop(int(a.kind), delta, len(a.kinds(m).labels)))
 	m.reconcileSolo()
 	if shown := a.shownArchive(); shown != nil {
-		shown.selected = selection{}
+		shown.Selected = list.Selection{}
 		shown.stage(m)
 	} else {
-		a.selected = selection{}
+		a.Selected = list.Selection{}
 		m.stageSelection()
 	}
 
@@ -106,10 +107,10 @@ func (a *agentsScreen) shownArchive() *archivedAgents {
 func (a *archivedAgents) enter(m *model, target screenTarget) tea.Cmd {
 	a.place(m, "")
 	rows := a.listRows(m)
-	if idx := rowIndexOfKey(rows, taskRowKey(target.taskID)); target.taskID != "" && idx >= 0 {
-		a.cursor = idx
+	if idx := list.IndexOf(rows, taskRowKey(target.taskID)); target.taskID != "" && idx >= 0 {
+		a.Row = idx
 	} else if idx := rowIndexOfAgentID(rows, target.agentID); target.agentID != "" && idx >= 0 {
-		a.cursor = idx
+		a.Row = idx
 	}
 
 	a.stage(m)
@@ -149,7 +150,7 @@ func (a *archivedAgents) kindsFit(m *model) bool {
 
 // kindsSwitch holds the archived agents on their kind while the user selects any of them.
 func (a *archivedAgents) kindsSwitch(*model) bool {
-	return !a.selected.isActive()
+	return !a.Selected.IsActive()
 }
 
 func (a *archivedAgents) stepKind(m *model, delta int) tea.Cmd {
@@ -158,7 +159,7 @@ func (a *archivedAgents) stepKind(m *model, delta int) tea.Cmd {
 
 func (a *archivedAgents) list() screenList[agentRow] {
 	return screenList[agentRow]{
-		cursor: func() *rowCursor { return &a.rowCursor },
+		cursor: func() *list.Cursor { return &a.Cursor },
 		rows:   a.listRows,
 		name:   agentRowName,
 		fits:   (*model).agentRowFits,
@@ -309,15 +310,15 @@ func (l listing) archivedCount(workflowID string) int {
 // place keeps the cursor on the row it was on as the rows under it change.
 func (a *archivedAgents) place(m *model, hovered string) {
 	rows := a.listRows(m)
-	a.selected = a.selected.pruned(refsOf(rows))
+	a.Selected = a.Selected.Pruned(refsOf(rows))
 
-	a.cursor = cursor.Place(rowIndexOfKey(rows, hovered), a.cursor, len(rows))
+	a.Row = cursor.Place(list.IndexOf(rows, hovered), a.Row, len(rows))
 	a.reconcileRename(m)
 }
 
 // hoveredAgent is the archived agent the cursor is on, and none on a folder.
 func (a *archivedAgents) hoveredAgent(m *model) (panel.Agent, bool) {
-	row, ok := rowAt(a.listRows(m), a.cursor)
+	row, ok := list.At(a.listRows(m), a.Row)
 	if !ok || !row.isAgentRow() {
 		return panel.Agent{}, false
 	}
@@ -329,7 +330,7 @@ func (a *archivedAgents) hoveredAgent(m *model) (panel.Agent, bool) {
 // hoveredWorkflow is the archived workflow the cursor is on, and none on an agent or on the
 // folder of a live workflow.
 func (a *archivedAgents) hoveredWorkflow(m *model) (panel.Workflow, bool) {
-	workflow, ok := hoveredHeader(rowAt(a.listRows(m), a.cursor))
+	workflow, ok := hoveredHeader(list.At(a.listRows(m), a.Row))
 	if !ok || workflow.ArchivedAt == nil {
 		return panel.Workflow{}, false
 	}
@@ -338,7 +339,7 @@ func (a *archivedAgents) hoveredWorkflow(m *model) (panel.Workflow, bool) {
 }
 
 func (a *archivedAgents) hoveredRow(m *model) (agentRow, bool) {
-	return rowAt(a.listRows(m), a.cursor)
+	return list.At(a.listRows(m), a.Row)
 }
 
 func (a *archivedAgents) isLoading(m *model) bool {
@@ -354,8 +355,8 @@ func (a *archivedAgents) stageResting(m *model) tea.Cmd {
 // menuTarget is what the archive menu would act on, and none on the folder of a live workflow
 // with no archived orchestrator.
 func (a *archivedAgents) menuTarget(m *model) (archived, bool) {
-	if a.selected.isActive() {
-		work := splitChosen(m.listing, chosenAgents(a.selected, a.listRows(m)))
+	if a.Selected.IsActive() {
+		work := splitChosen(m.listing, chosenAgents(a.Selected, a.listRows(m)))
 
 		return archived{
 			work:   work,
@@ -418,7 +419,7 @@ func (a *archivedAgents) buildItemMenu(m *model) (submenu, bool) {
 	}
 
 	menu := rowMenu(target.name())
-	if row, ok := rowAt(a.listRows(m), a.cursor); ok && a.holdsAnAgent(m) {
+	if row, ok := list.At(a.listRows(m), a.Row); ok && a.holdsAnAgent(m) {
 		item, _ := row.paneItem()
 		menu = agentMenu(m, item)
 	}
@@ -480,7 +481,7 @@ func (a *archivedAgents) listParams(m *model) screenListParams {
 		help:     a.help,
 		empty:    a.emptySaid(),
 		rows:     len(a.listRows(m)),
-		snapshot: func(pane listPane) view.Snapshot { return a.snapshot(m, pane) },
+		snapshot: func(pane list.Pane) view.Snapshot { return a.snapshot(m, pane) },
 	}
 }
 
@@ -568,11 +569,11 @@ func (a *archivedAgents) column() columnSpec {
 // renameable is the row under the cursor when the user can rename it, which is an agent, a task, or a
 // live workflow's folder.
 func (a *archivedAgents) renameable(m *model) (agentRow, bool) {
-	if a.selected.isActive() {
+	if a.Selected.IsActive() {
 		return agentRow{}, false
 	}
 
-	row, ok := rowAt(a.listRows(m), a.cursor)
+	row, ok := list.At(a.listRows(m), a.Row)
 	if !ok || (row.header && !row.isTask() && row.workflow.ArchivedAt != nil) {
 		return agentRow{}, false
 	}

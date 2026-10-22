@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"komrad/config"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
@@ -145,9 +146,9 @@ func (a *agentsScreen) view(m *model) string {
 	return m.columnListView(a.listParams(m))
 }
 
-func (a *agentsScreen) snapshot(m *model, pane listPane) view.Snapshot {
+func (a *agentsScreen) snapshot(m *model, pane list.Pane) view.Snapshot {
 	layout := a.layout(m)
-	work := splitChosen(m.listing, chosenAgents(a.selected, layout.cursorRows()))
+	work := splitChosen(m.listing, chosenAgents(a.Selected, layout.cursorRows()))
 
 	return agentsSnapshot(snapshotParams{
 		rows: layout.tree,
@@ -156,12 +157,12 @@ func (a *agentsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 			zone:    layout.zone,
 			waiting: layout.waiting,
 		},
-		selected:     a.selected,
+		selected:     a.Selected,
 		wholeTasks:   taskIDs(work.wholeTasks),
 		scheduled:    m.listing.scheduledWorkflows(),
 		workflowDirs: m.listing.workflowDirs(),
-		focused:      rowKeyAt(layout.cursorRows(), a.cursor),
-		caret:        pane.caret,
+		focused:      list.KeyAt(layout.cursorRows(), a.Row),
+		caret:        pane.Caret,
 		loaderFrame:  m.loading.frame(),
 		matcher:      m.filter.pattern,
 		picked:       pickedRows(m.filter, layout.cursorRows(), m.agentRowFits),
@@ -169,6 +170,6 @@ func (a *agentsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 		renaming:     a.renamingField(),
 		showHidden:   a.showHidden,
 		flat:         a.sort.flat,
-		pane:         pane.width,
+		pane:         pane.Width,
 	})
 }

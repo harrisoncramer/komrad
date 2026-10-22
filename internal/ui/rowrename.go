@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 
 	tea "charm.land/bubbletea/v2"
@@ -36,7 +37,7 @@ func renameAgentRow(row agentRow) *rowRename {
 func renameScheduleRow(item scheduleItem) *rowRename {
 	schedule := item.schedule
 
-	return &rowRename{nameEdit: openNameEdit(item.key(), schedule.Name), schedule: &schedule}
+	return &rowRename{nameEdit: openNameEdit(item.Key(), schedule.Name), schedule: &schedule}
 }
 
 // save sends the typed name, or says there is nothing to send.
@@ -103,7 +104,7 @@ func (r *renameSlot) renamingField() *nameEdit {
 }
 
 // reconcileRename drops an open rename once the cursor leaves its row.
-func reconcileRename[T keyed](r *renameSlot, rows []T, hovered string, name func(T) string) {
+func reconcileRename[T list.Keyed](r *renameSlot, rows []T, hovered string, name func(T) string) {
 	if r.renaming != nil && !reconcileNameEdit(r.renaming.nameEdit, rows, hovered, name) {
 		r.renaming = nil
 	}

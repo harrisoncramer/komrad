@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"komrad/internal/glyph"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
@@ -44,7 +45,7 @@ const (
 // noRepository heads the directories whose .git file names nothing.
 const noRepository = "no repository"
 
-func (r worktreeRow) key() string {
+func (r worktreeRow) Key() string {
 	if r.header {
 		return repoRowKey(r.repo)
 	}
@@ -208,12 +209,12 @@ func repoHeading(item worktreeItem) string {
 }
 
 // worktreeRefs is the worktrees list as the selection sees it.
-func worktreeRefs(rows []worktreeRow) []rowRef {
-	return xslice.Map(rows, func(row worktreeRow) rowRef {
-		return rowRef{
-			key:    row.key(),
-			header: row.header,
-			group:  repoRowKey(row.repo),
+func worktreeRefs(rows []worktreeRow) []list.Ref {
+	return xslice.Map(rows, func(row worktreeRow) list.Ref {
+		return list.Ref{
+			Key:    row.Key(),
+			Header: row.header,
+			Group:  repoRowKey(row.repo),
 		}
 	})
 }
@@ -241,7 +242,7 @@ type worktreesSnapshotParams struct {
 	rows []worktreeRow
 	// items is the whole listing, which is what a repository's own figures are read off.
 	items    []worktreeItem
-	selected selection
+	selected list.Selection
 	focused  string
 	// live are the agents the agents listing holds, whose marks a row with one of them renders.
 	live []panel.AgentRow
@@ -260,7 +261,7 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 	rows := make([]view.Row, 0, len(params.rows))
 	for _, r := range params.rows {
 		row := view.Row{
-			Key:     r.key(),
+			Key:     r.Key(),
 			Name:    r.name(),
 			Matches: matchesIn(params.matcher, r.name()),
 		}
@@ -282,7 +283,7 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 				row.Process = view.ProcessStopped
 			}
 		}
-		row.Selected = params.selected.has(row.Key)
+		row.Selected = params.selected.Has(row.Key)
 
 		rows = append(rows, row)
 	}

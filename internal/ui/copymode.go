@@ -5,6 +5,7 @@ import (
 	"unicode"
 
 	"komrad/internal/panes"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/zone"
 
@@ -107,7 +108,7 @@ func (m *model) renderCopyLayout() panes.CopyStandIn {
 // findCursor is the column the panel renders a row's cursor at, found only where it starts the row,
 // which a crumb in the same glyph never does.
 func findCursor(plain string) (int, bool) {
-	before, _, found := strings.Cut(plain, rowCursorGlyph)
+	before, _, found := strings.Cut(plain, list.Arrow)
 	if !found || strings.IndexFunc(before, func(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) }) >= 0 {
 		return 0, false
 	}

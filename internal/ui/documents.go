@@ -5,6 +5,7 @@ import (
 	"slices"
 	"time"
 
+	"komrad/internal/ui/list"
 	"komrad/internal/view"
 	"komrad/lib/dates"
 	"komrad/lib/xslice"
@@ -42,10 +43,10 @@ const (
 
 // documentsScreen lists every agent's documents and renders the one under the cursor beside the list.
 type documentsScreen struct {
-	rowCursor
+	list.Cursor
 	kind          documentKind
 	kindFocus     bool
-	documentTypes rowCursor
+	documentTypes list.Cursor
 	items         []documentItem
 	revision      int
 	built         derived[documentRowsKey, []documentRow]
@@ -73,7 +74,7 @@ type documentRow struct {
 	item documentItem
 }
 
-func (r documentRow) key() string {
+func (r documentRow) Key() string {
 	return "doc:" + r.item.id
 }
 
@@ -82,7 +83,7 @@ type documentTypeRow struct {
 	documentType *agentv1.DocumentType
 }
 
-func (r documentTypeRow) key() string {
+func (r documentTypeRow) Key() string {
 	return "type:" + r.documentType.GetName()
 }
 
@@ -94,7 +95,7 @@ func (d *documentsScreen) enter(m *model, target screenTarget) tea.Cmd {
 		if target.agentID != "" || target.taskID != "" {
 			saved = d.closeEdit(m)
 			d.kind, d.kindFocus, d.history, d.focus = documentKindDocuments, false, nil, false
-			d.rowCursor = rowCursor{}
+			d.Cursor = list.Cursor{}
 		}
 		switch {
 		case target.taskID != "":
@@ -176,7 +177,7 @@ func (d *documentsScreen) stepKind(m *model, delta int) tea.Cmd {
 
 func (d *documentsScreen) list() screenList[documentRow] {
 	return screenList[documentRow]{
-		cursor: func() *rowCursor { return &d.rowCursor },
+		cursor: func() *list.Cursor { return &d.Cursor },
 		rows:   d.rows,
 		name:   documentRowName,
 		fits:   (*model).documentRowFits,
@@ -191,7 +192,7 @@ func (d *documentsScreen) list() screenList[documentRow] {
 
 func (d *documentsScreen) documentTypeList() screenList[documentTypeRow] {
 	return screenList[documentTypeRow]{
-		cursor: func() *rowCursor { return &d.documentTypes },
+		cursor: func() *list.Cursor { return &d.documentTypes },
 		rows:   d.documentTypeRows,
 		name:   documentTypeRowName,
 		placed: func(m *model) { m.stageTerminal() },
@@ -251,7 +252,7 @@ func (d *documentsScreen) hovered(m *model) (documentItem, bool) {
 		return documentItem{}, false
 	}
 
-	row, ok := rowAt(d.rows(m), d.cursor)
+	row, ok := list.At(d.rows(m), d.Row)
 
 	return row.item, ok
 }
@@ -262,7 +263,7 @@ func (d *documentsScreen) hoveredDocumentType(m *model) *agentv1.DocumentType {
 		return nil
 	}
 
-	row, _ := rowAt(d.documentTypeRows(m), d.documentTypes.cursor)
+	row, _ := list.At(d.documentTypeRows(m), d.documentTypes.Row)
 
 	return row.documentType
 }
@@ -273,7 +274,7 @@ func (d *documentsScreen) listParams(m *model) screenListParams {
 			help:     d.help,
 			empty:    "no document types",
 			rows:     len(d.documentTypeRows(m)),
-			snapshot: func(pane listPane) view.Snapshot { return d.documentTypeSnapshot(m, pane) },
+			snapshot: func(pane list.Pane) view.Snapshot { return d.documentTypeSnapshot(m, pane) },
 		}
 	}
 
@@ -281,7 +282,7 @@ func (d *documentsScreen) listParams(m *model) screenListParams {
 		help:     d.help,
 		empty:    d.emptyLine(),
 		rows:     len(d.rows(m)),
-		snapshot: func(pane listPane) view.Snapshot { return d.snapshot(m, pane) },
+		snapshot: func(pane list.Pane) view.Snapshot { return d.snapshot(m, pane) },
 	}
 }
 

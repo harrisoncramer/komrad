@@ -8,6 +8,7 @@ import (
 
 	"komrad/internal/errui"
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 	"komrad/lib/dates"
 	"komrad/lib/xslice"
@@ -313,7 +314,9 @@ func (s worktreeScope) listsAgent(items []worktreeItem, id string) bool {
 // worktreesScreen is the worktrees screen: the directories the listing holds, the cursor in
 // them, which of them are listed, and how they are ordered.
 type worktreesScreen struct {
-	rowCursor
+	list.Cursor
+	// focus is the agent whose directory the next listing puts the cursor on.
+	focus      string
 	items      []worktreeItem
 	scope      worktreeScope
 	scopeFocus bool
@@ -333,7 +336,7 @@ func (w *worktreesScreen) apply(m *model, items []worktreeItem, hovered string) 
 
 	rows := w.rows(m)
 	if idx := rowIndexOfWorktreeAgent(rows, focus); idx >= 0 {
-		hovered = rows[idx].key()
+		hovered = rows[idx].Key()
 	}
 
 	w.place(m, hovered)
@@ -347,9 +350,9 @@ func (w *worktreesScreen) shown() []worktreeItem {
 // place keeps the cursor on the row it was on as the rows under it change.
 func (w *worktreesScreen) place(m *model, hovered string) {
 	rows := w.rows(m)
-	w.selected = w.selected.pruned(worktreeRefs(rows))
+	w.Selected = w.Selected.Pruned(worktreeRefs(rows))
 
-	w.cursor = cursor.Place(rowIndexOfKey(rows, hovered), w.cursor, len(rows))
+	w.Row = cursor.Place(list.IndexOf(rows, hovered), w.Row, len(rows))
 }
 
 // compareOccupants orders the agents in a directory, a live one before an archived one and then
