@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"komrad/internal/glyph"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
@@ -109,7 +110,7 @@ func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rows := worktreeRows(worktreeRowsParams{items: tt.items, order: worktreesOrder(tt.state)})
 
-			assert.Equal(t, tt.want, xslice.Map(rows, worktreeRow.key))
+			assert.Equal(t, tt.want, xslice.Map(rows, worktreeRow.Key))
 		})
 	}
 }
@@ -156,7 +157,7 @@ func TestWorktreeRowsFlatOrderTheWholeListing(t *testing.T) {
 				flat:  true,
 			})
 
-			assert.Equal(t, tt.want, xslice.Map(rows, worktreeRow.key))
+			assert.Equal(t, tt.want, xslice.Map(rows, worktreeRow.Key))
 			for _, row := range rows {
 				assert.False(t, row.header)
 				assert.Empty(t, row.repo)
@@ -272,7 +273,7 @@ func TestWorktreesSnapshotReadsEveryRow(t *testing.T) {
 	rows := worktreeRows(worktreeRowsParams{items: worktreeFixture(), order: worktreesOrder(tabsState{})})
 	snapshot := worktreesSnapshot(worktreesSnapshotParams{
 		rows:     rows,
-		selected: selection{keys: []string{"tree:/trees/orphan"}},
+		selected: list.Selection{Keys: []string{"tree:/trees/orphan"}},
 		focused:  "tree:/trees/live",
 		live: []panel.AgentRow{{
 			Agent: panel.Agent{

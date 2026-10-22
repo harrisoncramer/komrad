@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
@@ -20,7 +21,7 @@ func (a *agentsScreen) enter(m *model, target screenTarget) tea.Cmd {
 	case target.agentID != "":
 		a.revealAgent(m, target.agentID)
 	default:
-		a.cursor = cursor.Clamp(a.cursor, len(a.rows(m)))
+		a.Row = cursor.Clamp(a.Row, len(a.rows(m)))
 	}
 
 	a.reconcileRename(m)
@@ -51,7 +52,7 @@ func (a *agentsScreen) update(m *model, msg tea.Msg) tea.Cmd {
 
 func (a *agentsScreen) list() screenList[agentRow] {
 	return screenList[agentRow]{
-		cursor: func() *rowCursor { return &a.rowCursor },
+		cursor: func() *list.Cursor { return &a.Cursor },
 		rows:   a.rows,
 		name:   agentRowName,
 		fits:   (*model).agentRowFits,
@@ -197,8 +198,8 @@ func (a *agentsScreen) toggleHidden(m *model) {
 	a.showHidden = !a.showHidden
 
 	rows := a.rows(m)
-	a.cursor = cursor.Place(rowIndexOfKey(rows, selected), a.cursor, len(rows))
-	a.selected = a.selected.pruned(refsOf(a.rows(m)))
+	a.Row = cursor.Place(list.IndexOf(rows, selected), a.Row, len(rows))
+	a.Selected = a.Selected.Pruned(refsOf(a.rows(m)))
 	a.stage(m)
 }
 
@@ -206,14 +207,14 @@ func (a *agentsScreen) toggleHidden(m *model) {
 // agent, keeping the cursor on the agent's tree row.
 func (a *agentsScreen) seeFinished(m *model, item panel.AgentRow) {
 	treeKey := toTreeRowKey(a.list().hovered(m))
-	if rowIndexOfKey(a.rows(m), treeKey) < 0 {
+	if list.IndexOf(a.rows(m), treeKey) < 0 {
 		return
 	}
 
 	a.triage.seeFinished(item, m.listing.agents)
 
 	rows := a.rows(m)
-	a.cursor = cursor.Place(rowIndexOfKey(rows, treeKey), a.cursor, len(rows))
+	a.Row = cursor.Place(list.IndexOf(rows, treeKey), a.Row, len(rows))
 }
 
 // toggleSnooze snoozes or wakes the task under the key in triage, keeping the cursor in the zone.
@@ -225,7 +226,7 @@ func (a *agentsScreen) toggleSnooze(m *model, key string) {
 	}
 
 	rows := a.rows(m)
-	a.cursor = cursor.Place(rowIndexOfKey(rows, selected), a.cursor, len(rows))
+	a.Row = cursor.Place(list.IndexOf(rows, selected), a.Row, len(rows))
 	if slot >= 0 {
 		a.moveAfterSnooze(m, slot)
 	}
@@ -273,7 +274,7 @@ func (a *agentsScreen) listParams(m *model) screenListParams {
 	return screenListParams{
 		help:     a.help,
 		rows:     len(a.rows(m)),
-		snapshot: func(pane listPane) view.Snapshot { return a.snapshot(m, pane) },
+		snapshot: func(pane list.Pane) view.Snapshot { return a.snapshot(m, pane) },
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"komrad/internal/glyph"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/lib/xslice"
@@ -157,7 +158,7 @@ func (m *model) messagesCursorPrefix(hovered bool) string {
 		return strings.Repeat(" ", messagesIndent)
 	}
 
-	return renderedCaret()
+	return list.RenderArrow()
 }
 
 func kindIcon(glyphs glyph.Set, kind messageKind) string {

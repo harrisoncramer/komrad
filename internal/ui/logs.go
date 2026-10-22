@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/logview"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
@@ -27,7 +28,7 @@ const (
 // logsScreen lists where one agent's logs, or every run on one task, can be read from and renders
 // the newest lines of the source under the cursor beside the list.
 type logsScreen struct {
-	rowCursor
+	list.Cursor
 	agentID string
 	// taskID is the task whose runs the screen lists, empty for an agent's logs.
 	taskID string
@@ -36,9 +37,9 @@ type logsScreen struct {
 	sources    []*logv1.LogSource
 	listed     bool
 	// reading is the source the block holds lines of.
-	reading *logv1.LogSource
-	viewer  *logview.Tail
-	cursor  string
+	reading    *logv1.LogSource
+	viewer     *logview.Tail
+	readCursor string
 	// generation tells this visit's and this source's reads apart from an earlier one's.
 	generation int
 	read       bool
@@ -62,7 +63,7 @@ type logSourceRow struct {
 	failed bool
 }
 
-func (r logSourceRow) key() string {
+func (r logSourceRow) Key() string {
 	return sourceKey(r.source)
 }
 
@@ -163,7 +164,7 @@ func (l *logsScreen) readCmd(m *model) tea.Cmd {
 	}
 	req := &logv1.ReadAgentLogsRequest{
 		AgentIds: []string{agentID},
-		Cursor:   l.cursor,
+		Cursor:   l.readCursor,
 		Limit:    logsReadLimit,
 		Source:   l.reading.GetId(),
 		Pattern:  l.pattern,
@@ -198,17 +199,17 @@ func (m *model) applyLogsSources(msg logsSourcesMsg) tea.Cmd {
 		return l.tickCmd()
 	}
 
-	hovered := rowKeyAt(l.rows(m), l.rowCursor.cursor)
+	hovered := list.KeyAt(l.rows(m), l.Row)
 	l.sources = msg.sources
 	if l.listed {
 		rows := l.rows(m)
-		l.rowCursor.cursor = cursor.Place(rowIndexOfKey(rows, hovered), l.rowCursor.cursor, len(rows))
+		l.Row = cursor.Place(list.IndexOf(rows, hovered), l.Row, len(rows))
 
 		return l.switchSource(m)
 	}
 
 	l.listed, l.err = true, nil
-	l.rowCursor.cursor = max(slices.IndexFunc(l.rows(m), func(row logSourceRow) bool { return row.failed }), 0)
+	l.Row = max(slices.IndexFunc(l.rows(m), func(row logSourceRow) bool { return row.failed }), 0)
 
 	return l.switchSource(m)
 }
@@ -229,7 +230,7 @@ func (m *model) applyLogsRead(msg logsReadMsg) tea.Cmd {
 	}
 	l.replacing = false
 	l.viewer.Append(msg.resp.GetLines())
-	l.cursor, l.read = msg.resp.GetCursor(), true
+	l.readCursor, l.read = msg.resp.GetCursor(), true
 
 	if msg.resp.GetMore() {
 		return l.readCmd(m)
@@ -258,8 +259,8 @@ func (l *logsScreen) tickCmd() tea.Cmd {
 
 // switchSource starts the block over on the source the cursor is on, unless it is the one being read.
 func (l *logsScreen) switchSource(m *model) tea.Cmd {
-	row, ok := rowAt(l.rows(m), l.rowCursor.cursor)
-	if !ok || row.key() == sourceKey(l.reading) {
+	row, ok := list.At(l.rows(m), l.Row)
+	if !ok || row.Key() == sourceKey(l.reading) {
 		return nil
 	}
 
@@ -286,14 +287,14 @@ func (l *logsScreen) markFailedRunReadCmd(m *model, row logSourceRow) tea.Cmd {
 func (l *logsScreen) restart(m *model) tea.Cmd {
 	l.generation++
 	l.viewer.Reset()
-	l.cursor, l.read, l.err, l.replacing = "", false, nil, false
+	l.readCursor, l.read, l.err, l.replacing = "", false, nil, false
 
 	return l.readCmd(m)
 }
 
 func (l *logsScreen) reread(m *model) tea.Cmd {
 	l.generation++
-	l.cursor, l.err, l.replacing = "", nil, true
+	l.readCursor, l.err, l.replacing = "", nil, true
 
 	return l.readCmd(m)
 }
@@ -381,7 +382,7 @@ func (l *logsScreen) update(m *model, msg tea.Msg) tea.Cmd {
 
 func (l *logsScreen) list() screenList[logSourceRow] {
 	return screenList[logSourceRow]{
-		cursor: func() *rowCursor { return &l.rowCursor },
+		cursor: func() *list.Cursor { return &l.Cursor },
 		rows:   l.rows,
 		name:   logSourceRowName,
 		moved:  func(m *model) tea.Cmd { return m.waitToStage() },
@@ -430,7 +431,7 @@ func (l *logsScreen) listParams(m *model) screenListParams {
 		help:     l.help,
 		empty:    l.emptyLine(),
 		rows:     len(l.rows(m)),
-		snapshot: func(pane listPane) view.Snapshot { return l.snapshot(m, pane) },
+		snapshot: func(pane list.Pane) view.Snapshot { return l.snapshot(m, pane) },
 	}
 }
 
@@ -441,7 +442,7 @@ func (l *logsScreen) buildFrame(m *model) {
 		return
 	}
 
-	l.viewer.Fit(split.column-len(blankCursor), max(split.rows-1, 1))
+	l.viewer.Fit(split.column-len(list.Blank), max(split.rows-1, 1))
 }
 
 func (l *logsScreen) parent() screen {
@@ -582,7 +583,7 @@ func (l *logsScreen) kinds(*model) stops {
 
 // kindsFit renders the format strip only over a server log.
 func (l *logsScreen) kindsFit(m *model) bool {
-	row, ok := rowAt(l.rows(m), l.rowCursor.cursor)
+	row, ok := list.At(l.rows(m), l.Row)
 
 	return ok && row.isServerLog() && m.listFitsTabs(l.listParams(m))
 }
@@ -598,7 +599,7 @@ func (l *logsScreen) kindsSwitch(*model) bool {
 // stepKind renders the server log in another format.
 func (l *logsScreen) stepKind(m *model, delta int) tea.Cmd {
 	l.format = logview.Format(stepStop(int(l.format), delta, len(logFormatLabels)))
-	if row, ok := rowAt(l.rows(m), l.rowCursor.cursor); ok {
+	if row, ok := list.At(l.rows(m), l.Row); ok {
 		l.applyFormat(row)
 	}
 

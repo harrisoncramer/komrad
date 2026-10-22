@@ -7,6 +7,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/zone"
 	"komrad/internal/view"
@@ -160,15 +161,15 @@ func (s screenActionSpec) dispatchArms(keys config.Keybindings) []dispatchArm {
 
 // screenList is what the keys every list shares need of one screen: where its cursor and
 // rows live, and what follows the cursor onto a row.
-type screenList[T keyed] struct {
-	cursor func() *rowCursor
+type screenList[T list.Keyed] struct {
+	cursor func() *list.Cursor
 	rows   func(*model) []T
 	// name is the text a search reads a row by, nil on a list that renders no filter.
 	name func(T) string
 	// fits is how a row meets a qualifier, nil on a list that reads none.
 	fits func(*model, T) clauseFits
 	// refs is the rows as the selection sees them, nil on a list nothing can be selected in.
-	refs func([]T) []rowRef
+	refs func([]T) []list.Ref
 	// header is what the toggle key names a header row as.
 	header string
 	// placed follows the cursor onto a row at once, when set.
@@ -178,7 +179,7 @@ type screenList[T keyed] struct {
 }
 
 func (l screenList[T]) isSelecting(*model) bool {
-	return l.cursor().selected.isActive()
+	return l.cursor().Selected.IsActive()
 }
 
 func (l screenList[T]) isBrowsing(m *model) bool {
@@ -187,11 +188,11 @@ func (l screenList[T]) isBrowsing(m *model) bool {
 
 // hovered is the key of the row the cursor is on.
 func (l screenList[T]) hovered(m *model) string {
-	return rowKeyAt(l.rows(m), l.cursor().cursor)
+	return list.KeyAt(l.rows(m), l.cursor().Row)
 }
 
 func (l screenList[T]) hoveredName(m *model) string {
-	row, ok := rowAt(l.rows(m), l.cursor().cursor)
+	row, ok := list.At(l.rows(m), l.cursor().Row)
 	if !ok || l.name == nil {
 		return ""
 	}
@@ -203,7 +204,7 @@ func (l screenList[T]) hoveredName(m *model) string {
 func (l screenList[T]) place(m *model, hovered string) {
 	rows := l.rows(m)
 	c := l.cursor()
-	c.cursor = cursor.Place(rowIndexOfKey(rows, hovered), c.cursor, len(rows))
+	c.Row = cursor.Place(list.IndexOf(rows, hovered), c.Row, len(rows))
 	if l.placed != nil {
 		l.placed(m)
 	}
@@ -217,7 +218,7 @@ func (l screenList[T]) filterRows(m *model) []filterRow {
 		}
 
 		return filterRow{
-			key:  row.key(),
+			key:  row.Key(),
 			name: l.name(row),
 			fits: fits,
 		}
@@ -237,7 +238,7 @@ func (l screenList[T]) landed(m *model) tea.Cmd {
 }
 
 func (l screenList[T]) move(m *model, delta int) tea.Cmd {
-	next, ok := l.cursor().move(delta, len(l.rows(m)))
+	next, ok := l.cursor().Move(delta, len(l.rows(m)))
 	if !ok {
 		return nil
 	}
@@ -248,7 +249,7 @@ func (l screenList[T]) move(m *model, delta int) tea.Cmd {
 }
 
 func (l screenList[T]) jump(m *model, idx int) tea.Cmd {
-	next, ok := l.cursor().jump(idx, len(l.rows(m)))
+	next, ok := l.cursor().Jump(idx, len(l.rows(m)))
 	if !ok {
 		return nil
 	}
@@ -260,7 +261,7 @@ func (l screenList[T]) jump(m *model, idx int) tea.Cmd {
 
 func (l screenList[T]) click(m *model, key string, nth int) tea.Cmd {
 	for i, row := range l.rows(m) {
-		if row.key() != key {
+		if row.Key() != key {
 			continue
 		}
 
@@ -359,7 +360,7 @@ func (l screenList[T]) moveBy(m *model, rows int) tea.Cmd {
 		return l.move(m, rows)
 	}
 
-	return l.jump(m, l.cursor().cursor+rows)
+	return l.jump(m, l.cursor().Row+rows)
 }
 
 func (l screenList[T]) moveToEnd(m *model, direction int) tea.Cmd {
@@ -371,14 +372,14 @@ func (l screenList[T]) moveToEnd(m *model, direction int) tea.Cmd {
 }
 
 func (l screenList[T]) clearSelection(*model, string) tea.Cmd {
-	l.cursor().selected = selection{}
+	l.cursor().Selected = list.Selection{}
 
 	return nil
 }
 
 func (l screenList[T]) toggleSelection(m *model, _ string) tea.Cmd {
 	c := l.cursor()
-	c.selected = c.selected.toggle(l.refs(l.rows(m)), c.cursor)
+	c.Selected = c.Selected.Toggle(l.refs(l.rows(m)), c.Row)
 
 	return nil
 }
@@ -389,7 +390,7 @@ func (l screenList[T]) extendSelection(m *model, pressed string) tea.Cmd {
 	}
 
 	c := l.cursor()
-	c.selected = c.selected.extend(l.refs(l.rows(m)), c.cursor)
+	c.Selected = c.Selected.Extend(l.refs(l.rows(m)), c.Row)
 
 	return nil
 }
@@ -419,12 +420,12 @@ func (l screenList[T]) selectionLegend() []screenLegendRow {
 
 func (l screenList[T]) toggleDesc(m *model) string {
 	c := l.cursor()
-	hovered, _ := rowAt(l.refs(l.rows(m)), c.cursor)
+	hovered, _ := list.At(l.refs(l.rows(m)), c.Row)
 
 	switch {
-	case hovered.header:
+	case hovered.Header:
 		return "select " + l.header
-	case c.selected.has(hovered.key):
+	case c.Selected.Has(hovered.Key):
 		return "deselect"
 	}
 
@@ -432,7 +433,7 @@ func (l screenList[T]) toggleDesc(m *model) string {
 }
 
 func (l screenList[T]) clearDesc(*model) string {
-	return fmt.Sprintf("clear %d selected", len(l.cursor().selected.keys))
+	return fmt.Sprintf("clear %d selected", len(l.cursor().Selected.Keys))
 }
 
 // screenNavLegend is the four rows the cursor keys are named by.
@@ -481,13 +482,7 @@ type screenListParams struct {
 	empty string
 	// rows is how many rows the list holds.
 	rows     int
-	snapshot func(listPane) view.Snapshot
-}
-
-// listPane is the column that renders a list this frame and where its cursor stands.
-type listPane struct {
-	width int
-	caret view.Caret
+	snapshot func(list.Pane) view.Snapshot
 }
 
 // listHelpOf is a screen's legend as the root renders it under the list.
@@ -550,70 +545,6 @@ func spareLinesOf(height int, chrome ...string) int {
 	}
 
 	return lines
-}
-
-type rowCursor struct {
-	cursor   int
-	selected selection
-	focus    string
-}
-
-func (c rowCursor) move(delta, length int) (rowCursor, bool) {
-	next, ok := cursor.Step(c.cursor, delta, length)
-	if !ok {
-		return c, false
-	}
-	c.cursor = next
-
-	return c, true
-}
-
-func (c rowCursor) jump(idx, length int) (rowCursor, bool) {
-	next, ok := cursor.Land(idx, length)
-	if !ok {
-		return c, false
-	}
-	c.cursor = next
-
-	return c, true
-}
-
-// keyed is a row the cursor can be put back on by name.
-type keyed interface {
-	key() string
-}
-
-func rowKeyAt[T keyed](rows []T, cursor int) string {
-	row, ok := rowAt(rows, cursor)
-	if !ok {
-		return ""
-	}
-
-	return row.key()
-}
-
-func rowIndexOfKey[T keyed](rows []T, key string) int {
-	if key == "" {
-		return -1
-	}
-
-	for i, r := range rows {
-		if r.key() == key {
-			return i
-		}
-	}
-
-	return -1
-}
-
-func rowAt[T any](rows []T, cursor int) (T, bool) {
-	if cursor < 0 || cursor >= len(rows) {
-		var zero T
-
-		return zero, false
-	}
-
-	return rows[cursor], true
 }
 
 // directly declares an arm that acts straight off its key, and why it is not in the menu.

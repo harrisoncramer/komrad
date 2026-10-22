@@ -46,7 +46,7 @@ func joinMenus(top, bottom submenu) submenu {
 
 func (a *agentsScreen) buildItemMenu(m *model) (submenu, bool) {
 	if a.list().isSelecting(m) {
-		chosen := chosenAgents(a.selected, a.rows(m))
+		chosen := chosenAgents(a.Selected, a.rows(m))
 		if len(chosen) == 0 {
 			return submenu{}, false
 		}

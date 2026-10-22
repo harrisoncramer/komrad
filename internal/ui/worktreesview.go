@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
@@ -18,37 +19,37 @@ func (w *worktreesScreen) view(m *model) string {
 	return m.columnListView(w.listParams(m))
 }
 
-func (w *worktreesScreen) snapshot(m *model, pane listPane) view.Snapshot {
+func (w *worktreesScreen) snapshot(m *model, pane list.Pane) view.Snapshot {
 	rows := w.rows(m)
 
 	return worktreesSnapshot(worktreesSnapshotParams{
 		rows:     rows,
 		items:    w.shown(),
-		selected: w.selected,
-		focused:  rowKeyAt(rows, w.cursor),
+		selected: w.Selected,
+		focused:  list.KeyAt(rows, w.Row),
 		live:     m.listing.agents,
 		flat:     w.sort.flat,
-		caret:    pane.caret,
+		caret:    pane.Caret,
 		matcher:  m.filter.pattern,
-		pane:     pane.width,
+		pane:     pane.Width,
 		now:      time.Now(),
 	})
 }
 
 func (w *worktreesScreen) details(m *model) details {
-	row, ok := rowAt(w.rows(m), w.cursor)
+	row, ok := list.At(w.rows(m), w.Row)
 	if !ok {
 		return details{}
 	}
 
 	if row.header {
 		return details{
-			id:     row.key(),
+			id:     row.Key(),
 			fields: []recordField{{label: "repository", value: row.repo}, {label: "worktrees", value: fmt.Sprintf("%d", w.countUnder(row.repo))}},
 		}
 	}
 
-	return details{id: row.key(), fields: worktreeFields(m, row.item, time.Now())}
+	return details{id: row.Key(), fields: worktreeFields(m, row.item, time.Now())}
 }
 
 func worktreeFields(m *model, item worktreeItem, now time.Time) []recordField {
@@ -193,7 +194,7 @@ func (w *worktreesScreen) doc(m *model) string {
 }
 
 func (w *worktreesScreen) gitDoc(m *model) string {
-	row, ok := rowAt(w.rows(m), w.cursor)
+	row, ok := list.At(w.rows(m), w.Row)
 	switch {
 	case !ok:
 		return renderDocument("Worktrees", "_no worktrees_", "", "")

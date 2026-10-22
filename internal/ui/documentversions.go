@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/list"
 	"komrad/lib/dates"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -69,6 +70,6 @@ func documentTypeItem(t *agentv1.DocumentType) documentItem {
 // keepCursor puts the cursor back on the row it was on once the rows have moved under it.
 func (d *documentsScreen) keepCursor(m *model, hovered string) {
 	rows := d.rows(m)
-	d.cursor = cursor.Place(rowIndexOfKey(rows, hovered), d.cursor, len(rows))
+	d.Row = cursor.Place(list.IndexOf(rows, hovered), d.Row, len(rows))
 	d.reconcileRename(m)
 }

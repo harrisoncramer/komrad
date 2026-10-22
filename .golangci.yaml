@@ -140,6 +140,7 @@ linters:
         shared:
           files:
             - "**/internal/ui/zone/**"
+            - "**/internal/ui/list/**"
           deny:
             - pkg: komrad/internal/ui$
               desc: a shared package sits under the panel's screens, so it never reaches back up into the root
@@ -533,6 +534,7 @@ linters:
             # file of its own that only reads what the screen holds.
             packages:
               - ^komrad/internal/ui$
+              - ^komrad/internal/ui/list$
       fussy:
         type: module
         description: General Go checks from fussy.

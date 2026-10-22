@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/errui"
 	"komrad/internal/searchsyntax"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/lib/xslice"
 
@@ -52,7 +53,7 @@ type queryGrammarer interface {
 }
 
 // pickedRows is the keys of the rows the filter's qualifiers pick, nil when it names none.
-func pickedRows[T keyed](f filterState, rows []T, fits func(T) clauseFits) map[string]bool {
+func pickedRows[T list.Keyed](f filterState, rows []T, fits func(T) clauseFits) map[string]bool {
 	if f.broken || len(f.qualifiers.clauses) == 0 {
 		return nil
 	}
@@ -60,7 +61,7 @@ func pickedRows[T keyed](f filterState, rows []T, fits func(T) clauseFits) map[s
 	picked := map[string]bool{}
 	for _, r := range rows {
 		if f.holds(fits(r)) {
-			picked[r.key()] = true
+			picked[r.Key()] = true
 		}
 	}
 

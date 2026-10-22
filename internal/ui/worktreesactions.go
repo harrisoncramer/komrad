@@ -3,6 +3,7 @@ package ui
 import (
 	"slices"
 
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
@@ -63,11 +64,11 @@ func (w *worktreesScreen) legend() []screenLegendRow {
 }
 
 func (w *worktreesScreen) holdsARow(m *model) bool {
-	if w.selected.isActive() {
+	if w.Selected.IsActive() {
 		return false
 	}
 
-	_, ok := rowAt(w.rows(m), w.cursor)
+	_, ok := list.At(w.rows(m), w.Row)
 
 	return ok
 }
@@ -120,7 +121,7 @@ func deleteWorktree(m *model, item worktreeItem) tea.Cmd {
 func (w *worktreesScreen) chosenDeletion(m *model) worktreeDeletion {
 	deletion := worktreeDeletion{}
 	for _, row := range w.rows(m) {
-		if row.header || !w.selected.has(row.key()) {
+		if row.header || !w.Selected.Has(row.Key()) {
 			continue
 		}
 
@@ -239,7 +240,7 @@ func (w *worktreesScreen) buildItemMenu(m *model) (submenu, bool) {
 		}))), true
 	}
 
-	row, ok := rowAt(w.rows(m), w.cursor)
+	row, ok := list.At(w.rows(m), w.Row)
 	if !ok {
 		return submenu{}, false
 	}

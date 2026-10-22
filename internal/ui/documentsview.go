@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/errui"
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
@@ -35,11 +36,11 @@ func documentColumns() view.Columns {
 	return view.Columns{{Kind: view.ColumnText, Width: ageColumns}}
 }
 
-func (d *documentsScreen) snapshot(m *model, pane listPane) view.Snapshot {
+func (d *documentsScreen) snapshot(m *model, pane list.Pane) view.Snapshot {
 	rows := d.rows(m)
 	picked := pickedRows(m.filter, rows, m.documentRowFits)
 	now := time.Now()
-	caret := pane.caret
+	caret := pane.Caret
 	if d.isDiffFocused(m) {
 		caret = view.CaretRendered
 	}
@@ -47,17 +48,17 @@ func (d *documentsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 	return view.Snapshot{
 		Rows: xslice.Map(rows, func(r documentRow) view.Row {
 			return d.renamingField().renderedOver(view.Row{
-				Key:     r.key(),
+				Key:     r.Key(),
 				Kind:    view.KindResult,
 				Name:    r.item.name,
-				Matches: pickedMatches(m.filter.pattern, picked, r.key(), r.item.name),
+				Matches: pickedMatches(m.filter.pattern, picked, r.Key(), r.item.name),
 				Process: view.ProcessNone,
 				Cells:   []view.Cell{mutedCell(label.AgeAt(r.item.updatedAt, now))},
 			})
 		}),
 		Caret:   caret,
-		Focused: rowKeyAt(rows, d.cursor),
-		Pane:    pane.width,
+		Focused: list.KeyAt(rows, d.Row),
+		Pane:    pane.Width,
 		Columns: documentColumns(),
 	}
 }
@@ -78,14 +79,14 @@ func (d *documentsScreen) details(m *model) details {
 	}
 }
 
-func (d *documentsScreen) documentTypeSnapshot(m *model, pane listPane) view.Snapshot {
+func (d *documentsScreen) documentTypeSnapshot(m *model, pane list.Pane) view.Snapshot {
 	rows := d.documentTypeRows(m)
 	now := time.Now()
 
 	return view.Snapshot{
 		Rows: xslice.Map(rows, func(r documentTypeRow) view.Row {
 			return view.Row{
-				Key:     r.key(),
+				Key:     r.Key(),
 				Kind:    view.KindResult,
 				Name:    r.documentType.GetName(),
 				Matches: matchesIn(m.filter.pattern, r.documentType.GetName()),
@@ -93,9 +94,9 @@ func (d *documentsScreen) documentTypeSnapshot(m *model, pane listPane) view.Sna
 				Cells:   []view.Cell{mutedCell(label.AgeAt(dates.Parse(r.documentType.GetUpdatedAt()), now))},
 			}
 		}),
-		Caret:   pane.caret,
-		Focused: rowKeyAt(rows, d.documentTypes.cursor),
-		Pane:    pane.width,
+		Caret:   pane.Caret,
+		Focused: list.KeyAt(rows, d.documentTypes.Row),
+		Pane:    pane.Width,
 		Columns: documentColumns(),
 	}
 }

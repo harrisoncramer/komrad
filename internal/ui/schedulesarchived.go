@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 
@@ -20,7 +21,7 @@ const (
 
 // archivedSchedules is the schedules view on its archived kind: the cursor in the archived schedules.
 type archivedSchedules struct {
-	rowCursor
+	list.Cursor
 	built derived[listingKey, []scheduleItem]
 }
 
@@ -95,7 +96,7 @@ func (a *archivedSchedules) stepKind(m *model, delta int) tea.Cmd {
 
 func (a *archivedSchedules) list() screenList[scheduleItem] {
 	return screenList[scheduleItem]{
-		cursor: func() *rowCursor { return &a.rowCursor },
+		cursor: func() *list.Cursor { return &a.Cursor },
 		rows:   a.listRows,
 		name:   func(item scheduleItem) string { return item.schedule.Name },
 		fits:   (*model).scheduleItemFits,
@@ -121,7 +122,7 @@ func (a *archivedSchedules) listRows(m *model) []scheduleItem {
 
 // hoveredSchedule is the archived schedule the cursor is on.
 func (a *archivedSchedules) hoveredSchedule(m *model) (panel.Schedule, bool) {
-	item, ok := rowAt(a.listRows(m), a.cursor)
+	item, ok := list.At(a.listRows(m), a.Row)
 
 	return item.schedule, ok
 }
@@ -168,7 +169,7 @@ func confirmDeleteSchedule(m *model, schedule panel.Schedule) tea.Cmd {
 // place keeps the cursor on the archived schedule it was on as the rows under it change.
 func (a *archivedSchedules) place(m *model, hovered string) {
 	rows := a.listRows(m)
-	a.cursor = cursor.Place(rowIndexOfKey(rows, hovered), a.cursor, len(rows))
+	a.Row = cursor.Place(list.IndexOf(rows, hovered), a.Row, len(rows))
 }
 
 // stage keeps the info pane on the row the cursor is standing on.
@@ -181,10 +182,10 @@ func (a *archivedSchedules) listParams(m *model) screenListParams {
 		help:  a.help,
 		rows:  len(a.listRows(m)),
 		empty: "no archived schedules",
-		snapshot: func(pane listPane) view.Snapshot {
+		snapshot: func(pane list.Pane) view.Snapshot {
 			return scheduleSnapshot(m, pane, scheduleSnapshotParams{
 				rows:   a.listRows(m),
-				cursor: a.cursor,
+				cursor: a.Row,
 			})
 		},
 	}

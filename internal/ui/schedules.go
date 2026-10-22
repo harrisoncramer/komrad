@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	schedulev1 "komrad/proto/gen/schedule/v1"
@@ -18,7 +19,7 @@ var errUnknownScheduleKind = errors.New("this build of komrad does not know the 
 
 // schedulesScreen is the schedules screen, holding its own cursor behind the panel's one door.
 type schedulesScreen struct {
-	rowCursor
+	list.Cursor
 	built derived[listingKey, []scheduleItem]
 	renameSlot
 	kind      schedulesKind
@@ -31,7 +32,7 @@ type scheduleItem struct {
 	nextRun  time.Time
 }
 
-func (i scheduleItem) key() string {
+func (i scheduleItem) Key() string {
 	return i.schedule.ID
 }
 
@@ -41,7 +42,7 @@ func scheduleItemName(item scheduleItem) string {
 
 // enter lands the cursor once the root has put the screen up.
 func (w *schedulesScreen) enter(m *model, _ screenTarget) tea.Cmd {
-	w.cursor = cursor.Clamp(w.cursor, len(w.listRows(m)))
+	w.Row = cursor.Clamp(w.Row, len(w.listRows(m)))
 
 	return m.waitToStage()
 }
@@ -66,7 +67,7 @@ func (w *schedulesScreen) update(m *model, msg tea.Msg) tea.Cmd {
 
 func (w *schedulesScreen) list() screenList[scheduleItem] {
 	return screenList[scheduleItem]{
-		cursor: func() *rowCursor { return &w.rowCursor },
+		cursor: func() *list.Cursor { return &w.Cursor },
 		rows:   w.listRows,
 		name:   scheduleItemName,
 		fits:   (*model).scheduleItemFits,
@@ -86,7 +87,7 @@ func (w *schedulesScreen) listRows(m *model) []scheduleItem {
 }
 
 func (w *schedulesScreen) selected(m *model) (scheduleItem, bool) {
-	return rowAt(w.listRows(m), w.cursor)
+	return list.At(w.listRows(m), w.Row)
 }
 
 // apply takes a fresh listing, keeping the cursor on the schedule it was on.
@@ -254,7 +255,7 @@ func (w *schedulesScreen) listParams(m *model) screenListParams {
 		help:     w.help,
 		empty:    "no schedules yet",
 		rows:     len(w.listRows(m)),
-		snapshot: func(pane listPane) view.Snapshot { return w.snapshot(m, pane) },
+		snapshot: func(pane list.Pane) view.Snapshot { return w.snapshot(m, pane) },
 	}
 }
 

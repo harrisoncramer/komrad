@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"komrad/config"
+	"komrad/internal/ui/list"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -74,11 +75,11 @@ func (a *archivedAgents) legend() []screenLegendRow {
 
 // holdsAChoosable reports whether the cursor is on a row while no selection is active.
 func (a *archivedAgents) holdsAChoosable(m *model) bool {
-	if a.selected.isActive() {
+	if a.Selected.IsActive() {
 		return false
 	}
 
-	_, ok := rowAt(a.listRows(m), a.cursor)
+	_, ok := list.At(a.listRows(m), a.Row)
 
 	return ok
 }
@@ -93,7 +94,7 @@ func (a *archivedAgents) holdsARenameable(m *model) bool {
 // holdsAnAgent reports whether the cursor is on an archived agent rather than on the folder
 // holding one.
 func (a *archivedAgents) holdsAnAgent(m *model) bool {
-	if a.selected.isActive() {
+	if a.Selected.IsActive() {
 		return false
 	}
 

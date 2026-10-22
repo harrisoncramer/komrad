@@ -6,6 +6,7 @@ import (
 	"slices"
 	"time"
 
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
@@ -501,10 +502,10 @@ func (l agentsLayout) cursorRows() []agentRow {
 
 func (l agentsLayout) cursorRow(cursor int) (agentRow, bool) {
 	if cursor < len(l.zone) {
-		return rowAt(l.zone, cursor)
+		return list.At(l.zone, cursor)
 	}
 
-	return rowAt(l.tree, cursor-len(l.zone))
+	return list.At(l.tree, cursor-len(l.zone))
 }
 
 // buildZone renders the most urgent tasks the zone has slots for and counts those left waiting.
@@ -573,10 +574,10 @@ func (m *model) settleTriage() {
 		zone = m.agents.layout(m).zone
 	}
 
-	reading := m.agents.cursor < len(zone)
+	reading := m.agents.Row < len(zone)
 	m.agents.triage.held = ""
 	if reading {
-		m.agents.triage.held = findZoneHead(zone, m.agents.cursor).item.Agent.ID
+		m.agents.triage.held = findZoneHead(zone, m.agents.Row).item.Agent.ID
 	}
 
 	switch {
@@ -614,13 +615,13 @@ func zoneHeads(zone []agentRow) []int {
 // findZoneSlot is which task in the zone the cursor is on, counting from the top, or -1 off the zone.
 func (a *agentsScreen) findZoneSlot(m *model) int {
 	zone := a.layout(m).zone
-	if a.cursor < 0 || a.cursor >= len(zone) {
+	if a.Row < 0 || a.Row >= len(zone) {
 		return -1
 	}
 
 	slot := -1
 	for _, head := range zoneHeads(zone) {
-		if head > a.cursor {
+		if head > a.Row {
 			break
 		}
 		slot++
@@ -635,30 +636,30 @@ func (a *agentsScreen) moveAfterSnooze(m *model, slot int) {
 	heads := zoneHeads(a.layout(m).zone)
 	if len(heads) == 0 {
 		m.note(messageInfo, "nothing left to triage")
-		a.cursor = firstAgentRowIndex(a.rows(m))
+		a.Row = firstAgentRowIndex(a.rows(m))
 
 		return
 	}
 
-	a.cursor = heads[min(max(slot-1, 0), len(heads)-1)]
+	a.Row = heads[min(max(slot-1, 0), len(heads)-1)]
 }
 
 // landInTriage moves the cursor off a zone row that has left the list onto the task now in its
 // slot, or into the tree once the zone is empty.
 func (a *agentsScreen) landInTriage(m *model, selected string, slot int) {
 	rows := a.rows(m)
-	if slot < 0 || rowIndexOfKey(rows, selected) >= 0 {
+	if slot < 0 || list.IndexOf(rows, selected) >= 0 {
 		return
 	}
 
 	heads := zoneHeads(a.layout(m).zone)
 	if len(heads) == 0 {
-		a.cursor = firstAgentRowIndex(rows)
+		a.Row = firstAgentRowIndex(rows)
 
 		return
 	}
 
-	a.cursor = heads[min(slot, len(heads)-1)]
+	a.Row = heads[min(slot, len(heads)-1)]
 }
 
 // jumpToTriage puts the cursor on the zone's first agent.
@@ -669,7 +670,7 @@ func (a *agentsScreen) jumpToTriage(m *model) {
 		return
 	}
 
-	a.cursor = 0
+	a.Row = 0
 	m.stageSelection()
 }
 

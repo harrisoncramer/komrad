@@ -9,6 +9,7 @@ import (
 
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
@@ -22,14 +23,14 @@ func (c *statusCheckLogsScreen) view(m *model) string {
 	return m.columnListView(c.listParams(m))
 }
 
-func (c *statusCheckLogsScreen) snapshot(m *model, pane listPane) view.Snapshot {
+func (c *statusCheckLogsScreen) snapshot(m *model, pane list.Pane) view.Snapshot {
 	rows := c.rows(m)
 
 	return view.Snapshot{
 		Rows: xslice.Map(rows, func(r statusCheckLogRow) view.Row {
 			name := statusCheckLogRowName(r)
 			row := view.Row{
-				Key:     r.key(),
+				Key:     r.Key(),
 				Kind:    view.KindResult,
 				Name:    name,
 				Matches: matchesIn(m.filter.pattern, name),
@@ -43,9 +44,9 @@ func (c *statusCheckLogsScreen) snapshot(m *model, pane listPane) view.Snapshot 
 
 			return row
 		}),
-		Caret:   pane.caret,
-		Focused: rowKeyAt(rows, c.cursor),
-		Pane:    pane.width,
+		Caret:   pane.Caret,
+		Focused: list.KeyAt(rows, c.Row),
+		Pane:    pane.Width,
 		Columns: statusCheckColumns(),
 	}
 }
@@ -86,7 +87,7 @@ func (c *statusCheckLogsScreen) doc(m *model, width int) statusCheckLogsRendered
 			rows = append(rows, "")
 		}
 
-		anchors[statusCheckLogRow{item: item}.key()] = len(rows)
+		anchors[statusCheckLogRow{item: item}.Key()] = len(rows)
 		title := "═ " + item.name + " "
 		rows = append(rows, fitRow(indent+lipgloss.NewStyle().Bold(true).Render(title+strings.Repeat("═", max(wrap-lipgloss.Width(title), 0))), width))
 
@@ -101,7 +102,7 @@ func (c *statusCheckLogsScreen) doc(m *model, width int) statusCheckLogsRendered
 		})
 		header := func(upTo int) {
 			for len(steps) > 0 && int(steps[0].GetFirstLine()) <= upTo {
-				anchors[statusCheckLogRow{item: item, step: steps[0]}.key()] = len(rows)
+				anchors[statusCheckLogRow{item: item, step: steps[0]}.Key()] = len(rows)
 				line(glyph.Step+" "+steps[0].GetName(), lipgloss.NewStyle().Bold(true))
 				steps = steps[1:]
 			}

@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"komrad/internal/ui/list"
 	"komrad/internal/view"
 
 	"charm.land/bubbles/v2/key"
@@ -94,8 +95,8 @@ func (e *nameEdit) takeGone(m *model, msg tea.Msg) nameEditStep {
 }
 
 // reconcileNameEdit says whether a field stays open over rows whose cursor is on hovered.
-func reconcileNameEdit[T keyed](e *nameEdit, rows []T, hovered string, name func(T) string) bool {
-	at := slices.IndexFunc(rows, func(r T) bool { return r.key() == e.key })
+func reconcileNameEdit[T list.Keyed](e *nameEdit, rows []T, hovered string, name func(T) string) bool {
+	at := slices.IndexFunc(rows, func(r T) bool { return r.Key() == e.key })
 	if e.landed {
 		return at >= 0 && name(rows[at]) == e.was
 	}

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/reader"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
@@ -26,7 +27,7 @@ const (
 
 // statusCheckLogsScreen is the logs of the checks the status checks screen lists, joined into one document.
 type statusCheckLogsScreen struct {
-	rowCursor
+	list.Cursor
 	agentID string
 	// openedFrom is the screen the logs were opened from, which going back returns to.
 	openedFrom screen
@@ -60,8 +61,8 @@ type statusCheckLogRow struct {
 	step *pullrequestv1.CheckLogStep
 }
 
-// key names the row, a status check by its id or one step by the status check id and step number, so the cursor and the document anchors find it.
-func (r statusCheckLogRow) key() string {
+// Key names the row, a status check by its id or one step by the status check id and step number, so the cursor and the document anchors find it.
+func (r statusCheckLogRow) Key() string {
 	if r.step != nil {
 		return "status-check-log:" + r.item.checkID + "/" + strconv.Itoa(int(r.step.GetNumber()))
 	}
@@ -115,7 +116,7 @@ func (c *statusCheckLogsScreen) update(m *model, msg tea.Msg) tea.Cmd {
 
 func (c *statusCheckLogsScreen) list() screenList[statusCheckLogRow] {
 	return screenList[statusCheckLogRow]{
-		cursor: func() *rowCursor { return &c.rowCursor },
+		cursor: func() *list.Cursor { return &c.Cursor },
 		rows:   c.rows,
 		name:   statusCheckLogRowName,
 		moved: func(m *model) tea.Cmd {
@@ -188,7 +189,7 @@ func (c *statusCheckLogsScreen) listParams(m *model) screenListParams {
 		help:     c.help,
 		empty:    m.statusChecks.emptyLine(m),
 		rows:     len(c.rows(m)),
-		snapshot: func(pane listPane) view.Snapshot { return c.snapshot(m, pane) },
+		snapshot: func(pane list.Pane) view.Snapshot { return c.snapshot(m, pane) },
 	}
 }
 

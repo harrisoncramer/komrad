@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
 
@@ -37,7 +38,7 @@ func (w *worktreesScreen) update(m *model, msg tea.Msg) tea.Cmd {
 
 func (w *worktreesScreen) list() screenList[worktreeRow] {
 	return screenList[worktreeRow]{
-		cursor: func() *rowCursor { return &w.rowCursor },
+		cursor: func() *list.Cursor { return &w.Cursor },
 		rows:   w.rows,
 		name:   worktreeRow.name,
 		refs:   worktreeRefs,
@@ -50,7 +51,7 @@ func (w *worktreesScreen) list() screenList[worktreeRow] {
 }
 
 func (w *worktreesScreen) hovered(m *model) (worktreeRow, bool) {
-	row, ok := rowAt(w.rows(m), w.cursor)
+	row, ok := list.At(w.rows(m), w.Row)
 	if !ok || row.header {
 		return worktreeRow{}, false
 	}
@@ -172,7 +173,7 @@ func (w *worktreesScreen) kindsFocused(*model) *bool {
 
 // kindsSwitch holds the scope while any directories are selected.
 func (w *worktreesScreen) kindsSwitch(*model) bool {
-	return !w.selected.isActive()
+	return !w.Selected.IsActive()
 }
 
 // stepKind moves the listing to another scope, keeping the cursor on its row when the new scope
@@ -205,7 +206,7 @@ func (w *worktreesScreen) listParams(m *model) screenListParams {
 		help:     w.help,
 		empty:    "no worktrees",
 		rows:     len(w.rows(m)),
-		snapshot: func(pane listPane) view.Snapshot { return w.snapshot(m, pane) },
+		snapshot: func(pane list.Pane) view.Snapshot { return w.snapshot(m, pane) },
 	}
 }
 

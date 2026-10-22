@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
@@ -43,7 +44,7 @@ func (m *model) detailsView() string {
 	if fields := m.detailsRows(held); len(fields) > 0 || !m.filter.doesNarrow(sectionRecord) {
 		snapshot := m.detailsSnapshot(fields, m.detailsCursor(held), pane)
 		body = view.Window(view.WindowParams{
-			List:    prepareList(m.glyphs, snapshot),
+			List:    list.Prepare(m.glyphs, snapshot),
 			Palette: paint.Panel,
 			Width:   pane,
 			Lines:   lines,
@@ -146,7 +147,7 @@ func (m *model) noticeLines(n notice, most int) []string {
 
 func (m *model) detailsSnapshot(fields []detailsRow, cursor, pane int) view.Snapshot {
 	labels := labelColumn(xslice.Map(fields, func(row detailsRow) recordField { return row.field }))
-	flashed := rowKeyAt(fields, m.details.flashed-1)
+	flashed := list.KeyAt(fields, m.details.flashed-1)
 
 	return view.Snapshot{
 		Rows: xslice.Map(fields, func(row detailsRow) view.Row {
@@ -162,7 +163,7 @@ func (m *model) detailsSnapshot(fields []detailsRow, cursor, pane int) view.Snap
 			}
 		}),
 		Caret:   m.caretOf(sectionRecord),
-		Focused: rowKeyAt(fields, cursor),
+		Focused: list.KeyAt(fields, cursor),
 		Pane:    pane,
 		Columns: view.Columns{},
 	}

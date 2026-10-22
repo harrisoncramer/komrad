@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"komrad/internal/glyph"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/view"
@@ -46,10 +47,10 @@ func (w *schedulesScreen) view(m *model) string {
 	return m.columnListView(w.listParams(m))
 }
 
-func (w *schedulesScreen) snapshot(m *model, pane listPane) view.Snapshot {
+func (w *schedulesScreen) snapshot(m *model, pane list.Pane) view.Snapshot {
 	return scheduleSnapshot(m, pane, scheduleSnapshotParams{
 		rows:     w.listRows(m),
-		cursor:   w.cursor,
+		cursor:   w.Row,
 		renaming: w.renamingField(),
 	})
 }
@@ -60,7 +61,7 @@ type scheduleSnapshotParams struct {
 	renaming *nameEdit
 }
 
-func scheduleSnapshot(m *model, pane listPane, params scheduleSnapshotParams) view.Snapshot {
+func scheduleSnapshot(m *model, pane list.Pane, params scheduleSnapshotParams) view.Snapshot {
 	return view.Snapshot{
 		Rows: xslice.Map(params.rows, func(item scheduleItem) view.Row {
 			name := scheduleItemName(item)
@@ -70,7 +71,7 @@ func scheduleSnapshot(m *model, pane listPane, params scheduleSnapshotParams) vi
 			}
 
 			return params.renaming.renderedOver(view.Row{
-				Key:     item.key(),
+				Key:     item.Key(),
 				Kind:    view.KindResult,
 				Name:    name,
 				Matches: matchesIn(m.filter.pattern, name),
@@ -79,9 +80,9 @@ func scheduleSnapshot(m *model, pane listPane, params scheduleSnapshotParams) vi
 				Tail:    view.Cell{Text: item.schedule.Cron, Tone: paint.ToneMuted},
 			})
 		}),
-		Caret:   pane.caret,
-		Focused: rowKeyAt(params.rows, params.cursor),
-		Pane:    pane.width,
+		Caret:   pane.Caret,
+		Focused: list.KeyAt(params.rows, params.cursor),
+		Pane:    pane.Width,
 		Columns: scheduleColumns(),
 	}
 }

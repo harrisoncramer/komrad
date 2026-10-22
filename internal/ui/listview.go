@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"komrad/internal/glyph"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
 
@@ -10,15 +10,15 @@ import (
 )
 
 // listPane is the column that renders a list this frame and where its cursor stands.
-func (m *model) listPane(width int) listPane {
+func (m *model) listPane(width int) list.Pane {
 	caret := m.caretOf(sectionList)
 	if m.isDocFocused() {
 		caret = view.CaretRendered
 	}
 
-	return listPane{
-		width: width,
-		caret: caret,
+	return list.Pane{
+		Width: width,
+		Caret: caret,
 	}
 }
 
@@ -60,7 +60,7 @@ func (m *model) screenListView(params screenListParams) string {
 	lines := m.listLines(header, below)
 	snapshot := params.snapshot(m.listPane(pane))
 	window := view.Window(view.WindowParams{
-		List:    prepareList(m.glyphs, snapshot),
+		List:    list.Prepare(m.glyphs, snapshot),
 		Palette: paint.Panel,
 		Width:   pane,
 		Lines:   lines,
@@ -68,14 +68,6 @@ func (m *model) screenListView(params screenListParams) string {
 	})
 
 	return headedBlockView(header, window, lines, below)
-}
-
-// prepareList resolves a snapshot to the list rendered from it, in the glyphs the panel was
-// configured with.
-func prepareList(glyphs glyph.Set, snapshot view.Snapshot) view.List {
-	snapshot.Glyphs = glyphs
-
-	return view.Prepare(snapshot)
 }
 
 // talliedHeader is a list's header with a muted tally after its title.

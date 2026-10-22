@@ -7,6 +7,7 @@ import (
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
 	"komrad/internal/logread"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
@@ -25,9 +26,9 @@ func (l *logsScreen) emptyLine() string {
 	return "reading…"
 }
 
-func (l *logsScreen) snapshot(m *model, pane listPane) view.Snapshot {
+func (l *logsScreen) snapshot(m *model, pane list.Pane) view.Snapshot {
 	rows := l.rows(m)
-	caret := pane.caret
+	caret := pane.Caret
 	if l.isBlockFocused(m) {
 		caret = view.CaretRendered
 	}
@@ -41,7 +42,7 @@ func (l *logsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 			}
 
 			return view.Row{
-				Key:     row.key(),
+				Key:     row.Key(),
 				Kind:    view.KindResult,
 				Name:    name,
 				Matches: matchesIn(m.filter.pattern, name),
@@ -50,8 +51,8 @@ func (l *logsScreen) snapshot(m *model, pane listPane) view.Snapshot {
 			}
 		}),
 		Caret:   caret,
-		Focused: rowKeyAt(rows, l.rowCursor.cursor),
-		Pane:    pane.width,
+		Focused: list.KeyAt(rows, l.Row),
+		Pane:    pane.Width,
 		Columns: view.Columns{},
 	}
 }
@@ -81,7 +82,7 @@ func (l *logsScreen) block(m *model, width int) []string {
 		rows = append(rows, "")
 	}
 
-	return append(rows, m.markSearch(stopBlock, width, fitRow(blankCursor+l.logFilterLine(m.glyphs), width)))
+	return append(rows, m.markSearch(stopBlock, width, fitRow(list.Blank+l.logFilterLine(m.glyphs), width)))
 }
 
 // logFilterLine is the prompt at the foot of the log, gray while it does not hold the keys.
@@ -95,7 +96,7 @@ func (l *logsScreen) logFilterLine(glyphs glyph.Set) string {
 
 // logRows is the lines of the log rendered in height rows, or what stands in for them.
 func (l *logsScreen) logRows(m *model, width, height int) []string {
-	row, hovered := rowAt(l.rows(m), l.rowCursor.cursor)
+	row, hovered := list.At(l.rows(m), l.Row)
 
 	switch {
 	case !hovered:
@@ -112,16 +113,16 @@ func (l *logsScreen) logRows(m *model, width, height int) []string {
 		return []string{dimStyle().Render(fmt.Sprintf("Nothing about this agent in the last %d MB of the log.", logread.ScanBudget>>20))}
 	}
 
-	rows, cursor := l.viewer.Rows(width-len(blankCursor), height)
+	rows, cursor := l.viewer.Rows(width-len(list.Blank), height)
 	var lines []int
 	if m.term.markingZones {
-		lines = l.viewer.Lines(width-len(blankCursor), height)
+		lines = l.viewer.Lines(width-len(list.Blank), height)
 	}
 	focused := l.isBlockFocused(m)
 	for i, row := range rows {
-		prefix := blankCursor
+		prefix := list.Blank
 		if focused && i == cursor {
-			prefix = renderedCaret()
+			prefix = list.RenderArrow()
 		}
 		rows[i] = prefix + row
 		if i < len(lines) {
