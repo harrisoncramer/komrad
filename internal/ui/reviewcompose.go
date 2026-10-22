@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/keys"
 	"komrad/internal/vim"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -61,8 +62,8 @@ func reviewInputWidth(pane int) int {
 
 // reviewInputHint is the line under a field's title, naming the keys that finish with it.
 func reviewInputHint(editor, submit []string, said string) string {
-	return keyLabel(editor) + " opens $EDITOR; " + keyLabel(submit) + " " + said + "; " +
-		keyLabel(fixedKeys().Back) + " cancels"
+	return keys.Label(editor) + " opens $EDITOR; " + keys.Label(submit) + " " + said + "; " +
+		keys.Label(fixedKeys().Back) + " cancels"
 }
 
 // openInput puts a field in the popup, sized to the room inside it.
@@ -93,15 +94,15 @@ func (r *reviewScreen) updateComposer(m *model, key tea.KeyPressMsg) tea.Cmd {
 	// Every other key is a character being typed into the message, so the keys that leave it, and
 	// the one that opens it in an editor, come from the form keymap.
 	switch {
-	case outcome == vim.Leave || isBound(k, fixedKeys().Back):
+	case outcome == vim.Leave || keys.IsBound(k, fixedKeys().Back):
 		r.threads.cancelMessage()
 
 		return nil
-	case isBound(k, fixedKeys().Quit):
+	case keys.IsBound(k, fixedKeys().Quit):
 		return m.hide()
-	case isBound(k, fixedKeys().Editor):
+	case keys.IsBound(k, fixedKeys().Editor):
 		return r.openMessageEditor(m)
-	case isBound(k, fixedKeys().Submit):
+	case keys.IsBound(k, fixedKeys().Submit):
 		return r.saveMessage(m)
 	}
 

@@ -4,71 +4,72 @@ import (
 	"slices"
 
 	"komrad/config"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 
 	tea "charm.land/bubbletea/v2"
 )
 
 // actions is the archived agents as one table and the legend that names it.
-func (a *archivedAgents) actions() screenActionSpec {
-	return screenActionSpec{
-		table:  a.table(),
-		legend: a.legend(),
+func (a *archivedAgents) actions() keys.Spec[*model] {
+	return keys.Spec[*model]{
+		Table:  a.table(),
+		Legend: a.legend(),
 	}
 }
 
-func (a *archivedAgents) table() []screenAction {
+func (a *archivedAgents) table() []keys.Action[*model] {
 	list := a.list()
 
 	return append(list.actions(),
-		screenAction{
-			id:   actionArchiveBack,
-			keys: fixedBack,
-			when: list.isBrowsing,
-			nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
+		keys.Action[*model]{
+			ID:   actionArchiveBack,
+			Keys: keys.FixedBack,
+			When: list.isBrowsing,
+			Nav:  func(m *model, _ string) tea.Cmd { return m.pickView() },
 		},
-		screenAction{
-			id:     actionArchiveRename,
-			keys:   func(k config.Keybindings) []string { return k.Archive.Rename },
-			when:   list.isBrowsing,
-			direct: directly(notInMenu, func(m *model, _ string) tea.Cmd { return a.openRename(m) }),
+		keys.Action[*model]{
+			ID:     actionArchiveRename,
+			Keys:   func(k config.Keybindings) []string { return k.Archive.Rename },
+			When:   list.isBrowsing,
+			Direct: keys.Directly(keys.NotInMenu, func(m *model, _ string) tea.Cmd { return a.openRename(m) }),
 		},
 	)
 }
 
-func (a *archivedAgents) legend() []screenLegendRow {
+func (a *archivedAgents) legend() []keys.LegendRow[*model] {
 	list := a.list()
 
-	return slices.Concat(list.selectionLegend(), []screenLegendRow{
+	return slices.Concat(list.selectionLegend(), []keys.LegendRow[*model]{
 		{
-			of:    []actionID{actionArchiveRename},
-			desc:  func(*model) string { return "rename" },
-			show:  a.holdsARenameable,
-			strip: true,
+			Of:    []keys.ID{actionArchiveRename},
+			Desc:  func(*model) string { return "rename" },
+			Show:  a.holdsARenameable,
+			Strip: true,
 		},
 		{
-			of:   []actionID{actionSelectToggle},
-			desc: list.toggleDesc,
-			show: a.holdsAChoosable,
+			Of:   []keys.ID{keys.SelectToggle},
+			Desc: list.toggleDesc,
+			Show: a.holdsAChoosable,
 		},
 		{
-			of:   []actionID{actionFilterOpen},
-			desc: filterDescOf,
+			Of:   []keys.ID{keys.FilterOpen},
+			Desc: filterDescOf,
 		},
-	}, screenNavLegend(), []screenLegendRow{
+	}, keys.NavLegend[*model](), []keys.LegendRow[*model]{
 		{
-			of:   []actionID{actionArchiveBack},
-			desc: func(*model) string { return "back" },
-		},
-		{
-			of:    []actionID{actionFilterClear},
-			desc:  filterClearDescOf,
-			strip: true,
+			Of:   []keys.ID{actionArchiveBack},
+			Desc: func(*model) string { return "back" },
 		},
 		{
-			of:    []actionID{actionFilterMatch},
-			desc:  func(*model) string { return "next/prev match" },
-			strip: true,
+			Of:    []keys.ID{keys.FilterClear},
+			Desc:  filterClearDescOf,
+			Strip: true,
+		},
+		{
+			Of:    []keys.ID{keys.FilterMatch},
+			Desc:  func(*model) string { return "next/prev match" },
+			Strip: true,
 		},
 	})
 }

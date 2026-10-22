@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
@@ -227,15 +228,15 @@ func openEditTask(m *model, task panel.Task) tea.Cmd {
 	}))
 }
 
-func editTaskForm(keys config.FixedKeys, values *taskEditValues, slug string) (*huh.Form, []string) {
-	return formOf(keys,
+func editTaskForm(fixed config.FixedKeys, values *taskEditValues, slug string) (*huh.Form, []string) {
+	return formOf(fixed,
 		huh.NewInput().Key("title").Title(fmt.Sprintf("Task %q", slug)).Description("its title").
 			CharLimit(maxTaskTitle).Validate(checkTaskTitle).Value(&values.Title),
 		textField("goal").Title("Goal").
-			Description(fmt.Sprintf("the outcome that finishes this task; %s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).
+			Description(fmt.Sprintf("the outcome that finishes this task; %s opens $EDITOR; %s submits", keys.Label(fixed.Editor), keys.Label(fixed.Submit))).
 			Validate(checkTaskGoal).Value(&values.Goal),
 		textField("notes").Title("Notes").
-			Description(fmt.Sprintf("findings and decisions so far; %s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).
+			Description(fmt.Sprintf("findings and decisions so far; %s opens $EDITOR; %s submits", keys.Label(fixed.Editor), keys.Label(fixed.Submit))).
 			Value(&values.Notes),
 	)
 }

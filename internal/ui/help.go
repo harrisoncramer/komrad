@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"komrad/internal/ui/keys"
 	"komrad/lib/xslice"
 
 	"charm.land/bubbles/v2/key"
@@ -36,35 +37,15 @@ func (m *model) refusedExpansion(bindings []key.Binding) []key.Binding {
 	return out
 }
 
-func binding(keys []string, desc string) key.Binding {
-	return key.NewBinding(key.WithKeys(keys...), key.WithHelp(keyLabel(keys), desc))
-}
-
-func headLabel(keys []string) string {
-	if len(keys) == 0 {
-		return ""
-	}
-
-	return keyLabel(keys[:1])
+func binding(bound []string, desc string) key.Binding {
+	return key.NewBinding(key.WithKeys(bound...), key.WithHelp(keys.Label(bound), desc))
 }
 
 func (m *model) moveBinding() key.Binding {
-	keys := slices.Concat(m.keys.Nav.Up, m.keys.Nav.Down)
-
 	return key.NewBinding(
-		key.WithKeys(keys...),
-		key.WithHelp(keyLabel(m.keys.Nav.Up)+"/"+keyLabel(m.keys.Nav.Down), "move"),
+		key.WithKeys(slices.Concat(m.keys.Nav.Up, m.keys.Nav.Down)...),
+		key.WithHelp(keys.MoveLabel(m.keys), "move"),
 	)
-}
-
-func doubledLabel(keys []string) string {
-	pairs := make([]string, len(keys))
-	for i, k := range keys {
-		label := keyLabel([]string{k})
-		pairs[i] = label + label
-	}
-
-	return strings.Join(pairs, "/")
 }
 
 func filterHelp(mode filterMode) keyMap {
@@ -111,18 +92,14 @@ func (m *model) fullGlobalHelp() []key.Binding {
 	return append(full, m.messagesBinding(), binding(slices.Concat(m.keys.Sidebar.Narrow, m.keys.Sidebar.Widen), "resize"), binding([]string{leaderKey}, "leader"))
 }
 
-var keyAbbreviations = strings.NewReplacer("ctrl+", "C-", "shift+", "S-")
-
-func keyLabel(keys []string) string {
-	out := make([]string, len(keys))
-	for i, k := range keys {
-		out[i] = keyAbbreviations.Replace(k)
-	}
-
-	return strings.Join(out, "/")
-}
-
 // menuChordLabel is the presses that reach an entry through the menu, spaced apart.
 func (m *model) menuChordLabel(entries ...[]string) string {
-	return strings.Join(xslice.Map(slices.Concat([][]string{m.keys.Menu.Open}, entries), keyLabel), " ")
+	return strings.Join(xslice.Map(slices.Concat([][]string{m.keys.Menu.Open}, entries), keys.Label), " ")
+}
+
+// helpOf is a screen's legend built from its table.
+func (m *model) helpOf(spec keys.Spec[*model]) keyMap {
+	short, full := spec.Help(m, m.keys)
+
+	return keyMap{short: short, full: full}
 }

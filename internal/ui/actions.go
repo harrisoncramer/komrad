@@ -1,36 +1,16 @@
 package ui
 
-// actionID names one thing a screen does with a key.
-type actionID int
+import "komrad/internal/ui/keys"
 
+// The actions the root's screens declare of their own.
 const (
-	actionNone actionID = iota
-	actionHelp
-	actionMove
-	actionJump
-	actionNavPage
-	actionColumnScroll
-	actionColumnBack
-	actionDetails
-	actionDetailsCopy
-	actionMessages
-	actionFilterOpen
-	actionFilterClear
-	actionFilterMatch
-	actionQuit
-	actionAgentsBack
+	actionAgentsBack keys.ID = keys.Own + iota
 	actionAgentTriage
 	actionAgentOpen
 	actionAgentRename
 	actionTaskRename
 	actionTaskNotesBack
-	actionSearchOpen
-	actionSearchEdit
-	actionSearchBack
 	actionWorkflowRename
-	actionSelectToggle
-	actionSelectRange
-	actionSelectClear
 	actionScheduleRename
 	actionScheduleBack
 	actionArchiveRename

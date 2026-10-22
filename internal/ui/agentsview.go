@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"komrad/config"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
@@ -108,12 +109,12 @@ func welcomeText(keys config.Keybindings) string {
 	return fmt.Sprintf("Welcome, komrad!\n\nPress '%s' then '%s' to set up your first workflow", firstKey(keys.Menu.Open, "space"), firstKey(keys.Menu.NewWorkflow, "w"))
 }
 
-func firstKey(keys []string, fallback string) string {
-	if len(keys) == 0 {
+func firstKey(bound []string, fallback string) string {
+	if len(bound) == 0 {
 		return fallback
 	}
 
-	return keyLabel(keys[:1])
+	return keys.Label(bound[:1])
 }
 
 func settingUpPlaceholder(frame string) string {

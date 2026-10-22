@@ -4,6 +4,7 @@ import (
 	"komrad/config"
 
 	"komrad/internal/ui/field"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/paint"
 
 	"charm.land/bubbles/v2/key"
@@ -263,15 +264,15 @@ func holdSubmit(write func(*model) tea.Cmd) func(*model) tea.Cmd {
 
 // formOf renders a group of fields as one form, and lists the keys of the fields the cursor can
 // reach, in the order they are rendered.
-func formOf(keys config.FixedKeys, fields ...huh.Field) (*huh.Form, []string) {
-	return titledFormOf(keys, "", fields...)
+func formOf(fixed config.FixedKeys, fields ...huh.Field) (*huh.Form, []string) {
+	return titledFormOf(fixed, "", fields...)
 }
 
 // titledFormOf is formOf under a title that heads every field.
-func titledFormOf(keys config.FixedKeys, title string, fields ...huh.Field) (*huh.Form, []string) {
+func titledFormOf(fixed config.FixedKeys, title string, fields ...huh.Field) (*huh.Form, []string) {
 	form := huh.NewForm(huh.NewGroup(fields...).Title(title)).
 		WithShowHelp(true).
-		WithKeyMap(multiFieldKeyMap(keys)).
+		WithKeyMap(multiFieldKeyMap(fixed)).
 		WithTheme(paint.Panel.FormTheme())
 
 	reached := make([]string, 0, len(fields))
@@ -291,21 +292,21 @@ func textField(key string) *huh.Text {
 	return huh.NewText().Key(key).ExternalEditor(false)
 }
 
-func formKeyMap(keys config.FixedKeys) *huh.KeyMap {
-	quit := append(append([]string{}, keys.Back...), keys.Quit...)
+func formKeyMap(fixed config.FixedKeys) *huh.KeyMap {
+	quit := append(append([]string{}, fixed.Back...), fixed.Quit...)
 
 	km := huh.NewDefaultKeyMap()
-	km.Quit = key.NewBinding(key.WithKeys(quit...), key.WithHelp(keyLabel(keys.Back), "back"))
+	km.Quit = key.NewBinding(key.WithKeys(quit...), key.WithHelp(keys.Label(fixed.Back), "back"))
 
 	return km
 }
 
-func multiFieldKeyMap(keys config.FixedKeys) *huh.KeyMap {
-	submit := key.NewBinding(key.WithKeys(keys.Submit...), key.WithHelp(keyLabel(keys.Submit), "submit"))
+func multiFieldKeyMap(fixed config.FixedKeys) *huh.KeyMap {
+	submit := key.NewBinding(key.WithKeys(fixed.Submit...), key.WithHelp(keys.Label(fixed.Submit), "submit"))
 
 	next := key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "next"))
 
-	km := formKeyMap(keys)
+	km := formKeyMap(fixed)
 	km.Input.Next = next
 	km.Input.Submit = submit
 	km.Text.Next = next
@@ -319,7 +320,7 @@ func multiFieldKeyMap(keys config.FixedKeys) *huh.KeyMap {
 	return km
 }
 
-func confirmForm(title, description, affirmative string, keys config.FixedKeys) (*huh.Form, *bool) {
+func confirmForm(title, description, affirmative string, fixed config.FixedKeys) (*huh.Form, *bool) {
 	confirmed := true
 
 	return confirmFormStartingOn(confirmFormStartingOnParams{
@@ -327,7 +328,7 @@ func confirmForm(title, description, affirmative string, keys config.FixedKeys) 
 		title:       title,
 		description: description,
 		affirmative: affirmative,
-		keys:        keys,
+		keys:        fixed,
 	}), &confirmed
 }
 
@@ -439,7 +440,7 @@ func (m *model) answerForm() tea.Cmd {
 // updateForm hands a message to the form on screen, and answers it either when huh says it is
 // finished or on the submit key.
 func (m *model) updateForm(msg tea.Msg) tea.Cmd {
-	if key, ok := msg.(tea.KeyPressMsg); ok && isBound(key.String(), fixedKeys().Submit) {
+	if key, ok := msg.(tea.KeyPressMsg); ok && keys.IsBound(key.String(), fixedKeys().Submit) {
 		return m.answerForm()
 	}
 
@@ -448,7 +449,7 @@ func (m *model) updateForm(msg tea.Msg) tea.Cmd {
 			return cmd
 		}
 
-		if m.form.back != nil && isBound(key.String(), fixedKeys().Back) {
+		if m.form.back != nil && keys.IsBound(key.String(), fixedKeys().Back) {
 			return m.form.back(m)
 		}
 	}
@@ -531,4 +532,9 @@ func (m *model) closeForm() tea.Cmd {
 	m.reconcileSolo()
 
 	return m.enter(m.screen, screenTarget{resume: true})
+}
+
+// fixedKeys is what every screen, menu and form answers.
+func fixedKeys() config.FixedKeys {
+	return config.Fixed()
 }

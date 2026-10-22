@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"komrad/internal/client"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/paint"
 
 	tea "charm.land/bubbletea/v2"
@@ -153,7 +154,7 @@ func (m *model) route(msg tea.Msg) tea.Cmd {
 		switch {
 		case m.isMessagesFocused():
 			return m.updateMessages(key)
-		case isBound(key.String(), m.keys.Messages.Open):
+		case keys.IsBound(key.String(), m.keys.Messages.Open):
 			m.toggleMessagesFocus()
 
 			return nil
@@ -171,7 +172,7 @@ func (m *model) route(msg tea.Msg) tea.Cmd {
 	}
 
 	if m.form.isActive() {
-		if isKey && isBound(key.String(), fixedKeys().Editor) {
+		if isKey && keys.IsBound(key.String(), fixedKeys().Editor) {
 			if cmd, opened := m.openFormFieldEditor(); opened {
 				return cmd
 			}
@@ -314,18 +315,18 @@ func (m *model) routeGlobalKey(key tea.KeyPressMsg) (tea.Cmd, bool) {
 		}
 	}
 
-	if isBound(key.String(), m.keys.Help.Toggle) {
+	if keys.IsBound(key.String(), m.keys.Help.Toggle) {
 		m.helpExpanded = !m.helpExpanded
 
 		return nil, true
 	}
 
 	switch {
-	case isBound(key.String(), m.keys.Sidebar.Narrow):
+	case keys.IsBound(key.String(), m.keys.Sidebar.Narrow):
 		m.nudgeSidebar(-sidebarStep)
 
 		return nil, true
-	case isBound(key.String(), m.keys.Sidebar.Widen):
+	case keys.IsBound(key.String(), m.keys.Sidebar.Widen):
 		m.nudgeSidebar(sidebarStep)
 
 		return nil, true
@@ -335,7 +336,7 @@ func (m *model) routeGlobalKey(key tea.KeyPressMsg) (tea.Cmd, bool) {
 		if m.isTabsFocused() {
 			return m.updateTabs(key), true
 		}
-		if isBound(key.String(), m.keys.Tabs.Focus) {
+		if keys.IsBound(key.String(), m.keys.Tabs.Focus) {
 			m.focusTabs()
 
 			return nil, true
@@ -346,7 +347,7 @@ func (m *model) routeGlobalKey(key tea.KeyPressMsg) (tea.Cmd, bool) {
 		if m.isKindsFocused() {
 			return m.updateKinds(key), true
 		}
-		if isBound(key.String(), m.keys.Kinds.Focus) {
+		if keys.IsBound(key.String(), m.keys.Kinds.Focus) {
 			m.focusKinds()
 
 			return nil, true
@@ -354,7 +355,7 @@ func (m *model) routeGlobalKey(key tea.KeyPressMsg) (tea.Cmd, bool) {
 	}
 
 	if slices.Contains(m.keys.Menu.Open, key.String()) {
-		if menu, ok := m.buildMenu(); ok && isBound(key.String(), m.keys.Menu.Open) {
+		if menu, ok := m.buildMenu(); ok && keys.IsBound(key.String(), m.keys.Menu.Open) {
 			return openSubmenu(m, menu), true
 		}
 	}

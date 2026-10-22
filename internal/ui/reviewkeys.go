@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/paint"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -18,7 +19,7 @@ func (r *reviewScreen) updateKey(m *model, key tea.KeyPressMsg) tea.Cmd {
 		return cmd
 	}
 
-	return r.actions(m).dispatchTop(m, key.String())
+	return m.dispatchTop(r.actions(m), key.String())
 }
 
 // takeKey handles a key before the screen's actions see it, and false for one it leaves to them.
@@ -40,14 +41,14 @@ func (r *reviewScreen) takeKey(m *model, key tea.KeyPressMsg) (tea.Cmd, bool) {
 	// The diff opens for an agent that is not there, and only the back key answers until it has
 	// something to render.
 	if r.diff.View() == nil {
-		if isBound(k, fixedKeys().Back) {
+		if keys.IsBound(k, fixedKeys().Back) {
 			return r.back(m), true
 		}
 
 		return nil, true
 	}
 
-	if isBound(k, slices.Concat(m.keys.Column.ScrollDown, m.keys.Column.ScrollUp)) && r.scrollPopup(m, directionOf(k, m.keys.Column.ScrollUp)*diffWheelStep) {
+	if keys.IsBound(k, slices.Concat(m.keys.Column.ScrollDown, m.keys.Column.ScrollUp)) && r.scrollPopup(m, keys.DirectionOf(k, m.keys.Column.ScrollUp)*diffWheelStep) {
 		return nil, true
 	}
 
@@ -194,7 +195,7 @@ func (r *reviewScreen) scrollList(m *model, rows int) tea.Cmd {
 
 	var cmds []tea.Cmd
 	for range max(rows, -rows) {
-		cmds = append(cmds, r.diffActions().dispatch(m, pressed[0]))
+		cmds = append(cmds, r.diffActions().Dispatch(m, m.keys, pressed[0]))
 	}
 
 	return tea.Batch(cmds...)

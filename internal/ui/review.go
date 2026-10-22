@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"komrad/internal/ui/field"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/panel"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -168,8 +169,8 @@ func (r reviewScreen) typedLine() (field.Line, bool) {
 	return r.diff.filter.input, r.diff.filter.typing
 }
 
-func (r *reviewScreen) dispatches(*model) []dispatching {
-	return []dispatching{r.diffActions(), r.filesActions()}
+func (r *reviewScreen) dispatches(*model) []keys.Table {
+	return []keys.Table{r.diffActions(), r.filesActions()}
 }
 
 // writerPane is the agent whose work is under review, which the stage keeps beside the diff while

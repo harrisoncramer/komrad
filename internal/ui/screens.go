@@ -2,6 +2,7 @@ package ui
 
 import (
 	"komrad/internal/ui/field"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/layout"
 
 	tea "charm.land/bubbletea/v2"
@@ -60,7 +61,7 @@ type screenModel interface {
 
 	// dispatches is the tables the screen dispatches through, one at a time, walked behind the
 	// global keys.
-	dispatches(m *model) []dispatching
+	dispatches(m *model) []keys.Table
 }
 
 // screenTarget is the row a screen must land on, each screen reading the fields it

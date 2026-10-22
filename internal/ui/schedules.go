@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 	"komrad/internal/view"
@@ -65,7 +66,7 @@ func (w *schedulesScreen) update(m *model, msg tea.Msg) tea.Cmd {
 		return w.updateRename(m, msg)
 	}
 
-	return w.actions().dispatchTop(m, key.String())
+	return m.dispatchTop(w.actions(), key.String())
 }
 
 func (w *schedulesScreen) list() screenList[scheduleItem] {
@@ -251,7 +252,7 @@ func (w *schedulesScreen) listParams(m *model) screenListParams {
 }
 
 func (w *schedulesScreen) help(m *model) keyMap {
-	return w.actions().help(m)
+	return m.helpOf(w.actions())
 }
 
 var (
@@ -318,6 +319,6 @@ func (w *schedulesScreen) settleRename(m *model, row string, err error) {
 	}
 }
 
-func (w *schedulesScreen) dispatches(*model) []dispatching {
-	return []dispatching{w.actions(), w.archived.actions()}
+func (w *schedulesScreen) dispatches(*model) []keys.Table {
+	return []keys.Table{w.actions(), w.archived.actions()}
 }

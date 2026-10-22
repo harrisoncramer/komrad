@@ -3,6 +3,7 @@ package ui
 import (
 	"testing"
 
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/paint"
 
 	"github.com/stretchr/testify/assert"
@@ -57,7 +58,7 @@ func TestFitLines(t *testing.T) {
 
 // TestActionKeysGoThroughTheMenu pins the arms that act straight off their key rather than from the menu.
 func TestActionKeysGoThroughTheMenu(t *testing.T) {
-	want := map[screen][]actionID{
+	want := map[screen][]keys.ID{
 		screenAgents: {
 			actionWorkflowRename,
 			actionAgentOpen, actionAgentRename, actionTaskRename,
@@ -70,20 +71,15 @@ func TestActionKeysGoThroughTheMenu(t *testing.T) {
 	}
 
 	for _, s := range []screen{screenAgents, screenSchedules, screenReview, screenWorktrees, screenDocuments, screenLogs, screenStatusChecks} {
-		var direct []actionID
+		var direct []keys.ID
 
-		for _, table := range actionsOf(s) {
-			spec, ok := table.(screenActionSpec)
-			if !ok {
-				continue
-			}
+		for _, spec := range specsOf(s) {
+			for _, arm := range spec.Table {
+				assert.NotEqual(t, arm.Nav == nil, arm.Direct == nil, "%s: an arm moves or acts directly, never both or neither", screenNames[s])
 
-			for _, arm := range spec.table {
-				assert.NotEqual(t, arm.nav == nil, arm.direct == nil, "%s: an arm moves or acts directly, never both or neither", screenNames[s])
-
-				if arm.direct != nil {
-					assert.NotEmpty(t, arm.direct.reason, "%s: a direct arm says why", screenNames[s])
-					direct = append(direct, arm.id)
+				if arm.Direct != nil {
+					assert.NotEmpty(t, arm.Direct.Reason, "%s: a direct arm says why", screenNames[s])
+					direct = append(direct, arm.ID)
 				}
 			}
 		}

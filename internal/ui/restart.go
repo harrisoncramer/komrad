@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"komrad/config"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/panel"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -112,10 +113,10 @@ func (m *model) restartAgent(agent panel.Agent, values restartValues) tea.Cmd {
 	))
 }
 
-func restartForm(keys config.FixedKeys, values *restartValues, target restartTarget) (*huh.Form, []string) {
-	return formOf(keys,
+func restartForm(fixed config.FixedKeys, values *restartValues, target restartTarget) (*huh.Form, []string) {
+	return formOf(fixed,
 		textField("note").Title(fmt.Sprintf("Restart %q on %q with a new conversation", target.agent.Name, target.on)).
-			Description(fmt.Sprintf("what the agent is told on top of %s; %s opens $EDITOR; %s submits", target.briefing, keyLabel(keys.Editor), keyLabel(keys.Submit))).
+			Description(fmt.Sprintf("what the agent is told on top of %s; %s opens $EDITOR; %s submits", target.briefing, keys.Label(fixed.Editor), keys.Label(fixed.Submit))).
 			Value(&values.Note),
 		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),

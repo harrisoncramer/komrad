@@ -7,6 +7,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/zone"
@@ -16,148 +17,6 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 )
-
-// screenAction is one arm of a screen's dispatch, which moves through nav or acts as a declared direct exception.
-type screenAction struct {
-	id     actionID
-	keys   func(config.Keybindings) []string
-	when   func(*model) bool
-	nav    func(*model, string) tea.Cmd
-	direct *directAction
-}
-
-// directAction is an arm that acts straight off its key rather than from the menu, and why.
-type directAction struct {
-	reason string
-	run    func(*model, string) tea.Cmd
-}
-
-// screenLegendRow is one row of a screen's legend.
-type screenLegendRow struct {
-	of    []actionID
-	desc  func(*model) string
-	show  func(*model) bool
-	label func(config.Keybindings) string
-	strip bool
-}
-
-// screenActionSpec is a screen's keys, ordered twice: the table in precedence order, the
-// dispatch order, and the legend in reading order.
-type screenActionSpec struct {
-	table  []screenAction
-	legend []screenLegendRow
-}
-
-// dispatch hands the press to the first arm that answers it.
-func (s screenActionSpec) dispatch(m *model, pressed string) tea.Cmd {
-	for _, a := range s.table {
-		if a.when != nil && !a.when(m) {
-			continue
-		}
-
-		if !isBound(pressed, a.keys(m.keys)) {
-			continue
-		}
-
-		if a.direct != nil {
-			return a.direct.run(m, pressed)
-		}
-
-		return a.nav(m, pressed)
-	}
-
-	return nil
-}
-
-// help builds the legend from the same table the dispatch reads.
-func (s screenActionSpec) help(m *model) keyMap {
-	var short, full []key.Binding
-
-	for _, row := range s.legend {
-		if !s.isRowShown(m, row) {
-			continue
-		}
-
-		binding := s.rowBinding(m, row)
-		full = append(full, binding)
-
-		if row.strip {
-			short = append(short, binding)
-		}
-	}
-
-	return keyMap{short: short, full: full}
-}
-
-func (s screenActionSpec) isRowShown(m *model, row screenLegendRow) bool {
-	if row.show != nil {
-		return row.show(m)
-	}
-
-	return slices.ContainsFunc(s.table, func(a screenAction) bool {
-		return slices.Contains(row.of, a.id) && (a.when == nil || a.when(m))
-	})
-}
-
-// rowBinding converts the row into the format bubbleTea wants it: every key of every action it
-// names, under one label.
-func (s screenActionSpec) rowBinding(m *model, row screenLegendRow) key.Binding {
-	var keys, heads []string
-
-	for _, id := range row.of {
-		a, ok := s.answeringActionOf(m, id)
-		if !ok {
-			continue
-		}
-
-		bound := a.keys(m.keys)
-		keys = append(keys, bound...)
-		heads = append(heads, headLabel(bound))
-	}
-
-	label := strings.Join(heads, "/")
-	if len(row.of) == 1 {
-		label = keyLabel(keys)
-	}
-
-	if row.label != nil {
-		label = row.label(m.keys)
-	}
-
-	return key.NewBinding(key.WithKeys(keys...), key.WithHelp(label, row.desc(m)))
-}
-
-// answeringActionOf is the first arm with the id that answers now, or the first arm with it.
-func (s screenActionSpec) answeringActionOf(m *model, id actionID) (screenAction, bool) {
-	i := slices.IndexFunc(s.table, func(a screenAction) bool {
-		return a.id == id && (a.when == nil || a.when(m))
-	})
-	if i < 0 {
-		return s.actionOf(id)
-	}
-
-	return s.table[i], true
-}
-
-func (s screenActionSpec) actionOf(id actionID) (screenAction, bool) {
-	i := slices.IndexFunc(s.table, func(a screenAction) bool { return a.id == id })
-	if i < 0 {
-		return screenAction{}, false
-	}
-
-	return s.table[i], true
-}
-
-// dispatchArms is the table as the keybinding check walks it.
-func (s screenActionSpec) dispatchArms(keys config.Keybindings) []dispatchArm {
-	return xslice.Map(s.table, func(a screenAction) dispatchArm {
-		return dispatchArm{
-			describe: "an action of the screen's own",
-			keys:     a.keys(keys),
-			guarded:  a.when != nil,
-		}
-	})
-}
 
 // screenList is what the keys every list shares need of one screen: where its cursor and
 // rows live, and what follows the cursor onto a row.
@@ -278,20 +137,20 @@ func (l screenList[T]) click(m *model, key string, nth int) tea.Cmd {
 }
 
 // update hands a key to the list's table.
-func (l screenList[T]) update(m *model, key tea.KeyPressMsg, actions screenActionSpec) tea.Cmd {
-	return actions.dispatchTop(m, key.String())
+func (l screenList[T]) update(m *model, key tea.KeyPressMsg, actions keys.Spec[*model]) tea.Cmd {
+	return m.dispatchTop(actions, key.String())
 }
 
 // actions are the keys every list answers, in dispatch order.
-func (l screenList[T]) actions() []screenAction {
-	var shared []screenAction
+func (l screenList[T]) actions() []keys.Action[*model] {
+	var shared []keys.Action[*model]
 	if l.refs != nil {
 		shared = append(shared, l.selectionActions()...)
 	}
-	shared = append(shared, screenAction{
-		id:   actionQuit,
-		keys: fixedQuit,
-		nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
+	shared = append(shared, keys.Action[*model]{
+		ID:   keys.Quit,
+		Keys: keys.FixedQuit,
+		Nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 	})
 	shared = append(shared, navActions(l, navSteps{page: navPageStep, scroll: 1})...)
 	if l.name != nil {
@@ -301,52 +160,52 @@ func (l screenList[T]) actions() []screenAction {
 	return shared
 }
 
-func (l screenList[T]) selectionActions() []screenAction {
-	return []screenAction{
+func (l screenList[T]) selectionActions() []keys.Action[*model] {
+	return []keys.Action[*model]{
 		{
-			id:   actionSelectClear,
-			keys: func(k config.Keybindings) []string { return k.Selection.Clear },
-			when: l.isSelecting,
-			nav:  l.clearSelection,
+			ID:   keys.SelectClear,
+			Keys: func(k config.Keybindings) []string { return k.Selection.Clear },
+			When: l.isSelecting,
+			Nav:  l.clearSelection,
 		},
 		{
-			id:   actionSelectToggle,
-			keys: func(k config.Keybindings) []string { return k.Selection.Toggle },
-			nav:  l.toggleSelection,
+			ID:   keys.SelectToggle,
+			Keys: func(k config.Keybindings) []string { return k.Selection.Toggle },
+			Nav:  l.toggleSelection,
 		},
 		{
-			id:   actionSelectRange,
-			keys: func(k config.Keybindings) []string { return k.Selection.Range },
-			nav:  l.extendSelection,
+			ID:   keys.SelectRange,
+			Keys: func(k config.Keybindings) []string { return k.Selection.Range },
+			Nav:  l.extendSelection,
 		},
 	}
 }
 
-func (l screenList[T]) filterActions() []screenAction {
+func (l screenList[T]) filterActions() []keys.Action[*model] {
 	standing := func(m *model) bool { return l.isBrowsing(m) && m.filter.isStanding() }
 
-	return []screenAction{
+	return []keys.Action[*model]{
 		{
-			id:   actionFilterOpen,
-			keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-			when: l.isBrowsing,
-			nav: func(m *model, _ string) tea.Cmd {
+			ID:   keys.FilterOpen,
+			Keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
+			When: l.isBrowsing,
+			Nav: func(m *model, _ string) tea.Cmd {
 				m.beginFilter()
 
 				return nil
 			},
 		},
 		{
-			id:   actionFilterMatch,
-			keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
-			when: standing,
-			nav:  func(m *model, pressed string) tea.Cmd { return m.jumpToFilterMatch(pressed) },
+			ID:   keys.FilterMatch,
+			Keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
+			When: standing,
+			Nav:  func(m *model, pressed string) tea.Cmd { return m.jumpToFilterMatch(pressed) },
 		},
 		{
-			id:   actionFilterClear,
-			keys: fixedBack,
-			when: standing,
-			nav: func(m *model, _ string) tea.Cmd {
+			ID:   keys.FilterClear,
+			Keys: keys.FixedBack,
+			When: standing,
+			Nav: func(m *model, _ string) tea.Cmd {
 				m.clearFilter()
 
 				return m.waitToStage()
@@ -396,24 +255,24 @@ func (l screenList[T]) extendSelection(m *model, pressed string) tea.Cmd {
 }
 
 // selectionLegend is the three rows a standing selection is named by.
-func (l screenList[T]) selectionLegend() []screenLegendRow {
-	return []screenLegendRow{
+func (l screenList[T]) selectionLegend() []keys.LegendRow[*model] {
+	return []keys.LegendRow[*model]{
 		{
-			of:    []actionID{actionSelectToggle},
-			desc:  l.toggleDesc,
-			show:  l.isSelecting,
-			strip: true,
+			Of:    []keys.ID{keys.SelectToggle},
+			Desc:  l.toggleDesc,
+			Show:  l.isSelecting,
+			Strip: true,
 		},
 		{
-			of:   []actionID{actionSelectRange},
-			desc: func(*model) string { return "select to nearest" },
-			show: l.isSelecting,
+			Of:   []keys.ID{keys.SelectRange},
+			Desc: func(*model) string { return "select to nearest" },
+			Show: l.isSelecting,
 		},
 		{
-			of:    []actionID{actionSelectClear},
-			desc:  l.clearDesc,
-			show:  l.isSelecting,
-			strip: true,
+			Of:    []keys.ID{keys.SelectClear},
+			Desc:  l.clearDesc,
+			Show:  l.isSelecting,
+			Strip: true,
 		},
 	}
 }
@@ -434,32 +293,6 @@ func (l screenList[T]) toggleDesc(m *model) string {
 
 func (l screenList[T]) clearDesc(*model) string {
 	return fmt.Sprintf("clear %d selected", len(l.cursor().Selected.Keys))
-}
-
-// screenNavLegend is the four rows the cursor keys are named by.
-func screenNavLegend() []screenLegendRow {
-	return []screenLegendRow{
-		{
-			of:    []actionID{actionMove},
-			desc:  func(*model) string { return "move" },
-			label: moveLabel,
-		},
-		{
-			of:    []actionID{actionJump},
-			desc:  func(*model) string { return "top/bottom" },
-			label: jumpLabel,
-		},
-		{
-			of:    []actionID{actionNavPage},
-			desc:  func(*model) string { return "page" },
-			label: navPageLabel,
-		},
-		{
-			of:    []actionID{actionColumnScroll},
-			desc:  func(*model) string { return "scroll" },
-			label: columnScrollLabel,
-		},
-	}
 }
 
 // filterDescOf names the filter key by the search standing in the list.
@@ -546,14 +379,6 @@ func spareLinesOf(height int, chrome ...string) int {
 
 	return lines
 }
-
-// directly declares an arm that acts straight off its key, and why it is not in the menu.
-func directly(reason string, run func(*model, string) tea.Cmd) *directAction {
-	return &directAction{reason: reason, run: run}
-}
-
-// notInMenu is the reason on an action arm that has not moved into the menu yet.
-const notInMenu = "not yet moved into the menu"
 
 func (m *model) listClicker(l keyedList) clicker {
 	if !m.isListFocused() || m.isViewsOpen() {

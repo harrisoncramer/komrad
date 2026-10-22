@@ -7,6 +7,7 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/cursor"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 
 	tea "charm.land/bubbletea/v2"
@@ -179,76 +180,76 @@ func (m *model) blurDetails() {
 }
 
 func (m *model) updateDetails(key tea.KeyPressMsg) tea.Cmd {
-	return m.detailsActions().dispatch(m, key.String())
+	return m.detailsActions().Dispatch(m, m.keys, key.String())
 }
 
-func (m *model) detailsActions() screenActionSpec {
-	return screenActionSpec{
-		table: append(m.detailsList().actions(), []screenAction{
+func (m *model) detailsActions() keys.Spec[*model] {
+	return keys.Spec[*model]{
+		Table: append(m.detailsList().actions(), []keys.Action[*model]{
 			{
-				id:   actionDetails,
-				keys: fixedBack,
-				nav: func(*model, string) tea.Cmd {
+				ID:   keys.Details,
+				Keys: keys.FixedBack,
+				Nav: func(*model, string) tea.Cmd {
 					m.details.focused = false
 
 					return nil
 				},
 			},
 			{
-				id:   actionDetailsCopy,
-				keys: func(k config.Keybindings) []string { return k.Details.Copy },
-				nav:  func(*model, string) tea.Cmd { return m.copyDetailsField() },
+				ID:   keys.DetailsCopy,
+				Keys: func(k config.Keybindings) []string { return k.Details.Copy },
+				Nav:  func(*model, string) tea.Cmd { return m.copyDetailsField() },
 			},
 		}...),
-		legend: []screenLegendRow{
+		Legend: []keys.LegendRow[*model]{
 			{
-				of:    []actionID{actionDetailsCopy},
-				desc:  func(*model) string { return "copy field" },
-				strip: true,
+				Of:    []keys.ID{keys.DetailsCopy},
+				Desc:  func(*model) string { return "copy field" },
+				Strip: true,
 			},
 			{
-				of:    []actionID{actionDetails},
-				desc:  func(*model) string { return "back to the list" },
-				strip: true,
+				Of:    []keys.ID{keys.Details},
+				Desc:  func(*model) string { return "back to the list" },
+				Strip: true,
 			},
 			{
-				of:   []actionID{actionFilterOpen},
-				desc: func(*model) string { return m.filterDesc() },
+				Of:   []keys.ID{keys.FilterOpen},
+				Desc: func(*model) string { return m.filterDesc() },
 			},
 			{
-				of:   []actionID{actionFilterMatch},
-				desc: func(*model) string { return "next/prev match" },
+				Of:   []keys.ID{keys.FilterMatch},
+				Desc: func(*model) string { return "next/prev match" },
 			},
 			{
-				of:   []actionID{actionFilterClear},
-				desc: func(*model) string { return m.filterClearDesc() },
+				Of:   []keys.ID{keys.FilterClear},
+				Desc: func(*model) string { return m.filterClearDesc() },
 			},
 			{
-				of:    []actionID{actionMove},
-				desc:  func(*model) string { return "move" },
-				label: func(k config.Keybindings) string { return keyLabel(k.Nav.Up) + "/" + keyLabel(k.Nav.Down) },
+				Of:    []keys.ID{keys.Move},
+				Desc:  func(*model) string { return "move" },
+				Label: keys.MoveLabel,
 			},
 			{
-				of:    []actionID{actionJump},
-				desc:  func(*model) string { return "top/bottom" },
-				label: func(k config.Keybindings) string { return keyLabel(k.Nav.Top) + "/" + keyLabel(k.Nav.Bottom) },
+				Of:    []keys.ID{keys.Jump},
+				Desc:  func(*model) string { return "top/bottom" },
+				Label: func(k config.Keybindings) string { return keys.Label(k.Nav.Top) + "/" + keys.Label(k.Nav.Bottom) },
 			},
 			{
-				of:    []actionID{actionNavPage},
-				desc:  func(*model) string { return "page" },
-				label: navPageLabel,
+				Of:    []keys.ID{keys.NavPage},
+				Desc:  func(*model) string { return "page" },
+				Label: keys.NavPageLabel,
 			},
 			{
-				of:    []actionID{actionColumnScroll},
-				desc:  func(*model) string { return "scroll" },
-				label: columnScrollLabel,
+				Of:    []keys.ID{keys.ColumnScroll},
+				Desc:  func(*model) string { return "scroll" },
+				Label: keys.ColumnScrollLabel,
 			},
 		},
 	}
 }
 
 func (m *model) detailsHelp() keyMap {
-	own := m.detailsActions().help(m)
+	own := m.helpOf(m.detailsActions())
 
 	return keyMap{
 		short: slices.Concat(own.short, m.globalHelp()),

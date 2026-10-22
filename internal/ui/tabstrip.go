@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"komrad/internal/glyph"
+	"komrad/internal/ui/keys"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -80,7 +81,7 @@ func (m *model) pressStrip(pressed string, strip stripKeys) tea.Cmd {
 		strip.close()
 	case pressed == "esc":
 		strip.close()
-	case isBound(pressed, fixedKeys().Quit):
+	case keys.IsBound(pressed, fixedKeys().Quit):
 		strip.close()
 
 		return m.hide()
@@ -260,11 +261,11 @@ func (m *model) updateTabs(key tea.KeyPressMsg) tea.Cmd {
 		close: state.leave,
 		other: func(pressed string) tea.Cmd {
 			switch {
-			case state.onGroup && isBound(pressed, slices.Concat(m.keys.Nav.Down, m.keys.Nav.Up)):
+			case state.onGroup && keys.IsBound(pressed, slices.Concat(m.keys.Nav.Down, m.keys.Nav.Up)):
 				state.flat = !state.flat
-			case isBound(pressed, m.keys.Nav.Down):
+			case keys.IsBound(pressed, m.keys.Nav.Down):
 				strip.choose(state, tabDown)
-			case isBound(pressed, m.keys.Nav.Up):
+			case keys.IsBound(pressed, m.keys.Nav.Up):
 				strip.choose(state, tabUp)
 			}
 

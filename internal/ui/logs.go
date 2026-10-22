@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/field"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/logview"
 	"komrad/internal/view"
@@ -375,7 +376,7 @@ func (l *logsScreen) update(m *model, msg tea.Msg) tea.Cmd {
 	}
 
 	if l.isBlockFocused(m) {
-		return l.actions(m).dispatchTop(m, key.String())
+		return m.dispatchTop(l.actions(m), key.String())
 	}
 
 	return l.list().update(m, key, l.actions(m))
@@ -559,8 +560,8 @@ func (l *logsScreen) typedLine() (field.Line, bool) {
 	return l.logFilter.input, l.logFilter.typing
 }
 
-func (l *logsScreen) dispatches(*model) []dispatching {
-	return []dispatching{l.listActions(), l.logActions()}
+func (l *logsScreen) dispatches(*model) []keys.Table {
+	return []keys.Table{l.listActions(), l.logActions()}
 }
 
 func (l *logsScreen) moveBy(_ *model, rows int) tea.Cmd {

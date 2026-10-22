@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"komrad/internal/glyph"
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/zone"
 	"komrad/lib/xslice"
@@ -66,7 +67,7 @@ func submenuColumns(entries []submenuEntry) (labelCols, keyCols int) {
 		}
 
 		labelCols = max(labelCols, ansi.StringWidth(entryText(entry)))
-		keyCols = max(keyCols, ansi.StringWidth(headLabel(entry.keys)))
+		keyCols = max(keyCols, ansi.StringWidth(keys.HeadLabel(entry.keys)))
 	}
 
 	return labelCols, keyCols
@@ -91,7 +92,7 @@ func submenuLabel(entry submenuEntry, labelCols, keyCols int) string {
 	}
 
 	text := entryText(entry)
-	key := headLabel(entry.keys)
+	key := keys.HeadLabel(entry.keys)
 	pad := strings.Repeat(" ", max(width-ansi.StringWidth(text)-ansi.StringWidth(key), 1))
 
 	if entry.isOff && entry.offSaid != "" {

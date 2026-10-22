@@ -5,6 +5,7 @@ import (
 	"slices"
 	"time"
 
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/view"
 	"komrad/lib/dates"
@@ -325,7 +326,7 @@ func findAgentName(m *model, agentID string) string {
 }
 
 func (d *documentsScreen) help(m *model) keyMap {
-	return d.actions(m).help(m)
+	return m.helpOf(d.actions(m))
 }
 
 // documentsListedMsg is the documents come back.
@@ -533,8 +534,8 @@ func (d *documentsScreen) activeList() keyedList {
 	return d.list()
 }
 
-func (d *documentsScreen) dispatches(m *model) []dispatching {
-	return []dispatching{d.listActions(), d.diffActions(), m.docActions(), d.docKeys()}
+func (d *documentsScreen) dispatches(m *model) []keys.Table {
+	return []keys.Table{d.listActions(), d.diffActions(), m.docActions(), d.docKeys()}
 }
 
 func (d *documentsScreen) detailsFit(m *model) bool {

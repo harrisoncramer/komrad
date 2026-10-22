@@ -3,6 +3,8 @@ package ui
 import (
 	"slices"
 
+	"komrad/internal/ui/keys"
+
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 )
@@ -81,9 +83,9 @@ func (m *model) stepView(delta int) tea.Cmd {
 // viewsDelta is how far a press steps through the views, and zero for a press that steps none.
 func (m *model) viewsDelta(pressed string) int {
 	switch {
-	case isBound(pressed, m.keys.Views.Next):
+	case keys.IsBound(pressed, m.keys.Views.Next):
 		return 1
-	case isBound(pressed, m.keys.Views.Previous):
+	case keys.IsBound(pressed, m.keys.Views.Previous):
 		return -1
 	}
 

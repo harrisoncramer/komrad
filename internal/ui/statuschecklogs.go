@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/reader"
 	"komrad/internal/view"
@@ -219,29 +220,29 @@ func (c *statusCheckLogsScreen) stepKind(m *model, delta int) tea.Cmd {
 	return tea.Batch(cmd, c.readsCmd(m))
 }
 
-func (c *statusCheckLogsScreen) listActions() screenActionSpec {
-	return screenActionSpec{
-		table: append(c.list().actions(),
-			screenAction{
-				id:   actionStatusCheckLogsBack,
-				keys: fixedBack,
-				nav: func(m *model, _ string) tea.Cmd {
+func (c *statusCheckLogsScreen) listActions() keys.Spec[*model] {
+	return keys.Spec[*model]{
+		Table: append(c.list().actions(),
+			keys.Action[*model]{
+				ID:   actionStatusCheckLogsBack,
+				Keys: keys.FixedBack,
+				Nav: func(m *model, _ string) tea.Cmd {
 					return m.enter(screenStatusChecks, screenTarget{})
 				},
 			},
 		),
-		legend: slices.Concat(screenNavLegend(), []screenLegendRow{
+		Legend: slices.Concat(keys.NavLegend[*model](), []keys.LegendRow[*model]{
 			{
-				of:    []actionID{actionStatusCheckLogsBack},
-				desc:  func(*model) string { return "back" },
-				strip: true,
+				Of:    []keys.ID{actionStatusCheckLogsBack},
+				Desc:  func(*model) string { return "back" },
+				Strip: true,
 			},
 		}),
 	}
 }
 
 func (c *statusCheckLogsScreen) help(m *model) keyMap {
-	return c.listActions().help(m)
+	return m.helpOf(c.listActions())
 }
 
 func (c *statusCheckLogsScreen) parent() screen {
@@ -280,8 +281,8 @@ func (c *statusCheckLogsScreen) stageResting(*model) tea.Cmd {
 	return nil
 }
 
-func (c *statusCheckLogsScreen) dispatches(*model) []dispatching {
-	return []dispatching{c.listActions()}
+func (c *statusCheckLogsScreen) dispatches(*model) []keys.Table {
+	return []keys.Table{c.listActions()}
 }
 
 var (

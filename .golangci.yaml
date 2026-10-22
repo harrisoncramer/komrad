@@ -139,6 +139,7 @@ linters:
               desc: paint is under the panel rather than beside it, so it never reaches back up
         shared:
           files:
+            - "**/internal/ui/keys/**"
             - "**/internal/ui/zone/**"
             - "**/internal/ui/list/**"
             - "**/internal/ui/field/**"
@@ -457,8 +458,8 @@ linters:
               - type: komrad/config.FixedKeys
                 prefix: Fixed
             matchers:
-              - komrad/internal/ui.isBound
-              - komrad/internal/ui.directionOf
+              - komrad/internal/ui/keys.IsBound
+              - komrad/internal/ui/keys.DirectionOf
             compares:
               - slices.Contains
             navigation:
@@ -479,8 +480,7 @@ linters:
               - Fixed.Quit
               - Fixed.Editor
             dispatchers:
-              - komrad/internal/ui.actionSpec.dispatch
-              - komrad/internal/ui.screenActionSpec.dispatch
+              - komrad/internal/ui/keys.Spec.Dispatch
               - komrad/internal/ui.model.updateDoc
               - komrad/internal/ui.model.updateSubmenu
             inputs:

@@ -4,12 +4,13 @@ import (
 	"slices"
 
 	"komrad/config"
+	"komrad/internal/ui/keys"
 
 	tea "charm.land/bubbletea/v2"
 )
 
 // actions is the logs screen as one table and the legend that names it.
-func (l *logsScreen) actions(m *model) screenActionSpec {
+func (l *logsScreen) actions(m *model) keys.Spec[*model] {
 	if l.isBlockFocused(m) {
 		return l.logActions()
 	}
@@ -18,57 +19,57 @@ func (l *logsScreen) actions(m *model) screenActionSpec {
 }
 
 // listActions is the keys on the list of log sources.
-func (l *logsScreen) listActions() screenActionSpec {
-	return screenActionSpec{
-		table:  l.table(),
-		legend: l.legend(),
+func (l *logsScreen) listActions() keys.Spec[*model] {
+	return keys.Spec[*model]{
+		Table:  l.table(),
+		Legend: l.legend(),
 	}
 }
 
-func (l *logsScreen) table() []screenAction {
+func (l *logsScreen) table() []keys.Action[*model] {
 	return append(l.list().actions(),
-		screenAction{
-			id:   actionLogsBack,
-			keys: fixedBack,
-			nav: func(m *model, _ string) tea.Cmd {
+		keys.Action[*model]{
+			ID:   actionLogsBack,
+			Keys: keys.FixedBack,
+			Nav: func(m *model, _ string) tea.Cmd {
 				return m.enter(l.openedFrom, screenTarget{agentID: l.agentID})
 			},
 		},
 	)
 }
 
-func (l *logsScreen) legend() []screenLegendRow {
-	return slices.Concat(screenNavLegend(), []screenLegendRow{
+func (l *logsScreen) legend() []keys.LegendRow[*model] {
+	return slices.Concat(keys.NavLegend[*model](), []keys.LegendRow[*model]{
 		{
-			of:   []actionID{actionFilterOpen},
-			desc: filterDescOf,
+			Of:   []keys.ID{keys.FilterOpen},
+			Desc: filterDescOf,
 		},
 		{
-			of:    []actionID{actionFilterClear},
-			desc:  filterClearDescOf,
-			strip: true,
+			Of:    []keys.ID{keys.FilterClear},
+			Desc:  filterClearDescOf,
+			Strip: true,
 		},
 		{
-			of:    []actionID{actionFilterMatch},
-			desc:  func(*model) string { return "next/prev match" },
-			strip: true,
+			Of:    []keys.ID{keys.FilterMatch},
+			Desc:  func(*model) string { return "next/prev match" },
+			Strip: true,
 		},
 		{
-			of:    []actionID{actionLogsBack},
-			desc:  func(*model) string { return "back" },
-			strip: true,
+			Of:    []keys.ID{actionLogsBack},
+			Desc:  func(*model) string { return "back" },
+			Strip: true,
 		},
 	})
 }
 
 // logActions is the keys on the log once the picker has handed them to it.
-func (l *logsScreen) logActions() screenActionSpec {
-	return screenActionSpec{
-		table: append(navActions(l, navSteps{page: navPageStep, scroll: columnWheelStep}), []screenAction{
+func (l *logsScreen) logActions() keys.Spec[*model] {
+	return keys.Spec[*model]{
+		Table: append(navActions(l, navSteps{page: navPageStep, scroll: columnWheelStep}), []keys.Action[*model]{
 			{
-				id:   actionLogsCopy,
-				keys: func(k config.Keybindings) []string { return k.Logs.Copy },
-				nav: func(m *model, _ string) tea.Cmd {
+				ID:   actionLogsCopy,
+				Keys: func(k config.Keybindings) []string { return k.Logs.Copy },
+				Nav: func(m *model, _ string) tea.Cmd {
 					line, ok := l.viewer.Current()
 					if !ok {
 						return nil
@@ -78,18 +79,18 @@ func (l *logsScreen) logActions() screenActionSpec {
 				},
 			},
 			{
-				id:   actionFilterOpen,
-				keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
-				nav: func(*model, string) tea.Cmd {
+				ID:   keys.FilterOpen,
+				Keys: func(config.Keybindings) []string { return []string{filterOpenKey} },
+				Nav: func(*model, string) tea.Cmd {
 					l.openLogFilter()
 
 					return nil
 				},
 			},
 			{
-				id:   actionLogsBack,
-				keys: fixedBack,
-				nav: func(m *model, _ string) tea.Cmd {
+				ID:   actionLogsBack,
+				Keys: keys.FixedBack,
+				Nav: func(m *model, _ string) tea.Cmd {
 					if l.logFilter.isStanding() {
 						return l.clearLogFilter(m)
 					}
@@ -100,39 +101,39 @@ func (l *logsScreen) logActions() screenActionSpec {
 				},
 			},
 			{
-				id:   actionQuit,
-				keys: fixedQuit,
-				nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
+				ID:   keys.Quit,
+				Keys: keys.FixedQuit,
+				Nav:  func(m *model, _ string) tea.Cmd { return m.hide() },
 			},
 		}...),
-		legend: []screenLegendRow{
-			navMoveRow(),
-			navPageRow(),
-			navJumpRow(),
+		Legend: []keys.LegendRow[*model]{
+			keys.MoveRow[*model](),
+			keys.NavPageRow[*model](),
+			keys.JumpRow[*model](),
 			{
-				of:   []actionID{actionFilterOpen},
-				desc: func(*model) string { return "filter" },
+				Of:   []keys.ID{keys.FilterOpen},
+				Desc: func(*model) string { return "filter" },
 			},
 			{
-				of:    []actionID{actionLogsCopy},
-				desc:  func(*model) string { return "copy line" },
-				strip: true,
+				Of:    []keys.ID{actionLogsCopy},
+				Desc:  func(*model) string { return "copy line" },
+				Strip: true,
 			},
 			{
-				of: []actionID{actionLogsBack},
-				desc: func(*model) string {
+				Of: []keys.ID{actionLogsBack},
+				Desc: func(*model) string {
 					if l.logFilter.isStanding() {
 						return "clear filter"
 					}
 
 					return "back to the list"
 				},
-				strip: true,
+				Strip: true,
 			},
 		},
 	}
 }
 
 func (l *logsScreen) help(m *model) keyMap {
-	return l.actions(m).help(m)
+	return m.helpOf(l.actions(m))
 }
