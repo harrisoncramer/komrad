@@ -10,6 +10,9 @@ import (
 // Cancel is the choice of the cancel entry every menu ends on.
 const Cancel = -1
 
+// divider is a rule between two bands of entries.
+var divider = Entry{Off: true, Divider: true}
+
 // Menu is a short list beside the list it opened over, with the cursor and each entry's own key
 // picking an entry.
 type Menu struct {
@@ -61,9 +64,6 @@ type Open struct {
 
 // Request marks Open as a screen request.
 func (Open) Request() {}
-
-// divider is a rule between two bands of entries.
-var divider = Entry{Off: true, Divider: true}
 
 // IsList reports whether the menu is a list whose entries open a menu of their own.
 func (m Menu) IsList() bool {
