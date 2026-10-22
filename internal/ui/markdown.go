@@ -4,27 +4,12 @@ import (
 	"fmt"
 	"strings"
 
+	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/record"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 )
-
-func renderDocument(title, notice, prose, footer string) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "# %s\n\n", title)
-	if notice != "" {
-		b.WriteString(notice + "\n\n")
-	}
-	if prose != "" {
-		b.WriteString(prose + "\n")
-	}
-	if footer != "" {
-		b.WriteString("\n" + footer + "\n")
-	}
-
-	return b.String()
-}
 
 func workflowFields(w panel.Workflow, agentCount int) []record.Field {
 	fields := []record.Field{
@@ -69,7 +54,7 @@ func workflowConfigFields(w panel.Workflow) []record.Field {
 }
 
 func workflowContextMarkdown(w panel.Workflow) string {
-	return renderDocument(w.Name, "", workflowProse(w), "")
+	return paint.RenderDocument(w.Name, "", workflowProse(w), "")
 }
 
 func workflowProse(w panel.Workflow) string {
@@ -184,6 +169,6 @@ const emptyDeletedMarkdown = "# Deleted\n\n_nothing deleted_\n\nKomrad lists the
 const emptyScheduleArchiveMarkdown = "# Archive\n\n_no archived schedules_\n\nKomrad keeps the schedules you archive here until you delete them.\n"
 
 func archiveMarkdown(agent panel.Agent) string {
-	return renderDocument(agent.Name, "_archived — kept until deleted_", "",
+	return paint.RenderDocument(agent.Name, "_archived — kept until deleted_", "",
 		"Restore brings it back and picks the conversation up where it stopped.")
 }
