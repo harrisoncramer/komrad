@@ -555,9 +555,7 @@ linters:
             # Unanchored regexps over the import path. The panel keeps each screen's drawing in a
             # file of its own that only reads what the screen holds.
             packages:
-              - ^komrad/internal/ui$
-              - ^komrad/internal/ui/list$
-              - ^komrad/internal/ui/field$
+              - ^komrad/internal/ui(/|$)
       fussy:
         type: module
         description: General Go checks from fussy.
