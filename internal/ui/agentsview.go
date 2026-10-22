@@ -150,7 +150,7 @@ func (a *agentsScreen) view(m *model, in screen.Inputs) string {
 }
 
 func (a *agentsScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) view.Snapshot {
-	layout := a.layout(m)
+	layout := a.layout(m, in)
 	work := splitChosen(in.Listing, chosenAgents(a.Selected, layout.cursorRows()))
 
 	return agentsSnapshot(snapshotParams{

@@ -572,7 +572,7 @@ func compareUrgency(a, b triageEntry) int {
 func (m *model) settleTriage() {
 	var zone []agentRow
 	if m.screen == screen.Agents && len(m.agents.triage.entries) > 0 {
-		zone = m.agents.layout(m).zone
+		zone = m.agents.layout(m, m.inputsFor(&m.agents)).zone
 	}
 
 	reading := m.agents.Row < len(zone)
@@ -615,7 +615,7 @@ func zoneHeads(zone []agentRow) []int {
 
 // findZoneSlot is which task in the zone the cursor is on, counting from the top, or -1 off the zone.
 func (a *agentsScreen) findZoneSlot(m *model) int {
-	zone := a.layout(m).zone
+	zone := a.layout(m, m.inputs()).zone
 	if a.Row < 0 || a.Row >= len(zone) {
 		return -1
 	}
@@ -634,7 +634,7 @@ func (a *agentsScreen) findZoneSlot(m *model) int {
 // moveAfterSnooze puts the cursor on the task above the zone's slot, on the top task when the
 // slot was the top, or on the first agent of the list once the zone is empty.
 func (a *agentsScreen) moveAfterSnooze(m *model, in screen.Inputs, slot int) screen.Request {
-	heads := zoneHeads(a.layout(m).zone)
+	heads := zoneHeads(a.layout(m, in).zone)
 	if len(heads) == 0 {
 		a.Row = firstAgentRowIndex(a.rows(m, in))
 
@@ -654,7 +654,7 @@ func (a *agentsScreen) landInTriage(m *model, in screen.Inputs, selected string,
 		return
 	}
 
-	heads := zoneHeads(a.layout(m).zone)
+	heads := zoneHeads(a.layout(m, in).zone)
 	if len(heads) == 0 {
 		a.Row = firstAgentRowIndex(rows)
 
@@ -666,7 +666,7 @@ func (a *agentsScreen) landInTriage(m *model, in screen.Inputs, selected string,
 
 // jumpToTriage puts the cursor on the zone's first agent.
 func (a *agentsScreen) jumpToTriage(m *model) screen.Request {
-	if len(a.layout(m).zone) == 0 {
+	if len(a.layout(m, m.inputs()).zone) == 0 {
 		return screen.NewNote(screen.Info, "nothing to triage")
 	}
 

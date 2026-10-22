@@ -366,26 +366,26 @@ func sortedAgents(items []panel.AgentRow, columns []sortColumn[panel.AgentRow], 
 
 // rows are the rows the keyboard can reach.
 func (a *agentsScreen) rows(m *model, in screen.Inputs) []agentRow {
-	return a.layout(m).cursorRows()
+	return a.layout(m, in).cursorRows()
 }
 
 // layout is the list as rendered, or as it would be rendered when nothing has cached it.
-func (a *agentsScreen) layout(m *model) agentsLayout {
+func (a *agentsScreen) layout(m *model, in screen.Inputs) agentsLayout {
 	if a.rendered != nil {
 		return *a.rendered
 	}
 
-	return a.buildLayout(m)
+	return a.buildLayout(m, in)
 }
 
-func (a *agentsScreen) buildFrame(m *model, _ screen.Inputs) {
-	layout := a.buildLayout(m)
+func (a *agentsScreen) buildFrame(m *model, in screen.Inputs) {
+	layout := a.buildLayout(m, in)
 	a.rendered = &layout
 }
 
-func (a *agentsScreen) buildLayout(m *model) agentsLayout {
+func (a *agentsScreen) buildLayout(m *model, in screen.Inputs) agentsLayout {
 	zone, waiting := buildZone(a.triage, m, a.showHidden)
-	tree := a.buildTree(m)
+	tree := a.buildTree(m, in)
 
 	return agentsLayout{
 		zone:    zone,
@@ -403,10 +403,10 @@ type agentTreeKey struct {
 	filter     filterKey
 }
 
-func (a *agentsScreen) buildTree(m *model) []agentRow {
+func (a *agentsScreen) buildTree(m *model, in screen.Inputs) []agentRow {
 	order := agentsTabs().order(a.sort)
 	key := agentTreeKey{
-		generation: m.listing.Generation,
+		generation: in.Listing.Generation,
 		order:      order,
 		flat:       a.sort.flat,
 		showHidden: a.showHidden,
@@ -415,12 +415,12 @@ func (a *agentsScreen) buildTree(m *model) []agentRow {
 
 	return a.tree.read(key, func() []agentRow {
 		return narrowedAgentRows(m, treeRows(treeRowsParams{
-			workflows:         m.listing.Workflows,
-			agents:            sortedAgents(m.listing.Agents, agentSorts, order),
+			workflows:         in.Listing.Workflows,
+			agents:            sortedAgents(in.Listing.Agents, agentSorts, order),
 			showHidden:        a.showHidden,
 			foldOrchestrators: true,
 			flat:              a.sort.flat,
-			tasks:             m.listing.Tasks,
+			tasks:             in.Listing.Tasks,
 		}))
 	})
 }
@@ -435,7 +435,7 @@ func narrowedAgentRows(m *model, rows []agentRow) []agentRow {
 }
 
 func (a *agentsScreen) hoveredRow(m *model, in screen.Inputs) (agentRow, bool) {
-	return a.layout(m).cursorRow(a.Row)
+	return a.layout(m, in).cursorRow(a.Row)
 }
 
 func (a *agentsScreen) hoveredWorkflow(m *model, in screen.Inputs) (panel.Workflow, bool) {
