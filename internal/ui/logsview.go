@@ -10,7 +10,6 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/screen"
-	"komrad/internal/ui/zone"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 	logv1 "komrad/proto/gen/log/v1"
@@ -82,7 +81,7 @@ func (l *logsScreen) block(m *model, in screen.Inputs, width int) []string {
 
 	search := fitRow(list.Blank+l.logFilterLine(l.deps.glyphs), width)
 	if in.Room.Marks {
-		search = searchMark(stopBlock, width) + search
+		search = searchMark(stopBlock, width, search)
 	}
 
 	return append(rows, search)
@@ -129,7 +128,7 @@ func (l *logsScreen) logRows(m *model, in screen.Inputs, width, height int) []st
 		}
 		rows[i] = prefix + row
 		if i < len(lines) {
-			rows[i] = zone.MarkKey(zoneLog, width, 0, strconv.Itoa(lines[i])) + rows[i]
+			rows[i] = markKeyedRow(zoneLog, width, strconv.Itoa(lines[i]), rows[i])
 		}
 	}
 

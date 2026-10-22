@@ -60,7 +60,7 @@ func (r reviewScreen) filesView(m *model, in screen.Inputs, lines int) string {
 
 	header := ansi.Truncate(r.filesFilter.line(r.deps.glyphs), max(width, 0), "…")
 	if in.Room.Marks {
-		header = searchMark(stopBlock, width) + header
+		header = searchMark(stopBlock, width, header)
 	}
 	header += "\n"
 	if lines < 0 {

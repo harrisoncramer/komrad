@@ -43,7 +43,7 @@ func reviewColumn(m *model, in screen.Inputs) column.Spec {
 func (r reviewScreen) bandView(in screen.Inputs) string {
 	search := r.diff.filter.view(r.deps.glyphs)
 	if in.Room.Marks {
-		search = searchMark(stopList, r.measureBandWidth(in)) + search
+		search = searchMark(stopList, r.measureBandWidth(in), search)
 	}
 
 	return r.rangeView(in) + search + diffMatchCount(&r.diff.Pane, r.diff.filter)
