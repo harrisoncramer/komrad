@@ -22,8 +22,18 @@ const (
 	paneNormalKey = "F12"
 )
 
+// edgeLeftKey and edgeRightKey are the leader's keys that push an edge of the region holding the
+// keys left and right.
+const (
+	edgeLeftKey  = "h"
+	edgeRightKey = "l"
+)
+
 // leaderPanelKeys are the leader's keys the panel answers itself.
 var leaderPanelKeys = []string{pickerKey}
+
+// leaderEdgeKeys are the leader's keys the panel answers itself that repeat without the leader.
+var leaderEdgeKeys = []string{edgeLeftKey, edgeRightKey}
 
 func (m *model) holdLeader() {
 	if m.session == nil {
@@ -62,6 +72,14 @@ func (m *model) routeLeader(key tea.KeyPressMsg) (tea.Cmd, bool) {
 		return nil, true
 	case pickerKey:
 		return m.togglePicker(), true
+	case edgeLeftKey:
+		m.pushEdge(-1)
+
+		return nil, true
+	case edgeRightKey:
+		m.pushEdge(1)
+
+		return nil, true
 	case leaderKey:
 		return m.toggleStop(), true
 	}

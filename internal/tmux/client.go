@@ -423,6 +423,12 @@ func (c *Client) BindTableKey(table, key string, command ...string) {
 	c.run(append([]string{"bind-key", "-T", table, key}, command...)...)
 }
 
+// BindRepeatTableKey binds a key in a named key table that tmux keeps answering for repeat-time
+// after each press, without the key that opened the table.
+func (c *Client) BindRepeatTableKey(table, key string, command ...string) {
+	c.run(append([]string{"bind-key", "-r", "-T", table, key}, command...)...)
+}
+
 // UnbindTable drops every key bound in a named key table.
 func (c *Client) UnbindTable(table string) {
 	c.run("unbind-key", "-a", "-T", table)

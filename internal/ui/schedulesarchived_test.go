@@ -101,7 +101,7 @@ const (
 	deleteTitle  = "Delete "
 )
 
-var widenListPresses = slices.Repeat([]string{"}"}, 10)
+var widenListPresses = slices.Repeat([]string{"ctrl+space", "l"}, 10)
 
 func newArchivedSchedule(name string) *schedulev1.Schedule {
 	schedule := newSchedule("s2", name)

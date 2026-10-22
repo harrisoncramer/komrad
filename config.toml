@@ -374,13 +374,6 @@ edit   = ["e"]
 # Write a new schedule, offered on the schedules screen whatever is hovered.
 new    = ["c"]
 
-# The keys that move the sidebar's edge, shared by every screen.
-[keybindings.sidebar]
-# Make the sidebar narrower.
-narrow = ["{"]
-# Make the sidebar wider.
-widen  = ["}"]
-
 # Choosing several agents at once, shared by the two screens that draw a tree.
 [keybindings.selection]
 # Drop the whole selection, which is the way back out of multi-select mode.

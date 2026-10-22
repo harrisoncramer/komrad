@@ -466,6 +466,10 @@ func (t *recordedTmux) BindTableKey(table, key string, command ...string) {
 	t.tableBinds[table+":"+key] = command
 }
 
+func (t *recordedTmux) BindRepeatTableKey(table, key string, command ...string) {
+	t.BindTableKey(table, key, command...)
+}
+
 func (t *recordedTmux) UnbindTable(table string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()

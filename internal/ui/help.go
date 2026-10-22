@@ -89,7 +89,7 @@ func (m *model) fullGlobalHelp() []key.Binding {
 		full = append(full, binding(m.keys.Views.Previous, "previous view"))
 	}
 
-	return append(full, m.messagesBinding(), binding(slices.Concat(m.keys.Sidebar.Narrow, m.keys.Sidebar.Widen), "resize"), binding([]string{leaderKey}, "leader"))
+	return append(full, m.messagesBinding(), binding([]string{leaderKey + " " + edgeLeftKey, leaderKey + " " + edgeRightKey}, "resize"), binding([]string{leaderKey}, "leader"))
 }
 
 // menuChordLabel is the presses that reach an entry through the menu, spaced apart.

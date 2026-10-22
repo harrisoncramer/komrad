@@ -58,8 +58,6 @@ type Keybindings struct {
 	Schedules SchedulesKeys `mapstructure:"schedules"`
 	// The menu on the hovered schedule.
 	ScheduleMenu ScheduleMenuKeys `mapstructure:"schedule_menu"`
-	// The keys that move the sidebar's edge, shared by every screen.
-	Sidebar SidebarKeys `mapstructure:"sidebar"`
 	// Choosing several agents at once, shared by the two screens that draw a tree.
 	Selection SelectionKeys `mapstructure:"selection"`
 	// The menu on the hovered row, which lists the screens that belong to it and the menus nested
@@ -484,15 +482,6 @@ type ColumnKeys struct {
 	ScrollDown []string `mapstructure:"scroll_down" default:"ctrl+n"`
 	// Scroll up.
 	ScrollUp []string `mapstructure:"scroll_up" default:"ctrl+p"`
-}
-
-// SidebarKeys move the edge between the sidebar and whatever is beside it, whether that is
-// another pane or a block the panel draws itself.
-type SidebarKeys struct {
-	// Make the sidebar narrower.
-	Narrow []string `mapstructure:"narrow" default:"{"`
-	// Make the sidebar wider.
-	Widen []string `mapstructure:"widen" default:"}"`
 }
 
 // SchedulesKeys are the bindings for the schedules screen, which is its own view

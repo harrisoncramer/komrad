@@ -45,24 +45,6 @@ func globalTable() []globalArm {
 			},
 		},
 		{
-			describe: "the sidebar narrowing",
-			keys:     func(k config.Keybindings) []string { return k.Sidebar.Narrow },
-			run: func(m *model, _ tea.KeyPressMsg) tea.Cmd {
-				m.nudgeSidebar(-sidebarStep)
-
-				return nil
-			},
-		},
-		{
-			describe: "the sidebar widening",
-			keys:     func(k config.Keybindings) []string { return k.Sidebar.Widen },
-			run: func(m *model, _ tea.KeyPressMsg) tea.Cmd {
-				m.nudgeSidebar(sidebarStep)
-
-				return nil
-			},
-		},
-		{
 			describe: "the tabs focus",
 			keys:     func(k config.Keybindings) []string { return k.Tabs.Focus },
 			on:       screenIs[tabSwitcher],
