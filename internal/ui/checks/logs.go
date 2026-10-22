@@ -113,7 +113,7 @@ func (c Logs) Enter(in screen.Inputs, target screen.Target) screen.Request {
 	}
 	c.generation, c.reads, c.placed, c.placedTop = generation, map[string]*logRead{}, 0, 0
 
-	return screen.Batch{screen.Cmd(c.checks.readCmd(in)), screen.Cmd(c.readsCmd(in))}
+	return screen.Batch{screen.Cmd(c.checks.listCmd(in)), screen.Cmd(c.readsCmd(in))}
 }
 
 // LeaveScreen ends the visit's reads.
@@ -141,7 +141,7 @@ func (c Logs) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 	case listedMsg:
 		return c.applyListed(in, msg), true
 	case screen.Relisted:
-		return screen.Cmd(c.checks.readCmd(in)), true
+		return screen.Cmd(c.checks.listCmd(in)), true
 	}
 
 	return nil, false
@@ -158,7 +158,7 @@ func (c Logs) applyListed(in screen.Inputs, msg listedMsg) screen.Request {
 		return requests
 	}
 
-	return append(requests, screen.Cmd(c.checks.readCmd(in)))
+	return append(requests, screen.Cmd(c.checks.listCmd(in)))
 }
 
 func (c Logs) list() keys.ScreenList[logRow] {

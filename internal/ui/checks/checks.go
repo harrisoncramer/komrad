@@ -107,7 +107,7 @@ func (c *Screen) Enter(in screen.Inputs, target screen.Target) screen.Request {
 		}
 	}
 
-	return screen.Cmd(c.readCmd(in))
+	return screen.Cmd(c.listCmd(in))
 }
 
 // Update sends a key to the screen's table.
@@ -126,7 +126,7 @@ func (c *Screen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 	case listedMsg:
 		return c.applyListed(in, msg), true
 	case screen.Relisted:
-		return screen.Cmd(c.readCmd(in)), true
+		return screen.Cmd(c.listCmd(in)), true
 	}
 
 	return nil, false
@@ -357,9 +357,9 @@ func pullRequestOf(listing panel.Listing, agentID string) string {
 	return pullRequests[0].ID
 }
 
-// readCmd lists the status checks again when the agent's pull request or its head has moved since
+// listCmd lists the status checks again when the agent's pull request or its head has moved since
 // they were last listed, once at a time.
-func (c *Screen) readCmd(in screen.Inputs) tea.Cmd {
+func (c *Screen) listCmd(in screen.Inputs) tea.Cmd {
 	if !in.Up {
 		return nil
 	}
@@ -423,7 +423,7 @@ func (c *Screen) applyListed(in screen.Inputs, msg listedMsg) screen.Request {
 		return requests
 	}
 
-	return append(requests, screen.Cmd(c.readCmd(in)))
+	return append(requests, screen.Cmd(c.listCmd(in)))
 }
 
 func isFinished(item check) bool {
