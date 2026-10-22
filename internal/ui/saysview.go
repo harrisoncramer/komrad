@@ -9,24 +9,24 @@ import (
 	"komrad/internal/ui/paint"
 )
 
-// saidColumnRows is the conversation of an agent the server found saying the text of a says:
+// columnRows is the conversation of an agent the server found saying the text of a says:
 // qualifier, rendered for the column, and none when it was found saying nothing.
-func saidColumnRows(pattern list.Pattern, said saidTranscript, agentID string, width int) []string {
+func (s saidTranscript) columnRows(pattern list.Pattern, agentID string, width int) []string {
 	hits := pattern.SaidHits(agentID)
 	if len(hits) == 0 {
 		return nil
 	}
 
-	if !said.isSaidRead(agentID, pattern.Said.Text) || !said.answered {
+	if !s.isSaidRead(agentID, pattern.Said.Text) || !s.answered {
 		return paint.DocStyledRows("_reading the conversation…_", max(width, 1), columnStyle())
 	}
 
-	if said.rows != nil && said.width == width {
-		return said.rows
+	if s.rows != nil && s.width == width {
+		return s.rows
 	}
 
 	rows, _ := saidRows(saidRowsParams{
-		said:  said,
+		said:  s,
 		hits:  hits,
 		width: width,
 	})

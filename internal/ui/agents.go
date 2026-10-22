@@ -392,7 +392,7 @@ func (a *agentsScreen) column(m *model, in screen.Inputs) column.Spec {
 		Read:  column.IsAlwaysRead,
 		DocRows: func(width int) []string {
 			if !m.agents.isHoveringNotes(m) {
-				if rows := saidColumnRows(in.Room.Pattern, m.said, m.agents.hoveredAgentID(m, in), width); rows != nil {
+				if rows := m.said.columnRows(in.Room.Pattern, m.agents.hoveredAgentID(m, in), width); rows != nil {
 					return rows
 				}
 			}

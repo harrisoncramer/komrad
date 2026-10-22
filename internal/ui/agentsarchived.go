@@ -543,7 +543,7 @@ func (a *archivedAgents) column(m *model, in screen.Inputs) column.Spec {
 		Read:  column.IsAlwaysRead,
 		DocRows: func(width int) []string {
 			if agentID, ok := a.screenedAgentID(m, in); ok {
-				if rows := saidColumnRows(in.Room.Pattern, m.said, agentID, width); rows != nil {
+				if rows := m.said.columnRows(in.Room.Pattern, agentID, width); rows != nil {
 					return rows
 				}
 			}
