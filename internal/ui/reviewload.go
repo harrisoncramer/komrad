@@ -371,9 +371,10 @@ func (r *reviewScreen) applyLoaded(m *model, in screen.Inputs, msg reviewLoadedM
 	r.diff.load(msg, m.term.isDark, r.deps.glyphs)
 	r.threads.set(msg.threads)
 
-	r.scrollToCursor(in)
+	loaded := m.inputs()
+	r.scrollToCursor(loaded)
 
-	return screen.Batch{widened, partial, r.followNotices(m, in)}
+	return screen.Batch{widened, partial, r.followNotices(m, loaded)}
 }
 
 // load renders a patch just read, over the one on screen, and puts the cursor back where the
