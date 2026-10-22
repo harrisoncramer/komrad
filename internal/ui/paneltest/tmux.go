@@ -812,7 +812,6 @@ func (t *recordedTmux) CaptureScreen(pane string) string {
 	return screen
 }
 
-// recordZoom, recordSwap, recordResize and recordKill each drop the zoom, the way tmux does.
 func (t *recordedTmux) recordZoom(on bool) {
 	t.zoomed = on
 	t.zooms = append(t.zooms, on)
