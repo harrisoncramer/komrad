@@ -547,7 +547,7 @@ func (d *documentsScreen) IsSearchTyping() bool {
 
 func (d *documentsScreen) Column(in screen.Inputs) column.Spec {
 	return column.Spec{
-		Floor: columnFloor,
+		Floor: column.Narrowest,
 		DocRows: func(width int) []string {
 			return d.docRows(in, width)
 		},

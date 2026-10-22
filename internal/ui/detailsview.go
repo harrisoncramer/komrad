@@ -42,7 +42,7 @@ func (m *model) detailsView() string {
 	}
 
 	pane := m.paneWidth()
-	body := dimStyle().Render("  nothing matches")
+	body := paint.Panel.Style(paint.ToneMuted).Render("  nothing matches")
 	if fields := m.detailsRows(held); len(fields) > 0 || !m.filter.pattern().DoesNarrow(list.SectionRecord) {
 		snapshot := m.detailsSnapshot(fields, m.detailsCursor(held), pane)
 		body = view.Window(view.WindowParams{
@@ -83,11 +83,11 @@ func (m *model) detailsRule(title string, tags ...string) string {
 	}
 
 	tags = slices.DeleteFunc(slices.Clone(tags), func(tag string) bool { return tag == "" })
-	label := dimStyle().Render(title)
-	tail := strings.Join(tags, dimStyle().Render(separated))
+	label := paint.Panel.Style(paint.ToneMuted).Render(title)
+	tail := strings.Join(tags, paint.Panel.Style(paint.ToneMuted).Render(separated))
 	for len(tags) > 0 && !paint.TitledRuleFits(label, tail, width) {
 		tags = tags[1:]
-		tail = strings.Join(tags, dimStyle().Render(separated))
+		tail = strings.Join(tags, paint.Panel.Style(paint.ToneMuted).Render(separated))
 	}
 
 	return paint.Panel.TitledRule(label, tail, width) + "\n"
@@ -140,9 +140,9 @@ func (m *model) noticeLines(n record.Notice, most int) []string {
 		icon = paint.Panel.Style(n.Tone).Render(n.Icon)
 	}
 
-	lines := []string{"  " + icon + " " + dimStyle().Render(text[0])}
+	lines := []string{"  " + icon + " " + paint.Panel.Style(paint.ToneMuted).Render(text[0])}
 	lines = append(lines, xslice.Map(text[1:], func(line string) string {
-		return indent + dimStyle().Render(line)
+		return indent + paint.Panel.Style(paint.ToneMuted).Render(line)
 	})...)
 
 	return lines
@@ -159,7 +159,7 @@ func (m *model) detailsSnapshot(fields []detailsRow, cursor, pane int) view.Snap
 				Kind:     view.KindResult,
 				Lead:     padRight(row.field.Label, labels),
 				Name:     row.field.Value,
-				Matches:  matchesIn(m.filter.matcher, row.field.Value),
+				Matches:  list.Matches(m.filter.matcher, row.field.Value),
 				Process:  view.ProcessNone,
 				Tail:     row.field.Tail,
 				Selected: m.details.flashed > 0 && row.id == flashed,

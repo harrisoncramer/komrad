@@ -30,7 +30,7 @@ func (c statusCheckLogsScreen) snapshot(in screen.Inputs, pane list.Pane) view.S
 				Key:     r.Key(),
 				Kind:    view.KindResult,
 				Name:    name,
-				Matches: matchesIn(in.Room.Pattern.Regexp, name),
+				Matches: list.Matches(in.Room.Pattern.Regexp, name),
 				Process: view.ProcessNone,
 				Cells:   []view.Cell{statusCheckIcon(r.item, in.Room.Spinner)},
 			}
@@ -75,7 +75,7 @@ func (c statusCheckLogsScreen) doc(width int) statusCheckLogsRendered {
 	anchors := map[string]int{}
 	line := func(text string, style lipgloss.Style) {
 		rows = append(rows, xslice.Map(strings.Split(ansi.Wrap(text, wrap, ""), "\n"), func(part string) string {
-			return fitRow(indent+style.Render(part), width)
+			return paint.FitRow(indent+style.Render(part), width)
 		})...)
 	}
 
@@ -86,10 +86,10 @@ func (c statusCheckLogsScreen) doc(width int) statusCheckLogsRendered {
 
 		anchors[statusCheckLogRow{item: item}.Key()] = len(rows)
 		title := "═ " + item.name + " "
-		rows = append(rows, fitRow(indent+lipgloss.NewStyle().Bold(true).Render(title+strings.Repeat("═", max(wrap-lipgloss.Width(title), 0))), width))
+		rows = append(rows, paint.FitRow(indent+lipgloss.NewStyle().Bold(true).Render(title+strings.Repeat("═", max(wrap-lipgloss.Width(title), 0))), width))
 
 		if notice := c.logNotice(item); notice != "" {
-			line(notice, dimStyle())
+			line(notice, paint.Panel.Style(paint.ToneMuted))
 
 			continue
 		}

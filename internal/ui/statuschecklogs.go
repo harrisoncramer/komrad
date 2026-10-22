@@ -318,7 +318,7 @@ func (c statusCheckLogsScreen) TakesEveryKey() bool {
 
 func (c statusCheckLogsScreen) Column(screen.Inputs) column.Spec {
 	return column.Spec{
-		Floor:           columnFloor,
+		Floor:           column.Narrowest,
 		Read:            column.IsAlwaysRead,
 		SearchDebounce:  statusCheckLogSearchDebounce,
 		SearchMinLength: statusCheckLogSearchMinLength,

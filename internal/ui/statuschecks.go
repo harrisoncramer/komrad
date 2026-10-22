@@ -284,7 +284,7 @@ func (c *statusChecksScreen) TakesEveryKey() bool {
 
 func (c *statusChecksScreen) Column(in screen.Inputs) column.Spec {
 	return column.Spec{
-		Floor:   columnFloor,
+		Floor:   column.Narrowest,
 		DocRows: func(width int) []string { return c.docRows(in, width) },
 	}
 }

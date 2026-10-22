@@ -44,7 +44,7 @@ func (r reviewScreen) forgeReplyView(in screen.Inputs, reply *agentv1.ForgeReply
 	case agentv1.ForgeReplyState_FORGE_REPLY_STATE_UNSPECIFIED,
 		agentv1.ForgeReplyState_FORGE_REPLY_STATE_APPROVED,
 		agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENDING:
-		posting = dimStyle().Render("  "+glyph.Right+" posting to "+name) + "\n"
+		posting = paint.Panel.Style(paint.ToneMuted).Render("  "+glyph.Right+" posting to "+name) + "\n"
 	}
 
 	return forgeMark(r.deps.glyphs) + renderCommentHead(reviewHumanTone, "you", reply.GetCreatedAt()) + "\n" +

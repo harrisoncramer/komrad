@@ -22,9 +22,9 @@ func (r reviewScreen) filesView(in screen.Inputs, lines int) string {
 	case lines == 0:
 		return ""
 	case r.loading:
-		return in.Room.Spinner + " " + dimStyle().Render(reviewLoadingWord) + "\n"
+		return in.Room.Spinner + " " + paint.Panel.Style(paint.ToneMuted).Render(reviewLoadingWord) + "\n"
 	case r.diff.View() == nil || r.diff.View().Len() == 0:
-		return dimStyle().Render(reviewEmptyWord) + "\n"
+		return paint.Panel.Style(paint.ToneMuted).Render(reviewEmptyWord) + "\n"
 	}
 
 	width := lineWidthOf(in.Room.Width)
@@ -55,7 +55,7 @@ func (r reviewScreen) filesView(in screen.Inputs, lines int) string {
 	}
 
 	if len(rows) == 0 {
-		rows = append(rows, dimStyle().Render(strings.Repeat(" ", filesGutter)+reviewNoFileWord))
+		rows = append(rows, paint.Panel.Style(paint.ToneMuted).Render(strings.Repeat(" ", filesGutter)+reviewNoFileWord))
 	}
 
 	header := ansi.Truncate(r.filesFilter.line(r.deps.glyphs), max(width, 0), "…")
@@ -76,7 +76,7 @@ func (r reviewScreen) filesView(in screen.Inputs, lines int) string {
 		return header + rows[tree.current] + "\n"
 	}
 
-	return header + paint.RenderList(rows, max(tree.current, 0), room, dimStyle())
+	return header + paint.RenderList(rows, max(tree.current, 0), room, paint.Panel.Style(paint.ToneMuted))
 }
 
 // renderTreeRowParams is one row of the tree and whether it is the one the cursor is in.
@@ -103,7 +103,7 @@ func (r reviewScreen) renderTreeRow(params renderTreeRowParams) string {
 		mark = r.deps.glyphs.Spell(glyph.FileCurrent)
 		style = paint.Panel.Style(paint.TonePrimary).Bold(true)
 	case row.Viewed:
-		style = dimStyle()
+		style = paint.Panel.Style(paint.ToneMuted)
 	}
 
 	lead := style.Render(mark) + strings.Repeat(" ", filesGutter-1+2*row.Depth)

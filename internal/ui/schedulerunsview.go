@@ -8,9 +8,6 @@ import (
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	schedulev1 "komrad/proto/gen/schedule/v1"
-
-	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/x/ansi"
 )
 
 // runTimeLayout writes a firing's occurrence at the head of its row.
@@ -34,7 +31,7 @@ func scheduleRunRows(runs []panel.ScheduleRun, width int) []string {
 	indent := strings.Repeat(" ", docMargin())
 
 	if len(runs) == 0 {
-		return []string{fitRow(indent+dimStyle().Render("never fired"), width)}
+		return []string{paint.FitRow(indent+paint.Panel.Style(paint.ToneMuted).Render("never fired"), width)}
 	}
 
 	under := indent + strings.Repeat(" ", len(runTimeLayout)+2+runWordWidth+2)
@@ -42,15 +39,15 @@ func scheduleRunRows(runs []panel.ScheduleRun, width int) []string {
 	for _, run := range runs {
 		outcome := describeRun(run)
 
-		row := indent + dimStyle().Render(run.ScheduledFor.Format(runTimeLayout)) + "  " +
+		row := indent + paint.Panel.Style(paint.ToneMuted).Render(run.ScheduledFor.Format(runTimeLayout)) + "  " +
 			paint.Panel.Style(outcome.tone).Render(fmt.Sprintf("%-*s", runWordWidth, outcome.word))
 		if outcome.detail != "" {
-			row += "  " + dimStyle().Render(outcome.detail)
+			row += "  " + paint.Panel.Style(paint.ToneMuted).Render(outcome.detail)
 		}
 
-		rows = append(rows, fitRow(row, width))
+		rows = append(rows, paint.FitRow(row, width))
 		if outcome.below != "" {
-			rows = append(rows, fitRow(under+dimStyle().Render(outcome.below), width))
+			rows = append(rows, paint.FitRow(under+paint.Panel.Style(paint.ToneMuted).Render(outcome.below), width))
 		}
 	}
 
@@ -112,13 +109,4 @@ func docMargin() int {
 	}
 
 	return int(*margin)
-}
-
-// fitRow cuts a styled row to a width.
-func fitRow(row string, width int) string {
-	if lipgloss.Width(row) <= width {
-		return row
-	}
-
-	return ansi.Truncate(row, width, "…")
 }

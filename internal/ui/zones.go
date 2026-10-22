@@ -173,7 +173,7 @@ func (m *model) markSearch(to stop, width int, line string) string {
 }
 
 func searchMark(to stop, width int, line string) string {
-	return markKeyedRow(zoneSearch, width, strconv.Itoa(int(to)), line)
+	return zone.MarkKey(zoneSearch, width, 0, strconv.Itoa(int(to))) + line
 }
 
 func (m *model) markRow(name zone.Name, width int, key, row string) string {
@@ -181,10 +181,6 @@ func (m *model) markRow(name zone.Name, width int, key, row string) string {
 		return row
 	}
 
-	return markKeyedRow(name, width, key, row)
-}
-
-func markKeyedRow(name zone.Name, width int, key, row string) string {
 	return zone.MarkKey(name, width, 0, key) + row
 }
 

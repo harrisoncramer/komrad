@@ -6,7 +6,9 @@ import (
 	"strconv"
 
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/zone"
 )
 
 // diffMatchCount is where in the search the cursor is standing, rendered under the pattern.
@@ -27,13 +29,13 @@ func diffMatchCount(pane *diffview.Pane, filter filterState) string {
 		where += fmt.Sprintf(separated+"%d in viewed files", hidden)
 	}
 
-	return dimStyle().Render("  "+where) + "\n\n"
+	return paint.Panel.Style(paint.ToneMuted).Render("  "+where) + "\n\n"
 }
 
 func markDiff(pane *diffview.Pane, window diffview.Window, lines []string) []string {
 	marked := slices.Clone(lines)
 	for i, row := range pane.Rows(window) {
-		marked[i] = markKeyedRow(zoneDiff, window.Width, strconv.Itoa(row), marked[i])
+		marked[i] = zone.MarkKey(zoneDiff, window.Width, 0, strconv.Itoa(row)) + marked[i]
 	}
 
 	return marked

@@ -373,7 +373,7 @@ func (a *agentsScreen) TabsState() *tabs.State {
 
 func (a *agentsScreen) Column(in screen.Inputs) column.Spec {
 	return column.Spec{
-		Floor: columnFloor,
+		Floor: column.Narrowest,
 		Read:  column.IsAlwaysRead,
 		DocRows: func(width int) []string {
 			return paint.DocStyledRows(a.doc(in), max(width, 1), columnStyle())

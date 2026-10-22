@@ -511,7 +511,7 @@ func (l *logsScreen) IsSearchTyping() bool {
 
 func (l *logsScreen) Column(in screen.Inputs) column.Spec {
 	return column.Spec{
-		Floor: columnFloor,
+		Floor: column.Narrowest,
 		DocRows: func(width int) []string {
 			return l.block(in, width)
 		},

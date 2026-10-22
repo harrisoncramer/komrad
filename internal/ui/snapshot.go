@@ -249,24 +249,6 @@ func snapshotStatus(item panel.AgentRow) view.Status {
 	return view.StatusIdle
 }
 
-// matchesIn is the stretches of a name a search picked out, in bytes of that name.
-func matchesIn(matcher *regexp.Regexp, name string) []view.Span {
-	if matcher == nil {
-		return nil
-	}
-
-	found := matcher.FindAllStringIndex(name, -1)
-	if len(found) == 0 {
-		return nil
-	}
-
-	spans := xslice.Map(found, func(at []int) view.Span {
-		return view.Span{Start: at[0], End: at[1]}
-	})
-
-	return spans
-}
-
 // snapshotProcess reports whether anything is running behind a row, which the state it wears
 // cannot say since an agent whose pane has gone wears the same idle as one sitting quiet.
 func snapshotProcess(item panel.AgentRow) view.Process {
@@ -355,7 +337,7 @@ func (p snapshotParams) matchesOf(r agentRow, name string) []view.Span {
 // qualifiers picked the row.
 func pickedMatches(matcher *regexp.Regexp, picked map[string]bool, key, name string) []view.Span {
 	if picked == nil {
-		return matchesIn(matcher, name)
+		return list.Matches(matcher, name)
 	}
 	if !picked[key] {
 		return nil
@@ -364,7 +346,7 @@ func pickedMatches(matcher *regexp.Regexp, picked map[string]bool, key, name str
 		return []view.Span{{Start: 0, End: len(name)}}
 	}
 
-	return matchesIn(matcher, name)
+	return list.Matches(matcher, name)
 }
 
 // parentTail is what a child's row says after its name while something blocks its cascade.

@@ -66,7 +66,7 @@ func (m *model) screenListView(params list.Params) string {
 	header, below := m.listChrome(params)
 
 	if params.Rows == 0 && (params.Empty != "" || m.filter.pattern().DoesNarrow(list.SectionList)) {
-		return m.headedListView(header, []string{dimStyle().Render(m.emptyListLine(params.Empty))}, 0, below)
+		return m.headedListView(header, []string{paint.Panel.Style(paint.ToneMuted).Render(m.emptyListLine(params.Empty))}, 0, below)
 	}
 
 	in := m.inputs()
@@ -94,9 +94,9 @@ func (m *model) headerLines(title, tally, tabs string) string {
 	switch {
 	case tally == "":
 	case header == "":
-		header = dimStyle().Render(tally)
+		header = paint.Panel.Style(paint.ToneMuted).Render(tally)
 	default:
-		header += dimStyle().Render("  " + tally)
+		header += paint.Panel.Style(paint.ToneMuted).Render("  " + tally)
 	}
 	if width := m.paneWidth(); width > 0 {
 		header = ansi.Truncate(header, width, "…")
@@ -112,7 +112,7 @@ func (m *model) headerLines(title, tally, tabs string) string {
 func (m *model) headedListView(header string, rows []string, cursor int, help string) string {
 	lines := m.Lines(header, help)
 
-	return headedBlockView(header, paint.RenderList(rows, cursor, lines, dimStyle()), lines, help)
+	return headedBlockView(header, paint.RenderList(rows, cursor, lines, paint.Panel.Style(paint.ToneMuted)), lines, help)
 }
 
 // emptyListLine is what a screen says over no rows.

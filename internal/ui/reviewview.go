@@ -254,7 +254,7 @@ func (r reviewScreen) notesView(in screen.Inputs) string {
 	}
 
 	if since := r.diff.since; since != "" && r.diff.spec.isWholeChange() {
-		return "\n" + reviewNote(lineWidthOf(in.Room.Width), dimStyle(), since)
+		return "\n" + reviewNote(lineWidthOf(in.Room.Width), paint.Panel.Style(paint.ToneMuted), since)
 	}
 
 	return ""
@@ -270,7 +270,7 @@ func (d reviewDiff) anchorView() string {
 				d.commentWhereView(thread) + "\n"
 		}
 
-		return dimStyle().Render("  move onto a line to start a thread on it") + "\n"
+		return paint.Panel.Style(paint.ToneMuted).Render("  move onto a line to start a thread on it") + "\n"
 	}
 
 	head := paint.Panel.Title(clipName(diffview.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart)))
@@ -288,7 +288,7 @@ func (d reviewDiff) commentWhereView(thread *agentv1.ReviewThread) string {
 		return ""
 	}
 
-	return dimStyle().Render(fmt.Sprintf("  %d of %d", at, total))
+	return paint.Panel.Style(paint.ToneMuted).Render(fmt.Sprintf("  %d of %d", at, total))
 }
 
 // threadView is a thread's conversation wrapped to the width given, oldest message first.
@@ -301,7 +301,7 @@ func (r reviewScreen) threadView(in screen.Inputs, thread *agentv1.ReviewThread,
 	for i, message := range thread.GetMessages() {
 		if i > 0 && !later && stamp != "" && !doesPredate(message.GetCreatedAt(), stamp) {
 			later = true
-			out += "\n" + dimStyle().Render(glyph.Rule+glyph.Rule+" later, after this code changed "+glyph.Rule+glyph.Rule) + "\n"
+			out += "\n" + paint.Panel.Style(paint.ToneMuted).Render(glyph.Rule+glyph.Rule+" later, after this code changed "+glyph.Rule+glyph.Rule) + "\n"
 		}
 
 		note := heldForgeSaid(thread, message)
@@ -330,7 +330,7 @@ func (r reviewScreen) originView(thread *agentv1.ReviewThread, width int) string
 		said += separated + "written against"
 	}
 
-	out := dimStyle().Render("  "+said) + "\n"
+	out := paint.Panel.Style(paint.ToneMuted).Render("  "+said) + "\n"
 	for _, quoted := range thread.GetQuotedLines() {
 		out += paint.Panel.Style(reviewQuoteTone).Italic(true).Render(reviewWrap(width, "  "+quoted)) + "\n"
 	}
@@ -368,7 +368,7 @@ func (r reviewScreen) messageView(thread *agentv1.ReviewThread, message *agentv1
 	author, tone := r.authorOf(message)
 	head := renderCommentHead(tone, author, message.GetCreatedAt())
 	if params.note != "" {
-		head += "   " + dimStyle().Render(params.note)
+		head += "   " + paint.Panel.Style(paint.ToneMuted).Render(params.note)
 	}
 
 	body := message.GetBody()
@@ -399,7 +399,7 @@ func (r reviewScreen) authorOf(message *agentv1.ReviewMessage) (string, paint.To
 func renderCommentHead(tone paint.Tone, author, writtenAt string) string {
 	head := paint.Panel.Style(tone).Bold(true).Render(author)
 	if when := reviewTimeOf(writtenAt); when != "" {
-		head += " " + dimStyle().Render(when)
+		head += " " + paint.Panel.Style(paint.ToneMuted).Render(when)
 	}
 
 	return head
@@ -520,7 +520,7 @@ func joinViews(parts ...string) string {
 		}
 	}
 
-	return strings.Join(said, dimStyle().Render(separated))
+	return strings.Join(said, paint.Panel.Style(paint.ToneMuted).Render(separated))
 }
 
 // statView is how big the change is, with the counts coloured the way the lines themselves are.
@@ -534,12 +534,12 @@ func (d reviewDiff) statView() string {
 		return ""
 	}
 
-	out := dimStyle().Render(label.Counted(stat.Files, "file")+", ") +
+	out := paint.Panel.Style(paint.ToneMuted).Render(label.Counted(stat.Files, "file")+", ") +
 		paint.Panel.Style(reviewAddedTone).Render(fmt.Sprintf("+%d", stat.Added)) + " " +
 		paint.Panel.Style(reviewRemovedTone).Render(fmt.Sprintf("-%d", stat.Removed))
 
 	if read, total := d.View().CountViewedFiles(); read > 0 {
-		out += dimStyle().Render(fmt.Sprintf("  %d/%d viewed", read, total))
+		out += paint.Panel.Style(paint.ToneMuted).Render(fmt.Sprintf("  %d/%d viewed", read, total))
 	}
 
 	return out

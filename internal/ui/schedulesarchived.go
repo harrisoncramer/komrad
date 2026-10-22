@@ -248,7 +248,7 @@ func (a *archivedSchedules) HoveredName(in screen.Inputs) string {
 
 func (a *archivedSchedules) Column(in screen.Inputs) column.Spec {
 	return column.Spec{
-		Floor: columnFloor,
+		Floor: column.Narrowest,
 		Read:  column.IsAlwaysRead,
 		DocRows: func(width int) []string {
 			return a.docRows(in, width)

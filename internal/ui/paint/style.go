@@ -303,3 +303,12 @@ func (p Palette) TitledRule(title, tail string, width int) string {
 
 	return left + muted.Render(strings.Repeat(glyph.Rule, width-titledRuleRoom(title, tail))) + right
 }
+
+// FitRow cuts a styled row to a width.
+func FitRow(row string, width int) string {
+	if lipgloss.Width(row) <= width {
+		return row
+	}
+
+	return ansi.Truncate(row, width, "…")
+}

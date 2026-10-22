@@ -570,7 +570,7 @@ func (a *archivedAgents) TabsState() *tabs.State {
 
 func (a *archivedAgents) Column(in screen.Inputs) column.Spec {
 	return column.Spec{
-		Floor: columnFloor,
+		Floor: column.Narrowest,
 		Read:  column.IsAlwaysRead,
 		DocRows: func(width int) []string {
 			return a.docRows(in, width)

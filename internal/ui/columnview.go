@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/column"
+	"komrad/internal/ui/paint"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -60,13 +61,13 @@ func renderDividerRow(fromLeft, fromRight bool) string {
 
 	leftPad, rightPad := strings.Repeat(" ", gutter), strings.Repeat(" ", gutter)
 	if fromLeft {
-		leftPad = dimStyle().Render(strings.Repeat(glyph.Rule, gutter))
+		leftPad = paint.Panel.Style(paint.ToneMuted).Render(strings.Repeat(glyph.Rule, gutter))
 	}
 	if fromRight {
-		rightPad = dimStyle().Render(strings.Repeat(glyph.Rule, gutter))
+		rightPad = paint.Panel.Style(paint.ToneMuted).Render(strings.Repeat(glyph.Rule, gutter))
 	}
 
-	return leftPad + dimStyle().Render(junction) + rightPad
+	return leftPad + paint.Panel.Style(paint.ToneMuted).Render(junction) + rightPad
 }
 
 // docColumnView is the first screenful of the block beside the list, with a marker under it

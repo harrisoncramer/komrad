@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"komrad/internal/glyph"
+	"komrad/internal/ui/column"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/paint"
@@ -21,7 +22,7 @@ import (
 func submenuLeading(parents []submenuLevel, top submenuLevel, width int) []string {
 	room := width - lipgloss.Width(frozenSubmenu(top, len(parents) > 0))
 	if top.menu.Preview != nil {
-		room -= columnFloor + dividerCols
+		room -= column.Narrowest + dividerCols
 	}
 
 	return frozenMenus(parents, room)

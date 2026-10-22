@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/zone"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 	logv1 "komrad/proto/gen/log/v1"
@@ -42,7 +43,7 @@ func (l *logsScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
 				Key:     row.Key(),
 				Kind:    view.KindResult,
 				Name:    name,
-				Matches: matchesIn(in.Room.Pattern.Regexp, name),
+				Matches: list.Matches(in.Room.Pattern.Regexp, name),
 				Process: view.ProcessNone,
 				Tail:    tail,
 			}
@@ -79,7 +80,7 @@ func (l *logsScreen) block(in screen.Inputs, width int) []string {
 		rows = append(rows, "")
 	}
 
-	search := fitRow(list.Blank+l.logFilterLine(l.deps.glyphs), width)
+	search := paint.FitRow(list.Blank+l.logFilterLine(l.deps.glyphs), width)
 	if in.Room.Marks {
 		search = searchMark(stopBlock, width, search)
 	}
@@ -93,7 +94,7 @@ func (l *logsScreen) logFilterLine(glyphs glyph.Set) string {
 		return l.logFilter.line(glyphs)
 	}
 
-	return dimStyle().Render(filterModeFilter.glyph(glyphs) + " " + l.logFilter.query())
+	return paint.Panel.Style(paint.ToneMuted).Render(filterModeFilter.glyph(glyphs) + " " + l.logFilter.query())
 }
 
 // logRows is the lines of the log rendered in height rows, or what stands in for them.
@@ -104,15 +105,15 @@ func (l *logsScreen) logRows(in screen.Inputs, width, height int) []string {
 	case !hovered:
 		return nil
 	case !l.read && l.err != nil:
-		return []string{dimStyle().Render("could not read: " + errui.GetReason(l.err))}
+		return []string{paint.Panel.Style(paint.ToneMuted).Render("could not read: " + errui.GetReason(l.err))}
 	case !l.read:
-		return []string{dimStyle().Render("reading…")}
+		return []string{paint.Panel.Style(paint.ToneMuted).Render("reading…")}
 	case l.viewer.Len() == 0 && l.pattern != "":
-		return []string{dimStyle().Render(fmt.Sprintf("Nothing matching in the last %d MB.", logread.ScanBudget>>20))}
+		return []string{paint.Panel.Style(paint.ToneMuted).Render(fmt.Sprintf("Nothing matching in the last %d MB.", logread.ScanBudget>>20))}
 	case l.viewer.Len() == 0 && row.source.Run != nil:
-		return []string{dimStyle().Render("This run wrote nothing.")}
+		return []string{paint.Panel.Style(paint.ToneMuted).Render("This run wrote nothing.")}
 	case l.viewer.Len() == 0:
-		return []string{dimStyle().Render(fmt.Sprintf("Nothing about this agent in the last %d MB of the log.", logread.ScanBudget>>20))}
+		return []string{paint.Panel.Style(paint.ToneMuted).Render(fmt.Sprintf("Nothing about this agent in the last %d MB of the log.", logread.ScanBudget>>20))}
 	}
 
 	rows, cursor := l.viewer.Rows(width-len(list.Blank), height)
@@ -128,7 +129,7 @@ func (l *logsScreen) logRows(in screen.Inputs, width, height int) []string {
 		}
 		rows[i] = prefix + row
 		if i < len(lines) {
-			rows[i] = markKeyedRow(zoneLog, width, strconv.Itoa(lines[i]), rows[i])
+			rows[i] = zone.MarkKey(zoneLog, width, 0, strconv.Itoa(lines[i])) + rows[i]
 		}
 	}
 

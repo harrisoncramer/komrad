@@ -74,7 +74,7 @@ func scheduleSnapshot(in screen.Inputs, pane list.Pane, params scheduleSnapshotP
 				Key:     item.Key(),
 				Kind:    view.KindResult,
 				Name:    name,
-				Matches: matchesIn(in.Room.Pattern.Regexp, name),
+				Matches: list.Matches(in.Room.Pattern.Regexp, name),
 				Process: process,
 				Cells:   []view.Cell{scheduleIcon(item.schedule.Enabled)},
 				Tail:    view.Cell{Text: item.schedule.Cron, Tone: paint.ToneMuted},
