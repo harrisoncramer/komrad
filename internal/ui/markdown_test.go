@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/record"
 	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -41,16 +42,16 @@ func TestWorkflowFields(t *testing.T) {
 		ReviewerFlags:   "--model sonnet",
 	}, 3)
 
-	assert.Equal(t, []recordField{
-		{label: "name", value: "api"},
-		{label: "agents", value: "3"},
-		{label: "default agent", value: "codex"},
-		{label: "directory", value: "/repo/api"},
-		{label: "flags", value: "--model opus"},
-		{label: "worktree", value: "off"},
-		{label: "reviewer agent", value: "claude"},
-		{label: "reviewer flags", value: "--model sonnet"},
-		{label: "workflow_id", value: "w1"},
+	assert.Equal(t, []record.Field{
+		{Label: "name", Value: "api"},
+		{Label: "agents", Value: "3"},
+		{Label: "default agent", Value: "codex"},
+		{Label: "directory", Value: "/repo/api"},
+		{Label: "flags", Value: "--model opus"},
+		{Label: "worktree", Value: "off"},
+		{Label: "reviewer agent", Value: "claude"},
+		{Label: "reviewer flags", Value: "--model sonnet"},
+		{Label: "workflow_id", Value: "w1"},
 	}, fields)
 }
 
@@ -71,20 +72,20 @@ func TestWorkflowFieldsWorktree(t *testing.T) {
 		},
 	}
 
-	assert.Equal(t, []recordField{
-		{label: "name", value: "api"},
-		{label: "agents", value: "3"},
-		{label: "default agent", value: "codex"},
-		{label: "directory", value: "/repo/api"},
-		{label: "flags", value: "—"},
-		{label: "worktree", value: "on"},
-		{label: "base branch", value: "main"},
-		{label: "copy", value: ".env, .envrc"},
-		{label: "symlink", value: "node_modules"},
-		{label: "setup", value: "mise install"},
-		{label: "reviewer agent", value: "—"},
-		{label: "reviewer flags", value: "—"},
-		{label: "workflow_id", value: "w1"},
+	assert.Equal(t, []record.Field{
+		{Label: "name", Value: "api"},
+		{Label: "agents", Value: "3"},
+		{Label: "default agent", Value: "codex"},
+		{Label: "directory", Value: "/repo/api"},
+		{Label: "flags", Value: "—"},
+		{Label: "worktree", Value: "on"},
+		{Label: "base branch", Value: "main"},
+		{Label: "copy", Value: ".env, .envrc"},
+		{Label: "symlink", Value: "node_modules"},
+		{Label: "setup", Value: "mise install"},
+		{Label: "reviewer agent", Value: "—"},
+		{Label: "reviewer flags", Value: "—"},
+		{Label: "workflow_id", Value: "w1"},
 	}, workflowFields(workflow, 3))
 
 	workflow.Worktree.CopyPaths = nil
@@ -94,9 +95,9 @@ func TestWorkflowFieldsWorktree(t *testing.T) {
 
 	fields := workflowFields(workflow, 3)
 
-	assert.Contains(t, fields, recordField{label: "base branch", value: "—"})
-	assert.NotContains(t, fields, recordField{label: "copy", value: ""})
-	assert.NotContains(t, fields, recordField{label: "worktree", value: "off"}, "a worktree workflow says what it cuts them from, not that it has none")
+	assert.Contains(t, fields, record.Field{Label: "base branch", Value: "—"})
+	assert.NotContains(t, fields, record.Field{Label: "copy", Value: ""})
+	assert.NotContains(t, fields, record.Field{Label: "worktree", Value: "off"}, "a worktree workflow says what it cuts them from, not that it has none")
 }
 
 // TestAgentFields covers what an agent shows in the section: what it was launched with and
@@ -165,13 +166,13 @@ func TestAgentFields(t *testing.T) {
 				headerCwd: tt.headerCwd,
 			})
 			require.NotEmpty(t, fields)
-			assert.Equal(t, "agent", fields[0].label, "the harness leads")
+			assert.Equal(t, "agent", fields[0].Label, "the harness leads")
 
 			labels := make([]string, 0, len(fields))
 			values := make([]string, 0, len(fields))
 			for _, field := range fields {
-				labels = append(labels, field.label)
-				values = append(values, field.value)
+				labels = append(labels, field.Label)
+				values = append(values, field.Value)
 			}
 
 			assert.Subset(t, labels, tt.wantLabels)

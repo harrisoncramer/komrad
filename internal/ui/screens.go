@@ -8,7 +8,9 @@ import (
 	"komrad/internal/ui/layout"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/menu"
+	"komrad/internal/ui/record"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/tabs"
 	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
@@ -61,7 +63,7 @@ type screenModel interface {
 // recordRenderer is a screen that renders the hovered row's record under its list.
 type recordRenderer interface {
 	// details is the record the cursor is standing on.
-	details(m *model, in screen.Inputs) details
+	details(m *model, in screen.Inputs) record.Details
 }
 
 // listRenderer is a screen the root renders as a list from the params it answers.
@@ -97,7 +99,7 @@ type keyedList interface {
 // kindSwitcher is a screen that lists more than one kind of resource and switches between them
 // on a row of its own.
 type kindSwitcher interface {
-	kinds(m *model) stops
+	kinds(m *model) tabs.Stops
 
 	// kindsFocused is whether the row of kinds holds the keys.
 	kindsFocused(m *model) *bool
@@ -111,10 +113,10 @@ type kindSwitcher interface {
 
 // tabSwitcher is a screen with a strip of tabs over its list.
 type tabSwitcher interface {
-	tabs() tabStrip
+	tabs() tabs.Strip
 
 	// tabsState is where the screen keeps the tab chosen and whether the strip holds the keys.
-	tabsState() *tabsState
+	tabsState() *tabs.State
 }
 
 // columnFocuser is a screen whose block beside the list can take the keys and be scrolled.
@@ -137,7 +139,7 @@ type crumbRenderer interface {
 	parent() screen.ID
 
 	// crumbs is the trail under the parent, down to the page.
-	crumbs(m *model, in screen.Inputs) crumbs
+	crumbs(m *model, in screen.Inputs) screen.Crumbs
 }
 
 // hoveredAgentReporter is a screen whose cursor can rest on an agent's row.

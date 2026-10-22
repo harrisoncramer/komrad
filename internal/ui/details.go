@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/legend"
 	"komrad/internal/ui/list"
+	"komrad/internal/ui/record"
 	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
@@ -26,17 +27,10 @@ type detailsState struct {
 	flashed int
 }
 
-type details struct {
-	id      string
-	notices []notice
-	fields  []recordField
-	tags    []string
-}
-
 // detailsRow is one field as the record renders it, keyed by its place in the whole record.
 type detailsRow struct {
 	id    string
-	field recordField
+	field record.Field
 	// text is what a search reads the row by, which for a row under a label is that label and
 	// the row's own value.
 	text string
@@ -46,26 +40,26 @@ func (r detailsRow) Key() string {
 	return r.id
 }
 
-func (m *model) hoveredDetails(in screen.Inputs) details {
+func (m *model) hoveredDetails(in screen.Inputs) record.Details {
 	d, ok := m.active().(recordRenderer)
 	if !ok {
-		return details{}
+		return record.Details{}
 	}
 
 	return d.details(m, in)
 }
 
 // detailsRows is the record's fields as its search leaves them.
-func (m *model) detailsRows(held details) []detailsRow {
-	rows := make([]detailsRow, 0, len(held.fields))
+func (m *model) detailsRows(held record.Details) []detailsRow {
+	rows := make([]detailsRow, 0, len(held.Fields))
 	pattern := m.filter.pattern()
 	group := ""
-	for i, field := range held.fields {
-		if field.label != "" {
-			group = field.label
+	for i, field := range held.Fields {
+		if field.Label != "" {
+			group = field.Label
 		}
 
-		text := strings.TrimSpace(group + " " + field.value)
+		text := strings.TrimSpace(group + " " + field.Value)
 		if pattern.DoesNarrow(list.SectionRecord) && !pattern.DoesMatch(text) {
 			continue
 		}
@@ -80,8 +74,8 @@ func (m *model) detailsRows(held details) []detailsRow {
 	return rows
 }
 
-func (m *model) detailsCursor(held details) int {
-	if m.details.held != held.id {
+func (m *model) detailsCursor(held record.Details) int {
+	if m.details.held != held.ID {
 		return 0
 	}
 
@@ -98,16 +92,16 @@ func (m *model) detailsList() screenList[detailsRow] {
 }
 
 func (m *model) detailsRowCursor() *list.Cursor {
-	if held := m.hoveredDetails(m.inputs()); m.details.held != held.id {
+	if held := m.hoveredDetails(m.inputs()); m.details.held != held.ID {
 		m.details.Cursor = list.Cursor{}
-		m.details.held = held.id
+		m.details.held = held.ID
 	}
 
 	return &m.details.Cursor
 }
 
-func (m *model) isDetailsRendered(in screen.Inputs, held details) bool {
-	if len(held.fields) == 0 || m.detailsLines() == 0 {
+func (m *model) isDetailsRendered(in screen.Inputs, held record.Details) bool {
+	if len(held.Fields) == 0 || m.detailsLines() == 0 {
 		return false
 	}
 
@@ -269,7 +263,7 @@ func (m *model) copyDetailsField() tea.Cmd {
 	cursor := m.detailsCursor(held)
 	m.details.flashed = cursor + 1
 
-	return tea.Batch(m.copyCmd(rows[cursor].field.value), m.flashRevertTick())
+	return tea.Batch(m.copyCmd(rows[cursor].field.Value), m.flashRevertTick())
 }
 
 func (m *model) detailsLines() int {
@@ -287,7 +281,7 @@ func (m *model) detailsLines() int {
 
 // grownDetailsLines is every line the record needs once it holds the keys, as far as the rows
 // left under the header and the legend allow with one kept back for the list.
-func (m *model) grownDetailsLines(in screen.Inputs, held details) int {
+func (m *model) grownDetailsLines(in screen.Inputs, held record.Details) int {
 	lines := max(m.detailsLines(), m.detailsWanted(held))
 
 	params, ok := m.activeListParams(in)
@@ -300,7 +294,7 @@ func (m *model) grownDetailsLines(in screen.Inputs, held details) int {
 
 // detailsWanted is the lines the whole record takes: its notices, a blank under them, and every
 // field its search leaves.
-func (m *model) detailsWanted(held details) int {
+func (m *model) detailsWanted(held record.Details) int {
 	wanted := len(m.detailsRows(held))
 	if notices := m.detailsNotices(held, m.term.height); len(notices) > 0 {
 		wanted += len(notices) + 1

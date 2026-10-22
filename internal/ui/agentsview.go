@@ -9,14 +9,15 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/record"
 	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 )
 
-func (a *agentsScreen) details(m *model, in screen.Inputs) details {
+func (a *agentsScreen) details(m *model, in screen.Inputs) record.Details {
 	r, ok := a.hoveredRow(m, in)
 	if !ok {
-		return details{}
+		return record.Details{}
 	}
 
 	if r.isTask() {
@@ -24,9 +25,9 @@ func (a *agentsScreen) details(m *model, in screen.Inputs) details {
 	}
 
 	if r.header {
-		return details{
-			id:     r.workflow.ID,
-			fields: workflowFields(r.workflow, in.Listing.AgentCount(r.workflow.ID)),
+		return record.Details{
+			ID:     r.workflow.ID,
+			Fields: workflowFields(r.workflow, in.Listing.AgentCount(r.workflow.ID)),
 		}
 	}
 
@@ -34,28 +35,28 @@ func (a *agentsScreen) details(m *model, in screen.Inputs) details {
 }
 
 // taskDetails is the record for a task's row, with the rule's tags too while the task is live.
-func taskDetails(m *model, in screen.Inputs, glyphs glyph.Set, r agentRow) details {
+func taskDetails(m *model, in screen.Inputs, glyphs glyph.Set, r agentRow) record.Details {
 	var tags []string
 	if r.task.ArchivedAt == nil {
 		tags = taskDetailsTags(m, *r.task)
 	}
-	var writerFields []recordField
+	var writerFields []record.Field
 	if writer, ok := r.writer(); ok {
-		writerFields = append([]recordField{{label: "agent", value: label.OrDash(writer.Agent.Harness)}},
+		writerFields = append([]record.Field{{Label: "agent", Value: label.OrDash(writer.Agent.Harness)}},
 			sessionFields(writer.Agent, in.Listing.ScheduleName(writer.Agent))...)
 	}
 
-	return details{
-		id:      r.task.ID,
-		notices: agentNotices(glyphs, in.Room.Spinner, in.Listing.Tasks, r),
-		fields:  taskFields(m.buildCheckoutParams(*r.task), writerFields),
-		tags:    tags,
+	return record.Details{
+		ID:      r.task.ID,
+		Notices: agentNotices(glyphs, in.Room.Spinner, in.Listing.Tasks, r),
+		Fields:  taskFields(m.buildCheckoutParams(*r.task), writerFields),
+		Tags:    tags,
 	}
 }
 
 // agentDetails is the record for an agent's row, carrying its task's checkout where no task
 // header stands over it and the rule's tags too while the agent is live.
-func agentDetails(m *model, in screen.Inputs, glyphs glyph.Set, r agentRow) details {
+func agentDetails(m *model, in screen.Inputs, glyphs glyph.Set, r agentRow) record.Details {
 	task := in.Listing.Tasks.FindForAgent(r.item.Agent)
 	params := agentFieldsParams{
 		agent:    r.item.Agent,
@@ -72,11 +73,11 @@ func agentDetails(m *model, in screen.Inputs, glyphs glyph.Set, r agentRow) deta
 		}
 	}
 
-	return details{
-		id:      r.item.Agent.ID,
-		notices: agentNotices(glyphs, in.Room.Spinner, in.Listing.Tasks, r),
-		fields:  agentFields(params),
-		tags:    tags,
+	return record.Details{
+		ID:      r.item.Agent.ID,
+		Notices: agentNotices(glyphs, in.Room.Spinner, in.Listing.Tasks, r),
+		Fields:  agentFields(params),
+		Tags:    tags,
 	}
 }
 
@@ -164,7 +165,7 @@ func (a *agentsScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot 
 		tasks:        in.Listing.Tasks,
 		renaming:     a.renamingField(),
 		showHidden:   a.showHidden,
-		flat:         a.sort.flat,
+		flat:         a.sort.Flat,
 		pane:         pane.Width,
 	})
 }

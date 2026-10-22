@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/record"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -37,7 +38,7 @@ func TestTaskFieldsDirectory(t *testing.T) {
 
 			fields := taskFields(checkoutFieldsParams{task: task}, nil)
 
-			assert.Equal(t, recordField{label: "directory", value: tt.want}, fields[0])
+			assert.Equal(t, record.Field{Label: "directory", Value: tt.want}, fields[0])
 		})
 	}
 }

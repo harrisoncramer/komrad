@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"slices"
 
+	"komrad/internal/ui/tabs"
 	"komrad/lib/xslice"
 )
 
@@ -32,13 +33,13 @@ func (c sortColumn[T]) rank(row T) int {
 
 // compareHeld is the column's own comparison, reversed for the down arrow and silent unless
 // both rows carry the value.
-func (c sortColumn[T]) compareHeld(a, b T, direction tabDirection) int {
+func (c sortColumn[T]) compareHeld(a, b T, direction tabs.Direction) int {
 	if !c.isHeld(a) || !c.isHeld(b) {
 		return 0
 	}
 
 	by := c.compare(a, b)
-	if direction == tabDown {
+	if direction == tabs.Down {
 		return -by
 	}
 
@@ -48,22 +49,22 @@ func (c sortColumn[T]) compareHeld(a, b T, direction tabDirection) int {
 // sortOrder is the column a list is ordered by and which way the arrow points.
 type sortOrder struct {
 	column    string
-	direction tabDirection
+	direction tabs.Direction
 }
 
-// order is the column and direction a strip's state names.
-func (s tabStrip) order(state tabsState) sortOrder {
+// stripOrder is the column and direction a strip's state names.
+func stripOrder(s tabs.Strip, state tabs.State) sortOrder {
 	return sortOrder{
-		column:    s.options[s.indexOf(state)].id,
-		direction: state.direction,
+		column:    s.Options[s.IndexOf(state)].ID,
+		direction: state.Direction,
 	}
 }
 
-func tabOptionsOf[T any](columns []sortColumn[T]) []tabOption {
-	return xslice.Map(columns, func(column sortColumn[T]) tabOption {
-		return tabOption{
-			id:    column.id,
-			label: column.label,
+func tabOptionsOf[T any](columns []sortColumn[T]) []tabs.Option {
+	return xslice.Map(columns, func(column sortColumn[T]) tabs.Option {
+		return tabs.Option{
+			ID:    column.id,
+			Label: column.label,
 		}
 	})
 }

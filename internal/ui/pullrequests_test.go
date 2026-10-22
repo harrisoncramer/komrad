@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/record"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
@@ -23,7 +24,7 @@ func TestPullRequestFields(t *testing.T) {
 		name         string
 		state        pullrequestv1.PullRequestState
 		pullRequests []panel.PullRequest
-		want         []recordField
+		want         []record.Field
 	}{
 		{
 			name: "none",
@@ -41,9 +42,9 @@ func TestPullRequestFields(t *testing.T) {
 					Author: "harrisoncramer",
 				},
 			},
-			want: []recordField{
-				{label: "pull request", value: "#742 Read pull request authors"},
-				{label: "author", value: "@harrisoncramer"},
+			want: []record.Field{
+				{Label: "pull request", Value: "#742 Read pull request authors"},
+				{Label: "author", Value: "@harrisoncramer"},
 			},
 		},
 		{
@@ -51,7 +52,7 @@ func TestPullRequestFields(t *testing.T) {
 			pullRequests: []panel.PullRequest{
 				{Number: 742, Author: "harrisoncramer"},
 			},
-			want: []recordField{{label: "author", value: "@harrisoncramer"}},
+			want: []record.Field{{Label: "author", Value: "@harrisoncramer"}},
 		},
 		{
 			name: "the earlier ones folded into one row",
@@ -71,7 +72,7 @@ func TestPullRequestFields(t *testing.T) {
 					ClosedAt: &yesterday,
 				},
 			},
-			want: []recordField{{label: "pull requests", value: "#711 merged, #708 closed"}},
+			want: []record.Field{{Label: "pull requests", Value: "#711 merged, #708 closed"}},
 		},
 		{
 			name:  "a branch moved past its last one shows no current title or author",
@@ -87,7 +88,7 @@ func TestPullRequestFields(t *testing.T) {
 					ClosedAt: &yesterday,
 				},
 			},
-			want: []recordField{{label: "pull requests", value: "#711 merged"}},
+			want: []record.Field{{Label: "pull requests", Value: "#711 merged"}},
 		},
 		{
 			name:  "a branch on GitLab names its merge requests the way GitLab does",
@@ -102,7 +103,7 @@ func TestPullRequestFields(t *testing.T) {
 					ClosedAt: &yesterday,
 				},
 			},
-			want: []recordField{{label: "merge requests", value: "!711 merged"}},
+			want: []record.Field{{Label: "merge requests", Value: "!711 merged"}},
 		},
 	}
 
@@ -143,9 +144,9 @@ func TestTaskFieldsPlaceThePullRequestsAfterTheBranch(t *testing.T) {
 	}
 }
 
-func readLabels(fields []recordField) []string {
-	return xslice.Map(fields, func(field recordField) string {
-		return field.label
+func readLabels(fields []record.Field) []string {
+	return xslice.Map(fields, func(field record.Field) string {
+		return field.Label
 	})
 }
 

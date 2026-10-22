@@ -230,7 +230,7 @@ func (m *model) paneWidthAt(geometry column.Split) int {
 // docShown names what the block beside the list is showing, so the reader is dropped once it
 // changes.
 func (m *model) docShown(in screen.Inputs) string {
-	hovered := m.hoveredDetails(in).id
+	hovered := m.hoveredDetails(in).ID
 	if f, ok := m.active().(activeLister); ok {
 		hovered = f.activeList().hovered(m, in)
 	}

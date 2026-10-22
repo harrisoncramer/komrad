@@ -9,6 +9,7 @@ import (
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/record"
 	"komrad/internal/view"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
@@ -308,10 +309,10 @@ func TestAgentNoticesWearTheGlyphTheRowRenders(t *testing.T) {
 	require.Len(t, notices, len(want))
 
 	for _, notice := range notices {
-		cell, ok := want[notice.text]
-		require.True(t, ok, "an unexpected notice %q", notice.text)
-		assert.Equal(t, view.Spell(glyph.Defaults(), cell), notice.icon, "the glyph beside %q", notice.text)
-		assert.Equal(t, cell.Tone, notice.tone, "the tone beside %q", notice.text)
+		cell, ok := want[notice.Text]
+		require.True(t, ok, "an unexpected notice %q", notice.Text)
+		assert.Equal(t, view.Spell(glyph.Defaults(), cell), notice.Icon, "the glyph beside %q", notice.Text)
+		assert.Equal(t, cell.Tone, notice.Tone, "the tone beside %q", notice.Text)
 	}
 }
 
@@ -396,8 +397,8 @@ func buildPlainReviewerRow(item panel.AgentRow) agentRow {
 	return row
 }
 
-func readNoticeTexts(notices []notice) []string {
-	return xslice.Map(notices, func(notice notice) string {
-		return notice.text
+func readNoticeTexts(notices []record.Notice) []string {
+	return xslice.Map(notices, func(notice record.Notice) string {
+		return notice.Text
 	})
 }

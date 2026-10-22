@@ -11,6 +11,7 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/record"
 	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 	"komrad/lib/xsha"
@@ -26,7 +27,7 @@ func (w *worktreesScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) v
 		selected: w.Selected,
 		focused:  list.KeyAt(rows, w.Row),
 		live:     in.Listing.Agents,
-		flat:     w.sort.flat,
+		flat:     w.sort.Flat,
 		caret:    pane.Caret,
 		matcher:  in.Room.Pattern.Regexp,
 		pane:     pane.Width,
@@ -34,72 +35,72 @@ func (w *worktreesScreen) snapshot(m *model, in screen.Inputs, pane list.Pane) v
 	})
 }
 
-func (w *worktreesScreen) details(m *model, in screen.Inputs) details {
+func (w *worktreesScreen) details(m *model, in screen.Inputs) record.Details {
 	row, ok := list.At(w.rows(m, in), w.Row)
 	if !ok {
-		return details{}
+		return record.Details{}
 	}
 
 	if row.header {
-		return details{
-			id:     row.Key(),
-			fields: []recordField{{label: "repository", value: row.repo}, {label: "worktrees", value: fmt.Sprintf("%d", w.countUnder(row.repo))}},
+		return record.Details{
+			ID:     row.Key(),
+			Fields: []record.Field{{Label: "repository", Value: row.repo}, {Label: "worktrees", Value: fmt.Sprintf("%d", w.countUnder(row.repo))}},
 		}
 	}
 
-	return details{id: row.Key(), fields: worktreeFields(m, row.item, in.Room.Now)}
+	return record.Details{ID: row.Key(), Fields: worktreeFields(m, row.item, in.Room.Now)}
 }
 
-func worktreeFields(m *model, item panel.Worktree, now time.Time) []recordField {
-	fields := []recordField{
-		{label: "name", value: worktreeRow{item: item}.name()},
-		{label: "directory", value: item.Dir},
-		{label: "size", value: sizeField(item, now)},
-		{label: "last active", value: lastActiveField(item, now)},
+func worktreeFields(m *model, item panel.Worktree, now time.Time) []record.Field {
+	fields := []record.Field{
+		{Label: "name", Value: worktreeRow{item: item}.name()},
+		{Label: "directory", Value: item.Dir},
+		{Label: "size", Value: sizeField(item, now)},
+		{Label: "last active", Value: lastActiveField(item, now)},
 	}
 
 	if !item.Readable {
-		fields = append(fields, recordField{label: "repository", value: label.OrDash(item.RepoDir)}, worktreeTaskField(item))
+		fields = append(fields, record.Field{Label: "repository", Value: label.OrDash(item.RepoDir)}, worktreeTaskField(item))
 
 		return appendOccupantsField(fields, "agents", item.Occupants)
 	}
 
 	fields = append(fields,
-		recordField{label: "branch", value: label.OrDash(item.Branch)},
-		recordField{label: "repository", value: label.OrDash(label.Path(item.RepoDir, homeDir()))},
+		record.Field{Label: "branch", Value: label.OrDash(item.Branch)},
+		record.Field{Label: "repository", Value: label.OrDash(label.Path(item.RepoDir, homeDir()))},
 	)
 	read := m.inspections[item.Dir]
 	if read.Answered && read.Err != nil {
-		fields = append(fields, recordField{label: "worktree", value: "could not read: " + errui.GetReason(read.Err)})
+		fields = append(fields, record.Field{Label: "worktree", Value: "could not read: " + errui.GetReason(read.Err)})
 	}
 	if read.IsRead() {
 		fields = append(fields,
 			buildBaseField(read),
-			recordField{label: "changes", value: changesField(read)},
+			record.Field{Label: "changes", Value: changesField(read)},
 		)
 	}
 
-	fields = append(fields, worktreeTaskField(item), recordField{label: "workflow", value: worktreeWorkflowField(m.listing, item)})
+	fields = append(fields, worktreeTaskField(item), record.Field{Label: "workflow", Value: worktreeWorkflowField(m.listing, item)})
 
 	return appendOccupantsField(fields, "agents", item.Occupants)
 }
 
 // worktreeTaskField names the task a directory is the checkout of.
-func worktreeTaskField(item panel.Worktree) recordField {
+func worktreeTaskField(item panel.Worktree) record.Field {
 	if item.Task == nil {
-		return recordField{label: "task", value: "none"}
+		return record.Field{Label: "task", Value: "none"}
 	}
 
-	return recordField{label: "task", value: item.Task.Slug}
+	return record.Field{Label: "task", Value: item.Task.Slug}
 }
 
 // appendOccupantsField names the agents under the label when there are any.
-func appendOccupantsField(fields []recordField, name string, occupants []panel.WorktreeAgent) []recordField {
+func appendOccupantsField(fields []record.Field, name string, occupants []panel.WorktreeAgent) []record.Field {
 	if len(occupants) == 0 {
 		return fields
 	}
 
-	return append(fields, recordField{label: name, value: strings.Join(xslice.Map(occupants, func(occupant panel.WorktreeAgent) string { return occupant.Name }), ", ")})
+	return append(fields, record.Field{Label: name, Value: strings.Join(xslice.Map(occupants, func(occupant panel.WorktreeAgent) string { return occupant.Name }), ", ")})
 }
 
 // sizeField is what the directory takes and when that was measured, or why it could not be.
@@ -129,25 +130,25 @@ func lastActiveField(item panel.Worktree, now time.Time) string {
 }
 
 // buildBaseField spells where the branch stands against its base, or why git could not name one.
-func buildBaseField(read panel.WorktreeInspection) recordField {
+func buildBaseField(read panel.WorktreeInspection) record.Field {
 	if read.BaseRef == "" {
-		return recordField{label: "base", value: label.OrDash(read.BaseError)}
+		return record.Field{Label: "base", Value: label.OrDash(read.BaseError)}
 	}
 	if read.Ahead == 0 && read.Behind == 0 {
-		return recordField{
-			label: "base",
-			value: read.BaseRef,
-			tail:  view.Cell{Text: "even", Tone: paint.ToneMuted},
+		return record.Field{
+			Label: "base",
+			Value: read.BaseRef,
+			Tail:  view.Cell{Text: "even", Tone: paint.ToneMuted},
 		}
 	}
 
 	ahead := fmt.Sprintf("%s%d", glyph.Up, read.Ahead)
 	behind := fmt.Sprintf("%s%d", glyph.Down, read.Behind)
 
-	return recordField{
-		label: "base",
-		value: read.BaseRef,
-		tail: view.Cell{Parts: []view.Cell{
+	return record.Field{
+		Label: "base",
+		Value: read.BaseRef,
+		Tail: view.Cell{Parts: []view.Cell{
 			{Text: ahead, Tone: countTone(read.Ahead, paint.ToneSuccess)},
 			{Text: " "},
 			{Text: behind, Tone: countTone(read.Behind, paint.ToneWarning)},

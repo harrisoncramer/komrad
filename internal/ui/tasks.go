@@ -14,6 +14,7 @@ import (
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/record"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 
@@ -21,24 +22,24 @@ import (
 )
 
 // taskFields is a task's record, with what the record says of its writer where one is listed.
-func taskFields(params checkoutFieldsParams, writer []recordField) []recordField {
+func taskFields(params checkoutFieldsParams, writer []record.Field) []record.Field {
 	task := params.task
 
 	directory := label.OrDash(task.Cwd)
 	if task.IsWorktreeRemoved() {
 		directory = "— (" + string(task.WorktreeRemovalReason) + ")"
 	}
-	fields := []recordField{{label: "directory", value: directory}}
+	fields := []record.Field{{Label: "directory", Value: directory}}
 	fields = append(fields, checkoutFields(params)...)
 	fields = append(fields, writer...)
 
-	fields = append(fields, recordField{label: "task_id", value: task.ID})
+	fields = append(fields, record.Field{Label: "task_id", Value: task.ID})
 	if created := label.Friendly(task.CreatedAt); created != "" {
-		fields = append(fields, recordField{label: "created", value: created})
+		fields = append(fields, record.Field{Label: "created", Value: created})
 	}
 	if task.ArchivedAt != nil {
 		if archived := label.Friendly(*task.ArchivedAt); archived != "" {
-			fields = append(fields, recordField{label: "archived", value: archived})
+			fields = append(fields, record.Field{Label: "archived", Value: archived})
 		}
 	}
 

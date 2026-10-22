@@ -164,12 +164,12 @@ type worktreeRowsKey struct {
 }
 
 func (w *worktreesScreen) rows(m *model, in screen.Inputs) []worktreeRow {
-	order := worktreesTabs().order(w.sort)
+	order := stripOrder(worktreesTabs(), w.sort)
 	key := worktreeRowsKey{
 		revision: w.revision,
 		scope:    w.scope,
 		order:    order,
-		flat:     w.sort.flat,
+		flat:     w.sort.Flat,
 		filter:   in.Room.Pattern.Key(),
 	}
 
@@ -178,7 +178,7 @@ func (w *worktreesScreen) rows(m *model, in screen.Inputs) []worktreeRow {
 			Rows: worktreeRows(worktreeRowsParams{
 				items: w.shown(),
 				order: order,
-				flat:  w.sort.flat,
+				flat:  w.sort.Flat,
 			}),
 			Depth: worktreeRowDepth,
 			Name:  worktreeRow.name,

@@ -13,6 +13,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/tabs"
 	"komrad/internal/view"
 	"komrad/internal/vim"
 	"komrad/lib/dates"
@@ -187,11 +188,11 @@ func (d *documentsScreen) onDocumentTypes(*model) bool {
 	return d.kind == documentKindTypes
 }
 
-func (d *documentsScreen) kinds(*model) stops {
-	return stops{
-		labels: []string{"documents", "types"},
-		focus:  noStop,
-		lit:    int(d.kind),
+func (d *documentsScreen) kinds(*model) tabs.Stops {
+	return tabs.Stops{
+		Labels: []string{"documents", "types"},
+		Focus:  tabs.NoStop,
+		Lit:    int(d.kind),
 	}
 }
 
@@ -206,7 +207,7 @@ func (d *documentsScreen) kindsSwitch(*model) bool {
 
 // stepKind moves the view between documents and their types.
 func (d *documentsScreen) stepKind(m *model, in screen.Inputs, delta int) screen.Request {
-	d.kind = documentKind(stepStop(int(d.kind), delta, len(d.kinds(m).labels)))
+	d.kind = documentKind(tabs.StepStop(int(d.kind), delta, len(d.kinds(m).Labels)))
 	d.history, d.focus = nil, false
 
 	return screen.Batch{screen.ResetFilter{}, screen.StageTerminal{}, screen.Settle{}}
@@ -332,21 +333,21 @@ func (d *documentsScreen) parent() screen.ID {
 }
 
 // crumbs runs down to the version stepped to, and counts the documents while none is.
-func (d *documentsScreen) crumbs(m *model, in screen.Inputs) crumbs {
-	var trail crumbs
+func (d *documentsScreen) crumbs(m *model, in screen.Inputs) screen.Crumbs {
+	var trail screen.Crumbs
 	if d.kind == documentKindTypes {
-		trail.tally = fmt.Sprint(len(in.Listing.DocumentTypes))
+		trail.Tally = fmt.Sprint(len(in.Listing.DocumentTypes))
 
 		return trail
 	}
 	if item, ok := d.hovered(m, in); ok && d.history != nil && d.history.item.id == item.id && len(d.history.versions) > 0 {
 		current := d.history.versions[d.history.at]
-		trail.trail = append(trail.trail, item.name, fmt.Sprintf("v%d of %d", current.version, d.history.versions[0].version))
+		trail.Trail = append(trail.Trail, item.name, fmt.Sprintf("v%d of %d", current.version, d.history.versions[0].version))
 
 		return trail
 	}
 	if d.listed {
-		trail.tally = fmt.Sprint(len(d.items))
+		trail.Tally = fmt.Sprint(len(d.items))
 	}
 
 	return trail

@@ -3,6 +3,7 @@ package ui
 import (
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/tabs"
 
 	"github.com/charmbracelet/x/ansi"
 )
@@ -10,12 +11,12 @@ import (
 func (m *model) kindsLine() string {
 	k, _ := m.activeKinds()
 	row := k.kinds(m)
-	row.mark = m.spanMarker(zoneKinds, row.labels)
+	row.Mark = m.spanMarker(zoneKinds, row.Labels)
 	if *k.kindsFocused(m) {
-		row.focus, row.lit = row.lit, noStop
+		row.Focus, row.Lit = row.Lit, tabs.NoStop
 	}
 
-	line := paint.Panel.Style(paint.ToneMuted).Render(keys.HeadLabel(m.keys.Kinds.Focus)) + "   " + row.view()
+	line := paint.Panel.Style(paint.ToneMuted).Render(keys.HeadLabel(m.keys.Kinds.Focus)) + "   " + row.View()
 	if width := m.paneWidth(); width > 0 {
 		line = ansi.Truncate(line, width, "…")
 	}

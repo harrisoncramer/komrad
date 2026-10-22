@@ -14,6 +14,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/tabs"
 	"komrad/internal/view"
 	"komrad/lib/dates"
 	"komrad/lib/xsha"
@@ -181,11 +182,11 @@ func (c *statusChecksScreen) shownScope() statusCheckScope {
 	return statusCheckScopeAll
 }
 
-func (c *statusChecksScreen) kinds(*model) stops {
-	return stops{
-		labels: statusCheckScopeLabels,
-		focus:  noStop,
-		lit:    int(c.shownScope()),
+func (c *statusChecksScreen) kinds(*model) tabs.Stops {
+	return tabs.Stops{
+		Labels: statusCheckScopeLabels,
+		Focus:  tabs.NoStop,
+		Lit:    int(c.shownScope()),
 	}
 }
 
@@ -200,7 +201,7 @@ func (c *statusChecksScreen) kindsSwitch(*model) bool {
 // stepKind moves the listing to another scope, keeping the cursor on its row when the new scope lists it.
 func (c *statusChecksScreen) stepKind(m *model, in screen.Inputs, delta int) screen.Request {
 	hovered := c.list().hovered(m, in)
-	c.scope = statusCheckScope(stepStop(int(c.shownScope()), delta, len(statusCheckScopeLabels)))
+	c.scope = statusCheckScope(tabs.StepStop(int(c.shownScope()), delta, len(statusCheckScopeLabels)))
 	c.scopeChosen = true
 
 	return screen.Batch{c.list().place(m, in, hovered), screen.Settle{}}
@@ -261,13 +262,13 @@ func (c *statusChecksScreen) parent() screen.ID {
 	return c.openedFrom
 }
 
-func (c *statusChecksScreen) crumbs(_ *model, in screen.Inputs) crumbs {
+func (c *statusChecksScreen) crumbs(_ *model, in screen.Inputs) screen.Crumbs {
 	name := c.agentID
 	if item, ok := in.Listing.AnyAgent(c.agentID); ok {
 		name = in.Listing.AgentName(item.Agent)
 	}
 
-	return crumbs{trail: []string{name, "status checks"}}
+	return screen.Crumbs{Trail: []string{name, "status checks"}}
 }
 
 func (c *statusChecksScreen) doesRenderFromListing() bool {

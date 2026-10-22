@@ -91,8 +91,8 @@ func (r reviewScreen) parent() screen.ID {
 }
 
 // crumbs runs through the agent whose work is under review.
-func (r reviewScreen) crumbs(*model, screen.Inputs) crumbs {
-	return crumbs{trail: []string{r.agentName, "review"}}
+func (r reviewScreen) crumbs(*model, screen.Inputs) screen.Crumbs {
+	return screen.Crumbs{Trail: []string{r.agentName, "review"}}
 }
 
 // takesEveryKey reports whether the review is mid-input, in which case a key bound elsewhere

@@ -11,6 +11,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/reader"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/tabs"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
@@ -207,7 +208,7 @@ func (c *statusCheckLogsScreen) listParams(m *model, in screen.Inputs) list.Para
 	}
 }
 
-func (c *statusCheckLogsScreen) kinds(m *model) stops {
+func (c *statusCheckLogsScreen) kinds(m *model) tabs.Stops {
 	return m.statusChecks.kinds(m)
 }
 
@@ -271,13 +272,13 @@ func (c *statusCheckLogsScreen) parent() screen.ID {
 	return c.openedFrom
 }
 
-func (c *statusCheckLogsScreen) crumbs(_ *model, in screen.Inputs) crumbs {
+func (c *statusCheckLogsScreen) crumbs(_ *model, in screen.Inputs) screen.Crumbs {
 	name := c.agentID
 	if item, ok := in.Listing.AnyAgent(c.agentID); ok {
 		name = in.Listing.AgentName(item.Agent)
 	}
 
-	return crumbs{trail: []string{name, "status checks", "logs"}}
+	return screen.Crumbs{Trail: []string{name, "status checks", "logs"}}
 }
 
 func (c *statusCheckLogsScreen) doesRenderFromListing() bool {

@@ -6,15 +6,9 @@ import (
 
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
-	"komrad/internal/view"
+	"komrad/internal/ui/record"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 )
-
-type recordField struct {
-	label string
-	value string
-	tail  view.Cell
-}
 
 func renderDocument(title, notice, prose, footer string) string {
 	var b strings.Builder
@@ -32,43 +26,43 @@ func renderDocument(title, notice, prose, footer string) string {
 	return b.String()
 }
 
-func workflowFields(w panel.Workflow, agentCount int) []recordField {
-	fields := []recordField{
-		{label: "name", value: label.OrDash(w.Name)},
-		{label: "agents", value: fmt.Sprintf("%d", agentCount)},
+func workflowFields(w panel.Workflow, agentCount int) []record.Field {
+	fields := []record.Field{
+		{Label: "name", Value: label.OrDash(w.Name)},
+		{Label: "agents", Value: fmt.Sprintf("%d", agentCount)},
 	}
 	fields = append(fields, workflowConfigFields(w)...)
 
 	return append(fields,
-		recordField{label: "reviewer agent", value: label.OrDash(w.ReviewerHarness)},
-		recordField{label: "reviewer flags", value: label.OrDash(w.ReviewerFlags)},
-		recordField{label: "workflow_id", value: label.OrDash(w.ID)},
+		record.Field{Label: "reviewer agent", Value: label.OrDash(w.ReviewerHarness)},
+		record.Field{Label: "reviewer flags", Value: label.OrDash(w.ReviewerFlags)},
+		record.Field{Label: "workflow_id", Value: label.OrDash(w.ID)},
 	)
 }
 
-func workflowConfigFields(w panel.Workflow) []recordField {
-	fields := []recordField{
-		{label: "default agent", value: label.OrDash(w.Harness)},
-		{label: "directory", value: label.OrDash(w.Cwd)},
-		{label: "flags", value: label.OrDash(w.Flags)},
+func workflowConfigFields(w panel.Workflow) []record.Field {
+	fields := []record.Field{
+		{Label: "default agent", Value: label.OrDash(w.Harness)},
+		{Label: "directory", Value: label.OrDash(w.Cwd)},
+		{Label: "flags", Value: label.OrDash(w.Flags)},
 	}
 
 	if !w.Worktree.Enabled {
-		return append(fields, recordField{label: "worktree", value: "off"})
+		return append(fields, record.Field{Label: "worktree", Value: "off"})
 	}
 
 	fields = append(fields,
-		recordField{label: "worktree", value: "on"},
-		recordField{label: "base branch", value: label.OrDash(w.Worktree.BaseBranch)},
+		record.Field{Label: "worktree", Value: "on"},
+		record.Field{Label: "base branch", Value: label.OrDash(w.Worktree.BaseBranch)},
 	)
 	if len(w.Worktree.CopyPaths) > 0 {
-		fields = append(fields, recordField{label: "copy", value: strings.Join(w.Worktree.CopyPaths, ", ")})
+		fields = append(fields, record.Field{Label: "copy", Value: strings.Join(w.Worktree.CopyPaths, ", ")})
 	}
 	if len(w.Worktree.SymlinkPaths) > 0 {
-		fields = append(fields, recordField{label: "symlink", value: strings.Join(w.Worktree.SymlinkPaths, ", ")})
+		fields = append(fields, record.Field{Label: "symlink", Value: strings.Join(w.Worktree.SymlinkPaths, ", ")})
 	}
 	if w.Worktree.SetupCommand != "" {
-		fields = append(fields, recordField{label: "setup", value: w.Worktree.SetupCommand})
+		fields = append(fields, record.Field{Label: "setup", Value: w.Worktree.SetupCommand})
 	}
 
 	return fields
@@ -96,32 +90,32 @@ type agentFieldsParams struct {
 	// headerCwd is the directory of the task header standing over the agent, empty where none does.
 	headerCwd string
 	// checkout is its task's checkout rows, for a record no task header stands over.
-	checkout []recordField
+	checkout []record.Field
 }
 
-func agentFields(params agentFieldsParams) []recordField {
+func agentFields(params agentFieldsParams) []record.Field {
 	agent, schedule := params.agent, params.schedule
-	var fields []recordField
+	var fields []record.Field
 	if params.task != "" {
-		fields = append(fields, recordField{label: "task", value: params.task})
+		fields = append(fields, record.Field{Label: "task", Value: params.task})
 	}
 
-	fields = append(fields, recordField{label: "agent", value: label.OrDash(agent.Harness)})
+	fields = append(fields, record.Field{Label: "agent", Value: label.OrDash(agent.Harness)})
 	if agent.Cwd != "" && agent.Cwd != params.headerCwd {
-		fields = append(fields, recordField{label: "directory", value: agent.Cwd})
+		fields = append(fields, record.Field{Label: "directory", Value: agent.Cwd})
 	}
 	fields = append(fields, params.checkout...)
 	fields = append(fields, sessionFields(agent, schedule)...)
-	fields = append(fields, recordField{label: "hooks", value: label.OrDash(strings.Join(agent.Hooks, ", "))})
+	fields = append(fields, record.Field{Label: "hooks", Value: label.OrDash(strings.Join(agent.Hooks, ", "))})
 	if agent.Tool != "" {
-		fields = append(fields, recordField{label: "tool", value: agent.Tool})
+		fields = append(fields, record.Field{Label: "tool", Value: agent.Tool})
 	}
 	if created := label.Friendly(agent.CreatedAt); created != "" {
-		fields = append(fields, recordField{label: "created", value: created})
+		fields = append(fields, record.Field{Label: "created", Value: created})
 	}
 	if agent.ArchivedAt != nil {
 		if archived := label.Friendly(*agent.ArchivedAt); archived != "" {
-			fields = append(fields, recordField{label: "archived", value: archived})
+			fields = append(fields, record.Field{Label: "archived", Value: archived})
 		}
 	}
 
@@ -130,14 +124,14 @@ func agentFields(params agentFieldsParams) []recordField {
 
 // sessionFields is what the record says of an agent's conversation: how it was launched and the ids
 // it goes by.
-func sessionFields(agent panel.Agent, schedule string) []recordField {
-	fields := []recordField{
-		{label: "flags", value: label.OrDash(agent.Flags)},
-		{label: "agent_id", value: label.OrDash(agent.ID)},
-		{label: "session_id", value: label.OrDash(agent.SessionID)},
+func sessionFields(agent panel.Agent, schedule string) []record.Field {
+	fields := []record.Field{
+		{Label: "flags", Value: label.OrDash(agent.Flags)},
+		{Label: "agent_id", Value: label.OrDash(agent.ID)},
+		{Label: "session_id", Value: label.OrDash(agent.SessionID)},
 	}
 	if schedule != "" {
-		fields = append(fields, recordField{label: "launched by", value: schedule})
+		fields = append(fields, record.Field{Label: "launched by", Value: schedule})
 	}
 
 	return fields
@@ -155,30 +149,30 @@ type scheduleTarget struct {
 	orchestrator string
 }
 
-func scheduleFields(sched panel.Schedule, target scheduleTarget) []recordField {
-	fields := []recordField{
-		{label: "name", value: label.OrDash(sched.Name)},
-		{label: "cron", value: label.OrDash(sched.Cron)},
-		{label: "timezone", value: label.OrDash(sched.Timezone)},
+func scheduleFields(sched panel.Schedule, target scheduleTarget) []record.Field {
+	fields := []record.Field{
+		{Label: "name", Value: label.OrDash(sched.Name)},
+		{Label: "cron", Value: label.OrDash(sched.Cron)},
+		{Label: "timezone", Value: label.OrDash(sched.Timezone)},
 	}
 
 	if sched.Kind == schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR {
 		return append(fields,
-			recordField{label: "kind", value: "orchestrator"},
-			recordField{label: "mails", value: target.orchestrator},
+			record.Field{Label: "kind", Value: "orchestrator"},
+			record.Field{Label: "mails", Value: target.orchestrator},
 		)
 	}
 
 	if !panel.IsKnownScheduleKind(sched.Kind) {
-		return append(fields, recordField{label: "kind", value: "unknown"})
+		return append(fields, record.Field{Label: "kind", Value: "unknown"})
 	}
 
-	fields = append(fields, recordField{label: "kind", value: "task"})
+	fields = append(fields, record.Field{Label: "kind", Value: "task"})
 	if target.workflow == nil {
-		return append(fields, recordField{label: "workflow", value: "— (archived)"})
+		return append(fields, record.Field{Label: "workflow", Value: "— (archived)"})
 	}
 
-	fields = append(fields, recordField{label: "workflow", value: target.workflow.Name})
+	fields = append(fields, record.Field{Label: "workflow", Value: target.workflow.Name})
 
 	return append(fields, workflowConfigFields(*target.workflow)...)
 }

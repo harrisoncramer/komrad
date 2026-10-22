@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/tabs"
 	"komrad/internal/view"
 
 	tea "charm.land/bubbletea/v2"
@@ -156,21 +157,21 @@ func (m *model) forgetUnlistedInspections() {
 	}
 }
 
-func worktreesTabs() tabStrip {
-	return tabStrip{
-		title:    "f",
-		legend:   "sort",
-		options:  tabOptionsOf(worktreeSorts),
-		fallback: "size",
-		grouped:  "repo",
+func worktreesTabs() tabs.Strip {
+	return tabs.Strip{
+		Title:    "f",
+		Legend:   "sort",
+		Options:  tabOptionsOf(worktreeSorts),
+		Fallback: "size",
+		Grouped:  "repo",
 	}
 }
 
-func (w *worktreesScreen) kinds(*model) stops {
-	return stops{
-		labels: worktreeScopeLabels,
-		focus:  noStop,
-		lit:    int(w.scope),
+func (w *worktreesScreen) kinds(*model) tabs.Stops {
+	return tabs.Stops{
+		Labels: worktreeScopeLabels,
+		Focus:  tabs.NoStop,
+		Lit:    int(w.scope),
 	}
 }
 
@@ -187,7 +188,7 @@ func (w *worktreesScreen) kindsSwitch(*model) bool {
 // lists it.
 func (w *worktreesScreen) stepKind(m *model, in screen.Inputs, delta int) screen.Request {
 	hovered := w.list().hovered(m, in)
-	w.scope = worktreeScope(stepStop(int(w.scope), delta, len(worktreeScopeLabels)))
+	w.scope = worktreeScope(tabs.StepStop(int(w.scope), delta, len(worktreeScopeLabels)))
 	w.place(m, in, hovered)
 
 	return screen.Batch{w.stage(m, in), screen.Settle{}}
@@ -198,8 +199,8 @@ func (w *worktreesScreen) stepKind(m *model, in screen.Inputs, delta int) screen
 func (w *worktreesScreen) tally() string {
 	shown := w.shown()
 	tally := fmt.Sprintf("%d"+separated+"%s", len(shown), totalLabel(shown))
-	if w.sort.flat {
-		tally += separated + flatLabel
+	if w.sort.Flat {
+		tally += separated + tabs.FlatLabel
 	}
 
 	return tally
@@ -250,11 +251,11 @@ func (w *worktreesScreen) hoveredName(m *model, in screen.Inputs) string {
 	return w.list().hoveredName(m, in)
 }
 
-func (w *worktreesScreen) tabs() tabStrip {
+func (w *worktreesScreen) tabs() tabs.Strip {
 	return worktreesTabs()
 }
 
-func (w *worktreesScreen) tabsState() *tabsState {
+func (w *worktreesScreen) tabsState() *tabs.State {
 	return &w.sort
 }
 
