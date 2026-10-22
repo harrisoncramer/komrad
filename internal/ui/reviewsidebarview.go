@@ -51,7 +51,7 @@ func (r reviewScreen) sideView(in screen.Inputs, lines int) string {
 		return strings.Join(rows, "\n") + "\n"
 	}
 
-	return paint.RenderList(rows, cursor, lines, dimStyle())
+	return paint.RenderList(rows, cursor, lines, paint.Panel.Style(paint.ToneMuted))
 }
 
 // sideRowView is one row over the file tree, lit while the cursor is on it.
@@ -70,7 +70,7 @@ func (r reviewScreen) sideRowView(row sideRow, lit bool) string {
 			text = paint.Panel.Style(reviewScopeOnTone).Render(text)
 		}
 	case sideWaiting:
-		text = dimStyle().Italic(true).Render(text)
+		text = paint.Panel.Style(paint.ToneMuted).Italic(true).Render(text)
 	case sideDescription:
 		mark := glyph.FolderClosed
 		if r.openDescription {
@@ -78,12 +78,12 @@ func (r reviewScreen) sideRowView(row sideRow, lit bool) string {
 		}
 		text = r.deps.glyphs.Spell(mark) + " " + text
 	case sideDescriptionLine:
-		text = dimStyle().Render(descriptionIndent + text)
+		text = paint.Panel.Style(paint.ToneMuted).Render(descriptionIndent + text)
 	case sideForge, sideNeed:
 	}
 
 	if row.note != "" {
-		text += "  " + dimStyle().Render(row.note)
+		text += "  " + paint.Panel.Style(paint.ToneMuted).Render(row.note)
 	}
 
 	prefix := sideMarkBlank

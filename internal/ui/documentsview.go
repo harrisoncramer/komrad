@@ -88,7 +88,7 @@ func (d *documentsScreen) documentTypeSnapshot(in screen.Inputs, pane list.Pane)
 				Key:     r.Key(),
 				Kind:    view.KindResult,
 				Name:    r.documentType.GetName(),
-				Matches: matchesIn(in.Room.Pattern.Regexp, r.documentType.GetName()),
+				Matches: list.Matches(in.Room.Pattern.Regexp, r.documentType.GetName()),
 				Process: view.ProcessNone,
 				Cells:   []view.Cell{mutedCell(label.AgeAt(dates.Parse(r.documentType.GetUpdatedAt()), now))},
 			}
@@ -235,16 +235,16 @@ func (h *documentHistory) changeRows(width int) []string {
 	before, after, ok := h.readChange()
 	switch {
 	case !ok:
-		return []string{fitRow(indent+dimStyle().Render("reading…"), width)}
+		return []string{paint.FitRow(indent+paint.Panel.Style(paint.ToneMuted).Render("reading…"), width)}
 	case after.err != nil:
-		return []string{fitRow(indent+"could not read: "+errui.GetReason(after.err), width)}
+		return []string{paint.FitRow(indent+"could not read: "+errui.GetReason(after.err), width)}
 	case before.err != nil:
-		return []string{fitRow(indent+"could not read: "+errui.GetReason(before.err), width)}
+		return []string{paint.FitRow(indent+"could not read: "+errui.GetReason(before.err), width)}
 	case h.isOldestKeptLate():
 		return paint.DocStyledRows(after.body+"\n", width, columnStyle())
 	}
 
-	return []string{fitRow(indent+dimStyle().Render("no change to the text"), width)}
+	return []string{paint.FitRow(indent+paint.Panel.Style(paint.ToneMuted).Render("no change to the text"), width)}
 }
 
 // documentTypeFrom is a type's context as the panel renders it beside the list.

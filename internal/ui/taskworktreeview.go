@@ -52,7 +52,7 @@ func buildDiffStatTag(stat *taskv1.DiffStat) string {
 		return ""
 	}
 	if stat.GetAdded() == 0 && stat.GetRemoved() == 0 {
-		return dimStyle().Render("clean")
+		return paint.Panel.Style(paint.ToneMuted).Render("clean")
 	}
 
 	return paint.Panel.Style(paint.ToneSuccess).Render(fmt.Sprintf("+%d", stat.GetAdded())) + " " + paint.Panel.Style(paint.ToneDanger).Render(fmt.Sprintf("−%d", stat.GetRemoved()))

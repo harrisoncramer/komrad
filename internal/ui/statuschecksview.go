@@ -57,7 +57,7 @@ func (c *statusChecksScreen) snapshot(in screen.Inputs, pane list.Pane) view.Sna
 				Key:     r.Key(),
 				Kind:    view.KindResult,
 				Name:    r.item.name,
-				Matches: matchesIn(in.Room.Pattern.Regexp, r.item.name),
+				Matches: list.Matches(in.Room.Pattern.Regexp, r.item.name),
 				Process: view.ProcessNone,
 				Cells: []view.Cell{
 					statusCheckIcon(r.item, in.Room.Spinner),
@@ -117,13 +117,13 @@ func (c *statusChecksScreen) docRows(in screen.Inputs, width int) []string {
 		notice = append(notice, label.Count(len(item.steps), "step", "steps"))
 	}
 
-	out := []string{fitRow(indent+icon(item)+" "+lipgloss.NewStyle().Bold(true).Render(item.name), width)}
+	out := []string{paint.FitRow(indent+icon(item)+" "+lipgloss.NewStyle().Bold(true).Render(item.name), width)}
 	if len(notice) > 0 {
-		out = append(out, fitRow(indent+dimStyle().Render(strings.Join(notice, separated)), width))
+		out = append(out, paint.FitRow(indent+paint.Panel.Style(paint.ToneMuted).Render(strings.Join(notice, separated)), width))
 	}
 	out = append(out, "")
 	if len(item.steps) == 0 {
-		return append(out, fitRow(indent+dimStyle().Render("no steps reported"), width))
+		return append(out, paint.FitRow(indent+paint.Panel.Style(paint.ToneMuted).Render("no steps reported"), width))
 	}
 
 	focal := slices.IndexFunc(item.steps, func(step statusCheckItem) bool { return !step.passed })
@@ -137,7 +137,7 @@ func (c *statusChecksScreen) docRows(in screen.Inputs, width int) []string {
 
 		left := lead + name
 		gap := max(width-lipgloss.Width(left)-lipgloss.Width(duration)-docMargin(), 1)
-		out = append(out, fitRow(left+strings.Repeat(" ", gap)+dimStyle().Render(duration), width))
+		out = append(out, paint.FitRow(left+strings.Repeat(" ", gap)+paint.Panel.Style(paint.ToneMuted).Render(duration), width))
 	}
 
 	return out

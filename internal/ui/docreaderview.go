@@ -20,7 +20,7 @@ func (m *model) docHead(in screen.Inputs, rows []string, width int) []string {
 
 	count := ""
 	if r.filter.isSearched() {
-		count = dimStyle().Render("  " + reader.Count(reader.Matches(r.filter.matcher, rows), r.Line))
+		count = paint.Panel.Style(paint.ToneMuted).Render("  " + reader.Count(reader.Matches(r.filter.matcher, rows), r.Line))
 	}
 
 	return r.filter.head(headParams{glyphs: m.glyphs, marks: in.Room.Marks, count: count, said: r.said, width: width})

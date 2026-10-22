@@ -4,6 +4,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/zone"
 	"komrad/internal/view"
 
 	"charm.land/lipgloss/v2"
@@ -66,7 +67,7 @@ func (m *model) screenListView(params list.Params) string {
 	header, below := m.listChrome(params)
 
 	if params.Rows == 0 && (params.Empty != "" || m.filter.pattern().DoesNarrow(list.SectionList)) {
-		return m.headedListView(header, []string{dimStyle().Render(m.emptyListLine(params.Empty))}, 0, below)
+		return m.headedListView(header, []string{paint.Panel.Style(paint.ToneMuted).Render(m.emptyListLine(params.Empty))}, 0, below)
 	}
 
 	in := m.inputs()
@@ -94,9 +95,9 @@ func (m *model) headerLines(title, tally, tabs string) string {
 	switch {
 	case tally == "":
 	case header == "":
-		header = dimStyle().Render(tally)
+		header = paint.Panel.Style(paint.ToneMuted).Render(tally)
 	default:
-		header += dimStyle().Render("  " + tally)
+		header += paint.Panel.Style(paint.ToneMuted).Render("  " + tally)
 	}
 	if width := m.paneWidth(); width > 0 {
 		header = ansi.Truncate(header, width, "…")
@@ -105,14 +106,14 @@ func (m *model) headerLines(title, tally, tabs string) string {
 		header += "\n"
 	}
 
-	return m.viewsBar() + header + tabs + m.markSearch(stopList, m.paneWidth(), m.filter.line(m.glyphs)) + "\n\n"
+	return m.viewsBar() + header + tabs + m.markSearch(zone.SearchList, m.paneWidth(), m.filter.line(m.glyphs)) + "\n\n"
 }
 
 // headedListView renders a list under its header, padded out to the record and the legend under it.
 func (m *model) headedListView(header string, rows []string, cursor int, help string) string {
 	lines := m.Lines(header, help)
 
-	return headedBlockView(header, paint.RenderList(rows, cursor, lines, dimStyle()), lines, help)
+	return headedBlockView(header, paint.RenderList(rows, cursor, lines, paint.Panel.Style(paint.ToneMuted)), lines, help)
 }
 
 // emptyListLine is what a screen says over no rows.

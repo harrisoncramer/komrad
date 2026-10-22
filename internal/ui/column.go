@@ -32,9 +32,6 @@ func splitOf(width, rows, sidebar, floor int) column.Split {
 	}
 }
 
-// columnFloor is the narrowest a document is worth rendering beside a list at.
-const columnFloor = 40
-
 // sidebarColumns is how wide the panel's own list is rendered while it holds the window, and the
 // block it is holding it for.
 func (m *model) sidebarColumns(in screen.Inputs) (int, column.Spec, bool) {

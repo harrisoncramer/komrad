@@ -4,17 +4,11 @@ import (
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
 	"komrad/internal/view"
-
-	"charm.land/lipgloss/v2"
 )
 
 const nameWidth = 30
 
 const separated = " " + glyph.Separator + " "
-
-func dimStyle() lipgloss.Style {
-	return paint.Panel.Style(paint.ToneMuted)
-}
 
 func scheduleIcon(enabled bool) view.Cell {
 	if enabled {

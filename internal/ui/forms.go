@@ -114,7 +114,7 @@ const formMaxWidth = 60
 // still on screen while it is answered.
 func formColumn(narrow bool) column.Spec {
 	if narrow {
-		return column.Spec{Floor: columnFloor}
+		return column.Spec{Floor: column.Narrowest}
 	}
 
 	return column.Spec{Floor: formColumnFloor}

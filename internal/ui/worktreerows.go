@@ -264,7 +264,7 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 		row := view.Row{
 			Key:     r.Key(),
 			Name:    r.name(),
-			Matches: matchesIn(params.matcher, r.name()),
+			Matches: list.Matches(params.matcher, r.name()),
 		}
 
 		switch {

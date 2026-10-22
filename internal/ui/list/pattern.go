@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/searchsyntax"
 	"komrad/internal/ui/paint"
+	"komrad/internal/view"
 	"komrad/lib/xslice"
 )
 
@@ -247,4 +248,20 @@ func Narrowed[T any](p Pattern, params NarrowedParams[T]) []T {
 	}
 
 	return kept
+}
+
+// Matches is the stretches of a name a search picked out, in bytes of that name.
+func Matches(matcher *regexp.Regexp, name string) []view.Span {
+	if matcher == nil {
+		return nil
+	}
+
+	found := matcher.FindAllStringIndex(name, -1)
+	if len(found) == 0 {
+		return nil
+	}
+
+	return xslice.Map(found, func(at []int) view.Span {
+		return view.Span{Start: at[0], End: at[1]}
+	})
 }

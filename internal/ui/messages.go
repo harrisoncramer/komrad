@@ -86,7 +86,7 @@ func (m *model) isMessagesFlashing() bool {
 }
 
 func buildMessagesColumn() column.Spec {
-	return column.Spec{Floor: columnFloor}
+	return column.Spec{Floor: column.Narrowest}
 }
 
 func formatMessageText(held message) string {

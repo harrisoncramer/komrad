@@ -4,7 +4,9 @@ import (
 	"strings"
 
 	"komrad/internal/glyph"
+	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/zone"
 
 	"charm.land/lipgloss/v2"
 )
@@ -24,7 +26,7 @@ func (f filterState) line(glyphs glyph.Set) string {
 
 	slash := palette.Cursor()
 	if !f.typing && !f.isStanding() {
-		slash = dimStyle()
+		slash = paint.Panel.Style(paint.ToneMuted)
 	}
 
 	line := slash.Render(f.mode.glyph(glyphs)) + " "
@@ -52,14 +54,14 @@ type headParams struct {
 // blank row.
 func (f filterState) head(params headParams) []string {
 	indent := strings.Repeat(" ", docMargin())
-	search := fitRow(indent+f.line(params.glyphs)+params.count, params.width)
+	search := paint.FitRow(indent+f.line(params.glyphs)+params.count, params.width)
 	if params.marks {
-		search = searchMark(stopBlock, params.width, search)
+		search = zone.MarkKey(zone.Search, params.width, 0, zone.SearchBlock) + search
 	}
 
 	head := []string{search}
 	if params.said != "" {
-		head = append(head, fitRow(indent+dimStyle().Render(params.said), params.width))
+		head = append(head, paint.FitRow(indent+paint.Panel.Style(paint.ToneMuted).Render(params.said), params.width))
 	}
 
 	return append(head, "")
@@ -71,5 +73,5 @@ func (f filterState) highlight(palette paint.Palette, name string, base lipgloss
 		return base.Render(name)
 	}
 
-	return palette.Highlight(name, matchesIn(f.matcher, name), base)
+	return palette.Highlight(name, list.Matches(f.matcher, name), base)
 }

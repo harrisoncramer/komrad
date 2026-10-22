@@ -3,6 +3,8 @@ package ui
 import (
 	"testing"
 
+	"komrad/internal/ui/column"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -54,7 +56,7 @@ func TestSplitOfRendersTheWidthItIsHanded(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			split := splitOf(tt.width, 20, tt.sidebar, columnFloor)
+			split := splitOf(tt.width, 20, tt.sidebar, column.Narrowest)
 
 			require.Equal(t, tt.wantOK, split.On)
 			if !split.On {

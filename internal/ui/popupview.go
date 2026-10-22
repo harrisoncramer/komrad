@@ -31,7 +31,7 @@ func renderPopup(body string, back int, slot popupSlot) string {
 		return max(len(lines)-visible-back, 0)
 	})
 
-	shown := paint.RenderWindow(lines[window.Start:window.End], window, len(lines), dimStyle())
+	shown := paint.RenderWindow(lines[window.Start:window.End], window, len(lines), paint.Panel.Style(paint.ToneMuted))
 	rows := strings.Split(strings.TrimSuffix(shown, "\n"), "\n")
 	for len(rows) < room {
 		rows = append(rows, "")

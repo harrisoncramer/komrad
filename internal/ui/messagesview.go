@@ -46,7 +46,7 @@ func (m *model) renderMessagesTally() string {
 
 	tally := paint.Panel.Style(kindTone(worst)).Render(kindIcon(m.glyphs, worst) + " " + strconv.Itoa(count))
 
-	return tally + "  " + dimStyle().Render(keys.HeadLabel(m.keys.Messages.Open))
+	return tally + "  " + paint.Panel.Style(paint.ToneMuted).Render(keys.HeadLabel(m.keys.Messages.Open))
 }
 
 func (m *model) renderMessagesWindow(width, rows int) docWindow {
@@ -56,7 +56,7 @@ func (m *model) renderMessagesWindow(width, rows int) docWindow {
 
 	rendered := []string{m.renderMessagesHeading(width, count, at), ""}
 	if count == 0 {
-		rendered = append(rendered, dimStyle().Render(strings.Repeat(" ", messagesIndent)+"Komrad is running normally"))
+		rendered = append(rendered, paint.Panel.Style(paint.ToneMuted).Render(strings.Repeat(" ", messagesIndent)+"Komrad is running normally"))
 	}
 
 	start, end := 0, 0
@@ -95,7 +95,7 @@ func (m *model) renderMessagesHeading(width, count, at int) string {
 	tally := label.OfCount(at+1, count)
 	pad := max(width-lipgloss.Width(title)-len(tally), 1)
 
-	return title + strings.Repeat(" ", pad) + dimStyle().Render(tally)
+	return title + strings.Repeat(" ", pad) + paint.Panel.Style(paint.ToneMuted).Render(tally)
 }
 
 func (m *model) renderMessageRows(at, width int) []string {
@@ -134,8 +134,8 @@ func (m *model) renderMessageRows(at, width int) []string {
 		style lipgloss.Style
 	}{
 		{text: held.detail, style: lipgloss.NewStyle()},
-		{text: held.hint, style: dimStyle()},
-		{text: strings.Join(meta, separated), style: dimStyle()},
+		{text: held.hint, style: paint.Panel.Style(paint.ToneMuted)},
+		{text: strings.Join(meta, separated), style: paint.Panel.Style(paint.ToneMuted)},
 	} {
 		if piece.text == "" {
 			continue

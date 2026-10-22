@@ -105,10 +105,10 @@ func (m *model) renderInset(view string) string {
 // renderEdgeRow is one row of the divider facing the stage, joined to a rule that meets it.
 func renderEdgeRow(rule bool) string {
 	if !rule {
-		return strings.Repeat(" ", gutter) + dimStyle().Render(dividerGlyph)
+		return strings.Repeat(" ", gutter) + paint.Panel.Style(paint.ToneMuted).Render(dividerGlyph)
 	}
 
-	return dimStyle().Render(strings.Repeat(glyph.Rule, gutter) + glyph.TeeRight)
+	return paint.Panel.Style(paint.ToneMuted).Render(strings.Repeat(glyph.Rule, gutter) + glyph.TeeRight)
 }
 
 func (m *model) screenView() string {

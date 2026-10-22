@@ -1,6 +1,9 @@
 // Package column holds how the panel divides its window while it renders a block beside its own list.
 package column
 
+// Narrowest is the narrowest a document is worth rendering beside a list at.
+const Narrowest = 40
+
 // Split is how the window is divided while the panel is rendering a block beside its own list: the
 // block on one side, and the list, its record and its legend on the other.
 type Split struct {

@@ -2,7 +2,6 @@ package ui
 
 import (
 	"slices"
-	"strconv"
 	"strings"
 
 	"komrad/internal/panes"
@@ -22,7 +21,6 @@ const (
 	zoneKinds      zone.Name = "kinds"
 	zoneTabs       zone.Name = "tabs"
 	zoneFiles      zone.Name = "files"
-	zoneSearch     zone.Name = "search"
 	zoneMessages   zone.Name = "messages"
 	zoneDoc        zone.Name = "doc"
 	zoneMessage    zone.Name = "message"
@@ -164,16 +162,12 @@ func (m *model) markSpan(name zone.Name, key, span string) string {
 	return zone.MarkKey(name, lipgloss.Width(span), 0, key) + span
 }
 
-func (m *model) markSearch(to stop, width int, line string) string {
+func (m *model) markSearch(key string, width int, line string) string {
 	if !m.term.markingZones {
 		return line
 	}
 
-	return searchMark(to, width, line)
-}
-
-func searchMark(to stop, width int, line string) string {
-	return markKeyedRow(zoneSearch, width, strconv.Itoa(int(to)), line)
+	return zone.MarkKey(zone.Search, width, 0, key) + line
 }
 
 func (m *model) markRow(name zone.Name, width int, key, row string) string {
@@ -181,10 +175,6 @@ func (m *model) markRow(name zone.Name, width int, key, row string) string {
 		return row
 	}
 
-	return markKeyedRow(name, width, key, row)
-}
-
-func markKeyedRow(name zone.Name, width int, key, row string) string {
 	return zone.MarkKey(name, width, 0, key) + row
 }
 
