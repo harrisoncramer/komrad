@@ -52,8 +52,6 @@ type ScheduleConfig struct {
 // ErrUnknownScheduleKind refuses a schedule whose kind this build does not know.
 var ErrUnknownScheduleKind = errors.New("this build of komrad does not know the schedule's kind, so update it first")
 
-var ErrNoWorkflow = errors.New("every agent belongs to a workflow, so create one first")
-
 // IsKnownScheduleKind reports whether this build knows what a schedule of this kind targets.
 func IsKnownScheduleKind(kind schedulev1.ScheduleKind) bool {
 	switch kind {
