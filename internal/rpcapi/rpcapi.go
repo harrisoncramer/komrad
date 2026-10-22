@@ -228,7 +228,8 @@ func IsRequired(field protoreflect.FieldDescriptor) bool {
 	return rules.GetString().GetMinLen() > 0 || rules.GetString().GetUuid() || rules.GetRepeated().GetMinItems() > 0
 }
 
-// IsUUID reports whether the server refuses any value of the field, of a list's items or of a map's values but a UUID.
+// IsUUID reports whether the server accepts only a UUID in the field, its list items or its map
+// values.
 func IsUUID(field protoreflect.FieldDescriptor) bool {
 	rules := getRules(field)
 	switch {
