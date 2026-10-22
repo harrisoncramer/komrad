@@ -52,6 +52,9 @@
   --color-app-gray-light: #a8b5cb;
   --color-app-gray-dim: #7a879e;
   --color-app-yellow: #f5c26b;
+  --color-app-green: #8fd4a8;
+  --color-app-cyan: #7fd6e0;
+  --color-app-magenta: #c7a6ff;
   --color-app-red: #ff8a8a;
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -241,15 +244,15 @@
 }
 
 .doc-content .type-name[data-tone="string"] {
-  color: color-mix(in srgb, #8fd4a8 65%, var(--color-app-gray-dim));
+  color: color-mix(in srgb, var(--color-app-green) 65%, var(--color-app-gray-dim));
 }
 
 .doc-content .type-name[data-tone="uuid"] {
-  color: color-mix(in srgb, #7fd6e0 65%, var(--color-app-gray-dim));
+  color: color-mix(in srgb, var(--color-app-cyan) 65%, var(--color-app-gray-dim));
 }
 
 .doc-content .type-name[data-tone="bool"] {
-  color: color-mix(in srgb, #c7a6ff 65%, var(--color-app-gray-dim));
+  color: color-mix(in srgb, var(--color-app-magenta) 65%, var(--color-app-gray-dim));
 }
 
 .doc-content .type-name[data-tone="number"] {
