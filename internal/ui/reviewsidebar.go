@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -497,20 +498,19 @@ func (r reviewScreen) stackedOffSaid(m *model, taskID string) string {
 }
 
 // sideMenu is the band on the row under the sidebar's cursor, false for a row with none.
-func (r *reviewScreen) sideMenu(m *model, side sideCursor) (submenu, bool) {
+func (r *reviewScreen) sideMenu(m *model, side sideCursor) (menu.Menu, bool) {
 	if side.kind != sideTask {
-		return submenu{}, false
+		return menu.Menu{}, false
 	}
 
 	task := m.listing.Tasks[side.id]
-	review := openEntry("review", m.keys.Menu.Review, func(m *model) tea.Cmd {
+	review := menu.Leaving("review", m.keys.Menu.Review, func() tea.Cmd {
 		return m.review.openStackedReview(m, task.ID)
 	})
 
-	return submenu{
-		kind:    formMenu,
-		title:   task.Slug,
-		entries: []submenuEntry{drawnOff(review, r.stackedOffSaid(m, task.ID))},
+	return menu.Menu{
+		Title:   task.Slug,
+		Entries: []menu.Entry{menu.DrawnOff(review, r.stackedOffSaid(m, task.ID))},
 	}, true
 }
 

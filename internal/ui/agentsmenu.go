@@ -3,6 +3,7 @@ package ui
 import (
 	"slices"
 
+	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
@@ -11,58 +12,56 @@ import (
 )
 
 // buildScreenMenu builds the agents list's own band, for starting a workflow, under every row.
-func (a *agentsScreen) buildScreenMenu(m *model) (submenu, bool) {
-	return submenu{
-		kind:  formMenu,
-		title: "agents",
-		entries: []submenuEntry{
-			openEntry("new workflow", m.keys.Menu.NewWorkflow, newWorkflowForm),
+func (a *agentsScreen) buildScreenMenu(m *model) (menu.Menu, bool) {
+	return menu.Menu{
+		Title: "agents",
+		Entries: []menu.Entry{
+			menu.Leaving("new workflow", m.keys.Menu.NewWorkflow, func() tea.Cmd { return newWorkflowForm(m) }),
 		},
 	}, true
 }
 
 // taskMenu is the hovered task's band: its pages, what starts or edits work on it, its git, and
 // the menus that hide, archive or delete it.
-func (a *agentsScreen) taskMenu(m *model, row agentRow) submenu {
+func (a *agentsScreen) taskMenu(m *model, row agentRow) menu.Menu {
 	task := *row.task
 	writer, _ := row.writer()
-	menu := submenu{
-		kind:  formMenu,
-		title: task.Slug,
-		entries: slices.Concat(
-			[]submenuEntry{taskReviewEntry(m, writer.Agent), taskLogsEntry(m, task)},
+	band := menu.Menu{
+		Title: task.Slug,
+		Entries: slices.Concat(
+			[]menu.Entry{taskReviewEntry(m, writer.Agent), taskLogsEntry(m, task)},
 			subpageEntries(m, writer, []subpage{subpageChecks}),
-			[]submenuEntry{
+			[]menu.Entry{
 				taskTerminalEntry(m, taskDir(task, row.workflow)),
 			},
 			newAgentEntries(m, row.workflow, task),
-			[]submenuEntry{
-				openEntry("edit task", m.keys.Menu.EditRow, func(m *model) tea.Cmd { return openEditTask(m, task) }),
+			[]menu.Entry{
+				menu.Leaving("edit task", m.keys.Menu.EditRow, func() tea.Cmd { return openEditTask(m, task) }),
 				a.notesEntry(m, row),
 			},
 			restartEntries(m, task),
 			retryEntries(m, writer),
 			a.snoozeEntries(m, writer),
 			a.editEntries(m, writer),
-			[]submenuEntry{
-				nestedEntry("git", m.keys.Menu.Git, gitMenu(m, task)),
-				nestedEntry("jump", m.keys.Menu.Jump, taskJumpMenu(m, writer.Agent.ID, task.ID)),
+			[]menu.Entry{
+				menu.Nested("git", m.keys.Menu.Git, gitMenu(m, task)),
+				menu.Nested("jump", m.keys.Menu.Jump, taskJumpMenu(m, writer.Agent.ID, task.ID)),
 			},
 		),
 	}
 
-	menu = withNested(menu, "hide", m.keys.Menu.Hide, a.hideMenu(m, []panel.Task{task}))
+	band = menu.WithNested(band, "hide", m.keys.Menu.Hide, a.hideMenu(m, []panel.Task{task}))
 
-	return withNested(menu, "archive", m.keys.Menu.Archive, taskArchiveMenu(m, task))
+	return menu.WithNested(band, "archive", m.keys.Menu.Archive, taskArchiveMenu(m, task))
 }
 
 // newAgentEntries is the entry that starts an agent on a task, and none when no agent can start on it.
-func newAgentEntries(m *model, workflow panel.Workflow, task panel.Task) []submenuEntry {
+func newAgentEntries(m *model, workflow panel.Workflow, task panel.Task) []menu.Entry {
 	if !isTaskStartable(m, task) {
 		return nil
 	}
 
-	return []submenuEntry{openEntry("new agent", m.keys.Menu.NewAgent, func(m *model) tea.Cmd {
+	return []menu.Entry{menu.Leaving("new agent", m.keys.Menu.NewAgent, func() tea.Cmd {
 		return openNewAgentOnTask(m, workflow, task)
 	})}
 }
@@ -80,24 +79,24 @@ func isTaskStartable(m *model, task panel.Task) bool {
 
 // taskJumpMenu is the jump menu of the agent that opens a task, with its documents entry landing on the
 // task's.
-func taskJumpMenu(m *model, agentID, taskID string) submenu {
-	menu := jumpMenu(m, screen.Agents, screen.Target{AgentID: agentID})
-	menu.entries = xslice.Map(menu.entries, func(entry submenuEntry) submenuEntry {
-		if !slices.Equal(entry.keys, m.keys.JumpMenu.Documents) {
+func taskJumpMenu(m *model, agentID, taskID string) menu.Menu {
+	band := jumpMenu(m, screen.Agents, screen.Target{AgentID: agentID})
+	band.Entries = xslice.Map(band.Entries, func(entry menu.Entry) menu.Entry {
+		if !slices.Equal(entry.Keys, m.keys.JumpMenu.Documents) {
 			return entry
 		}
 
-		return openEntry("documents", m.keys.JumpMenu.Documents, func(m *model) tea.Cmd {
+		return menu.Leaving("documents", m.keys.JumpMenu.Documents, func() tea.Cmd {
 			return m.apply(screen.Open{Screen: screen.Documents, Target: screen.Target{AgentID: agentID, TaskID: taskID}})
 		})
 	})
 
-	return menu
+	return band
 }
 
 // taskLogsEntry opens the runs of every agent on a task.
-func taskLogsEntry(m *model, task panel.Task) submenuEntry {
-	return openEntry("logs", m.keys.Menu.Logs, func(m *model) tea.Cmd {
+func taskLogsEntry(m *model, task panel.Task) menu.Entry {
+	return menu.Leaving("logs", m.keys.Menu.Logs, func() tea.Cmd {
 		m.leaveForm()
 
 		return m.apply(screen.Open{Screen: screen.Logs, Target: screen.Target{TaskID: task.ID, OpenedFrom: screen.Agents}})
@@ -105,15 +104,15 @@ func taskLogsEntry(m *model, task panel.Task) submenuEntry {
 }
 
 // taskTerminalEntry opens a shell in a task's directory, off when it has none.
-func taskTerminalEntry(m *model, dir string) submenuEntry {
-	entry := openEntry("terminal", m.keys.Menu.Terminal, func(m *model) tea.Cmd {
+func taskTerminalEntry(m *model, dir string) menu.Entry {
+	entry := menu.Leaving("terminal", m.keys.Menu.Terminal, func() tea.Cmd {
 		if dir == "" {
 			return m.refuseSubpage("Could not open a terminal", errNoTaskDir)
 		}
 
 		return tea.Batch(m.closeForm(), m.openTerminal(dir))
 	})
-	entry.isOff = dir == ""
+	entry.Off = dir == ""
 
 	return entry
 }
@@ -128,54 +127,53 @@ func taskDir(task panel.Task, workflow panel.Workflow) string {
 }
 
 // taskReviewEntry opens the review of a task through the agent it wears, archived or not.
-func taskReviewEntry(m *model, writer panel.Agent) submenuEntry {
-	entry := openEntry("review", m.keys.Menu.Review, func(m *model) tea.Cmd {
+func taskReviewEntry(m *model, writer panel.Agent) menu.Entry {
+	entry := menu.Leaving("review", m.keys.Menu.Review, func() tea.Cmd {
 		if !m.listing.IsReviewable(writer) {
 			return m.refuseSubpage("Could not open the review of "+m.listing.Tasks.FindForAgent(writer).Slug, errReviewNoCheckout)
 		}
 
 		return m.enterReview(writer)
 	})
-	entry.isOff = !m.listing.IsReviewable(writer)
+	entry.Off = !m.listing.IsReviewable(writer)
 
 	return entry
 }
 
 // agentRowMenu is the hovered agent's band, which holds what concerns its session and leaves the
 // work to its task's row.
-func (a *agentsScreen) agentRowMenu(m *model, item panel.AgentRow) submenu {
+func (a *agentsScreen) agentRowMenu(m *model, item panel.AgentRow) menu.Menu {
 	pages := subpageEntries(m, item, []subpage{subpageLogs})
 	own := append(a.editEntries(m, item), retryEntries(m, item)...)
 	if item.Agent.TaskID == "" {
 		own = append(own, a.snoozeEntries(m, item)...)
 	}
 
-	menu := submenu{
-		kind:    formMenu,
-		title:   m.listing.AgentName(item.Agent),
-		entries: slices.Concat(pages, own),
+	band := menu.Menu{
+		Title:   m.listing.AgentName(item.Agent),
+		Entries: slices.Concat(pages, own),
 	}
 	if item.Agent.Role == panel.RoleWriter {
-		return menu
+		return band
 	}
 
-	return withNested(menu, "archive", m.keys.Menu.Archive, agentArchiveMenu(m, item.Agent))
+	return menu.WithNested(band, "archive", m.keys.Menu.Archive, agentArchiveMenu(m, item.Agent))
 }
 
 // retryEntries is the entry that relaunches an agent that failed to create, and none otherwise.
-func retryEntries(m *model, item panel.AgentRow) []submenuEntry {
+func retryEntries(m *model, item panel.AgentRow) []menu.Entry {
 	if item.Agent.State != panel.StateFailedToCreate {
 		return nil
 	}
 
-	return []submenuEntry{openEntry("retry launch", m.keys.Menu.Retry, func(m *model) tea.Cmd {
+	return []menu.Entry{menu.Leaving("retry launch", m.keys.Menu.Retry, func() tea.Cmd {
 		return openRetryForm(m, item.Agent)
 	})}
 }
 
 // snoozeEntries is the entry that snoozes or wakes the agent's task in triage, and none when it
 // is not in triage.
-func (a *agentsScreen) snoozeEntries(m *model, item panel.AgentRow) []submenuEntry {
+func (a *agentsScreen) snoozeEntries(m *model, item panel.AgentRow) []menu.Entry {
 	triaged, ok := a.triage.findTask(item, m.listing.Agents)
 	if !ok {
 		return nil
@@ -187,10 +185,11 @@ func (a *agentsScreen) snoozeEntries(m *model, item panel.AgentRow) []submenuEnt
 		label = "wake"
 	}
 
-	return []submenuEntry{{
-		label: label,
-		keys:  m.keys.Menu.Snooze,
-		write: func(m *model) tea.Cmd {
+	return []menu.Entry{{
+		Label: label,
+		Keys:  m.keys.Menu.Snooze,
+		After: menu.Hold,
+		Pick: func() tea.Cmd {
 			m.agents.toggleSnooze(m, key)
 
 			return nil
@@ -199,35 +198,35 @@ func (a *agentsScreen) snoozeEntries(m *model, item panel.AgentRow) []submenuEnt
 }
 
 // closeEditEntries is the entry that closes the editor already open, and none while it is shut.
-func (a *agentsScreen) closeEditEntries(m *model) []submenuEntry {
+func (a *agentsScreen) closeEditEntries(m *model) []menu.Entry {
 	if a.editing == nil {
 		return nil
 	}
 
-	return []submenuEntry{writeEntry("close the editor", m.keys.Menu.Edit, func(m *model) tea.Cmd {
+	return []menu.Entry{menu.Holding("close the editor", m.keys.Menu.Edit, func() tea.Cmd {
 		return m.agents.releaseEdit(m)
 	})}
 }
 
 // editEntries is the entry that closes the editor already open, or opens one on the agent's worktree.
-func (a *agentsScreen) editEntries(m *model, item panel.AgentRow) []submenuEntry {
+func (a *agentsScreen) editEntries(m *model, item panel.AgentRow) []menu.Entry {
 	if a.editing != nil {
 		return a.closeEditEntries(m)
 	}
 
-	return []submenuEntry{writeEntry("edit files", m.keys.Menu.Edit, func(m *model) tea.Cmd {
+	return []menu.Entry{menu.Holding("edit files", m.keys.Menu.Edit, func() tea.Cmd {
 		return m.agents.pressEdit(m, item)
 	})}
 }
 
 // workflowEntries are the entries on the hovered workflow, and on its orchestrator when it has one.
-func workflowEntries(m *model, workflow panel.Workflow, orchestrator *panel.Agent) []submenuEntry {
-	entries := []submenuEntry{
-		openEntry("new task", m.keys.Menu.NewAgent, func(m *model) tea.Cmd { return openNewTask(m, &workflow) }),
-		openEntry("edit workflow", m.keys.Menu.EditRow, func(m *model) tea.Cmd {
+func workflowEntries(m *model, workflow panel.Workflow, orchestrator *panel.Agent) []menu.Entry {
+	entries := []menu.Entry{
+		menu.Leaving("new task", m.keys.Menu.NewAgent, func() tea.Cmd { return openNewTask(m, &workflow) }),
+		menu.Leaving("edit workflow", m.keys.Menu.EditRow, func() tea.Cmd {
 			return editWorkflowForm(m, workflow)
 		}),
-		openEntry("adopt", m.keys.Menu.Adopt, func(m *model) tea.Cmd { return openAdopt(m, &workflow) }),
+		menu.Leaving("adopt", m.keys.Menu.Adopt, func() tea.Cmd { return openAdopt(m, &workflow) }),
 	}
 
 	return append(entries, orchestratorRestartEntries(m, workflow, orchestrator)...)

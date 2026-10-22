@@ -6,9 +6,9 @@ import (
 
 	"komrad/config"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
-	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
@@ -34,22 +34,22 @@ type restartTarget struct {
 
 // restartEntries is the entry that restarts a task's live writer on a new conversation, and none
 // when no agent can start on the task.
-func restartEntries(m *model, task panel.Task) []submenuEntry {
+func restartEntries(m *model, task panel.Task) []menu.Entry {
 	if !isTaskStartable(m, task) {
 		return nil
 	}
 
 	writer, refusal := findRestartableWriter(m.listing, task)
-	entry := openEntry("restart", m.keys.Menu.Restart, func(m *model) tea.Cmd {
+	entry := menu.Leaving("restart", m.keys.Menu.Restart, func() tea.Cmd {
 		if refusal != nil {
 			return m.apply(screen.Report{Summary: "Could not restart the writer of task " + task.Slug, Err: refusal})
 		}
 
 		return openRestart(m, restartTarget{agent: *writer, on: task.Slug, briefing: "the task's notes"})
 	})
-	entry.isOff = refusal != nil
+	entry.Off = refusal != nil
 
-	return []submenuEntry{entry}
+	return []menu.Entry{entry}
 }
 
 // findRestartableWriter is the task's writer when it can restart, or why it cannot.
@@ -67,12 +67,12 @@ func findRestartableWriter(l panel.Listing, task panel.Task) (*panel.Agent, erro
 
 // orchestratorRestartEntries is the entry that restarts the workflow's orchestrator on a new
 // conversation, and none when the workflow has no orchestrator.
-func orchestratorRestartEntries(m *model, workflow panel.Workflow, orchestrator *panel.Agent) []submenuEntry {
+func orchestratorRestartEntries(m *model, workflow panel.Workflow, orchestrator *panel.Agent) []menu.Entry {
 	if orchestrator == nil {
 		return nil
 	}
 
-	return []submenuEntry{openEntry("restart orchestrator", m.keys.Menu.Restart, func(m *model) tea.Cmd {
+	return []menu.Entry{menu.Leaving("restart orchestrator", m.keys.Menu.Restart, func() tea.Cmd {
 		return openRestart(m, restartTarget{agent: *orchestrator, on: workflow.Name, briefing: "its briefing"})
 	})}
 }
@@ -96,20 +96,26 @@ func openRestart(m *model, target restartTarget) tea.Cmd {
 
 // restartAgent relaunches the agent on a new conversation in the same directory.
 func (m *model) restartAgent(agent panel.Agent, values restartValues) tea.Cmd {
-	pending := m.unstageAhead([]panel.Agent{agent})
+	clients := m.api
 
-	return pending.attach(m.agentWriteCmd(
-		"restarting "+m.listing.AgentName(agent),
-		fmt.Sprintf("Could not restart agent %q", m.listing.AgentName(agent)),
-		func(a api) (*agentv1.Agent, error) {
-			return a.restartAgent(restartAgentParams{
+	return m.apply(screen.Write{
+		Doing:   "restarting " + m.listing.AgentName(agent),
+		Summary: fmt.Sprintf("Could not restart agent %q", m.listing.AgentName(agent)),
+		Unstage: []panel.Agent{agent},
+		Send: func() screen.Landed {
+			restarted, err := clients.restartAgent(restartAgentParams{
 				ID:      agent.ID,
 				Note:    values.Note,
 				Harness: values.Harness,
 				Flags:   values.Flags,
 			})
+			if err != nil {
+				return screen.Landed{Err: err}
+			}
+
+			return screen.Landed{Made: madeAgent(restarted, false)}
 		},
-	))
+	})
 }
 
 func restartForm(fixed config.FixedKeys, values *restartValues, target restartTarget) (*huh.Form, []string) {

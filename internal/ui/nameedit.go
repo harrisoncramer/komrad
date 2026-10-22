@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/list"
+	"komrad/internal/ui/screen"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -20,20 +21,34 @@ func reconcileNameEdit[T list.Keyed](e *field.NameEdit, rows []T, hovered string
 	return e.Reconcile(hovered, name(rows[at]), true)
 }
 
-// stampRename says on a write's result which row's rename it carried.
-func stampRename(cmd tea.Cmd, row string) tea.Cmd {
-	return func() tea.Msg {
-		msg := cmd()
+// renameSettled is a rename landed, for the screens that typed it.
+type renameSettled struct {
+	row string
+	err error
+}
 
-		result, ok := msg.(writeResult)
-		if !ok {
-			return msg
-		}
+// renameCmd sends a name typed over a row, handing the outcome to the screens that type names.
+func (m *model) renameCmd(doing, summary, row string, write func(api) error) tea.Cmd {
+	clients := m.api
 
-		result.renamed = row
+	return m.apply(screen.Write{
+		Doing:   doing,
+		Summary: summary,
+		Send: func() screen.Landed {
+			err := write(clients)
 
-		return result
-	}
+			return screen.Landed{Err: err, Then: renameSettled{row: row, err: err}}
+		},
+	})
+}
+
+// settleRename marks a typed name saved once its write has landed, or open for another try when it failed.
+func (m *model) settleRename(settled renameSettled) {
+	m.agents.settleRename(m, settled.row, settled.err)
+	m.documents.settleRename(m, settled.row, settled.err)
+	m.agents.archived.settleRename(m, settled.row, settled.err)
+	m.agents.deleted.settleRename(m, settled.row, settled.err)
+	m.schedules.settleRename(m, settled.row, settled.err)
 }
 
 func renameHelp() keyMap {

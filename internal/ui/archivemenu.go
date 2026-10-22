@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 
@@ -66,7 +67,7 @@ func (t archived) deleteOffSaid() string {
 }
 
 // archiveMenu is the archive's actions on a row, opened from its menu.
-func archiveMenu(m *model, target archived) submenu {
+func archiveMenu(m *model, target archived) menu.Menu {
 	restore, remove := "restore", "delete for good"
 	if target.chosen {
 		restore, remove = "restore all", "delete all for good"
@@ -74,18 +75,18 @@ func archiveMenu(m *model, target archived) submenu {
 
 	_, err := target.opensAgent(m.listing)
 
-	return submenu{
-		kind:  formArchiveMenu,
-		title: "archive",
-		entries: []submenuEntry{
-			writeEntry(restore, m.keys.ArchiveMenu.Restore, func(m *model) tea.Cmd { return restoreArchived(m, target) }),
+	return menu.Menu{
+		Title: "archive",
+		Entries: []menu.Entry{
+			menu.Holding(restore, m.keys.ArchiveMenu.Restore, func() tea.Cmd { return restoreArchived(m, target) }),
 			{
-				label: "restore and open",
-				keys:  m.keys.ArchiveMenu.RestoreOpen,
-				isOff: err != nil,
-				write: func(m *model) tea.Cmd { return m.restoreAndOpen(target) },
+				Label: "restore and open",
+				Keys:  m.keys.ArchiveMenu.RestoreOpen,
+				Off:   err != nil,
+				After: menu.Hold,
+				Pick:  func() tea.Cmd { return m.restoreAndOpen(target) },
 			},
-			drawnOff(openEntry(remove, m.keys.ArchiveMenu.Delete, func(m *model) tea.Cmd {
+			menu.DrawnOff(menu.Leaving(remove, m.keys.ArchiveMenu.Delete, func() tea.Cmd {
 				return confirmDeleteArchivedRow(m, target)
 			}), target.deleteOffSaid()),
 		},
@@ -93,18 +94,18 @@ func archiveMenu(m *model, target archived) submenu {
 }
 
 // deletedEntries are the deleted list's actions on a row, offering restore only on a workflow.
-func deletedEntries(m *model, target archived) []submenuEntry {
+func deletedEntries(m *model, target archived) []menu.Entry {
 	remove := "delete for good"
 	if target.chosen {
 		remove = "delete all for good"
 	}
 
-	var entries []submenuEntry
+	var entries []menu.Entry
 	if target.workflow != nil {
-		entries = append(entries, writeEntry("restore", m.keys.Menu.Restore, func(m *model) tea.Cmd { return restoreArchived(m, target) }))
+		entries = append(entries, menu.Holding("restore", m.keys.Menu.Restore, func() tea.Cmd { return restoreArchived(m, target) }))
 	}
 
-	return append(entries, drawnOff(openEntry(remove, m.keys.Menu.Delete, func(m *model) tea.Cmd {
+	return append(entries, menu.DrawnOff(menu.Leaving(remove, m.keys.Menu.Delete, func() tea.Cmd {
 		return confirmDeleteArchivedRow(m, target)
 	}), target.deleteOffSaid()))
 }
@@ -127,7 +128,7 @@ func restoreArchived(m *model, target archived) tea.Cmd {
 		return m.awaitingWriteCmd(
 			"restoring "+schedule.Name,
 			fmt.Sprintf("Could not restore schedule %q", schedule.Name),
-			&awaits{gone: rowsIn(listArchivedSchedules, schedule.ID)},
+			screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedSchedules, schedule.ID)},
 			func(c api) error { return c.restoreSchedule(schedule.ID) },
 		)
 	case target.workflow != nil:
@@ -136,7 +137,7 @@ func restoreArchived(m *model, target archived) tea.Cmd {
 		return m.awaitingWriteCmd(
 			"restoring "+workflow.Name,
 			fmt.Sprintf("Could not restore workflow %q", workflow.Name),
-			&awaits{gone: rowsIn(listArchivedWorkflows, workflow.ID)},
+			screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)},
 			func(c api) error { return c.restoreWorkflow(workflow.ID) },
 		)
 	}
@@ -156,42 +157,44 @@ func confirmDeleteArchivedRow(m *model, target archived) tea.Cmd {
 }
 
 // liveArchiveMenu is the archive menu on a row that is not archived yet.
-func liveArchiveMenu(entries ...submenuEntry) submenu {
-	return submenu{
-		kind:    formArchiveMenu,
-		title:   "archive",
-		entries: entries,
+func liveArchiveMenu(entries ...menu.Entry) menu.Menu {
+	return menu.Menu{
+		Title:   "archive",
+		Entries: entries,
 	}
 }
 
 // agentArchiveMenu archives the hovered agent alone, its task left standing.
-func agentArchiveMenu(m *model, agent panel.Agent) submenu {
-	return liveArchiveMenu(submenuEntry{
-		label: "archive this agent",
-		keys:  m.keys.ArchiveMenu.Archive,
-		write: func(m *model) tea.Cmd { return m.archiveAgents([]panel.Agent{agent}) },
+func agentArchiveMenu(m *model, agent panel.Agent) menu.Menu {
+	return liveArchiveMenu(menu.Entry{
+		Label: "archive this agent",
+		Keys:  m.keys.ArchiveMenu.Archive,
+		After: menu.Hold,
+		Pick:  func() tea.Cmd { return m.archiveAgents([]panel.Agent{agent}) },
 	})
 }
 
-func workflowArchiveMenu(m *model, workflow panel.Workflow) submenu {
-	return liveArchiveMenu(submenuEntry{
-		label: "archive with its agents",
-		keys:  m.keys.ArchiveMenu.Archive,
-		write: func(m *model) tea.Cmd { return m.archiveWorkflow(workflow) },
+func workflowArchiveMenu(m *model, workflow panel.Workflow) menu.Menu {
+	return liveArchiveMenu(menu.Entry{
+		Label: "archive with its agents",
+		Keys:  m.keys.ArchiveMenu.Archive,
+		After: menu.Hold,
+		Pick:  func() tea.Cmd { return m.archiveWorkflow(workflow) },
 	})
 }
 
 // taskArchiveMenu archives the hovered task with its agents, or deletes it for good.
-func taskArchiveMenu(m *model, task panel.Task) submenu {
+func taskArchiveMenu(m *model, task panel.Task) menu.Menu {
 	tasks := []panel.Task{task}
 
 	return liveArchiveMenu(
-		submenuEntry{
-			label: "archive with its agents",
-			keys:  m.keys.ArchiveMenu.Archive,
-			write: func(m *model) tea.Cmd { return m.archiveTasks(tasks) },
+		menu.Entry{
+			Label: "archive with its agents",
+			Keys:  m.keys.ArchiveMenu.Archive,
+			After: menu.Hold,
+			Pick:  func() tea.Cmd { return m.archiveTasks(tasks) },
 		},
-		openEntry("archive and delete for good", m.keys.ArchiveMenu.Delete, func(m *model) tea.Cmd {
+		menu.Leaving("archive and delete for good", m.keys.ArchiveMenu.Delete, func() tea.Cmd {
 			return confirmDeleteTasks(m, tasks)
 		}),
 	)
@@ -199,14 +202,15 @@ func taskArchiveMenu(m *model, task panel.Task) submenu {
 
 // chosenArchiveMenu archives the chosen agents, or deletes them for good with the task of each
 // chosen writer.
-func chosenArchiveMenu(m *model, work chosenWork) submenu {
+func chosenArchiveMenu(m *model, work chosenWork) menu.Menu {
 	return liveArchiveMenu(
-		submenuEntry{
-			label: "archive all",
-			keys:  m.keys.ArchiveMenu.Archive,
-			write: func(m *model) tea.Cmd { return m.archiveChosenAgents(work) },
+		menu.Entry{
+			Label: "archive all",
+			Keys:  m.keys.ArchiveMenu.Archive,
+			After: menu.Hold,
+			Pick:  func() tea.Cmd { return m.archiveChosenAgents(work) },
 		},
-		drawnOff(openEntry("archive and delete all for good", m.keys.ArchiveMenu.Delete, func(m *model) tea.Cmd {
+		menu.DrawnOff(menu.Leaving("archive and delete all for good", m.keys.ArchiveMenu.Delete, func() tea.Cmd {
 			return confirmDeleteChosenAgents(m, work)
 		}), work.deleteOffSaid()),
 	)
@@ -215,15 +219,15 @@ func chosenArchiveMenu(m *model, work chosenWork) submenu {
 // archiveChosenAgents archives the task of each chosen writer with its agents and the other chosen
 // agents alone.
 func (m *model) archiveChosenAgents(work chosenWork) tea.Cmd {
-	pending := m.unstageAhead(work.affected(m.listing))
 	subject := describeAgents(work.chosen)
 
-	return pending.attach(m.writeCmd(
-		"archiving "+subject,
-		"Could not archive "+subject,
-		func(a api) error {
+	return m.archivingWriteCmd(archivingWriteCmdParams{
+		doing:   "archiving " + subject,
+		summary: "Could not archive " + subject,
+		agents:  work.affected(m.listing),
+		write: func(a api) error {
 			for _, task := range work.wholeTasks {
-				if err := pending.noteArchive(a.archiveTask(task.ID)); err != nil {
+				if err := a.archiveTask(task.ID); err != nil {
 					return err
 				}
 			}
@@ -231,24 +235,24 @@ func (m *model) archiveChosenAgents(work chosenWork) tea.Cmd {
 				return nil
 			}
 
-			return pending.noteArchive(a.archiveAgents(panel.IDs(work.loneAgents)))
+			return a.archiveAgents(panel.IDs(work.loneAgents))
 		},
-	))
+	})
 }
 
 // deleteChosenAgents deletes the task of each chosen writer, with its agents when records go too.
 func (m *model) deleteChosenAgents(work chosenWork, records bool) tea.Cmd {
-	pending := m.unstageAhead(work.affected(m.listing))
 	subject := describeAgents(work.chosen)
 
-	return pending.attach(m.awaitingWriteCmd(
-		"deleting "+subject,
-		"Could not delete "+subject,
-		awaitDeleted(records, rowsIn(listArchivedAgents, panel.IDs(work.chosen)...)),
-		func(a api) error {
-			return pending.noteArchive(a.deleteTasks(panel.TaskIDs(work.wholeTasks), records))
+	return m.archivingWriteCmd(archivingWriteCmdParams{
+		doing:   "deleting " + subject,
+		summary: "Could not delete " + subject,
+		agents:  work.affected(m.listing),
+		awaits:  awaitDeleted(records, screen.RowsIn(screen.ListArchivedAgents, panel.IDs(work.chosen)...)),
+		write: func(a api) error {
+			return a.deleteTasks(panel.TaskIDs(work.wholeTasks), records)
 		},
-	))
+	})
 }
 
 // confirmDeleteChosenAgents asks what goes before the chosen agents are deleted.
@@ -260,10 +264,11 @@ func confirmDeleteChosenAgents(m *model, work chosenWork) tea.Cmd {
 	})
 }
 
-func scheduleArchiveMenu(m *model, schedule panel.Schedule) submenu {
-	return liveArchiveMenu(submenuEntry{
-		label: "archive",
-		keys:  m.keys.ArchiveMenu.Archive,
-		write: func(m *model) tea.Cmd { return m.archiveSchedule(schedule) },
+func scheduleArchiveMenu(m *model, schedule panel.Schedule) menu.Menu {
+	return liveArchiveMenu(menu.Entry{
+		Label: "archive",
+		Keys:  m.keys.ArchiveMenu.Archive,
+		After: menu.Hold,
+		Pick:  func() tea.Cmd { return m.archiveSchedule(schedule) },
 	})
 }

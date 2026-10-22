@@ -35,6 +35,9 @@ type formState struct {
 	// back is what the back key does, nil for closing the form.
 	back func(*model) tea.Cmd
 
+	// beside opens a form to the right of this one, nil for a form that keeps nothing beside it.
+	beside func(*model, formState) tea.Cmd
+
 	// update is the form's own message handler, so the panel need not ask which form is up before
 	// handing it a message.
 	update func(*model, tea.Msg) tea.Cmd
@@ -80,9 +83,6 @@ const (
 	formAgentAbort
 	formMerge
 	formAgentRetry
-	formGit
-	formArchiveMenu
-	formHideMenu
 	formMenu
 	formWorkflow
 	formTask
@@ -157,7 +157,7 @@ func formColumn(kind formKind) (columnSpec, bool) {
 	case formAgent, formReviewer, formAdopt, formAgentRetry, formWorkflow, formTask, formSchedule,
 		formDocument, formDocumentType:
 		return columnSpec{floor: formColumnFloor}, true
-	case formGit, formArchiveMenu, formHideMenu, formMerge, formMenu, formAgentRebase, formAgentPush, formAgentAbort, formWorkflowArchive, formScheduleArchive,
+	case formMerge, formMenu, formAgentRebase, formAgentPush, formAgentAbort, formWorkflowArchive, formScheduleArchive,
 		formArchiveDelete, formWorktreesDelete, formDocumentTypeDelete:
 		return columnSpec{floor: columnFloor}, true
 	case formNone:
@@ -417,20 +417,6 @@ func (m *model) detachForm() tea.Cmd {
 	}
 
 	return m.closeForm()
-}
-
-// landHeld counts a write back in, and reports whether the form on screen was held for it.
-func (m *model) landHeld(write int) bool {
-	m.landWrite(write)
-	delete(m.writes.detached, write)
-
-	if !m.writes.held.owns(write) {
-		return false
-	}
-
-	m.writes.held = heldWrite{}
-
-	return true
 }
 
 // answerForm runs what the form on screen was filled in to do.

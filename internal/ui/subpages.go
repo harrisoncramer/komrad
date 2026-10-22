@@ -4,6 +4,7 @@ import (
 	"errors"
 	"slices"
 
+	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
@@ -28,28 +29,27 @@ var (
 )
 
 // agentMenu is the band of the menu that acts on an agent, with the entries a screen adds of its own before git.
-func agentMenu(m *model, item panel.AgentRow, own ...submenuEntry) submenu {
+func agentMenu(m *model, item panel.AgentRow, own ...menu.Entry) menu.Menu {
 	agent := item.Agent
 	task := m.listing.Tasks.FindForAgent(agent)
 
 	entries := slices.Concat(subpageEntries(m, item, agentSubpages(agent)), own)
 	if agent.ArchivedAt == nil || task.ArchivedAt != nil {
-		entries = append(entries, nestedEntry("git", m.keys.Menu.Git, gitMenu(m, task)))
+		entries = append(entries, menu.Nested("git", m.keys.Menu.Git, gitMenu(m, task)))
 	}
 
-	return submenu{
-		kind:    formMenu,
-		title:   m.listing.AgentName(agent),
-		entries: append(entries, nestedEntry("jump", m.keys.Menu.Jump, jumpMenu(m, screen.Agents, screen.Target{AgentID: agent.ID}))),
+	return menu.Menu{
+		Title:   m.listing.AgentName(agent),
+		Entries: append(entries, menu.Nested("jump", m.keys.Menu.Jump, jumpMenu(m, screen.Agents, screen.Target{AgentID: agent.ID}))),
 	}
 }
 
 // subpageEntries are the entries that open the agent's pages from the agents list.
-func subpageEntries(m *model, item panel.AgentRow, pages []subpage) []submenuEntry {
-	return xslice.Map(pages, func(page subpage) submenuEntry {
+func subpageEntries(m *model, item panel.AgentRow, pages []subpage) []menu.Entry {
+	return xslice.Map(pages, func(page subpage) menu.Entry {
 		entry := subpageEntry(m, screen.Agents, item, page)
-		if entry.opens == nil {
-			entry.open = func(m *model) tea.Cmd { return m.enterSubpage(screen.Agents, item.Agent.ID, page) }
+		if entry.Opens == nil {
+			entry.Pick = func() tea.Cmd { return m.enterSubpage(screen.Agents, item.Agent.ID, page) }
 		}
 
 		return entry
@@ -69,27 +69,27 @@ func agentSubpages(agent panel.Agent) []subpage {
 }
 
 // subpageEntry is how a subpage is rendered in an agent's menu.
-func subpageEntry(m *model, openedFrom screen.ID, item panel.AgentRow, page subpage) submenuEntry {
+func subpageEntry(m *model, openedFrom screen.ID, item panel.AgentRow, page subpage) menu.Entry {
 	switch page {
 	case subpageReview:
-		return submenuEntry{
-			label: "review",
-			keys:  m.keys.Menu.Review,
-			isOff: reviewRefusal(m.listing, item.Agent) != nil,
+		return menu.Entry{
+			Label: "review",
+			Keys:  m.keys.Menu.Review,
+			Off:   reviewRefusal(m.listing, item.Agent) != nil,
 		}
 	case subpageLogs:
-		return submenuEntry{label: "logs", keys: m.keys.Menu.Logs}
+		return menu.Entry{Label: "logs", Keys: m.keys.Menu.Logs}
 	case subpageChecks:
-		return submenuEntry{label: "status checks", keys: m.keys.Menu.StatusChecks}
+		return menu.Entry{Label: "status checks", Keys: m.keys.Menu.StatusChecks}
 	case subpageTerminal:
-		return submenuEntry{
-			label: "terminal",
-			keys:  m.keys.Menu.Terminal,
-			isOff: terminalRefusal(openedFrom, item.Agent) != nil,
+		return menu.Entry{
+			Label: "terminal",
+			Keys:  m.keys.Menu.Terminal,
+			Off:   terminalRefusal(openedFrom, item.Agent) != nil,
 		}
 	}
 
-	return submenuEntry{}
+	return menu.Entry{}
 }
 
 // reviewRefusal is why an agent's work cannot be reviewed, nil when it can.

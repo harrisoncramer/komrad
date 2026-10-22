@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/ui/layout"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -179,7 +180,23 @@ func (r *reviewScreen) editFile(m *model) tea.Cmd {
 		return r.endHold(m, abandonedSaid)
 	}
 
-	pane := m.stageEditor(m.fileEditorContent(r.root, path, line))
+	return m.apply(screen.Stage{
+		Content: m.fileEditorContent(r.root, path, line),
+		Staged:  func(pane string) tea.Msg { return reviewEditorStaged{path: path, pane: pane} },
+	})
+}
+
+// reviewEditorStaged is the pane an editor over a file in the agent's worktree was given, empty
+// where the split was refused.
+type reviewEditorStaged struct {
+	path string
+	pane string
+}
+
+// applyEditorStaged keeps the editor's pane, or lets the agent go again when there was no room
+// for it.
+func (r *reviewScreen) applyEditorStaged(m *model, staged reviewEditorStaged) tea.Cmd {
+	path, pane := staged.path, staged.pane
 	if pane == "" {
 		m.note(messageWarning, "there is no room beside the sidebar for an editor")
 

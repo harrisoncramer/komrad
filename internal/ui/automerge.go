@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -12,16 +13,6 @@ import (
 const autoMergeTimeout = 30 * time.Second
 
 var errNoAutoMerge = errors.New("the forge refused to queue it, so merge it now if nothing is left to wait for, or check that the repository allows auto-merge")
-
-// autoMergedMsg is an auto-merge change come back.
-type autoMergedMsg struct {
-	name  string
-	ref   string
-	title string
-	on    bool
-	err   error
-	write int
-}
 
 // autoMergeLabel is the merge menu entry that turns auto-merge on or off, naming which way it goes.
 func autoMergeLabel(task panel.Task) string {
@@ -55,53 +46,20 @@ func autoMergeRefusal(task panel.Task) error {
 // or to stop waiting to.
 func (m *model) setAutoMerge(task panel.Task, params mergeParams, on bool) tea.Cmd {
 	clients := m.api
-	autoMerged := autoMergedMsg{
-		name:  task.Slug,
-		ref:   task.PullRequest.Ref(),
-		title: task.PullRequest.Title,
-		on:    on,
-	}
-	autoMerged.write = m.beginWrite(autoMergingLabel(autoMerged))
-
-	return func() tea.Msg {
-		autoMerged.err = clients.setPullRequestAutoMerge(params, on)
-
-		return autoMerged
-	}
-}
-
-// applyAutoMerged reports the auto-merge change and takes down the menu held for it.
-func (m *model) applyAutoMerged(msg autoMergedMsg) tea.Cmd {
-	held := m.landHeld(msg.write)
-
-	switch {
-	case msg.err != nil:
-		m.report("Could not change auto-merge on "+msg.ref+" of "+msg.name, msg.err)
-	case msg.on:
-		m.pushMessage(message{
-			kind:    messageInfo,
-			summary: msg.name + ": " + msg.ref + " merges when ready",
-			detail:  msg.title,
-		})
-	default:
-		m.pushMessage(message{
-			kind:    messageInfo,
-			summary: msg.name + ": " + msg.ref + " no longer merges on its own",
-			detail:  msg.title,
-		})
+	ref := task.PullRequest.Ref()
+	doing, said := "cancelling auto-merge on "+ref, " no longer merges on its own"
+	if on {
+		doing, said = "queueing "+ref+" to merge", " merges when ready"
 	}
 
-	if !held {
-		return nil
-	}
-
-	return m.closeForm()
-}
-
-func autoMergingLabel(autoMerged autoMergedMsg) string {
-	if autoMerged.on {
-		return "queueing " + autoMerged.ref + " to merge"
-	}
-
-	return "cancelling auto-merge on " + autoMerged.ref
+	return m.apply(screen.Write{
+		Doing:   doing,
+		Summary: "Could not change auto-merge on " + ref + " of " + task.Slug,
+		Send: func() screen.Landed {
+			return screen.Landed{
+				Err:    clients.setPullRequestAutoMerge(params, on),
+				Notice: &screen.Notice{Summary: task.Slug + ": " + ref + said, Detail: task.PullRequest.Title},
+			}
+		},
+	})
 }

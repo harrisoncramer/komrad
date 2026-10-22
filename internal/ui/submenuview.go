@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/menu"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/zone"
 	"komrad/lib/xslice"
@@ -19,7 +20,7 @@ import (
 // submenuLeading is the menus under the one on top rendered gray, as many as fit beside it and its preview.
 func submenuLeading(parents []submenuLevel, top submenuLevel, width int) []string {
 	room := width - lipgloss.Width(frozenSubmenu(top, len(parents) > 0))
-	if top.menu.preview != nil {
+	if top.menu.Preview != nil {
 		room -= columnFloor + dividerCols
 	}
 
@@ -60,46 +61,46 @@ func frozenSubmenu(level submenuLevel, nested bool) string {
 }
 
 // submenuColumns is the widest label and the widest key among a menu's entries.
-func submenuColumns(entries []submenuEntry) (labelCols, keyCols int) {
+func submenuColumns(entries []menu.Entry) (labelCols, keyCols int) {
 	for _, entry := range entries {
-		if entry.isDivider {
+		if entry.Divider {
 			continue
 		}
 
 		labelCols = max(labelCols, ansi.StringWidth(entryText(entry)))
-		keyCols = max(keyCols, ansi.StringWidth(keys.HeadLabel(entry.keys)))
+		keyCols = max(keyCols, ansi.StringWidth(keys.HeadLabel(entry.Keys)))
 	}
 
 	return labelCols, keyCols
 }
 
-func entryText(entry submenuEntry) string {
-	if entry.opens != nil {
-		return entry.label + nestedMark
+func entryText(entry menu.Entry) string {
+	if entry.Opens != nil {
+		return entry.Label + nestedMark
 	}
 
-	return entry.label
+	return entry.Label
 }
 
 // submenuLabel is an entry's label with the key that picks it right-aligned beside it, and gray
 // when it would do nothing.
-func submenuLabel(entry submenuEntry, labelCols, keyCols int) string {
+func submenuLabel(entry menu.Entry, labelCols, keyCols int) string {
 	muted := paint.Panel.Style(paint.ToneMuted)
 	width := labelCols + submenuKeyGap + keyCols
 
-	if entry.isDivider {
+	if entry.Divider {
 		return muted.Render(strings.Repeat(glyph.Rule, width))
 	}
 
 	text := entryText(entry)
-	key := keys.HeadLabel(entry.keys)
+	key := keys.HeadLabel(entry.Keys)
 	pad := strings.Repeat(" ", max(width-ansi.StringWidth(text)-ansi.StringWidth(key), 1))
 
-	if entry.isOff && entry.offSaid != "" {
-		return muted.Render(text+pad+key) + "\n" + muted.Italic(true).Render("  "+entry.offSaid)
+	if entry.Off && entry.OffSaid != "" {
+		return muted.Render(text+pad+key) + "\n" + muted.Italic(true).Render("  "+entry.OffSaid)
 	}
 
-	if entry.isOff {
+	if entry.Off {
 		return muted.Render(text + pad + key)
 	}
 
@@ -117,26 +118,26 @@ func markParentMenu(view string, at int) string {
 }
 
 // submenuOptions is a menu's entries ending on the row that leaves it, or a list's entries alone.
-func submenuOptions(menu submenu, nested bool) []huh.Option[int] {
-	if menu.isList() {
-		if len(menu.entries) == 0 {
-			return []huh.Option[int]{huh.NewOption(paint.Panel.Style(paint.ToneMuted).Render(menu.empty), submenuCancel)}
+func submenuOptions(open menu.Menu, nested bool) []huh.Option[int] {
+	if open.IsList() {
+		if len(open.Entries) == 0 {
+			return []huh.Option[int]{huh.NewOption(paint.Panel.Style(paint.ToneMuted).Render(open.Empty), menu.Cancel)}
 		}
 
-		options := make([]huh.Option[int], 0, len(menu.entries))
-		for i, entry := range menu.entries {
-			options = append(options, huh.NewOption(markEntry(entry.label, i), i))
+		options := make([]huh.Option[int], 0, len(open.Entries))
+		for i, entry := range open.Entries {
+			options = append(options, huh.NewOption(markEntry(entry.Label, i), i))
 		}
 
 		return options
 	}
 
-	labelCols, keyCols := submenuColumns(menu.entries)
+	labelCols, keyCols := submenuColumns(open.Entries)
 
-	options := make([]huh.Option[int], 0, len(menu.entries)+1)
-	for i, entry := range menu.entries {
+	options := make([]huh.Option[int], 0, len(open.Entries)+1)
+	for i, entry := range open.Entries {
 		label := submenuLabel(entry, labelCols, keyCols)
-		if !entry.isOff {
+		if !entry.Off {
 			label = markEntry(label, i)
 		}
 
@@ -148,5 +149,5 @@ func submenuOptions(menu submenu, nested bool) []huh.Option[int] {
 		last = "back"
 	}
 
-	return append(options, huh.NewOption(markEntry(last, submenuCancel), submenuCancel))
+	return append(options, huh.NewOption(markEntry(last, menu.Cancel), menu.Cancel))
 }

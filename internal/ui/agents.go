@@ -75,15 +75,14 @@ func (m *model) archiveAgents(agents []panel.Agent) tea.Cmd {
 		return nil
 	}
 
-	pending := m.unstageAhead(agents)
-
-	return pending.attach(m.writeCmd(
-		"archiving "+describeAgents(agents),
-		fmt.Sprintf("Could not archive %s", describeAgents(agents)),
-		func(a api) error {
-			return pending.noteArchive(a.archiveAgents(panel.IDs(agents)))
+	return m.archivingWriteCmd(archivingWriteCmdParams{
+		doing:   "archiving " + describeAgents(agents),
+		summary: fmt.Sprintf("Could not archive %s", describeAgents(agents)),
+		agents:  agents,
+		write: func(a api) error {
+			return a.archiveAgents(panel.IDs(agents))
 		},
-	))
+	})
 }
 
 // openHovered attaches to whatever the cursor is on, which for a workflow is the orchestrator
@@ -132,31 +131,23 @@ func (a *agentsScreen) resume(m *model, agent panel.Agent) tea.Cmd {
 	}
 	a.resuming[agent.ID] = struct{}{}
 
-	return stampResume(m.writeCmd(
-		"resuming "+agent.Name,
-		fmt.Sprintf("Could not resume agent %q", agent.Name),
-		func(c api) error {
-			_, err := c.resumeAgent(agent.ID)
+	clients := m.api
 
-			return err
+	return m.apply(screen.Write{
+		Doing:   "resuming " + agent.Name,
+		Summary: fmt.Sprintf("Could not resume agent %q", agent.Name),
+		Send: func() screen.Landed {
+			_, err := clients.resumeAgent(agent.ID)
+
+			return screen.Landed{Err: err, Then: resumeSettled{agentID: agent.ID, err: err}}
 		},
-	), agent.ID)
+	})
 }
 
-// stampResume says on a write's result which agent it resumed.
-func stampResume(cmd tea.Cmd, id string) tea.Cmd {
-	return func() tea.Msg {
-		msg := cmd()
-
-		result, ok := msg.(writeResult)
-		if !ok {
-			return msg
-		}
-
-		result.resumed = id
-
-		return result
-	}
+// resumeSettled is a resume landed, for the agents list.
+type resumeSettled struct {
+	agentID string
+	err     error
 }
 
 func (a *agentsScreen) settleResume(m *model, id string, err error) {
@@ -275,20 +266,20 @@ func startOrchestrator(m *model, workflow panel.Workflow) tea.Cmd {
 	return m.rowWriteCmd(
 		"starting the orchestrator of "+workflow.Name,
 		fmt.Sprintf("Could not reach the orchestrator of workflow %q", workflow.Name),
-		func(a api) (written, error) {
+		func(a api) (*screen.Made, error) {
 			agent, err := a.startOrchestrator(workflow.ID)
 			if err != nil {
-				return written{}, err
+				return nil, err
 			}
 
 			// The orchestrator has no row of its own, so the landing goes to the workflow it
 			// stands behind.
-			return written{
-				row:     workflowRowKey(workflow.ID),
-				agent:   agent.GetId(),
-				pane:    agent.GetPaneId(),
-				harness: agent.GetHarness(),
-				focus:   true,
+			return &screen.Made{
+				Row:     workflowRowKey(workflow.ID),
+				Agent:   agent.GetId(),
+				Pane:    agent.GetPaneId(),
+				Harness: agent.GetHarness(),
+				Focus:   true,
 			}, nil
 		},
 	)

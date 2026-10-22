@@ -6,6 +6,7 @@ import (
 	"komrad/internal/ui/cursor"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/list"
+	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	"komrad/internal/view"
@@ -137,13 +138,13 @@ func (a *archivedSchedules) menuTarget(m *model) (archived, bool) {
 	return archived{schedule: &schedule}, ok
 }
 
-func (a *archivedSchedules) buildItemMenu(m *model) (submenu, bool) {
+func (a *archivedSchedules) buildItemMenu(m *model) (menu.Menu, bool) {
 	target, ok := a.menuTarget(m)
 	if !ok {
-		return submenu{}, false
+		return menu.Menu{}, false
 	}
 
-	return withNested(rowMenu(target.name()), "archive", m.keys.Menu.Archive, archiveMenu(m, target)), true
+	return menu.WithNested(rowMenu(target.name()), "archive", m.keys.Menu.Archive, archiveMenu(m, target)), true
 }
 
 // confirmDeleteSchedule asks before it deletes an archived schedule for good.
@@ -162,7 +163,7 @@ func confirmDeleteSchedule(m *model, schedule panel.Schedule) tea.Cmd {
 			return m.awaitingWriteCmd(
 				"deleting "+schedule.Name,
 				fmt.Sprintf("Could not delete schedule %q", schedule.Name),
-				&awaits{gone: rowsIn(listArchivedSchedules, schedule.ID)},
+				screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedSchedules, schedule.ID)},
 				func(c api) error { return c.deleteSchedule(schedule.ID) },
 			)
 		}),

@@ -32,7 +32,7 @@ type Target struct {
 
 // Request is what a screen asks the root to do.
 type Request interface {
-	isRequest()
+	Request()
 }
 
 // Open leaves the screen that is up for another, landing it on the target.
@@ -74,6 +74,11 @@ func (id ID) String() string {
 	return ""
 }
 
-func (Open) isRequest()   {}
-func (Report) isRequest() {}
-func (Hide) isRequest()   {}
+// Request marks Open as a request.
+func (Open) Request() {}
+
+// Request marks Report as a request.
+func (Report) Request() {}
+
+// Request marks Hide as a request.
+func (Hide) Request() {}

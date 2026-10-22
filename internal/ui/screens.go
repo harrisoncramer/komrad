@@ -4,6 +4,7 @@ import (
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/layout"
+	"komrad/internal/ui/menu"
 	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
@@ -172,12 +173,12 @@ type hoveredNamer interface {
 
 // screenMenuBuilder is a screen that adds its own band to the menu.
 type screenMenuBuilder interface {
-	buildScreenMenu(m *model) (submenu, bool)
+	buildScreenMenu(m *model) (menu.Menu, bool)
 }
 
 // itemMenuBuilder is a screen that adds a band to the menu for its hovered row.
 type itemMenuBuilder interface {
-	buildItemMenu(m *model) (submenu, bool)
+	buildItemMenu(m *model) (menu.Menu, bool)
 }
 
 // lineTyper is a screen with a one-row field the user can type into.
@@ -329,6 +330,12 @@ func (m *model) apply(request screen.Request) tea.Cmd {
 		m.report(request.Summary, request.Err)
 	case screen.Hide:
 		return m.hide()
+	case screen.Write:
+		return m.send(request)
+	case screen.Stage:
+		return m.route(request.Staged(m.stageEditor(request.Content)))
+	case menu.Open:
+		return m.openForm(submenuState(nil, newSubmenuLevel(request.Menu)))
 	}
 
 	return nil

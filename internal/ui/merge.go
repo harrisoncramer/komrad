@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	forgev1 "komrad/proto/gen/forge/v1"
@@ -35,44 +36,46 @@ type mergePlannedMsg struct {
 	choice mergeChoice
 	plan   *forgev1.PlanForgePullRequestMergeResponse
 	err    error
-	write  int
 }
 
 // mergeMenu is the ways to merge a task's pull request, opened from the git menu.
-func mergeMenu(m *model, task panel.Task) submenu {
+func mergeMenu(m *model, task panel.Task) menu.Menu {
 	taskID := task.ID
 	refused := openPullRequestRefusal(task) != nil
-	run := func(choice mergeChoice) func(*model) tea.Cmd {
-		return func(m *model) tea.Cmd { return m.runMerge(taskID, choice) }
+	run := func(choice mergeChoice) func() tea.Cmd {
+		return func() tea.Cmd { return m.runMerge(taskID, choice) }
 	}
 
-	return submenu{
-		kind:  formMerge,
-		title: "merge",
-		entries: []submenuEntry{
+	return menu.Menu{
+		Title: "merge",
+		Entries: []menu.Entry{
 			{
-				label: "merge",
-				keys:  m.keys.Merge.Merge,
-				isOff: refused,
-				write: run(mergeChoiceMerge),
+				Label: "merge",
+				Keys:  m.keys.Merge.Merge,
+				Off:   refused,
+				After: menu.Hold,
+				Pick:  run(mergeChoiceMerge),
 			},
 			{
-				label: "merge and archive",
-				keys:  m.keys.Merge.MergeArchive,
-				isOff: refused || task.ArchivedAt != nil,
-				write: run(mergeChoiceMergeArchive),
+				Label: "merge and archive",
+				Keys:  m.keys.Merge.MergeArchive,
+				Off:   refused || task.ArchivedAt != nil,
+				After: menu.Hold,
+				Pick:  run(mergeChoiceMergeArchive),
 			},
 			{
-				label: autoMergeLabel(task),
-				keys:  m.keys.Merge.AutoMerge,
-				isOff: autoMergeRefusal(task) != nil,
-				write: run(mergeChoiceAutoMerge),
+				Label: autoMergeLabel(task),
+				Keys:  m.keys.Merge.AutoMerge,
+				Off:   autoMergeRefusal(task) != nil,
+				After: menu.Hold,
+				Pick:  run(mergeChoiceAutoMerge),
 			},
 			{
-				label: "merge then rebase",
-				keys:  m.keys.Merge.MergeRebase,
-				isOff: mergeRebaseRefusal(m.listing, task) != nil,
-				write: run(mergeChoiceMergeRebase),
+				Label: "merge then rebase",
+				Keys:  m.keys.Merge.MergeRebase,
+				Off:   mergeRebaseRefusal(m.listing, task) != nil,
+				After: menu.Hold,
+				Pick:  run(mergeChoiceMergeRebase),
 			},
 		},
 	}
@@ -114,26 +117,24 @@ func (m *model) runMerge(taskID string, choice mergeChoice) tea.Cmd {
 // planMerge asks the forge how the task's pull request could merge.
 func (m *model) planMerge(task panel.Task, choice mergeChoice) tea.Cmd {
 	clients := m.api
-	planned := mergePlannedMsg{task: task, choice: choice}
-	planned.write = m.beginWrite("planning the merge of " + task.PullRequest.Ref())
 
-	return func() tea.Msg {
-		planned.plan, planned.err = clients.planPullRequestMerge(task.PullRequest.URL)
+	return m.apply(screen.Write{
+		Doing: "planning the merge of " + task.PullRequest.Ref(),
+		Send: func() screen.Landed {
+			plan, err := clients.planPullRequestMerge(task.PullRequest.URL)
 
-		return planned
-	}
+			return screen.Landed{
+				Replaces: err == nil,
+				Then:     mergePlannedMsg{task: task, choice: choice, plan: plan, err: err},
+			}
+		},
+	})
 }
 
 // applyMergePlanned opens the merge form, or says why there is none.
 func (m *model) applyMergePlanned(msg mergePlannedMsg) tea.Cmd {
-	held := m.landHeld(msg.write)
-
 	if msg.err != nil {
 		m.report("Could not work out how "+msg.task.PullRequest.Ref()+" of "+msg.task.Slug+" can merge", msg.err)
-
-		if held {
-			return m.closeForm()
-		}
 
 		return nil
 	}
@@ -147,7 +148,7 @@ func (m *model) openMergeForm(task panel.Task, choice mergeChoice, plan *forgev1
 	renderedMethod := values.Method
 	var filled *forgev1.CommitMessage
 
-	return m.openForm(rebuildableForm(rebuildableFormParams{
+	form := rebuildableForm(rebuildableFormParams{
 		Kind: formMerge,
 		Build: func(m *model) (*huh.Form, []string) {
 			renderedMethod = values.Method
@@ -172,7 +173,10 @@ func (m *model) openMergeForm(task panel.Task, choice mergeChoice, plan *forgev1
 
 			return holdSubmit(func(m *model) tea.Cmd { return m.sendMerge(task, choice, *params) })(m)
 		},
-	}))
+	})
+	form.keepsOnRefusal = false
+
+	return m.openForm(form)
 }
 
 // mergeOptionOf is the plan's option for the method, nil when the forge offers no such method.

@@ -44,12 +44,32 @@ func (d *documentsScreen) pressEdit(m *model) tea.Cmd {
 		return m.apply(screen.Report{Summary: "could not edit " + item.name, Err: err})
 	}
 
-	pane := m.stageEditor(editorContent(m.settings.Editor, filepath.Dir(path), path, 1))
+	return m.apply(screen.Stage{
+		Content: editorContent(m.settings.Editor, filepath.Dir(path), path, 1),
+		Staged: func(pane string) tea.Msg {
+			return documentEditorStaged{item: item, read: read, path: path, pane: pane}
+		},
+	})
+}
+
+// documentEditorStaged is the pane an editor over a document's copy was given, empty where the
+// split was refused.
+type documentEditorStaged struct {
+	item documentItem
+	read documentBody
+	path string
+	pane string
+}
+
+// applyEditorStaged opens the edit in the editor's pane, or throws the copy away when there was no
+// room for one.
+func (d *documentsScreen) applyEditorStaged(m *model, staged documentEditorStaged) {
+	item, read, path, pane := staged.item, staged.read, staged.path, staged.pane
 	if pane == "" {
 		m.report("could not edit "+item.name, removeDocumentCopy(path))
 		m.reportBrief("could not edit "+item.name, "there is no room beside the sidebar for an editor")
 
-		return nil
+		return
 	}
 
 	d.history = nil
@@ -60,8 +80,6 @@ func (d *documentsScreen) pressEdit(m *model) tea.Cmd {
 		pane:    pane,
 		body:    read.body,
 	}
-
-	return nil
 }
 
 // closeEdit takes the editor down and writes back what changed in the copy.

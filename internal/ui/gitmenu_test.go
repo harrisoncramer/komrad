@@ -503,7 +503,9 @@ func TestGitMenuMergesWhenReady(t *testing.T) {
 
 			harness.assertSentTo(forgev1connect.ForgeServicePlanForgePullRequestMergeProcedure, tt.wantPlans...)
 			harness.assertSentTo(forgev1connect.ForgeServiceSetForgePullRequestAutoMergeProcedure, tt.wantSent)
-			assert.NotContains(t, harness.readFrame(), tt.wantLabel)
+			frame := harness.readFrame()
+			assert.NotContains(t, frame, tt.wantLabel)
+			assert.NotContains(t, frame, "Merge #740 when ready")
 			assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
 		})
 	}
