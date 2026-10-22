@@ -32,8 +32,12 @@ func globalTable() []globalArm {
 			describe: "the view switcher",
 			keys:     func(k config.Keybindings) []string { return slices.Concat(k.Views.Next, k.Views.Previous) },
 			on:       rendersSwitcher,
-			when:     func(m *model) bool { return !m.isTabsFocused(m.inputs()) && !m.isKindsFocused(m.inputs()) },
-			run:      func(m *model, key tea.KeyPressMsg) tea.Cmd { return m.openViews(m.viewsDelta(key.String())) },
+			when: func(m *model) bool {
+				in := m.inputs()
+
+				return !m.isTabsFocused(in) && !m.isKindsFocused(in)
+			},
+			run: func(m *model, key tea.KeyPressMsg) tea.Cmd { return m.openViews(m.viewsDelta(key.String())) },
 		},
 		{
 			describe: "the help toggle",
@@ -60,7 +64,9 @@ func globalTable() []globalArm {
 			keys:     func(k config.Keybindings) []string { return k.Kinds.Focus },
 			on:       screenIs[kindSwitcher],
 			when: func(m *model) bool {
-				return !m.isTabsFocused(m.inputs()) && m.isKindsRendered(m.inputs()) && !m.isKindsFocused(m.inputs())
+				in := m.inputs()
+
+				return !m.isTabsFocused(in) && m.isKindsRendered(in) && !m.isKindsFocused(in)
 			},
 			run: func(m *model, _ tea.KeyPressMsg) tea.Cmd {
 				m.focusKinds()
@@ -72,7 +78,8 @@ func globalTable() []globalArm {
 			describe: "the menu",
 			keys:     func(k config.Keybindings) []string { return k.Menu.Open },
 			when: func(m *model) bool {
-				if m.isTabsFocused(m.inputs()) || m.isKindsFocused(m.inputs()) {
+				in := m.inputs()
+				if m.isTabsFocused(in) || m.isKindsFocused(in) {
 					return false
 				}
 

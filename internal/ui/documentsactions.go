@@ -14,10 +14,11 @@ import (
 
 // actions is the documents screen as one table and the legend that names it.
 func (d *documentsScreen) actions(m *model) keys.Spec[*model] {
+	in := m.inputs()
 	switch {
-	case d.isDiffFocused(m.inputs()) && d.isDiffRendered(m, m.inputs()):
+	case d.isDiffFocused(in) && d.isDiffRendered(m, in):
 		return d.diffActions()
-	case d.isDiffFocused(m.inputs()):
+	case d.isDiffFocused(in):
 		return d.stepActions()
 	}
 

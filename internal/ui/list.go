@@ -322,8 +322,9 @@ type screenListParams struct {
 	// empty is what the list says over no rows, and blank on a list that renders its window anyway.
 	empty string
 	// rows is how many rows the list holds.
-	rows       int
-	snapshot   func(list.Pane) view.Snapshot
+	rows     int
+	snapshot func(list.Pane) view.Snapshot
+	// hidesKinds keeps the row of kinds off however much room the list has.
 	hidesKinds bool
 }
 

@@ -43,9 +43,10 @@ func (m *model) screenListView(params screenListParams) string {
 		return m.headedListView(header, []string{dimStyle().Render(m.emptyListLine(params.empty))}, 0, below)
 	}
 
-	pane := m.paneWidth()
+	in := m.inputs()
+	pane := in.Room.Width
 	lines := m.listLines(header, below)
-	snapshot := params.snapshot(list.Pane{Width: pane, Caret: m.inputs().Room.Caret})
+	snapshot := params.snapshot(list.Pane{Width: pane, Caret: in.Room.Caret})
 	window := view.Window(view.WindowParams{
 		List:    list.Prepare(m.glyphs, snapshot),
 		Palette: paint.Panel,
