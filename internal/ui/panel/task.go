@@ -91,11 +91,6 @@ func (t Tasks) IsHidden(agent Agent) bool {
 	return t[agent.TaskID].Hidden
 }
 
-// TaskIDs is the id of each task, in the order the caller gave them.
-func TaskIDs(tasks []Task) []string {
-	return xslice.Map(tasks, func(task Task) string { return task.ID })
-}
-
 // PossibleParents is the workflow's live tasks with a branch a new task can depend on, by slug.
 func (t Tasks) PossibleParents(workflowID string) []Task {
 	var tasks []Task
@@ -141,4 +136,9 @@ func (t Tasks) ChildrenOf(id string) []Task {
 	slices.SortFunc(children, func(a, b Task) int { return a.CreatedAt.Compare(b.CreatedAt) })
 
 	return children
+}
+
+// TaskIDs is the id of each task, in the order the caller gave them.
+func TaskIDs(tasks []Task) []string {
+	return xslice.Map(tasks, func(task Task) string { return task.ID })
 }
