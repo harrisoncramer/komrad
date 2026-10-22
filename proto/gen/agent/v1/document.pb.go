@@ -10,6 +10,7 @@ import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	v1 "komrad/proto/gen/pagination/v1"
 	_ "komrad/proto/gen/rules/v1"
 	reflect "reflect"
@@ -37,10 +38,10 @@ type Document struct {
 	Type string `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
 	// The document's text, in markdown. Empty in a listing.
 	Body string `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
-	// When the document was created, in RFC 3339.
-	CreatedAt string `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// When the document was last written, in RFC 3339.
-	UpdatedAt string `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// When the document was created.
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When the document was last written.
+	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	// How many times the document has been written.
 	Version int32 `protobuf:"varint,8,opt,name=version,proto3" json:"version,omitempty"`
 	// The id of the task the agent was on when the document was created. Unset for an
@@ -115,18 +116,18 @@ func (x *Document) GetBody() string {
 	return ""
 }
 
-func (x *Document) GetCreatedAt() string {
+func (x *Document) GetCreatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CreatedAt
 	}
-	return ""
+	return nil
 }
 
-func (x *Document) GetUpdatedAt() string {
+func (x *Document) GetUpdatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.UpdatedAt
 	}
-	return ""
+	return nil
 }
 
 func (x *Document) GetVersion() int32 {
@@ -598,8 +599,8 @@ type DocumentVersion struct {
 	Type string `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
 	// Whether the person wrote this version, rather than the agent that owns the document.
 	ByPerson bool `protobuf:"varint,4,opt,name=by_person,json=byPerson,proto3" json:"by_person,omitempty"`
-	// When this version was written, in RFC 3339.
-	CreatedAt     string `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When this version was written.
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -662,11 +663,11 @@ func (x *DocumentVersion) GetByPerson() bool {
 	return false
 }
 
-func (x *DocumentVersion) GetCreatedAt() string {
+func (x *DocumentVersion) GetCreatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CreatedAt
 	}
-	return ""
+	return nil
 }
 
 type ListDocumentVersionsRequest struct {
@@ -770,8 +771,8 @@ type DocumentType struct {
 	Context string `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
 	// How many times the document type has been written.
 	Version int32 `protobuf:"varint,4,opt,name=version,proto3" json:"version,omitempty"`
-	// When the document type was last written, in RFC 3339.
-	UpdatedAt     string `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// When the document type was last written.
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -834,11 +835,11 @@ func (x *DocumentType) GetVersion() int32 {
 	return 0
 }
 
-func (x *DocumentType) GetUpdatedAt() string {
+func (x *DocumentType) GetUpdatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.UpdatedAt
 	}
-	return ""
+	return nil
 }
 
 type ListDocumentTypesResponse struct {
@@ -992,8 +993,8 @@ type DocumentTypeVersion struct {
 	Version int32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
 	// The document type's name at this version.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// When this version was written, in RFC 3339.
-	CreatedAt     string `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// When this version was written.
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1042,11 +1043,11 @@ func (x *DocumentTypeVersion) GetName() string {
 	return ""
 }
 
-func (x *DocumentTypeVersion) GetCreatedAt() string {
+func (x *DocumentTypeVersion) GetCreatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CreatedAt
 	}
-	return ""
+	return nil
 }
 
 type ListDocumentTypeVersionsRequest struct {
@@ -1551,17 +1552,17 @@ var File_agent_v1_document_proto protoreflect.FileDescriptor
 
 const file_agent_v1_document_proto_rawDesc = "" +
 	"\n" +
-	"\x17agent/v1/document.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xf3\x01\n" +
+	"\x17agent/v1/document.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xab\x02\n" +
 	"\bDocument\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\x12\n" +
 	"\x04type\x18\x04 \x01(\tR\x04type\x12\x12\n" +
-	"\x04body\x18\x05 \x01(\tR\x04body\x12\x1d\n" +
+	"\x04body\x18\x05 \x01(\tR\x04body\x129\n" +
 	"\n" +
-	"created_at\x18\x06 \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\a \x01(\tR\tupdatedAt\x12\x18\n" +
+	"updated_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x18\n" +
 	"\aversion\x18\b \x01(\x05R\aversion\x12\x1c\n" +
 	"\atask_id\x18\t \x01(\tH\x00R\x06taskId\x88\x01\x01B\n" +
 	"\n" +
@@ -1603,25 +1604,25 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"\n" +
 	"\b_version\"E\n" +
 	"\x13GetDocumentResponse\x12.\n" +
-	"\bdocument\x18\x01 \x01(\v2\x12.agent.v1.DocumentR\bdocument\"\x8f\x01\n" +
+	"\bdocument\x18\x01 \x01(\v2\x12.agent.v1.DocumentR\bdocument\"\xab\x01\n" +
 	"\x0fDocumentVersion\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x05R\aversion\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
 	"\x04type\x18\x03 \x01(\tR\x04type\x12\x1b\n" +
-	"\tby_person\x18\x04 \x01(\bR\bbyPerson\x12\x1d\n" +
+	"\tby_person\x18\x04 \x01(\bR\bbyPerson\x129\n" +
 	"\n" +
-	"created_at\x18\x05 \x01(\tR\tcreatedAt\"7\n" +
+	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"7\n" +
 	"\x1bListDocumentVersionsRequest\x12\x18\n" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"U\n" +
 	"\x1cListDocumentVersionsResponse\x125\n" +
-	"\bversions\x18\x01 \x03(\v2\x19.agent.v1.DocumentVersionR\bversions\"\x85\x01\n" +
+	"\bversions\x18\x01 \x03(\v2\x19.agent.v1.DocumentVersionR\bversions\"\xa1\x01\n" +
 	"\fDocumentType\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
 	"\acontext\x18\x03 \x01(\tR\acontext\x12\x18\n" +
-	"\aversion\x18\x04 \x01(\x05R\aversion\x12\x1d\n" +
+	"\aversion\x18\x04 \x01(\x05R\aversion\x129\n" +
 	"\n" +
-	"updated_at\x18\x05 \x01(\tR\tupdatedAt\"Z\n" +
+	"updated_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"Z\n" +
 	"\x19ListDocumentTypesResponse\x12=\n" +
 	"\x0edocument_types\x18\x01 \x03(\v2\x16.agent.v1.DocumentTypeR\rdocumentTypes\"i\n" +
 	"\x16GetDocumentTypeRequest\x12\x1b\n" +
@@ -1630,12 +1631,12 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"\n" +
 	"\b_version\"V\n" +
 	"\x17GetDocumentTypeResponse\x12;\n" +
-	"\rdocument_type\x18\x01 \x01(\v2\x16.agent.v1.DocumentTypeR\fdocumentType\"b\n" +
+	"\rdocument_type\x18\x01 \x01(\v2\x16.agent.v1.DocumentTypeR\fdocumentType\"~\n" +
 	"\x13DocumentTypeVersion\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x05R\aversion\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1d\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x129\n" +
 	"\n" +
-	"created_at\x18\x03 \x01(\tR\tcreatedAt\";\n" +
+	"created_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\";\n" +
 	"\x1fListDocumentTypeVersionsRequest\x12\x18\n" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"]\n" +
 	" ListDocumentTypeVersionsResponse\x129\n" +
@@ -1712,25 +1713,31 @@ var file_agent_v1_document_proto_goTypes = []any{
 	(*SearchDocumentsRequest)(nil),           // 21: agent.v1.SearchDocumentsRequest
 	(*DocumentHit)(nil),                      // 22: agent.v1.DocumentHit
 	(*SearchDocumentsResponse)(nil),          // 23: agent.v1.SearchDocumentsResponse
-	(*v1.Pagination)(nil),                    // 24: pagination.v1.Pagination
+	(*timestamppb.Timestamp)(nil),            // 24: google.protobuf.Timestamp
+	(*v1.Pagination)(nil),                    // 25: pagination.v1.Pagination
 }
 var file_agent_v1_document_proto_depIdxs = []int32{
-	0,  // 0: agent.v1.WriteDocumentResponse.document:type_name -> agent.v1.Document
-	24, // 1: agent.v1.ListDocumentsRequest.pagination:type_name -> pagination.v1.Pagination
-	0,  // 2: agent.v1.ListDocumentsResponse.documents:type_name -> agent.v1.Document
-	0,  // 3: agent.v1.GetDocumentResponse.document:type_name -> agent.v1.Document
-	7,  // 4: agent.v1.ListDocumentVersionsResponse.versions:type_name -> agent.v1.DocumentVersion
-	10, // 5: agent.v1.ListDocumentTypesResponse.document_types:type_name -> agent.v1.DocumentType
-	10, // 6: agent.v1.GetDocumentTypeResponse.document_type:type_name -> agent.v1.DocumentType
-	14, // 7: agent.v1.ListDocumentTypeVersionsResponse.versions:type_name -> agent.v1.DocumentTypeVersion
-	10, // 8: agent.v1.WriteDocumentTypeResponse.document_type:type_name -> agent.v1.DocumentType
-	22, // 9: agent.v1.SearchDocumentsResponse.matches:type_name -> agent.v1.DocumentHit
-	22, // 10: agent.v1.SearchDocumentsResponse.near:type_name -> agent.v1.DocumentHit
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	24, // 0: agent.v1.Document.created_at:type_name -> google.protobuf.Timestamp
+	24, // 1: agent.v1.Document.updated_at:type_name -> google.protobuf.Timestamp
+	0,  // 2: agent.v1.WriteDocumentResponse.document:type_name -> agent.v1.Document
+	25, // 3: agent.v1.ListDocumentsRequest.pagination:type_name -> pagination.v1.Pagination
+	0,  // 4: agent.v1.ListDocumentsResponse.documents:type_name -> agent.v1.Document
+	0,  // 5: agent.v1.GetDocumentResponse.document:type_name -> agent.v1.Document
+	24, // 6: agent.v1.DocumentVersion.created_at:type_name -> google.protobuf.Timestamp
+	7,  // 7: agent.v1.ListDocumentVersionsResponse.versions:type_name -> agent.v1.DocumentVersion
+	24, // 8: agent.v1.DocumentType.updated_at:type_name -> google.protobuf.Timestamp
+	10, // 9: agent.v1.ListDocumentTypesResponse.document_types:type_name -> agent.v1.DocumentType
+	10, // 10: agent.v1.GetDocumentTypeResponse.document_type:type_name -> agent.v1.DocumentType
+	24, // 11: agent.v1.DocumentTypeVersion.created_at:type_name -> google.protobuf.Timestamp
+	14, // 12: agent.v1.ListDocumentTypeVersionsResponse.versions:type_name -> agent.v1.DocumentTypeVersion
+	10, // 13: agent.v1.WriteDocumentTypeResponse.document_type:type_name -> agent.v1.DocumentType
+	22, // 14: agent.v1.SearchDocumentsResponse.matches:type_name -> agent.v1.DocumentHit
+	22, // 15: agent.v1.SearchDocumentsResponse.near:type_name -> agent.v1.DocumentHit
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_agent_v1_document_proto_init() }

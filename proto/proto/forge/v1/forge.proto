@@ -5,6 +5,7 @@ package forge.v1;
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 import "pagination/v1/pagination.proto";
 
 option go_package = "komrad/proto/gen/forge/v1;forgev1";
@@ -23,13 +24,13 @@ message Forge {
   string method = 5;
   // The account the forge says the credential belongs to, a user login or an App's name.
   string login = 6;
-  // When the forge last accepted the credential, in RFC 3339. Unset once the forge refuses it.
-  optional string verified_at = 7;
+  // When the forge last accepted the credential. Unset once the forge refuses it.
+  optional google.protobuf.Timestamp verified_at = 7;
   // Whether this machine still has the credential. A `token` connection needs its token file,
   // and a `github_app` connection always has its credential.
   bool has_credential = 8;
-  // When the connection was created, in RFC 3339.
-  string created_at = 9;
+  // When the connection was created.
+  google.protobuf.Timestamp created_at = 9;
 }
 
 message ConnectForgeRequest {
@@ -119,15 +120,15 @@ message ForgePullRequest {
   bool draft = 12;
   // The state the forge reports, `OPEN`, `CLOSED` or `MERGED`.
   string state = 13;
-  // When the pull request was opened, in RFC 3339.
-  string created_at = 14;
-  // When the pull request last changed on the forge, in RFC 3339.
-  string updated_at = 15;
-  // When the pull request merged, in RFC 3339. Unset until the pull request merges.
-  optional string merged_at = 16;
-  // When the pull request closed, in RFC 3339, merged or not. Unset while the pull request is
+  // When the pull request was opened.
+  google.protobuf.Timestamp created_at = 14;
+  // When the pull request last changed on the forge.
+  google.protobuf.Timestamp updated_at = 15;
+  // When the pull request merged. Unset until the pull request merges.
+  optional google.protobuf.Timestamp merged_at = 16;
+  // When the pull request closed, merged or not. Unset while the pull request is
   // open.
-  optional string closed_at = 17;
+  optional google.protobuf.Timestamp closed_at = 17;
 }
 
 // MergeMethod is how a pull request's commits land on its base branch.

@@ -25,7 +25,7 @@ func groupReviewsByTask(reviews map[string]*agentv1.WatchedReview) map[string][]
 func countLocalReviewSnapshots(reviews []*agentv1.WatchedReview, threads []*agentv1.ReviewThread) int32 {
 	snapshots := map[string]bool{}
 	for _, review := range reviews {
-		if review.GetReleasedAt() != "" {
+		if review.GetReleasedAt() != nil {
 			snapshots[review.GetSnapshotId()] = true
 		}
 	}
@@ -52,17 +52,17 @@ func groupThreadsByTask(threads map[string]*agentv1.ReviewThread) map[string][]*
 func countComments(reviews []*agentv1.WatchedReview, threads []*agentv1.ReviewThread) commentCounts {
 	released := map[string]*agentv1.WatchedReview{}
 	for _, review := range reviews {
-		if review.GetReleasedAt() != "" {
+		if review.GetReleasedAt() != nil {
 			released[review.GetId()] = review
 		}
 	}
 
 	var counted commentCounts
 	for _, thread := range threads {
-		isOpen := thread.GetResolvedAt() == ""
+		isOpen := thread.GetResolvedAt() == nil
 		if thread.ReviewId != nil {
 			review, ok := released[thread.GetReviewId()]
-			if !ok || (!isOpen && review.GetSnapshotLandedAt() != "") {
+			if !ok || (!isOpen && review.GetSnapshotLandedAt() != nil) {
 				continue
 			}
 		}

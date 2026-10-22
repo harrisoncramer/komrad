@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -49,7 +50,7 @@ func TestLines(t *testing.T) {
 	assert.Equal(t, "rpc failed", lines[1].Message)
 	assert.Equal(t, "ERROR", lines[1].Level)
 	assert.Equal(t, "pane already gone", lines[1].Fields["error.message"], "what the line carried comes with it")
-	assert.Equal(t, "2026-08-06T22:47:32.101Z", lines[0].Time)
+	assert.Equal(t, time.Date(2026, time.August, 6, 22, 47, 32, 101_000_000, time.UTC), lines[0].Time)
 }
 
 // TestLinesUnderNoSuchTrace covers a mistyped or expired id, which has to say so rather than
@@ -74,7 +75,7 @@ func TestRecentTraces(t *testing.T) {
 	require.Len(t, recent, 3)
 	assert.Equal(t, Summary{
 		Trace:     "trace-one",
-		StartedAt: "2026-08-06T22:47:32.101Z",
+		StartedAt: time.Date(2026, time.August, 6, 22, 47, 32, 101_000_000, time.UTC),
 		What:      "ArchiveAgents",
 		Lines:     2,
 	}, recent[0])

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"time"
 
 	"komrad/internal/fail"
 	"komrad/internal/logging"
@@ -28,7 +29,7 @@ const defaultRecent = 20
 
 // Line is one line of the log, with the fields every line carries pulled out of the rest.
 type Line struct {
-	Time    string
+	Time    time.Time
 	Level   string
 	Message string
 	Trace   string
@@ -38,7 +39,7 @@ type Line struct {
 // Summary is one trace id as the listing shows it.
 type Summary struct {
 	Trace     string
-	StartedAt string
+	StartedAt time.Time
 	What      string
 	Lines     int
 }
@@ -155,7 +156,7 @@ func (r *reader) each(visit func(Line)) error {
 
 		visit(Line{
 			Fields:  fields,
-			Time:    stringField(fields, logging.TimestampKey),
+			Time:    timeField(fields, logging.TimestampKey),
 			Level:   stringField(fields, logging.SeverityKey),
 			Message: stringField(fields, logging.BodyKey),
 			Trace:   stringField(fields, logging.TraceID),
@@ -167,6 +168,15 @@ func (r *reader) each(visit func(Line)) error {
 	}
 
 	return nil
+}
+
+func timeField(fields map[string]any, key string) time.Time {
+	at, err := time.Parse(time.RFC3339Nano, stringField(fields, key))
+	if err != nil {
+		return time.Time{}
+	}
+
+	return at
 }
 
 func stringField(fields map[string]any, key string) string {

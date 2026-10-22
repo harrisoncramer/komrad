@@ -17,6 +17,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -29,7 +30,7 @@ const (
 
 var now = time.Date(2026, 9, 22, 12, 0, 0, 0, time.UTC)
 
-func stamp(offset time.Duration) string {
+func stamp(offset time.Duration) *timestamppb.Timestamp {
 	return dates.Stamp(now.Add(offset))
 }
 
@@ -119,11 +120,11 @@ func (p pullRequest) row() *pullrequestv1.PullRequest {
 	}
 	if p.merged {
 		row.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED
-		row.MergedAt = xptr.Ptr(stamp(-p.openedAgo + time.Hour))
+		row.MergedAt = stamp(-p.openedAgo + time.Hour)
 	}
 	if p.closed {
 		row.State = pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED
-		row.ClosedAt = xptr.Ptr(stamp(-p.openedAgo + time.Hour))
+		row.ClosedAt = stamp(-p.openedAgo + time.Hour)
 	}
 
 	return row

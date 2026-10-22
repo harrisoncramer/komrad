@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestWatch covers the listing the panel keeps from its watch stream.
@@ -118,7 +119,7 @@ func TestWatch(t *testing.T) {
 
 		expired := newUnreadMail("expired")
 		expired.Id = "m2"
-		expired.ExpiresAt = time.Now().Add(-time.Hour).UTC().Format(time.RFC3339)
+		expired.ExpiresAt = timestamppb.New(time.Now().Add(-time.Hour).UTC())
 		harness := paneltest.OpenAgents(t,
 			paneltest.Workflow("w1", "api"),
 			newAgentAt("waiting", "w1", 2),

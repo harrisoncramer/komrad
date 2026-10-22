@@ -39,7 +39,7 @@ func worktreeInspectionFrom(read *worktreev1.GetWorktreeResponse, now time.Time)
 			return panel.WorktreeCommit{
 				SHA:         commit.GetSha(),
 				Subject:     commit.GetSubject(),
-				CommittedAt: dates.Parse(commit.GetCommittedAt()),
+				CommittedAt: dates.Read(commit.GetCommittedAt()),
 			}
 		}),
 	}

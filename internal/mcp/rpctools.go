@@ -144,6 +144,10 @@ func enumSchema(values protoreflect.EnumDescriptor) map[string]any {
 func valueSchema(field protoreflect.FieldDescriptor, enclosing map[protoreflect.FullName]bool) (map[string]any, error) {
 	switch field.Kind() {
 	case protoreflect.MessageKind:
+		if rpcapi.IsTimestamp(field) {
+			return map[string]any{"type": "string", "format": "date-time"}, nil
+		}
+
 		return messageSchema(field.Message(), enclosing)
 	case protoreflect.StringKind:
 		return map[string]any{"type": "string"}, nil

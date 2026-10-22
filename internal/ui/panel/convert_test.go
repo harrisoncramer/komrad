@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestTaskFromCarriesTheCheckout pins the branch, the diff stat and the removal of a task's
@@ -44,7 +45,7 @@ func TestProtoToAgentCarriesTheStateChange(t *testing.T) {
 	changed := time.Date(2026, time.September, 1, 9, 9, 0, 0, time.UTC)
 	converted := agentFrom(&agentv1.Agent{
 		Id:             "a1",
-		StateChangedAt: changed.Format(time.RFC3339),
+		StateChangedAt: timestamppb.New(changed),
 	})
 
 	assert.True(t, converted.StateChangedAt.Equal(changed))

@@ -1,10 +1,10 @@
 package ui_test
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paneltest"
@@ -15,6 +15,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestTriageRows covers which agents the zone renders and in what order.
@@ -224,7 +225,7 @@ func TestTriageSnooze(t *testing.T) {
 			press:    []string{"t", "space", "z"},
 			relisted: func() []proto.Message {
 				rows := buildTriage()
-				rows[2].(*agentv1.Agent).StateChangedAt = "2026-09-20T13:06:00Z"
+				rows[2].(*agentv1.Agent).StateChangedAt = timestamppb.New(time.Date(2026, 9, 20, 13, 6, 0, 0, time.UTC))
 
 				return rows
 			}(),
@@ -594,7 +595,7 @@ func newTriageAgent(name string, state agentv1.AgentState, minute int) *agentv1.
 	agent := newAgentAt(name, "w1", minute)
 	agent.State = state
 	agent.Alive = xptr.Ptr(true)
-	agent.StateChangedAt = fmt.Sprintf("2026-09-20T13:%02d:00Z", minute)
+	agent.StateChangedAt = timestamppb.New(time.Date(2026, 9, 20, 13, minute, 0, 0, time.UTC))
 
 	return agent
 }

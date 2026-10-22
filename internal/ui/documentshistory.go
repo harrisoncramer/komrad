@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"time"
+
 	"komrad/internal/diff"
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/filter"
@@ -34,7 +36,7 @@ type historyVersion struct {
 	version   int32
 	name      string
 	by        string
-	createdAt string
+	createdAt time.Time
 }
 
 // versionRead is one write's text as it was read, or why it could not be.

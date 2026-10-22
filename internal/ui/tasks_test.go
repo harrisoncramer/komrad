@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestTasksTree covers a task several agents work on standing over them in the agents list.
@@ -98,7 +99,7 @@ func TestTasksTree(t *testing.T) {
 					Id:         "t1",
 					WorkflowId: "w1",
 					Slug:       "fix-login",
-					ArchivedAt: xptr.Ptr("2026-10-10T10:00:00Z"),
+					ArchivedAt: timestamppb.New(time.Date(2026, 10, 10, 10, 0, 0, 0, time.UTC)),
 				},
 				writer:  agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
 				offered: false,
@@ -240,7 +241,7 @@ func buildTasks() []proto.Message {
 			Title:          "Fix login",
 			Goal:           "Logins work again.",
 			Notes:          "The session cookie expires early.",
-			NotesUpdatedAt: xptr.Ptr("2026-10-10T10:00:00.5Z"),
+			NotesUpdatedAt: timestamppb.New(time.Date(2026, 10, 10, 10, 0, 0, 500_000_000, time.UTC)),
 		},
 		&taskv1.Task{
 			Id:         "t2",
@@ -323,7 +324,7 @@ func TestTasksRow(t *testing.T) {
 			Title:          xptr.Ptr("Fix login"),
 			Goal:           xptr.Ptr("Logins work again."),
 			Notes:          xptr.Ptr("Fixed."),
-			NotesUpdatedAt: xptr.Ptr("2026-10-10T10:00:00.5Z"),
+			NotesUpdatedAt: timestamppb.New(time.Date(2026, 10, 10, 10, 0, 0, 500_000_000, time.UTC)),
 		})
 	})
 

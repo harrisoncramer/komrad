@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var documentID = uuid.MustParse("01a0d1d7-0000-7000-8000-0000000000d0")
@@ -677,8 +678,8 @@ func TestGetDocument(t *testing.T) {
 				Name:      "Documents",
 				Type:      "explainer",
 				Body:      "# How documents work",
-				CreatedAt: "2026-09-26T09:00:00Z",
-				UpdatedAt: "2026-09-26T10:00:00Z",
+				CreatedAt: timestamppb.New(time.Date(2026, 9, 26, 9, 0, 0, 0, time.UTC)),
+				UpdatedAt: timestamppb.New(time.Date(2026, 9, 26, 10, 0, 0, 0, time.UTC)),
 			}, got.Msg.GetDocument(), protocmp.Transform()))
 			assertCrossAgentRead(t, assertCrossAgentReadParams{
 				Written: written.String(),
@@ -736,13 +737,13 @@ func TestListDocumentVersions(t *testing.T) {
 					Name:      "Documents",
 					Type:      "RFC",
 					ByPerson:  true,
-					CreatedAt: "2026-09-26T10:00:00Z",
+					CreatedAt: timestamppb.New(time.Date(2026, 9, 26, 10, 0, 0, 0, time.UTC)),
 				},
 				{
 					Version:   1,
 					Name:      "Draft",
 					Type:      "notes",
-					CreatedAt: "2026-09-26T09:00:00Z",
+					CreatedAt: timestamppb.New(time.Date(2026, 9, 26, 9, 0, 0, 0, time.UTC)),
 				},
 			}, listed.Msg.GetVersions(), protocmp.Transform()))
 			assertCrossAgentRead(t, assertCrossAgentReadParams{
@@ -860,7 +861,7 @@ func TestListDocumentTypes(t *testing.T) {
 		Name:      "RFC",
 		Context:   "A proposal.",
 		Version:   2,
-		UpdatedAt: dates.PreciseStamp(updated),
+		UpdatedAt: dates.Stamp(updated),
 	}}
 	assert.Empty(t, cmp.Diff(want, listed.Msg.GetDocumentTypes(), protocmp.Transform()))
 }
@@ -916,12 +917,12 @@ func TestListDocumentTypeVersions(t *testing.T) {
 		{
 			Version:   2,
 			Name:      "incident",
-			CreatedAt: "2026-09-30T10:00:00Z",
+			CreatedAt: timestamppb.New(time.Date(2026, 9, 30, 10, 0, 0, 0, time.UTC)),
 		},
 		{
 			Version:   1,
 			Name:      "postmortem",
-			CreatedAt: "2026-09-30T09:00:00Z",
+			CreatedAt: timestamppb.New(time.Date(2026, 9, 30, 9, 0, 0, 0, time.UTC)),
 		},
 	}, listed.Msg.GetVersions(), protocmp.Transform()))
 }

@@ -51,7 +51,7 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		FailedRun:          row.FailedRun,
 		FailedRunLog:       row.FailedRunLog,
 		Documents:          row.Documents,
-		DocumentsUpdatedAt: dates.PreciseStampPtr(row.DocumentsUpdatedAt),
+		DocumentsUpdatedAt: dates.StampPtr(row.DocumentsUpdatedAt),
 		TaskId:             formatOptionalID(stored.TaskID),
 		TaskSlug:           row.TaskSlug,
 		ProvisionDisabled:  stored.IsProvisionerDisabled(),

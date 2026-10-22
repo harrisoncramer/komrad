@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -94,8 +95,8 @@ func newTaskHandler(fake *fakeTasks) taskv1komrad.TaskServiceAdapter {
 // TestSetTaskNotesPassesDown pins that a notes write hands down the caller and the version it read,
 // and renders the version written back.
 func TestSetTaskNotesPassesDown(t *testing.T) {
-	readAt := time.Date(2026, 10, 9, 12, 0, 0, 123456000, time.UTC)
-	writtenAt := time.Date(2026, 10, 9, 13, 0, 0, 654321000, time.UTC)
+	readAt := time.Date(2026, 10, 9, 12, 0, 0, 123_456_000, time.UTC)
+	writtenAt := time.Date(2026, 10, 9, 13, 0, 0, 654_321_000, time.UTC)
 	fake := &fakeTasks{stored: taskstore.Task{
 		ID:             taskID,
 		Slug:           "fix-login",
@@ -107,7 +108,7 @@ func TestSetTaskNotesPassesDown(t *testing.T) {
 	written, err := newTaskHandler(fake).SetTaskNotes(ctx, connect.NewRequest(&taskv1.SetTaskNotesRequest{
 		Task:           &taskv1.SetTaskNotesRequest_TaskSlug{TaskSlug: "fix-login"},
 		Notes:          "Found it.",
-		NotesUpdatedAt: xptr.Ptr(readAt.Format(time.RFC3339Nano)),
+		NotesUpdatedAt: timestamppb.New(readAt),
 	}))
 	require.NoError(t, err)
 
@@ -118,7 +119,7 @@ func TestSetTaskNotesPassesDown(t *testing.T) {
 	require.NotNil(t, fake.updated[0].Fields.ReadNotesUpdatedAt)
 	assert.True(t, readAt.Equal(*fake.updated[0].Fields.ReadNotesUpdatedAt))
 	assert.Equal(t, "Found it.", written.Msg.GetTask().GetNotes())
-	assert.Equal(t, writtenAt.Format(time.RFC3339Nano), written.Msg.GetTask().GetNotesUpdatedAt())
+	assert.True(t, writtenAt.Equal(written.Msg.GetTask().GetNotesUpdatedAt().AsTime()))
 }
 
 // TestDeleteTasksPassesDown pins that a delete hands down the tasks by id, those named by slug

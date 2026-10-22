@@ -154,9 +154,57 @@ linters:
             - "**/internal/ui/tabs/**"
             - "**/internal/ui/record/**"
             - "**/internal/ui/filter/**"
+            - "**/internal/ui/cursor/**"
+            - "**/internal/ui/diffview/**"
+            - "**/internal/ui/layout/**"
+            - "**/internal/ui/logview/**"
+            - "**/internal/ui/paint/**"
+            - "**/internal/ui/panel/**"
+            - "**/internal/ui/reader/**"
+            - "**/internal/ui/savedscreen/**"
+            - "**/internal/ui/submitting/**"
           deny:
             - pkg: komrad/internal/ui$
               desc: a shared package sits under the panel's screens, so it never reaches back up into the root
+            - pkg: komrad/internal/ui/logs$
+              desc: a shared package sits under the screen domains, so it never imports one
+            - pkg: komrad/internal/ui/checks$
+              desc: a shared package sits under the screen domains, so it never imports one
+        domains:
+          files:
+            - "**/internal/ui/logs/**"
+            - "**/internal/ui/checks/**"
+          list-mode: lax
+          allow:
+            - komrad/internal/ui/api$
+            - komrad/internal/ui/column$
+            - komrad/internal/ui/cursor$
+            - komrad/internal/ui/diffview$
+            - komrad/internal/ui/editor$
+            - komrad/internal/ui/field$
+            - komrad/internal/ui/filter$
+            - komrad/internal/ui/form$
+            - komrad/internal/ui/keys$
+            - komrad/internal/ui/layout$
+            - komrad/internal/ui/legend$
+            - komrad/internal/ui/list$
+            - komrad/internal/ui/logview$
+            - komrad/internal/ui/menu$
+            - komrad/internal/ui/paint$
+            - komrad/internal/ui/paint/label$
+            - komrad/internal/ui/panel$
+            - komrad/internal/ui/paneltest$
+            - komrad/internal/ui/pickfont$
+            - komrad/internal/ui/reader$
+            - komrad/internal/ui/record$
+            - komrad/internal/ui/savedscreen$
+            - komrad/internal/ui/screen$
+            - komrad/internal/ui/submitting$
+            - komrad/internal/ui/tabs$
+            - komrad/internal/ui/zone$
+          deny:
+            - pkg: komrad/internal/ui
+              desc: a screen domain reaches the panel through the shared packages and the requests it returns, so it never imports the root or another domain
         panel:
           files:
             - "**/internal/ui/**"
@@ -445,10 +493,13 @@ linters:
               - ^lib/protoconv/
           black_box:
             skip: false
-            # The panel's screen tests are in package ui_test, where they can only reach the
-            # model through the harness.
+            # The panel's stories are in package ui_test and each domain's own test package, where
+            # they can only reach the model and a domain's screen through the harness.
             types:
               - komrad/internal/ui.model
+              - komrad/internal/ui/logs.Screen
+              - komrad/internal/ui/checks.Screen
+              - komrad/internal/ui/checks.Logs
             # Unanchored regexps over the path lint was run from.
             exclude:
               # Table tests over the screens' key tables, which are typed over the model. They read

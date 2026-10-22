@@ -312,6 +312,16 @@ func (p *Panel) Advance(by time.Duration) {
 	p.clock.set(target)
 }
 
+// IsSpinning reports whether the frame changes as the loader ticks once.
+func (p *Panel) IsSpinning() bool {
+	p.t.Helper()
+
+	before := p.Frame()
+	p.Advance(loader.Interval)
+
+	return p.Frame() != before
+}
+
 // WriteInEditor is the text the editor writes to its file when the panel next opens it.
 func (p *Panel) WriteInEditor(text string) {
 	p.editor.mu.Lock()

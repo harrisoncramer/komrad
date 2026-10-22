@@ -38,6 +38,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var files = []protoreflect.FileDescriptor{
@@ -54,6 +55,8 @@ var files = []protoreflect.FileDescriptor{
 	watchv1.File_watch_v1_watch_proto,
 	taskv1.File_task_v1_task_proto,
 }
+
+var timestampName = (&timestamppb.Timestamp{}).ProtoReflect().Descriptor().FullName()
 
 var awaitsHooks = map[string]bool{
 	agentv1connect.AgentServiceCreateAgentProcedure:           true,
@@ -211,6 +214,11 @@ func EnumNames(values protoreflect.EnumDescriptor) []string {
 	}
 
 	return names
+}
+
+// IsTimestamp reports whether the field holds a google.protobuf.Timestamp.
+func IsTimestamp(field protoreflect.FieldDescriptor) bool {
+	return field.Kind() == protoreflect.MessageKind && field.Message().FullName() == timestampName
 }
 
 // IsRequired reports whether the server would refuse the field left empty, which the validation

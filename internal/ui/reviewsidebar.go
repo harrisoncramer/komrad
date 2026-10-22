@@ -269,7 +269,7 @@ func (r reviewScreen) needRows() []sideRow {
 			continue
 		}
 
-		if thread.GetResolvedAt() != "" {
+		if thread.GetResolvedAt() != nil {
 			continue
 		}
 

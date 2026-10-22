@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var reviewedAt = time.Date(2026, time.September, 24, 9, 0, 0, 0, time.UTC)
@@ -628,9 +629,9 @@ func TestGetReviewRendersTheReview(t *testing.T) {
 			Verdict:         agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 			Body:            "two things before it goes",
 			OpenThreads:     1,
-			ReleasedAt:      "2026-09-24T09:00:00Z",
-			CreatedAt:       "2026-09-24T09:00:00Z",
-			UpdatedAt:       "2026-09-24T09:00:00Z",
+			ReleasedAt:      timestamppb.New(time.Date(2026, 9, 24, 9, 0, 0, 0, time.UTC)),
+			CreatedAt:       timestamppb.New(time.Date(2026, 9, 24, 9, 0, 0, 0, time.UTC)),
+			UpdatedAt:       timestamppb.New(time.Date(2026, 9, 24, 9, 0, 0, 0, time.UTC)),
 		},
 		Snapshot: &agentv1.ReviewSnapshot{
 			Id:        firstSnapshotID.String(),
@@ -638,7 +639,7 @@ func TestGetReviewRendersTheReview(t *testing.T) {
 			Ordinal:   1,
 			BaseSha:   "base-sha",
 			Sha:       "snapshot-sha",
-			CreatedAt: "2026-09-24T09:00:00Z",
+			CreatedAt: timestamppb.New(time.Date(2026, 9, 24, 9, 0, 0, 0, time.UTC)),
 		},
 		Threads: []*agentv1.ReviewThreadInContext{{
 			Thread: &agentv1.ReviewThread{
@@ -675,7 +676,7 @@ func TestSetReviewFileViewedRendersTheMark(t *testing.T) {
 				TaskId:      betaTaskID.String(),
 				FilePath:    "greet.go",
 				Fingerprint: "abc123",
-				ViewedAt:    "2026-09-24T09:00:00Z",
+				ViewedAt:    timestamppb.New(time.Date(2026, 9, 24, 9, 0, 0, 0, time.UTC)),
 			},
 		},
 	}

@@ -5,6 +5,7 @@ package task.v1;
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 import "rules/v1/rules.proto";
 
 option go_package = "komrad/proto/gen/task/v1;taskv1";
@@ -69,12 +70,12 @@ message Task {
   string title = 4;
   // What the task is meant to achieve, in markdown.
   string goal = 5;
-  // When the task was created, in RFC 3339.
-  string created_at = 6;
-  // When the task last changed, in RFC 3339.
-  string updated_at = 7;
-  // When the task was archived, in RFC 3339. Unset while the task is live.
-  optional string archived_at = 8;
+  // When the task was created.
+  google.protobuf.Timestamp created_at = 6;
+  // When the task last changed.
+  google.protobuf.Timestamp updated_at = 7;
+  // When the task was archived. Unset while the task is live.
+  optional google.protobuf.Timestamp archived_at = 8;
   // The directory of the task's checkout. Unset while the task has no checkout.
   optional string cwd = 9;
   // The git branch of the task's checkout. Unset when the task has no checkout or git cannot
@@ -103,9 +104,9 @@ message Task {
   string failure_reason = 18;
   // The task's notes, in markdown, written by its agents and the person.
   string notes = 19;
-  // When the task's notes were last written, in RFC 3339 with nanoseconds. Unset until the notes
+  // When the task's notes were last written. Unset until the notes
   // are first written.
-  optional string notes_updated_at = 20;
+  optional google.protobuf.Timestamp notes_updated_at = 20;
   // Whether a hook run on the task failed and the person has not opened its log since.
   bool failed_run = 21;
   // Whether the task is hidden. A hidden task stays live, and clients leave it out of their
@@ -113,9 +114,9 @@ message Task {
   bool hidden = 22;
   // How many documents agents have written for the task. `list_documents` returns them.
   int32 documents = 23;
-  // When the newest of the task's documents was last written, in RFC 3339. Unset when the task
+  // When the newest of the task's documents was last written. Unset when the task
   // has none.
-  optional string documents_updated_at = 24;
+  optional google.protobuf.Timestamp documents_updated_at = 24;
   // The task this task depends on. Unset for a task on the workflow's base branch.
   optional Parent parent = 25;
   // How many snapshots komrad has taken of the task's checkout.
@@ -214,7 +215,7 @@ message UpdateTaskRequest {
   // The new notes in full, in markdown. Unchanged when unset.
   optional string notes = 5 [(buf.validate.field).string.max_len = 100000];
   // The `notes_updated_at` the notes were read with. Unset when the notes were never written.
-  optional string notes_updated_at = 6 [(buf.validate.field).string.pattern = "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"];
+  optional google.protobuf.Timestamp notes_updated_at = 6;
 }
 
 message UpdateTaskResponse {
@@ -235,7 +236,7 @@ message SetTaskNotesRequest {
   string notes = 2 [(buf.validate.field).string.max_len = 100000];
   // The `notes_updated_at` that `get_task` returned with the notes. Unset when the notes were
   // never written.
-  optional string notes_updated_at = 3 [(buf.validate.field).string.pattern = "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"];
+  optional google.protobuf.Timestamp notes_updated_at = 3;
 }
 
 message SetTaskNotesResponse {

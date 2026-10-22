@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"komrad/internal/loader"
 	"komrad/internal/ui/paneltest"
@@ -19,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestLoaderSpinsWhileChecksRun covers a pull request with checks running rendering the configured loader a frame a tick.
@@ -28,7 +30,7 @@ func TestLoaderSpinsWhileChecksRun(t *testing.T) {
 	var rendered []string
 	for range 5 {
 		rendered = append(rendered, readChecksFrame(t, harness))
-		require.True(t, isSpinning(harness), "the loader stopped ticking with checks still running")
+		require.True(t, harness.IsSpinning(), "the loader stopped ticking with checks still running")
 	}
 
 	assert.Equal(t, []string{"◜", "◝", "◞", "◟", "◜"}, rendered)
@@ -44,7 +46,7 @@ func TestLoaderSpinsForATaskWithoutItsWriter(t *testing.T) {
 	task.Id, task.Slug, task.Title = "t1", "fix-login", "Fix login"
 	writer.TaskId = xptr.Ptr("t1")
 	writer.TaskSlug = xptr.Ptr("fix-login")
-	writer.CreatedAt = "2026-09-20T12:05:00Z"
+	writer.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 12, 5, 0, 0, time.UTC))
 	other := newAgentAt("checker", "w1", 0)
 	other.TaskId = xptr.Ptr("t1")
 	other.TaskSlug = xptr.Ptr("fix-login")
@@ -55,7 +57,7 @@ func TestLoaderSpinsForATaskWithoutItsWriter(t *testing.T) {
 	require.Equal(t, []string{"  backend", "◜ └─ fix-login", "     └─ checker"}, paneltest.ListRows(harness.Frame()))
 
 	harness.Advance(loader.Interval)
-	assert.True(t, isSpinning(harness), "the task row's spinner froze")
+	assert.True(t, harness.IsSpinning(), "the task row's spinner froze")
 }
 
 // TestLoaderStopsTicking covers the loader tick going quiet once no rendered row is loading.
@@ -104,12 +106,12 @@ func TestLoaderStopsTicking(t *testing.T) {
 			harness := tt.open(t)
 
 			if tt.leave != nil {
-				require.True(t, isSpinning(harness), "the loader never started")
+				require.True(t, harness.IsSpinning(), "the loader never started")
 				tt.leave(harness)
 				harness.Advance(loader.Interval)
 			}
 
-			assert.False(t, isSpinning(harness))
+			assert.False(t, harness.IsSpinning())
 		})
 	}
 }
@@ -142,14 +144,14 @@ func TestLoaderSpinsWhileAnAgentSetsUp(t *testing.T) {
 			var rendered []string
 			for range 3 {
 				rendered = append(rendered, readWriteFrame(t, harness.Frame(), tt.doing))
-				require.True(t, isSpinning(harness), "the loader stopped ticking with the agent still setting up")
+				require.True(t, harness.IsSpinning(), "the loader stopped ticking with the agent still setting up")
 			}
 
 			assert.Equal(t, []string{"◜", "◝", "◞"}, rendered)
 
 			harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), newRunning()))
 			harness.Advance(loader.Interval)
-			assert.False(t, isSpinning(harness), "the loader goes quiet once the agent is up")
+			assert.False(t, harness.IsSpinning(), "the loader goes quiet once the agent is up")
 		})
 	}
 }
@@ -173,7 +175,7 @@ func TestLoaderSpinsWhileAWriteIsInFlight(t *testing.T) {
 	var rendered []string
 	for range 3 {
 		rendered = append(rendered, readWriteFrame(t, harness.Frame(), "creating workflow web…"))
-		require.True(t, isSpinning(harness), "the loader stopped ticking with the write in flight")
+		require.True(t, harness.IsSpinning(), "the loader stopped ticking with the write in flight")
 	}
 
 	assert.Equal(t, []string{"◜", "◝", "◞"}, rendered)
@@ -181,7 +183,7 @@ func TestLoaderSpinsWhileAWriteIsInFlight(t *testing.T) {
 	harness.Release(create)
 	harness.Watch(paneltest.Puts(paneltest.Workflow("w2", "web")))
 	harness.Advance(loader.Interval)
-	assert.False(t, isSpinning(harness), "the loader goes quiet once the write lands")
+	assert.False(t, harness.IsSpinning(), "the loader goes quiet once the write lands")
 }
 
 func openAgentsWithPullRequest(state pullrequestv1.PullRequestState) func(t *testing.T) *paneltest.Panel {
@@ -198,7 +200,7 @@ func openArchiveWithChecksRunning(t *testing.T) *paneltest.Panel {
 	rows := newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING)
 	agent, ok := rows[0].(*agentv1.Agent)
 	require.True(t, ok)
-	agent.ArchivedAt = xptr.Ptr(archivedAt)
+	agent.ArchivedAt = archivedAt
 
 	return openArchivedAgents(t, append([]proto.Message{paneltest.Workflow("w1", "backend")}, rows...)...)
 }
@@ -235,11 +237,4 @@ func readWriteFrame(t *testing.T, frame, doing string) string {
 	require.Fail(t, "nothing is rendered doing "+doing)
 
 	return ""
-}
-
-func isSpinning(harness *paneltest.Panel) bool {
-	before := harness.Frame()
-	harness.Advance(loader.Interval)
-
-	return harness.Frame() != before
 }

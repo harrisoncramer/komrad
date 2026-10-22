@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/logs"
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/zone"
 
@@ -95,9 +96,9 @@ func (m *model) clickerOf(name zone.Name) (clicker, bool) {
 		if slices.Contains(m.listStops(), stopBlock) {
 			return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickDocLine(key) })), true
 		}
-	case zoneLog:
+	case logs.Zone:
 		return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd {
-			m.logs.clickLine(key)
+			m.logs.ClickLine(key)
 
 			return nil
 		})), true

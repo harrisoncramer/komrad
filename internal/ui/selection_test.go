@@ -3,6 +3,7 @@ package ui_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paneltest"
@@ -30,9 +31,9 @@ func TestSelection(t *testing.T) {
 			name: "the archived agents",
 			rows: []proto.Message{
 				paneltest.Workflow("w1", "backend"),
-				newArchivedAgentAt("auth", "2026-07-30T12:00:00Z"),
-				newArchivedAgentAt("api", "2026-07-30T11:00:00Z"),
-				newArchivedAgentAt("db", "2026-07-30T10:00:00Z"),
+				newArchivedAgentAt("auth", time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC)),
+				newArchivedAgentAt("api", time.Date(2026, 7, 30, 11, 0, 0, 0, time.UTC)),
+				newArchivedAgentAt("db", time.Date(2026, 7, 30, 10, 0, 0, 0, time.UTC)),
 			},
 			press: []string{"F", "tab", "esc", "j"},
 		},

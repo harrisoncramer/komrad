@@ -118,7 +118,7 @@ func readOpenThreads(ctx context.Context, state *app, task string) ([]*agentv1.R
 
 	var open []*agentv1.ReviewThread
 	for _, thread := range resp.GetThreads() {
-		if thread.GetResolvedAt() == "" {
+		if thread.GetResolvedAt() == nil {
 			open = append(open, thread)
 		}
 	}

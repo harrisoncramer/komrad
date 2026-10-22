@@ -6,6 +6,7 @@ import "agent/v1/agent.proto";
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "komrad/proto/gen/worktree/v1;worktreev1";
 
@@ -17,8 +18,8 @@ message WorktreeAgent {
   string name = 2;
   // The agent's state.
   agent.v1.AgentState state = 3;
-  // When the agent was archived, in RFC 3339. Unset while the agent is live.
-  optional string archived_at = 4;
+  // When the agent was archived. Unset while the agent is live.
+  optional google.protobuf.Timestamp archived_at = 4;
 }
 
 // WorktreeTask is the task a worktree belongs to.
@@ -27,8 +28,8 @@ message WorktreeTask {
   string id = 1;
   // The task's slug.
   string slug = 2;
-  // When the task was archived, in RFC 3339. Unset while the task is live.
-  optional string archived_at = 3;
+  // When the task was archived. Unset while the task is live.
+  optional google.protobuf.Timestamp archived_at = 3;
   // Whether the branch existed before the task was put on it. Deleting the task never deletes
   // such a branch.
   bool adopted = 4;
@@ -66,14 +67,14 @@ message Worktree {
   // The disk space the worktree takes, in bytes, counting blocks and each hard-linked file once.
   // Unset until measured and while the last measurement failed.
   optional int64 size_bytes = 6;
-  // When the worktree's size was last measured or last failed to be, in RFC 3339. Unset until
+  // When the worktree's size was last measured or last failed to be. Unset until
   // first measured.
-  optional string measured_at = 7;
+  optional google.protobuf.Timestamp measured_at = 7;
   // Why the last measurement failed. Empty when it succeeded.
   string size_error = 8;
-  // When the worktree was last active, in RFC 3339. This is the newest change to its agents, else
+  // When the worktree was last active. This is the newest change to its agents, else
   // when git last wrote its `.git` file, else its modification time.
-  string last_active_at = 9;
+  google.protobuf.Timestamp last_active_at = 9;
   // What removes the worktree.
   WorktreeFate fate = 10;
   // The worktree's share of `size_bytes`, with each hard-linked file split evenly across its
@@ -97,11 +98,11 @@ message WatchedWorktree {
   // The disk space the worktree takes, in bytes. Unset until measured and while the last
   // measurement failed.
   optional int64 size_bytes = 5;
-  // When the worktree's size was last measured or last failed to be, in RFC 3339.
-  optional string measured_at = 6;
-  // When git last wrote the worktree's `.git` file, else the worktree's modification time, in RFC
-  // 3339. Empty when neither can be read.
-  string modified_at = 7;
+  // When the worktree's size was last measured or last failed to be.
+  optional google.protobuf.Timestamp measured_at = 6;
+  // When git last wrote the worktree's `.git` file, else the worktree's modification time. Unset
+  // when neither can be read.
+  google.protobuf.Timestamp modified_at = 7;
   // Why the last measurement failed. Empty when it succeeded.
   string size_error = 8;
   // The worktree's share of `size_bytes`, with each hard-linked file split evenly across its
@@ -113,8 +114,8 @@ message WatchedWorktree {
 
 // WorktreeStanding is how a worktree compared with the base branch when git last read it.
 message WorktreeStanding {
-  // When git read the worktree, in RFC 3339.
-  string read_at = 1;
+  // When git read the worktree.
+  google.protobuf.Timestamp read_at = 1;
   // Whether the worktree had modified or untracked files.
   bool dirty = 2;
   // Whether a sequence was stopped in the worktree.
@@ -158,8 +159,8 @@ message Commit {
   string sha = 1;
   // The first line of the commit's message.
   string subject = 2;
-  // When the commit was made, in RFC 3339.
-  string committed_at = 3;
+  // When the commit was made.
+  google.protobuf.Timestamp committed_at = 3;
 }
 
 message GetWorktreeResponse {

@@ -11,6 +11,7 @@ import (
 
 	"komrad/internal/ui/paneltest"
 	"komrad/internal/ui/screen"
+	"komrad/lib/dates"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -335,7 +336,7 @@ func TestArchivedAgentsRows(t *testing.T) {
 		Name:       "orchestrator",
 		WorkflowId: "w1",
 		Role:       agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
-		ArchivedAt: xptr.Ptr(archivedAt),
+		ArchivedAt: archivedAt,
 	}
 	keptAndDeleted := []proto.Message{newArchivedWorkflow("w1", "backend"), kept, newArchivedTaskOf(kept), deleted, newDeletedTaskOf(deleted)}
 	everyDeleted := []proto.Message{newArchivedWorkflow("w1", "backend"), orchestrator, deleted, newDeletedTaskOf(deleted)}
@@ -374,7 +375,7 @@ func TestArchivedAgentsRows(t *testing.T) {
 					Name:       "orchestrator",
 					WorkflowId: "w1",
 					Role:       agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
-					ArchivedAt: xptr.Ptr(archivedAt),
+					ArchivedAt: archivedAt,
 				},
 			},
 			wantRows: []string{"backend"},
@@ -636,7 +637,7 @@ func TestArchivedAgentsDocument(t *testing.T) {
 	measured := newArchivedAgent("a1", "api-refactor", "w1")
 	measuredTask := paneltest.TaskOf(measured)
 	measuredTask.DiffStat = &taskv1.DiffStat{Added: 200, Removed: 100}
-	measuredTask.ArchivedAt = xptr.Ptr(archivedAt)
+	measuredTask.ArchivedAt = archivedAt
 	measuredReview := newArchivedAgent("a2", "api-review", "w1")
 	measuredReview.TaskId = xptr.Ptr(measuredTask.GetId())
 	measuredReview.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
@@ -701,12 +702,12 @@ func TestArchivedAgentsDocument(t *testing.T) {
 
 	t.Run("the record says what the agents list would say of it", func(t *testing.T) {
 		agent := newArchivedAgent("a1", "api-refactor", "w1")
-		agent.CreatedAt = "2026-07-29T09:00:00Z"
+		agent.CreatedAt = timestamppb.New(time.Date(2026, 7, 29, 9, 0, 0, 0, time.UTC))
 		task := paneltest.TaskOf(agent)
 		task.Branch = xptr.Ptr("agent/a1")
 		task.RepositoryUrl = xptr.Ptr("https://github.com/harrisoncramer/komrad")
-		task.CreatedAt = "2026-07-29T09:00:00Z"
-		task.ArchivedAt = xptr.Ptr(archivedAt)
+		task.CreatedAt = timestamppb.New(time.Date(2026, 7, 29, 9, 0, 0, 0, time.UTC))
+		task.ArchivedAt = archivedAt
 		harness := openArchivedAgents(t,
 			paneltest.Workflow("w1", "backend"),
 			agent,
@@ -718,9 +719,9 @@ func TestArchivedAgentsDocument(t *testing.T) {
 				HeadBranch:        "agent/a1",
 				Number:            42,
 				State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
-				OpenedAt:          "2026-07-30T08:00:00Z",
-				MergedAt:          xptr.Ptr(archivedAt),
-				ClosedAt:          xptr.Ptr(archivedAt),
+				OpenedAt:          timestamppb.New(time.Date(2026, 7, 30, 8, 0, 0, 0, time.UTC)),
+				MergedAt:          archivedAt,
+				ClosedAt:          archivedAt,
 			},
 		)
 
@@ -739,9 +740,9 @@ func TestArchivedAgentsDocument(t *testing.T) {
 func TestArchivedAgentsSort(t *testing.T) {
 	unsorted := []proto.Message{
 		paneltest.Workflow("w1", "backend"),
-		newArchivedAgentAt("zeta", "2026-07-30T12:00:00Z"),
-		newArchivedAgentAt("mid", "2026-07-30T13:00:00Z"),
-		newArchivedAgentAt("alpha", "2026-07-30T09:00:00Z"),
+		newArchivedAgentAt("zeta", time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC)),
+		newArchivedAgentAt("mid", time.Date(2026, 7, 30, 13, 0, 0, 0, time.UTC)),
+		newArchivedAgentAt("alpha", time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC)),
 	}
 
 	tests := []struct {
@@ -828,9 +829,9 @@ func TestArchivedAgentsWindow(t *testing.T) {
 func TestArchivedAgentsSelection(t *testing.T) {
 	rows := []proto.Message{
 		paneltest.Workflow("w1", "backend"),
-		newArchivedAgentAt("auth", "2026-07-30T12:00:00Z"),
-		newArchivedAgentAt("api", "2026-07-30T11:00:00Z"),
-		newArchivedAgentAt("db", "2026-07-30T10:00:00Z"),
+		newArchivedAgentAt("auth", time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC)),
+		newArchivedAgentAt("api", time.Date(2026, 7, 30, 11, 0, 0, 0, time.UTC)),
+		newArchivedAgentAt("db", time.Date(2026, 7, 30, 10, 0, 0, 0, time.UTC)),
 	}
 
 	tests := []struct {
@@ -1254,7 +1255,7 @@ func newArchivedWorkflow(id, name string) *workflowv1.Workflow {
 	return &workflowv1.Workflow{
 		Id:         id,
 		Name:       name,
-		ArchivedAt: xptr.Ptr(archivedAt),
+		ArchivedAt: archivedAt,
 	}
 }
 
@@ -1264,7 +1265,7 @@ func newArchivedAgent(id, name, workflowID string) *agentv1.Agent {
 		Name:       name,
 		WorkflowId: workflowID,
 		State:      agentv1.AgentState_AGENT_STATE_IDLE,
-		ArchivedAt: xptr.Ptr(archivedAt),
+		ArchivedAt: archivedAt,
 	}
 }
 
@@ -1277,9 +1278,9 @@ func newRestoredAgent() *agentv1.Agent {
 	return agent
 }
 
-func newArchivedAgentAt(name, at string) *agentv1.Agent {
+func newArchivedAgentAt(name string, at time.Time) *agentv1.Agent {
 	agent := newArchivedAgent(name, name, "w1")
-	agent.ArchivedAt = xptr.Ptr(at)
+	agent.ArchivedAt = dates.Stamp(at)
 
 	return agent
 }
@@ -1338,7 +1339,7 @@ func TestArchivedTasks(t *testing.T) {
 	inArchivedWorkflow := newArchivedAgent("a1", "api-refactor", "w1")
 	inArchivedWorkflowTask := paneltest.TaskOf(inArchivedWorkflow)
 	inArchivedWorkflowTask.Cwd = xptr.Ptr("/trees/api")
-	inArchivedWorkflowTask.ArchivedAt = xptr.Ptr(archivedAt)
+	inArchivedWorkflowTask.ArchivedAt = archivedAt
 	goneAgent := newArchivedAgent("a1", "api-refactor", "w1")
 	goneTask := newArchivedTaskOf(goneAgent)
 	goneTask.Cwd = xptr.Ptr("/trees/api")
@@ -1525,13 +1526,13 @@ func buildArchivedTasks() []proto.Message {
 			Id:         "t1",
 			WorkflowId: "w1",
 			Slug:       "api-work",
-			ArchivedAt: xptr.Ptr(archivedAt),
+			ArchivedAt: archivedAt,
 		},
 		&taskv1.Task{
 			Id:         "t2",
 			WorkflowId: "w1",
 			Slug:       "db-work",
-			ArchivedAt: xptr.Ptr(archivedAt),
+			ArchivedAt: archivedAt,
 		},
 		&taskv1.Task{
 			Id:         "t3",
@@ -1543,7 +1544,7 @@ func buildArchivedTasks() []proto.Message {
 
 func newArchivedTaskOf(agent *agentv1.Agent) *taskv1.Task {
 	task := paneltest.TaskOf(agent)
-	task.ArchivedAt = xptr.Ptr(archivedAt)
+	task.ArchivedAt = archivedAt
 
 	return task
 }

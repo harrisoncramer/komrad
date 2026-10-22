@@ -8,12 +8,12 @@ import (
 
 	"komrad/internal/ui/paneltest"
 	"komrad/internal/ui/screen"
-	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestTabStrip covers the sort strip every tabbed list renders under its filter line.
@@ -233,12 +233,12 @@ func TestTabStripGolden(t *testing.T) {
 const stripLegend = "esc back to the list"
 
 func buildPinnedArchive() []proto.Message {
-	archivedAt := time.Date(2026, 9, 17, 12, 0, 0, 0, time.Local).Format(time.RFC3339)
+	archivedAt := timestamppb.New(time.Date(2026, 9, 17, 12, 0, 0, 0, time.Local))
 
 	rows := buildWorktrees()
 	for _, row := range rows {
 		if agent, isAgent := row.(*agentv1.Agent); isAgent && agent.ArchivedAt != nil {
-			agent.ArchivedAt = xptr.Ptr(archivedAt)
+			agent.ArchivedAt = archivedAt
 		}
 	}
 

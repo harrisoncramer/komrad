@@ -1,4 +1,4 @@
-package ui
+package checks
 
 import (
 	"slices"
@@ -19,66 +19,66 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// statusCheckLogChunk is the most lines one read of a check's log asks for.
-const statusCheckLogChunk = 5000
+// logChunk is the most lines one read of a check's log asks for.
+const logChunk = 5000
 
-// statusCheckLogErrorMarker is the prefix GitHub Actions puts at the start of a log line the job reported as an error.
-const statusCheckLogErrorMarker = "##[error]"
+// logErrorMarker is the prefix GitHub Actions puts at the start of a log line the job reported as an error.
+const logErrorMarker = "##[error]"
 
 const (
-	statusCheckLogSearchDebounce  = 150 * time.Millisecond
-	statusCheckLogSearchMinLength = 3
+	logSearchDebounce  = 150 * time.Millisecond
+	logSearchMinLength = 3
 )
 
-// statusCheckLogs is the logs screen's own state, which the status checks screen keeps.
-type statusCheckLogs struct {
+// logs is the logs screen's own state, which the status checks screen keeps.
+type logs struct {
 	list.Cursor
 	agentID string
 	// openedFrom is the screen the logs were opened from, which going back returns to.
 	openedFrom screen.ID
 	// generation tells this visit's reads apart from an earlier one's.
 	generation int
-	reads      map[string]*statusCheckLogRead
-	rendered   statusCheckLogsRendered
+	reads      map[string]*logRead
+	rendered   logsRendered
 	// placed is the row of the document the hovered row's header was last put on, and placedTop
 	// the row the window was scrolled to with it.
 	placed    int
 	placedTop int
 }
 
-// statusCheckLogsScreen is the logs screen, its own state paired with the checks the status checks screen lists.
-type statusCheckLogsScreen struct {
-	*statusCheckLogs
-	checks *statusChecksScreen
+// Logs is the logs screen, its own state paired with the checks the status checks screen lists.
+type Logs struct {
+	*logs
+	checks *Screen
 }
 
-// logsScreen is the logs of the checks the screen lists, as the screen that renders them.
-func (c *statusChecksScreen) logsScreen() statusCheckLogsScreen {
-	return statusCheckLogsScreen{statusCheckLogs: &c.logs, checks: c}
+// Logs is the logs of the checks the screen lists, as the screen that renders them.
+func (c *Screen) Logs() Logs {
+	return Logs{logs: &c.logs, checks: c}
 }
 
-// statusCheckLogRead is the lines of one check's log read so far.
-type statusCheckLogRead struct {
+// logRead is the lines of one check's log read so far.
+type logRead struct {
 	lines   []string
 	err     error
 	reading bool
 }
 
-// statusCheckLogsRendered is the document as last rendered, kept while nothing it was rendered from has changed.
-type statusCheckLogsRendered struct {
+// logsRendered is the document as last rendered, kept while nothing it was rendered from has changed.
+type logsRendered struct {
 	shape   string
 	rows    []string
 	anchors map[string]int
 }
 
-// statusCheckLogRow is a check, or one step of its log, in the list beside the document.
-type statusCheckLogRow struct {
-	item statusCheckItem
+// logRow is a check, or one step of its log, in the list beside the document.
+type logRow struct {
+	item check
 	step *pullrequestv1.CheckLogStep
 }
 
 // Key names the row, a status check by its id or one step by the status check id and step number, so the cursor and the document anchors find it.
-func (r statusCheckLogRow) Key() string {
+func (r logRow) Key() string {
 	if r.step != nil {
 		return "status-check-log:" + r.item.checkID + "/" + strconv.Itoa(int(r.step.GetNumber()))
 	}
@@ -86,7 +86,7 @@ func (r statusCheckLogRow) Key() string {
 	return "status-check-log:" + r.item.checkID
 }
 
-func statusCheckLogRowName(row statusCheckLogRow) string {
+func logRowName(row logRow) string {
 	if row.step != nil {
 		return row.step.GetName()
 	}
@@ -94,55 +94,61 @@ func statusCheckLogRowName(row statusCheckLogRow) string {
 	return row.item.name
 }
 
-// statusCheckLogReadMsg is one chunk of a check's log come back.
-type statusCheckLogReadMsg struct {
+// logReadMsg is one chunk of a check's log come back.
+type logReadMsg struct {
 	generation int
 	checkID    string
 	resp       *pullrequestv1.ReadCheckLogResponse
 	err        error
 }
 
-func (c statusCheckLogsScreen) Enter(in screen.Inputs, target screen.Target) screen.Request {
+// Enter starts a new visit, listing the status checks again and reading their logs.
+func (c Logs) Enter(in screen.Inputs, target screen.Target) screen.Request {
 	generation := c.generation + 1
 	if target.AgentID != "" {
-		*c.statusCheckLogs = statusCheckLogs{
+		*c.logs = logs{
 			agentID:    target.AgentID,
 			openedFrom: target.OpenedFrom,
 		}
 	}
-	c.generation, c.reads, c.placed, c.placedTop = generation, map[string]*statusCheckLogRead{}, 0, 0
+	c.generation, c.reads, c.placed, c.placedTop = generation, map[string]*logRead{}, 0, 0
 
-	return screen.Batch{screen.Cmd(c.checks.readStatusChecksCmd(in)), screen.Cmd(c.readsCmd(in))}
+	return screen.Batch{screen.Cmd(c.checks.listCmd(in)), screen.Cmd(c.readsCmd(in))}
 }
 
-func (c statusCheckLogsScreen) LeaveScreen() screen.Request {
+// LeaveScreen ends the visit's reads.
+func (c Logs) LeaveScreen() screen.Request {
 	c.generation++
 
 	return nil
 }
 
-func (c statusCheckLogsScreen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
+// Update sends a key to the screen's table.
+func (c Logs) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return nil
 	}
 
-	return c.listActions(in).DispatchTop(c.checks.deps.top, c, c.checks.deps.keys, key.String())
+	return c.listActions(in).DispatchTop(c.checks.deps.Top, c, c.checks.deps.Keys, key.String())
 }
 
-func (c statusCheckLogsScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
+// Receive takes the chunks of log read, the status checks as they are listed, and the listing moving.
+func (c Logs) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 	switch msg := msg.(type) {
-	case statusCheckLogReadMsg:
+	case logReadMsg:
 		return c.applyRead(in, msg), true
-	case statusChecksListedMsg:
+	case listedMsg:
 		return c.applyListed(in, msg), true
+	case screen.Relisted:
+		return screen.Cmd(c.checks.listCmd(in)), true
 	}
 
 	return nil, false
 }
 
 // applyListed keeps the hovered row's header in view and reads the logs of the checks just listed.
-func (c statusCheckLogsScreen) applyListed(in screen.Inputs, msg statusChecksListedMsg) screen.Request {
+func (c Logs) applyListed(in screen.Inputs, msg listedMsg) screen.Request {
 	if msg.agentID != c.checks.agentID || msg.err != nil {
 		return nil
 	}
@@ -152,48 +158,48 @@ func (c statusCheckLogsScreen) applyListed(in screen.Inputs, msg statusChecksLis
 		return requests
 	}
 
-	return append(requests, screen.Cmd(c.checks.readStatusChecksCmd(in)))
+	return append(requests, screen.Cmd(c.checks.listCmd(in)))
 }
 
-func (c statusCheckLogsScreen) list() keys.ScreenList[statusCheckLogRow] {
-	return keys.ScreenList[statusCheckLogRow]{
-		Keys:   c.checks.deps.keys,
+func (c Logs) list() keys.ScreenList[logRow] {
+	return keys.ScreenList[logRow]{
+		Keys:   c.checks.deps.Keys,
 		Cursor: func() *list.Cursor { return &c.Cursor },
 		Rows:   c.rows,
-		Name:   statusCheckLogRowName,
+		Name:   logRowName,
 		Moved:  c.anchor,
 	}
 }
 
 // shown is the checks the status checks screen lists under its scope.
-func (c statusCheckLogsScreen) shown() []statusCheckItem {
+func (c Logs) shown() []check {
 	return xslice.Filter(c.checks.commit.items, c.checks.shownScope().holds)
 }
 
-func (c statusCheckLogsScreen) rows(in screen.Inputs) []statusCheckLogRow {
-	var rows []statusCheckLogRow
+func (c Logs) rows(in screen.Inputs) []logRow {
+	var rows []logRow
 	for _, item := range c.shown() {
-		rows = append(rows, statusCheckLogRow{item: item})
-		rows = append(rows, xslice.Map(item.log.GetSteps(), func(step *pullrequestv1.CheckLogStep) statusCheckLogRow {
-			return statusCheckLogRow{item: item, step: step}
+		rows = append(rows, logRow{item: item})
+		rows = append(rows, xslice.Map(item.log.GetSteps(), func(step *pullrequestv1.CheckLogStep) logRow {
+			return logRow{item: item, step: step}
 		})...)
 	}
 
-	return list.Narrowed(in.Room.Pattern, list.NarrowedParams[statusCheckLogRow]{
+	return list.Narrowed(in.Room.Pattern, list.NarrowedParams[logRow]{
 		Rows: rows,
-		Depth: func(r statusCheckLogRow) int {
+		Depth: func(r logRow) int {
 			if r.step != nil {
 				return 1
 			}
 
 			return 0
 		},
-		Name: statusCheckLogRowName,
+		Name: logRowName,
 	})
 }
 
 // anchor puts the hovered row's header at the top of the document.
-func (c statusCheckLogsScreen) anchor(in screen.Inputs) screen.Request {
+func (c Logs) anchor(in screen.Inputs) screen.Request {
 	split := in.Room.Split
 	if !split.On {
 		return nil
@@ -215,7 +221,7 @@ func (c statusCheckLogsScreen) anchor(in screen.Inputs) screen.Request {
 }
 
 // reanchor keeps the hovered row's header in view as the document changes above it, unless the reader has moved or scrolled off it.
-func (c statusCheckLogsScreen) reanchor(in screen.Inputs) screen.Request {
+func (c Logs) reanchor(in screen.Inputs) screen.Request {
 	doc := in.Room.Doc
 	if !in.Up || doc.Held || doc.Line != c.placed || doc.Top != c.placedTop {
 		return nil
@@ -224,9 +230,10 @@ func (c statusCheckLogsScreen) reanchor(in screen.Inputs) screen.Request {
 	return c.anchor(in)
 }
 
-func (c statusCheckLogsScreen) ListParams(in screen.Inputs) list.Params {
+// ListParams is the list of status checks and their steps as the root renders it.
+func (c Logs) ListParams(in screen.Inputs) list.Params {
 	return list.Params{
-		Tally:    c.checks.commit.tally(c.checks.deps.clock.Now()),
+		Tally:    c.checks.commit.tally(c.checks.deps.Clock.Now()),
 		Help:     c.help(in),
 		Empty:    c.checks.emptyLine(in),
 		Rows:     len(c.rows(in)),
@@ -234,20 +241,23 @@ func (c statusCheckLogsScreen) ListParams(in screen.Inputs) list.Params {
 	}
 }
 
-func (c statusCheckLogsScreen) Kinds() tabs.Stops {
+// Kinds is the status checks screen's row of scopes.
+func (c Logs) Kinds() tabs.Stops {
 	return c.checks.Kinds()
 }
 
-func (c statusCheckLogsScreen) KindsFocused() *bool {
+// KindsFocused is whether the status checks screen's row of scopes holds the keys.
+func (c Logs) KindsFocused() *bool {
 	return c.checks.KindsFocused()
 }
 
-func (c statusCheckLogsScreen) KindsSwitch() bool {
+// KindsSwitch reports that the scope may always change.
+func (c Logs) KindsSwitch() bool {
 	return true
 }
 
 // StepKind moves the status checks screen to another scope, which is the scope the logs are joined under.
-func (c statusCheckLogsScreen) StepKind(in screen.Inputs, delta int) screen.Request {
+func (c Logs) StepKind(in screen.Inputs, delta int) screen.Request {
 	hovered := c.list().Hovered(in)
 	stepped := c.checks.StepKind(in, delta)
 	placed := c.list().Place(in, hovered)
@@ -255,50 +265,52 @@ func (c statusCheckLogsScreen) StepKind(in screen.Inputs, delta int) screen.Requ
 	return screen.Batch{stepped, placed, c.reanchor(in), screen.Cmd(c.readsCmd(in))}
 }
 
-func (c statusCheckLogsScreen) listActions(in screen.Inputs) keys.Spec[statusCheckLogsScreen] {
-	return keys.Spec[statusCheckLogsScreen]{
-		Table: append(keys.ListActions[statusCheckLogsScreen](c.list(), in),
-			keys.Action[statusCheckLogsScreen]{
-				ID:   actionStatusCheckLogsBack,
+func (c Logs) listActions(in screen.Inputs) keys.Spec[Logs] {
+	return keys.Spec[Logs]{
+		Table: append(keys.ListActions[Logs](c.list(), in),
+			keys.Action[Logs]{
+				ID:   actionLogsBack,
 				Keys: keys.FixedBack,
-				Nav: func(statusCheckLogsScreen, string) screen.Request {
+				Nav: func(Logs, string) screen.Request {
 					return screen.Open{Screen: screen.StatusChecks}
 				},
 			},
 		),
-		Legend: slices.Concat(keys.NavLegend[statusCheckLogsScreen](), []keys.LegendRow[statusCheckLogsScreen]{
+		Legend: slices.Concat(keys.NavLegend[Logs](), []keys.LegendRow[Logs]{
 			{
 				Of:   []keys.ID{keys.FilterOpen},
-				Desc: keys.FilterDescOf[statusCheckLogsScreen](in),
+				Desc: keys.FilterDescOf[Logs](in),
 			},
 			{
 				Of:    []keys.ID{keys.FilterClear},
-				Desc:  keys.FilterClearDescOf[statusCheckLogsScreen](in),
+				Desc:  keys.FilterClearDescOf[Logs](in),
 				Strip: true,
 			},
 			{
 				Of:    []keys.ID{keys.FilterMatch},
-				Desc:  func(statusCheckLogsScreen) string { return "next/prev match" },
+				Desc:  func(Logs) string { return "next/prev match" },
 				Strip: true,
 			},
 			{
-				Of:    []keys.ID{actionStatusCheckLogsBack},
-				Desc:  func(statusCheckLogsScreen) string { return "back" },
+				Of:    []keys.ID{actionLogsBack},
+				Desc:  func(Logs) string { return "back" },
 				Strip: true,
 			},
 		}),
 	}
 }
 
-func (c statusCheckLogsScreen) help(in screen.Inputs) legend.Help {
-	return c.listActions(in).Help(c, c.checks.deps.keys)
+func (c Logs) help(in screen.Inputs) legend.Help {
+	return c.listActions(in).Help(c, c.checks.deps.Keys)
 }
 
-func (c statusCheckLogsScreen) Parent() screen.ID {
+// Parent is the screen the logs were opened from.
+func (c Logs) Parent() screen.ID {
 	return c.openedFrom
 }
 
-func (c statusCheckLogsScreen) Crumbs(in screen.Inputs) screen.Crumbs {
+// Crumbs is the trail down to the logs of the agent's status checks.
+func (c Logs) Crumbs(in screen.Inputs) screen.Crumbs {
 	name := c.agentID
 	if item, ok := in.Listing.AnyAgent(c.agentID); ok {
 		name = in.Listing.AgentName(item.Agent)
@@ -307,53 +319,51 @@ func (c statusCheckLogsScreen) Crumbs(in screen.Inputs) screen.Crumbs {
 	return screen.Crumbs{Trail: []string{name, "status checks", "logs"}}
 }
 
-func (c statusCheckLogsScreen) DoesRenderFromListing() bool {
+// DoesRenderFromListing reports that the screen names the agent from the listing.
+func (c Logs) DoesRenderFromListing() bool {
 	return true
 }
 
-func (c statusCheckLogsScreen) TakesEveryKey() bool {
+// TakesEveryKey reports that nothing on the screen takes every key.
+func (c Logs) TakesEveryKey() bool {
 	return false
 }
 
-func (c statusCheckLogsScreen) Column(screen.Inputs) column.Spec {
+// Column is the logs rendered in the block beside the list.
+func (c Logs) Column(screen.Inputs) column.Spec {
 	return column.Spec{
 		Floor:           column.Narrowest,
 		Read:            column.IsAlwaysRead,
-		SearchDebounce:  statusCheckLogSearchDebounce,
-		SearchMinLength: statusCheckLogSearchMinLength,
+		SearchDebounce:  logSearchDebounce,
+		SearchMinLength: logSearchMinLength,
 		DocRows: func(width int) []string {
 			return c.doc(width).rows
 		},
 	}
 }
 
-func (c statusCheckLogsScreen) StageResting(screen.Inputs) screen.Request {
+// StageResting stages nothing for the row the cursor rests on.
+func (c Logs) StageResting(screen.Inputs) screen.Request {
 	return nil
 }
 
-func (c statusCheckLogsScreen) Dispatches() []keys.Table {
+// Dispatches is the screen's one table.
+func (c Logs) Dispatches() []keys.Table {
 	return []keys.Table{c.listActions(screen.Inputs{})}
 }
 
-var (
-	_ kindSwitcher    = statusCheckLogsScreen{}
-	_ activeLister    = statusCheckLogsScreen{}
-	_ crumbRenderer   = statusCheckLogsScreen{}
-	_ loadingReporter = statusCheckLogsScreen{}
-	_ screenLeaver    = statusCheckLogsScreen{}
-	_ docNamer        = statusCheckLogsScreen{}
-)
-
-func (c statusCheckLogsScreen) ActiveList() keys.KeyedList {
+// ActiveList is the list of status checks and steps the filter narrows.
+func (c Logs) ActiveList() keys.KeyedList {
 	return c.list()
 }
 
 // DocName names the one document every row of the list reads, so moving the cursor keeps the reader's place.
-func (c statusCheckLogsScreen) DocName() string {
+func (c Logs) DocName() string {
 	return c.agentID + "/status-check-logs"
 }
 
-func (c statusCheckLogsScreen) IsLoading(screen.Inputs) bool {
+// IsLoading reports whether the status checks are being listed or any log is being read.
+func (c Logs) IsLoading(screen.Inputs) bool {
 	if c.checks.listing {
 		return true
 	}
@@ -367,21 +377,22 @@ func (c statusCheckLogsScreen) IsLoading(screen.Inputs) bool {
 	return false
 }
 
-func (c statusCheckLogsScreen) BuildFrame(in screen.Inputs) {
+// BuildFrame renders the logs at the width of the block beside the list.
+func (c Logs) BuildFrame(in screen.Inputs) {
 	if split := in.Room.Split; split.On {
 		c.keepDoc(split.Column)
 	}
 }
 
 // keepDoc builds the document at a width and keeps it for view to read.
-func (c statusCheckLogsScreen) keepDoc(width int) statusCheckLogsRendered {
+func (c Logs) keepDoc(width int) logsRendered {
 	c.rendered = c.doc(width)
 
 	return c.rendered
 }
 
 // readsCmd starts reading the log of each shown check that has one kept and is not read yet.
-func (c statusCheckLogsScreen) readsCmd(in screen.Inputs) tea.Cmd {
+func (c Logs) readsCmd(in screen.Inputs) tea.Cmd {
 	if !in.Up || c.reads == nil {
 		return nil
 	}
@@ -395,7 +406,7 @@ func (c statusCheckLogsScreen) readsCmd(in screen.Inputs) tea.Cmd {
 			continue
 		}
 
-		c.reads[item.checkID] = &statusCheckLogRead{reading: true}
+		c.reads[item.checkID] = &logRead{reading: true}
 		cmds = append(cmds, c.readCmd(item.checkID, 1, item.log.GetLineCount()))
 	}
 
@@ -403,14 +414,14 @@ func (c statusCheckLogsScreen) readsCmd(in screen.Inputs) tea.Cmd {
 }
 
 // readCmd reads one chunk of a check's log, from its first line toward its last.
-func (c statusCheckLogsScreen) readCmd(checkID string, first, last int32) tea.Cmd {
-	generation, clients := c.generation, c.checks.deps.clients
-	count := min(last-first+1, statusCheckLogChunk)
+func (c Logs) readCmd(checkID string, first, last int32) tea.Cmd {
+	generation, clients := c.generation, c.checks.deps.Clients
+	count := min(last-first+1, logChunk)
 
 	return func() tea.Msg {
 		resp, err := clients.ReadCheckLog(checkID, first, count)
 
-		return statusCheckLogReadMsg{
+		return logReadMsg{
 			generation: generation,
 			checkID:    checkID,
 			resp:       resp,
@@ -419,7 +430,7 @@ func (c statusCheckLogsScreen) readCmd(checkID string, first, last int32) tea.Cm
 	}
 }
 
-func (c statusCheckLogsScreen) applyRead(in screen.Inputs, msg statusCheckLogReadMsg) screen.Request {
+func (c Logs) applyRead(in screen.Inputs, msg logReadMsg) screen.Request {
 	read, ok := c.reads[msg.checkID]
 	if msg.generation != c.generation || !ok {
 		return nil

@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 	"unicode"
 
 	"komrad/internal/diff"
@@ -13,6 +14,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -111,7 +113,7 @@ func TestMarkForSaysWhichThreadIsWhich(t *testing.T) {
 	assert.Equal(t, glyph.Defaults().Spell(glyph.ThreadRead), mark)
 	assert.Equal(t, paint.Panel.Style(paint.ToneUserMe), style, "a thread the person opened is rendered in their colour")
 
-	thread.ResolvedAt = "2026-08-27T12:00:00Z"
+	thread.ResolvedAt = timestamppb.New(time.Date(2026, 8, 27, 12, 0, 0, 0, time.UTC))
 	mark, style = view.markFor(thread)
 	assert.Equal(t, glyph.Defaults().Spell(glyph.ThreadSettled), mark)
 	assert.Equal(t, paint.Panel.Style(paint.ToneUserMe), style, "and the check keeps the author's colour")

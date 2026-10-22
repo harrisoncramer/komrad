@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestSubpages covers the menu of an agent's subpages opened beside the agents list.
@@ -205,6 +206,35 @@ func TestSubpagesInArchive(t *testing.T) {
 	})
 }
 
+// TestStatusChecksOpen covers the status checks screen opening from the subpages menu.
+func TestStatusChecksOpen(t *testing.T) {
+	t.Parallel()
+
+	t.Run("a task with no pull request has no status checks to list", func(t *testing.T) {
+		t.Parallel()
+
+		harness := paneltest.OpenAgents(t, buildSubpagesAgents()...)
+		harness.MoveToRow("task-author")
+		harness.Press("space", "x")
+
+		frame := harness.Frame()
+		assert.Equal(t, screen.StatusChecks, paneltest.Screen(harness.Frame()))
+		assert.Contains(t, frame, "agents › author › status checks")
+		assert.Contains(t, frame, "no pull request")
+	})
+
+	t.Run("back returns to the list on the agent it opened for", func(t *testing.T) {
+		t.Parallel()
+
+		harness := paneltest.OpenAgents(t, buildSubpagesAgents()...)
+		harness.MoveToRow("task-author")
+		harness.Press("space", "x", "esc")
+
+		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
+		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "author")
+	})
+}
+
 // openSubpages opens the subpages menu from the agents list on the row named.
 func openSubpages(t *testing.T, row string) *paneltest.Panel {
 	t.Helper()
@@ -222,9 +252,9 @@ func openArchivedSubpages(t *testing.T) *paneltest.Panel {
 
 	author := newArchivedAgent("author", "author", "w1")
 	author.Documents = 2
-	author.DocumentsUpdatedAt = xptr.Ptr("2026-09-25T12:00:00Z")
+	author.DocumentsUpdatedAt = timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
 	task := paneltest.TaskOf(author)
-	task.ArchivedAt = xptr.Ptr(archivedAt)
+	task.ArchivedAt = archivedAt
 
 	harness := openArchivedAgents(t, paneltest.Workflow("w1", "komrad"), author, task)
 	newDocumentShelf().answer(harness)

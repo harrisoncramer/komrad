@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestWorktreesOpen covers the screen opening on the directory of the agent the cursor was on.
@@ -670,11 +671,11 @@ func TestWorktreesRecord(t *testing.T) {
 		t.Parallel()
 
 		writer := paneltest.Agent("writer-id", "writer", "w1")
-		writer.CreatedAt = "2026-09-20T12:00:00Z"
+		writer.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC))
 		task := paneltest.TaskOf(writer)
 		writer.Cwd = "/trees/" + task.GetId()
 		reviewer := newArchivedAgent("reviewer-id", "reviewer", "w1")
-		reviewer.CreatedAt = "2026-09-20T13:00:00Z"
+		reviewer.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 13, 0, 0, 0, time.UTC))
 		reviewer.Cwd = writer.GetCwd()
 		reviewer.TaskId = writer.TaskId
 		reviewer.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
@@ -785,9 +786,9 @@ func TestWorktreesRecordActivity(t *testing.T) {
 				Dir:        "/trees/orphan",
 				Readable:   true,
 				Branch:     "task/orphan",
-				MeasuredAt: xptr.Ptr(formatStampAgo(5 * time.Minute)),
+				MeasuredAt: stampAgo(5 * time.Minute),
 				SizeError:  "permission denied",
-				ModifiedAt: formatStampAgo(90 * time.Minute),
+				ModifiedAt: stampAgo(90 * time.Minute),
 			},
 			row:            "task/orphan",
 			wantSize:       "—, could not measure: permission denied",
@@ -800,7 +801,7 @@ func TestWorktreesRecordActivity(t *testing.T) {
 				Readable:   true,
 				Branch:     "task/archived",
 				SizeBytes:  xptr.Ptr[int64](49 * 1024 * 1024),
-				MeasuredAt: xptr.Ptr(formatStampAgo(90 * time.Minute)),
+				MeasuredAt: stampAgo(90 * time.Minute),
 			},
 			row:            "reviewer",
 			wantSize:       "49M, measured 1h ago",
@@ -813,7 +814,7 @@ func TestWorktreesRecordActivity(t *testing.T) {
 			t.Parallel()
 
 			rows := buildWorktrees()
-			rows[3].(*agentv1.Agent).ArchivedAt = xptr.Ptr(formatStampAgo(4 * 24 * time.Hour))
+			rows[3].(*agentv1.Agent).ArchivedAt = stampAgo(4 * 24 * time.Hour)
 			harness := openWorktrees(t, rows...)
 			harness.Watch(paneltest.Puts(tt.worktree))
 			moveToWorktree(t, harness, tt.row)
@@ -873,7 +874,7 @@ func TestWorktreesRecordOccupants(t *testing.T) {
 			for i, name := range tt.occupants {
 				occupant := paneltest.Agent(fmt.Sprintf("occ%d", i), name, "w1")
 				occupant.Cwd = tt.dir
-				occupant.CreatedAt = fmt.Sprintf("2026-09-20T1%d:00:00Z", i)
+				occupant.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 10+i, 0, 0, 0, time.UTC))
 				rows = append(rows, occupant)
 			}
 			rows = append(rows, buildWatchedWorktrees()...)
@@ -956,7 +957,7 @@ func TestWorktreesDocument(t *testing.T) {
 			Commits: []*worktreev1.Commit{{
 				Sha:         "87a3bcc98c47",
 				Subject:     "fix(view): drop the column",
-				CommittedAt: formatStampAgo(2 * time.Hour),
+				CommittedAt: stampAgo(2 * time.Hour),
 			}},
 		}))
 		harness.Advance(time.Second)
@@ -1400,11 +1401,11 @@ func buildMeasuredWorktrees() []proto.Message {
 func measureAgent(agent *agentv1.Agent) {
 	switch agent.GetId() {
 	case "live":
-		agent.StateChangedAt = formatStampAgo(5 * time.Minute)
+		agent.StateChangedAt = stampAgo(5 * time.Minute)
 	case "archived":
-		agent.ArchivedAt = xptr.Ptr(formatStampAgo(4 * 24 * time.Hour))
+		agent.ArchivedAt = stampAgo(4 * 24 * time.Hour)
 	case "admin":
-		agent.ArchivedAt = xptr.Ptr(formatStampAgo(12 * time.Hour))
+		agent.ArchivedAt = stampAgo(12 * time.Hour)
 	}
 }
 
@@ -1413,20 +1414,20 @@ func measureWorktree(worktree *worktreev1.WatchedWorktree) {
 	case "/trees/live", "/trees/archived":
 		worktree.SizeBytes = xptr.Ptr[int64](49 * 1024 * 1024)
 		worktree.ShareBytes = xptr.Ptr[int64](30 * 1024 * 1024)
-		worktree.MeasuredAt = xptr.Ptr(formatStampAgo(time.Hour))
-		worktree.Standing = &worktreev1.WorktreeStanding{ReadAt: formatStampAgo(time.Hour), Unlanded: 2}
+		worktree.MeasuredAt = stampAgo(time.Hour)
+		worktree.Standing = &worktreev1.WorktreeStanding{ReadAt: stampAgo(time.Hour), Unlanded: 2}
 	case "/trees/orphan":
-		worktree.MeasuredAt = xptr.Ptr(formatStampAgo(time.Hour))
+		worktree.MeasuredAt = stampAgo(time.Hour)
 		worktree.SizeError = "permission denied"
-		worktree.Standing = &worktreev1.WorktreeStanding{ReadAt: formatStampAgo(time.Hour), Error: "git cannot read the directory"}
-		worktree.ModifiedAt = formatStampAgo(3 * time.Hour)
+		worktree.Standing = &worktreev1.WorktreeStanding{ReadAt: stampAgo(time.Hour), Error: "git cannot read the directory"}
+		worktree.ModifiedAt = stampAgo(3 * time.Hour)
 	case "/trees/broken":
-		worktree.ModifiedAt = formatStampAgo(2 * 7 * 24 * time.Hour)
+		worktree.ModifiedAt = stampAgo(2 * 7 * 24 * time.Hour)
 	case "/trees/admin":
 		worktree.SizeBytes = xptr.Ptr[int64](1536 * 1024 * 1024)
 		worktree.ShareBytes = xptr.Ptr[int64](1536 * 1024 * 1024)
-		worktree.MeasuredAt = xptr.Ptr(formatStampAgo(time.Hour))
-		worktree.Standing = &worktreev1.WorktreeStanding{ReadAt: formatStampAgo(time.Hour)}
+		worktree.MeasuredAt = stampAgo(time.Hour)
+		worktree.Standing = &worktreev1.WorktreeStanding{ReadAt: stampAgo(time.Hour)}
 	}
 }
 
@@ -1436,7 +1437,7 @@ func newMeasuredWorktree(dir string, size int64) *worktreev1.WatchedWorktree {
 		if worktree.GetDir() == dir {
 			worktree.SizeBytes = xptr.Ptr(size)
 			worktree.ShareBytes = xptr.Ptr(size)
-			worktree.MeasuredAt = xptr.Ptr(formatStampAgo(time.Minute))
+			worktree.MeasuredAt = stampAgo(time.Minute)
 
 			return worktree
 		}
@@ -1471,8 +1472,8 @@ func readHoveredWorktree(frame string) string {
 	return strings.TrimSpace(paneltest.HoveredRow(frame))
 }
 
-func formatStampAgo(ago time.Duration) string {
-	return time.Now().Add(-ago).UTC().Format(time.RFC3339)
+func stampAgo(ago time.Duration) *timestamppb.Timestamp {
+	return timestamppb.New(time.Now().Add(-ago))
 }
 
 func readFormProse(frame string) string {

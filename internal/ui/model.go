@@ -23,10 +23,12 @@ import (
 	"komrad/internal/loader"
 	"komrad/internal/panes"
 	"komrad/internal/ui/api"
+	"komrad/internal/ui/checks"
 	"komrad/internal/ui/editor"
 	"komrad/internal/ui/filter"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/layout"
+	"komrad/internal/ui/logs"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/submitting"
@@ -292,8 +294,8 @@ type model struct {
 	schedules       schedulesScreen
 	worktrees       worktreesScreen
 	documents       documentsScreen
-	logs            logsScreen
-	statusChecks    statusChecksScreen
+	logs            logs.Screen
+	statusChecks    checks.Screen
 	// inspections is what the server answered for each worktree directory.
 	inspections map[string]panel.WorktreeInspection
 	lastScreen  lastScreen
@@ -449,13 +451,6 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		draftDir:      deps.Settings.DraftDir,
 		glyphs:        deps.Glyphs,
 	}
-	statusChecks := statusChecksDeps{
-		keys:    deps.Keys,
-		glyphs:  deps.Glyphs,
-		clock:   clock,
-		clients: clients,
-		top:     top,
-	}
 
 	m := model{
 		term: terminalState{
@@ -515,18 +510,24 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 			sort: tabs.State{Flat: true},
 		},
 		documents: documentsScreen{deps: documents},
-		logs: logsScreen{deps: logsDeps{
-			keys:     deps.Keys,
-			glyphs:   deps.Glyphs,
-			clock:    clock,
-			register: register,
-			clients:  clients,
-			top:      top,
-		}},
-		statusChecks: statusChecksScreen{deps: statusChecks},
-		warm:         newWarmupState(),
-		loading:      loadingState{style: cmp.Or(deps.Loader, loader.Braille)},
-		reactors:     newWorldReactors(),
+		logs: logs.New(logs.Deps{
+			Keys:     deps.Keys,
+			Glyphs:   deps.Glyphs,
+			Clock:    clock,
+			Register: register,
+			Clients:  clients,
+			Top:      top,
+		}),
+		statusChecks: checks.New(checks.Deps{
+			Keys:    deps.Keys,
+			Glyphs:  deps.Glyphs,
+			Clock:   clock,
+			Clients: clients,
+			Top:     top,
+		}),
+		warm:     newWarmupState(),
+		loading:  loadingState{style: cmp.Or(deps.Loader, loader.Braille)},
+		reactors: newWorldReactors(),
 	}
 
 	if m.clip == nil {

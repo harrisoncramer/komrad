@@ -4,7 +4,9 @@ import (
 	"slices"
 	"testing"
 
+	"komrad/internal/ui/checks"
 	"komrad/internal/ui/keys"
+	"komrad/internal/ui/logs"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
@@ -119,11 +121,11 @@ func armsOf(t *testing.T, s screen.ID) []specArm {
 			arms = append(arms, specArms(spec)...)
 		case keys.Spec[*documentsScreen]:
 			arms = append(arms, specArms(spec)...)
-		case keys.Spec[*logsScreen]:
+		case keys.Spec[*logs.Screen]:
 			arms = append(arms, specArms(spec)...)
-		case keys.Spec[*statusChecksScreen]:
+		case keys.Spec[*checks.Screen]:
 			arms = append(arms, specArms(spec)...)
-		case keys.Spec[statusCheckLogsScreen]:
+		case keys.Spec[checks.Logs]:
 			arms = append(arms, specArms(spec)...)
 		default:
 			t.Fatalf("%s dispatches through a %T no case here reads", s, table)

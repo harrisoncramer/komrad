@@ -7,6 +7,7 @@ import (
 	annotationv1 "komrad/proto/gen/annotation/v1"
 	configv1 "komrad/proto/gen/config/v1"
 	hookv1 "komrad/proto/gen/hook/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"komrad/internal/rpcapi"
@@ -174,18 +175,23 @@ func TestToolDescription(t *testing.T) {
 // TestInputSchema confirms what the server rejects empty is described as required and
 // everything else can be left out.
 func TestInputSchema(t *testing.T) {
+	agentService := agentv1.File_agent_v1_agent_proto.Services().Get(0)
+
 	tests := []struct {
+		service      protoreflect.ServiceDescriptor
 		method       string
 		wantFields   map[string]map[string]any
 		wantNested   map[string]map[string]map[string]any
 		wantRequired []string
 	}{
 		{
+			service:      agentService,
 			method:       "CreateAgent",
 			wantFields:   map[string]map[string]any{"prompt": {"type": "string"}, "workflow_id": {"type": "string"}},
 			wantRequired: []string{"prompt", "workflow_id"},
 		},
 		{
+			service:    agentService,
 			method:     "ListAgents",
 			wantFields: map[string]map[string]any{"pagination": nil},
 			wantNested: map[string]map[string]map[string]any{
@@ -193,16 +199,23 @@ func TestInputSchema(t *testing.T) {
 			},
 		},
 		{
+			service:      agentService,
 			method:       "GetAgent",
 			wantFields:   map[string]map[string]any{"id": {"type": "string"}},
 			wantRequired: []string{"id"},
 		},
+		{
+			service: taskv1.File_task_v1_task_proto.Services().Get(0),
+			method:  "SetTaskNotes",
+			wantFields: map[string]map[string]any{
+				"notes_updated_at": {"type": "string", "format": "date-time"},
+			},
+		},
 	}
 
-	service := agentv1.File_agent_v1_agent_proto.Services().Get(0)
 	for _, tt := range tests {
 		t.Run(tt.method, func(t *testing.T) {
-			method := service.Methods().ByName(protoreflect.Name(tt.method))
+			method := tt.service.Methods().ByName(protoreflect.Name(tt.method))
 			require.NotNil(t, method)
 
 			schema, err := inputSchema(method.Input())

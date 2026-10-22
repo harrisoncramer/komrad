@@ -13,6 +13,7 @@ import (
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/zone"
+	"komrad/lib/dates"
 	agentv1 "komrad/proto/gen/agent/v1"
 
 	"charm.land/lipgloss/v2"
@@ -293,13 +294,13 @@ func (d reviewDiff) commentWhereView(thread *agentv1.ReviewThread) string {
 
 // threadView is a thread's conversation wrapped to the width given, oldest message first.
 func (r reviewScreen) threadView(in screen.Inputs, thread *agentv1.ReviewThread, width int) string {
-	stamp := r.diff.laterStamp(thread)
+	laterAt := r.diff.laterAt(thread)
 	answered := findAnswer(thread)
 	later := false
 
 	out := r.originView(thread, width)
 	for i, message := range thread.GetMessages() {
-		if i > 0 && !later && stamp != "" && !doesPredate(message.GetCreatedAt(), stamp) {
+		if i > 0 && !later && !laterAt.IsZero() && !doesPredate(dates.Read(message.GetCreatedAt()), laterAt) {
 			later = true
 			out += "\n" + paint.Panel.Style(paint.ToneMuted).Render(glyph.Rule+glyph.Rule+" later, after this code changed "+glyph.Rule+glyph.Rule) + "\n"
 		}
@@ -366,7 +367,7 @@ type messageViewParams struct {
 // writer.
 func (r reviewScreen) messageView(thread *agentv1.ReviewThread, message *agentv1.ReviewMessage, params messageViewParams) string {
 	author, tone := r.authorOf(message)
-	head := renderCommentHead(tone, author, message.GetCreatedAt())
+	head := renderCommentHead(tone, author, dates.Read(message.GetCreatedAt()))
 	if params.note != "" {
 		head += "   " + paint.Panel.Style(paint.ToneMuted).Render(params.note)
 	}
@@ -396,7 +397,7 @@ func (r reviewScreen) authorOf(message *agentv1.ReviewMessage) (string, paint.To
 	return "reviewer", reviewerTone
 }
 
-func renderCommentHead(tone paint.Tone, author, writtenAt string) string {
+func renderCommentHead(tone paint.Tone, author string, writtenAt time.Time) string {
 	head := paint.Panel.Style(tone).Bold(true).Render(author)
 	if when := reviewTimeOf(writtenAt); when != "" {
 		head += " " + paint.Panel.Style(paint.ToneMuted).Render(when)
@@ -409,9 +410,8 @@ func reviewWrap(width int, body string) string {
 	return lipgloss.NewStyle().Width(max(width, 1)).Render(body)
 }
 
-func reviewTimeOf(stamp string) string {
-	at, err := time.Parse(time.RFC3339, stamp)
-	if err != nil {
+func reviewTimeOf(at time.Time) string {
+	if at.IsZero() {
 		return ""
 	}
 
@@ -464,7 +464,7 @@ func (d reviewDiff) agentThreadsDesc() string {
 
 // resolveDesc says which way the settle key would go where the cursor is standing.
 func (d reviewDiff) resolveDesc() string {
-	if thread, ok := d.threadAtCursor(); ok && thread.GetResolvedAt() != "" {
+	if thread, ok := d.threadAtCursor(); ok && thread.GetResolvedAt() != nil {
 		return "reopen the thread"
 	}
 

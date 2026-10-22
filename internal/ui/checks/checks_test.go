@@ -1,50 +1,24 @@
-package ui_test
+package checks_test
 
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"komrad/internal/forge"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paneltest"
-	"komrad/internal/ui/screen"
+	"komrad/lib/dates"
 	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	"komrad/proto/gen/pullrequest/v1/pullrequestv1connect"
 
 	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
-
-// TestStatusChecksOpen covers the screen opening from the subpages menu.
-func TestStatusChecksOpen(t *testing.T) {
-	t.Parallel()
-
-	t.Run("a task with no pull request has no status checks to list", func(t *testing.T) {
-		t.Parallel()
-
-		harness := paneltest.OpenAgents(t, buildSubpagesAgents()...)
-		harness.MoveToRow("task-author")
-		harness.Press("space", "x")
-
-		frame := harness.Frame()
-		assert.Equal(t, screen.StatusChecks, paneltest.Screen(harness.Frame()))
-		assert.Contains(t, frame, "agents › author › status checks")
-		assert.Contains(t, frame, "no pull request")
-	})
-
-	t.Run("back returns to the list on the agent it opened for", func(t *testing.T) {
-		t.Parallel()
-
-		harness := paneltest.OpenAgents(t, buildSubpagesAgents()...)
-		harness.MoveToRow("task-author")
-		harness.Press("space", "x", "esc")
-
-		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
-		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "author")
-	})
-}
 
 // TestStatusChecksList covers the status checks listed for the agent's pull request.
 func TestStatusChecksList(t *testing.T) {
@@ -102,7 +76,7 @@ func TestStatusChecksList(t *testing.T) {
 
 		harness := openStatusChecks(t, listed)
 
-		assert.True(t, isSpinning(harness))
+		assert.True(t, harness.IsSpinning())
 	})
 
 	t.Run("the spinner rests once every status check has finished", func(t *testing.T) {
@@ -112,7 +86,7 @@ func TestStatusChecksList(t *testing.T) {
 			newStatusCheck("1", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "SUCCESS"),
 		))
 
-		assert.False(t, isSpinning(harness))
+		assert.False(t, harness.IsSpinning())
 	})
 
 	t.Run("the cursor moves through the status checks", func(t *testing.T) {
@@ -269,15 +243,15 @@ func TestStatusChecksSteps(t *testing.T) {
 	done := pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED
 
 	lint := newStatusCheck("1", "lint", done, "SUCCESS")
-	lint.StartedAt, lint.FinishedAt = xptr.Ptr("2026-10-04T12:00:00Z"), xptr.Ptr("2026-10-04T12:01:12Z")
+	lint.StartedAt, lint.FinishedAt = timestamppb.New(time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)), timestamppb.New(time.Date(2026, 10, 4, 12, 1, 12, 0, time.UTC))
 	lint.Steps = []*pullrequestv1.StatusCheckStep{
-		newStatusCheckStep("golangci-lint", done, "success", "2026-10-04T12:00:00Z", "2026-10-04T12:01:12Z"),
+		newStatusCheckStep("golangci-lint", done, "success", time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC), time.Date(2026, 10, 4, 12, 1, 12, 0, time.UTC)),
 	}
 
 	test := newStatusCheck("2", "test", done, "FAILURE")
 	test.Steps = []*pullrequestv1.StatusCheckStep{
-		newStatusCheckStep("Checkout", done, "success", "2026-10-04T12:00:00Z", "2026-10-04T12:00:05Z"),
-		newStatusCheckStep("Run tests", done, "failure", "2026-10-04T12:00:05Z", "2026-10-04T12:03:13Z"),
+		newStatusCheckStep("Checkout", done, "success", time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC), time.Date(2026, 10, 4, 12, 0, 5, 0, time.UTC)),
+		newStatusCheckStep("Run tests", done, "failure", time.Date(2026, 10, 4, 12, 0, 5, 0, time.UTC), time.Date(2026, 10, 4, 12, 3, 13, 0, time.UTC)),
 	}
 
 	status := newStatusCheck("3", "codecov", done, "SUCCESS")
@@ -323,7 +297,7 @@ func TestStatusChecksSteps(t *testing.T) {
 
 		long := newStatusCheck("1", "integration", done, "SUCCESS")
 		long.Steps = []*pullrequestv1.StatusCheckStep{
-			newStatusCheckStep("Run integration tests against Postgres and the forge", done, "success", "2026-10-04T12:00:00Z", "2026-10-04T12:03:08Z"),
+			newStatusCheckStep("Run integration tests against Postgres and the forge", done, "success", time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC), time.Date(2026, 10, 4, 12, 3, 8, 0, time.UTC)),
 		}
 
 		harness := openStatusChecks(t, answerStatusChecks(long))
@@ -336,14 +310,14 @@ func TestStatusChecksSteps(t *testing.T) {
 		t.Parallel()
 
 		stale := newStatusCheck("1", "e2e", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_UNKNOWN, "")
-		stale.StartedAt = xptr.Ptr("2026-10-04T12:00:00Z")
+		stale.StartedAt = timestamppb.New(time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC))
 
 		harness := openStatusChecks(t, answerStatusChecks(stale))
 
 		frame := harness.Frame()
 		assert.Contains(t, frame, glyph.Defaults().Spell(glyph.StatusCheckUnknown)+" e2e")
 		assert.Contains(t, frame, "unknown")
-		assert.False(t, isSpinning(harness))
+		assert.False(t, harness.IsSpinning())
 	})
 }
 
@@ -355,17 +329,17 @@ func TestStatusChecksNewestHead(t *testing.T) {
 	first := &pullrequestv1.StatusCheckReading{
 		HeadSha: "1111111111111111",
 		StatusChecks: []*pullrequestv1.StatusCheck{
-			inStatusCheckRun(newStatusCheck("1", "lint", done, "FAILURE"), "ci", "2026-09-20T11:00:00Z"),
-			inStatusCheckRun(newStatusCheck("2", "test", done, "SUCCESS"), "ci", "2026-09-20T11:00:00Z"),
-			inStatusCheckRun(newStatusCheck("9", "test", done, "SUCCESS"), "Scanner", "2026-09-20T11:00:00Z"),
+			inStatusCheckRun(newStatusCheck("1", "lint", done, "FAILURE"), "ci", time.Date(2026, 9, 20, 11, 0, 0, 0, time.UTC)),
+			inStatusCheckRun(newStatusCheck("2", "test", done, "SUCCESS"), "ci", time.Date(2026, 9, 20, 11, 0, 0, 0, time.UTC)),
+			inStatusCheckRun(newStatusCheck("9", "test", done, "SUCCESS"), "Scanner", time.Date(2026, 9, 20, 11, 0, 0, 0, time.UTC)),
 		},
 	}
 	second := &pullrequestv1.StatusCheckReading{
 		HeadSha: "2222222222222222",
 		StatusChecks: []*pullrequestv1.StatusCheck{
-			inStatusCheckRun(newStatusCheck("4", "vet", done, "FAILURE"), "ci", "2026-09-20T12:00:00Z"),
-			inStatusCheckRun(newStatusCheck("5", "test", done, "SUCCESS"), "ci", "2026-09-20T12:30:00Z"),
-			inStatusCheckRun(newStatusCheck("6", "test", done, "SUCCESS"), "Scanner", "2026-09-20T12:00:00Z"),
+			inStatusCheckRun(newStatusCheck("4", "vet", done, "FAILURE"), "ci", time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)),
+			inStatusCheckRun(newStatusCheck("5", "test", done, "SUCCESS"), "ci", time.Date(2026, 9, 20, 12, 30, 0, 0, time.UTC)),
+			inStatusCheckRun(newStatusCheck("6", "test", done, "SUCCESS"), "Scanner", time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)),
 			newStatusCheck("7", "ci/legacy", done, "SUCCESS"),
 		},
 	}
@@ -403,15 +377,13 @@ func TestStatusChecksNewestHead(t *testing.T) {
 	}
 
 	moveHead := func(harness *paneltest.Panel, head string) {
-		pullRequest := newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN)[2].(*pullrequestv1.PullRequest)
-		pullRequest.HeadSha = head
-		harness.Watch(paneltest.Puts(pullRequest))
+		harness.Watch(paneltest.Puts(newPullRequest(head)))
 	}
 
 	pushed := func(harness *paneltest.Panel) {
 		answerStatusCheckReadings(first, second, &pullrequestv1.StatusCheckReading{
 			HeadSha:      "3333333333333333",
-			StatusChecks: []*pullrequestv1.StatusCheck{inStatusCheckRun(newStatusCheck("8", "build", done, "SUCCESS"), "ci", "2026-09-20T13:00:00Z")},
+			StatusChecks: []*pullrequestv1.StatusCheck{inStatusCheckRun(newStatusCheck("8", "build", done, "SUCCESS"), "ci", time.Date(2026, 9, 20, 13, 0, 0, 0, time.UTC))},
 		})(harness)
 		moveHead(harness, "3333333333333333")
 	}
@@ -464,13 +436,40 @@ func openStatusChecks(t *testing.T, answer func(*paneltest.Panel)) *paneltest.Pa
 func openStatusChecksOn(t *testing.T, head string, answer func(*paneltest.Panel)) *paneltest.Panel {
 	t.Helper()
 
-	rows := newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN)
-	rows[2].(*pullrequestv1.PullRequest).HeadSha = head
-	harness := openNoticed(t, paneltest.Params{}, rows...)
+	agent := &agentv1.Agent{
+		Id:         "n1",
+		Name:       "worker",
+		WorkflowId: "w1",
+		Cwd:        "/repo",
+		State:      agentv1.AgentState_AGENT_STATE_WAITING,
+	}
+	task := paneltest.TaskOf(agent)
+	task.RepositoryUrl = xptr.Ptr(repositoryURL)
+	task.Branch = xptr.Ptr("agent/n1")
+
+	harness := paneltest.Start(t, paneltest.Params{})
+	harness.AnswerWorktreeReads()
+	harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), agent, &pullrequestv1.Repository{Url: repositoryURL}, newPullRequest(head), task))
+	harness.Press("g", "g", "j")
 	answer(harness)
 	harness.Press("space", "x")
 
 	return harness
+}
+
+const repositoryURL = "https://github.com/harrisoncramer/komrad"
+
+func newPullRequest(head string) *pullrequestv1.PullRequest {
+	return &pullrequestv1.PullRequest{
+		Id:                "pr-1",
+		RepositoryUrl:     repositoryURL,
+		HeadRepositoryUrl: repositoryURL,
+		HeadBranch:        "agent/n1",
+		Number:            7,
+		State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+		OpenedAt:          timestamppb.New(time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)),
+		HeadSha:           head,
+	}
 }
 
 func answerStatusChecks(checks ...*pullrequestv1.StatusCheck) func(*paneltest.Panel) {
@@ -495,14 +494,14 @@ func newStatusCheck(id, name string, state pullrequestv1.StatusCheckState, concl
 	}
 }
 
-func newStatusCheckStep(name string, state pullrequestv1.StatusCheckState, conclusion, startedAt, finishedAt string) *pullrequestv1.StatusCheckStep {
+func newStatusCheckStep(name string, state pullrequestv1.StatusCheckState, conclusion string, startedAt, finishedAt time.Time) *pullrequestv1.StatusCheckStep {
 	return &pullrequestv1.StatusCheckStep{
 		Name:       name,
 		State:      state,
 		Conclusion: conclusion,
 		Passed:     fixturePassed(state, conclusion),
-		StartedAt:  xptr.Ptr(startedAt),
-		FinishedAt: xptr.Ptr(finishedAt),
+		StartedAt:  dates.Stamp(startedAt),
+		FinishedAt: dates.Stamp(finishedAt),
 	}
 }
 
@@ -510,9 +509,9 @@ func fixturePassed(state pullrequestv1.StatusCheckState, conclusion string) bool
 	return state == pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED && forge.IsPassingConclusion(strings.ToLower(conclusion))
 }
 
-func inStatusCheckRun(check *pullrequestv1.StatusCheck, source, startedAt string) *pullrequestv1.StatusCheck {
+func inStatusCheckRun(check *pullrequestv1.StatusCheck, source string, startedAt time.Time) *pullrequestv1.StatusCheck {
 	check.Source = source
-	check.RunStartedAt = xptr.Ptr(startedAt)
+	check.RunStartedAt = dates.Stamp(startedAt)
 
 	return check
 }

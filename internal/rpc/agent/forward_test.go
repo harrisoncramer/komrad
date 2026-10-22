@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestForwardLastTurnsRefusalsMapToCodes pins the code each refusal of the transcript service reaches the caller as.
@@ -151,7 +152,7 @@ func TestForwardLastTurns(t *testing.T) {
 			assert.Empty(t, cmp.Diff(&agentv1.ForwardLastTurnsResponse{
 				MailId:     mailID.String(),
 				ToAgentId:  betaID.String(),
-				CreatedAt:  "2026-09-24T09:00:00Z",
+				CreatedAt:  timestamppb.New(time.Date(2026, 9, 24, 9, 0, 0, 0, time.UTC)),
 				Turns:      3,
 				Characters: 20,
 			}, got.Msg, protocmp.Transform()), "the response never carries the text")

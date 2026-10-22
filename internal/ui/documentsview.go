@@ -90,7 +90,7 @@ func (d *documentsScreen) documentTypeSnapshot(in screen.Inputs, pane list.Pane)
 				Name:    r.documentType.GetName(),
 				Matches: list.Matches(in.Room.Pattern.Regexp, r.documentType.GetName()),
 				Process: view.ProcessNone,
-				Cells:   []view.Cell{mutedCell(label.AgeAt(dates.Parse(r.documentType.GetUpdatedAt()), now))},
+				Cells:   []view.Cell{mutedCell(label.AgeAt(dates.Read(r.documentType.GetUpdatedAt()), now))},
 			}
 		}),
 		Caret:   pane.Caret,
@@ -202,7 +202,7 @@ func (h *documentHistory) notice(now time.Time) string {
 	}
 
 	notice := fmt.Sprintf("version %d of %d, %s %s ago",
-		current.version, h.versions[0].version, written, label.AgeAt(dates.Parse(current.createdAt), now))
+		current.version, h.versions[0].version, written, label.AgeAt(current.createdAt, now))
 	if renamed := h.renamedFrom(); renamed != "" {
 		notice += fmt.Sprintf(", renamed from %q", renamed)
 	}
@@ -230,21 +230,19 @@ func (h *documentHistory) renamedFrom() string {
 
 // changeRows is what stands in place of the diff while the change is not rendered as one.
 func (h *documentHistory) changeRows(width int) []string {
-	indent := strings.Repeat(" ", docMargin())
-
 	before, after, ok := h.readChange()
 	switch {
 	case !ok:
-		return []string{paint.FitRow(indent+paint.Panel.Style(paint.ToneMuted).Render("reading…"), width)}
+		return []string{paint.FitRow(paint.Panel.Style(paint.ToneMuted).Render("reading…"), width)}
 	case after.err != nil:
-		return []string{paint.FitRow(indent+"could not read: "+errui.GetReason(after.err), width)}
+		return []string{paint.FitRow("could not read: "+errui.GetReason(after.err), width)}
 	case before.err != nil:
-		return []string{paint.FitRow(indent+"could not read: "+errui.GetReason(before.err), width)}
+		return []string{paint.FitRow("could not read: "+errui.GetReason(before.err), width)}
 	case h.isOldestKeptLate():
 		return paint.DocStyledRows(after.body+"\n", width, columnStyle())
 	}
 
-	return []string{paint.FitRow(indent+paint.Panel.Style(paint.ToneMuted).Render("no change to the text"), width)}
+	return []string{paint.FitRow(paint.Panel.Style(paint.ToneMuted).Render("no change to the text"), width)}
 }
 
 // documentTypeFrom is a type's context as the panel renders it beside the list.
@@ -253,7 +251,7 @@ func documentTypeFrom(documentType *agentv1.DocumentType, now time.Time) string 
 		return renderDocument("Document types", "_no document types yet_", "", "")
 	}
 
-	notice := fmt.Sprintf("_version %d, written %s ago_", documentType.GetVersion(), label.AgeAt(dates.Parse(documentType.GetUpdatedAt()), now))
+	notice := fmt.Sprintf("_version %d, written %s ago_", documentType.GetVersion(), label.AgeAt(dates.Read(documentType.GetUpdatedAt()), now))
 
 	return renderDocument(documentType.GetName(), notice, documentProse(documentType.GetName(), documentType.GetContext()), "")
 }

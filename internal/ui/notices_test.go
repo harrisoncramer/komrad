@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"komrad/internal/ui/paneltest"
 	"komrad/lib/xptr"
@@ -48,7 +49,7 @@ func TestNoticesGolden(t *testing.T) {
 					TaskId:          "task-n1",
 					SnapshotId:      "n1-snapshot-1",
 					SnapshotOrdinal: 1,
-					ReleasedAt:      "2026-09-20T12:00:00Z",
+					ReleasedAt:      timestamppb.New(time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)),
 					Verdict:         agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 				},
 			),
@@ -121,7 +122,7 @@ func newPullRequested(state pullrequestv1.PullRequestState) []proto.Message {
 			HeadBranch:        "agent/n1",
 			Number:            7,
 			State:             state,
-			OpenedAt:          "2026-09-19T12:00:00Z",
+			OpenedAt:          timestamppb.New(time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)),
 		},
 		task,
 	}
@@ -186,6 +187,6 @@ func newUnreadMail(agentID string) *agentv1.Mail {
 	return &agentv1.Mail{
 		Id:        "m1",
 		ToAgentId: agentID,
-		ExpiresAt: time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
+		ExpiresAt: timestamppb.New(time.Now().Add(time.Hour).UTC()),
 	}
 }

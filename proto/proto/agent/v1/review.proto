@@ -3,6 +3,7 @@ syntax = "proto3";
 package agent.v1;
 
 import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "komrad/proto/gen/agent/v1;agentv1";
 
@@ -43,8 +44,8 @@ message ReviewSnapshot {
   string base_sha = 4;
   // The commit holding the whole worktree, tracked and untracked files alike.
   string sha = 5;
-  // When the snapshot was taken, in RFC 3339.
-  string created_at = 6;
+  // When the snapshot was taken.
+  google.protobuf.Timestamp created_at = 6;
 }
 
 // Review is a reviewer agent's comments on one snapshot, released to the writer together. The
@@ -64,14 +65,14 @@ message Review {
   optional string author_agent_id = 6;
   // The review's verdict. Unspecified until the review is released.
   ReviewVerdict verdict = 7;
-  // When the review was released, in RFC 3339. Empty until then.
-  string released_at = 8;
+  // When the review was released. Unset until then.
+  google.protobuf.Timestamp released_at = 8;
   // The absolute path of the file the released review was written to.
   string path = 9;
-  // When the review was created with its first comment, in RFC 3339.
-  string created_at = 11;
-  // When the review last changed, in RFC 3339.
-  string updated_at = 12;
+  // When the review was created with its first comment.
+  google.protobuf.Timestamp created_at = 11;
+  // When the review last changed.
+  google.protobuf.Timestamp updated_at = 12;
   // What the author said about the work as a whole. Empty when the author said nothing.
   string body = 13;
   // How many of the review's threads are not resolved. A released review with none is finished,
@@ -99,14 +100,14 @@ message WatchedReview {
   optional string author_agent_id = 7;
   // The review's verdict. Unspecified until the review is released.
   ReviewVerdict verdict = 8;
-  // When the review was released, in RFC 3339. Empty until then.
-  string released_at = 9;
-  // When the review was created, in RFC 3339.
-  string created_at = 11;
-  // When the review last changed, in RFC 3339.
-  string updated_at = 12;
-  // When the review's snapshot was first seen landed, in RFC 3339. Empty until then.
-  string snapshot_landed_at = 13;
+  // When the review was released. Unset until then.
+  google.protobuf.Timestamp released_at = 9;
+  // When the review was created.
+  google.protobuf.Timestamp created_at = 11;
+  // When the review last changed.
+  google.protobuf.Timestamp updated_at = 12;
+  // When the review's snapshot was first seen landed. Unset until then.
+  google.protobuf.Timestamp snapshot_landed_at = 13;
   // The forge login of the author of a review copied from the forge. Empty otherwise.
   string external_login = 14;
 }
@@ -140,16 +141,16 @@ message ReviewThread {
   int32 new_end = 11;
   // The diff lines the thread is about, each with its leading marker.
   repeated string quoted_lines = 12;
-  // When the thread was resolved, in RFC 3339. Empty while the thread is open.
-  string resolved_at = 13;
+  // When the thread was resolved. Unset while the thread is open.
+  google.protobuf.Timestamp resolved_at = 13;
   // Whether an agent has replied since the person last read the thread.
   bool unread_by_human = 14;
   // The thread's comments, oldest first.
   repeated ReviewMessage messages = 15;
-  // When the thread was created, in RFC 3339.
-  string created_at = 16;
-  // When the thread last changed, in RFC 3339.
-  string updated_at = 17;
+  // When the thread was created.
+  google.protobuf.Timestamp created_at = 16;
+  // When the thread last changed.
+  google.protobuf.Timestamp updated_at = 17;
   // Whether the thread is copied from a pull request, where replies are public.
   bool mirrors_forge = 18;
   // The replies komrad has drafted, posted or failed to post to the forge thread, oldest first.
@@ -176,10 +177,10 @@ message ReviewMessage {
   string body = 5;
   // The lines the author proposes in place of the thread's range. Empty for a plain comment.
   repeated string suggestion = 6;
-  // When the comment was written, in RFC 3339.
-  string created_at = 7;
-  // When the comment was last edited, in RFC 3339.
-  string updated_at = 8;
+  // When the comment was written.
+  google.protobuf.Timestamp created_at = 7;
+  // When the comment was last edited.
+  google.protobuf.Timestamp updated_at = 8;
   // The id of the review a reviewer agent released the comment with. Unset for the person's comments
   // and the writer's replies.
   optional string review_id = 12;
@@ -193,9 +194,9 @@ message ReviewMessage {
   // Whether the comment is kept from the agent until the person accepts it, because a forge user
   // without write access wrote the comment or its thread.
   bool held = 16;
-  // When the agent read the person's comment, in RFC 3339. Empty until then, and on every other
+  // When the agent read the person's comment. Unset until then, and on every other
   // comment.
-  string read_at = 17;
+  google.protobuf.Timestamp read_at = 17;
   // The id of the snapshot taken as the agent read the person's comment, which an addressed reply
   // is compared against. Unset until then, and on every other comment.
   optional string read_snapshot_id = 18;
@@ -207,8 +208,8 @@ message ForgeOrigin {
   string login = 1;
   // The forge comment's id. The forge may have deleted the comment since.
   string comment_id = 2;
-  // When the forge comment was last edited, in RFC 3339. Unset when it was never edited.
-  optional string edited_at = 3;
+  // When the forge comment was last edited. Unset when it was never edited.
+  optional google.protobuf.Timestamp edited_at = 3;
 }
 
 message ListReviewThreadsRequest {
@@ -432,8 +433,8 @@ message OpenReviewHistoryResponse {
   // The id of the snapshot the person last commented on. Empty when there is none or the
   // snapshot's base has changed since.
   string earlier_snapshot_id = 9;
-  // When the person last commented, in RFC 3339. Empty when the person never has.
-  string earlier_released_at = 10;
+  // When the person last commented. Unset when the person never has.
+  google.protobuf.Timestamp earlier_released_at = 10;
   // How many files changed since `earlier_snapshot_id`.
   int32 changed_since_earlier = 11;
   // Where git traced each thread's lines in the diff's head, by thread id.
@@ -572,8 +573,8 @@ message ReviewViewedFile {
   string task_id = 1;
   // The file's path, relative to the checkout.
   string file_path = 2;
-  // When the file was marked, in RFC 3339.
-  string viewed_at = 3;
+  // When the file was marked.
+  google.protobuf.Timestamp viewed_at = 3;
   // A hash of the file's diff when marked. A client shows the file as unread once the diff no
   // longer matches it.
   string fingerprint = 4;
@@ -641,19 +642,19 @@ message ForgeReply {
   ForgeReplyState state = 3;
   // The reply's text.
   string body = 4;
-  // When the person approved the reply for posting, in RFC 3339.
-  string approved_at = 5;
-  // When komrad last started posting the reply, in RFC 3339. Empty until then.
-  string sending_started_at = 6;
-  // When the forge accepted the reply, in RFC 3339. Empty until then.
-  string sent_at = 7;
+  // When the person approved the reply for posting.
+  google.protobuf.Timestamp approved_at = 5;
+  // When komrad last started posting the reply. Unset until then.
+  google.protobuf.Timestamp sending_started_at = 6;
+  // When the forge accepted the reply. Unset until then.
+  google.protobuf.Timestamp sent_at = 7;
   // The id of the comment komrad copied back from the forge for the reply. Unset until komrad
   // copies it.
   optional string forge_comment_id = 8;
   // What the forge said when it last refused the reply. Unset unless posting failed.
   optional string error = 9;
-  // When the reply was written, in RFC 3339.
-  string created_at = 10;
+  // When the reply was written.
+  google.protobuf.Timestamp created_at = 10;
 }
 
 message ReplyOnForgeRequest {

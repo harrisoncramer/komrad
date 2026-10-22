@@ -11,6 +11,7 @@ import (
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
+	"komrad/lib/dates"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -198,7 +199,7 @@ func (r *reviewScreen) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 			threads:        opened.GetThreads(),
 			viewed:         viewed,
 			earlier:        findSnapshot(opened.GetSnapshots(), opened.GetEarlierSnapshotId()),
-			earlierAt:      reviewTimeOf(opened.GetEarlierReleasedAt()),
+			earlierAt:      reviewTimeOf(dates.Read(opened.GetEarlierReleasedAt())),
 			snapshots:      opened.GetSnapshots(),
 			base:           resolved.GetBaseSha(),
 			head:           resolved.GetHeadSha(),

@@ -1,4 +1,4 @@
-package ui
+package logs
 
 import (
 	"fmt"
@@ -17,7 +17,10 @@ import (
 	logv1 "komrad/proto/gen/log/v1"
 )
 
-func (l *logsScreen) emptyLine() string {
+// Zone names the lines of the log, each keyed by its line number.
+const Zone zone.Name = "log"
+
+func (l *Screen) emptyLine() string {
 	if l.err != nil && !l.listed {
 		return "could not list: " + errui.GetReason(l.err)
 	}
@@ -25,7 +28,7 @@ func (l *logsScreen) emptyLine() string {
 	return "reading…"
 }
 
-func (l *logsScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
+func (l *Screen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
 	rows := l.rows(in)
 	caret := pane.Caret
 	if l.IsBlockFocused(in) {
@@ -33,8 +36,8 @@ func (l *logsScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
 	}
 
 	return view.Snapshot{
-		Rows: xslice.Map(rows, func(row logSourceRow) view.Row {
-			name := logSourceRowName(row)
+		Rows: xslice.Map(rows, func(row sourceRow) view.Row {
+			name := sourceRowName(row)
 			var tail view.Cell
 			if row.failed {
 				tail = view.Cell{Glyph: glyph.FailedScript, Tone: paint.ToneDanger}
@@ -66,7 +69,7 @@ func sourceLabel(source *logv1.LogSource) string {
 
 // block is the log rendered at the width and height of the block beside the sidebar, its lines
 // pinned to the prompt at its foot.
-func (l *logsScreen) block(in screen.Inputs, width int) []string {
+func (l *Screen) block(in screen.Inputs, width int) []string {
 	split := in.Room.Split
 	if !split.On {
 		return nil
@@ -81,7 +84,7 @@ func (l *logsScreen) block(in screen.Inputs, width int) []string {
 		rows = append(rows, "")
 	}
 
-	search := paint.FitRow(list.Blank+l.logFilterLine(l.deps.glyphs), width)
+	search := paint.FitRow(list.Blank+l.logFilterLine(l.deps.Glyphs), width)
 	if in.Room.Marks {
 		search = zone.MarkKey(zone.Search, width, 0, zone.SearchBlock) + search
 	}
@@ -90,7 +93,7 @@ func (l *logsScreen) block(in screen.Inputs, width int) []string {
 }
 
 // logFilterLine is the prompt at the foot of the log, gray while it does not hold the keys.
-func (l *logsScreen) logFilterLine(glyphs glyph.Set) string {
+func (l *Screen) logFilterLine(glyphs glyph.Set) string {
 	if l.logFilter.Typing {
 		return l.logFilter.Line(glyphs)
 	}
@@ -99,7 +102,7 @@ func (l *logsScreen) logFilterLine(glyphs glyph.Set) string {
 }
 
 // logRows is the lines of the log rendered in height rows, or what stands in for them.
-func (l *logsScreen) logRows(in screen.Inputs, width, height int) []string {
+func (l *Screen) logRows(in screen.Inputs, width, height int) []string {
 	row, hovered := list.At(l.rows(in), l.Row)
 
 	switch {
@@ -130,7 +133,7 @@ func (l *logsScreen) logRows(in screen.Inputs, width, height int) []string {
 		}
 		rows[i] = prefix + row
 		if i < len(lines) {
-			rows[i] = zone.MarkKey(zoneLog, width, 0, strconv.Itoa(lines[i])) + rows[i]
+			rows[i] = zone.MarkKey(Zone, width, 0, strconv.Itoa(lines[i])) + rows[i]
 		}
 	}
 

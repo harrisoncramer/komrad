@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	taskstore "komrad/internal/store/task"
 	"komrad/lib/xptr"
@@ -38,8 +39,8 @@ func TestTask(t *testing.T) {
 				Id:         firstTaskID.String(),
 				WorkflowId: workflowID.String(),
 				Slug:       "fresh",
-				CreatedAt:  "2026-09-01T09:09:00Z",
-				UpdatedAt:  "2026-09-01T09:09:00Z",
+				CreatedAt:  timestamppb.New(time.Date(2026, 9, 1, 9, 9, 0, 0, time.UTC)),
+				UpdatedAt:  timestamppb.New(time.Date(2026, 9, 1, 9, 9, 0, 0, time.UTC)),
 			},
 		},
 		{
@@ -67,8 +68,8 @@ func TestTask(t *testing.T) {
 				Id:                    secondTaskID.String(),
 				WorkflowId:            workflowID.String(),
 				Slug:                  "worked",
-				CreatedAt:             "2026-09-01T09:09:00Z",
-				UpdatedAt:             "2026-09-01T09:09:00Z",
+				CreatedAt:             timestamppb.New(time.Date(2026, 9, 1, 9, 9, 0, 0, time.UTC)),
+				UpdatedAt:             timestamppb.New(time.Date(2026, 9, 1, 9, 9, 0, 0, time.UTC)),
 				Cwd:                   xptr.Ptr("/tmp/worktrees/worked"),
 				Branch:                xptr.Ptr("harry/spike"),
 				AdoptedBranch:         xptr.Ptr("harry/spike"),
