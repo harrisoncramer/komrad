@@ -147,3 +147,17 @@ message TrimmedRule {
 message BinaryRule {
   bytes value = 1 [(buf.validate.field).bytes.uuid = true];
 }
+
+message Pick {
+  oneof ref {
+    string ref_id = 1 [(buf.validate.field).string.uuid = true];
+    string ref_name = 2;
+  }
+}
+
+message Point {
+  oneof ref {
+    google.protobuf.StringValue ref_id = 1 [(buf.validate.field).string.uuid = true];
+    string ref_name = 2;
+  }
+}

@@ -584,14 +584,14 @@ var File_agent_v1_transcript_proto protoreflect.FileDescriptor
 
 const file_agent_v1_transcript_proto_rawDesc = "" +
 	"\n" +
-	"\x19agent/v1/transcript.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\"\xc1\x01\n" +
+	"\x19agent/v1/transcript.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\"\xc2\x01\n" +
 	"\x18SearchTranscriptsRequest\x12 \n" +
 	"\x05query\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xf4\x03R\x05query\x12>\n" +
 	"\n" +
 	"pagination\x18\x02 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
-	"pagination\x88\x01\x01\x12'\n" +
-	"\bagent_id\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x01R\aagentId\x88\x01\x01B\r\n" +
+	"pagination\x88\x01\x01\x12(\n" +
+	"\bagent_id\x18\x03 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x01R\aagentId\x88\x01\x01B\r\n" +
 	"\v_paginationB\v\n" +
 	"\t_agent_id\"\xc6\x02\n" +
 	"\tSearchHit\x12\x19\n" +
@@ -612,9 +612,9 @@ const file_agent_v1_transcript_proto_rawDesc = "" +
 	"\amatches\x18\x01 \x03(\v2\x13.agent.v1.SearchHitR\amatches\x12'\n" +
 	"\x04near\x18\x02 \x03(\v2\x13.agent.v1.SearchHitR\x04near\x12+\n" +
 	"\x0fnext_page_token\x18\x03 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\"\xa5\x01\n" +
-	"\x14GetTranscriptRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12)\n" +
+	"\x10_next_page_token\"\xa6\x01\n" +
+	"\x14GetTranscriptRequest\x12#\n" +
+	"\bagent_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\aagentId\x12)\n" +
 	"\tmax_bytes\x18\x02 \x01(\x05B\a\xbaH\x04\x1a\x02(\x00H\x00R\bmaxBytes\x88\x01\x01\x12%\n" +
 	"\x06cursor\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x10H\x01R\x06cursor\x88\x01\x01B\f\n" +
 	"\n" +
@@ -623,9 +623,9 @@ const file_agent_v1_transcript_proto_rawDesc = "" +
 	"\x15GetTranscriptResponse\x12\x18\n" +
 	"\acontent\x18\x01 \x01(\tR\acontent\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\"\xa2\x01\n" +
-	"\x13GetLastTurnsRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12$\n" +
+	"\x10_next_page_token\"\xa3\x01\n" +
+	"\x13GetLastTurnsRequest\x12#\n" +
+	"\bagent_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\aagentId\x12$\n" +
 	"\x05turns\x18\x02 \x01(\x05B\t\xbaH\x06\x1a\x04\x18\x14(\x01H\x00R\x05turns\x88\x01\x01\x12)\n" +
 	"\tmax_bytes\x18\x03 \x01(\x05B\a\xbaH\x04\x1a\x02(\x00H\x01R\bmaxBytes\x88\x01\x01B\b\n" +
 	"\x06_turnsB\f\n" +

@@ -526,7 +526,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 				press: []string{"enter"},
 				wantSent: []paneltest.Request{{
 					Procedure: taskv1connect.TaskServiceArchiveTaskProcedure,
-					Msg:       &taskv1.ArchiveTaskRequest{Task: "task-a1"},
+					Msg:       &taskv1.ArchiveTaskRequest{Task: &taskv1.ArchiveTaskRequest_TaskId{TaskId: "task-a1"}},
 				}},
 			},
 			{
@@ -534,7 +534,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 				press: []string{"down", "enter", "enter"},
 				wantSent: []paneltest.Request{{
 					Procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-					Msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-a1"}, Records: true},
+					Msg:       &taskv1.DeleteTasksRequest{TaskIds: []string{"task-a1"}, Records: true},
 				}},
 			},
 			{
@@ -591,7 +591,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 				press:  []string{"enter"},
 				wantSent: []paneltest.Request{{
 					Procedure: taskv1connect.TaskServiceArchiveTaskProcedure,
-					Msg:       &taskv1.ArchiveTaskRequest{Task: "task-writer"},
+					Msg:       &taskv1.ArchiveTaskRequest{Task: &taskv1.ArchiveTaskRequest_TaskId{TaskId: "task-writer"}},
 				}},
 			},
 			{
@@ -600,7 +600,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 				press:  []string{"down", "enter", "enter"},
 				wantSent: []paneltest.Request{{
 					Procedure: taskv1connect.TaskServiceDeleteTasksProcedure,
-					Msg:       &taskv1.DeleteTasksRequest{Tasks: []string{"task-writer"}, Records: true},
+					Msg:       &taskv1.DeleteTasksRequest{TaskIds: []string{"task-writer"}, Records: true},
 				}},
 			},
 		}

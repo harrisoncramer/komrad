@@ -35,7 +35,7 @@ func TestIntegrationAgentsMailEachOther(t *testing.T) {
 
 	t.Run("an agent addresses another by name and nothing is typed yet", func(t *testing.T) {
 		req := connect.NewRequest(&agentv1.SendMailRequest{
-			To:   "migrations",
+			To:   &agentv1.SendMailRequest_ToAgentName{ToAgentName: "migrations"},
 			Body: "what is the refund column called?",
 		})
 		callAs(req, api.GetId())
@@ -84,7 +84,7 @@ func TestIntegrationAgentsMailEachOther(t *testing.T) {
 
 	t.Run("the answer comes back on the same thread", func(t *testing.T) {
 		req := connect.NewRequest(&agentv1.SendMailRequest{
-			To:      api.GetId(),
+			To:      &agentv1.SendMailRequest_ToAgentId{ToAgentId: api.GetId()},
 			Body:    "refunded_cents",
 			ReplyTo: &sentID,
 		})
@@ -102,7 +102,7 @@ func TestIntegrationAgentsMailEachOther(t *testing.T) {
 
 	t.Run("mail dies with the agent it was addressed to", func(t *testing.T) {
 		req := connect.NewRequest(&agentv1.SendMailRequest{
-			To:   migrations.GetId(),
+			To:   &agentv1.SendMailRequest_ToAgentId{ToAgentId: migrations.GetId()},
 			Body: "still there?",
 		})
 		callAs(req, api.GetId())
@@ -110,7 +110,7 @@ func TestIntegrationAgentsMailEachOther(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = instance.Tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{
-			Tasks:   []string{migrations.GetTaskId()},
+			TaskIds: []string{migrations.GetTaskId()},
 			Records: true,
 		}))
 		require.NoError(t, err)
@@ -134,7 +134,7 @@ func TestIntegrationDeliveryWaitsUntilTheRecipientCanTakeTheLine(t *testing.T) {
 	migrations := createAgent(t, instance, workflowID, "migrations")
 
 	req := connect.NewRequest(&agentv1.SendMailRequest{
-		To:   migrations.GetId(),
+		To:   &agentv1.SendMailRequest_ToAgentId{ToAgentId: migrations.GetId()},
 		Body: "what is the refund column called?",
 	})
 	callAs(req, api.GetId())
@@ -187,7 +187,7 @@ func TestIntegrationExpiredMailIsGivenUpOn(t *testing.T) {
 	instance.Settle(migrations.GetId(), harness.ActivityIdle, agentstore.StateIdle)
 
 	req := connect.NewRequest(&agentv1.SendMailRequest{
-		To:   migrations.GetId(),
+		To:   &agentv1.SendMailRequest_ToAgentId{ToAgentId: migrations.GetId()},
 		Body: "too late",
 	})
 	callAs(req, api.GetId())

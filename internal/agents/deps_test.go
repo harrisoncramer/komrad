@@ -37,6 +37,7 @@ import (
 	"komrad/lib/clock"
 	"komrad/lib/clock/clocktest"
 	"komrad/lib/xptr"
+	"komrad/proto/gen/oneofs"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -819,10 +820,17 @@ func archiveWriters(ctx context.Context, lifecycle *LifecycleService, ids []stri
 	}
 
 	for _, taskID := range agentstore.TaskIDs(agents) {
-		if err := lifecycle.ArchiveTask(ctx, taskID); err != nil {
+		if err := lifecycle.ArchiveTask(ctx, taskByID(taskID)); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+// taskByID names a task by the id the store gave it.
+func taskByID(id string) oneofs.Task {
+	parsed := uuid.MustParse(id)
+
+	return oneofs.Task{TaskId: &parsed}
 }

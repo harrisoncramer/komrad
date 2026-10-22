@@ -18,15 +18,15 @@ import (
 // TaskServiceImpl is the half of TaskService a person writes, whose failures carry the kind
 // of failure they are rather than leaving it to be decided later.
 type TaskServiceImpl interface {
-	CreateTask(context.Context, *v1.CreateTaskRequest) (*v1.CreateTaskResponse, *fail.Error)
-	GetTask(context.Context, *v1.GetTaskRequest) (*v1.GetTaskResponse, *fail.Error)
-	ListTasks(context.Context, *v1.ListTasksRequest) (*v1.ListTasksResponse, *fail.Error)
-	UpdateTask(context.Context, *v1.UpdateTaskRequest) (*v1.UpdateTaskResponse, *fail.Error)
-	SetTaskNotes(context.Context, *v1.SetTaskNotesRequest) (*v1.SetTaskNotesResponse, *fail.Error)
-	ArchiveTask(context.Context, *v1.ArchiveTaskRequest) (*emptypb.Empty, *fail.Error)
-	DeleteTasks(context.Context, *v1.DeleteTasksRequest) (*emptypb.Empty, *fail.Error)
-	SetTaskHidden(context.Context, *v1.SetTaskHiddenRequest) (*emptypb.Empty, *fail.Error)
-	MarkTaskRunsRead(context.Context, *v1.MarkTaskRunsReadRequest) (*emptypb.Empty, *fail.Error)
+	CreateTask(context.Context, *CreateTaskRequest) (*v1.CreateTaskResponse, *fail.Error)
+	GetTask(context.Context, *GetTaskRequest) (*v1.GetTaskResponse, *fail.Error)
+	ListTasks(context.Context, *ListTasksRequest) (*v1.ListTasksResponse, *fail.Error)
+	UpdateTask(context.Context, *UpdateTaskRequest) (*v1.UpdateTaskResponse, *fail.Error)
+	SetTaskNotes(context.Context, *SetTaskNotesRequest) (*v1.SetTaskNotesResponse, *fail.Error)
+	ArchiveTask(context.Context, *ArchiveTaskRequest) (*emptypb.Empty, *fail.Error)
+	DeleteTasks(context.Context, *DeleteTasksRequest) (*emptypb.Empty, *fail.Error)
+	SetTaskHidden(context.Context, *SetTaskHiddenRequest) (*emptypb.Empty, *fail.Error)
+	MarkTaskRunsRead(context.Context, *MarkTaskRunsReadRequest) (*emptypb.Empty, *fail.Error)
 }
 
 // TaskServiceAdapter carries what the implementation returned across to the signature
@@ -37,47 +37,92 @@ type TaskServiceAdapter struct {
 
 // CreateTask answers the request as connect serves it.
 func (a TaskServiceAdapter) CreateTask(ctx context.Context, req *connect.Request[v1.CreateTaskRequest]) (*connect.Response[v1.CreateTaskResponse], error) {
-	return rpcerr.Answer(a.Impl.CreateTask(ctx, req.Msg))
+	parsed, err := ParseCreateTaskRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.CreateTaskResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.CreateTask(ctx, parsed))
 }
 
 // GetTask answers the request as connect serves it.
 func (a TaskServiceAdapter) GetTask(ctx context.Context, req *connect.Request[v1.GetTaskRequest]) (*connect.Response[v1.GetTaskResponse], error) {
-	return rpcerr.Answer(a.Impl.GetTask(ctx, req.Msg))
+	parsed, err := ParseGetTaskRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.GetTaskResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.GetTask(ctx, parsed))
 }
 
 // ListTasks answers the request as connect serves it.
 func (a TaskServiceAdapter) ListTasks(ctx context.Context, req *connect.Request[v1.ListTasksRequest]) (*connect.Response[v1.ListTasksResponse], error) {
-	return rpcerr.Answer(a.Impl.ListTasks(ctx, req.Msg))
+	parsed, err := ParseListTasksRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.ListTasksResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ListTasks(ctx, parsed))
 }
 
 // UpdateTask answers the request as connect serves it.
 func (a TaskServiceAdapter) UpdateTask(ctx context.Context, req *connect.Request[v1.UpdateTaskRequest]) (*connect.Response[v1.UpdateTaskResponse], error) {
-	return rpcerr.Answer(a.Impl.UpdateTask(ctx, req.Msg))
+	parsed, err := ParseUpdateTaskRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.UpdateTaskResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.UpdateTask(ctx, parsed))
 }
 
 // SetTaskNotes answers the request as connect serves it.
 func (a TaskServiceAdapter) SetTaskNotes(ctx context.Context, req *connect.Request[v1.SetTaskNotesRequest]) (*connect.Response[v1.SetTaskNotesResponse], error) {
-	return rpcerr.Answer(a.Impl.SetTaskNotes(ctx, req.Msg))
+	parsed, err := ParseSetTaskNotesRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.SetTaskNotesResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.SetTaskNotes(ctx, parsed))
 }
 
 // ArchiveTask answers the request as connect serves it.
 func (a TaskServiceAdapter) ArchiveTask(ctx context.Context, req *connect.Request[v1.ArchiveTaskRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.ArchiveTask(ctx, req.Msg))
+	parsed, err := ParseArchiveTaskRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[emptypb.Empty](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ArchiveTask(ctx, parsed))
 }
 
 // DeleteTasks answers the request as connect serves it.
 func (a TaskServiceAdapter) DeleteTasks(ctx context.Context, req *connect.Request[v1.DeleteTasksRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.DeleteTasks(ctx, req.Msg))
+	parsed, err := ParseDeleteTasksRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[emptypb.Empty](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.DeleteTasks(ctx, parsed))
 }
 
 // SetTaskHidden answers the request as connect serves it.
 func (a TaskServiceAdapter) SetTaskHidden(ctx context.Context, req *connect.Request[v1.SetTaskHiddenRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.SetTaskHidden(ctx, req.Msg))
+	parsed, err := ParseSetTaskHiddenRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[emptypb.Empty](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.SetTaskHidden(ctx, parsed))
 }
 
 // MarkTaskRunsRead answers the request as connect serves it.
 func (a TaskServiceAdapter) MarkTaskRunsRead(ctx context.Context, req *connect.Request[v1.MarkTaskRunsReadRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.MarkTaskRunsRead(ctx, req.Msg))
+	parsed, err := ParseMarkTaskRunsReadRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[emptypb.Empty](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.MarkTaskRunsRead(ctx, parsed))
 }
 
 // RegisterTaskService mounts the implementation on the mux behind its adapter.

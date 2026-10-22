@@ -131,7 +131,7 @@ func TestForgeReplyDrawsWhatTheServiceHeld(t *testing.T) {
 		CreatedAt:              reviewedAt,
 	}})
 
-	got, err := svc.RetryForgeReply(t.Context(), connect.NewRequest(&agentv1.RetryForgeReplyRequest{Id: "reply-1"}))
+	got, err := svc.RetryForgeReply(t.Context(), connect.NewRequest(&agentv1.RetryForgeReplyRequest{Id: betaID}))
 	require.NoError(t, err)
 
 	want := &agentv1.ForgeReply{

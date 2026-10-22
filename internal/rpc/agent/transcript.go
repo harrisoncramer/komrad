@@ -9,8 +9,10 @@ import (
 	"komrad/internal/rpcerr"
 	"komrad/internal/transcripts"
 	"komrad/lib/pagination"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1komrad"
 
 	transcriptstore "komrad/internal/store/transcript"
 )
@@ -24,23 +26,21 @@ type transcriptReader interface {
 
 // SearchTranscripts runs a search over stored transcripts and returns one page of the turns
 // that say the words, and one of the turns that only carry the letters.
-func (s *Handler) SearchTranscripts(ctx context.Context, req *agentv1.SearchTranscriptsRequest) (*agentv1.SearchTranscriptsResponse, *fail.Error) {
-	paginator, err := pagination.New[transcriptstore.Cursor, searchPage](req.GetPagination())
+func (s *Handler) SearchTranscripts(ctx context.Context, req *agentv1komrad.SearchTranscriptsRequest) (*agentv1.SearchTranscriptsResponse, *fail.Error) {
+	paginator, err := pagination.New[transcriptstore.Cursor, searchPage](req.Pagination)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the pagination")
 	}
 
-	var scope *string
-	if requested := req.GetAgentId(); requested != "" {
-		scope = &requested
-		logCrossAgentRead(ctx, requested, "agent read another agent's transcript")
+	if req.AgentId != nil {
+		logCrossAgentRead(ctx, req.AgentId.String(), "agent read another agent's transcript")
 	}
 
 	results, err := s.transcripts.SearchTranscripts(ctx, transcripts.SearchTranscriptsParams{
-		Query:   req.GetQuery(),
+		Query:   req.Query,
 		Limit:   paginator.Limit(),
 		Cursor:  paginator.Cursor(),
-		AgentID: scope,
+		AgentID: formatOptionalID(req.AgentId),
 		Caller:  caller.From(ctx).AgentID,
 	})
 	if err != nil {
@@ -62,11 +62,11 @@ func (s *Handler) SearchTranscripts(ctx context.Context, req *agentv1.SearchTran
 }
 
 // GetTranscript returns one window of an agent's stored transcript by id.
-func (s *Handler) GetTranscript(ctx context.Context, req *agentv1.GetTranscriptRequest) (*agentv1.GetTranscriptResponse, *fail.Error) {
-	logCrossAgentRead(ctx, req.GetAgentId(), "agent read another agent's transcript")
+func (s *Handler) GetTranscript(ctx context.Context, req *agentv1komrad.GetTranscriptRequest) (*agentv1.GetTranscriptResponse, *fail.Error) {
+	logCrossAgentRead(ctx, req.AgentId.String(), "agent read another agent's transcript")
 
 	var cursor *transcriptstore.ContentCursor
-	if token := req.GetCursor(); token != "" {
+	if token := xptr.Deref(req.Cursor); token != "" {
 		decoded, err := pagination.Decode[transcriptstore.ContentCursor](token)
 		if err != nil {
 			return nil, rpcerr.From(err, "failed to read the cursor")
@@ -76,9 +76,9 @@ func (s *Handler) GetTranscript(ctx context.Context, req *agentv1.GetTranscriptR
 	}
 
 	window, err := s.transcripts.ReadTranscriptWindow(ctx, transcripts.ReadTranscriptWindowParams{
-		AgentID:  req.GetAgentId(),
+		AgentID:  req.AgentId.String(),
 		Cursor:   cursor,
-		MaxBytes: req.GetMaxBytes(),
+		MaxBytes: xptr.Deref(req.MaxBytes),
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get transcript")
@@ -96,13 +96,13 @@ func (s *Handler) GetTranscript(ctx context.Context, req *agentv1.GetTranscriptR
 
 // GetLastTurns returns the newest turns an agent wrote and the prompts between them, oldest
 // first, each cut from the head to fit the window asked for.
-func (s *Handler) GetLastTurns(ctx context.Context, req *agentv1.GetLastTurnsRequest) (*agentv1.GetLastTurnsResponse, *fail.Error) {
-	logCrossAgentRead(ctx, req.GetAgentId(), "agent read another agent's transcript")
+func (s *Handler) GetLastTurns(ctx context.Context, req *agentv1komrad.GetLastTurnsRequest) (*agentv1.GetLastTurnsResponse, *fail.Error) {
+	logCrossAgentRead(ctx, req.AgentId.String(), "agent read another agent's transcript")
 
 	turns, err := s.transcripts.ListLastTurns(ctx, transcripts.ListLastTurnsParams{
-		AgentID:  req.GetAgentId(),
-		Turns:    req.GetTurns(),
-		MaxBytes: req.GetMaxBytes(),
+		AgentID:  req.AgentId.String(),
+		Turns:    xptr.Deref(req.Turns),
+		MaxBytes: xptr.Deref(req.MaxBytes),
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the last turns")

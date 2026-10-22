@@ -53,7 +53,7 @@ func TestTasksTree(t *testing.T) {
 
 		harness.Press("j", "v", "space", "a", "enter")
 
-		harness.AssertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, &taskv1.ArchiveTaskRequest{Task: "t1"})
+		harness.AssertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, &taskv1.ArchiveTaskRequest{Task: &taskv1.ArchiveTaskRequest_TaskId{TaskId: "t1"}})
 	})
 
 	t.Run("a task's menu is its writer's pages and a new agent on it, over the list's new workflow", func(t *testing.T) {
@@ -130,7 +130,7 @@ func TestTasksTree(t *testing.T) {
 					Prompt:     "review it",
 					Harness:    "claude",
 					WorkflowId: "w1",
-					Task:       xptr.Ptr("t1"),
+					Task:       &agentv1.CreateAgentRequest_TaskId{TaskId: "t1"},
 				},
 			},
 			{
@@ -148,7 +148,7 @@ func TestTasksTree(t *testing.T) {
 					Prompt:     "review it",
 					Harness:    "claude",
 					WorkflowId: "w1",
-					Task:       xptr.Ptr("t1"),
+					Task:       &agentv1.CreateAgentRequest_TaskId{TaskId: "t1"},
 				},
 			},
 			{
@@ -165,7 +165,7 @@ func TestTasksTree(t *testing.T) {
 				want: &agentv1.CreateAgentRequest{
 					Prompt:     "review it",
 					WorkflowId: "w1",
-					Task:       xptr.Ptr("t1"),
+					Task:       &agentv1.CreateAgentRequest_TaskId{TaskId: "t1"},
 				},
 			},
 			{
@@ -181,7 +181,7 @@ func TestTasksTree(t *testing.T) {
 				want: &agentv1.CreateAgentRequest{
 					Prompt:     "review it",
 					WorkflowId: "w1",
-					Task:       xptr.Ptr("t1"),
+					Task:       &agentv1.CreateAgentRequest_TaskId{TaskId: "t1"},
 				},
 			},
 		}
@@ -226,7 +226,7 @@ func TestTasksTree(t *testing.T) {
 
 		harness.Press("j", "space", "a", "enter")
 
-		harness.AssertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, &taskv1.ArchiveTaskRequest{Task: "t1"})
+		harness.AssertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, &taskv1.ArchiveTaskRequest{Task: &taskv1.ArchiveTaskRequest_TaskId{TaskId: "t1"}})
 	})
 }
 
@@ -272,7 +272,7 @@ func TestTasksRow(t *testing.T) {
 
 		harness.Press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"enter"})...)
 
-		harness.AssertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure, &taskv1.UpdateTaskRequest{Task: "t1", Slug: xptr.Ptr("fix-login-v2")})
+		harness.AssertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure, &taskv1.UpdateTaskRequest{Task: &taskv1.UpdateTaskRequest_TaskId{TaskId: "t1"}, Slug: xptr.Ptr("fix-login-v2")})
 	})
 
 	t.Run("r inside the task's menu is the review", func(t *testing.T) {
@@ -292,7 +292,7 @@ func TestTasksRow(t *testing.T) {
 		harness.Press("enter")
 
 		harness.AssertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure, &taskv1.UpdateTaskRequest{
-			Task:  "t1",
+			Task:  &taskv1.UpdateTaskRequest_TaskId{TaskId: "t1"},
 			Title: xptr.Ptr("Fix login now"),
 			Goal:  xptr.Ptr("Logins work."),
 		})
@@ -319,7 +319,7 @@ func TestTasksRow(t *testing.T) {
 		harness.Press("enter")
 
 		harness.AssertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure, &taskv1.UpdateTaskRequest{
-			Task:           "t1",
+			Task:           &taskv1.UpdateTaskRequest_TaskId{TaskId: "t1"},
 			Title:          xptr.Ptr("Fix login"),
 			Goal:           xptr.Ptr("Logins work again."),
 			Notes:          xptr.Ptr("Fixed."),

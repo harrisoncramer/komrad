@@ -144,9 +144,9 @@ var File_agent_v1_screen_proto protoreflect.FileDescriptor
 
 const file_agent_v1_screen_proto_rawDesc = "" +
 	"\n" +
-	"\x15agent/v1/screen.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\":\n" +
-	"\x14GetLastScreenRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\x98\x01\n" +
+	"\x15agent/v1/screen.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\";\n" +
+	"\x14GetLastScreenRequest\x12#\n" +
+	"\bagent_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\aagentId\"\x98\x01\n" +
 	"\x15GetLastScreenResponse\x12\x14\n" +
 	"\x05frame\x18\x01 \x01(\tR\x05frame\x12\x14\n" +
 	"\x05width\x18\x02 \x01(\x05R\x05width\x12\x16\n" +

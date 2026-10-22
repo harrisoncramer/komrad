@@ -63,7 +63,7 @@ func TestReviewOpen(t *testing.T) {
 		harness.Press("space", "r")
 
 		assert.True(t, isBeside(harness))
-		harness.AssertSentTo(agentv1connect.AgentServiceOpenReviewHistoryProcedure, &agentv1.OpenReviewHistoryRequest{Task: "t1"})
+		harness.AssertSentTo(agentv1connect.AgentServiceOpenReviewHistoryProcedure, &agentv1.OpenReviewHistoryRequest{Task: &agentv1.OpenReviewHistoryRequest_TaskId{TaskId: "t1"}})
 	})
 
 	t.Run("an agent whose worktree was removed opens from its workflow's directory", func(t *testing.T) {
@@ -344,7 +344,7 @@ func TestReviewCursor(t *testing.T) {
 		harness.Press("enter")
 
 		harness.AssertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
-			Task:        xptr.Ptr("t1"),
+			Task:        &agentv1.CreateReviewThreadRequest_TaskId{TaskId: "t1"},
 			FilePath:    gittest.File,
 			OldStart:    1,
 			OldEnd:      1,
@@ -467,7 +467,7 @@ func TestReviewThreads(t *testing.T) {
 		harness.Press("enter")
 
 		harness.AssertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
-			Task:        xptr.Ptr("t1"),
+			Task:        &agentv1.CreateReviewThreadRequest_TaskId{TaskId: "t1"},
 			FilePath:    gittest.File,
 			OldStart:    1,
 			OldEnd:      1,
@@ -1077,7 +1077,7 @@ func TestReviewViewed(t *testing.T) {
 		sent := harness.Sent(agentv1connect.AgentServiceSetReviewFileViewedProcedure)
 		require.Len(t, sent, 2)
 		marked, _ := sent[0].(*agentv1.SetReviewFileViewedRequest)
-		assert.Equal(t, "t1", marked.GetTask())
+		assert.Equal(t, "t1", marked.GetTaskId())
 		assert.Equal(t, gittest.File, marked.GetFilePath())
 		assert.True(t, marked.GetViewed())
 		assert.NotEmpty(t, marked.GetFingerprint())
@@ -1798,7 +1798,7 @@ func TestReviewSnapshots(t *testing.T) {
 		harness.Press("enter")
 
 		harness.AssertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
-			Task:        xptr.Ptr("t1"),
+			Task:        &agentv1.CreateReviewThreadRequest_TaskId{TaskId: "t1"},
 			FilePath:    "second.go",
 			NewStart:    1,
 			NewEnd:      1,
@@ -2712,7 +2712,7 @@ func readMailSaid(t *testing.T, harness *paneltest.Panel) string {
 	sent := harness.Sent(agentv1connect.AgentServiceSendMailProcedure)
 	require.Len(t, sent, 1)
 	mail, _ := sent[0].(*agentv1.SendMailRequest)
-	assert.Equal(t, "a1", mail.GetTo())
+	assert.Equal(t, "a1", mail.GetToAgentId())
 
 	return mail.GetBody()
 }

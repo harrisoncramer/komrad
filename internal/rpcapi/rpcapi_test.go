@@ -33,19 +33,20 @@ func TestUnspecifiedIsServedEverything(t *testing.T) {
 // TestIsRequired checks a field in a oneof is never demanded on its own.
 func TestIsRequired(t *testing.T) {
 	tests := []struct {
-		field string
-		want  bool
+		message protoreflect.MessageDescriptor
+		field   string
+		want    bool
 	}{
-		{field: "name", want: true},
-		{field: "id", want: false},
-		{field: "body", want: false},
-		{field: "path", want: false},
+		{message: (&agentv1.WriteDocumentRequest{}).ProtoReflect().Descriptor(), field: "name", want: true},
+		{message: (&agentv1.WriteDocumentRequest{}).ProtoReflect().Descriptor(), field: "id", want: false},
+		{message: (&agentv1.WriteDocumentRequest{}).ProtoReflect().Descriptor(), field: "body", want: false},
+		{message: (&agentv1.WriteDocumentRequest{}).ProtoReflect().Descriptor(), field: "path", want: false},
+		{message: (&agentv1.GetDocumentRequest{}).ProtoReflect().Descriptor(), field: "id", want: true},
 	}
 
-	message := (&agentv1.WriteDocumentRequest{}).ProtoReflect().Descriptor()
 	for _, tt := range tests {
-		t.Run(tt.field, func(t *testing.T) {
-			field := message.Fields().ByName(protoreflect.Name(tt.field))
+		t.Run(string(tt.message.Name())+"."+tt.field, func(t *testing.T) {
+			field := tt.message.Fields().ByName(protoreflect.Name(tt.field))
 			require.NotNil(t, field)
 			assert.Equal(t, tt.want, IsRequired(field))
 		})

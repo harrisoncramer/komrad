@@ -33,7 +33,7 @@ message Document {
 
 message WriteDocumentRequest {
   // The document to rewrite, by id. Unset creates a document.
-  optional string id = 1 [(buf.validate.field).string.min_len = 1];
+  optional string id = 1 [(buf.validate.field).string.uuid = true];
   // The document's title.
   string name = 2 [(buf.validate.field).string = {
     min_len: 1
@@ -60,7 +60,7 @@ message WriteDocumentRequest {
   // The document's `version` when last read. Required on a rewrite.
   optional int32 version = 6 [(buf.validate.field).int32.gt = 0];
   // The agent to write the document for, by id. An agent may name only itself.
-  optional string agent_id = 7 [(buf.validate.field).string.min_len = 1];
+  optional string agent_id = 7 [(buf.validate.field).string.uuid = true];
 }
 
 message WriteDocumentResponse {
@@ -71,7 +71,7 @@ message WriteDocumentResponse {
 message ListDocumentsRequest {
   // The agent whose documents to list, by id. Unset lists every agent's, archived agents
   // included.
-  optional string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  optional string agent_id = 1 [(buf.validate.field).string.uuid = true];
   // The type of documents to list, by name. Unset lists every type.
   optional string type = 2 [(buf.validate.field).string = {
     min_len: 1
@@ -79,8 +79,13 @@ message ListDocumentsRequest {
   }];
   // The page to read.
   optional pagination.v1.Pagination pagination = 3;
-  // The task whose documents to list, by id or slug. Unset lists every task's.
-  optional string task = 4 [(buf.validate.field).string.min_len = 1];
+  // The task whose documents to list. Unset lists every task's.
+  oneof task {
+    // The task, by id.
+    string task_id = 4 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string task_slug = 5 [(buf.validate.field).string.min_len = 1];
+  }
 }
 
 message ListDocumentsResponse {
@@ -92,7 +97,7 @@ message ListDocumentsResponse {
 
 message GetDocumentRequest {
   // The document to read, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
   // The version to read. Unset reads the newest.
   optional int32 version = 2 [(buf.validate.field).int32.gt = 0];
 }
@@ -118,7 +123,7 @@ message DocumentVersion {
 
 message ListDocumentVersionsRequest {
   // The document whose versions to list, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message ListDocumentVersionsResponse {
@@ -169,7 +174,7 @@ message DocumentTypeVersion {
 
 message ListDocumentTypeVersionsRequest {
   // The document type whose versions to list, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message ListDocumentTypeVersionsResponse {
@@ -179,7 +184,7 @@ message ListDocumentTypeVersionsResponse {
 
 message WriteDocumentTypeRequest {
   // The document type to rewrite, by id. Unset creates a document type.
-  optional string id = 1 [(buf.validate.field).string.min_len = 1];
+  optional string id = 1 [(buf.validate.field).string.uuid = true];
   // The document type's name. Renaming a type renames it on its documents too.
   string name = 2 [(buf.validate.field).string = {
     min_len: 1
@@ -202,12 +207,12 @@ message WriteDocumentTypeResponse {
 
 message DeleteDocumentRequest {
   // The document to delete, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message DeleteDocumentTypeRequest {
   // The document type to delete, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message SearchDocumentsRequest {
@@ -219,7 +224,7 @@ message SearchDocumentsRequest {
   }];
   // The agent whose documents to search, by id. Unset searches every agent's, archived agents
   // included.
-  optional string agent_id = 2 [(buf.validate.field).string.min_len = 1];
+  optional string agent_id = 2 [(buf.validate.field).string.uuid = true];
   // The type of documents to search, by name. Unset searches every type.
   optional string type = 3 [(buf.validate.field).string = {
     min_len: 1

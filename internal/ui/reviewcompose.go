@@ -278,7 +278,7 @@ func (r reviewScreen) createThread(in screen.Inputs, place reviewPlace, kept rev
 
 	return r.writeMsg(in, "opening a thread", &kept, func(ctx context.Context) (string, error) {
 		_, err := agents.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
-			Task:        &taskID,
+			Task:        &agentv1.CreateReviewThreadRequest_TaskId{TaskId: taskID},
 			BaseSha:     place.base,
 			SnapshotSha: place.snapshot,
 			FilePath:    anchor.FilePath,
@@ -351,7 +351,7 @@ func (r *reviewScreen) toggleViewed(in screen.Inputs) screen.Request {
 
 	return r.write(in, doing, notice, func(ctx context.Context) error {
 		_, err := agents.SetReviewFileViewed(ctx, connect.NewRequest(&agentv1.SetReviewFileViewedRequest{
-			Task:        taskID,
+			Task:        &agentv1.SetReviewFileViewedRequest_TaskId{TaskId: taskID},
 			FilePath:    path,
 			Fingerprint: fingerprint,
 			Viewed:      viewed,

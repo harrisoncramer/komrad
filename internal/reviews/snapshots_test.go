@@ -47,7 +47,7 @@ func TestTakeSnapshot(t *testing.T) {
 			fx := newReviewFixture(t)
 			fx.snapshots.SHA = tt.snapshot
 
-			snapshot, err := fx.service.TakeSnapshot(t.Context(), *fx.writer.TaskID, personAuthor)
+			snapshot, err := fx.service.TakeSnapshot(t.Context(), taskByID(*fx.writer.TaskID), personAuthor)
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.wantOrdinal, snapshot.Ordinal)
@@ -67,7 +67,7 @@ func TestTakeSnapshotReleasesTheRefOfASnapshotItFailedToWrite(t *testing.T) {
 		require.NoError(t, fx.stores.Workflows.Delete(t.Context(), fx.writer.WorkflowID))
 	}
 
-	_, err := fx.service.TakeSnapshot(t.Context(), *fx.writer.TaskID, personAuthor)
+	_, err := fx.service.TakeSnapshot(t.Context(), taskByID(*fx.writer.TaskID), personAuthor)
 	require.Error(t, err)
 
 	assert.Equal(t, []string{reviewstore.SnapshotRef(*fx.writer.TaskID, secondSnapshot)}, fx.snapshots.Released)
@@ -87,7 +87,7 @@ func TestTakeSnapshotTakesOneSnapshotOfATreeAskedForTwiceAtOnce(t *testing.T) {
 	errs := make([]error, 2)
 	for i := range ordinals {
 		group.Go(func() {
-			snapshot, err := fx.service.TakeSnapshot(t.Context(), *fx.writer.TaskID, personAuthor)
+			snapshot, err := fx.service.TakeSnapshot(t.Context(), taskByID(*fx.writer.TaskID), personAuthor)
 			errs[i] = err
 			if err == nil {
 				ordinals[i] = snapshot.Ordinal
@@ -130,7 +130,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 			write: func(t *testing.T, fx *reviewFixture) *ReleaseReviewResult {
 				fx.snapshots.Files["greet.go"] = buildGreetSource()
 				_, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-					Task:     *fx.writer.TaskID,
+					Task:     taskByID(*fx.writer.TaskID),
 					FilePath: "greet.go",
 					NewStart: 12,
 					NewEnd:   13,
@@ -289,7 +289,7 @@ func TestReleaseReviewApprovalMail(t *testing.T) {
 			fx := newReviewFixture(t)
 
 			_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
-				Task:    *fx.writer.TaskID,
+				Task:    taskByID(*fx.writer.TaskID),
 				Verdict: reviewstore.VerdictApproved,
 				Body:    tt.body,
 				Author:  newAgentAuthor(fx.reviewer),
@@ -311,7 +311,7 @@ func TestReleaseReviewIntoAFullMailbox(t *testing.T) {
 	fillMailbox(t, fx)
 
 	_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
-		Task:    *fx.writer.TaskID,
+		Task:    taskByID(*fx.writer.TaskID),
 		Verdict: reviewstore.VerdictChangesRequested,
 		Author:  newAgentAuthor(fx.reviewer),
 	})
@@ -321,7 +321,7 @@ func TestReleaseReviewIntoAFullMailbox(t *testing.T) {
 	require.Len(t, errs, 1)
 	require.ErrorIs(t, errs[0], mail.ErrMailboxFull)
 
-	listed, err := fx.service.ListReviews(t.Context(), *fx.writer.TaskID, personAuthor)
+	listed, err := fx.service.ListReviews(t.Context(), taskByID(*fx.writer.TaskID), personAuthor)
 	require.NoError(t, err)
 	require.Len(t, listed, 1)
 	assert.NotNil(t, listed[0].ReleasedAt)
@@ -333,7 +333,7 @@ func TestGetReview(t *testing.T) {
 	reviewer := newAgentAuthor(fx.reviewer)
 	fx.snapshots.Files["greet.go"] = buildGreetSource()
 	opened, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-		Task:     *fx.writer.TaskID,
+		Task:     taskByID(*fx.writer.TaskID),
 		FilePath: "greet.go",
 		NewStart: 12,
 		NewEnd:   13,
@@ -343,7 +343,7 @@ func TestGetReview(t *testing.T) {
 	require.NoError(t, err)
 
 	gone, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-		Task:        *fx.writer.TaskID,
+		Task:        taskByID(*fx.writer.TaskID),
 		FilePath:    "gone.go",
 		QuotedLines: []string{"+\tgreet(nil)"},
 		Body:        "and this file",
@@ -352,7 +352,7 @@ func TestGetReview(t *testing.T) {
 	require.NoError(t, err)
 
 	released, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
-		Task:    *fx.writer.TaskID,
+		Task:    taskByID(*fx.writer.TaskID),
 		Verdict: reviewstore.VerdictChangesRequested,
 		Body:    "two things before it goes",
 		Author:  reviewer,
@@ -397,7 +397,7 @@ func TestAReviewStaysOnItsSnapshot(t *testing.T) {
 
 	commentOn := func(snapshot string) (*ReviewThreadWithMessages, error) {
 		return fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-			Task:        *fx.writer.TaskID,
+			Task:        taskByID(*fx.writer.TaskID),
 			SnapshotSHA: snapshot,
 			FilePath:    "greet.go",
 			NewStart:    1,
@@ -517,7 +517,7 @@ func TestListReviews(t *testing.T) {
 			fx.advanceTree(t)
 			fx.writeComment(t, newAgentAuthor(fx.reviewer), "and the caller above it")
 
-			listed, err := fx.service.ListReviews(t.Context(), *fx.writer.TaskID, tt.reader(fx))
+			listed, err := fx.service.ListReviews(t.Context(), taskByID(*fx.writer.TaskID), tt.reader(fx))
 			require.NoError(t, err)
 
 			paths := xslice.Map(listed, func(review reviewstore.Review) bool {

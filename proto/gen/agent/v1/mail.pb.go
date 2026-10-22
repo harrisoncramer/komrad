@@ -286,8 +286,13 @@ func (x *Mail) GetKind() MailKind {
 
 type SendMailRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The agent to send to, by id or by the name of a live agent.
-	To string `protobuf:"bytes,1,opt,name=to,proto3" json:"to,omitempty"`
+	// The agent to send to.
+	//
+	// Types that are valid to be assigned to To:
+	//
+	//	*SendMailRequest_ToAgentId
+	//	*SendMailRequest_ToAgentName
+	To isSendMailRequest_To `protobuf_oneof:"to"`
 	// The mail's text.
 	Body string `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
 	// The id of the mail this one answers, so the two read as a thread.
@@ -326,9 +331,27 @@ func (*SendMailRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_mail_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *SendMailRequest) GetTo() string {
+func (x *SendMailRequest) GetTo() isSendMailRequest_To {
 	if x != nil {
 		return x.To
+	}
+	return nil
+}
+
+func (x *SendMailRequest) GetToAgentId() string {
+	if x != nil {
+		if x, ok := x.To.(*SendMailRequest_ToAgentId); ok {
+			return x.ToAgentId
+		}
+	}
+	return ""
+}
+
+func (x *SendMailRequest) GetToAgentName() string {
+	if x != nil {
+		if x, ok := x.To.(*SendMailRequest_ToAgentName); ok {
+			return x.ToAgentName
+		}
 	}
 	return ""
 }
@@ -346,6 +369,24 @@ func (x *SendMailRequest) GetReplyTo() string {
 	}
 	return ""
 }
+
+type isSendMailRequest_To interface {
+	isSendMailRequest_To()
+}
+
+type SendMailRequest_ToAgentId struct {
+	// The agent, by id.
+	ToAgentId string `protobuf:"bytes,1,opt,name=to_agent_id,json=toAgentId,proto3,oneof"`
+}
+
+type SendMailRequest_ToAgentName struct {
+	// The agent, by the name of a live agent.
+	ToAgentName string `protobuf:"bytes,4,opt,name=to_agent_name,json=toAgentName,proto3,oneof"`
+}
+
+func (*SendMailRequest_ToAgentId) isSendMailRequest_To() {}
+
+func (*SendMailRequest_ToAgentName) isSendMailRequest_To() {}
 
 type SendMailResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -893,21 +934,23 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	" \x01(\x0e2\x12.agent.v1.MailKindR\x04kindB\x10\n" +
 	"\x0e_from_agent_idB\v\n" +
 	"\t_reply_toB\r\n" +
-	"\v_claimed_at\"\x80\x01\n" +
-	"\x0fSendMailRequest\x12\x17\n" +
-	"\x02to\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02to\x12\x1e\n" +
+	"\v_claimed_at\"\xd0\x01\n" +
+	"\x0fSendMailRequest\x12*\n" +
+	"\vto_agent_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\ttoAgentId\x12-\n" +
+	"\rto_agent_name\x18\x04 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\vtoAgentName\x12\x1e\n" +
 	"\x04body\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x90NR\x04body\x12'\n" +
-	"\breply_to\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\areplyTo\x88\x01\x01B\v\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x90NR\x04body\x12(\n" +
+	"\breply_to\x18\x03 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x01R\areplyTo\x88\x01\x01B\v\n" +
+	"\x02to\x12\x05\xbaH\x02\b\x01B\v\n" +
 	"\t_reply_to\"a\n" +
 	"\x10SendMailResponse\x12\"\n" +
 	"\x04mail\x18\x01 \x01(\v2\x0e.agent.v1.MailR\x04mail\x12\x1d\n" +
 	"\awarning\x18\x02 \x01(\tH\x00R\awarning\x88\x01\x01B\n" +
 	"\n" +
-	"\b_warning\"\x86\x02\n" +
-	"\x17ForwardLastTurnsRequest\x12+\n" +
-	"\rfrom_agent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\vfromAgentId\x12'\n" +
-	"\vto_agent_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\ttoAgentId\x12$\n" +
+	"\b_warning\"\x88\x02\n" +
+	"\x17ForwardLastTurnsRequest\x12,\n" +
+	"\rfrom_agent_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\vfromAgentId\x12(\n" +
+	"\vto_agent_id\x18\x02 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\ttoAgentId\x12$\n" +
 	"\x05turns\x18\x03 \x01(\x05B\t\xbaH\x06\x1a\x04\x18\x14(\x01H\x00R\x05turns\x88\x01\x01\x12#\n" +
 	"\x04note\x18\x04 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x90NH\x01R\x04note\x88\x01\x01\x12)\n" +
@@ -929,14 +972,14 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\n" +
 	"\b_warning\".\n" +
 	"\x16ClaimMailNudgeResponse\x12\x14\n" +
-	"\x05nudge\x18\x01 \x01(\tR\x05nudge\"6\n" +
-	"\x0fReadMailRequest\x12\x1c\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x02id\x88\x01\x01B\x05\n" +
+	"\x05nudge\x18\x01 \x01(\tR\x05nudge\"7\n" +
+	"\x0fReadMailRequest\x12\x1d\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x02id\x88\x01\x01B\x05\n" +
 	"\x03_id\"6\n" +
 	"\x10ReadMailResponse\x12\"\n" +
-	"\x04mail\x18\x01 \x03(\v2\x0e.agent.v1.MailR\x04mail\"\xc6\x01\n" +
-	"\x0fListMailRequest\x12\x1c\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x02id\x88\x01\x01\x12>\n" +
+	"\x04mail\x18\x01 \x03(\v2\x0e.agent.v1.MailR\x04mail\"\xc7\x01\n" +
+	"\x0fListMailRequest\x12\x1d\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x02id\x88\x01\x01\x12>\n" +
 	"\n" +
 	"pagination\x18\x02 \x01(\v2\x19.pagination.v1.PaginationH\x01R\n" +
 	"pagination\x88\x01\x01\x12?\n" +
@@ -946,9 +989,9 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\x10ListMailResponse\x12\"\n" +
 	"\x04mail\x18\x01 \x03(\v2\x0e.agent.v1.MailR\x04mail\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\"/\n" +
-	"\x11DeleteMailRequest\x12\x1a\n" +
-	"\x03ids\x18\x01 \x03(\tB\b\xbaH\x05\x92\x01\x02\b\x01R\x03ids*\xb8\x02\n" +
+	"\x10_next_page_token\"6\n" +
+	"\x11DeleteMailRequest\x12!\n" +
+	"\x03ids\x18\x01 \x03(\tB\x0f\xbaH\f\x92\x01\t\b\x01\"\x05r\x03\xb0\x01\x01R\x03ids*\xb8\x02\n" +
 	"\bMailKind\x12\x19\n" +
 	"\x15MAIL_KIND_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fMAIL_KIND_PLAIN\x10\x01\x12\x1d\n" +
@@ -1015,7 +1058,10 @@ func file_agent_v1_mail_proto_init() {
 		return
 	}
 	file_agent_v1_mail_proto_msgTypes[0].OneofWrappers = []any{}
-	file_agent_v1_mail_proto_msgTypes[1].OneofWrappers = []any{}
+	file_agent_v1_mail_proto_msgTypes[1].OneofWrappers = []any{
+		(*SendMailRequest_ToAgentId)(nil),
+		(*SendMailRequest_ToAgentName)(nil),
+	}
 	file_agent_v1_mail_proto_msgTypes[2].OneofWrappers = []any{}
 	file_agent_v1_mail_proto_msgTypes[3].OneofWrappers = []any{}
 	file_agent_v1_mail_proto_msgTypes[4].OneofWrappers = []any{}

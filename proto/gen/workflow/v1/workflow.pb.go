@@ -1209,9 +1209,9 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x15ListWorkflowsResponse\x123\n" +
 	"\tworkflows\x18\x01 \x03(\v2\x15.workflow.v1.WorkflowR\tworkflows\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\"-\n" +
-	"\x12GetWorkflowRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"H\n" +
+	"\x10_next_page_token\".\n" +
+	"\x12GetWorkflowRequest\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"H\n" +
 	"\x13GetWorkflowResponse\x121\n" +
 	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\x88\x04\n" +
 	"\x15CreateWorkflowRequest\x12\"\n" +
@@ -1227,9 +1227,9 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\revent_prompts\x18\n" +
 	" \x01(\v2!.workflow.v1.WorkflowEventPromptsR\feventPrompts\"K\n" +
 	"\x16CreateWorkflowResponse\x121\n" +
-	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xaa\x04\n" +
-	"\x15UpdateWorkflowRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\"\n" +
+	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xab\x04\n" +
+	"\x15UpdateWorkflowRequest\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\x12\"\n" +
 	"\x04name\x18\x02 \x01(\tB\x0e\xbaH\vr\tػ\x18\x01\x10\x01\x18\xc8\x01R\x04name\x12#\n" +
 	"\acontext\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\acontext\x12\x1e\n" +
 	"\x03cwd\x18\x04 \x01(\tB\f\xbaH\tr\a\xb0\xbb\x18\x01\x18\x80 R\x03cwd\x12\"\n" +
@@ -1240,15 +1240,15 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x10reviewer_harness\x18\t \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\x0freviewerHarness\x123\n" +
 	"\x0ereviewer_flags\x18\n" +
 	" \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\rreviewerFlags\x12O\n" +
-	"\revent_prompts\x18\v \x03(\v2 .workflow.v1.WorkflowEventPromptB\b\xbaH\x05\x92\x01\x02\x102R\feventPrompts\"1\n" +
-	"\x16ArchiveWorkflowRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"1\n" +
-	"\x16RestoreWorkflowRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"L\n" +
+	"\revent_prompts\x18\v \x03(\v2 .workflow.v1.WorkflowEventPromptB\b\xbaH\x05\x92\x01\x02\x102R\feventPrompts\"2\n" +
+	"\x16ArchiveWorkflowRequest\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"2\n" +
+	"\x16RestoreWorkflowRequest\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"L\n" +
 	"\x17RestoreWorkflowResponse\x121\n" +
-	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"J\n" +
-	"\x15DeleteWorkflowRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x18\n" +
+	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"K\n" +
+	"\x15DeleteWorkflowRequest\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\x12\x18\n" +
 	"\arecords\x18\x02 \x01(\bR\arecords2\xac\r\n" +
 	"\x0fWorkflowService\x12\xcb\x01\n" +
 	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"s\x9a\xb5\x18l\b\x01\x10\x01\x1a\x0elist_workflows\"QList workflows by name. Archived workflows are left out unless `archived` is set.:\x03\x03\x01\x02\x90\x02\x01\x12\xa3\x01\n" +

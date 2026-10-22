@@ -212,12 +212,13 @@ message ForgeOrigin {
 }
 
 message ListReviewThreadsRequest {
-  // The task whose threads to list, by id or slug. Unset uses the caller's own task.
-  optional string task = 1 [(buf.validate.field).cel = {
-    id: "task.named"
-    message: "pass task by id or by slug, or leave it unset"
-    expression: "this.size() > 0"
-  }];
+  // The task whose threads to list. Unset uses the caller's own task.
+  oneof task {
+    // The task, by id.
+    string task_id = 1 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string task_slug = 2 [(buf.validate.field).string.min_len = 1];
+  }
 }
 
 message ListReviewThreadsResponse {
@@ -226,12 +227,13 @@ message ListReviewThreadsResponse {
 }
 
 message CreateReviewThreadRequest {
-  // The task whose diff to comment on, by id or slug. Unset uses the caller's own task.
-  optional string task = 1 [(buf.validate.field).cel = {
-    id: "task.named"
-    message: "pass task by id or by slug, or leave it unset"
-    expression: "this.size() > 0"
-  }];
+  // The task whose diff to comment on. Unset uses the caller's own task.
+  oneof task {
+    // The task, by id.
+    string task_id = 1 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string task_slug = 12 [(buf.validate.field).string.min_len = 1];
+  }
   // The file's path, relative to the checkout. Empty for a comment on the change as a whole, with
   // no lines.
   string file_path = 2;
@@ -266,7 +268,7 @@ message CreateReviewThreadResponse {
 
 message AddReviewMessageRequest {
   // The thread to reply in, by id.
-  string thread_id = 1 [(buf.validate.field).string.min_len = 1];
+  string thread_id = 1 [(buf.validate.field).string.uuid = true];
   // The reply's text.
   string body = 2 [(buf.validate.field).string = {
     min_len: 1
@@ -289,7 +291,7 @@ message AddReviewMessageResponse {
 
 message AcceptForgeMessageRequest {
   // The held forge comment to accept, by id.
-  string message_id = 1 [(buf.validate.field).string.min_len = 1];
+  string message_id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message AcceptForgeMessageResponse {
@@ -299,7 +301,7 @@ message AcceptForgeMessageResponse {
 
 message EditReviewMessageRequest {
   // The comment to edit, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
   // The comment's new text.
   string body = 2 [(buf.validate.field).string = {
     min_len: 1
@@ -316,7 +318,7 @@ message EditReviewMessageResponse {
 
 message MarkReviewThreadReadRequest {
   // The thread the caller has read, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message MarkReviewThreadReadResponse {
@@ -326,7 +328,7 @@ message MarkReviewThreadReadResponse {
 
 message SetReviewThreadResolvedRequest {
   // The thread to resolve or reopen, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
   // Whether the thread is resolved. False reopens the thread.
   bool resolved = 2;
 }
@@ -339,12 +341,13 @@ message SetReviewThreadResolvedResponse {
 // TakeReviewSnapshotRequest saves a task's worktree as its next snapshot. When the worktree has not
 // changed since the newest snapshot, the call returns that snapshot.
 message TakeReviewSnapshotRequest {
-  // The task whose worktree to save, by id or slug. Unset uses the caller's own task.
-  optional string task = 1 [(buf.validate.field).cel = {
-    id: "task.named"
-    message: "pass task by id or by slug, or leave it unset"
-    expression: "this.size() > 0"
-  }];
+  // The task whose worktree to save. Unset uses the caller's own task.
+  oneof task {
+    // The task, by id.
+    string task_id = 1 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string task_slug = 2 [(buf.validate.field).string.min_len = 1];
+  }
 }
 
 message TakeReviewSnapshotResponse {
@@ -353,12 +356,13 @@ message TakeReviewSnapshotResponse {
 }
 
 message ListReviewSnapshotsRequest {
-  // The task whose snapshots to list, by id or slug. Unset uses the caller's own task.
-  optional string task = 1 [(buf.validate.field).cel = {
-    id: "task.named"
-    message: "pass task by id or by slug, or leave it unset"
-    expression: "this.size() > 0"
-  }];
+  // The task whose snapshots to list. Unset uses the caller's own task.
+  oneof task {
+    // The task, by id.
+    string task_id = 1 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string task_slug = 2 [(buf.validate.field).string.min_len = 1];
+  }
 }
 
 message ListReviewSnapshotsResponse {
@@ -367,12 +371,14 @@ message ListReviewSnapshotsResponse {
 }
 
 message OpenReviewHistoryRequest {
-  // The task whose review history to open, by id or slug.
-  string task = 1 [(buf.validate.field).cel = {
-    id: "task.required"
-    message: "pass task, by id or by slug"
-    expression: "this.size() > 0"
-  }];
+  // The task whose review history to open.
+  oneof task {
+    option (buf.validate.oneof).required = true;
+    // The task, by id.
+    string task_id = 1 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string task_slug = 7 [(buf.validate.field).string.min_len = 1];
+  }
   // The part of the work to diff. Unset diffs the whole change.
   oneof span {
     // A diff between two snapshots.
@@ -387,24 +393,24 @@ message OpenReviewHistoryRequest {
 // ReviewSnapshotSpan is the work between two snapshots of a task.
 message ReviewSnapshotSpan {
   // The id of the snapshot the work starts after. Unset starts where the task starts.
-  optional string from_snapshot_id = 1 [(buf.validate.field).string.min_len = 1];
+  optional string from_snapshot_id = 1 [(buf.validate.field).string.uuid = true];
   // The id of the snapshot the work ends on. Unset ends on the newest snapshot.
-  optional string to_snapshot_id = 2 [(buf.validate.field).string.min_len = 1];
+  optional string to_snapshot_id = 2 [(buf.validate.field).string.uuid = true];
 }
 
 // ReviewAnswerSpan is the change between the snapshot a comment was written on and the snapshot of the
 // reply that addressed it.
 message ReviewAnswerSpan {
   // The id of the snapshot the comment was written on.
-  string from_snapshot_id = 1 [(buf.validate.field).string.min_len = 1];
+  string from_snapshot_id = 1 [(buf.validate.field).string.uuid = true];
   // The id of the snapshot saved with the addressed reply.
-  string to_snapshot_id = 2 [(buf.validate.field).string.min_len = 1];
+  string to_snapshot_id = 2 [(buf.validate.field).string.uuid = true];
 }
 
 // ReviewOriginSpan is the diff a comment was written against.
 message ReviewOriginSpan {
   // The id of the snapshot the comment was written on.
-  string snapshot_id = 1 [(buf.validate.field).string.min_len = 1];
+  string snapshot_id = 1 [(buf.validate.field).string.uuid = true];
   // The commit the comment's old side was read against. Empty uses the snapshot's base.
   string base_sha = 2;
 }
@@ -507,7 +513,7 @@ message ReviewThreadInContext {
 
 message GetReviewRequest {
   // The review to read, by id.
-  string review_id = 1 [(buf.validate.field).string.min_len = 1];
+  string review_id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 // GetReviewResponse is one released review in reading order: the verdict and body, then each
@@ -522,12 +528,13 @@ message GetReviewResponse {
 }
 
 message ListReviewsRequest {
-  // The task whose reviews to list, by id or slug. Unset uses the caller's own task.
-  optional string task = 1 [(buf.validate.field).cel = {
-    id: "task.named"
-    message: "pass task by id or by slug, or leave it unset"
-    expression: "this.size() > 0"
-  }];
+  // The task whose reviews to list. Unset uses the caller's own task.
+  oneof task {
+    // The task, by id.
+    string task_id = 1 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string task_slug = 2 [(buf.validate.field).string.min_len = 1];
+  }
 }
 
 message ListReviewsResponse {
@@ -537,12 +544,13 @@ message ListReviewsResponse {
 
 // ReleaseReviewRequest releases the caller's open review on a task.
 message ReleaseReviewRequest {
-  // The task the review is on, by id or slug. Unset uses the caller's own task.
-  optional string task = 1 [(buf.validate.field).cel = {
-    id: "task.named"
-    message: "pass task by id or by slug, or leave it unset"
-    expression: "this.size() > 0"
-  }];
+  // The task the review is on. Unset uses the caller's own task.
+  oneof task {
+    // The task, by id.
+    string task_id = 1 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string task_slug = 4 [(buf.validate.field).string.min_len = 1];
+  }
   // The review's verdict.
   ReviewVerdict verdict = 2 [(buf.validate.field).enum.defined_only = true];
   // What the reviewer says about the work as a whole. The writer reads it before the threads.
@@ -572,12 +580,14 @@ message ReviewViewedFile {
 }
 
 message SetReviewFileViewedRequest {
-  // The task whose diff has the file, by id or slug.
-  string task = 1 [(buf.validate.field).cel = {
-    id: "task.required"
-    message: "pass task, by id or by slug"
-    expression: "this.size() > 0"
-  }];
+  // The task whose diff has the file.
+  oneof task {
+    option (buf.validate.oneof).required = true;
+    // The task, by id.
+    string task_id = 1 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string task_slug = 5 [(buf.validate.field).string.min_len = 1];
+  }
   // The file's path, relative to the checkout.
   string file_path = 2 [(buf.validate.field).string.min_len = 1];
   // Whether the file is marked as read. False removes the mark.
@@ -592,12 +602,14 @@ message SetReviewFileViewedResponse {
 }
 
 message ListReviewViewedFilesRequest {
-  // The task whose marks to list, by id or slug.
-  string task = 1 [(buf.validate.field).cel = {
-    id: "task.required"
-    message: "pass task, by id or by slug"
-    expression: "this.size() > 0"
-  }];
+  // The task whose marks to list.
+  oneof task {
+    option (buf.validate.oneof).required = true;
+    // The task, by id.
+    string task_id = 1 [(buf.validate.field).string.uuid = true];
+    // The task, by slug.
+    string task_slug = 2 [(buf.validate.field).string.min_len = 1];
+  }
 }
 
 message ListReviewViewedFilesResponse {
@@ -646,7 +658,7 @@ message ForgeReply {
 
 message ReplyOnForgeRequest {
   // The copied thread to reply on, by id.
-  string thread_id = 1 [(buf.validate.field).string.min_len = 1];
+  string thread_id = 1 [(buf.validate.field).string.uuid = true];
   // The reply's text.
   string body = 2 [(buf.validate.field).string.min_len = 1];
 }
@@ -658,7 +670,7 @@ message ReplyOnForgeResponse {
 
 message RetryForgeReplyRequest {
   // The failed reply to post again, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message RetryForgeReplyResponse {
@@ -668,5 +680,5 @@ message RetryForgeReplyResponse {
 
 message DiscardForgeReplyRequest {
   // The failed reply to discard, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
 }

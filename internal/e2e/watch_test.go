@@ -268,7 +268,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 		{
 			name: "a task is archived",
 			write: func(t *testing.T) {
-				_, err := instance.Tasks.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{Task: fixLogin.ID}))
+				_, err := instance.Tasks.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{Task: &taskv1.ArchiveTaskRequest_TaskId{TaskId: fixLogin.ID}}))
 				require.NoError(t, err)
 			},
 			took: func(t *testing.T, stores view) {

@@ -19,14 +19,14 @@ import (
 // of failure they are rather than leaving it to be decided later.
 type ScheduleServiceImpl interface {
 	ListSchedules(context.Context, *v1.ListSchedulesRequest) (*v1.ListSchedulesResponse, *fail.Error)
-	GetSchedule(context.Context, *v1.GetScheduleRequest) (*v1.GetScheduleResponse, *fail.Error)
-	ListScheduleRuns(context.Context, *v1.ListScheduleRunsRequest) (*v1.ListScheduleRunsResponse, *fail.Error)
-	CreateSchedule(context.Context, *v1.CreateScheduleRequest) (*v1.CreateScheduleResponse, *fail.Error)
-	UpdateSchedule(context.Context, *v1.UpdateScheduleRequest) (*emptypb.Empty, *fail.Error)
-	SetScheduleEnabled(context.Context, *v1.SetScheduleEnabledRequest) (*emptypb.Empty, *fail.Error)
-	ArchiveSchedule(context.Context, *v1.ArchiveScheduleRequest) (*emptypb.Empty, *fail.Error)
-	RestoreSchedule(context.Context, *v1.RestoreScheduleRequest) (*emptypb.Empty, *fail.Error)
-	DeleteSchedule(context.Context, *v1.DeleteScheduleRequest) (*emptypb.Empty, *fail.Error)
+	GetSchedule(context.Context, *GetScheduleRequest) (*v1.GetScheduleResponse, *fail.Error)
+	ListScheduleRuns(context.Context, *ListScheduleRunsRequest) (*v1.ListScheduleRunsResponse, *fail.Error)
+	CreateSchedule(context.Context, *CreateScheduleRequest) (*v1.CreateScheduleResponse, *fail.Error)
+	UpdateSchedule(context.Context, *UpdateScheduleRequest) (*emptypb.Empty, *fail.Error)
+	SetScheduleEnabled(context.Context, *SetScheduleEnabledRequest) (*emptypb.Empty, *fail.Error)
+	ArchiveSchedule(context.Context, *ArchiveScheduleRequest) (*emptypb.Empty, *fail.Error)
+	RestoreSchedule(context.Context, *RestoreScheduleRequest) (*emptypb.Empty, *fail.Error)
+	DeleteSchedule(context.Context, *DeleteScheduleRequest) (*emptypb.Empty, *fail.Error)
 }
 
 // ScheduleServiceAdapter carries what the implementation returned across to the signature
@@ -42,42 +42,82 @@ func (a ScheduleServiceAdapter) ListSchedules(ctx context.Context, req *connect.
 
 // GetSchedule answers the request as connect serves it.
 func (a ScheduleServiceAdapter) GetSchedule(ctx context.Context, req *connect.Request[v1.GetScheduleRequest]) (*connect.Response[v1.GetScheduleResponse], error) {
-	return rpcerr.Answer(a.Impl.GetSchedule(ctx, req.Msg))
+	parsed, err := ParseGetScheduleRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.GetScheduleResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.GetSchedule(ctx, parsed))
 }
 
 // ListScheduleRuns answers the request as connect serves it.
 func (a ScheduleServiceAdapter) ListScheduleRuns(ctx context.Context, req *connect.Request[v1.ListScheduleRunsRequest]) (*connect.Response[v1.ListScheduleRunsResponse], error) {
-	return rpcerr.Answer(a.Impl.ListScheduleRuns(ctx, req.Msg))
+	parsed, err := ParseListScheduleRunsRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.ListScheduleRunsResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ListScheduleRuns(ctx, parsed))
 }
 
 // CreateSchedule answers the request as connect serves it.
 func (a ScheduleServiceAdapter) CreateSchedule(ctx context.Context, req *connect.Request[v1.CreateScheduleRequest]) (*connect.Response[v1.CreateScheduleResponse], error) {
-	return rpcerr.Answer(a.Impl.CreateSchedule(ctx, req.Msg))
+	parsed, err := ParseCreateScheduleRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.CreateScheduleResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.CreateSchedule(ctx, parsed))
 }
 
 // UpdateSchedule answers the request as connect serves it.
 func (a ScheduleServiceAdapter) UpdateSchedule(ctx context.Context, req *connect.Request[v1.UpdateScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.UpdateSchedule(ctx, req.Msg))
+	parsed, err := ParseUpdateScheduleRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[emptypb.Empty](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.UpdateSchedule(ctx, parsed))
 }
 
 // SetScheduleEnabled answers the request as connect serves it.
 func (a ScheduleServiceAdapter) SetScheduleEnabled(ctx context.Context, req *connect.Request[v1.SetScheduleEnabledRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.SetScheduleEnabled(ctx, req.Msg))
+	parsed, err := ParseSetScheduleEnabledRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[emptypb.Empty](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.SetScheduleEnabled(ctx, parsed))
 }
 
 // ArchiveSchedule answers the request as connect serves it.
 func (a ScheduleServiceAdapter) ArchiveSchedule(ctx context.Context, req *connect.Request[v1.ArchiveScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.ArchiveSchedule(ctx, req.Msg))
+	parsed, err := ParseArchiveScheduleRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[emptypb.Empty](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ArchiveSchedule(ctx, parsed))
 }
 
 // RestoreSchedule answers the request as connect serves it.
 func (a ScheduleServiceAdapter) RestoreSchedule(ctx context.Context, req *connect.Request[v1.RestoreScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.RestoreSchedule(ctx, req.Msg))
+	parsed, err := ParseRestoreScheduleRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[emptypb.Empty](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.RestoreSchedule(ctx, parsed))
 }
 
 // DeleteSchedule answers the request as connect serves it.
 func (a ScheduleServiceAdapter) DeleteSchedule(ctx context.Context, req *connect.Request[v1.DeleteScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.DeleteSchedule(ctx, req.Msg))
+	parsed, err := ParseDeleteScheduleRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[emptypb.Empty](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.DeleteSchedule(ctx, parsed))
 }
 
 // RegisterScheduleService mounts the implementation on the mux behind its adapter.

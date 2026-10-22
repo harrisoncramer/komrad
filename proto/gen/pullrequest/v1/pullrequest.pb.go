@@ -2044,13 +2044,13 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\x18ListPullRequestsResponse\x12@\n" +
 	"\rpull_requests\x18\x01 \x03(\v2\x1b.pullrequest.v1.PullRequestR\fpullRequests\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\"J\n" +
-	"\x17ListStatusChecksRequest\x12/\n" +
-	"\x0fpull_request_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\rpullRequestId\"Z\n" +
+	"\x10_next_page_token\"K\n" +
+	"\x17ListStatusChecksRequest\x120\n" +
+	"\x0fpull_request_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\rpullRequestId\"Z\n" +
 	"\x18ListStatusChecksResponse\x12>\n" +
-	"\breadings\x18\x01 \x03(\v2\".pullrequest.v1.StatusCheckReadingR\breadings\"\x83\x01\n" +
-	"\x13ReadCheckLogRequest\x12\"\n" +
-	"\bcheck_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\acheckId\x12&\n" +
+	"\breadings\x18\x01 \x03(\v2\".pullrequest.v1.StatusCheckReadingR\breadings\"\x84\x01\n" +
+	"\x13ReadCheckLogRequest\x12#\n" +
+	"\bcheck_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\acheckId\x12&\n" +
 	"\n" +
 	"first_line\x18\x02 \x01(\x05B\a\xbaH\x04\x1a\x02(\x01R\tfirstLine\x12 \n" +
 	"\x05count\x18\x03 \x01(\x05B\n" +
@@ -2060,10 +2060,9 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
 	"line_count\x18\x02 \x01(\x05R\tlineCount\"\"\n" +
 	"\fCheckLogLine\x12\x12\n" +
-	"\x04text\x18\x01 \x01(\tR\x04text\"m\n" +
-	"\x16SearchCheckLogsRequest\x12-\n" +
-	"\tcheck_ids\x18\x01 \x03(\tB\x10\xbaH\r\x92\x01\n" +
-	"\b\x01\x10d\"\x04r\x02\x10\x01R\bcheckIds\x12$\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\"n\n" +
+	"\x16SearchCheckLogsRequest\x12.\n" +
+	"\tcheck_ids\x18\x01 \x03(\tB\x11\xbaH\x0e\x92\x01\v\b\x01\x10d\"\x05r\x03\xb0\x01\x01R\bcheckIds\x12$\n" +
 	"\apattern\x18\x02 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x04R\apattern\"d\n" +
 	"\x17SearchCheckLogsResponse\x12/\n" +

@@ -19,7 +19,7 @@ message SearchTranscriptsRequest {
   optional pagination.v1.Pagination pagination = 2;
   // The agent whose transcript to search, by id. Unset searches the caller's own, unless a
   // qualifier names other agents.
-  optional string agent_id = 3 [(buf.validate.field).string.min_len = 1];
+  optional string agent_id = 3 [(buf.validate.field).string.uuid = true];
 }
 
 // SearchHit is one turn of a transcript that matched a search.
@@ -58,7 +58,7 @@ message SearchTranscriptsResponse {
 
 message GetTranscriptRequest {
   // The agent whose transcript to read, by id.
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  string agent_id = 1 [(buf.validate.field).string.uuid = true];
   // How many bytes of the transcript to return.
   optional int32 max_bytes = 2 [(buf.validate.field).int32.gte = 0];
   // The `next_page_token` from the previous response. Unset to start at the beginning.
@@ -74,7 +74,7 @@ message GetTranscriptResponse {
 
 message GetLastTurnsRequest {
   // The agent whose transcript to read, by id.
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  string agent_id = 1 [(buf.validate.field).string.uuid = true];
   // How many of the newest agent turns to return, with the prompts between them. Unset returns
   // the last turn only.
   optional int32 turns = 2 [(buf.validate.field).int32 = {

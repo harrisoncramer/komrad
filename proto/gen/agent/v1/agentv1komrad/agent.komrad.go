@@ -19,65 +19,65 @@ import (
 // of failure they are rather than leaving it to be decided later.
 type AgentServiceImpl interface {
 	ListAgents(context.Context, *v1.ListAgentsRequest) (*v1.ListAgentsResponse, *fail.Error)
-	GetAgent(context.Context, *v1.GetAgentRequest) (*v1.GetAgentResponse, *fail.Error)
-	CreateAgent(context.Context, *v1.CreateAgentRequest) (*v1.CreateAgentResponse, *fail.Error)
-	RequestReview(context.Context, *v1.RequestReviewRequest) (*v1.RequestReviewResponse, *fail.Error)
-	Adopt(context.Context, *v1.AdoptRequest) (*v1.AdoptResponse, *fail.Error)
-	Log(context.Context, *v1.LogRequest) (*emptypb.Empty, *fail.Error)
-	SendMail(context.Context, *v1.SendMailRequest) (*v1.SendMailResponse, *fail.Error)
-	ForwardLastTurns(context.Context, *v1.ForwardLastTurnsRequest) (*v1.ForwardLastTurnsResponse, *fail.Error)
-	ReadMail(context.Context, *v1.ReadMailRequest) (*v1.ReadMailResponse, *fail.Error)
-	ListMail(context.Context, *v1.ListMailRequest) (*v1.ListMailResponse, *fail.Error)
-	DeleteMail(context.Context, *v1.DeleteMailRequest) (*emptypb.Empty, *fail.Error)
-	ArchiveAgents(context.Context, *v1.ArchiveAgentsRequest) (*emptypb.Empty, *fail.Error)
-	RestoreAgents(context.Context, *v1.RestoreAgentsRequest) (*v1.RestoreAgentsResponse, *fail.Error)
-	ResumeAgent(context.Context, *v1.ResumeAgentRequest) (*v1.ResumeAgentResponse, *fail.Error)
-	RestartAgent(context.Context, *v1.RestartAgentRequest) (*v1.RestartAgentResponse, *fail.Error)
-	RetryAgent(context.Context, *v1.RetryAgentRequest) (*v1.RetryAgentResponse, *fail.Error)
-	UpdateAgent(context.Context, *v1.UpdateAgentRequest) (*emptypb.Empty, *fail.Error)
-	SearchTranscripts(context.Context, *v1.SearchTranscriptsRequest) (*v1.SearchTranscriptsResponse, *fail.Error)
-	GetTranscript(context.Context, *v1.GetTranscriptRequest) (*v1.GetTranscriptResponse, *fail.Error)
-	GetLastTurns(context.Context, *v1.GetLastTurnsRequest) (*v1.GetLastTurnsResponse, *fail.Error)
-	GetLastScreen(context.Context, *v1.GetLastScreenRequest) (*v1.GetLastScreenResponse, *fail.Error)
-	WriteDocument(context.Context, *v1.WriteDocumentRequest) (*v1.WriteDocumentResponse, *fail.Error)
-	ListDocuments(context.Context, *v1.ListDocumentsRequest) (*v1.ListDocumentsResponse, *fail.Error)
-	SearchDocuments(context.Context, *v1.SearchDocumentsRequest) (*v1.SearchDocumentsResponse, *fail.Error)
-	GetDocument(context.Context, *v1.GetDocumentRequest) (*v1.GetDocumentResponse, *fail.Error)
-	ListDocumentVersions(context.Context, *v1.ListDocumentVersionsRequest) (*v1.ListDocumentVersionsResponse, *fail.Error)
+	GetAgent(context.Context, *GetAgentRequest) (*v1.GetAgentResponse, *fail.Error)
+	CreateAgent(context.Context, *CreateAgentRequest) (*v1.CreateAgentResponse, *fail.Error)
+	RequestReview(context.Context, *RequestReviewRequest) (*v1.RequestReviewResponse, *fail.Error)
+	Adopt(context.Context, *AdoptRequest) (*v1.AdoptResponse, *fail.Error)
+	Log(context.Context, *LogRequest) (*emptypb.Empty, *fail.Error)
+	SendMail(context.Context, *SendMailRequest) (*v1.SendMailResponse, *fail.Error)
+	ForwardLastTurns(context.Context, *ForwardLastTurnsRequest) (*v1.ForwardLastTurnsResponse, *fail.Error)
+	ReadMail(context.Context, *ReadMailRequest) (*v1.ReadMailResponse, *fail.Error)
+	ListMail(context.Context, *ListMailRequest) (*v1.ListMailResponse, *fail.Error)
+	DeleteMail(context.Context, *DeleteMailRequest) (*emptypb.Empty, *fail.Error)
+	ArchiveAgents(context.Context, *ArchiveAgentsRequest) (*emptypb.Empty, *fail.Error)
+	RestoreAgents(context.Context, *RestoreAgentsRequest) (*v1.RestoreAgentsResponse, *fail.Error)
+	ResumeAgent(context.Context, *ResumeAgentRequest) (*v1.ResumeAgentResponse, *fail.Error)
+	RestartAgent(context.Context, *RestartAgentRequest) (*v1.RestartAgentResponse, *fail.Error)
+	RetryAgent(context.Context, *RetryAgentRequest) (*v1.RetryAgentResponse, *fail.Error)
+	UpdateAgent(context.Context, *UpdateAgentRequest) (*emptypb.Empty, *fail.Error)
+	SearchTranscripts(context.Context, *SearchTranscriptsRequest) (*v1.SearchTranscriptsResponse, *fail.Error)
+	GetTranscript(context.Context, *GetTranscriptRequest) (*v1.GetTranscriptResponse, *fail.Error)
+	GetLastTurns(context.Context, *GetLastTurnsRequest) (*v1.GetLastTurnsResponse, *fail.Error)
+	GetLastScreen(context.Context, *GetLastScreenRequest) (*v1.GetLastScreenResponse, *fail.Error)
+	WriteDocument(context.Context, *WriteDocumentRequest) (*v1.WriteDocumentResponse, *fail.Error)
+	ListDocuments(context.Context, *ListDocumentsRequest) (*v1.ListDocumentsResponse, *fail.Error)
+	SearchDocuments(context.Context, *SearchDocumentsRequest) (*v1.SearchDocumentsResponse, *fail.Error)
+	GetDocument(context.Context, *GetDocumentRequest) (*v1.GetDocumentResponse, *fail.Error)
+	ListDocumentVersions(context.Context, *ListDocumentVersionsRequest) (*v1.ListDocumentVersionsResponse, *fail.Error)
 	ListDocumentTypes(context.Context, *emptypb.Empty) (*v1.ListDocumentTypesResponse, *fail.Error)
 	GetDocumentType(context.Context, *v1.GetDocumentTypeRequest) (*v1.GetDocumentTypeResponse, *fail.Error)
-	ListDocumentTypeVersions(context.Context, *v1.ListDocumentTypeVersionsRequest) (*v1.ListDocumentTypeVersionsResponse, *fail.Error)
-	WriteDocumentType(context.Context, *v1.WriteDocumentTypeRequest) (*v1.WriteDocumentTypeResponse, *fail.Error)
-	DeleteDocument(context.Context, *v1.DeleteDocumentRequest) (*emptypb.Empty, *fail.Error)
-	DeleteDocumentType(context.Context, *v1.DeleteDocumentTypeRequest) (*emptypb.Empty, *fail.Error)
+	ListDocumentTypeVersions(context.Context, *ListDocumentTypeVersionsRequest) (*v1.ListDocumentTypeVersionsResponse, *fail.Error)
+	WriteDocumentType(context.Context, *WriteDocumentTypeRequest) (*v1.WriteDocumentTypeResponse, *fail.Error)
+	DeleteDocument(context.Context, *DeleteDocumentRequest) (*emptypb.Empty, *fail.Error)
+	DeleteDocumentType(context.Context, *DeleteDocumentTypeRequest) (*emptypb.Empty, *fail.Error)
 	RecordReport(context.Context, *v1.RecordReportRequest) (*emptypb.Empty, *fail.Error)
 	ClaimMailNudge(context.Context, *emptypb.Empty) (*v1.ClaimMailNudgeResponse, *fail.Error)
-	MarkRunsRead(context.Context, *v1.MarkRunsReadRequest) (*emptypb.Empty, *fail.Error)
-	ListReviewThreads(context.Context, *v1.ListReviewThreadsRequest) (*v1.ListReviewThreadsResponse, *fail.Error)
-	CreateReviewThread(context.Context, *v1.CreateReviewThreadRequest) (*v1.CreateReviewThreadResponse, *fail.Error)
-	AddReviewMessage(context.Context, *v1.AddReviewMessageRequest) (*v1.AddReviewMessageResponse, *fail.Error)
-	AcceptForgeMessage(context.Context, *v1.AcceptForgeMessageRequest) (*v1.AcceptForgeMessageResponse, *fail.Error)
-	EditReviewMessage(context.Context, *v1.EditReviewMessageRequest) (*v1.EditReviewMessageResponse, *fail.Error)
-	ReplyOnForge(context.Context, *v1.ReplyOnForgeRequest) (*v1.ReplyOnForgeResponse, *fail.Error)
-	RetryForgeReply(context.Context, *v1.RetryForgeReplyRequest) (*v1.RetryForgeReplyResponse, *fail.Error)
-	DiscardForgeReply(context.Context, *v1.DiscardForgeReplyRequest) (*emptypb.Empty, *fail.Error)
-	PlanRebase(context.Context, *v1.PlanRebaseRequest) (*v1.PlanRebaseResponse, *fail.Error)
-	RebaseWorktree(context.Context, *v1.RebaseWorktreeRequest) (*v1.RebaseWorktreeResponse, *fail.Error)
-	PlanPush(context.Context, *v1.PlanPushRequest) (*v1.PlanPushResponse, *fail.Error)
-	PushWorktree(context.Context, *v1.PushWorktreeRequest) (*v1.PushWorktreeResponse, *fail.Error)
-	PickForkPoint(context.Context, *v1.PickForkPointRequest) (*v1.PickForkPointResponse, *fail.Error)
-	AbortSequence(context.Context, *v1.AbortSequenceRequest) (*v1.AbortSequenceResponse, *fail.Error)
-	StartOrchestrator(context.Context, *v1.StartOrchestratorRequest) (*v1.StartOrchestratorResponse, *fail.Error)
-	MarkReviewThreadRead(context.Context, *v1.MarkReviewThreadReadRequest) (*v1.MarkReviewThreadReadResponse, *fail.Error)
-	SetReviewThreadResolved(context.Context, *v1.SetReviewThreadResolvedRequest) (*v1.SetReviewThreadResolvedResponse, *fail.Error)
-	TakeReviewSnapshot(context.Context, *v1.TakeReviewSnapshotRequest) (*v1.TakeReviewSnapshotResponse, *fail.Error)
-	OpenReviewHistory(context.Context, *v1.OpenReviewHistoryRequest) (*v1.OpenReviewHistoryResponse, *fail.Error)
-	ListReviewSnapshots(context.Context, *v1.ListReviewSnapshotsRequest) (*v1.ListReviewSnapshotsResponse, *fail.Error)
-	ListReviews(context.Context, *v1.ListReviewsRequest) (*v1.ListReviewsResponse, *fail.Error)
-	GetReview(context.Context, *v1.GetReviewRequest) (*v1.GetReviewResponse, *fail.Error)
-	ReleaseReview(context.Context, *v1.ReleaseReviewRequest) (*v1.ReleaseReviewResponse, *fail.Error)
-	SetReviewFileViewed(context.Context, *v1.SetReviewFileViewedRequest) (*v1.SetReviewFileViewedResponse, *fail.Error)
-	ListReviewViewedFiles(context.Context, *v1.ListReviewViewedFilesRequest) (*v1.ListReviewViewedFilesResponse, *fail.Error)
+	MarkRunsRead(context.Context, *MarkRunsReadRequest) (*emptypb.Empty, *fail.Error)
+	ListReviewThreads(context.Context, *ListReviewThreadsRequest) (*v1.ListReviewThreadsResponse, *fail.Error)
+	CreateReviewThread(context.Context, *CreateReviewThreadRequest) (*v1.CreateReviewThreadResponse, *fail.Error)
+	AddReviewMessage(context.Context, *AddReviewMessageRequest) (*v1.AddReviewMessageResponse, *fail.Error)
+	AcceptForgeMessage(context.Context, *AcceptForgeMessageRequest) (*v1.AcceptForgeMessageResponse, *fail.Error)
+	EditReviewMessage(context.Context, *EditReviewMessageRequest) (*v1.EditReviewMessageResponse, *fail.Error)
+	ReplyOnForge(context.Context, *ReplyOnForgeRequest) (*v1.ReplyOnForgeResponse, *fail.Error)
+	RetryForgeReply(context.Context, *RetryForgeReplyRequest) (*v1.RetryForgeReplyResponse, *fail.Error)
+	DiscardForgeReply(context.Context, *DiscardForgeReplyRequest) (*emptypb.Empty, *fail.Error)
+	PlanRebase(context.Context, *PlanRebaseRequest) (*v1.PlanRebaseResponse, *fail.Error)
+	RebaseWorktree(context.Context, *RebaseWorktreeRequest) (*v1.RebaseWorktreeResponse, *fail.Error)
+	PlanPush(context.Context, *PlanPushRequest) (*v1.PlanPushResponse, *fail.Error)
+	PushWorktree(context.Context, *PushWorktreeRequest) (*v1.PushWorktreeResponse, *fail.Error)
+	PickForkPoint(context.Context, *PickForkPointRequest) (*v1.PickForkPointResponse, *fail.Error)
+	AbortSequence(context.Context, *AbortSequenceRequest) (*v1.AbortSequenceResponse, *fail.Error)
+	StartOrchestrator(context.Context, *StartOrchestratorRequest) (*v1.StartOrchestratorResponse, *fail.Error)
+	MarkReviewThreadRead(context.Context, *MarkReviewThreadReadRequest) (*v1.MarkReviewThreadReadResponse, *fail.Error)
+	SetReviewThreadResolved(context.Context, *SetReviewThreadResolvedRequest) (*v1.SetReviewThreadResolvedResponse, *fail.Error)
+	TakeReviewSnapshot(context.Context, *TakeReviewSnapshotRequest) (*v1.TakeReviewSnapshotResponse, *fail.Error)
+	OpenReviewHistory(context.Context, *OpenReviewHistoryRequest) (*v1.OpenReviewHistoryResponse, *fail.Error)
+	ListReviewSnapshots(context.Context, *ListReviewSnapshotsRequest) (*v1.ListReviewSnapshotsResponse, *fail.Error)
+	ListReviews(context.Context, *ListReviewsRequest) (*v1.ListReviewsResponse, *fail.Error)
+	GetReview(context.Context, *GetReviewRequest) (*v1.GetReviewResponse, *fail.Error)
+	ReleaseReview(context.Context, *ReleaseReviewRequest) (*v1.ReleaseReviewResponse, *fail.Error)
+	SetReviewFileViewed(context.Context, *SetReviewFileViewedRequest) (*v1.SetReviewFileViewedResponse, *fail.Error)
+	ListReviewViewedFiles(context.Context, *ListReviewViewedFilesRequest) (*v1.ListReviewViewedFilesResponse, *fail.Error)
 }
 
 // AgentServiceAdapter carries what the implementation returned across to the signature
@@ -93,127 +93,252 @@ func (a AgentServiceAdapter) ListAgents(ctx context.Context, req *connect.Reques
 
 // GetAgent answers the request as connect serves it.
 func (a AgentServiceAdapter) GetAgent(ctx context.Context, req *connect.Request[v1.GetAgentRequest]) (*connect.Response[v1.GetAgentResponse], error) {
-	return rpcerr.Answer(a.Impl.GetAgent(ctx, req.Msg))
+	parsed, err := ParseGetAgentRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.GetAgentResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.GetAgent(ctx, parsed))
 }
 
 // CreateAgent answers the request as connect serves it.
 func (a AgentServiceAdapter) CreateAgent(ctx context.Context, req *connect.Request[v1.CreateAgentRequest]) (*connect.Response[v1.CreateAgentResponse], error) {
-	return rpcerr.Answer(a.Impl.CreateAgent(ctx, req.Msg))
+	parsed, err := ParseCreateAgentRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.CreateAgentResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.CreateAgent(ctx, parsed))
 }
 
 // RequestReview answers the request as connect serves it.
 func (a AgentServiceAdapter) RequestReview(ctx context.Context, req *connect.Request[v1.RequestReviewRequest]) (*connect.Response[v1.RequestReviewResponse], error) {
-	return rpcerr.Answer(a.Impl.RequestReview(ctx, req.Msg))
+	parsed, err := ParseRequestReviewRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.RequestReviewResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.RequestReview(ctx, parsed))
 }
 
 // Adopt answers the request as connect serves it.
 func (a AgentServiceAdapter) Adopt(ctx context.Context, req *connect.Request[v1.AdoptRequest]) (*connect.Response[v1.AdoptResponse], error) {
-	return rpcerr.Answer(a.Impl.Adopt(ctx, req.Msg))
+	parsed, err := ParseAdoptRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.AdoptResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.Adopt(ctx, parsed))
 }
 
 // Log answers the request as connect serves it.
 func (a AgentServiceAdapter) Log(ctx context.Context, req *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.Log(ctx, req.Msg))
+	parsed, err := ParseLogRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[emptypb.Empty](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.Log(ctx, parsed))
 }
 
 // SendMail answers the request as connect serves it.
 func (a AgentServiceAdapter) SendMail(ctx context.Context, req *connect.Request[v1.SendMailRequest]) (*connect.Response[v1.SendMailResponse], error) {
-	return rpcerr.Answer(a.Impl.SendMail(ctx, req.Msg))
+	parsed, err := ParseSendMailRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.SendMailResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.SendMail(ctx, parsed))
 }
 
 // ForwardLastTurns answers the request as connect serves it.
 func (a AgentServiceAdapter) ForwardLastTurns(ctx context.Context, req *connect.Request[v1.ForwardLastTurnsRequest]) (*connect.Response[v1.ForwardLastTurnsResponse], error) {
-	return rpcerr.Answer(a.Impl.ForwardLastTurns(ctx, req.Msg))
+	parsed, err := ParseForwardLastTurnsRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.ForwardLastTurnsResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ForwardLastTurns(ctx, parsed))
 }
 
 // ReadMail answers the request as connect serves it.
 func (a AgentServiceAdapter) ReadMail(ctx context.Context, req *connect.Request[v1.ReadMailRequest]) (*connect.Response[v1.ReadMailResponse], error) {
-	return rpcerr.Answer(a.Impl.ReadMail(ctx, req.Msg))
+	parsed, err := ParseReadMailRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.ReadMailResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ReadMail(ctx, parsed))
 }
 
 // ListMail answers the request as connect serves it.
 func (a AgentServiceAdapter) ListMail(ctx context.Context, req *connect.Request[v1.ListMailRequest]) (*connect.Response[v1.ListMailResponse], error) {
-	return rpcerr.Answer(a.Impl.ListMail(ctx, req.Msg))
+	parsed, err := ParseListMailRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.ListMailResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ListMail(ctx, parsed))
 }
 
 // DeleteMail answers the request as connect serves it.
 func (a AgentServiceAdapter) DeleteMail(ctx context.Context, req *connect.Request[v1.DeleteMailRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.DeleteMail(ctx, req.Msg))
+	parsed, err := ParseDeleteMailRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[emptypb.Empty](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.DeleteMail(ctx, parsed))
 }
 
 // ArchiveAgents answers the request as connect serves it.
 func (a AgentServiceAdapter) ArchiveAgents(ctx context.Context, req *connect.Request[v1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.ArchiveAgents(ctx, req.Msg))
+	parsed, err := ParseArchiveAgentsRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[emptypb.Empty](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ArchiveAgents(ctx, parsed))
 }
 
 // RestoreAgents answers the request as connect serves it.
 func (a AgentServiceAdapter) RestoreAgents(ctx context.Context, req *connect.Request[v1.RestoreAgentsRequest]) (*connect.Response[v1.RestoreAgentsResponse], error) {
-	return rpcerr.Answer(a.Impl.RestoreAgents(ctx, req.Msg))
+	parsed, err := ParseRestoreAgentsRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.RestoreAgentsResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.RestoreAgents(ctx, parsed))
 }
 
 // ResumeAgent answers the request as connect serves it.
 func (a AgentServiceAdapter) ResumeAgent(ctx context.Context, req *connect.Request[v1.ResumeAgentRequest]) (*connect.Response[v1.ResumeAgentResponse], error) {
-	return rpcerr.Answer(a.Impl.ResumeAgent(ctx, req.Msg))
+	parsed, err := ParseResumeAgentRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.ResumeAgentResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ResumeAgent(ctx, parsed))
 }
 
 // RestartAgent answers the request as connect serves it.
 func (a AgentServiceAdapter) RestartAgent(ctx context.Context, req *connect.Request[v1.RestartAgentRequest]) (*connect.Response[v1.RestartAgentResponse], error) {
-	return rpcerr.Answer(a.Impl.RestartAgent(ctx, req.Msg))
+	parsed, err := ParseRestartAgentRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.RestartAgentResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.RestartAgent(ctx, parsed))
 }
 
 // RetryAgent answers the request as connect serves it.
 func (a AgentServiceAdapter) RetryAgent(ctx context.Context, req *connect.Request[v1.RetryAgentRequest]) (*connect.Response[v1.RetryAgentResponse], error) {
-	return rpcerr.Answer(a.Impl.RetryAgent(ctx, req.Msg))
+	parsed, err := ParseRetryAgentRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.RetryAgentResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.RetryAgent(ctx, parsed))
 }
 
 // UpdateAgent answers the request as connect serves it.
 func (a AgentServiceAdapter) UpdateAgent(ctx context.Context, req *connect.Request[v1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.UpdateAgent(ctx, req.Msg))
+	parsed, err := ParseUpdateAgentRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[emptypb.Empty](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.UpdateAgent(ctx, parsed))
 }
 
 // SearchTranscripts answers the request as connect serves it.
 func (a AgentServiceAdapter) SearchTranscripts(ctx context.Context, req *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error) {
-	return rpcerr.Answer(a.Impl.SearchTranscripts(ctx, req.Msg))
+	parsed, err := ParseSearchTranscriptsRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.SearchTranscriptsResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.SearchTranscripts(ctx, parsed))
 }
 
 // GetTranscript answers the request as connect serves it.
 func (a AgentServiceAdapter) GetTranscript(ctx context.Context, req *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error) {
-	return rpcerr.Answer(a.Impl.GetTranscript(ctx, req.Msg))
+	parsed, err := ParseGetTranscriptRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.GetTranscriptResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.GetTranscript(ctx, parsed))
 }
 
 // GetLastTurns answers the request as connect serves it.
 func (a AgentServiceAdapter) GetLastTurns(ctx context.Context, req *connect.Request[v1.GetLastTurnsRequest]) (*connect.Response[v1.GetLastTurnsResponse], error) {
-	return rpcerr.Answer(a.Impl.GetLastTurns(ctx, req.Msg))
+	parsed, err := ParseGetLastTurnsRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.GetLastTurnsResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.GetLastTurns(ctx, parsed))
 }
 
 // GetLastScreen answers the request as connect serves it.
 func (a AgentServiceAdapter) GetLastScreen(ctx context.Context, req *connect.Request[v1.GetLastScreenRequest]) (*connect.Response[v1.GetLastScreenResponse], error) {
-	return rpcerr.Answer(a.Impl.GetLastScreen(ctx, req.Msg))
+	parsed, err := ParseGetLastScreenRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.GetLastScreenResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.GetLastScreen(ctx, parsed))
 }
 
 // WriteDocument answers the request as connect serves it.
 func (a AgentServiceAdapter) WriteDocument(ctx context.Context, req *connect.Request[v1.WriteDocumentRequest]) (*connect.Response[v1.WriteDocumentResponse], error) {
-	return rpcerr.Answer(a.Impl.WriteDocument(ctx, req.Msg))
+	parsed, err := ParseWriteDocumentRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.WriteDocumentResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.WriteDocument(ctx, parsed))
 }
 
 // ListDocuments answers the request as connect serves it.
 func (a AgentServiceAdapter) ListDocuments(ctx context.Context, req *connect.Request[v1.ListDocumentsRequest]) (*connect.Response[v1.ListDocumentsResponse], error) {
-	return rpcerr.Answer(a.Impl.ListDocuments(ctx, req.Msg))
+	parsed, err := ParseListDocumentsRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.ListDocumentsResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ListDocuments(ctx, parsed))
 }
 
 // SearchDocuments answers the request as connect serves it.
 func (a AgentServiceAdapter) SearchDocuments(ctx context.Context, req *connect.Request[v1.SearchDocumentsRequest]) (*connect.Response[v1.SearchDocumentsResponse], error) {
-	return rpcerr.Answer(a.Impl.SearchDocuments(ctx, req.Msg))
+	parsed, err := ParseSearchDocumentsRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.SearchDocumentsResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.SearchDocuments(ctx, parsed))
 }
 
 // GetDocument answers the request as connect serves it.
 func (a AgentServiceAdapter) GetDocument(ctx context.Context, req *connect.Request[v1.GetDocumentRequest]) (*connect.Response[v1.GetDocumentResponse], error) {
-	return rpcerr.Answer(a.Impl.GetDocument(ctx, req.Msg))
+	parsed, err := ParseGetDocumentRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.GetDocumentResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.GetDocument(ctx, parsed))
 }
 
 // ListDocumentVersions answers the request as connect serves it.
 func (a AgentServiceAdapter) ListDocumentVersions(ctx context.Context, req *connect.Request[v1.ListDocumentVersionsRequest]) (*connect.Response[v1.ListDocumentVersionsResponse], error) {
-	return rpcerr.Answer(a.Impl.ListDocumentVersions(ctx, req.Msg))
+	parsed, err := ParseListDocumentVersionsRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.ListDocumentVersionsResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ListDocumentVersions(ctx, parsed))
 }
 
 // ListDocumentTypes answers the request as connect serves it.
@@ -228,22 +353,42 @@ func (a AgentServiceAdapter) GetDocumentType(ctx context.Context, req *connect.R
 
 // ListDocumentTypeVersions answers the request as connect serves it.
 func (a AgentServiceAdapter) ListDocumentTypeVersions(ctx context.Context, req *connect.Request[v1.ListDocumentTypeVersionsRequest]) (*connect.Response[v1.ListDocumentTypeVersionsResponse], error) {
-	return rpcerr.Answer(a.Impl.ListDocumentTypeVersions(ctx, req.Msg))
+	parsed, err := ParseListDocumentTypeVersionsRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.ListDocumentTypeVersionsResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ListDocumentTypeVersions(ctx, parsed))
 }
 
 // WriteDocumentType answers the request as connect serves it.
 func (a AgentServiceAdapter) WriteDocumentType(ctx context.Context, req *connect.Request[v1.WriteDocumentTypeRequest]) (*connect.Response[v1.WriteDocumentTypeResponse], error) {
-	return rpcerr.Answer(a.Impl.WriteDocumentType(ctx, req.Msg))
+	parsed, err := ParseWriteDocumentTypeRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.WriteDocumentTypeResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.WriteDocumentType(ctx, parsed))
 }
 
 // DeleteDocument answers the request as connect serves it.
 func (a AgentServiceAdapter) DeleteDocument(ctx context.Context, req *connect.Request[v1.DeleteDocumentRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.DeleteDocument(ctx, req.Msg))
+	parsed, err := ParseDeleteDocumentRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[emptypb.Empty](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.DeleteDocument(ctx, parsed))
 }
 
 // DeleteDocumentType answers the request as connect serves it.
 func (a AgentServiceAdapter) DeleteDocumentType(ctx context.Context, req *connect.Request[v1.DeleteDocumentTypeRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.DeleteDocumentType(ctx, req.Msg))
+	parsed, err := ParseDeleteDocumentTypeRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[emptypb.Empty](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.DeleteDocumentType(ctx, parsed))
 }
 
 // RecordReport answers the request as connect serves it.
@@ -258,132 +403,262 @@ func (a AgentServiceAdapter) ClaimMailNudge(ctx context.Context, req *connect.Re
 
 // MarkRunsRead answers the request as connect serves it.
 func (a AgentServiceAdapter) MarkRunsRead(ctx context.Context, req *connect.Request[v1.MarkRunsReadRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.MarkRunsRead(ctx, req.Msg))
+	parsed, err := ParseMarkRunsReadRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[emptypb.Empty](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.MarkRunsRead(ctx, parsed))
 }
 
 // ListReviewThreads answers the request as connect serves it.
 func (a AgentServiceAdapter) ListReviewThreads(ctx context.Context, req *connect.Request[v1.ListReviewThreadsRequest]) (*connect.Response[v1.ListReviewThreadsResponse], error) {
-	return rpcerr.Answer(a.Impl.ListReviewThreads(ctx, req.Msg))
+	parsed, err := ParseListReviewThreadsRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.ListReviewThreadsResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ListReviewThreads(ctx, parsed))
 }
 
 // CreateReviewThread answers the request as connect serves it.
 func (a AgentServiceAdapter) CreateReviewThread(ctx context.Context, req *connect.Request[v1.CreateReviewThreadRequest]) (*connect.Response[v1.CreateReviewThreadResponse], error) {
-	return rpcerr.Answer(a.Impl.CreateReviewThread(ctx, req.Msg))
+	parsed, err := ParseCreateReviewThreadRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.CreateReviewThreadResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.CreateReviewThread(ctx, parsed))
 }
 
 // AddReviewMessage answers the request as connect serves it.
 func (a AgentServiceAdapter) AddReviewMessage(ctx context.Context, req *connect.Request[v1.AddReviewMessageRequest]) (*connect.Response[v1.AddReviewMessageResponse], error) {
-	return rpcerr.Answer(a.Impl.AddReviewMessage(ctx, req.Msg))
+	parsed, err := ParseAddReviewMessageRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.AddReviewMessageResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.AddReviewMessage(ctx, parsed))
 }
 
 // AcceptForgeMessage answers the request as connect serves it.
 func (a AgentServiceAdapter) AcceptForgeMessage(ctx context.Context, req *connect.Request[v1.AcceptForgeMessageRequest]) (*connect.Response[v1.AcceptForgeMessageResponse], error) {
-	return rpcerr.Answer(a.Impl.AcceptForgeMessage(ctx, req.Msg))
+	parsed, err := ParseAcceptForgeMessageRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.AcceptForgeMessageResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.AcceptForgeMessage(ctx, parsed))
 }
 
 // EditReviewMessage answers the request as connect serves it.
 func (a AgentServiceAdapter) EditReviewMessage(ctx context.Context, req *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error) {
-	return rpcerr.Answer(a.Impl.EditReviewMessage(ctx, req.Msg))
+	parsed, err := ParseEditReviewMessageRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.EditReviewMessageResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.EditReviewMessage(ctx, parsed))
 }
 
 // ReplyOnForge answers the request as connect serves it.
 func (a AgentServiceAdapter) ReplyOnForge(ctx context.Context, req *connect.Request[v1.ReplyOnForgeRequest]) (*connect.Response[v1.ReplyOnForgeResponse], error) {
-	return rpcerr.Answer(a.Impl.ReplyOnForge(ctx, req.Msg))
+	parsed, err := ParseReplyOnForgeRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.ReplyOnForgeResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ReplyOnForge(ctx, parsed))
 }
 
 // RetryForgeReply answers the request as connect serves it.
 func (a AgentServiceAdapter) RetryForgeReply(ctx context.Context, req *connect.Request[v1.RetryForgeReplyRequest]) (*connect.Response[v1.RetryForgeReplyResponse], error) {
-	return rpcerr.Answer(a.Impl.RetryForgeReply(ctx, req.Msg))
+	parsed, err := ParseRetryForgeReplyRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.RetryForgeReplyResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.RetryForgeReply(ctx, parsed))
 }
 
 // DiscardForgeReply answers the request as connect serves it.
 func (a AgentServiceAdapter) DiscardForgeReply(ctx context.Context, req *connect.Request[v1.DiscardForgeReplyRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.DiscardForgeReply(ctx, req.Msg))
+	parsed, err := ParseDiscardForgeReplyRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[emptypb.Empty](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.DiscardForgeReply(ctx, parsed))
 }
 
 // PlanRebase answers the request as connect serves it.
 func (a AgentServiceAdapter) PlanRebase(ctx context.Context, req *connect.Request[v1.PlanRebaseRequest]) (*connect.Response[v1.PlanRebaseResponse], error) {
-	return rpcerr.Answer(a.Impl.PlanRebase(ctx, req.Msg))
+	parsed, err := ParsePlanRebaseRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.PlanRebaseResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.PlanRebase(ctx, parsed))
 }
 
 // RebaseWorktree answers the request as connect serves it.
 func (a AgentServiceAdapter) RebaseWorktree(ctx context.Context, req *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error) {
-	return rpcerr.Answer(a.Impl.RebaseWorktree(ctx, req.Msg))
+	parsed, err := ParseRebaseWorktreeRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.RebaseWorktreeResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.RebaseWorktree(ctx, parsed))
 }
 
 // PlanPush answers the request as connect serves it.
 func (a AgentServiceAdapter) PlanPush(ctx context.Context, req *connect.Request[v1.PlanPushRequest]) (*connect.Response[v1.PlanPushResponse], error) {
-	return rpcerr.Answer(a.Impl.PlanPush(ctx, req.Msg))
+	parsed, err := ParsePlanPushRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.PlanPushResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.PlanPush(ctx, parsed))
 }
 
 // PushWorktree answers the request as connect serves it.
 func (a AgentServiceAdapter) PushWorktree(ctx context.Context, req *connect.Request[v1.PushWorktreeRequest]) (*connect.Response[v1.PushWorktreeResponse], error) {
-	return rpcerr.Answer(a.Impl.PushWorktree(ctx, req.Msg))
+	parsed, err := ParsePushWorktreeRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.PushWorktreeResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.PushWorktree(ctx, parsed))
 }
 
 // PickForkPoint answers the request as connect serves it.
 func (a AgentServiceAdapter) PickForkPoint(ctx context.Context, req *connect.Request[v1.PickForkPointRequest]) (*connect.Response[v1.PickForkPointResponse], error) {
-	return rpcerr.Answer(a.Impl.PickForkPoint(ctx, req.Msg))
+	parsed, err := ParsePickForkPointRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.PickForkPointResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.PickForkPoint(ctx, parsed))
 }
 
 // AbortSequence answers the request as connect serves it.
 func (a AgentServiceAdapter) AbortSequence(ctx context.Context, req *connect.Request[v1.AbortSequenceRequest]) (*connect.Response[v1.AbortSequenceResponse], error) {
-	return rpcerr.Answer(a.Impl.AbortSequence(ctx, req.Msg))
+	parsed, err := ParseAbortSequenceRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.AbortSequenceResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.AbortSequence(ctx, parsed))
 }
 
 // StartOrchestrator answers the request as connect serves it.
 func (a AgentServiceAdapter) StartOrchestrator(ctx context.Context, req *connect.Request[v1.StartOrchestratorRequest]) (*connect.Response[v1.StartOrchestratorResponse], error) {
-	return rpcerr.Answer(a.Impl.StartOrchestrator(ctx, req.Msg))
+	parsed, err := ParseStartOrchestratorRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.StartOrchestratorResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.StartOrchestrator(ctx, parsed))
 }
 
 // MarkReviewThreadRead answers the request as connect serves it.
 func (a AgentServiceAdapter) MarkReviewThreadRead(ctx context.Context, req *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error) {
-	return rpcerr.Answer(a.Impl.MarkReviewThreadRead(ctx, req.Msg))
+	parsed, err := ParseMarkReviewThreadReadRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.MarkReviewThreadReadResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.MarkReviewThreadRead(ctx, parsed))
 }
 
 // SetReviewThreadResolved answers the request as connect serves it.
 func (a AgentServiceAdapter) SetReviewThreadResolved(ctx context.Context, req *connect.Request[v1.SetReviewThreadResolvedRequest]) (*connect.Response[v1.SetReviewThreadResolvedResponse], error) {
-	return rpcerr.Answer(a.Impl.SetReviewThreadResolved(ctx, req.Msg))
+	parsed, err := ParseSetReviewThreadResolvedRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.SetReviewThreadResolvedResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.SetReviewThreadResolved(ctx, parsed))
 }
 
 // TakeReviewSnapshot answers the request as connect serves it.
 func (a AgentServiceAdapter) TakeReviewSnapshot(ctx context.Context, req *connect.Request[v1.TakeReviewSnapshotRequest]) (*connect.Response[v1.TakeReviewSnapshotResponse], error) {
-	return rpcerr.Answer(a.Impl.TakeReviewSnapshot(ctx, req.Msg))
+	parsed, err := ParseTakeReviewSnapshotRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.TakeReviewSnapshotResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.TakeReviewSnapshot(ctx, parsed))
 }
 
 // OpenReviewHistory answers the request as connect serves it.
 func (a AgentServiceAdapter) OpenReviewHistory(ctx context.Context, req *connect.Request[v1.OpenReviewHistoryRequest]) (*connect.Response[v1.OpenReviewHistoryResponse], error) {
-	return rpcerr.Answer(a.Impl.OpenReviewHistory(ctx, req.Msg))
+	parsed, err := ParseOpenReviewHistoryRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.OpenReviewHistoryResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.OpenReviewHistory(ctx, parsed))
 }
 
 // ListReviewSnapshots answers the request as connect serves it.
 func (a AgentServiceAdapter) ListReviewSnapshots(ctx context.Context, req *connect.Request[v1.ListReviewSnapshotsRequest]) (*connect.Response[v1.ListReviewSnapshotsResponse], error) {
-	return rpcerr.Answer(a.Impl.ListReviewSnapshots(ctx, req.Msg))
+	parsed, err := ParseListReviewSnapshotsRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.ListReviewSnapshotsResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ListReviewSnapshots(ctx, parsed))
 }
 
 // ListReviews answers the request as connect serves it.
 func (a AgentServiceAdapter) ListReviews(ctx context.Context, req *connect.Request[v1.ListReviewsRequest]) (*connect.Response[v1.ListReviewsResponse], error) {
-	return rpcerr.Answer(a.Impl.ListReviews(ctx, req.Msg))
+	parsed, err := ParseListReviewsRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.ListReviewsResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ListReviews(ctx, parsed))
 }
 
 // GetReview answers the request as connect serves it.
 func (a AgentServiceAdapter) GetReview(ctx context.Context, req *connect.Request[v1.GetReviewRequest]) (*connect.Response[v1.GetReviewResponse], error) {
-	return rpcerr.Answer(a.Impl.GetReview(ctx, req.Msg))
+	parsed, err := ParseGetReviewRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.GetReviewResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.GetReview(ctx, parsed))
 }
 
 // ReleaseReview answers the request as connect serves it.
 func (a AgentServiceAdapter) ReleaseReview(ctx context.Context, req *connect.Request[v1.ReleaseReviewRequest]) (*connect.Response[v1.ReleaseReviewResponse], error) {
-	return rpcerr.Answer(a.Impl.ReleaseReview(ctx, req.Msg))
+	parsed, err := ParseReleaseReviewRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.ReleaseReviewResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ReleaseReview(ctx, parsed))
 }
 
 // SetReviewFileViewed answers the request as connect serves it.
 func (a AgentServiceAdapter) SetReviewFileViewed(ctx context.Context, req *connect.Request[v1.SetReviewFileViewedRequest]) (*connect.Response[v1.SetReviewFileViewedResponse], error) {
-	return rpcerr.Answer(a.Impl.SetReviewFileViewed(ctx, req.Msg))
+	parsed, err := ParseSetReviewFileViewedRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.SetReviewFileViewedResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.SetReviewFileViewed(ctx, parsed))
 }
 
 // ListReviewViewedFiles answers the request as connect serves it.
 func (a AgentServiceAdapter) ListReviewViewedFiles(ctx context.Context, req *connect.Request[v1.ListReviewViewedFilesRequest]) (*connect.Response[v1.ListReviewViewedFilesResponse], error) {
-	return rpcerr.Answer(a.Impl.ListReviewViewedFiles(ctx, req.Msg))
+	parsed, err := ParseListReviewViewedFilesRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.ListReviewViewedFilesResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ListReviewViewedFiles(ctx, parsed))
 }
 
 // RegisterAgentService mounts the implementation on the mux behind its adapter.

@@ -329,8 +329,13 @@ type ListDocumentsRequest struct {
 	Type *string `protobuf:"bytes,2,opt,name=type,proto3,oneof" json:"type,omitempty"`
 	// The page to read.
 	Pagination *v1.Pagination `protobuf:"bytes,3,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
-	// The task whose documents to list, by id or slug. Unset lists every task's.
-	Task          *string `protobuf:"bytes,4,opt,name=task,proto3,oneof" json:"task,omitempty"`
+	// The task whose documents to list. Unset lists every task's.
+	//
+	// Types that are valid to be assigned to Task:
+	//
+	//	*ListDocumentsRequest_TaskId
+	//	*ListDocumentsRequest_TaskSlug
+	Task          isListDocumentsRequest_Task `protobuf_oneof:"task"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -386,12 +391,48 @@ func (x *ListDocumentsRequest) GetPagination() *v1.Pagination {
 	return nil
 }
 
-func (x *ListDocumentsRequest) GetTask() string {
-	if x != nil && x.Task != nil {
-		return *x.Task
+func (x *ListDocumentsRequest) GetTask() isListDocumentsRequest_Task {
+	if x != nil {
+		return x.Task
+	}
+	return nil
+}
+
+func (x *ListDocumentsRequest) GetTaskId() string {
+	if x != nil {
+		if x, ok := x.Task.(*ListDocumentsRequest_TaskId); ok {
+			return x.TaskId
+		}
 	}
 	return ""
 }
+
+func (x *ListDocumentsRequest) GetTaskSlug() string {
+	if x != nil {
+		if x, ok := x.Task.(*ListDocumentsRequest_TaskSlug); ok {
+			return x.TaskSlug
+		}
+	}
+	return ""
+}
+
+type isListDocumentsRequest_Task interface {
+	isListDocumentsRequest_Task()
+}
+
+type ListDocumentsRequest_TaskId struct {
+	// The task, by id.
+	TaskId string `protobuf:"bytes,4,opt,name=task_id,json=taskId,proto3,oneof"`
+}
+
+type ListDocumentsRequest_TaskSlug struct {
+	// The task, by slug.
+	TaskSlug string `protobuf:"bytes,5,opt,name=task_slug,json=taskSlug,proto3,oneof"`
+}
+
+func (*ListDocumentsRequest_TaskId) isListDocumentsRequest_Task() {}
+
+func (*ListDocumentsRequest_TaskSlug) isListDocumentsRequest_Task() {}
 
 type ListDocumentsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1524,39 +1565,40 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"\aversion\x18\b \x01(\x05R\aversion\x12\x1c\n" +
 	"\atask_id\x18\t \x01(\tH\x00R\x06taskId\x88\x01\x01B\n" +
 	"\n" +
-	"\b_task_id\"\xbb\x02\n" +
-	"\x14WriteDocumentRequest\x12\x1c\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x01R\x02id\x88\x01\x01\x12\"\n" +
+	"\b_task_id\"\xbd\x02\n" +
+	"\x14WriteDocumentRequest\x12\x1d\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x01R\x02id\x88\x01\x01\x12\"\n" +
 	"\x04name\x18\x02 \x01(\tB\x0e\xbaH\vr\tػ\x18\x01\x10\x01\x18\xc8\x01R\x04name\x12\x1d\n" +
 	"\x04type\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18dR\x04type\x12!\n" +
 	"\x04body\x18\x04 \x01(\tB\v\xbaH\br\x06\x10\x01(\x80\x80@H\x00R\x04body\x12\x1d\n" +
 	"\x04path\x18\x05 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x04path\x12&\n" +
-	"\aversion\x18\x06 \x01(\x05B\a\xbaH\x04\x1a\x02 \x00H\x02R\aversion\x88\x01\x01\x12'\n" +
-	"\bagent_id\x18\a \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x03R\aagentId\x88\x01\x01B\x0f\n" +
+	"\aversion\x18\x06 \x01(\x05B\a\xbaH\x04\x1a\x02 \x00H\x02R\aversion\x88\x01\x01\x12(\n" +
+	"\bagent_id\x18\a \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x03R\aagentId\x88\x01\x01B\x0f\n" +
 	"\x06source\x12\x05\xbaH\x02\b\x01B\x05\n" +
 	"\x03_idB\n" +
 	"\n" +
 	"\b_versionB\v\n" +
 	"\t_agent_id\"G\n" +
 	"\x15WriteDocumentResponse\x12.\n" +
-	"\bdocument\x18\x01 \x01(\v2\x12.agent.v1.DocumentR\bdocument\"\xf3\x01\n" +
-	"\x14ListDocumentsRequest\x12'\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x88\x01\x01\x12\"\n" +
-	"\x04type\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18dH\x01R\x04type\x88\x01\x01\x12>\n" +
+	"\bdocument\x18\x01 \x01(\v2\x12.agent.v1.DocumentR\bdocument\"\x9e\x02\n" +
+	"\x14ListDocumentsRequest\x12(\n" +
+	"\bagent_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x01R\aagentId\x88\x01\x01\x12\"\n" +
+	"\x04type\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18dH\x02R\x04type\x88\x01\x01\x12>\n" +
 	"\n" +
-	"pagination\x18\x03 \x01(\v2\x19.pagination.v1.PaginationH\x02R\n" +
-	"pagination\x88\x01\x01\x12 \n" +
-	"\x04task\x18\x04 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x03R\x04task\x88\x01\x01B\v\n" +
+	"pagination\x18\x03 \x01(\v2\x19.pagination.v1.PaginationH\x03R\n" +
+	"pagination\x88\x01\x01\x12#\n" +
+	"\atask_id\x18\x04 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
+	"\ttask_slug\x18\x05 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlugB\x06\n" +
+	"\x04taskB\v\n" +
 	"\t_agent_idB\a\n" +
 	"\x05_typeB\r\n" +
-	"\v_paginationB\a\n" +
-	"\x05_task\"\x8a\x01\n" +
+	"\v_pagination\"\x8a\x01\n" +
 	"\x15ListDocumentsResponse\x120\n" +
 	"\tdocuments\x18\x01 \x03(\v2\x12.agent.v1.DocumentR\tdocuments\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\"a\n" +
-	"\x12GetDocumentRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12&\n" +
+	"\x10_next_page_token\"b\n" +
+	"\x12GetDocumentRequest\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\x12&\n" +
 	"\aversion\x18\x02 \x01(\x05B\a\xbaH\x04\x1a\x02 \x00H\x00R\aversion\x88\x01\x01B\n" +
 	"\n" +
 	"\b_version\"E\n" +
@@ -1568,9 +1610,9 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"\x04type\x18\x03 \x01(\tR\x04type\x12\x1b\n" +
 	"\tby_person\x18\x04 \x01(\bR\bbyPerson\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x05 \x01(\tR\tcreatedAt\"6\n" +
-	"\x1bListDocumentVersionsRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"U\n" +
+	"created_at\x18\x05 \x01(\tR\tcreatedAt\"7\n" +
+	"\x1bListDocumentVersionsRequest\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"U\n" +
 	"\x1cListDocumentVersionsResponse\x125\n" +
 	"\bversions\x18\x01 \x03(\v2\x19.agent.v1.DocumentVersionR\bversions\"\x85\x01\n" +
 	"\fDocumentType\x12\x0e\n" +
@@ -1593,13 +1635,13 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"\aversion\x18\x01 \x01(\x05R\aversion\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x03 \x01(\tR\tcreatedAt\":\n" +
-	"\x1fListDocumentTypeVersionsRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"]\n" +
+	"created_at\x18\x03 \x01(\tR\tcreatedAt\";\n" +
+	"\x1fListDocumentTypeVersionsRequest\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"]\n" +
 	" ListDocumentTypeVersionsResponse\x129\n" +
-	"\bversions\x18\x01 \x03(\v2\x1d.agent.v1.DocumentTypeVersionR\bversions\"\xbd\x01\n" +
-	"\x18WriteDocumentTypeRequest\x12\x1c\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x02id\x88\x01\x01\x12!\n" +
+	"\bversions\x18\x01 \x03(\v2\x1d.agent.v1.DocumentTypeVersionR\bversions\"\xbe\x01\n" +
+	"\x18WriteDocumentTypeRequest\x12\x1d\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x02id\x88\x01\x01\x12!\n" +
 	"\x04name\x18\x02 \x01(\tB\r\xbaH\n" +
 	"r\bػ\x18\x01\x10\x01\x18dR\x04name\x12%\n" +
 	"\acontext\x18\x03 \x01(\tB\v\xbaH\br\x06\x10\x01(\x80\x80@R\acontext\x12&\n" +
@@ -1608,15 +1650,15 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"\n" +
 	"\b_version\"X\n" +
 	"\x19WriteDocumentTypeResponse\x12;\n" +
-	"\rdocument_type\x18\x01 \x01(\v2\x16.agent.v1.DocumentTypeR\fdocumentType\"0\n" +
-	"\x15DeleteDocumentRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"4\n" +
-	"\x19DeleteDocumentTypeRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"\xbf\x01\n" +
+	"\rdocument_type\x18\x01 \x01(\v2\x16.agent.v1.DocumentTypeR\fdocumentType\"1\n" +
+	"\x15DeleteDocumentRequest\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"5\n" +
+	"\x19DeleteDocumentTypeRequest\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"\xc0\x01\n" +
 	"\x16SearchDocumentsRequest\x12 \n" +
 	"\x05query\x18\x01 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xf4\x03R\x05query\x12'\n" +
-	"\bagent_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x88\x01\x01\x12\"\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xf4\x03R\x05query\x12(\n" +
+	"\bagent_id\x18\x02 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\aagentId\x88\x01\x01\x12\"\n" +
 	"\x04type\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18dH\x01R\x04type\x88\x01\x01\x12 \n" +
 	"\x05limit\x18\x04 \x01(\x05B\n" +
 	"\xbaH\a\x1a\x05\x18\xc8\x01(\x00R\x05limitB\v\n" +
@@ -1701,7 +1743,10 @@ func file_agent_v1_document_proto_init() {
 		(*WriteDocumentRequest_Body)(nil),
 		(*WriteDocumentRequest_Path)(nil),
 	}
-	file_agent_v1_document_proto_msgTypes[3].OneofWrappers = []any{}
+	file_agent_v1_document_proto_msgTypes[3].OneofWrappers = []any{
+		(*ListDocumentsRequest_TaskId)(nil),
+		(*ListDocumentsRequest_TaskSlug)(nil),
+	}
 	file_agent_v1_document_proto_msgTypes[4].OneofWrappers = []any{}
 	file_agent_v1_document_proto_msgTypes[5].OneofWrappers = []any{}
 	file_agent_v1_document_proto_msgTypes[12].OneofWrappers = []any{}

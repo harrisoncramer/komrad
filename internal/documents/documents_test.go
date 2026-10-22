@@ -23,6 +23,7 @@ import (
 	"komrad/internal/storetest"
 	"komrad/internal/tasks"
 	"komrad/lib/xptr"
+	"komrad/proto/gen/oneofs"
 )
 
 // TestWrite pins where a body comes from and which bodies are refused.
@@ -50,69 +51,69 @@ func TestWrite(t *testing.T) {
 	}{
 		{
 			name:     "a body is stored as given",
-			params:   documents.WriteDocumentParams{Name: "given", Body: "# Given"},
+			params:   documents.WriteDocumentParams{Name: "given", Source: oneofs.Source{Body: xptr.Ptr("# Given")}},
 			wantBody: "# Given",
 		},
 		{
 			name:     "an absolute path is read in",
-			params:   documents.WriteDocumentParams{Name: "absolute", Path: writeFile("absolute.md", "# Absolute")},
+			params:   documents.WriteDocumentParams{Name: "absolute", Source: oneofs.Source{Path: xptr.Ptr(writeFile("absolute.md", "# Absolute"))}},
 			wantBody: "# Absolute",
 		},
 		{
 			name:     "a relative path is read from the agent's working directory",
-			params:   documents.WriteDocumentParams{Name: "relative", Path: filepath.Base(writeFile("relative.md", "# Relative"))},
+			params:   documents.WriteDocumentParams{Name: "relative", Source: oneofs.Source{Path: xptr.Ptr(filepath.Base(writeFile("relative.md", "# Relative")))}},
 			wantBody: "# Relative",
 		},
 		{
 			name: "an agent naming itself writes its own",
 			params: documents.WriteDocumentParams{
-				Name: "own",
-				Body: "# Own",
-				For:  author.ID,
+				Name:   "own",
+				Source: oneofs.Source{Body: xptr.Ptr("# Own")},
+				For:    author.ID,
 			},
 			wantBody: "# Own",
 		},
 		{
 			name:    "a path that names nothing is refused",
-			params:  documents.WriteDocumentParams{Name: "missing", Path: "missing.md"},
+			params:  documents.WriteDocumentParams{Name: "missing", Source: oneofs.Source{Path: xptr.Ptr("missing.md")}},
 			wantErr: documents.ErrUnreadablePath,
 		},
 		{
 			name:    "a path naming a directory is refused",
-			params:  documents.WriteDocumentParams{Name: "folder", Path: "folder"},
+			params:  documents.WriteDocumentParams{Name: "folder", Source: oneofs.Source{Path: xptr.Ptr("folder")}},
 			wantErr: documents.ErrUnreadablePath,
 		},
 		{
 			name:    "a path naming a pipe is refused without waiting on a writer",
-			params:  documents.WriteDocumentParams{Name: "pipe", Path: "pipe"},
+			params:  documents.WriteDocumentParams{Name: "pipe", Source: oneofs.Source{Path: xptr.Ptr("pipe")}},
 			wantErr: documents.ErrUnreadablePath,
 		},
 		{
 			name:    "a path naming an empty file is refused as empty",
-			params:  documents.WriteDocumentParams{Name: "blank", Path: writeFile("blank.md", "")},
+			params:  documents.WriteDocumentParams{Name: "blank", Source: oneofs.Source{Path: xptr.Ptr(writeFile("blank.md", ""))}},
 			wantErr: documents.ErrEmptyFile,
 		},
 		{
 			name:    "a file over the cap is refused before it is read",
-			params:  documents.WriteDocumentParams{Name: "huge", Path: writeFile("huge.md", strings.Repeat("a", documents.MaxBodyBytes+1))},
+			params:  documents.WriteDocumentParams{Name: "huge", Source: oneofs.Source{Path: xptr.Ptr(writeFile("huge.md", strings.Repeat("a", documents.MaxBodyBytes+1)))}},
 			wantErr: documents.ErrTooLarge,
 		},
 		{
 			name:    "a body over the cap is refused",
-			params:  documents.WriteDocumentParams{Name: "huge", Body: strings.Repeat("a", documents.MaxBodyBytes+1)},
+			params:  documents.WriteDocumentParams{Name: "huge", Source: oneofs.Source{Body: xptr.Ptr(strings.Repeat("a", documents.MaxBodyBytes+1))}},
 			wantErr: documents.ErrTooLarge,
 		},
 		{
 			name:    "a body that is not UTF-8 is refused",
-			params:  documents.WriteDocumentParams{Name: "binary", Path: writeFile("binary.md", "\xff\xfe")},
+			params:  documents.WriteDocumentParams{Name: "binary", Source: oneofs.Source{Path: xptr.Ptr(writeFile("binary.md", "\xff\xfe"))}},
 			wantErr: documents.ErrNotUTF8,
 		},
 		{
 			name: "an agent naming another agent it writes for is refused",
 			params: documents.WriteDocumentParams{
-				Name: "elsewhere",
-				Body: "# Elsewhere",
-				For:  uuid.NewString(),
+				Name:   "elsewhere",
+				Source: oneofs.Source{Body: xptr.Ptr("# Elsewhere")},
+				For:    uuid.NewString(),
 			},
 			wantErr: documents.ErrAgentWritingForAnother,
 		},
@@ -124,9 +125,9 @@ func TestWrite(t *testing.T) {
 		{
 			name: "a type that does not exist is refused",
 			params: documents.WriteDocumentParams{
-				Name: "untyped",
-				Type: "postmortem",
-				Body: "# Untyped",
+				Name:   "untyped",
+				Type:   "postmortem",
+				Source: oneofs.Source{Body: xptr.Ptr("# Untyped")},
 			},
 			wantErr: documentstore.ErrUnknownType,
 		},
@@ -135,7 +136,7 @@ func TestWrite(t *testing.T) {
 			params: documents.WriteDocumentParams{
 				AgentID: uuid.NewString(),
 				Name:    "orphan",
-				Body:    "# Orphan",
+				Source:  oneofs.Source{Body: xptr.Ptr("# Orphan")},
 			},
 			wantErr: store.ErrNotFound,
 		},
@@ -177,7 +178,7 @@ func TestWriteWithAnIDRewritesThatDocument(t *testing.T) {
 		AgentID: author.ID,
 		Name:    "Documents",
 		Type:    "RFC",
-		Body:    "draft",
+		Source:  oneofs.Source{Body: xptr.Ptr("draft")},
 	})
 	require.NoError(t, err)
 
@@ -187,7 +188,7 @@ func TestWriteWithAnIDRewritesThatDocument(t *testing.T) {
 		Version: xptr.Ptr(draft.Version),
 		Name:    "Documents RFC",
 		Type:    "RFC",
-		Body:    "revised",
+		Source:  oneofs.Source{Body: xptr.Ptr("revised")},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, draft.ID, revised.ID)
@@ -198,7 +199,7 @@ func TestWriteWithAnIDRewritesThatDocument(t *testing.T) {
 	assert.Equal(t, "Documents RFC", listed[0].Name)
 }
 
-// TestListDocumentsByTask pins that a listing names its task by id or by slug.
+// TestListDocumentsByTask pins that a listing names its task by id, refusing one nobody made.
 func TestListDocumentsByTask(t *testing.T) {
 	stores := storetest.Open(t)
 	service := newService(stores, eventstest.NewQueue(t, stores, documents.NewEventHandler()))
@@ -211,33 +212,29 @@ func TestListDocumentsByTask(t *testing.T) {
 		AgentID: author.ID,
 		Name:    "Plan",
 		Type:    "RFC",
-		Body:    "# Plan",
+		Source:  oneofs.Source{Body: xptr.Ptr("# Plan")},
 	})
 	require.NoError(t, err)
 
 	tests := []struct {
 		name    string
-		task    string
+		task    uuid.UUID
 		wantErr error
 	}{
 		{
 			name:    "a task nobody made",
-			task:    "no-such-task",
+			task:    uuid.New(),
 			wantErr: store.ErrNotFound,
 		},
 		{
-			name: "a task named by its slug",
-			task: task.Slug,
-		},
-		{
 			name: "a task named by its id",
-			task: task.ID,
+			task: uuid.MustParse(task.ID),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			listed, err := service.ListDocuments(ctx, documents.ListDocumentsParams{Task: &tt.task, Limit: 10})
+			listed, err := service.ListDocuments(ctx, documents.ListDocumentsParams{Task: oneofs.Task{TaskId: &tt.task}, Limit: 10})
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 
@@ -263,7 +260,7 @@ func TestReadAnEarlierWrite(t *testing.T) {
 		AgentID: author.ID,
 		Name:    "Draft",
 		Type:    "notes",
-		Body:    "draft",
+		Source:  oneofs.Source{Body: xptr.Ptr("draft")},
 	})
 	require.NoError(t, err)
 	_, err = service.WriteDocument(ctx, documents.WriteDocumentParams{
@@ -272,7 +269,7 @@ func TestReadAnEarlierWrite(t *testing.T) {
 		Version: xptr.Ptr(draft.Version),
 		Name:    "Documents",
 		Type:    "RFC",
-		Body:    "revised",
+		Source:  oneofs.Source{Body: xptr.Ptr("revised")},
 	})
 	require.NoError(t, err)
 
@@ -309,7 +306,7 @@ func TestWriteByAPerson(t *testing.T) {
 		AgentID: author.ID,
 		Name:    "Documents",
 		Type:    "RFC",
-		Body:    "draft",
+		Source:  oneofs.Source{Body: xptr.Ptr("draft")},
 	})
 	require.NoError(t, err)
 
@@ -327,17 +324,17 @@ func TestWriteByAPerson(t *testing.T) {
 				Version: xptr.Ptr(draft.Version),
 				Name:    "Documents",
 				Type:    "RFC",
-				Body:    "edited",
+				Source:  oneofs.Source{Body: xptr.Ptr("edited")},
 			},
 			wantBody: "edited",
 		},
 		{
 			name: "a rewrite naming no version is refused",
 			params: documents.WriteDocumentParams{
-				ID:   xptr.Ptr(draft.ID),
-				Name: "Documents",
-				Type: "RFC",
-				Body: "blind",
+				ID:     xptr.Ptr(draft.ID),
+				Name:   "Documents",
+				Type:   "RFC",
+				Source: oneofs.Source{Body: xptr.Ptr("blind")},
 			},
 			wantErr: documents.ErrNoVersion,
 		},
@@ -349,36 +346,36 @@ func TestWriteByAPerson(t *testing.T) {
 				For:     other.ID,
 				Name:    "Documents",
 				Type:    "RFC",
-				Body:    "moved",
+				Source:  oneofs.Source{Body: xptr.Ptr("moved")},
 			},
 			wantErr: documents.ErrForAnother,
 		},
 		{
 			name: "no id and no agent it is for is refused",
 			params: documents.WriteDocumentParams{
-				Name: "Fresh",
-				Type: "RFC",
-				Body: "new",
+				Name:   "Fresh",
+				Type:   "RFC",
+				Source: oneofs.Source{Body: xptr.Ptr("new")},
 			},
 			wantErr: documents.ErrNoAuthor,
 		},
 		{
 			name: "no id creates a document for the agent it is for",
 			params: documents.WriteDocumentParams{
-				For:  author.ID,
-				Name: "Fresh",
-				Type: "RFC",
-				Body: "Empty RFC.",
+				For:    author.ID,
+				Name:   "Fresh",
+				Type:   "RFC",
+				Source: oneofs.Source{Body: xptr.Ptr("Empty RFC.")},
 			},
 			wantBody: "Empty RFC.",
 		},
 		{
 			name: "no id creates a document owned by the agent it is for",
 			params: documents.WriteDocumentParams{
-				For:  other.ID,
-				Name: "Report",
-				Type: "report",
-				Body: "Report.",
+				For:    other.ID,
+				Name:   "Report",
+				Type:   "report",
+				Source: oneofs.Source{Body: xptr.Ptr("Report.")},
 			},
 			wantBody:  "Report.",
 			wantOwner: other.ID,
@@ -386,10 +383,10 @@ func TestWriteByAPerson(t *testing.T) {
 		{
 			name: "an agent it is for that does not exist is not found",
 			params: documents.WriteDocumentParams{
-				For:  uuid.NewString(),
-				Name: "Stray",
-				Type: "RFC",
-				Body: "stray",
+				For:    uuid.NewString(),
+				Name:   "Stray",
+				Type:   "RFC",
+				Source: oneofs.Source{Body: xptr.Ptr("stray")},
 			},
 			wantErr: store.ErrNotFound,
 		},
@@ -400,7 +397,7 @@ func TestWriteByAPerson(t *testing.T) {
 				Version: xptr.Ptr(int32(1)),
 				Name:    "Lost",
 				Type:    "RFC",
-				Body:    "lost",
+				Source:  oneofs.Source{Body: xptr.Ptr("lost")},
 			},
 			wantErr: store.ErrNotFound,
 		},
@@ -519,16 +516,16 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 			}
 
 			params := documents.WriteDocumentParams{
-				Name: "Documents",
-				Type: "RFC",
-				Body: uuid.NewString(),
+				Name:   "Documents",
+				Type:   "RFC",
+				Source: oneofs.Source{Body: xptr.Ptr(uuid.NewString())},
 			}
 			if !tt.creates {
 				draft, err := service.WriteDocument(ctx, documents.WriteDocumentParams{
 					AgentID: author.ID,
 					Name:    params.Name,
 					Type:    params.Type,
-					Body:    "draft",
+					Source:  oneofs.Source{Body: xptr.Ptr("draft")},
 				})
 				require.NoError(t, err)
 				params.ID = xptr.Ptr(draft.ID)
@@ -593,7 +590,7 @@ func personEdits(t *testing.T, service *documents.DocumentService, written *docu
 		Version: xptr.Ptr(written.Version),
 		Name:    written.Name,
 		Type:    written.Type,
-		Body:    uuid.NewString(),
+		Source:  oneofs.Source{Body: xptr.Ptr(uuid.NewString())},
 	})
 	require.NoError(t, err)
 
@@ -612,7 +609,7 @@ func TestDeleteDocumentRefusesAnAgent(t *testing.T) {
 		AgentID: author.ID,
 		Name:    "kept",
 		Type:    "notes",
-		Body:    "still here",
+		Source:  oneofs.Source{Body: xptr.Ptr("still here")},
 	})
 	require.NoError(t, err)
 

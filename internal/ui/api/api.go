@@ -136,16 +136,22 @@ type CreateAgentParams struct {
 // CreateAgent starts an agent.
 func (a Clients) CreateAgent(params CreateAgentParams) (*agentv1.Agent, error) {
 	return awaitHooks(func(ctx context.Context) (*agentv1.Agent, error) {
-		resp, err := a.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
+		req := &agentv1.CreateAgentRequest{
 			Prompt:           params.Prompt,
 			Title:            params.Title,
 			Harness:          params.Harness,
 			Flags:            params.Flags,
 			ProvisionEnabled: params.ProvisionEnabled,
 			WorkflowId:       params.WorkflowID,
-			Task:             xptr.NonEmpty(params.Task),
-			DependsOn:        xptr.NonEmpty(params.DependsOn),
-		}))
+		}
+		if params.Task != "" {
+			req.Task = &agentv1.CreateAgentRequest_TaskId{TaskId: params.Task}
+		}
+		if params.DependsOn != "" {
+			req.DependsOn = &agentv1.CreateAgentRequest_DependsOnId{DependsOnId: params.DependsOn}
+		}
+
+		resp, err := a.Agents.CreateAgent(ctx, connect.NewRequest(req))
 		if err != nil {
 			return nil, err
 		}
@@ -192,7 +198,7 @@ func (a Clients) ArchiveAgents(ids []string) error {
 // ArchiveTask archives a task with its agents.
 func (a Clients) ArchiveTask(id string) error {
 	return mutateAwaitingHooks(func(ctx context.Context) (any, error) {
-		return a.Tasks.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{Task: id}))
+		return a.Tasks.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{Task: &taskv1.ArchiveTaskRequest_TaskId{TaskId: id}}))
 	})
 }
 
@@ -210,7 +216,7 @@ type UpdateTaskParams struct {
 func (a Clients) UpdateTask(params UpdateTaskParams) error {
 	return mutate(func(ctx context.Context) (any, error) {
 		return a.Tasks.UpdateTask(ctx, connect.NewRequest(&taskv1.UpdateTaskRequest{
-			Task:           params.ID,
+			Task:           &taskv1.UpdateTaskRequest_TaskId{TaskId: params.ID},
 			Slug:           params.Slug,
 			Title:          params.Title,
 			Goal:           params.Goal,
@@ -223,7 +229,7 @@ func (a Clients) UpdateTask(params UpdateTaskParams) error {
 // DeleteTasks deletes the tasks, and their records with them when asked.
 func (a Clients) DeleteTasks(ids []string, records bool) error {
 	return mutateAwaitingHooks(func(ctx context.Context) (any, error) {
-		return a.Tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{Tasks: ids, Records: records}))
+		return a.Tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{TaskIds: ids, Records: records}))
 	})
 }
 
@@ -303,7 +309,7 @@ func (a Clients) RequestPullRequestRereview(address string) error {
 // SetTaskHidden hides a task or shows it again.
 func (a Clients) SetTaskHidden(taskID string, hidden bool) error {
 	return mutate(func(ctx context.Context) (any, error) {
-		return a.Tasks.SetTaskHidden(ctx, connect.NewRequest(&taskv1.SetTaskHiddenRequest{Task: taskID, Hidden: hidden}))
+		return a.Tasks.SetTaskHidden(ctx, connect.NewRequest(&taskv1.SetTaskHiddenRequest{Task: &taskv1.SetTaskHiddenRequest_TaskId{TaskId: taskID}, Hidden: hidden}))
 	})
 }
 
@@ -338,7 +344,7 @@ func (a Clients) StartOrchestrator(workflowID string) (*agentv1.Agent, error) {
 // SendMail mails an agent from the person.
 func (a Clients) SendMail(agentID, body string) error {
 	return mutate(func(ctx context.Context) (any, error) {
-		return a.Agents.SendMail(ctx, connect.NewRequest(&agentv1.SendMailRequest{To: agentID, Body: body}))
+		return a.Agents.SendMail(ctx, connect.NewRequest(&agentv1.SendMailRequest{To: &agentv1.SendMailRequest_ToAgentId{ToAgentId: agentID}, Body: body}))
 	})
 }
 
@@ -417,7 +423,7 @@ func (a Clients) ResumeAgent(id string) (*agentv1.Agent, error) {
 // PlanRebase asks what rebasing a task's worktree would do.
 func (a Clients) PlanRebase(id string, ontoBase bool) (*agentv1.PlanRebaseResponse, error) {
 	return Call(RequestTimeout, func(ctx context.Context) (*agentv1.PlanRebaseResponse, error) {
-		resp, err := a.Agents.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{Task: id, OntoBase: ontoBase}))
+		resp, err := a.Agents.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{Task: &agentv1.PlanRebaseRequest_TaskId{TaskId: id}, OntoBase: ontoBase}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to work out what a rebase of task %q would do: %w", id, err)
 		}
@@ -429,7 +435,7 @@ func (a Clients) PlanRebase(id string, ontoBase bool) (*agentv1.PlanRebaseRespon
 // RebaseWorktree rebases a task's worktree.
 func (a Clients) RebaseWorktree(id string, ontoBase bool) (*agentv1.RebaseWorktreeResponse, error) {
 	return Call(rebaseTimeout, func(ctx context.Context) (*agentv1.RebaseWorktreeResponse, error) {
-		resp, err := a.Agents.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{Task: id, OntoBase: ontoBase}))
+		resp, err := a.Agents.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{Task: &agentv1.RebaseWorktreeRequest_TaskId{TaskId: id}, OntoBase: ontoBase}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to rebase the worktree of task %q: %w", id, err)
 		}
@@ -441,7 +447,7 @@ func (a Clients) RebaseWorktree(id string, ontoBase bool) (*agentv1.RebaseWorktr
 // PlanPush asks what pushing a task's worktree would do.
 func (a Clients) PlanPush(id string) (*agentv1.PlanPushResponse, error) {
 	return Call(RequestTimeout, func(ctx context.Context) (*agentv1.PlanPushResponse, error) {
-		resp, err := a.Agents.PlanPush(ctx, connect.NewRequest(&agentv1.PlanPushRequest{Task: id}))
+		resp, err := a.Agents.PlanPush(ctx, connect.NewRequest(&agentv1.PlanPushRequest{Task: &agentv1.PlanPushRequest_TaskId{TaskId: id}}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to work out what a push of task %q would do: %w", id, err)
 		}
@@ -453,7 +459,7 @@ func (a Clients) PlanPush(id string) (*agentv1.PlanPushResponse, error) {
 // PushWorktree pushes a task's worktree.
 func (a Clients) PushWorktree(id string) (*agentv1.PushWorktreeResponse, error) {
 	return Call(pushTimeout, func(ctx context.Context) (*agentv1.PushWorktreeResponse, error) {
-		resp, err := a.Agents.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{Task: id}))
+		resp, err := a.Agents.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{Task: &agentv1.PushWorktreeRequest_TaskId{TaskId: id}}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to push the branch of task %q: %w", id, err)
 		}
@@ -465,7 +471,7 @@ func (a Clients) PushWorktree(id string) (*agentv1.PushWorktreeResponse, error) 
 // AbortSequence aborts what a task's worktree has in progress.
 func (a Clients) AbortSequence(id string) (*agentv1.AbortSequenceResponse, error) {
 	return Call(rebaseTimeout, func(ctx context.Context) (*agentv1.AbortSequenceResponse, error) {
-		resp, err := a.Agents.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{Task: id}))
+		resp, err := a.Agents.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{Task: &agentv1.AbortSequenceRequest_TaskId{TaskId: id}}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to abort what the worktree of task %q has in progress: %w", id, err)
 		}
@@ -908,7 +914,7 @@ func (a Clients) WakeLoop(loop loopv1.Loop) error {
 // PickForkPoint records the commit an orphaned task's own commits sit on.
 func (a Clients) PickForkPoint(id, commit string) error {
 	_, err := Call(RequestTimeout, func(ctx context.Context) (*agentv1.PickForkPointResponse, error) {
-		resp, err := a.Agents.PickForkPoint(ctx, connect.NewRequest(&agentv1.PickForkPointRequest{Task: id, Commit: commit}))
+		resp, err := a.Agents.PickForkPoint(ctx, connect.NewRequest(&agentv1.PickForkPointRequest{Task: &agentv1.PickForkPointRequest_TaskId{TaskId: id}, Commit: commit}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to pick the fork point of task %q: %w", id, err)
 		}

@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/pty"
 	terminalv1 "komrad/proto/gen/terminal/v1"
+	"komrad/proto/gen/terminal/v1/terminalv1komrad"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -78,7 +79,7 @@ func (shellStream) endInput(terminal pty.Terminal) error {
 }
 
 type attachStream struct {
-	stream *connect.BidiStream[terminalv1.AttachRequest, terminalv1.AttachResponse]
+	stream *terminalv1komrad.AttachStream
 }
 
 func (s attachStream) receive() (request, error) {
@@ -87,11 +88,17 @@ func (s attachStream) receive() (request, error) {
 		return request{}, fmt.Errorf("failed to read the caller's message: %w", err)
 	}
 
-	return request{
-		input:  message.GetInput(),
-		resize: message.GetResize(),
-		token:  message.GetToken(),
-	}, nil
+	var received request
+	switch member := message.Message.(type) {
+	case *terminalv1komrad.AttachRequest_Input:
+		received.input = member.Input
+	case *terminalv1komrad.AttachRequest_Resize:
+		received.resize = member.Resize
+	case *terminalv1komrad.AttachRequest_Token:
+		received.token = member.Token
+	}
+
+	return received, nil
 }
 
 func (s attachStream) sendReady() error {

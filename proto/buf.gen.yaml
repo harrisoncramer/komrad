@@ -9,3 +9,4 @@ plugins:
   - local: ["go", "run", "../cmd/protoc-gen-komrad-rpc"]
     out: gen
     opt: paths=source_relative
+    strategy: all

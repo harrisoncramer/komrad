@@ -9,6 +9,7 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 	taskstore "komrad/internal/store/task"
 	"komrad/lib/xptr"
+	"komrad/proto/gen/oneofs"
 )
 
 var (
@@ -56,8 +57,8 @@ type PushResult struct {
 }
 
 // PlanPush reads what a push would do without sending anything.
-func (s *Service) PlanPush(ctx context.Context, ref string) (*PushPlan, error) {
-	target, err := s.eligible(ctx, ref)
+func (s *Service) PlanPush(ctx context.Context, task oneofs.Task) (*PushPlan, error) {
+	target, err := s.eligible(ctx, task)
 	if err != nil {
 		return nil, err
 	}
@@ -67,8 +68,8 @@ func (s *Service) PlanPush(ctx context.Context, ref string) (*PushPlan, error) {
 
 // Push sends the task's branch to origin, overwriting origin's copy when a rebase moved the
 // branch apart from it.
-func (s *Service) Push(ctx context.Context, ref string) (*PushResult, error) {
-	target, err := s.eligible(ctx, ref)
+func (s *Service) Push(ctx context.Context, task oneofs.Task) (*PushResult, error) {
+	target, err := s.eligible(ctx, task)
 	if err != nil {
 		return nil, err
 	}

@@ -21,7 +21,9 @@ import (
 	"komrad/internal/tasks"
 	"komrad/internal/waketest"
 	"komrad/lib/xslice"
+	"komrad/proto/gen/oneofs"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -67,9 +69,9 @@ func TestRebaseRefusals(t *testing.T) {
 		wantErr    error
 	}{
 		{
-			name: "a task no id or slug names",
+			name: "a task no id names",
 			lay: func(*testing.T, *rebaseFixture) string {
-				return "no-such-task"
+				return uuid.NewString()
 			},
 			wantErr: store.ErrNotFound,
 		},
@@ -95,7 +97,7 @@ func TestRebaseRefusals(t *testing.T) {
 		{
 			name: "a task komrad cut no checkout for",
 			lay: func(t *testing.T, fixture *rebaseFixture) string {
-				return fixture.stores.SeedTask(t, taskstore.CreateParams{WorkflowID: fixture.workflowID, Slug: "bare"}).Slug
+				return fixture.stores.SeedTask(t, taskstore.CreateParams{WorkflowID: fixture.workflowID, Slug: "bare"}).ID
 			},
 			wantErr: ErrNoWorktree,
 		},
@@ -169,7 +171,7 @@ func TestRebaseRefusals(t *testing.T) {
 				rebaser.BeforeReadTree = func() { tt.beforeMove(t, fixture, ref) }
 			}
 
-			_, err := fixture.newService(NewServiceParams{Git: rebaser, Locks: locks}).Rebase(t.Context(), RebaseParams{Task: ref})
+			_, err := fixture.newService(NewServiceParams{Git: rebaser, Locks: locks}).Rebase(t.Context(), RebaseParams{Task: taskByID(ref)})
 
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Empty(t, rebaser.Calls)
@@ -178,7 +180,7 @@ func TestRebaseRefusals(t *testing.T) {
 	}
 }
 
-// TestRebaseWithNoWriter covers a task whose writer is gone being rebased by its slug, with nobody
+// TestRebaseWithNoWriter covers a task whose writer is gone being rebased by its id, with nobody
 // to tell.
 func TestRebaseWithNoWriter(t *testing.T) {
 	fixture := newRebaseFixture(t)
@@ -189,7 +191,7 @@ func TestRebaseWithNoWriter(t *testing.T) {
 	require.NoError(t, err)
 	rebaser := &gittest.Mover{State: git.TreeState{Branch: "agent/a1"}}
 
-	_, err = fixture.newService(NewServiceParams{Git: rebaser}).Rebase(t.Context(), RebaseParams{Task: task.Slug})
+	_, err = fixture.newService(NewServiceParams{Git: rebaser}).Rebase(t.Context(), RebaseParams{Task: taskByID(task.ID)})
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"park", "rebase"}, rebaser.Calls)
@@ -255,7 +257,7 @@ func TestRebaseRefusesATreeGitWillNotMove(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := fixture.seed(t, agentstore.Agent{Pane: "%1"})
 
-			_, err := fixture.newService(NewServiceParams{Git: &gittest.Mover{State: tt.state}}).Rebase(t.Context(), RebaseParams{Task: *agent.TaskID})
+			_, err := fixture.newService(NewServiceParams{Git: &gittest.Mover{State: tt.state}}).Rebase(t.Context(), RebaseParams{Task: taskByID(*agent.TaskID)})
 
 			require.ErrorIs(t, err, tt.wantErr)
 		})
@@ -308,7 +310,7 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := fixture.seed(t, agentstore.Agent{})
 
-			result, err := fixture.newService(NewServiceParams{Git: tt.rebaser}).Rebase(t.Context(), RebaseParams{Task: *agent.TaskID})
+			result, err := fixture.newService(NewServiceParams{Git: tt.rebaser}).Rebase(t.Context(), RebaseParams{Task: taskByID(*agent.TaskID)})
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.wantCalls, tt.rebaser.Calls)
@@ -358,7 +360,7 @@ func TestRebaseOntoBaseClearsTheParentOnceTheRetargetFinishes(t *testing.T) {
 			rebaser.Prediction = git.Prediction{Replay: 2}
 			rebaser.ReplayErr = tt.replayErr
 
-			_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(t.Context(), RebaseParams{Task: laid.task, OntoBase: true})
+			_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(t.Context(), RebaseParams{Task: taskByID(laid.task), OntoBase: true})
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {
@@ -383,7 +385,7 @@ func TestRebaseWakesTheCheckoutSyncWhenTheReplayFails(t *testing.T) {
 		ReplayErr:  errors.New("the post-rewrite hook failed"),
 	}
 
-	_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(t.Context(), RebaseParams{Task: *agent.TaskID})
+	_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(t.Context(), RebaseParams{Task: taskByID(*agent.TaskID)})
 
 	require.Error(t, err)
 	assert.Equal(t, 1, fixture.checkoutSync.Wakes)
@@ -452,7 +454,7 @@ func TestRebaseRefusesATaskInTheCallersCheckout(t *testing.T) {
 			}
 			rebaser := &gittest.Mover{State: git.TreeState{Branch: "fix/auth"}}
 
-			_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(caller.With(t.Context(), from), RebaseParams{Task: *agent.TaskID})
+			_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(caller.With(t.Context(), from), RebaseParams{Task: taskByID(*agent.TaskID)})
 
 			if tt.wantErr == nil {
 				require.NoError(t, err)
@@ -496,7 +498,7 @@ func TestRebaseLetsThroughAnAskerWithNoCheckout(t *testing.T) {
 			agent := fixture.seed(t, agentstore.Agent{})
 			rebaser := &gittest.Mover{State: git.TreeState{Branch: "fix/auth"}}
 
-			_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(caller.With(t.Context(), tt.asker(t)), RebaseParams{Task: *agent.TaskID})
+			_, err := fixture.newService(NewServiceParams{Git: rebaser}).Rebase(caller.With(t.Context(), tt.asker(t)), RebaseParams{Task: taskByID(*agent.TaskID)})
 			require.NoError(t, err)
 
 			assert.Equal(t, []string{"park", "rebase"}, rebaser.Calls)
@@ -604,7 +606,7 @@ func TestALateRebaseRetryTellsTheLatestRebase(t *testing.T) {
 	agent := fixture.seed(t, agentstore.Agent{Pane: "%1"})
 	queue := fixture.events
 	service := fixture.newService(NewServiceParams{})
-	target, err := service.rebaseEligible(t.Context(), RebaseParams{Task: *agent.TaskID})
+	target, err := service.rebaseEligible(t.Context(), RebaseParams{Task: taskByID(*agent.TaskID)})
 	require.NoError(t, err)
 
 	require.NoError(t, service.recordRebase(t.Context(), *target, rebaseOutcome{Result: RebaseResult{Conflicted: true}}))
@@ -616,4 +618,11 @@ func TestALateRebaseRetryTellsTheLatestRebase(t *testing.T) {
 	require.Len(t, inbox, 1)
 	assert.NotContains(t, inbox[0], "hit conflicts")
 	assert.Contains(t, inbox[0], "already been merged")
+}
+
+// taskByID names a task by the id the store gave it.
+func taskByID(id string) oneofs.Task {
+	parsed := uuid.MustParse(id)
+
+	return oneofs.Task{TaskId: &parsed}
 }

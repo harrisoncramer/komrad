@@ -13,6 +13,7 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/logging"
 	taskstore "komrad/internal/store/task"
+	"komrad/proto/gen/oneofs"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -179,8 +180,8 @@ func (s *Service) readRebaseBase(ctx context.Context, target checkoutTarget) (st
 
 // RebaseParams names the task to rebase and where it moves.
 type RebaseParams struct {
-	// Task is the task to rebase, by id or slug.
-	Task string
+	// Task names the task to rebase.
+	Task oneofs.Task
 	// OntoBase re-targets a child onto the workflow's base branch, rebasing only its own commits, and clears its parent.
 	OntoBase bool
 }

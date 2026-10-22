@@ -19,6 +19,7 @@ import (
 	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
 	"komrad/lib/xptr"
+	"komrad/proto/gen/oneofs"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -31,10 +32,10 @@ const reviewDirName = "reviews"
 var ErrReviewNoSnapshot = fail.Precondition("no snapshot has been taken of that task yet")
 
 // errReviewUnnamedTask is answered when a person calls without naming a task.
-var errReviewUnnamedTask = fail.InvalidArgument("pass task, by id or by slug")
+var errReviewUnnamedTask = fail.InvalidArgument("pass task_id or task_slug")
 
 // errReviewNoTask is answered when an agent on no task calls without naming one.
-var errReviewNoTask = fail.Precondition("you work on no task, so pass task, by id or by slug")
+var errReviewNoTask = fail.Precondition("you work on no task, so pass task_id or task_slug")
 
 // errReviewWorktreeRemoved is answered when a snapshot is asked for on a task whose worktree is gone.
 var errReviewWorktreeRemoved = fail.Precondition("that task's worktree was removed, so there is nothing to take a snapshot of")
@@ -81,8 +82,8 @@ type reviewSnapshotter interface {
 }
 
 // TakeSnapshot freezes the checkout of a task now and records it as the task's next snapshot.
-func (s *ReviewService) TakeSnapshot(ctx context.Context, ref string, author ReviewAuthor) (*reviewstore.Snapshot, error) {
-	task, err := s.getTask(ctx, ref, author)
+func (s *ReviewService) TakeSnapshot(ctx context.Context, named oneofs.Task, author ReviewAuthor) (*reviewstore.Snapshot, error) {
+	task, err := s.getTask(ctx, named, author)
 	if err != nil {
 		return nil, err
 	}
@@ -169,10 +170,10 @@ func (s *ReviewService) getLatestSnapshot(ctx context.Context, taskID string) (*
 // ListSnapshots is every snapshot taken of a task, oldest first.
 func (s *ReviewService) ListSnapshots(
 	ctx context.Context,
-	ref string,
+	named oneofs.Task,
 	author ReviewAuthor,
 ) ([]reviewstore.Snapshot, error) {
-	task, err := s.getTask(ctx, ref, author)
+	task, err := s.getTask(ctx, named, author)
 	if err != nil {
 		return nil, err
 	}
@@ -188,10 +189,10 @@ func (s *ReviewService) ListSnapshots(
 // caller.
 func (s *ReviewService) ListReviews(
 	ctx context.Context,
-	ref string,
+	named oneofs.Task,
 	author ReviewAuthor,
 ) ([]reviewstore.Review, error) {
-	task, err := s.getTask(ctx, ref, author)
+	task, err := s.getTask(ctx, named, author)
 	if err != nil {
 		return nil, err
 	}
@@ -415,11 +416,10 @@ func (s *ReviewService) getAuthorOnTask(
 	return agent, nil
 }
 
-// getTask reads the task a call names, by id or by slug, or the caller's own task when it names
-// none.
-func (s *ReviewService) getTask(ctx context.Context, ref string, author ReviewAuthor) (*taskstore.Task, error) {
-	if ref != "" {
-		return s.taskFinder.GetTask(ctx, ref)
+// getTask reads the task a call names, or the caller's own task when it names none.
+func (s *ReviewService) getTask(ctx context.Context, named oneofs.Task, author ReviewAuthor) (*taskstore.Task, error) {
+	if named != (oneofs.Task{}) {
+		return s.taskFinder.FindTask(ctx, named)
 	}
 	if author.AgentID == nil {
 		return nil, errReviewUnnamedTask
@@ -469,8 +469,8 @@ type ReleaseReviewResult struct {
 
 // ReleaseReviewParams says whose review to let go of and what it concluded.
 type ReleaseReviewParams struct {
-	// Task is the task the review is of, by id or by slug, empty for the caller's own.
-	Task string
+	// Task names the task the review is of, left empty for the caller's own.
+	Task oneofs.Task
 	// Verdict is what the reviewing agent concluded.
 	Verdict reviewstore.Verdict
 	// Body is what the reviewer says about the change as a whole rather than about any one line,

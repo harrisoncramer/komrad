@@ -9,9 +9,11 @@ import (
 	"komrad/internal/scriptrun"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xptr"
+	"komrad/proto/gen/oneofs"
 
 	"context"
 
@@ -134,7 +136,7 @@ func TestNewReviewerRunsNoHooks(t *testing.T) {
 		Title:      "reviewer",
 		Prompt:     "read the change",
 		WorkflowID: writer.WorkflowID,
-		Task:       *writer.TaskID,
+		Task:       taskByID(*writer.TaskID),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, reviewer)
@@ -837,7 +839,7 @@ func launchOnTask(t *testing.T, fx *taskDeleteFixture, params NewAgentParams) (*
 	t.Helper()
 
 	params.WorkflowID = fx.workflow.ID
-	if params.Task == "" {
+	if params.Task == (oneofs.Task{}) {
 		params.Dir = t.TempDir()
 	}
 
@@ -1159,7 +1161,7 @@ func TestTaskPreDelete(t *testing.T) {
 			if tt.deleteAgentOnly {
 				require.NoError(t, fx.agents.lifecycle.deleteNow(t.Context(), []string{agent.ID}))
 			} else {
-				require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), DeleteTasksParams{Refs: []string{*agent.TaskID}, Records: true}))
+				require.NoError(t, fx.agents.lifecycle.DeleteTasks(t.Context(), DeleteTasksParams{Tasks: []oneofs.Task{taskByID(*agent.TaskID)}, Records: true}))
 			}
 
 			kept, err := fx.st.Tasks.Get(t.Context(), *agent.TaskID)
@@ -1205,8 +1207,11 @@ func TestReviewerWaitsForTheTaskToOpen(t *testing.T) {
 		})
 		opened <- err
 	}()
+	var work *taskstore.Task
 	require.Eventually(t, func() bool {
-		_, err := fx.st.Tasks.GetBySlug(t.Context(), "work")
+		var err error
+		work, err = fx.st.Tasks.GetBySlug(t.Context(), "work")
+
 		return err == nil
 	}, 5*time.Second, 10*time.Millisecond)
 
@@ -1214,7 +1219,7 @@ func TestReviewerWaitsForTheTaskToOpen(t *testing.T) {
 	go func() {
 		_, err := launchOnTask(t, fx, NewAgentParams{
 			Title: "follow-up",
-			Task:  "work",
+			Task:  taskByID(work.ID),
 		})
 		joined <- err
 	}()

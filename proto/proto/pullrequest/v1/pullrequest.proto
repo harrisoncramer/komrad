@@ -186,7 +186,7 @@ enum Checks {
 
 message ListStatusChecksRequest {
   // The pull request whose status checks to list, by id.
-  string pull_request_id = 1 [(buf.validate.field).string.min_len = 1];
+  string pull_request_id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message ListStatusChecksResponse {
@@ -197,7 +197,7 @@ message ListStatusChecksResponse {
 
 message ReadCheckLogRequest {
   // The check whose log to read, by `StatusCheck.id`.
-  string check_id = 1 [(buf.validate.field).string.min_len = 1];
+  string check_id = 1 [(buf.validate.field).string.uuid = true];
   // The first line to read, counting from one.
   int32 first_line = 2 [(buf.validate.field).int32.gte = 1];
   // How many lines to read.
@@ -226,7 +226,7 @@ message SearchCheckLogsRequest {
     min_items: 1
     max_items: 100
     items: {
-      string: {min_len: 1}
+      string: {uuid: true}
     }
   }];
   // An RE2 regular expression each line must match.

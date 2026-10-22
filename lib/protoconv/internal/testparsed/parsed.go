@@ -372,26 +372,8 @@ type Wrapped struct {
 	Trimmed *uuid.UUID
 	Binary  *uuid.UUID
 	Name    *wrapperspb.StringValue
-	Target  isWrapped_Target
+	Target  Target
 }
-
-type isWrapped_Target interface {
-	isWrapped_Target()
-}
-
-// Wrapped_Id is testpb.Wrapped_Id with its value converted.
-type Wrapped_Id struct {
-	Id uuid.UUID
-}
-
-func (*Wrapped_Id) isWrapped_Target() {}
-
-// Wrapped_Label is testpb.Wrapped_Label with its value converted.
-type Wrapped_Label struct {
-	Label string
-}
-
-func (*Wrapped_Label) isWrapped_Target() {}
 
 // ParseWrapped converts a testpb.Wrapped into its parsed form.
 func ParseWrapped(m *testpb.Wrapped) (*Wrapped, error) {
@@ -435,9 +417,10 @@ func ParseWrapped(m *testpb.Wrapped) (*Wrapped, error) {
 		if err != nil {
 			return nil, protoconv.PrefixField("id", err)
 		}
-		parsed.Target = &Wrapped_Id{Id: value}
+		parsed.Target.Id = &value
 	case *testpb.Wrapped_Label:
-		parsed.Target = &Wrapped_Label{Label: member.Label}
+		value := member.Label
+		parsed.Target.Label = &value
 	}
 
 	return parsed, nil
@@ -595,6 +578,60 @@ func ParseBinaryRule(m *testpb.BinaryRule) (*BinaryRule, error) {
 	return parsed, nil
 }
 
+// Pick is testpb.Pick with the values its rules describe converted.
+type Pick struct {
+	Ref Ref
+}
+
+// ParsePick converts a testpb.Pick into its parsed form.
+func ParsePick(m *testpb.Pick) (*Pick, error) {
+	if m == nil {
+		return nil, protoconv.ErrMissing
+	}
+
+	parsed := &Pick{}
+	switch member := m.Ref.(type) {
+	case *testpb.Pick_RefId:
+		value, err := protoconv.ParseUUID(member.RefId)
+		if err != nil {
+			return nil, protoconv.PrefixField("ref_id", err)
+		}
+		parsed.Ref.RefId = &value
+	case *testpb.Pick_RefName:
+		value := member.RefName
+		parsed.Ref.RefName = &value
+	}
+
+	return parsed, nil
+}
+
+// Point is testpb.Point with the values its rules describe converted.
+type Point struct {
+	Ref Ref
+}
+
+// ParsePoint converts a testpb.Point into its parsed form.
+func ParsePoint(m *testpb.Point) (*Point, error) {
+	if m == nil {
+		return nil, protoconv.ErrMissing
+	}
+
+	parsed := &Point{}
+	switch member := m.Ref.(type) {
+	case *testpb.Point_RefId:
+		value, err := protoconv.ParseUUID(member.RefId.GetValue())
+		if err != nil {
+			return nil, protoconv.PrefixField("ref_id", err)
+		}
+		parsed.Ref.RefId = &value
+	case *testpb.Point_RefName:
+		value := member.RefName
+		parsed.Ref.RefName = &value
+	}
+
+	return parsed, nil
+}
+
 // Explicit is testpb.Explicit with the values its rules describe converted.
 type Explicit struct {
 	Id         *uuid.UUID
@@ -638,4 +675,16 @@ func ParseExplicit(m *testpb.Explicit) (*Explicit, error) {
 	}
 
 	return parsed, nil
+}
+
+// Ref holds the one member a caller set in a oneof written as Ref, leaving the others nil.
+type Ref struct {
+	RefId   *uuid.UUID
+	RefName *string
+}
+
+// Target holds the one member a caller set in a oneof written as Target, leaving the others nil.
+type Target struct {
+	Id    *uuid.UUID
+	Label *string
 }

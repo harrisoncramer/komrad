@@ -12,6 +12,9 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/lib/xslice"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	"komrad/proto/gen/pullrequest/v1/pullrequestv1komrad"
+
+	"github.com/google/uuid"
 )
 
 // pullRequestLister is what the handler reads of what the sync has stored.
@@ -85,8 +88,8 @@ func renderPullRequestPage(stored pullrequeststore.PullRequest) pullRequestPage 
 }
 
 // ListStatusChecks is the status checks read on each of a pull request's heads, oldest first and empty when they never were.
-func (s *Handler) ListStatusChecks(ctx context.Context, req *pullrequestv1.ListStatusChecksRequest) (*pullrequestv1.ListStatusChecksResponse, *fail.Error) {
-	readings, err := s.pullRequests.ListStatusChecks(ctx, req.GetPullRequestId())
+func (s *Handler) ListStatusChecks(ctx context.Context, req *pullrequestv1komrad.ListStatusChecksRequest) (*pullrequestv1.ListStatusChecksResponse, *fail.Error) {
+	readings, err := s.pullRequests.ListStatusChecks(ctx, req.PullRequestId.String())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the checks")
 	}
@@ -95,8 +98,8 @@ func (s *Handler) ListStatusChecks(ctx context.Context, req *pullrequestv1.ListS
 }
 
 // ReadCheckLog is a window of lines of a check's fetched log.
-func (s *Handler) ReadCheckLog(ctx context.Context, req *pullrequestv1.ReadCheckLogRequest) (*pullrequestv1.ReadCheckLogResponse, *fail.Error) {
-	lines, err := s.pullRequests.ReadCheckLog(ctx, req.GetCheckId(), int(req.GetFirstLine()), int(req.GetCount()))
+func (s *Handler) ReadCheckLog(ctx context.Context, req *pullrequestv1komrad.ReadCheckLogRequest) (*pullrequestv1.ReadCheckLogResponse, *fail.Error) {
+	lines, err := s.pullRequests.ReadCheckLog(ctx, req.CheckId.String(), int(req.FirstLine), int(req.Count))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to read the check log")
 	}
@@ -105,8 +108,8 @@ func (s *Handler) ReadCheckLog(ctx context.Context, req *pullrequestv1.ReadCheck
 }
 
 // SearchCheckLogs is the lines of the checks' fetched logs an RE2 pattern matches.
-func (s *Handler) SearchCheckLogs(ctx context.Context, req *pullrequestv1.SearchCheckLogsRequest) (*pullrequestv1.SearchCheckLogsResponse, *fail.Error) {
-	search, err := s.pullRequests.SearchCheckLogs(ctx, req.GetCheckIds(), req.GetPattern())
+func (s *Handler) SearchCheckLogs(ctx context.Context, req *pullrequestv1komrad.SearchCheckLogsRequest) (*pullrequestv1.SearchCheckLogsResponse, *fail.Error) {
+	search, err := s.pullRequests.SearchCheckLogs(ctx, xslice.Map(req.CheckIds, uuid.UUID.String), req.Pattern)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to search the check logs")
 	}

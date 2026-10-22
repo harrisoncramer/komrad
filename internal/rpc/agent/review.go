@@ -11,8 +11,11 @@ import (
 	"komrad/internal/rpcerr"
 	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
+	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1komrad"
+	"komrad/proto/gen/oneofs"
 )
 
 type reviewConversation interface {
@@ -26,11 +29,11 @@ type reviewConversation interface {
 	EditReviewMessage(ctx context.Context, params reviews.EditReviewMessageParams) (*reviewstore.Message, error)
 	MarkReviewThreadRead(ctx context.Context, params reviews.MarkReviewThreadReadParams) (*reviewstore.Thread, error)
 	SetReviewThreadResolved(ctx context.Context, params reviews.SetReviewThreadResolvedParams) (*reviewstore.Thread, error)
-	TakeSnapshot(ctx context.Context, task string, author reviews.ReviewAuthor) (*reviewstore.Snapshot, error)
+	TakeSnapshot(ctx context.Context, task oneofs.Task, author reviews.ReviewAuthor) (*reviewstore.Snapshot, error)
 	ReadMail(ctx context.Context, agentID string) ([]mailstore.Mail, error)
-	ListSnapshots(ctx context.Context, task string, author reviews.ReviewAuthor) ([]reviewstore.Snapshot, error)
+	ListSnapshots(ctx context.Context, task oneofs.Task, author reviews.ReviewAuthor) ([]reviewstore.Snapshot, error)
 	GetHistory(ctx context.Context, params reviews.GetHistoryParams) (*reviews.ReviewHistory, error)
-	ListReviews(ctx context.Context, task string, author reviews.ReviewAuthor) ([]reviewstore.Review, error)
+	ListReviews(ctx context.Context, task oneofs.Task, author reviews.ReviewAuthor) ([]reviewstore.Review, error)
 	GetReview(ctx context.Context, reviewID string, author reviews.ReviewAuthor) (*reviews.ReviewInFull, error)
 	ReleaseReview(ctx context.Context, params reviews.ReleaseReviewParams) (*reviews.ReleaseReviewResult, error)
 	SetReviewFileViewed(ctx context.Context, params reviews.SetReviewFileViewedParams) (*reviewstore.ViewedFile, error)
@@ -38,9 +41,9 @@ type reviewConversation interface {
 }
 
 // ListReviewThreads reads the review pinned to a task's diff.
-func (s *Handler) ListReviewThreads(ctx context.Context, req *agentv1.ListReviewThreadsRequest) (*agentv1.ListReviewThreadsResponse, *fail.Error) {
+func (s *Handler) ListReviewThreads(ctx context.Context, req *agentv1komrad.ListReviewThreadsRequest) (*agentv1.ListReviewThreadsResponse, *fail.Error) {
 	threads, err := s.review.ListReviewThreads(ctx, reviews.ListReviewThreadsParams{
-		Task:   req.GetTask(),
+		Task:   req.Task,
 		Author: reviewAuthorFrom(ctx),
 	})
 	if err != nil {
@@ -55,19 +58,19 @@ func (s *Handler) ListReviewThreads(ctx context.Context, req *agentv1.ListReview
 }
 
 // CreateReviewThread pins a conversation to a place in a diff and writes its first message.
-func (s *Handler) CreateReviewThread(ctx context.Context, req *agentv1.CreateReviewThreadRequest) (*agentv1.CreateReviewThreadResponse, *fail.Error) {
+func (s *Handler) CreateReviewThread(ctx context.Context, req *agentv1komrad.CreateReviewThreadRequest) (*agentv1.CreateReviewThreadResponse, *fail.Error) {
 	thread, err := s.review.CreateReviewThread(ctx, reviews.CreateReviewThreadParams{
-		Task:        req.GetTask(),
-		BaseSHA:     req.GetBaseSha(),
-		SnapshotSHA: req.GetSnapshotSha(),
-		FilePath:    req.GetFilePath(),
-		OldStart:    req.GetOldStart(),
-		OldEnd:      req.GetOldEnd(),
-		NewStart:    req.GetNewStart(),
-		NewEnd:      req.GetNewEnd(),
-		QuotedLines: req.GetQuotedLines(),
-		Body:        req.GetBody(),
-		Suggestion:  req.GetSuggestion(),
+		Task:        req.Task,
+		BaseSHA:     req.BaseSha,
+		SnapshotSHA: req.SnapshotSha,
+		FilePath:    req.FilePath,
+		OldStart:    req.OldStart,
+		OldEnd:      req.OldEnd,
+		NewStart:    req.NewStart,
+		NewEnd:      req.NewEnd,
+		QuotedLines: req.QuotedLines,
+		Body:        req.Body,
+		Suggestion:  req.Suggestion,
 		Author:      reviewAuthorFrom(ctx),
 	})
 	if err != nil {
@@ -78,13 +81,13 @@ func (s *Handler) CreateReviewThread(ctx context.Context, req *agentv1.CreateRev
 }
 
 // AddReviewMessage says something in an existing thread, as whoever is calling.
-func (s *Handler) AddReviewMessage(ctx context.Context, req *agentv1.AddReviewMessageRequest) (*agentv1.AddReviewMessageResponse, *fail.Error) {
+func (s *Handler) AddReviewMessage(ctx context.Context, req *agentv1komrad.AddReviewMessageRequest) (*agentv1.AddReviewMessageResponse, *fail.Error) {
 	added, err := s.review.AddReviewMessage(ctx, reviews.AddReviewMessageParams{
-		ThreadID:   req.GetThreadId(),
-		Body:       req.GetBody(),
-		Suggestion: req.GetSuggestion(),
+		ThreadID:   req.ThreadId.String(),
+		Body:       req.Body,
+		Suggestion: req.Suggestion,
 		Author:     reviewAuthorFrom(ctx),
-		Addressed:  req.GetAddressed(),
+		Addressed:  req.Addressed,
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to add the review message")
@@ -97,11 +100,11 @@ func (s *Handler) AddReviewMessage(ctx context.Context, req *agentv1.AddReviewMe
 }
 
 // EditReviewMessage rewrites what was said.
-func (s *Handler) EditReviewMessage(ctx context.Context, req *agentv1.EditReviewMessageRequest) (*agentv1.EditReviewMessageResponse, *fail.Error) {
+func (s *Handler) EditReviewMessage(ctx context.Context, req *agentv1komrad.EditReviewMessageRequest) (*agentv1.EditReviewMessageResponse, *fail.Error) {
 	message, err := s.review.EditReviewMessage(ctx, reviews.EditReviewMessageParams{
-		ID:         req.GetId(),
-		Body:       req.GetBody(),
-		Suggestion: req.GetSuggestion(),
+		ID:         req.Id.String(),
+		Body:       req.Body,
+		Suggestion: req.Suggestion,
 		Author:     reviewAuthorFrom(ctx),
 	})
 	if err != nil {
@@ -112,9 +115,9 @@ func (s *Handler) EditReviewMessage(ctx context.Context, req *agentv1.EditReview
 }
 
 // AcceptForgeMessage copies a held forge comment into the person's open review.
-func (s *Handler) AcceptForgeMessage(ctx context.Context, req *agentv1.AcceptForgeMessageRequest) (*agentv1.AcceptForgeMessageResponse, *fail.Error) {
+func (s *Handler) AcceptForgeMessage(ctx context.Context, req *agentv1komrad.AcceptForgeMessageRequest) (*agentv1.AcceptForgeMessageResponse, *fail.Error) {
 	message, err := s.review.AcceptForgeMessage(ctx, reviews.AcceptForgeMessageParams{
-		MessageID: req.GetMessageId(),
+		MessageID: req.MessageId.String(),
 		Author:    reviewAuthorFrom(ctx),
 	})
 	if err != nil {
@@ -125,9 +128,9 @@ func (s *Handler) AcceptForgeMessage(ctx context.Context, req *agentv1.AcceptFor
 }
 
 // MarkReviewThreadRead catches the calling side up on one conversation.
-func (s *Handler) MarkReviewThreadRead(ctx context.Context, req *agentv1.MarkReviewThreadReadRequest) (*agentv1.MarkReviewThreadReadResponse, *fail.Error) {
+func (s *Handler) MarkReviewThreadRead(ctx context.Context, req *agentv1komrad.MarkReviewThreadReadRequest) (*agentv1.MarkReviewThreadReadResponse, *fail.Error) {
 	thread, err := s.review.MarkReviewThreadRead(ctx, reviews.MarkReviewThreadReadParams{
-		ID:     req.GetId(),
+		ID:     req.Id.String(),
 		Author: reviewAuthorFrom(ctx),
 	})
 	if err != nil {
@@ -140,10 +143,10 @@ func (s *Handler) MarkReviewThreadRead(ctx context.Context, req *agentv1.MarkRev
 }
 
 // SetReviewThreadResolved settles one conversation, or reopens it.
-func (s *Handler) SetReviewThreadResolved(ctx context.Context, req *agentv1.SetReviewThreadResolvedRequest) (*agentv1.SetReviewThreadResolvedResponse, *fail.Error) {
+func (s *Handler) SetReviewThreadResolved(ctx context.Context, req *agentv1komrad.SetReviewThreadResolvedRequest) (*agentv1.SetReviewThreadResolvedResponse, *fail.Error) {
 	thread, err := s.review.SetReviewThreadResolved(ctx, reviews.SetReviewThreadResolvedParams{
-		ID:       req.GetId(),
-		Resolved: req.GetResolved(),
+		ID:       req.Id.String(),
+		Resolved: req.Resolved,
 		Author:   reviewAuthorFrom(ctx),
 	})
 	if err != nil {
@@ -156,8 +159,8 @@ func (s *Handler) SetReviewThreadResolved(ctx context.Context, req *agentv1.SetR
 }
 
 // TakeReviewSnapshot freezes a task's checkout and records it as the task's next snapshot.
-func (s *Handler) TakeReviewSnapshot(ctx context.Context, req *agentv1.TakeReviewSnapshotRequest) (*agentv1.TakeReviewSnapshotResponse, *fail.Error) {
-	snapshot, err := s.review.TakeSnapshot(ctx, req.GetTask(), reviewAuthorFrom(ctx))
+func (s *Handler) TakeReviewSnapshot(ctx context.Context, req *agentv1komrad.TakeReviewSnapshotRequest) (*agentv1.TakeReviewSnapshotResponse, *fail.Error) {
+	snapshot, err := s.review.TakeSnapshot(ctx, req.Task, reviewAuthorFrom(ctx))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to take a review snapshot")
 	}
@@ -166,9 +169,9 @@ func (s *Handler) TakeReviewSnapshot(ctx context.Context, req *agentv1.TakeRevie
 }
 
 // OpenReviewHistory opens a task's review as the panel draws it, freezing a snapshot when none holds the worktree.
-func (s *Handler) OpenReviewHistory(ctx context.Context, req *agentv1.OpenReviewHistoryRequest) (*agentv1.OpenReviewHistoryResponse, *fail.Error) {
+func (s *Handler) OpenReviewHistory(ctx context.Context, req *agentv1komrad.OpenReviewHistoryRequest) (*agentv1.OpenReviewHistoryResponse, *fail.Error) {
 	opened, err := s.review.GetHistory(ctx, reviews.GetHistoryParams{
-		Task:   req.GetTask(),
+		Task:   req.Task,
 		Span:   historySpanOf(req),
 		Author: reviewAuthorFrom(ctx),
 	})
@@ -179,22 +182,22 @@ func (s *Handler) OpenReviewHistory(ctx context.Context, req *agentv1.OpenReview
 	return render.ReviewHistory(*opened), nil
 }
 
-func historySpanOf(req *agentv1.OpenReviewHistoryRequest) history.Span {
-	switch {
-	case req.GetSnapshots() != nil:
+func historySpanOf(req *agentv1komrad.OpenReviewHistoryRequest) history.Span {
+	switch span := req.Span.(type) {
+	case *agentv1komrad.OpenReviewHistoryRequest_Snapshots:
 		return history.Span{Snapshots: &history.SnapshotSpan{
-			FromSnapshotID: req.GetSnapshots().GetFromSnapshotId(),
-			ToSnapshotID:   req.GetSnapshots().GetToSnapshotId(),
+			FromSnapshotID: xptr.Deref(formatOptionalID(span.Snapshots.FromSnapshotId)),
+			ToSnapshotID:   xptr.Deref(formatOptionalID(span.Snapshots.ToSnapshotId)),
 		}}
-	case req.GetAnswer() != nil:
+	case *agentv1komrad.OpenReviewHistoryRequest_Answer:
 		return history.Span{Answer: &history.AnswerSpan{
-			FromSnapshotID: req.GetAnswer().GetFromSnapshotId(),
-			ToSnapshotID:   req.GetAnswer().GetToSnapshotId(),
+			FromSnapshotID: span.Answer.FromSnapshotId.String(),
+			ToSnapshotID:   span.Answer.ToSnapshotId.String(),
 		}}
-	case req.GetOrigin() != nil:
+	case *agentv1komrad.OpenReviewHistoryRequest_Origin:
 		return history.Span{Origin: &history.OriginSpan{
-			SnapshotID: req.GetOrigin().GetSnapshotId(),
-			BaseSHA:    req.GetOrigin().GetBaseSha(),
+			SnapshotID: span.Origin.SnapshotId.String(),
+			BaseSHA:    span.Origin.BaseSha,
 		}}
 	}
 
@@ -202,8 +205,8 @@ func historySpanOf(req *agentv1.OpenReviewHistoryRequest) history.Span {
 }
 
 // ListReviewSnapshots reads every snapshot taken of a task.
-func (s *Handler) ListReviewSnapshots(ctx context.Context, req *agentv1.ListReviewSnapshotsRequest) (*agentv1.ListReviewSnapshotsResponse, *fail.Error) {
-	snapshots, err := s.review.ListSnapshots(ctx, req.GetTask(), reviewAuthorFrom(ctx))
+func (s *Handler) ListReviewSnapshots(ctx context.Context, req *agentv1komrad.ListReviewSnapshotsRequest) (*agentv1.ListReviewSnapshotsResponse, *fail.Error) {
+	snapshots, err := s.review.ListSnapshots(ctx, req.Task, reviewAuthorFrom(ctx))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the review snapshots")
 	}
@@ -214,8 +217,8 @@ func (s *Handler) ListReviewSnapshots(ctx context.Context, req *agentv1.ListRevi
 }
 
 // ListReviews reads every review given on a task.
-func (s *Handler) ListReviews(ctx context.Context, req *agentv1.ListReviewsRequest) (*agentv1.ListReviewsResponse, *fail.Error) {
-	reviews, err := s.review.ListReviews(ctx, req.GetTask(), reviewAuthorFrom(ctx))
+func (s *Handler) ListReviews(ctx context.Context, req *agentv1komrad.ListReviewsRequest) (*agentv1.ListReviewsResponse, *fail.Error) {
+	reviews, err := s.review.ListReviews(ctx, req.Task, reviewAuthorFrom(ctx))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to list the reviews")
 	}
@@ -226,8 +229,8 @@ func (s *Handler) ListReviews(ctx context.Context, req *agentv1.ListReviewsReque
 }
 
 // GetReview reads one released review whole.
-func (s *Handler) GetReview(ctx context.Context, req *agentv1.GetReviewRequest) (*agentv1.GetReviewResponse, *fail.Error) {
-	review, err := s.review.GetReview(ctx, req.GetReviewId(), reviewAuthorFrom(ctx))
+func (s *Handler) GetReview(ctx context.Context, req *agentv1komrad.GetReviewRequest) (*agentv1.GetReviewResponse, *fail.Error) {
+	review, err := s.review.GetReview(ctx, req.ReviewId.String(), reviewAuthorFrom(ctx))
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get the review")
 	}
@@ -240,11 +243,11 @@ func (s *Handler) GetReview(ctx context.Context, req *agentv1.GetReviewRequest) 
 }
 
 // ReleaseReview releases the caller's open review, writing it out and mailing the path.
-func (s *Handler) ReleaseReview(ctx context.Context, req *agentv1.ReleaseReviewRequest) (*agentv1.ReleaseReviewResponse, *fail.Error) {
+func (s *Handler) ReleaseReview(ctx context.Context, req *agentv1komrad.ReleaseReviewRequest) (*agentv1.ReleaseReviewResponse, *fail.Error) {
 	result, err := s.review.ReleaseReview(ctx, reviews.ReleaseReviewParams{
-		Task:    req.GetTask(),
-		Verdict: fromReviewVerdict(req.GetVerdict()),
-		Body:    req.GetBody(),
+		Task:    req.Task,
+		Verdict: fromReviewVerdict(req.Verdict),
+		Body:    req.Body,
 		Author:  reviewAuthorFrom(ctx),
 	})
 	if err != nil {
@@ -259,12 +262,12 @@ func (s *Handler) ReleaseReview(ctx context.Context, req *agentv1.ReleaseReviewR
 }
 
 // SetReviewFileViewed marks one file of a diff read, or drops the mark.
-func (s *Handler) SetReviewFileViewed(ctx context.Context, req *agentv1.SetReviewFileViewedRequest) (*agentv1.SetReviewFileViewedResponse, *fail.Error) {
+func (s *Handler) SetReviewFileViewed(ctx context.Context, req *agentv1komrad.SetReviewFileViewedRequest) (*agentv1.SetReviewFileViewedResponse, *fail.Error) {
 	viewed, err := s.review.SetReviewFileViewed(ctx, reviews.SetReviewFileViewedParams{
-		Task:        req.GetTask(),
-		FilePath:    req.GetFilePath(),
-		Fingerprint: req.GetFingerprint(),
-		Viewed:      req.GetViewed(),
+		Task:        req.Task,
+		FilePath:    req.FilePath,
+		Fingerprint: req.Fingerprint,
+		Viewed:      req.Viewed,
 		Author:      reviewAuthorFrom(ctx),
 	})
 	if err != nil {
@@ -280,9 +283,9 @@ func (s *Handler) SetReviewFileViewed(ctx context.Context, req *agentv1.SetRevie
 }
 
 // ListReviewViewedFiles reads which files of a task's diff the reviewer marked read.
-func (s *Handler) ListReviewViewedFiles(ctx context.Context, req *agentv1.ListReviewViewedFilesRequest) (*agentv1.ListReviewViewedFilesResponse, *fail.Error) {
+func (s *Handler) ListReviewViewedFiles(ctx context.Context, req *agentv1komrad.ListReviewViewedFilesRequest) (*agentv1.ListReviewViewedFilesResponse, *fail.Error) {
 	files, err := s.review.ListReviewViewedFiles(ctx, reviews.ListReviewViewedFilesParams{
-		Task:   req.GetTask(),
+		Task:   req.Task,
 		Author: reviewAuthorFrom(ctx),
 	})
 	if err != nil {

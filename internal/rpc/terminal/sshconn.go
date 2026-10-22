@@ -10,16 +10,14 @@ import (
 	"time"
 
 	"komrad/internal/caller"
+	"komrad/lib/xptr"
 	terminalv1 "komrad/proto/gen/terminal/v1"
-
-	"connectrpc.com/connect"
+	"komrad/proto/gen/terminal/v1/terminalv1komrad"
 )
-
-type sshStream = connect.BidiStream[terminalv1.SSHRequest, terminalv1.SSHResponse]
 
 // sshConn is an SSH connection carried in a stream's messages.
 type sshConn struct {
-	stream  *sshStream
+	stream  *terminalv1komrad.SSHStream
 	reader  *io.PipeReader
 	sending sync.Mutex
 	closed  bool
@@ -27,7 +25,7 @@ type sshConn struct {
 
 // newSSHConn reads the stream into the connection until the caller closes its side, renewing the
 // caller's sign-in with each token it sends.
-func newSSHConn(ctx context.Context, stream *sshStream) *sshConn {
+func newSSHConn(ctx context.Context, stream *terminalv1komrad.SSHStream) *sshConn {
 	reader, writer := io.Pipe()
 	go func() {
 		_ = writer.CloseWithError(receiveSSH(ctx, stream, writer))
@@ -36,7 +34,7 @@ func newSSHConn(ctx context.Context, stream *sshStream) *sshConn {
 	return &sshConn{stream: stream, reader: reader}
 }
 
-func receiveSSH(ctx context.Context, stream *sshStream, into io.Writer) error {
+func receiveSSH(ctx context.Context, stream *terminalv1komrad.SSHStream, into io.Writer) error {
 	for {
 		request, err := stream.Receive()
 		if errors.Is(err, io.EOF) {
@@ -47,13 +45,13 @@ func receiveSSH(ctx context.Context, stream *sshStream, into io.Writer) error {
 			return fmt.Errorf("failed to hear from the caller: %w", err)
 		}
 
-		if token := request.GetToken(); token != "" {
+		if token := xptr.Deref(request.Message.Token); token != "" {
 			if err := caller.Renew(ctx, token); err != nil {
 				return fmt.Errorf("failed to renew the caller's sign-in: %w", err)
 			}
 		}
 
-		if _, err := into.Write(request.GetData()); err != nil {
+		if _, err := into.Write(xptr.Deref(request.Message.Data)); err != nil {
 			return fmt.Errorf("failed to hand on the caller's bytes: %w", err)
 		}
 	}

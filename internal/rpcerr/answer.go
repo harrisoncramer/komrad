@@ -69,6 +69,11 @@ func From(err error, failure string) *fail.Error {
 	return fail.Because(err, fmt.Sprintf("%s: %s", failure, err))
 }
 
+// Unparsed is the failure answering a request holding a value that would not convert.
+func Unparsed(err error) *fail.Error {
+	return fail.Because(err, err.Error()).Kinded(fail.KindInvalidArgument)
+}
+
 // New is a connect error carrying the code for kind.
 func New(kind fail.Kind, err error) error {
 	return connect.NewError(codeOf(kind), err)

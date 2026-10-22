@@ -13,15 +13,17 @@ import (
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1komrad"
 
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type mailer interface {
-	ResolveRecipient(ctx context.Context, params mail.ResolveRecipientParams) (*agentstore.Agent, error)
+	FindRecipient(ctx context.Context, params mail.FindRecipientParams) (*agentstore.Agent, error)
 	SendMail(ctx context.Context, params mail.SendMailParams) (*mailstore.Mail, error)
 	ListMail(ctx context.Context, params mail.ListMailParams) ([]mailstore.Mail, error)
 	DeleteMail(ctx context.Context, ids []string) error
@@ -29,12 +31,12 @@ type mailer interface {
 }
 
 // SendMail records mail from the calling agent to the recipient the request names.
-func (s *Handler) SendMail(ctx context.Context, req *agentv1.SendMailRequest) (*agentv1.SendMailResponse, *fail.Error) {
+func (s *Handler) SendMail(ctx context.Context, req *agentv1komrad.SendMailRequest) (*agentv1.SendMailResponse, *fail.Error) {
 	from := caller.From(ctx).AgentID
 
-	recipient, err := s.mail.ResolveRecipient(ctx, mail.ResolveRecipientParams{
+	recipient, err := s.mail.FindRecipient(ctx, mail.FindRecipientParams{
 		From: from,
-		To:   req.GetTo(),
+		To:   req.To,
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to find the recipient")
@@ -43,8 +45,8 @@ func (s *Handler) SendMail(ctx context.Context, req *agentv1.SendMailRequest) (*
 	sent, err := s.mail.SendMail(ctx, mail.SendMailParams{
 		From:      from,
 		ToAgentID: recipient.ID,
-		Body:      req.GetBody(),
-		ReplyTo:   req.ReplyTo,
+		Body:      req.Body,
+		ReplyTo:   formatOptionalID(req.ReplyTo),
 	})
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to send the mail")
@@ -65,8 +67,8 @@ func buildDormantWarning(recipient agentstore.Agent, dormant bool) *string {
 }
 
 // ReadMail claims an agent's waiting mail, defaulting to the caller's own mailbox.
-func (s *Handler) ReadMail(ctx context.Context, req *agentv1.ReadMailRequest) (*agentv1.ReadMailResponse, *fail.Error) {
-	id, failure := scopedAgentID(ctx, req.GetId())
+func (s *Handler) ReadMail(ctx context.Context, req *agentv1komrad.ReadMailRequest) (*agentv1.ReadMailResponse, *fail.Error) {
+	id, failure := scopedAgentID(ctx, req.Id)
 	if failure != nil {
 		return nil, failure
 	}
@@ -84,18 +86,18 @@ func (s *Handler) ReadMail(ctx context.Context, req *agentv1.ReadMailRequest) (*
 }
 
 // ListMail returns a page of an agent's mail without claiming any of it.
-func (s *Handler) ListMail(ctx context.Context, req *agentv1.ListMailRequest) (*agentv1.ListMailResponse, *fail.Error) {
-	id, failure := scopedAgentID(ctx, req.GetId())
+func (s *Handler) ListMail(ctx context.Context, req *agentv1komrad.ListMailRequest) (*agentv1.ListMailResponse, *fail.Error) {
+	id, failure := scopedAgentID(ctx, req.Id)
 	if failure != nil {
 		return nil, failure
 	}
 
 	logCrossAgentRead(ctx, id, "agent listed another agent's mail")
 
-	page, failure := rpcpage.List(req.GetPagination(), func(limit int64, cursor *mailstore.Cursor) ([]mailPage, *fail.Error) {
+	page, failure := rpcpage.List(req.Pagination, func(limit int64, cursor *mailstore.Cursor) ([]mailPage, *fail.Error) {
 		listed, err := s.mail.ListMail(ctx, mail.ListMailParams{
 			AgentID: id,
-			Sent:    req.GetDirection() == agentv1.MailDirection_MAIL_DIRECTION_SENT,
+			Sent:    req.Direction == agentv1.MailDirection_MAIL_DIRECTION_SENT,
 			Limit:   int32(limit),
 			Cursor:  cursor,
 		})
@@ -116,8 +118,8 @@ func (s *Handler) ListMail(ctx context.Context, req *agentv1.ListMailRequest) (*
 }
 
 // DeleteMail permanently removes mail by id, so the recipient never sees it.
-func (s *Handler) DeleteMail(ctx context.Context, req *agentv1.DeleteMailRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.mail.DeleteMail(ctx, req.GetIds()); err != nil {
+func (s *Handler) DeleteMail(ctx context.Context, req *agentv1komrad.DeleteMailRequest) (*emptypb.Empty, *fail.Error) {
+	if err := s.mail.DeleteMail(ctx, xslice.Map(req.Ids, uuid.UUID.String)); err != nil {
 		return nil, rpcerr.From(err, "failed to delete mail")
 	}
 

@@ -173,7 +173,7 @@ message ListWorkflowsResponse {
 
 message GetWorkflowRequest {
   // The workflow to get, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message GetWorkflowResponse {
@@ -232,7 +232,7 @@ message CreateWorkflowResponse {
 
 message UpdateWorkflowRequest {
   // The workflow to update, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
   // The workflow's name.
   string name = 2 [(buf.validate.field).string = {
     min_len: 1
@@ -277,12 +277,12 @@ message UpdateWorkflowRequest {
 
 message ArchiveWorkflowRequest {
   // The workflow to archive, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message RestoreWorkflowRequest {
   // The archived workflow to restore, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message RestoreWorkflowResponse {
@@ -292,7 +292,7 @@ message RestoreWorkflowResponse {
 
 message DeleteWorkflowRequest {
   // The archived workflow to delete, by id.
-  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string id = 1 [(buf.validate.field).string.uuid = true];
   // Whether to delete the agents, transcripts, documents, mail, notes and reviews of the workflow's tasks too.
   // False deletes only the tasks' worktrees and keeps the workflow archived.
   bool records = 2;

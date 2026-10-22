@@ -9,7 +9,7 @@ option go_package = "komrad/proto/gen/agent/v1;agentv1";
 
 message GetLastScreenRequest {
   // The agent whose screen to read, by id.
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  string agent_id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message GetLastScreenResponse {

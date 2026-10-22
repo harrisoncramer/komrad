@@ -624,7 +624,7 @@ func TestPickForkPoint(t *testing.T) {
 			}
 			mover := &gittest.Mover{Holds: tt.holds}
 
-			sha, err := fixture.newService(NewServiceParams{Git: mover}).PickForkPoint(t.Context(), PickForkPointParams{Task: *agent.TaskID, Commit: "placed"})
+			sha, err := fixture.newService(NewServiceParams{Git: mover}).PickForkPoint(t.Context(), PickForkPointParams{Task: taskByID(*agent.TaskID), Commit: "placed"})
 
 			got, readErr := fixture.stores.Tasks.Get(t.Context(), *agent.TaskID)
 			require.NoError(t, readErr)

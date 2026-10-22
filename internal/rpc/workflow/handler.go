@@ -14,6 +14,7 @@ import (
 	"komrad/internal/rpcpage"
 	"komrad/lib/xslice"
 	workflowv1 "komrad/proto/gen/workflow/v1"
+	"komrad/proto/gen/workflow/v1/workflowv1komrad"
 
 	workflowstore "komrad/internal/store/workflow"
 
@@ -28,18 +29,6 @@ type workflowReadWriter interface {
 	RestoreWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error)
 	DeleteWorkflow(ctx context.Context, params agents.DeleteWorkflowParams) error
 	ListWorkflows(ctx context.Context, params agents.ListWorkflowsParams) ([]workflowstore.Workflow, error)
-}
-
-type workflowConfigGetter interface {
-	GetName() string
-	GetContext() string
-	GetHarness() string
-	GetCwd() string
-	GetFlags() string
-	GetReviewerHarness() string
-	GetReviewerFlags() string
-	GetWorktree() *workflowv1.WorktreeConfig
-	GetHooks() []*workflowv1.WorkflowHook
 }
 
 type NewHandlerParams struct {
@@ -82,8 +71,8 @@ func (s *Handler) ListWorkflows(ctx context.Context, req *workflowv1.ListWorkflo
 }
 
 // GetWorkflow returns one workflow by id.
-func (s *Handler) GetWorkflow(ctx context.Context, req *workflowv1.GetWorkflowRequest) (*workflowv1.GetWorkflowResponse, *fail.Error) {
-	found, err := s.workflows.GetWorkflow(ctx, req.GetId())
+func (s *Handler) GetWorkflow(ctx context.Context, req *workflowv1komrad.GetWorkflowRequest) (*workflowv1.GetWorkflowResponse, *fail.Error) {
+	found, err := s.workflows.GetWorkflow(ctx, req.Id.String())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to get workflow")
 	}
@@ -93,8 +82,18 @@ func (s *Handler) GetWorkflow(ctx context.Context, req *workflowv1.GetWorkflowRe
 
 // CreateWorkflow adds a workflow and returns it as stored.
 func (s *Handler) CreateWorkflow(ctx context.Context, req *workflowv1.CreateWorkflowRequest) (*workflowv1.CreateWorkflowResponse, *fail.Error) {
-	cfg := buildConfigFromRequest(req)
-	cfg.EventPrompts = buildCreatedEventPrompts(req.GetEventPrompts())
+	cfg := workflowstore.Config{
+		Name:            req.GetName(),
+		Context:         req.GetContext(),
+		Harness:         req.GetHarness(),
+		Cwd:             req.GetCwd(),
+		Flags:           req.GetFlags(),
+		ReviewerHarness: req.GetReviewerHarness(),
+		ReviewerFlags:   req.GetReviewerFlags(),
+		Worktree:        buildWorktreeConfigFromProto(req.GetWorktree()),
+		Hooks:           buildHooksFromProto(req.GetHooks()),
+		EventPrompts:    buildCreatedEventPrompts(req.GetEventPrompts()),
+	}
 
 	created, err := s.workflows.NewWorkflow(ctx, cfg)
 	if err != nil {
@@ -105,11 +104,21 @@ func (s *Handler) CreateWorkflow(ctx context.Context, req *workflowv1.CreateWork
 }
 
 // UpdateWorkflow replaces a workflow's editable fields.
-func (s *Handler) UpdateWorkflow(ctx context.Context, req *workflowv1.UpdateWorkflowRequest) (*emptypb.Empty, *fail.Error) {
-	cfg := buildConfigFromRequest(req)
-	cfg.EventPrompts = buildEventPromptsFromProto(req.GetEventPrompts())
+func (s *Handler) UpdateWorkflow(ctx context.Context, req *workflowv1komrad.UpdateWorkflowRequest) (*emptypb.Empty, *fail.Error) {
+	cfg := workflowstore.Config{
+		Name:            req.Name,
+		Context:         req.Context,
+		Harness:         req.Harness,
+		Cwd:             req.Cwd,
+		Flags:           req.Flags,
+		ReviewerHarness: req.ReviewerHarness,
+		ReviewerFlags:   req.ReviewerFlags,
+		Worktree:        buildWorktreeConfigFromProto(req.Worktree),
+		Hooks:           buildHooksFromProto(req.Hooks),
+		EventPrompts:    buildEventPromptsFromProto(req.EventPrompts),
+	}
 
-	err := s.workflows.UpdateWorkflow(ctx, req.GetId(), cfg)
+	err := s.workflows.UpdateWorkflow(ctx, req.Id.String(), cfg)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to update workflow")
 	}
@@ -118,8 +127,8 @@ func (s *Handler) UpdateWorkflow(ctx context.Context, req *workflowv1.UpdateWork
 }
 
 // ArchiveWorkflow hides a workflow and archives the agents inside it.
-func (s *Handler) ArchiveWorkflow(ctx context.Context, req *workflowv1.ArchiveWorkflowRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.workflows.ArchiveWorkflow(ctx, req.GetId()); err != nil {
+func (s *Handler) ArchiveWorkflow(ctx context.Context, req *workflowv1komrad.ArchiveWorkflowRequest) (*emptypb.Empty, *fail.Error) {
+	if err := s.workflows.ArchiveWorkflow(ctx, req.Id.String()); err != nil {
 		return nil, rpcerr.From(err, "failed to archive workflow")
 	}
 
@@ -127,8 +136,8 @@ func (s *Handler) ArchiveWorkflow(ctx context.Context, req *workflowv1.ArchiveWo
 }
 
 // RestoreWorkflow brings a workflow back with the agents archived inside it.
-func (s *Handler) RestoreWorkflow(ctx context.Context, req *workflowv1.RestoreWorkflowRequest) (*workflowv1.RestoreWorkflowResponse, *fail.Error) {
-	restored, err := s.workflows.RestoreWorkflow(ctx, req.GetId())
+func (s *Handler) RestoreWorkflow(ctx context.Context, req *workflowv1komrad.RestoreWorkflowRequest) (*workflowv1.RestoreWorkflowResponse, *fail.Error) {
+	restored, err := s.workflows.RestoreWorkflow(ctx, req.Id.String())
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to restore workflow")
 	}
@@ -139,30 +148,16 @@ func (s *Handler) RestoreWorkflow(ctx context.Context, req *workflowv1.RestoreWo
 // DeleteWorkflow removes the worktrees of an archived workflow's tasks, and with records set the
 // workflow for good along with the archived agents still inside it and the archived schedules that
 // launched into it.
-func (s *Handler) DeleteWorkflow(ctx context.Context, req *workflowv1.DeleteWorkflowRequest) (*emptypb.Empty, *fail.Error) {
+func (s *Handler) DeleteWorkflow(ctx context.Context, req *workflowv1komrad.DeleteWorkflowRequest) (*emptypb.Empty, *fail.Error) {
 	if err := s.workflows.DeleteWorkflow(ctx, agents.DeleteWorkflowParams{
-		ID:        req.GetId(),
-		Records:   req.GetRecords(),
+		ID:        req.Id.String(),
+		Records:   req.Records,
 		ByAgentID: caller.From(ctx).AgentID,
 	}); err != nil {
 		return nil, rpcerr.From(err, "failed to delete workflow")
 	}
 
 	return &emptypb.Empty{}, nil
-}
-
-func buildConfigFromRequest(req workflowConfigGetter) workflowstore.Config {
-	return workflowstore.Config{
-		Name:            req.GetName(),
-		Context:         req.GetContext(),
-		Harness:         req.GetHarness(),
-		Cwd:             req.GetCwd(),
-		Flags:           req.GetFlags(),
-		ReviewerHarness: req.GetReviewerHarness(),
-		ReviewerFlags:   req.GetReviewerFlags(),
-		Worktree:        buildWorktreeConfigFromProto(req.GetWorktree()),
-		Hooks:           buildHooksFromProto(req.GetHooks()),
-	}
 }
 
 func buildHooksFromProto(hooks []*workflowv1.WorkflowHook) []workflowstore.Hook {

@@ -263,27 +263,27 @@ func TestWorktreesDelete(t *testing.T) {
 			{
 				name:     "are deleted once something is checked after a refused confirm",
 				press:    []string{"x", "tab", "y", "x", "enter"},
-				wantSent: []proto.Message{&taskv1.DeleteTasksRequest{Tasks: []string{"t8", "t9"}}},
+				wantSent: []proto.Message{&taskv1.DeleteTasksRequest{TaskIds: []string{"t8", "t9"}}},
 			},
 			{
 				name:     "are deleted once something is checked after a confirm refused on enter",
 				press:    []string{"x", "tab", "enter", "x", "enter"},
-				wantSent: []proto.Message{&taskv1.DeleteTasksRequest{Tasks: []string{"t8", "t9"}}},
+				wantSent: []proto.Message{&taskv1.DeleteTasksRequest{TaskIds: []string{"t8", "t9"}}},
 			},
 			{
 				name:     "are deleted with their worktrees alone by default",
 				press:    []string{"enter"},
-				wantSent: []proto.Message{&taskv1.DeleteTasksRequest{Tasks: []string{"t8", "t9"}}},
+				wantSent: []proto.Message{&taskv1.DeleteTasksRequest{TaskIds: []string{"t8", "t9"}}},
 			},
 			{
 				name:     "are deleted with their records once records are checked",
 				press:    []string{"down", "x", "enter"},
-				wantSent: []proto.Message{&taskv1.DeleteTasksRequest{Tasks: []string{"t8", "t9"}, Records: true}},
+				wantSent: []proto.Message{&taskv1.DeleteTasksRequest{TaskIds: []string{"t8", "t9"}, Records: true}},
 			},
 			{
 				name:     "are deleted with their records when only the records are checked",
 				press:    []string{"x", "down", "x", "enter"},
-				wantSent: []proto.Message{&taskv1.DeleteTasksRequest{Tasks: []string{"t8", "t9"}, Records: true}},
+				wantSent: []proto.Message{&taskv1.DeleteTasksRequest{TaskIds: []string{"t8", "t9"}, Records: true}},
 			},
 		}
 
@@ -316,7 +316,7 @@ func TestWorktreesDelete(t *testing.T) {
 
 		harness.Press("tab", "y")
 
-		harness.AssertSentTo(taskv1connect.TaskServiceDeleteTasksProcedure, &taskv1.DeleteTasksRequest{Tasks: []string{"t9"}})
+		harness.AssertSentTo(taskv1connect.TaskServiceDeleteTasksProcedure, &taskv1.DeleteTasksRequest{TaskIds: []string{"t9"}})
 		harness.AssertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure, &worktreev1.DeleteWorktreesRequest{Dirs: []string{"/trees/zz"}})
 	})
 }

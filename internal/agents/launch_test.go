@@ -1281,7 +1281,7 @@ func TestConcurrentLaunchesGiveATaskOneWriter(t *testing.T) {
 				Title:      fmt.Sprintf("writer-%d", i),
 				Prompt:     "go",
 				WorkflowID: workflow.ID,
-				Task:       work.ID,
+				Task:       taskByID(work.ID),
 			})
 		})
 	}
@@ -1399,7 +1399,7 @@ func TestNewReviewerRefusals(t *testing.T) {
 			name: "a task nothing answers to",
 			params: func(writer agentstore.Agent) NewAgentParams {
 				params := reviewerOf(writer, "reviewer")
-				params.Task = "b9b1a1de-0000-7000-8000-000000000000"
+				params.Task = taskByID("b9b1a1de-0000-7000-8000-000000000000")
 
 				return params
 			},
@@ -1494,7 +1494,7 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 					Title:      "fix-login",
 					Prompt:     "go",
 					WorkflowID: workflowID,
-					Task:       elsewhere.Slug,
+					Task:       taskByID(elsewhere.ID),
 				}
 			},
 			wantErrIs: tasks.ErrOtherWorkflow,
@@ -1506,19 +1506,7 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 					Title:      "fix-login",
 					Prompt:     "go",
 					WorkflowID: workflowID,
-					Task:       work.ID,
-				}
-			},
-			wantTask: "work",
-		},
-		{
-			name: "a task named by slug is joined",
-			params: func(workflowID string, work, _ *taskstore.Task) NewAgentParams {
-				return NewAgentParams{
-					Title:      "fix-login",
-					Prompt:     "go",
-					WorkflowID: workflowID,
-					Task:       work.Slug,
+					Task:       taskByID(work.ID),
 				}
 			},
 			wantTask: "work",
@@ -1541,7 +1529,7 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 					Title:      "fix-login",
 					Prompt:     "go",
 					WorkflowID: workflowID,
-					Task:       work.ID,
+					Task:       taskByID(work.ID),
 					TaskSlug:   "login",
 				}
 			},
@@ -1652,7 +1640,7 @@ func TestNewAgentClaimsItsTasksCheckout(t *testing.T) {
 					Title:      "second",
 					Prompt:     "go",
 					WorkflowID: first.WorkflowID,
-					Task:       task.ID,
+					Task:       taskByID(task.ID),
 					Dir:        dir,
 				}
 			},
@@ -1692,7 +1680,7 @@ func TestNewAgentClaimsItsTasksCheckout(t *testing.T) {
 				Title:      "writer",
 				Prompt:     "go",
 				WorkflowID: workflow.ID,
-				Task:       work.ID,
+				Task:       taskByID(work.ID),
 				Dir:        t.TempDir(),
 			})
 			require.NoError(t, err)
@@ -1730,7 +1718,7 @@ func TestRetryRecordsItsTasksCheckout(t *testing.T) {
 		Title:      "writer",
 		Prompt:     "go",
 		WorkflowID: workflow.ID,
-		Task:       work.ID,
+		Task:       taskByID(work.ID),
 		Dir:        t.TempDir(),
 	})
 	require.Error(t, err)
@@ -1884,7 +1872,7 @@ func reviewerOf(writer agentstore.Agent, title string) NewAgentParams {
 		Title:      title,
 		Prompt:     "read the change",
 		WorkflowID: writer.WorkflowID,
-		Task:       *writer.TaskID,
+		Task:       taskByID(*writer.TaskID),
 	}
 }
 

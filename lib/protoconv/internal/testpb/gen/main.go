@@ -51,7 +51,8 @@ func run(ctx context.Context) error {
 	out.P("package testparsed")
 	out.P()
 
-	generator := generate.New(out, parsedPath)
+	shared := generate.NewShared(parsedPath)
+	generator := generate.New(out, parsedPath, shared)
 	for _, file := range plugin.Files {
 		if !file.Generate {
 			continue
@@ -64,6 +65,8 @@ func run(ctx context.Context) error {
 			}
 		}
 	}
+
+	shared.Write(out)
 
 	response := plugin.Response()
 	if response.Error != nil {

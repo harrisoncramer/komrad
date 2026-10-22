@@ -78,7 +78,7 @@ func TestPlanParent(t *testing.T) {
 				Git:          &gittest.Mover{Tips: map[string]string{"task/parent": "newest"}},
 			})
 
-			planned, err := svc.PlanParent(ctx, PlanParentParams{WorkflowID: workflow.ID, Parent: "parent"})
+			planned, err := svc.PlanParent(ctx, PlanParentParams{WorkflowID: workflow.ID, Parent: taskByID(parent.ID)})
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 

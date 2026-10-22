@@ -14,9 +14,11 @@ import (
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1komrad"
+	"komrad/proto/gen/oneofs"
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -49,7 +51,7 @@ type fakeDocuments struct {
 
 type fakeDocumentsList struct {
 	AgentID *string
-	Task    *string
+	Task    oneofs.Task
 	Type    *string
 }
 
@@ -64,7 +66,7 @@ func (f *fakeDocuments) WriteDocument(_ context.Context, params documents.WriteD
 	written.AgentID = params.AgentID
 	written.Name = params.Name
 	written.Type = params.Type
-	written.Body = params.Body
+	written.Body = xptr.Deref(params.Source.Body)
 
 	return &written, nil
 }
@@ -406,7 +408,7 @@ func TestWriteDocument(t *testing.T) {
 				AgentID: alphaID,
 				Name:    "Documents",
 				Type:    "RFC",
-				Body:    "# Documents",
+				Source:  oneofs.Source{Body: xptr.Ptr("# Documents")},
 			},
 		},
 		{
@@ -424,7 +426,7 @@ func TestWriteDocument(t *testing.T) {
 				Version: xptr.Ptr(int32(2)),
 				Name:    "Findings",
 				Type:    "report",
-				Path:    "rfcs/findings.md",
+				Source:  oneofs.Source{Path: xptr.Ptr("rfcs/findings.md")},
 			},
 		},
 		{
@@ -437,10 +439,10 @@ func TestWriteDocument(t *testing.T) {
 			},
 			asNobody: true,
 			want: documents.WriteDocumentParams{
-				ID:   xptr.Ptr(documentID),
-				Name: "Findings",
-				Type: "report",
-				Body: "edited",
+				ID:     xptr.Ptr(documentID),
+				Name:   "Findings",
+				Type:   "report",
+				Source: oneofs.Source{Body: xptr.Ptr("edited")},
 			},
 		},
 		{
@@ -453,10 +455,10 @@ func TestWriteDocument(t *testing.T) {
 			},
 			asNobody: true,
 			want: documents.WriteDocumentParams{
-				For:  betaID,
-				Name: "Findings",
-				Type: "report",
-				Body: "Empty report.",
+				For:    betaID,
+				Name:   "Findings",
+				Type:   "report",
+				Source: oneofs.Source{Body: xptr.Ptr("Empty report.")},
 			},
 		},
 		{
@@ -472,7 +474,7 @@ func TestWriteDocument(t *testing.T) {
 				For:     alphaID,
 				Name:    "Documents",
 				Type:    "RFC",
-				Body:    "# Documents",
+				Source:  oneofs.Source{Body: xptr.Ptr("# Documents")},
 			},
 		},
 	}
@@ -517,8 +519,8 @@ func TestListDocuments(t *testing.T) {
 		},
 		{
 			name:       "a task narrows the listing",
-			req:        &agentv1.ListDocumentsRequest{Task: xptr.Ptr("tasks-own-work")},
-			wantListed: fakeDocumentsList{Task: xptr.Ptr("tasks-own-work")},
+			req:        &agentv1.ListDocumentsRequest{Task: &agentv1.ListDocumentsRequest_TaskId{TaskId: betaTaskID}},
+			wantListed: fakeDocumentsList{Task: oneofs.Task{TaskId: xptr.Ptr(uuid.MustParse(betaTaskID))}},
 		},
 		{
 			name:       "another agent's documents are a recorded read",

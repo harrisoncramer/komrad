@@ -13,6 +13,7 @@ import (
 	"time"
 
 	agentv1komrad "komrad/proto/gen/agent/v1/agentv1komrad"
+	"komrad/proto/gen/oneofs"
 
 	"komrad/internal/agenterr"
 	"komrad/internal/agents"
@@ -46,7 +47,10 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-const missingID = "00000000-0000-0000-0000-000000000000"
+const (
+	missingID  = "00000000-0000-0000-0000-000000000000"
+	workflowID = "01a0d1d7-0000-7000-8000-0000000000f1"
+)
 
 const komradRepository = "https://github.com/harrisoncramer/komrad"
 
@@ -131,7 +135,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "a launch that cannot start",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{Prompt: "go"}))
+				_, err := svc.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: workflowID}))
 
 				return err
 			},
@@ -233,7 +237,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "planning a rebase of a task with no worktree",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{Task: alphaID}))
+				_, err := svc.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{Task: &agentv1.PlanRebaseRequest_TaskId{TaskId: alphaID}}))
 
 				return err
 			},
@@ -243,7 +247,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "a rebase of a dirty worktree",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{Task: alphaID}))
+				_, err := svc.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{Task: &agentv1.RebaseWorktreeRequest_TaskId{TaskId: alphaID}}))
 
 				return err
 			},
@@ -253,7 +257,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "a push origin turned away because it moved on",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{Task: alphaID}))
+				_, err := svc.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{Task: &agentv1.PushWorktreeRequest_TaskId{TaskId: alphaID}}))
 
 				return err
 			},
@@ -263,7 +267,7 @@ func TestLifecycleRefusalsMapToCodes(t *testing.T) {
 		{
 			name: "an abort of a worktree with nothing in progress",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-				_, err := svc.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{Task: alphaID}))
+				_, err := svc.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{Task: &agentv1.AbortSequenceRequest_TaskId{TaskId: alphaID}}))
 
 				return err
 			},
@@ -355,6 +359,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, _ []string) (string, error) {
 				created, err := svc.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
 					Prompt:         "go",
+					WorkflowId:     workflowID,
 					IdempotencyKey: xptr.Ptr("triage:ENG-5260"),
 				}))
 				if err != nil {
@@ -377,12 +382,12 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					Title:            "audit",
 					Flags:            "--model opus",
 					ProvisionEnabled: xptr.Ptr(false),
-					WorkflowId:       "wf-1",
+					WorkflowId:       workflowID,
 					Harness:          "codex",
 					IdempotencyKey:   xptr.Ptr("triage:ENG-5260"),
-					Task:             xptr.Ptr("fix-login"),
-					TaskSlug:         xptr.Ptr("login"),
-					TaskGoal:         "Logins work.",
+					Task:             &agentv1.CreateAgentRequest_TaskSlug{TaskSlug: "fix-login"},
+					NewTaskSlug:      xptr.Ptr("login"),
+					NewTaskGoal:      "Logins work.",
 				}))
 				if err != nil {
 					return "", err
@@ -397,10 +402,10 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					Flags:            "--model opus",
 					ProvisionEnabled: xptr.Ptr(false),
 					Prompt:           "audit the migrations",
-					WorkflowID:       "wf-1",
+					WorkflowID:       workflowID,
 					Harness:          "codex",
 					IdempotencyKey:   "triage:ENG-5260",
-					Task:             "fix-login",
+					Task:             oneofs.Task{TaskSlug: xptr.Ptr("fix-login")},
 					TaskSlug:         "login",
 					TaskGoal:         "Logins work.",
 				}, services.created)
@@ -444,7 +449,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					Title:          "logo",
 					Flags:          "--model opus",
 					Harness:        "claude",
-					WorkflowId:     "wf-1",
+					WorkflowId:     workflowID,
 					IdempotencyKey: xptr.Ptr("adopt-1"),
 				}))
 				if err != nil {
@@ -460,7 +465,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 					Title:          "logo",
 					Flags:          "--model opus",
 					Prompt:         "pick it up",
-					WorkflowID:     "wf-1",
+					WorkflowID:     workflowID,
 					Harness:        "claude",
 					IdempotencyKey: "adopt-1",
 				}, services.adopted)
@@ -558,7 +563,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 		{
 			name: "starting a workflow's orchestrator",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, _ []string) (string, error) {
-				started, err := svc.StartOrchestrator(ctx, connect.NewRequest(&agentv1.StartOrchestratorRequest{WorkflowId: "wf-1"}))
+				started, err := svc.StartOrchestrator(ctx, connect.NewRequest(&agentv1.StartOrchestratorRequest{WorkflowId: workflowID}))
 				if err != nil {
 					return "", err
 				}
@@ -567,13 +572,13 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			},
 			wantAnswer: "spawned",
 			check: func(t *testing.T, services *recordingAgentServices, _ []string) {
-				assert.Equal(t, []string{"wf-1"}, services.orchestrated)
+				assert.Equal(t, []string{workflowID}, services.orchestrated)
 			},
 		},
 		{
 			name: "planning a rebase",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				planned, err := svc.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{Task: ids[0]}))
+				planned, err := svc.PlanRebase(ctx, connect.NewRequest(&agentv1.PlanRebaseRequest{Task: &agentv1.PlanRebaseRequest_TaskId{TaskId: ids[0]}}))
 				if err != nil {
 					return "", err
 				}
@@ -582,13 +587,13 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			},
 			wantAnswer: "agent/alpha onto origin/main, 2 of 3 to replay",
 			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
-				assert.Equal(t, ids[:1], services.planned)
+				assert.Equal(t, []oneofs.Task{{TaskId: xptr.Ptr(uuid.MustParse(ids[0]))}}, services.planned)
 			},
 		},
 		{
 			name: "rebasing",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				rebased, err := svc.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{Task: ids[0]}))
+				rebased, err := svc.RebaseWorktree(ctx, connect.NewRequest(&agentv1.RebaseWorktreeRequest{Task: &agentv1.RebaseWorktreeRequest_TaskId{TaskId: ids[0]}}))
 				if err != nil {
 					return "", err
 				}
@@ -597,13 +602,13 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			},
 			wantAnswer: "agent/alpha onto origin/main, conflicted true",
 			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
-				assert.Equal(t, ids[:1], services.rebased)
+				assert.Equal(t, []oneofs.Task{{TaskId: xptr.Ptr(uuid.MustParse(ids[0]))}}, services.rebased)
 			},
 		},
 		{
 			name: "planning a push",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				planned, err := svc.PlanPush(ctx, connect.NewRequest(&agentv1.PlanPushRequest{Task: ids[0]}))
+				planned, err := svc.PlanPush(ctx, connect.NewRequest(&agentv1.PlanPushRequest{Task: &agentv1.PlanPushRequest_TaskId{TaskId: ids[0]}}))
 				if err != nil {
 					return "", err
 				}
@@ -612,13 +617,13 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			},
 			wantAnswer: "agent/alpha, 2 up, forced true, 1 left behind",
 			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
-				assert.Equal(t, ids[:1], services.pushPlanned)
+				assert.Equal(t, []oneofs.Task{{TaskId: xptr.Ptr(uuid.MustParse(ids[0]))}}, services.pushPlanned)
 			},
 		},
 		{
 			name: "pushing",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				pushed, err := svc.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{Task: ids[0]}))
+				pushed, err := svc.PushWorktree(ctx, connect.NewRequest(&agentv1.PushWorktreeRequest{Task: &agentv1.PushWorktreeRequest_TaskId{TaskId: ids[0]}}))
 				if err != nil {
 					return "", err
 				}
@@ -627,13 +632,13 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			},
 			wantAnswer: "agent/alpha at pushedsha, forced true",
 			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
-				assert.Equal(t, ids[:1], services.pushed)
+				assert.Equal(t, []oneofs.Task{{TaskId: xptr.Ptr(uuid.MustParse(ids[0]))}}, services.pushed)
 			},
 		},
 		{
 			name: "aborting",
 			call: func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter, ids []string) (string, error) {
-				aborted, err := svc.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{Task: ids[0]}))
+				aborted, err := svc.AbortSequence(ctx, connect.NewRequest(&agentv1.AbortSequenceRequest{Task: &agentv1.AbortSequenceRequest_TaskId{TaskId: ids[0]}}))
 				if err != nil {
 					return "", err
 				}
@@ -642,7 +647,7 @@ func TestLifecycleRequestsReachTheServices(t *testing.T) {
 			},
 			wantAnswer: "SEQUENCE_CHERRY_PICK on agent/alpha, parked at refs/komrad/aborted/alpha/1",
 			check: func(t *testing.T, services *recordingAgentServices, ids []string) {
-				assert.Equal(t, ids[:1], services.aborted)
+				assert.Equal(t, []oneofs.Task{{TaskId: xptr.Ptr(uuid.MustParse(ids[0]))}}, services.aborted)
 			},
 		},
 		{
@@ -864,7 +869,7 @@ func TestAdoptAnswersWithTheAgentAlreadyOnTheBranch(t *testing.T) {
 
 	adopted, err := svc.Adopt(t.Context(), connect.NewRequest(&agentv1.AdoptRequest{
 		Ref:        "someones/work",
-		WorkflowId: "wf-1",
+		WorkflowId: workflowID,
 	}))
 	require.NoError(t, err)
 
@@ -1012,7 +1017,7 @@ func TestGetAgent(t *testing.T) {
 					Prompt:     prompt,
 					State:      agentstore.StateThinking,
 					CreatedAt:  created,
-					WorkflowID: "wf-1",
+					WorkflowID: workflowID,
 					TaskID:     xptr.Ptr("task-1"),
 				},
 				FailedRun:    true,
@@ -1049,7 +1054,7 @@ func TestGetAgent(t *testing.T) {
 					ReleasedAt:      xptr.Ptr(created),
 				},
 			},
-			Workflows: []workflowstore.Workflow{{ID: "wf-1"}},
+			Workflows: []workflowstore.Workflow{{ID: workflowID}},
 			Tasks: []taskstore.Task{{
 				ID: "task-1",
 				Checkout: taskstore.Checkout{
@@ -1223,11 +1228,11 @@ type recordingAgentServices struct {
 	resumed       []agents.ResumeAgentParams
 	restarted     []agents.RestartAgentParams
 	orchestrated  []string
-	planned       []string
-	rebased       []string
-	pushPlanned   []string
-	pushed        []string
-	aborted       []string
+	planned       []oneofs.Task
+	rebased       []oneofs.Task
+	pushPlanned   []oneofs.Task
+	pushed        []oneofs.Task
+	aborted       []oneofs.Task
 	archived      []agents.ArchiveAgentsParams
 	restored      []string
 	runsRead      []string
@@ -1333,7 +1338,7 @@ func (f *recordingAgentServices) Rebase(_ context.Context, params checkouts.Reba
 	}, nil
 }
 
-func (f *recordingAgentServices) PlanPush(_ context.Context, task string) (*checkouts.PushPlan, error) {
+func (f *recordingAgentServices) PlanPush(_ context.Context, task oneofs.Task) (*checkouts.PushPlan, error) {
 	f.pushPlanned = append(f.pushPlanned, task)
 	if f.err != nil {
 		return nil, f.err
@@ -1347,7 +1352,7 @@ func (f *recordingAgentServices) PlanPush(_ context.Context, task string) (*chec
 	}, nil
 }
 
-func (f *recordingAgentServices) Push(_ context.Context, task string) (*checkouts.PushResult, error) {
+func (f *recordingAgentServices) Push(_ context.Context, task oneofs.Task) (*checkouts.PushResult, error) {
 	f.pushed = append(f.pushed, task)
 	if f.err != nil {
 		return nil, f.err
@@ -1411,7 +1416,7 @@ func (f *recordingAgentServices) ClaimTurnEndNudge(_ context.Context, agentID st
 func adoptMain(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
 	_, err := svc.Adopt(ctx, connect.NewRequest(&agentv1.AdoptRequest{
 		Ref:        "main",
-		WorkflowId: "wf-1",
+		WorkflowId: workflowID,
 	}))
 
 	return err
@@ -1465,11 +1470,11 @@ func TestCreateAgentValidation(t *testing.T) {
 	}{
 		{
 			name: "a prompt and a workflow are enough",
-			req:  &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: "wf-1"},
+			req:  &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: workflowID},
 		},
 		{
 			name:    "no prompt",
-			req:     &agentv1.CreateAgentRequest{WorkflowId: "wf-1"},
+			req:     &agentv1.CreateAgentRequest{WorkflowId: workflowID},
 			wantErr: true,
 		},
 		{
@@ -1481,7 +1486,7 @@ func TestCreateAgentValidation(t *testing.T) {
 			name: "flags carrying a shell metacharacter are refused rather than quoted and run",
 			req: &agentv1.CreateAgentRequest{
 				Prompt:     "go",
-				WorkflowId: "wf-1",
+				WorkflowId: workflowID,
 				Flags:      "--model opus; rm -rf /",
 			},
 			wantErr: true,
@@ -1622,7 +1627,7 @@ func validatedClient(t *testing.T) (agentv1connect.AgentServiceClient, *recordin
 	return agentv1connect.NewAgentServiceClient(server.Client(), server.URL), services
 }
 
-func (f *recordingAgentServices) Abort(_ context.Context, task string) (*checkouts.AbortResult, error) {
+func (f *recordingAgentServices) Abort(_ context.Context, task oneofs.Task) (*checkouts.AbortResult, error) {
 	f.aborted = append(f.aborted, task)
 	if f.err != nil {
 		return nil, f.err

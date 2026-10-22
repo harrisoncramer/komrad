@@ -9,6 +9,7 @@ import (
 	viewv1 "komrad/proto/gen/view/v1"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -29,7 +30,7 @@ func TestValidationRefusesControlCharacters(t *testing.T) {
 			req: connect.NewRequest(&agentv1.CreateAgentRequest{
 				Prompt:     "go",
 				Title:      "nightly\treview",
-				WorkflowId: "w1",
+				WorkflowId: uuid.NewString(),
 			}),
 			wantErr: true,
 		},
@@ -39,18 +40,18 @@ func TestValidationRefusesControlCharacters(t *testing.T) {
 				Name:   "nightly\treview",
 				Cron:   "0 9 * * *",
 				Prompt: "go",
-				Target: &schedulev1.CreateScheduleRequest_WorkflowId{WorkflowId: "w1"},
+				Target: &schedulev1.CreateScheduleRequest_WorkflowId{WorkflowId: uuid.NewString()},
 			}),
 			wantErr: true,
 		},
 		{
 			name: "renaming a schedule to a name carrying a delete is refused",
 			req: connect.NewRequest(&schedulev1.UpdateScheduleRequest{
-				Id:     "s1",
+				Id:     uuid.NewString(),
 				Name:   "nightly\x7freview",
 				Cron:   "0 9 * * *",
 				Prompt: "go",
-				Target: &schedulev1.UpdateScheduleRequest_WorkflowId{WorkflowId: "w1"},
+				Target: &schedulev1.UpdateScheduleRequest_WorkflowId{WorkflowId: uuid.NewString()},
 			}),
 			wantErr: true,
 		},
@@ -60,7 +61,7 @@ func TestValidationRefusesControlCharacters(t *testing.T) {
 				Name:   "nightly review",
 				Cron:   "0 9 * * *",
 				Prompt: "go",
-				Target: &schedulev1.CreateScheduleRequest_WorkflowId{WorkflowId: "w1"},
+				Target: &schedulev1.CreateScheduleRequest_WorkflowId{WorkflowId: uuid.NewString()},
 			}),
 		},
 		{
@@ -78,7 +79,7 @@ func TestValidationRefusesControlCharacters(t *testing.T) {
 				Name:   "nightly review",
 				Cron:   "0 9 * * *",
 				Prompt: "go",
-				Target: &schedulev1.CreateScheduleRequest_OrchestratorAgentId{OrchestratorAgentId: "o1"},
+				Target: &schedulev1.CreateScheduleRequest_OrchestratorAgentId{OrchestratorAgentId: uuid.NewString()},
 			}),
 		},
 	}
@@ -181,6 +182,6 @@ func TestValidationRefusesAStreamsBadRequest(t *testing.T) {
 	require.NoError(t, interceptor.WrapStreamingHandler(next)(t.Context(), receivingConn{message: &agentv1.GetAgentRequest{}}))
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(received), "an empty id is refused as it is read")
 
-	require.NoError(t, interceptor.WrapStreamingHandler(next)(t.Context(), receivingConn{message: &agentv1.GetAgentRequest{Id: "a1"}}))
+	require.NoError(t, interceptor.WrapStreamingHandler(next)(t.Context(), receivingConn{message: &agentv1.GetAgentRequest{Id: uuid.NewString()}}))
 	require.NoError(t, received)
 }

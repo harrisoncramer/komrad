@@ -64,7 +64,7 @@ message ReadAgentLogsRequest {
     min_items: 1
     max_items: 100
     items: {
-      string: {min_len: 1}
+      string: {uuid: true}
     }
   }];
   // The `cursor` from the previous response. Empty reads the newest lines.
@@ -111,7 +111,7 @@ message LogSource {
 
 message ListAgentLogSourcesRequest {
   // The agent whose log sources to list, by id.
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  string agent_id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message ListAgentLogSourcesResponse {
@@ -121,7 +121,7 @@ message ListAgentLogSourcesResponse {
 
 message ListTaskLogSourcesRequest {
   // The task whose log sources to list, by id.
-  string task_id = 1 [(buf.validate.field).string.min_len = 1];
+  string task_id = 1 [(buf.validate.field).string.uuid = true];
 }
 
 message ListTaskLogSourcesResponse {

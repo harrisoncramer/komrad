@@ -34,7 +34,7 @@ func TestACommentGoesToTheWriterAtOnce(t *testing.T) {
 	assert.Equal(t, &rung[0].ID, written.Messages[0].MailID)
 
 	assert.Nil(t, written.Thread.ReviewID)
-	listed, err := fx.service.ListReviews(t.Context(), *fx.writer.TaskID, personAuthor)
+	listed, err := fx.service.ListReviews(t.Context(), taskByID(*fx.writer.TaskID), personAuthor)
 	require.NoError(t, err)
 	assert.Empty(t, listed)
 }
@@ -64,7 +64,7 @@ func TestAFailedSendLeavesNoComment(t *testing.T) {
 	})
 
 	_, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-		Task:     *fx.writer.TaskID,
+		Task:     taskByID(*fx.writer.TaskID),
 		FilePath: "greet.go",
 		Body:     "this needs a nil check",
 		Author:   personAuthor,
@@ -72,7 +72,7 @@ func TestAFailedSendLeavesNoComment(t *testing.T) {
 	require.Error(t, err)
 
 	threads, err := fx.service.ListReviewThreads(t.Context(), ListReviewThreadsParams{
-		Task:   *fx.writer.TaskID,
+		Task:   taskByID(*fx.writer.TaskID),
 		Author: personAuthor,
 	})
 	require.NoError(t, err)
@@ -96,7 +96,7 @@ func TestARemarkOnTheWholeChange(t *testing.T) {
 	fx := newReviewFixture(t)
 
 	written, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-		Task:   *fx.writer.TaskID,
+		Task:   taskByID(*fx.writer.TaskID),
 		Body:   "this whole change needs a rethink",
 		Author: personAuthor,
 	})
@@ -189,7 +189,7 @@ func TestReadMail(t *testing.T) {
 			assert.Len(t, claimed, tt.wantClaimed)
 
 			threads, err := fx.service.ListReviewThreads(t.Context(), ListReviewThreadsParams{
-				Task:   *fx.writer.TaskID,
+				Task:   taskByID(*fx.writer.TaskID),
 				Author: personAuthor,
 			})
 			require.NoError(t, err)

@@ -15,6 +15,7 @@ import (
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
+	"komrad/proto/gen/oneofs"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -42,9 +43,9 @@ type eventRecorder interface {
 	InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error
 }
 
-// taskFinder reads a task by id or by slug.
+// taskFinder reads the task a caller named by its id or by its slug.
 type taskFinder interface {
-	GetTask(ctx context.Context, ref string) (*taskstore.Task, error)
+	FindTask(ctx context.Context, task oneofs.Task) (*taskstore.Task, error)
 }
 
 // ReviewAuthor is who a call is, taken from the calling identity: the panel names no agent and
@@ -118,8 +119,8 @@ func NewReviewService(params NewReviewServiceParams) *ReviewService {
 
 // ListReviewThreadsParams says which task's diff to read the conversations of, and as whom.
 type ListReviewThreadsParams struct {
-	// Task is the task by id or by slug, empty for the caller's own.
-	Task   string
+	// Task names the task, left empty for the caller's own.
+	Task   oneofs.Task
 	Author ReviewAuthor
 }
 
@@ -216,9 +217,8 @@ func isReadableBy(message reviewstore.Message, author ReviewAuthor) bool {
 
 // CreateReviewThreadParams is the place a new conversation is pinned to and what it says.
 type CreateReviewThreadParams struct {
-	// Task is the task whose diff the thread is pinned to, by id or by slug, empty for the
-	// caller's own.
-	Task string
+	// Task names the task whose diff the thread is pinned to, left empty for the caller's own.
+	Task oneofs.Task
 	// SnapshotID is the snapshot the anchor's line numbers were measured in, empty for a caller that
 	// leaves the snapshot to be worked out from the commit it names.
 	SnapshotID string
@@ -544,8 +544,8 @@ func (s *ReviewService) SetReviewThreadResolved(
 
 // SetReviewFileViewedParams names one file of a task's diff to mark read or unread.
 type SetReviewFileViewedParams struct {
-	// Task is the task by id or by slug.
-	Task        string
+	// Task names the task.
+	Task        oneofs.Task
 	FilePath    string
 	Fingerprint string
 	Viewed      bool
@@ -580,8 +580,8 @@ func (s *ReviewService) SetReviewFileViewed(
 
 // ListReviewViewedFilesParams names the task whose read files are wanted.
 type ListReviewViewedFilesParams struct {
-	// Task is the task by id or by slug.
-	Task   string
+	// Task names the task.
+	Task   oneofs.Task
 	Author ReviewAuthor
 }
 

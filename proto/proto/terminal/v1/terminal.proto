@@ -70,7 +70,7 @@ message ShellResponse {
 // OpenAttach opens an attach stream.
 message OpenAttach {
   // The agent to attach to, by id. The agent must be live with a pane.
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  string agent_id = 1 [(buf.validate.field).string.uuid = true];
   // The terminal's starting size.
   Size size = 2 [(buf.validate.field).required = true];
   // The terminal type tmux is given. Empty for `xterm-256color`.

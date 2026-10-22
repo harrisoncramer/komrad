@@ -19,7 +19,7 @@ wait_turn() {
 }
 
 workflow="$(komrad rpc create-workflow --name neovim --cwd "$HOME/neovim" --worktree.enabled --flags "--model haiku" --compact | jq -r '.workflow.id')"
-agent="$(komrad rpc create-agent --workflow-id "$workflow" --title text-truncate --task-slug text-truncate \
+agent="$(komrad rpc create-agent --workflow-id "$workflow" --title text-truncate --new-task-slug text-truncate \
 	--prompt "Reply with the single word ready, then wait. Leave any mail you are sent unread and do nothing else." \
 	--compact | jq -r '.agent.id')"
 wait_turn "$agent"

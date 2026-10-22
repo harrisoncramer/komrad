@@ -22,6 +22,12 @@ import (
 	runstore "komrad/internal/store/run"
 )
 
+const (
+	agentID      = "01a11e6f-0000-7000-8000-0000000000a1"
+	otherAgentID = "01a11e6f-0000-7000-8000-0000000000a2"
+	taskID       = "01a11e6f-0000-7000-8000-0000000000f1"
+)
+
 type fakeLogReader struct {
 	lines     []logread.Line
 	summaries []logread.Summary
@@ -185,20 +191,20 @@ func TestReadAgentLogs(t *testing.T) {
 	}{
 		{
 			name:     "a cursor this server never answered",
-			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Cursor: "later"},
+			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{agentID}, Cursor: "later"},
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
 			name:     "a cursor before the start of the log",
-			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Cursor: "-1"},
+			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{agentID}, Cursor: "-1"},
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
 			name:   "no cursor reads the newest, two hundred by default",
-			req:    &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1", "b2"}},
+			req:    &logv1.ReadAgentLogsRequest{AgentIds: []string{agentID, otherAgentID}},
 			window: &logread.Window{Lines: []string{"one", "two"}, Offset: 42},
 			wantRead: agentRead{
-				ids:    []string{"a1", "b2"},
+				ids:    []string{agentID, otherAgentID},
 				offset: -1,
 				limit:  200,
 			},
@@ -207,7 +213,7 @@ func TestReadAgentLogs(t *testing.T) {
 		{
 			name: "a cursor reads from where it left off",
 			req: &logv1.ReadAgentLogsRequest{
-				AgentIds: []string{"a1"},
+				AgentIds: []string{agentID},
 				Cursor:   "42",
 				Limit:    5,
 			},
@@ -217,7 +223,7 @@ func TestReadAgentLogs(t *testing.T) {
 				More:   true,
 			},
 			wantRead: agentRead{
-				ids:    []string{"a1"},
+				ids:    []string{agentID},
 				offset: 42,
 				limit:  5,
 			},
@@ -229,14 +235,14 @@ func TestReadAgentLogs(t *testing.T) {
 		},
 		{
 			name: "a log that started over says so",
-			req:  &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Cursor: "900"},
+			req:  &logv1.ReadAgentLogsRequest{AgentIds: []string{agentID}, Cursor: "900"},
 			window: &logread.Window{
 				Lines:  []string{"one"},
 				Offset: 10,
 				Reset:  true,
 			},
 			wantRead: agentRead{
-				ids:    []string{"a1"},
+				ids:    []string{agentID},
 				offset: 900,
 				limit:  200,
 			},
@@ -248,15 +254,15 @@ func TestReadAgentLogs(t *testing.T) {
 		},
 		{
 			name:     "a run's source asked of two agents",
-			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1", "b2"}, Source: "001-agent.provision-setup.log"},
+			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{agentID, otherAgentID}, Source: "001-agent.provision-setup.log"},
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
 			name:   "the server source reads the server log",
-			req:    &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Source: "server"},
+			req:    &logv1.ReadAgentLogsRequest{AgentIds: []string{agentID}, Source: "server"},
 			window: &logread.Window{Lines: []string{"one"}, Offset: 42},
 			wantRead: agentRead{
-				ids:    []string{"a1"},
+				ids:    []string{agentID},
 				offset: -1,
 				limit:  200,
 			},
@@ -264,10 +270,10 @@ func TestReadAgentLogs(t *testing.T) {
 		},
 		{
 			name:   "a run's source reads the newest of that run",
-			req:    &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Source: "001-agent.provision-setup.log"},
+			req:    &logv1.ReadAgentLogsRequest{AgentIds: []string{agentID}, Source: "001-agent.provision-setup.log"},
 			window: &logread.Window{Lines: []string{"+ mise trust"}, Offset: 13},
 			wantRead: agentRead{
-				ids:    []string{"a1"},
+				ids:    []string{agentID},
 				source: "001-agent.provision-setup.log",
 				offset: -1,
 				limit:  200,
@@ -277,13 +283,13 @@ func TestReadAgentLogs(t *testing.T) {
 		{
 			name: "a run's source reads from its cursor",
 			req: &logv1.ReadAgentLogsRequest{
-				AgentIds: []string{"a1"},
+				AgentIds: []string{agentID},
 				Source:   "001-agent.provision-setup.log",
 				Cursor:   "13",
 			},
 			window: &logread.Window{Lines: []string{"+ mise install"}, Offset: 28},
 			wantRead: agentRead{
-				ids:    []string{"a1"},
+				ids:    []string{agentID},
 				source: "001-agent.provision-setup.log",
 				offset: 13,
 				limit:  200,
@@ -292,19 +298,19 @@ func TestReadAgentLogs(t *testing.T) {
 		},
 		{
 			name:     "a pattern that does not compile",
-			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{"a1"}, Pattern: "error("},
+			req:      &logv1.ReadAgentLogsRequest{AgentIds: []string{agentID}, Pattern: "error("},
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
 			name: "a pattern narrows the server log from its cursor",
 			req: &logv1.ReadAgentLogsRequest{
-				AgentIds: []string{"a1"},
+				AgentIds: []string{agentID},
 				Cursor:   "42",
 				Pattern:  "(?i)error",
 			},
 			window: &logread.Window{Lines: []string{"ERROR one"}, Offset: 90},
 			wantRead: agentRead{
-				ids:     []string{"a1"},
+				ids:     []string{agentID},
 				pattern: "(?i)error",
 				offset:  42,
 				limit:   200,
@@ -314,13 +320,13 @@ func TestReadAgentLogs(t *testing.T) {
 		{
 			name: "a pattern narrows a run's source",
 			req: &logv1.ReadAgentLogsRequest{
-				AgentIds: []string{"a1"},
+				AgentIds: []string{agentID},
 				Source:   "001-agent.provision-setup.log",
 				Pattern:  "mise",
 			},
 			window: &logread.Window{Lines: []string{"+ mise trust"}, Offset: 13},
 			wantRead: agentRead{
-				ids:     []string{"a1"},
+				ids:     []string{agentID},
 				source:  "001-agent.provision-setup.log",
 				pattern: "mise",
 				offset:  -1,
@@ -375,7 +381,7 @@ func TestListAgentLogSources(t *testing.T) {
 	}}
 	service := logv1komrad.LogServiceAdapter{Impl: NewHandler(reader, reader, reader)}
 
-	resp, err := service.ListAgentLogSources(t.Context(), connect.NewRequest(&logv1.ListAgentLogSourcesRequest{AgentId: "a1"}))
+	resp, err := service.ListAgentLogSources(t.Context(), connect.NewRequest(&logv1.ListAgentLogSourcesRequest{AgentId: agentID}))
 	require.NoError(t, err)
 
 	want := &logv1.ListAgentLogSourcesResponse{Sources: []*logv1.LogSource{
@@ -385,14 +391,14 @@ func TestListAgentLogSources(t *testing.T) {
 			Run:     xptr.Ptr[int32](2),
 			Trigger: "agent.pre-launch",
 			Script:  "setup",
-			AgentId: "a1",
+			AgentId: agentID,
 		},
 		{
 			Id:      "001-agent.provision-_worktree_setup.log",
 			Run:     xptr.Ptr[int32](1),
 			Trigger: "agent.provision",
 			Script:  "_worktree_setup",
-			AgentId: "a1",
+			AgentId: agentID,
 		},
 	}}
 	assert.Empty(t, cmp.Diff(want, resp.Msg, protocmp.Transform()))
@@ -417,19 +423,19 @@ func TestListTaskLogSources(t *testing.T) {
 			name: "every run on the task is listed under the agent that ran it, a failed one marked",
 			runs: []runstore.Run{
 				{
-					AgentID:   "a2",
+					AgentID:   otherAgentID,
 					Trigger:   "agent.pre-launch",
 					Script:    "setup",
 					LogNumber: xptr.Ptr[int32](4),
 					Failure:   "exit status 1",
 				},
 				{
-					AgentID: "a1",
+					AgentID: agentID,
 					Trigger: "task.pre-open",
 					Script:  "unlogged",
 				},
 				{
-					AgentID:   "a1",
+					AgentID:   agentID,
 					Trigger:   "task.pre-open",
 					Script:    "setup",
 					LogNumber: xptr.Ptr[int32](7),
@@ -441,7 +447,7 @@ func TestListTaskLogSources(t *testing.T) {
 					Run:     xptr.Ptr[int32](4),
 					Trigger: "agent.pre-launch",
 					Script:  "setup",
-					AgentId: "a2",
+					AgentId: otherAgentID,
 					Failed:  true,
 				},
 				{
@@ -449,7 +455,7 @@ func TestListTaskLogSources(t *testing.T) {
 					Run:     xptr.Ptr[int32](7),
 					Trigger: "task.pre-open",
 					Script:  "setup",
-					AgentId: "a1",
+					AgentId: agentID,
 				},
 			},
 		},
@@ -463,7 +469,7 @@ func TestListTaskLogSources(t *testing.T) {
 			}
 			service := logv1komrad.LogServiceAdapter{Impl: NewHandler(reader, reader, reader)}
 
-			resp, err := service.ListTaskLogSources(t.Context(), connect.NewRequest(&logv1.ListTaskLogSourcesRequest{TaskId: "t1"}))
+			resp, err := service.ListTaskLogSources(t.Context(), connect.NewRequest(&logv1.ListTaskLogSourcesRequest{TaskId: taskID}))
 			if tt.wantCode != 0 {
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
 

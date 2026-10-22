@@ -1148,8 +1148,13 @@ func (x *ForgeOrigin) GetEditedAt() string {
 
 type ListReviewThreadsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task whose threads to list, by id or slug. Unset uses the caller's own task.
-	Task          *string `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
+	// The task whose threads to list. Unset uses the caller's own task.
+	//
+	// Types that are valid to be assigned to Task:
+	//
+	//	*ListReviewThreadsRequest_TaskId
+	//	*ListReviewThreadsRequest_TaskSlug
+	Task          isListReviewThreadsRequest_Task `protobuf_oneof:"task"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1184,12 +1189,48 @@ func (*ListReviewThreadsRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *ListReviewThreadsRequest) GetTask() string {
-	if x != nil && x.Task != nil {
-		return *x.Task
+func (x *ListReviewThreadsRequest) GetTask() isListReviewThreadsRequest_Task {
+	if x != nil {
+		return x.Task
+	}
+	return nil
+}
+
+func (x *ListReviewThreadsRequest) GetTaskId() string {
+	if x != nil {
+		if x, ok := x.Task.(*ListReviewThreadsRequest_TaskId); ok {
+			return x.TaskId
+		}
 	}
 	return ""
 }
+
+func (x *ListReviewThreadsRequest) GetTaskSlug() string {
+	if x != nil {
+		if x, ok := x.Task.(*ListReviewThreadsRequest_TaskSlug); ok {
+			return x.TaskSlug
+		}
+	}
+	return ""
+}
+
+type isListReviewThreadsRequest_Task interface {
+	isListReviewThreadsRequest_Task()
+}
+
+type ListReviewThreadsRequest_TaskId struct {
+	// The task, by id.
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3,oneof"`
+}
+
+type ListReviewThreadsRequest_TaskSlug struct {
+	// The task, by slug.
+	TaskSlug string `protobuf:"bytes,2,opt,name=task_slug,json=taskSlug,proto3,oneof"`
+}
+
+func (*ListReviewThreadsRequest_TaskId) isListReviewThreadsRequest_Task() {}
+
+func (*ListReviewThreadsRequest_TaskSlug) isListReviewThreadsRequest_Task() {}
 
 type ListReviewThreadsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1238,8 +1279,13 @@ func (x *ListReviewThreadsResponse) GetThreads() []*ReviewThread {
 
 type CreateReviewThreadRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task whose diff to comment on, by id or slug. Unset uses the caller's own task.
-	Task *string `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
+	// The task whose diff to comment on. Unset uses the caller's own task.
+	//
+	// Types that are valid to be assigned to Task:
+	//
+	//	*CreateReviewThreadRequest_TaskId
+	//	*CreateReviewThreadRequest_TaskSlug
+	Task isCreateReviewThreadRequest_Task `protobuf_oneof:"task"`
 	// The file's path, relative to the checkout. Empty for a comment on the change as a whole, with
 	// no lines.
 	FilePath string `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
@@ -1295,9 +1341,27 @@ func (*CreateReviewThreadRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *CreateReviewThreadRequest) GetTask() string {
-	if x != nil && x.Task != nil {
-		return *x.Task
+func (x *CreateReviewThreadRequest) GetTask() isCreateReviewThreadRequest_Task {
+	if x != nil {
+		return x.Task
+	}
+	return nil
+}
+
+func (x *CreateReviewThreadRequest) GetTaskId() string {
+	if x != nil {
+		if x, ok := x.Task.(*CreateReviewThreadRequest_TaskId); ok {
+			return x.TaskId
+		}
+	}
+	return ""
+}
+
+func (x *CreateReviewThreadRequest) GetTaskSlug() string {
+	if x != nil {
+		if x, ok := x.Task.(*CreateReviewThreadRequest_TaskSlug); ok {
+			return x.TaskSlug
+		}
 	}
 	return ""
 }
@@ -1371,6 +1435,24 @@ func (x *CreateReviewThreadRequest) GetSuggestion() []string {
 	}
 	return nil
 }
+
+type isCreateReviewThreadRequest_Task interface {
+	isCreateReviewThreadRequest_Task()
+}
+
+type CreateReviewThreadRequest_TaskId struct {
+	// The task, by id.
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3,oneof"`
+}
+
+type CreateReviewThreadRequest_TaskSlug struct {
+	// The task, by slug.
+	TaskSlug string `protobuf:"bytes,12,opt,name=task_slug,json=taskSlug,proto3,oneof"`
+}
+
+func (*CreateReviewThreadRequest_TaskId) isCreateReviewThreadRequest_Task() {}
+
+func (*CreateReviewThreadRequest_TaskSlug) isCreateReviewThreadRequest_Task() {}
 
 type CreateReviewThreadResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1937,8 +2019,13 @@ func (x *SetReviewThreadResolvedResponse) GetThread() *ReviewThread {
 // changed since the newest snapshot, the call returns that snapshot.
 type TakeReviewSnapshotRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task whose worktree to save, by id or slug. Unset uses the caller's own task.
-	Task          *string `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
+	// The task whose worktree to save. Unset uses the caller's own task.
+	//
+	// Types that are valid to be assigned to Task:
+	//
+	//	*TakeReviewSnapshotRequest_TaskId
+	//	*TakeReviewSnapshotRequest_TaskSlug
+	Task          isTakeReviewSnapshotRequest_Task `protobuf_oneof:"task"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1973,12 +2060,48 @@ func (*TakeReviewSnapshotRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{20}
 }
 
-func (x *TakeReviewSnapshotRequest) GetTask() string {
-	if x != nil && x.Task != nil {
-		return *x.Task
+func (x *TakeReviewSnapshotRequest) GetTask() isTakeReviewSnapshotRequest_Task {
+	if x != nil {
+		return x.Task
+	}
+	return nil
+}
+
+func (x *TakeReviewSnapshotRequest) GetTaskId() string {
+	if x != nil {
+		if x, ok := x.Task.(*TakeReviewSnapshotRequest_TaskId); ok {
+			return x.TaskId
+		}
 	}
 	return ""
 }
+
+func (x *TakeReviewSnapshotRequest) GetTaskSlug() string {
+	if x != nil {
+		if x, ok := x.Task.(*TakeReviewSnapshotRequest_TaskSlug); ok {
+			return x.TaskSlug
+		}
+	}
+	return ""
+}
+
+type isTakeReviewSnapshotRequest_Task interface {
+	isTakeReviewSnapshotRequest_Task()
+}
+
+type TakeReviewSnapshotRequest_TaskId struct {
+	// The task, by id.
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3,oneof"`
+}
+
+type TakeReviewSnapshotRequest_TaskSlug struct {
+	// The task, by slug.
+	TaskSlug string `protobuf:"bytes,2,opt,name=task_slug,json=taskSlug,proto3,oneof"`
+}
+
+func (*TakeReviewSnapshotRequest_TaskId) isTakeReviewSnapshotRequest_Task() {}
+
+func (*TakeReviewSnapshotRequest_TaskSlug) isTakeReviewSnapshotRequest_Task() {}
 
 type TakeReviewSnapshotResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -2027,8 +2150,13 @@ func (x *TakeReviewSnapshotResponse) GetSnapshot() *ReviewSnapshot {
 
 type ListReviewSnapshotsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task whose snapshots to list, by id or slug. Unset uses the caller's own task.
-	Task          *string `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
+	// The task whose snapshots to list. Unset uses the caller's own task.
+	//
+	// Types that are valid to be assigned to Task:
+	//
+	//	*ListReviewSnapshotsRequest_TaskId
+	//	*ListReviewSnapshotsRequest_TaskSlug
+	Task          isListReviewSnapshotsRequest_Task `protobuf_oneof:"task"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2063,12 +2191,48 @@ func (*ListReviewSnapshotsRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{22}
 }
 
-func (x *ListReviewSnapshotsRequest) GetTask() string {
-	if x != nil && x.Task != nil {
-		return *x.Task
+func (x *ListReviewSnapshotsRequest) GetTask() isListReviewSnapshotsRequest_Task {
+	if x != nil {
+		return x.Task
+	}
+	return nil
+}
+
+func (x *ListReviewSnapshotsRequest) GetTaskId() string {
+	if x != nil {
+		if x, ok := x.Task.(*ListReviewSnapshotsRequest_TaskId); ok {
+			return x.TaskId
+		}
 	}
 	return ""
 }
+
+func (x *ListReviewSnapshotsRequest) GetTaskSlug() string {
+	if x != nil {
+		if x, ok := x.Task.(*ListReviewSnapshotsRequest_TaskSlug); ok {
+			return x.TaskSlug
+		}
+	}
+	return ""
+}
+
+type isListReviewSnapshotsRequest_Task interface {
+	isListReviewSnapshotsRequest_Task()
+}
+
+type ListReviewSnapshotsRequest_TaskId struct {
+	// The task, by id.
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3,oneof"`
+}
+
+type ListReviewSnapshotsRequest_TaskSlug struct {
+	// The task, by slug.
+	TaskSlug string `protobuf:"bytes,2,opt,name=task_slug,json=taskSlug,proto3,oneof"`
+}
+
+func (*ListReviewSnapshotsRequest_TaskId) isListReviewSnapshotsRequest_Task() {}
+
+func (*ListReviewSnapshotsRequest_TaskSlug) isListReviewSnapshotsRequest_Task() {}
 
 type ListReviewSnapshotsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -2117,8 +2281,13 @@ func (x *ListReviewSnapshotsResponse) GetSnapshots() []*ReviewSnapshot {
 
 type OpenReviewHistoryRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task whose review history to open, by id or slug.
-	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
+	// The task whose review history to open.
+	//
+	// Types that are valid to be assigned to Task:
+	//
+	//	*OpenReviewHistoryRequest_TaskId
+	//	*OpenReviewHistoryRequest_TaskSlug
+	Task isOpenReviewHistoryRequest_Task `protobuf_oneof:"task"`
 	// The part of the work to diff. Unset diffs the whole change.
 	//
 	// Types that are valid to be assigned to Span:
@@ -2161,9 +2330,27 @@ func (*OpenReviewHistoryRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{24}
 }
 
-func (x *OpenReviewHistoryRequest) GetTask() string {
+func (x *OpenReviewHistoryRequest) GetTask() isOpenReviewHistoryRequest_Task {
 	if x != nil {
 		return x.Task
+	}
+	return nil
+}
+
+func (x *OpenReviewHistoryRequest) GetTaskId() string {
+	if x != nil {
+		if x, ok := x.Task.(*OpenReviewHistoryRequest_TaskId); ok {
+			return x.TaskId
+		}
+	}
+	return ""
+}
+
+func (x *OpenReviewHistoryRequest) GetTaskSlug() string {
+	if x != nil {
+		if x, ok := x.Task.(*OpenReviewHistoryRequest_TaskSlug); ok {
+			return x.TaskSlug
+		}
 	}
 	return ""
 }
@@ -2201,6 +2388,24 @@ func (x *OpenReviewHistoryRequest) GetOrigin() *ReviewOriginSpan {
 	}
 	return nil
 }
+
+type isOpenReviewHistoryRequest_Task interface {
+	isOpenReviewHistoryRequest_Task()
+}
+
+type OpenReviewHistoryRequest_TaskId struct {
+	// The task, by id.
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3,oneof"`
+}
+
+type OpenReviewHistoryRequest_TaskSlug struct {
+	// The task, by slug.
+	TaskSlug string `protobuf:"bytes,7,opt,name=task_slug,json=taskSlug,proto3,oneof"`
+}
+
+func (*OpenReviewHistoryRequest_TaskId) isOpenReviewHistoryRequest_Task() {}
+
+func (*OpenReviewHistoryRequest_TaskSlug) isOpenReviewHistoryRequest_Task() {}
 
 type isOpenReviewHistoryRequest_Span interface {
 	isOpenReviewHistoryRequest_Span()
@@ -2938,8 +3143,13 @@ func (x *GetReviewResponse) GetThreads() []*ReviewThreadInContext {
 
 type ListReviewsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task whose reviews to list, by id or slug. Unset uses the caller's own task.
-	Task          *string `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
+	// The task whose reviews to list. Unset uses the caller's own task.
+	//
+	// Types that are valid to be assigned to Task:
+	//
+	//	*ListReviewsRequest_TaskId
+	//	*ListReviewsRequest_TaskSlug
+	Task          isListReviewsRequest_Task `protobuf_oneof:"task"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2974,12 +3184,48 @@ func (*ListReviewsRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{35}
 }
 
-func (x *ListReviewsRequest) GetTask() string {
-	if x != nil && x.Task != nil {
-		return *x.Task
+func (x *ListReviewsRequest) GetTask() isListReviewsRequest_Task {
+	if x != nil {
+		return x.Task
+	}
+	return nil
+}
+
+func (x *ListReviewsRequest) GetTaskId() string {
+	if x != nil {
+		if x, ok := x.Task.(*ListReviewsRequest_TaskId); ok {
+			return x.TaskId
+		}
 	}
 	return ""
 }
+
+func (x *ListReviewsRequest) GetTaskSlug() string {
+	if x != nil {
+		if x, ok := x.Task.(*ListReviewsRequest_TaskSlug); ok {
+			return x.TaskSlug
+		}
+	}
+	return ""
+}
+
+type isListReviewsRequest_Task interface {
+	isListReviewsRequest_Task()
+}
+
+type ListReviewsRequest_TaskId struct {
+	// The task, by id.
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3,oneof"`
+}
+
+type ListReviewsRequest_TaskSlug struct {
+	// The task, by slug.
+	TaskSlug string `protobuf:"bytes,2,opt,name=task_slug,json=taskSlug,proto3,oneof"`
+}
+
+func (*ListReviewsRequest_TaskId) isListReviewsRequest_Task() {}
+
+func (*ListReviewsRequest_TaskSlug) isListReviewsRequest_Task() {}
 
 type ListReviewsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -3029,8 +3275,13 @@ func (x *ListReviewsResponse) GetReviews() []*Review {
 // ReleaseReviewRequest releases the caller's open review on a task.
 type ReleaseReviewRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task the review is on, by id or slug. Unset uses the caller's own task.
-	Task *string `protobuf:"bytes,1,opt,name=task,proto3,oneof" json:"task,omitempty"`
+	// The task the review is on. Unset uses the caller's own task.
+	//
+	// Types that are valid to be assigned to Task:
+	//
+	//	*ReleaseReviewRequest_TaskId
+	//	*ReleaseReviewRequest_TaskSlug
+	Task isReleaseReviewRequest_Task `protobuf_oneof:"task"`
 	// The review's verdict.
 	Verdict ReviewVerdict `protobuf:"varint,2,opt,name=verdict,proto3,enum=agent.v1.ReviewVerdict" json:"verdict,omitempty"`
 	// What the reviewer says about the work as a whole. The writer reads it before the threads.
@@ -3069,9 +3320,27 @@ func (*ReleaseReviewRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{37}
 }
 
-func (x *ReleaseReviewRequest) GetTask() string {
-	if x != nil && x.Task != nil {
-		return *x.Task
+func (x *ReleaseReviewRequest) GetTask() isReleaseReviewRequest_Task {
+	if x != nil {
+		return x.Task
+	}
+	return nil
+}
+
+func (x *ReleaseReviewRequest) GetTaskId() string {
+	if x != nil {
+		if x, ok := x.Task.(*ReleaseReviewRequest_TaskId); ok {
+			return x.TaskId
+		}
+	}
+	return ""
+}
+
+func (x *ReleaseReviewRequest) GetTaskSlug() string {
+	if x != nil {
+		if x, ok := x.Task.(*ReleaseReviewRequest_TaskSlug); ok {
+			return x.TaskSlug
+		}
 	}
 	return ""
 }
@@ -3089,6 +3358,24 @@ func (x *ReleaseReviewRequest) GetBody() string {
 	}
 	return ""
 }
+
+type isReleaseReviewRequest_Task interface {
+	isReleaseReviewRequest_Task()
+}
+
+type ReleaseReviewRequest_TaskId struct {
+	// The task, by id.
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3,oneof"`
+}
+
+type ReleaseReviewRequest_TaskSlug struct {
+	// The task, by slug.
+	TaskSlug string `protobuf:"bytes,4,opt,name=task_slug,json=taskSlug,proto3,oneof"`
+}
+
+func (*ReleaseReviewRequest_TaskId) isReleaseReviewRequest_Task() {}
+
+func (*ReleaseReviewRequest_TaskSlug) isReleaseReviewRequest_Task() {}
 
 type ReleaseReviewResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -3229,8 +3516,13 @@ func (x *ReviewViewedFile) GetFingerprint() string {
 
 type SetReviewFileViewedRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task whose diff has the file, by id or slug.
-	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
+	// The task whose diff has the file.
+	//
+	// Types that are valid to be assigned to Task:
+	//
+	//	*SetReviewFileViewedRequest_TaskId
+	//	*SetReviewFileViewedRequest_TaskSlug
+	Task isSetReviewFileViewedRequest_Task `protobuf_oneof:"task"`
 	// The file's path, relative to the checkout.
 	FilePath string `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
 	// Whether the file is marked as read. False removes the mark.
@@ -3271,9 +3563,27 @@ func (*SetReviewFileViewedRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{40}
 }
 
-func (x *SetReviewFileViewedRequest) GetTask() string {
+func (x *SetReviewFileViewedRequest) GetTask() isSetReviewFileViewedRequest_Task {
 	if x != nil {
 		return x.Task
+	}
+	return nil
+}
+
+func (x *SetReviewFileViewedRequest) GetTaskId() string {
+	if x != nil {
+		if x, ok := x.Task.(*SetReviewFileViewedRequest_TaskId); ok {
+			return x.TaskId
+		}
+	}
+	return ""
+}
+
+func (x *SetReviewFileViewedRequest) GetTaskSlug() string {
+	if x != nil {
+		if x, ok := x.Task.(*SetReviewFileViewedRequest_TaskSlug); ok {
+			return x.TaskSlug
+		}
 	}
 	return ""
 }
@@ -3298,6 +3608,24 @@ func (x *SetReviewFileViewedRequest) GetFingerprint() string {
 	}
 	return ""
 }
+
+type isSetReviewFileViewedRequest_Task interface {
+	isSetReviewFileViewedRequest_Task()
+}
+
+type SetReviewFileViewedRequest_TaskId struct {
+	// The task, by id.
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3,oneof"`
+}
+
+type SetReviewFileViewedRequest_TaskSlug struct {
+	// The task, by slug.
+	TaskSlug string `protobuf:"bytes,5,opt,name=task_slug,json=taskSlug,proto3,oneof"`
+}
+
+func (*SetReviewFileViewedRequest_TaskId) isSetReviewFileViewedRequest_Task() {}
+
+func (*SetReviewFileViewedRequest_TaskSlug) isSetReviewFileViewedRequest_Task() {}
 
 type SetReviewFileViewedResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -3346,8 +3674,13 @@ func (x *SetReviewFileViewedResponse) GetViewed() *ReviewViewedFile {
 
 type ListReviewViewedFilesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task whose marks to list, by id or slug.
-	Task          string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
+	// The task whose marks to list.
+	//
+	// Types that are valid to be assigned to Task:
+	//
+	//	*ListReviewViewedFilesRequest_TaskId
+	//	*ListReviewViewedFilesRequest_TaskSlug
+	Task          isListReviewViewedFilesRequest_Task `protobuf_oneof:"task"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3382,12 +3715,48 @@ func (*ListReviewViewedFilesRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{42}
 }
 
-func (x *ListReviewViewedFilesRequest) GetTask() string {
+func (x *ListReviewViewedFilesRequest) GetTask() isListReviewViewedFilesRequest_Task {
 	if x != nil {
 		return x.Task
 	}
+	return nil
+}
+
+func (x *ListReviewViewedFilesRequest) GetTaskId() string {
+	if x != nil {
+		if x, ok := x.Task.(*ListReviewViewedFilesRequest_TaskId); ok {
+			return x.TaskId
+		}
+	}
 	return ""
 }
+
+func (x *ListReviewViewedFilesRequest) GetTaskSlug() string {
+	if x != nil {
+		if x, ok := x.Task.(*ListReviewViewedFilesRequest_TaskSlug); ok {
+			return x.TaskSlug
+		}
+	}
+	return ""
+}
+
+type isListReviewViewedFilesRequest_Task interface {
+	isListReviewViewedFilesRequest_Task()
+}
+
+type ListReviewViewedFilesRequest_TaskId struct {
+	// The task, by id.
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3,oneof"`
+}
+
+type ListReviewViewedFilesRequest_TaskSlug struct {
+	// The task, by slug.
+	TaskSlug string `protobuf:"bytes,2,opt,name=task_slug,json=taskSlug,proto3,oneof"`
+}
+
+func (*ListReviewViewedFilesRequest_TaskId) isListReviewViewedFilesRequest_Task() {}
+
+func (*ListReviewViewedFilesRequest_TaskSlug) isListReviewViewedFilesRequest_Task() {}
 
 type ListReviewViewedFilesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -3916,18 +4285,16 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"comment_id\x18\x02 \x01(\tR\tcommentId\x12 \n" +
 	"\tedited_at\x18\x03 \x01(\tH\x00R\beditedAt\x88\x01\x01B\f\n" +
 	"\n" +
-	"_edited_at\"\x90\x01\n" +
-	"\x18ListReviewThreadsRequest\x12k\n" +
-	"\x04task\x18\x01 \x01(\tBR\xbaHO\xba\x01L\n" +
-	"\n" +
-	"task.named\x12-pass task by id or by slug, or leave it unset\x1a\x0fthis.size() > 0H\x00R\x04task\x88\x01\x01B\a\n" +
-	"\x05_task\"M\n" +
+	"_edited_at\"o\n" +
+	"\x18ListReviewThreadsRequest\x12#\n" +
+	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
+	"\ttask_slug\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlugB\x06\n" +
+	"\x04task\"M\n" +
 	"\x19ListReviewThreadsResponse\x120\n" +
-	"\athreads\x18\x01 \x03(\v2\x16.agent.v1.ReviewThreadR\athreads\"\xbb\x03\n" +
-	"\x19CreateReviewThreadRequest\x12k\n" +
-	"\x04task\x18\x01 \x01(\tBR\xbaHO\xba\x01L\n" +
-	"\n" +
-	"task.named\x12-pass task by id or by slug, or leave it unset\x1a\x0fthis.size() > 0H\x00R\x04task\x88\x01\x01\x12\x1b\n" +
+	"\athreads\x18\x01 \x03(\v2\x16.agent.v1.ReviewThreadR\athreads\"\x9a\x03\n" +
+	"\x19CreateReviewThreadRequest\x12#\n" +
+	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
+	"\ttask_slug\x18\f \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlug\x12\x1b\n" +
 	"\tfile_path\x18\x02 \x01(\tR\bfilePath\x12\x19\n" +
 	"\bbase_sha\x18\x03 \x01(\tR\abaseSha\x12!\n" +
 	"\fsnapshot_sha\x18\x04 \x01(\tR\vsnapshotSha\x12\x1b\n" +
@@ -3941,12 +4308,12 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\xbaH\ar\x05\x10\x01\x18\xe8\aR\x04body\x12\x1e\n" +
 	"\n" +
 	"suggestion\x18\v \x03(\tR\n" +
-	"suggestionB\a\n" +
-	"\x05_task\"L\n" +
+	"suggestionB\x06\n" +
+	"\x04task\"L\n" +
 	"\x1aCreateReviewThreadResponse\x12.\n" +
-	"\x06thread\x18\x01 \x01(\v2\x16.agent.v1.ReviewThreadR\x06thread\"\x9d\x01\n" +
-	"\x17AddReviewMessageRequest\x12$\n" +
-	"\tthread_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bthreadId\x12\x1e\n" +
+	"\x06thread\x18\x01 \x01(\v2\x16.agent.v1.ReviewThreadR\x06thread\"\x9e\x01\n" +
+	"\x17AddReviewMessageRequest\x12%\n" +
+	"\tthread_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\bthreadId\x12\x1e\n" +
 	"\x04body\x18\x02 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xe8\aR\x04body\x12\x1e\n" +
 	"\n" +
@@ -3955,61 +4322,60 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\taddressed\x18\x04 \x01(\bR\taddressed\"a\n" +
 	"\x18AddReviewMessageResponse\x121\n" +
 	"\amessage\x18\x01 \x01(\v2\x17.agent.v1.ReviewMessageR\amessage\x12\x12\n" +
-	"\x04hint\x18\x02 \x01(\tR\x04hint\"C\n" +
-	"\x19AcceptForgeMessageRequest\x12&\n" +
+	"\x04hint\x18\x02 \x01(\tR\x04hint\"D\n" +
+	"\x19AcceptForgeMessageRequest\x12'\n" +
 	"\n" +
-	"message_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\tmessageId\"O\n" +
+	"message_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\tmessageId\"O\n" +
 	"\x1aAcceptForgeMessageResponse\x121\n" +
-	"\amessage\x18\x01 \x01(\v2\x17.agent.v1.ReviewMessageR\amessage\"s\n" +
-	"\x18EditReviewMessageRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x1e\n" +
+	"\amessage\x18\x01 \x01(\v2\x17.agent.v1.ReviewMessageR\amessage\"t\n" +
+	"\x18EditReviewMessageRequest\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\x12\x1e\n" +
 	"\x04body\x18\x02 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xe8\aR\x04body\x12\x1e\n" +
 	"\n" +
 	"suggestion\x18\x03 \x03(\tR\n" +
 	"suggestion\"N\n" +
 	"\x19EditReviewMessageResponse\x121\n" +
-	"\amessage\x18\x01 \x01(\v2\x17.agent.v1.ReviewMessageR\amessage\"6\n" +
-	"\x1bMarkReviewThreadReadRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"N\n" +
+	"\amessage\x18\x01 \x01(\v2\x17.agent.v1.ReviewMessageR\amessage\"7\n" +
+	"\x1bMarkReviewThreadReadRequest\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"N\n" +
 	"\x1cMarkReviewThreadReadResponse\x12.\n" +
-	"\x06thread\x18\x01 \x01(\v2\x16.agent.v1.ReviewThreadR\x06thread\"U\n" +
-	"\x1eSetReviewThreadResolvedRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x1a\n" +
+	"\x06thread\x18\x01 \x01(\v2\x16.agent.v1.ReviewThreadR\x06thread\"V\n" +
+	"\x1eSetReviewThreadResolvedRequest\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\x12\x1a\n" +
 	"\bresolved\x18\x02 \x01(\bR\bresolved\"Q\n" +
 	"\x1fSetReviewThreadResolvedResponse\x12.\n" +
-	"\x06thread\x18\x01 \x01(\v2\x16.agent.v1.ReviewThreadR\x06thread\"\x91\x01\n" +
-	"\x19TakeReviewSnapshotRequest\x12k\n" +
-	"\x04task\x18\x01 \x01(\tBR\xbaHO\xba\x01L\n" +
-	"\n" +
-	"task.named\x12-pass task by id or by slug, or leave it unset\x1a\x0fthis.size() > 0H\x00R\x04task\x88\x01\x01B\a\n" +
-	"\x05_task\"R\n" +
+	"\x06thread\x18\x01 \x01(\v2\x16.agent.v1.ReviewThreadR\x06thread\"p\n" +
+	"\x19TakeReviewSnapshotRequest\x12#\n" +
+	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
+	"\ttask_slug\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlugB\x06\n" +
+	"\x04task\"R\n" +
 	"\x1aTakeReviewSnapshotResponse\x124\n" +
-	"\bsnapshot\x18\x01 \x01(\v2\x18.agent.v1.ReviewSnapshotR\bsnapshot\"\x92\x01\n" +
-	"\x1aListReviewSnapshotsRequest\x12k\n" +
-	"\x04task\x18\x01 \x01(\tBR\xbaHO\xba\x01L\n" +
-	"\n" +
-	"task.named\x12-pass task by id or by slug, or leave it unset\x1a\x0fthis.size() > 0H\x00R\x04task\x88\x01\x01B\a\n" +
-	"\x05_task\"U\n" +
+	"\bsnapshot\x18\x01 \x01(\v2\x18.agent.v1.ReviewSnapshotR\bsnapshot\"q\n" +
+	"\x1aListReviewSnapshotsRequest\x12#\n" +
+	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
+	"\ttask_slug\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlugB\x06\n" +
+	"\x04task\"U\n" +
 	"\x1bListReviewSnapshotsResponse\x126\n" +
-	"\tsnapshots\x18\x01 \x03(\v2\x18.agent.v1.ReviewSnapshotR\tsnapshots\"\xa5\x02\n" +
-	"\x18OpenReviewHistoryRequest\x12W\n" +
-	"\x04task\x18\x01 \x01(\tBC\xbaH@\xba\x01=\n" +
-	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\x12<\n" +
-	"\tsnapshots\x18\x06 \x01(\v2\x1c.agent.v1.ReviewSnapshotSpanH\x00R\tsnapshots\x124\n" +
-	"\x06answer\x18\x04 \x01(\v2\x1a.agent.v1.ReviewAnswerSpanH\x00R\x06answer\x124\n" +
-	"\x06origin\x18\x05 \x01(\v2\x1a.agent.v1.ReviewOriginSpanH\x00R\x06originB\x06\n" +
-	"\x04span\"\xa8\x01\n" +
-	"\x12ReviewSnapshotSpan\x126\n" +
-	"\x10from_snapshot_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x0efromSnapshotId\x88\x01\x01\x122\n" +
-	"\x0eto_snapshot_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x01R\ftoSnapshotId\x88\x01\x01B\x13\n" +
+	"\tsnapshots\x18\x01 \x03(\v2\x18.agent.v1.ReviewSnapshotR\tsnapshots\"\xa8\x02\n" +
+	"\x18OpenReviewHistoryRequest\x12#\n" +
+	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
+	"\ttask_slug\x18\a \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlug\x12<\n" +
+	"\tsnapshots\x18\x06 \x01(\v2\x1c.agent.v1.ReviewSnapshotSpanH\x01R\tsnapshots\x124\n" +
+	"\x06answer\x18\x04 \x01(\v2\x1a.agent.v1.ReviewAnswerSpanH\x01R\x06answer\x124\n" +
+	"\x06origin\x18\x05 \x01(\v2\x1a.agent.v1.ReviewOriginSpanH\x01R\x06originB\r\n" +
+	"\x04task\x12\x05\xbaH\x02\b\x01B\x06\n" +
+	"\x04span\"\xaa\x01\n" +
+	"\x12ReviewSnapshotSpan\x127\n" +
+	"\x10from_snapshot_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x0efromSnapshotId\x88\x01\x01\x123\n" +
+	"\x0eto_snapshot_id\x18\x02 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x01R\ftoSnapshotId\x88\x01\x01B\x13\n" +
 	"\x11_from_snapshot_idB\x11\n" +
-	"\x0f_to_snapshot_id\"t\n" +
-	"\x10ReviewAnswerSpan\x121\n" +
-	"\x10from_snapshot_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x0efromSnapshotId\x12-\n" +
-	"\x0eto_snapshot_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\ftoSnapshotId\"W\n" +
-	"\x10ReviewOriginSpan\x12(\n" +
-	"\vsnapshot_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
+	"\x0f_to_snapshot_id\"v\n" +
+	"\x10ReviewAnswerSpan\x122\n" +
+	"\x10from_snapshot_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x0efromSnapshotId\x12.\n" +
+	"\x0eto_snapshot_id\x18\x02 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\ftoSnapshotId\"X\n" +
+	"\x10ReviewOriginSpan\x12)\n" +
+	"\vsnapshot_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\n" +
 	"snapshotId\x12\x19\n" +
 	"\bbase_sha\x18\x02 \x01(\tR\abaseSha\"\xf6\x04\n" +
 	"\x19OpenReviewHistoryResponse\x124\n" +
@@ -4047,27 +4413,25 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x05exact\x18\x04 \x01(\bR\x05exact\"a\n" +
 	"\x15ReviewThreadInContext\x12.\n" +
 	"\x06thread\x18\x01 \x01(\v2\x16.agent.v1.ReviewThreadR\x06thread\x12\x18\n" +
-	"\acontext\x18\x02 \x03(\tR\acontext\"8\n" +
-	"\x10GetReviewRequest\x12$\n" +
-	"\treview_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\breviewId\"\xae\x01\n" +
+	"\acontext\x18\x02 \x03(\tR\acontext\"9\n" +
+	"\x10GetReviewRequest\x12%\n" +
+	"\treview_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\breviewId\"\xae\x01\n" +
 	"\x11GetReviewResponse\x12(\n" +
 	"\x06review\x18\x01 \x01(\v2\x10.agent.v1.ReviewR\x06review\x124\n" +
 	"\bsnapshot\x18\x02 \x01(\v2\x18.agent.v1.ReviewSnapshotR\bsnapshot\x129\n" +
-	"\athreads\x18\x03 \x03(\v2\x1f.agent.v1.ReviewThreadInContextR\athreads\"\x8a\x01\n" +
-	"\x12ListReviewsRequest\x12k\n" +
-	"\x04task\x18\x01 \x01(\tBR\xbaHO\xba\x01L\n" +
-	"\n" +
-	"task.named\x12-pass task by id or by slug, or leave it unset\x1a\x0fthis.size() > 0H\x00R\x04task\x88\x01\x01B\a\n" +
-	"\x05_task\"A\n" +
+	"\athreads\x18\x03 \x03(\v2\x1f.agent.v1.ReviewThreadInContextR\athreads\"i\n" +
+	"\x12ListReviewsRequest\x12#\n" +
+	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
+	"\ttask_slug\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlugB\x06\n" +
+	"\x04task\"A\n" +
 	"\x13ListReviewsResponse\x12*\n" +
-	"\areviews\x18\x01 \x03(\v2\x10.agent.v1.ReviewR\areviews\"\xe7\x01\n" +
-	"\x14ReleaseReviewRequest\x12k\n" +
-	"\x04task\x18\x01 \x01(\tBR\xbaHO\xba\x01L\n" +
-	"\n" +
-	"task.named\x12-pass task by id or by slug, or leave it unset\x1a\x0fthis.size() > 0H\x00R\x04task\x88\x01\x01\x12;\n" +
+	"\areviews\x18\x01 \x03(\v2\x10.agent.v1.ReviewR\areviews\"\xc6\x01\n" +
+	"\x14ReleaseReviewRequest\x12#\n" +
+	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
+	"\ttask_slug\x18\x04 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlug\x12;\n" +
 	"\averdict\x18\x02 \x01(\x0e2\x17.agent.v1.ReviewVerdictB\b\xbaH\x05\x82\x01\x02\x10\x01R\averdict\x12\x1c\n" +
-	"\x04body\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\xdc\vR\x04bodyB\a\n" +
-	"\x05_task\"q\n" +
+	"\x04body\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\xdc\vR\x04bodyB\x06\n" +
+	"\x04task\"q\n" +
 	"\x15ReleaseReviewResponse\x12(\n" +
 	"\x06review\x18\x01 \x01(\v2\x10.agent.v1.ReviewR\x06review\x12\x1a\n" +
 	"\bcomments\x18\x02 \x01(\x05R\bcomments\x12\x12\n" +
@@ -4076,18 +4440,20 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x1b\n" +
 	"\tfile_path\x18\x02 \x01(\tR\bfilePath\x12\x1b\n" +
 	"\tviewed_at\x18\x03 \x01(\tR\bviewedAt\x12 \n" +
-	"\vfingerprint\x18\x04 \x01(\tR\vfingerprint\"\xd5\x01\n" +
-	"\x1aSetReviewFileViewedRequest\x12W\n" +
-	"\x04task\x18\x01 \x01(\tBC\xbaH@\xba\x01=\n" +
-	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\x12$\n" +
+	"\vfingerprint\x18\x04 \x01(\tR\vfingerprint\"\xd8\x01\n" +
+	"\x1aSetReviewFileViewedRequest\x12#\n" +
+	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
+	"\ttask_slug\x18\x05 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlug\x12$\n" +
 	"\tfile_path\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bfilePath\x12\x16\n" +
 	"\x06viewed\x18\x03 \x01(\bR\x06viewed\x12 \n" +
-	"\vfingerprint\x18\x04 \x01(\tR\vfingerprint\"Q\n" +
+	"\vfingerprint\x18\x04 \x01(\tR\vfingerprintB\r\n" +
+	"\x04task\x12\x05\xbaH\x02\b\x01\"Q\n" +
 	"\x1bSetReviewFileViewedResponse\x122\n" +
-	"\x06viewed\x18\x01 \x01(\v2\x1a.agent.v1.ReviewViewedFileR\x06viewed\"w\n" +
-	"\x1cListReviewViewedFilesRequest\x12W\n" +
-	"\x04task\x18\x01 \x01(\tBC\xbaH@\xba\x01=\n" +
-	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\"S\n" +
+	"\x06viewed\x18\x01 \x01(\v2\x1a.agent.v1.ReviewViewedFileR\x06viewed\"z\n" +
+	"\x1cListReviewViewedFilesRequest\x12#\n" +
+	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
+	"\ttask_slug\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlugB\r\n" +
+	"\x04task\x12\x05\xbaH\x02\b\x01\"S\n" +
 	"\x1dListReviewViewedFilesResponse\x122\n" +
 	"\x06viewed\x18\x01 \x03(\v2\x1a.agent.v1.ReviewViewedFileR\x06viewed\"\xee\x02\n" +
 	"\n" +
@@ -4106,18 +4472,18 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"created_at\x18\n" +
 	" \x01(\tR\tcreatedAtB\x13\n" +
 	"\x11_forge_comment_idB\b\n" +
-	"\x06_error\"X\n" +
-	"\x13ReplyOnForgeRequest\x12$\n" +
-	"\tthread_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bthreadId\x12\x1b\n" +
+	"\x06_error\"Y\n" +
+	"\x13ReplyOnForgeRequest\x12%\n" +
+	"\tthread_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\bthreadId\x12\x1b\n" +
 	"\x04body\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x04body\"B\n" +
 	"\x14ReplyOnForgeResponse\x12*\n" +
-	"\x05reply\x18\x01 \x01(\v2\x14.agent.v1.ForgeReplyR\x05reply\"1\n" +
-	"\x16RetryForgeReplyRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"E\n" +
+	"\x05reply\x18\x01 \x01(\v2\x14.agent.v1.ForgeReplyR\x05reply\"2\n" +
+	"\x16RetryForgeReplyRequest\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"E\n" +
 	"\x17RetryForgeReplyResponse\x12*\n" +
-	"\x05reply\x18\x01 \x01(\v2\x14.agent.v1.ForgeReplyR\x05reply\"3\n" +
-	"\x18DiscardForgeReplyRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id*\x90\x01\n" +
+	"\x05reply\x18\x01 \x01(\v2\x14.agent.v1.ForgeReplyR\x05reply\"4\n" +
+	"\x18DiscardForgeReplyRequest\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id*\x90\x01\n" +
 	"\x10ReviewAuthorKind\x12\"\n" +
 	"\x1eREVIEW_AUTHOR_KIND_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18REVIEW_AUTHOR_KIND_HUMAN\x10\x01\x12\x1c\n" +
@@ -4272,18 +4638,46 @@ func file_agent_v1_review_proto_init() {
 	file_agent_v1_review_proto_msgTypes[3].OneofWrappers = []any{}
 	file_agent_v1_review_proto_msgTypes[4].OneofWrappers = []any{}
 	file_agent_v1_review_proto_msgTypes[5].OneofWrappers = []any{}
-	file_agent_v1_review_proto_msgTypes[6].OneofWrappers = []any{}
-	file_agent_v1_review_proto_msgTypes[8].OneofWrappers = []any{}
-	file_agent_v1_review_proto_msgTypes[20].OneofWrappers = []any{}
-	file_agent_v1_review_proto_msgTypes[22].OneofWrappers = []any{}
+	file_agent_v1_review_proto_msgTypes[6].OneofWrappers = []any{
+		(*ListReviewThreadsRequest_TaskId)(nil),
+		(*ListReviewThreadsRequest_TaskSlug)(nil),
+	}
+	file_agent_v1_review_proto_msgTypes[8].OneofWrappers = []any{
+		(*CreateReviewThreadRequest_TaskId)(nil),
+		(*CreateReviewThreadRequest_TaskSlug)(nil),
+	}
+	file_agent_v1_review_proto_msgTypes[20].OneofWrappers = []any{
+		(*TakeReviewSnapshotRequest_TaskId)(nil),
+		(*TakeReviewSnapshotRequest_TaskSlug)(nil),
+	}
+	file_agent_v1_review_proto_msgTypes[22].OneofWrappers = []any{
+		(*ListReviewSnapshotsRequest_TaskId)(nil),
+		(*ListReviewSnapshotsRequest_TaskSlug)(nil),
+	}
 	file_agent_v1_review_proto_msgTypes[24].OneofWrappers = []any{
+		(*OpenReviewHistoryRequest_TaskId)(nil),
+		(*OpenReviewHistoryRequest_TaskSlug)(nil),
 		(*OpenReviewHistoryRequest_Snapshots)(nil),
 		(*OpenReviewHistoryRequest_Answer)(nil),
 		(*OpenReviewHistoryRequest_Origin)(nil),
 	}
 	file_agent_v1_review_proto_msgTypes[25].OneofWrappers = []any{}
-	file_agent_v1_review_proto_msgTypes[35].OneofWrappers = []any{}
-	file_agent_v1_review_proto_msgTypes[37].OneofWrappers = []any{}
+	file_agent_v1_review_proto_msgTypes[35].OneofWrappers = []any{
+		(*ListReviewsRequest_TaskId)(nil),
+		(*ListReviewsRequest_TaskSlug)(nil),
+	}
+	file_agent_v1_review_proto_msgTypes[37].OneofWrappers = []any{
+		(*ReleaseReviewRequest_TaskId)(nil),
+		(*ReleaseReviewRequest_TaskSlug)(nil),
+	}
+	file_agent_v1_review_proto_msgTypes[40].OneofWrappers = []any{
+		(*SetReviewFileViewedRequest_TaskId)(nil),
+		(*SetReviewFileViewedRequest_TaskSlug)(nil),
+	}
+	file_agent_v1_review_proto_msgTypes[42].OneofWrappers = []any{
+		(*ListReviewViewedFilesRequest_TaskId)(nil),
+		(*ListReviewViewedFilesRequest_TaskSlug)(nil),
+	}
 	file_agent_v1_review_proto_msgTypes[44].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

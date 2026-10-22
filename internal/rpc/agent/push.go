@@ -7,17 +7,19 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/rpcerr"
 	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1komrad"
+	"komrad/proto/gen/oneofs"
 )
 
 // worktreePusher sends a task's branch to origin.
 type worktreePusher interface {
-	PlanPush(ctx context.Context, task string) (*checkouts.PushPlan, error)
-	Push(ctx context.Context, task string) (*checkouts.PushResult, error)
+	PlanPush(ctx context.Context, task oneofs.Task) (*checkouts.PushPlan, error)
+	Push(ctx context.Context, task oneofs.Task) (*checkouts.PushResult, error)
 }
 
 // PlanPush reads what a push would do without doing it.
-func (s *Handler) PlanPush(ctx context.Context, req *agentv1.PlanPushRequest) (*agentv1.PlanPushResponse, *fail.Error) {
-	plan, err := s.pusher.PlanPush(ctx, req.GetTask())
+func (s *Handler) PlanPush(ctx context.Context, req *agentv1komrad.PlanPushRequest) (*agentv1.PlanPushResponse, *fail.Error) {
+	plan, err := s.pusher.PlanPush(ctx, req.Task)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to work out what a push would do")
 	}
@@ -32,8 +34,8 @@ func (s *Handler) PlanPush(ctx context.Context, req *agentv1.PlanPushRequest) (*
 }
 
 // PushWorktree sends the task's branch to origin.
-func (s *Handler) PushWorktree(ctx context.Context, req *agentv1.PushWorktreeRequest) (*agentv1.PushWorktreeResponse, *fail.Error) {
-	result, err := s.pusher.Push(ctx, req.GetTask())
+func (s *Handler) PushWorktree(ctx context.Context, req *agentv1komrad.PushWorktreeRequest) (*agentv1.PushWorktreeResponse, *fail.Error) {
+	result, err := s.pusher.Push(ctx, req.Task)
 	if err != nil {
 		return nil, rpcerr.From(err, "failed to push the worktree")
 	}

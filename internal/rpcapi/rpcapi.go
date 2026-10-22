@@ -224,7 +224,7 @@ func IsRequired(field protoreflect.FieldDescriptor) bool {
 		return true
 	}
 
-	return rules.GetString().GetMinLen() > 0 || rules.GetRepeated().GetMinItems() > 0
+	return rules.GetString().GetMinLen() > 0 || rules.GetString().GetUuid() || rules.GetRepeated().GetMinItems() > 0
 }
 
 // DescribeRules spells out what the server refuses of a field, in the order a reader weighs them.
@@ -241,6 +241,9 @@ func DescribeRules(field protoreflect.FieldDescriptor) []string {
 		}
 		if pattern := text.GetPattern(); pattern != "" {
 			parts = append(parts, "matching "+pattern)
+		}
+		if text.GetUuid() {
+			parts = append(parts, "a UUID")
 		}
 	}
 

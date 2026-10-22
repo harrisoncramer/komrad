@@ -1166,6 +1166,170 @@ func (x *BinaryRule) GetValue() []byte {
 	return nil
 }
 
+type Pick struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Ref:
+	//
+	//	*Pick_RefId
+	//	*Pick_RefName
+	Ref           isPick_Ref `protobuf_oneof:"ref"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Pick) Reset() {
+	*x = Pick{}
+	mi := &file_shapes_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Pick) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Pick) ProtoMessage() {}
+
+func (x *Pick) ProtoReflect() protoreflect.Message {
+	mi := &file_shapes_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Pick.ProtoReflect.Descriptor instead.
+func (*Pick) Descriptor() ([]byte, []int) {
+	return file_shapes_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *Pick) GetRef() isPick_Ref {
+	if x != nil {
+		return x.Ref
+	}
+	return nil
+}
+
+func (x *Pick) GetRefId() string {
+	if x != nil {
+		if x, ok := x.Ref.(*Pick_RefId); ok {
+			return x.RefId
+		}
+	}
+	return ""
+}
+
+func (x *Pick) GetRefName() string {
+	if x != nil {
+		if x, ok := x.Ref.(*Pick_RefName); ok {
+			return x.RefName
+		}
+	}
+	return ""
+}
+
+type isPick_Ref interface {
+	isPick_Ref()
+}
+
+type Pick_RefId struct {
+	RefId string `protobuf:"bytes,1,opt,name=ref_id,json=refId,proto3,oneof"`
+}
+
+type Pick_RefName struct {
+	RefName string `protobuf:"bytes,2,opt,name=ref_name,json=refName,proto3,oneof"`
+}
+
+func (*Pick_RefId) isPick_Ref() {}
+
+func (*Pick_RefName) isPick_Ref() {}
+
+type Point struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Ref:
+	//
+	//	*Point_RefId
+	//	*Point_RefName
+	Ref           isPoint_Ref `protobuf_oneof:"ref"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Point) Reset() {
+	*x = Point{}
+	mi := &file_shapes_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Point) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Point) ProtoMessage() {}
+
+func (x *Point) ProtoReflect() protoreflect.Message {
+	mi := &file_shapes_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Point.ProtoReflect.Descriptor instead.
+func (*Point) Descriptor() ([]byte, []int) {
+	return file_shapes_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *Point) GetRef() isPoint_Ref {
+	if x != nil {
+		return x.Ref
+	}
+	return nil
+}
+
+func (x *Point) GetRefId() *wrapperspb.StringValue {
+	if x != nil {
+		if x, ok := x.Ref.(*Point_RefId); ok {
+			return x.RefId
+		}
+	}
+	return nil
+}
+
+func (x *Point) GetRefName() string {
+	if x != nil {
+		if x, ok := x.Ref.(*Point_RefName); ok {
+			return x.RefName
+		}
+	}
+	return ""
+}
+
+type isPoint_Ref interface {
+	isPoint_Ref()
+}
+
+type Point_RefId struct {
+	RefId *wrapperspb.StringValue `protobuf:"bytes,1,opt,name=ref_id,json=refId,proto3,oneof"`
+}
+
+type Point_RefName struct {
+	RefName string `protobuf:"bytes,2,opt,name=ref_name,json=refName,proto3,oneof"`
+}
+
+func (*Point_RefId) isPoint_Ref() {}
+
+func (*Point_RefName) isPoint_Ref() {}
+
 type Outer_Inner struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -1175,7 +1339,7 @@ type Outer_Inner struct {
 
 func (x *Outer_Inner) Reset() {
 	*x = Outer_Inner{}
-	mi := &file_shapes_proto_msgTypes[21]
+	mi := &file_shapes_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1187,7 +1351,7 @@ func (x *Outer_Inner) String() string {
 func (*Outer_Inner) ProtoMessage() {}
 
 func (x *Outer_Inner) ProtoReflect() protoreflect.Message {
-	mi := &file_shapes_proto_msgTypes[21]
+	mi := &file_shapes_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1322,7 +1486,15 @@ const file_shapes_proto_rawDesc = "" +
 	"\x05value\x18\x01 \x01(\tB\b\xbaH\x05r\x03\x88\x02\x01R\x05value\"+\n" +
 	"\n" +
 	"BinaryRule\x12\x1d\n" +
-	"\x05value\x18\x01 \x01(\fB\a\xbaH\x04z\x02x\x01R\x05value*0\n" +
+	"\x05value\x18\x01 \x01(\fB\a\xbaH\x04z\x02x\x01R\x05value\"M\n" +
+	"\x04Pick\x12!\n" +
+	"\x06ref_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x05refId\x12\x1b\n" +
+	"\bref_name\x18\x02 \x01(\tH\x00R\arefNameB\x05\n" +
+	"\x03ref\"l\n" +
+	"\x05Point\x12?\n" +
+	"\x06ref_id\x18\x01 \x01(\v2\x1c.google.protobuf.StringValueB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x05refId\x12\x1b\n" +
+	"\bref_name\x18\x02 \x01(\tH\x00R\arefNameB\x05\n" +
+	"\x03ref*0\n" +
 	"\x06Colour\x12\x16\n" +
 	"\x12COLOUR_UNSPECIFIED\x10\x00\x12\x0e\n" +
 	"\n" +
@@ -1341,7 +1513,7 @@ func file_shapes_proto_rawDescGZIP() []byte {
 }
 
 var file_shapes_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_shapes_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
+var file_shapes_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
 var file_shapes_proto_goTypes = []any{
 	(Colour)(0),                    // 0: protoconv.test.Colour
 	(*Single)(nil),                 // 1: protoconv.test.Single
@@ -1359,57 +1531,60 @@ var file_shapes_proto_goTypes = []any{
 	(*HyphenatedRule)(nil),         // 13: protoconv.test.HyphenatedRule
 	(*TrimmedRule)(nil),            // 14: protoconv.test.TrimmedRule
 	(*BinaryRule)(nil),             // 15: protoconv.test.BinaryRule
-	nil,                            // 16: protoconv.test.Times.ByNameEntry
-	nil,                            // 17: protoconv.test.Lists.ByNameEntry
-	nil,                            // 18: protoconv.test.Lists.ByIdEntry
-	nil,                            // 19: protoconv.test.Lists.BothEntry
-	nil,                            // 20: protoconv.test.Lists.PlainEntry
-	nil,                            // 21: protoconv.test.Nested.ByNumberEntry
-	(*Outer_Inner)(nil),            // 22: protoconv.test.Outer.Inner
-	(*timestamppb.Timestamp)(nil),  // 23: google.protobuf.Timestamp
-	(*wrapperspb.StringValue)(nil), // 24: google.protobuf.StringValue
-	(*wrapperspb.BytesValue)(nil),  // 25: google.protobuf.BytesValue
+	(*Pick)(nil),                   // 16: protoconv.test.Pick
+	(*Point)(nil),                  // 17: protoconv.test.Point
+	nil,                            // 18: protoconv.test.Times.ByNameEntry
+	nil,                            // 19: protoconv.test.Lists.ByNameEntry
+	nil,                            // 20: protoconv.test.Lists.ByIdEntry
+	nil,                            // 21: protoconv.test.Lists.BothEntry
+	nil,                            // 22: protoconv.test.Lists.PlainEntry
+	nil,                            // 23: protoconv.test.Nested.ByNumberEntry
+	(*Outer_Inner)(nil),            // 24: protoconv.test.Outer.Inner
+	(*timestamppb.Timestamp)(nil),  // 25: google.protobuf.Timestamp
+	(*wrapperspb.StringValue)(nil), // 26: google.protobuf.StringValue
+	(*wrapperspb.BytesValue)(nil),  // 27: google.protobuf.BytesValue
 }
 var file_shapes_proto_depIdxs = []int32{
 	0,  // 0: protoconv.test.Single.colour:type_name -> protoconv.test.Colour
-	23, // 1: protoconv.test.Times.at:type_name -> google.protobuf.Timestamp
-	23, // 2: protoconv.test.Times.maybe:type_name -> google.protobuf.Timestamp
-	23, // 3: protoconv.test.Times.each:type_name -> google.protobuf.Timestamp
-	16, // 4: protoconv.test.Times.by_name:type_name -> protoconv.test.Times.ByNameEntry
-	23, // 5: protoconv.test.Times.skipped:type_name -> google.protobuf.Timestamp
-	17, // 6: protoconv.test.Lists.by_name:type_name -> protoconv.test.Lists.ByNameEntry
-	18, // 7: protoconv.test.Lists.by_id:type_name -> protoconv.test.Lists.ByIdEntry
-	19, // 8: protoconv.test.Lists.both:type_name -> protoconv.test.Lists.BothEntry
-	20, // 9: protoconv.test.Lists.plain:type_name -> protoconv.test.Lists.PlainEntry
+	25, // 1: protoconv.test.Times.at:type_name -> google.protobuf.Timestamp
+	25, // 2: protoconv.test.Times.maybe:type_name -> google.protobuf.Timestamp
+	25, // 3: protoconv.test.Times.each:type_name -> google.protobuf.Timestamp
+	18, // 4: protoconv.test.Times.by_name:type_name -> protoconv.test.Times.ByNameEntry
+	25, // 5: protoconv.test.Times.skipped:type_name -> google.protobuf.Timestamp
+	19, // 6: protoconv.test.Lists.by_name:type_name -> protoconv.test.Lists.ByNameEntry
+	20, // 7: protoconv.test.Lists.by_id:type_name -> protoconv.test.Lists.ByIdEntry
+	21, // 8: protoconv.test.Lists.both:type_name -> protoconv.test.Lists.BothEntry
+	22, // 9: protoconv.test.Lists.plain:type_name -> protoconv.test.Lists.PlainEntry
 	4,  // 10: protoconv.test.Lists.plains:type_name -> protoconv.test.Plain
 	1,  // 11: protoconv.test.Nested.single:type_name -> protoconv.test.Single
 	1,  // 12: protoconv.test.Nested.must:type_name -> protoconv.test.Single
 	1,  // 13: protoconv.test.Nested.many:type_name -> protoconv.test.Single
-	21, // 14: protoconv.test.Nested.by_number:type_name -> protoconv.test.Nested.ByNumberEntry
+	23, // 14: protoconv.test.Nested.by_number:type_name -> protoconv.test.Nested.ByNumberEntry
 	4,  // 15: protoconv.test.Nested.plain:type_name -> protoconv.test.Plain
 	5,  // 16: protoconv.test.Nested.child:type_name -> protoconv.test.Nested
 	1,  // 17: protoconv.test.Nested.ignored:type_name -> protoconv.test.Single
 	1,  // 18: protoconv.test.Choice.single:type_name -> protoconv.test.Single
-	23, // 19: protoconv.test.Choice.at:type_name -> google.protobuf.Timestamp
+	25, // 19: protoconv.test.Choice.at:type_name -> google.protobuf.Timestamp
 	4,  // 20: protoconv.test.Choice.plain:type_name -> protoconv.test.Plain
-	24, // 21: protoconv.test.Wrapped.owner:type_name -> google.protobuf.StringValue
-	24, // 22: protoconv.test.Wrapped.must:type_name -> google.protobuf.StringValue
-	24, // 23: protoconv.test.Wrapped.trimmed:type_name -> google.protobuf.StringValue
-	25, // 24: protoconv.test.Wrapped.binary:type_name -> google.protobuf.BytesValue
-	24, // 25: protoconv.test.Wrapped.name:type_name -> google.protobuf.StringValue
-	24, // 26: protoconv.test.Wrapped.id:type_name -> google.protobuf.StringValue
+	26, // 21: protoconv.test.Wrapped.owner:type_name -> google.protobuf.StringValue
+	26, // 22: protoconv.test.Wrapped.must:type_name -> google.protobuf.StringValue
+	26, // 23: protoconv.test.Wrapped.trimmed:type_name -> google.protobuf.StringValue
+	27, // 24: protoconv.test.Wrapped.binary:type_name -> google.protobuf.BytesValue
+	26, // 25: protoconv.test.Wrapped.name:type_name -> google.protobuf.StringValue
+	26, // 26: protoconv.test.Wrapped.id:type_name -> google.protobuf.StringValue
 	10, // 27: protoconv.test.Ping.pong:type_name -> protoconv.test.Pong
 	9,  // 28: protoconv.test.Pong.ping:type_name -> protoconv.test.Ping
-	22, // 29: protoconv.test.Outer.inner:type_name -> protoconv.test.Outer.Inner
+	24, // 29: protoconv.test.Outer.inner:type_name -> protoconv.test.Outer.Inner
 	4,  // 30: protoconv.test.Untouched.plain:type_name -> protoconv.test.Plain
 	12, // 31: protoconv.test.Untouched.children:type_name -> protoconv.test.Untouched
-	23, // 32: protoconv.test.Times.ByNameEntry.value:type_name -> google.protobuf.Timestamp
-	1,  // 33: protoconv.test.Nested.ByNumberEntry.value:type_name -> protoconv.test.Single
-	34, // [34:34] is the sub-list for method output_type
-	34, // [34:34] is the sub-list for method input_type
-	34, // [34:34] is the sub-list for extension type_name
-	34, // [34:34] is the sub-list for extension extendee
-	0,  // [0:34] is the sub-list for field type_name
+	26, // 32: protoconv.test.Point.ref_id:type_name -> google.protobuf.StringValue
+	25, // 33: protoconv.test.Times.ByNameEntry.value:type_name -> google.protobuf.Timestamp
+	1,  // 34: protoconv.test.Nested.ByNumberEntry.value:type_name -> protoconv.test.Single
+	35, // [35:35] is the sub-list for method output_type
+	35, // [35:35] is the sub-list for method input_type
+	35, // [35:35] is the sub-list for extension type_name
+	35, // [35:35] is the sub-list for extension extendee
+	0,  // [0:35] is the sub-list for field type_name
 }
 
 func init() { file_shapes_proto_init() }
@@ -1429,13 +1604,21 @@ func file_shapes_proto_init() {
 		(*Wrapped_Id)(nil),
 		(*Wrapped_Label)(nil),
 	}
+	file_shapes_proto_msgTypes[15].OneofWrappers = []any{
+		(*Pick_RefId)(nil),
+		(*Pick_RefName)(nil),
+	}
+	file_shapes_proto_msgTypes[16].OneofWrappers = []any{
+		(*Point_RefId)(nil),
+		(*Point_RefName)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shapes_proto_rawDesc), len(file_shapes_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   22,
+			NumMessages:   24,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

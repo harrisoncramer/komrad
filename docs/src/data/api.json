@@ -58,7 +58,7 @@
             "orchestrator"
           ],
           "summary": "Create an agent and launch it with a prompt.",
-          "description": "Create an agent and launch it with a prompt. With `task` set, the agent becomes the task's writer when the task has none, and otherwise a reviewer in the writer's checkout. With `task` unset, komrad creates a task with the agent as its writer, and the agent returned carries its `task_id` and `task_slug`.",
+          "description": "Create an agent and launch it with a prompt. With `task_id` or `task_slug` set, the agent becomes the task's writer when the task has none, and otherwise a reviewer in the writer's checkout. With neither set, komrad creates a task with the agent as its writer, and the agent returned carries its `task_id` and `task_slug`.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -133,8 +133,8 @@
             "reviewer",
             "orchestrator"
           ],
-          "summary": "Send mail to another agent by id or name, setting `reply_to` when answering.",
-          "description": "Send mail to another agent by id or name, setting `reply_to` when answering. Komrad refuses a name used in more than one workflow. A reviewer may mail only the agents on its task and its workflow's orchestrator.",
+          "summary": "Send mail to another agent by `to_agent_id` or `to_agent_name`, setting `reply_to` when answering.",
+          "description": "Send mail to another agent by `to_agent_id` or `to_agent_name`, setting `reply_to` when answering. Komrad refuses a name used in more than one workflow. A reviewer may mail only the agents on its task and its workflow's orchestrator.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -1651,7 +1651,7 @@
             "orchestrator"
           ],
           "summary": "Create a task in a workflow.",
-          "description": "Create a task in a workflow. To put an agent on the task, pass its id or slug as `task` to `create_agent`.",
+          "description": "Create a task in a workflow. To put an agent on the task, pass its id as `task_id` or its slug as `task_slug` to `create_agent`.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -1670,8 +1670,8 @@
             "reviewer",
             "orchestrator"
           ],
-          "summary": "Get one task by id or slug, with its goal and notes in full.",
-          "description": "Get one task by id or slug, with its goal and notes in full.",
+          "summary": "Get one task by `task_id` or `task_slug`, with its goal and notes in full.",
+          "description": "Get one task by `task_id` or `task_slug`, with its goal and notes in full.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1708,8 +1708,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Change a task's slug, title, goal or notes, by id or slug.",
-          "description": "Change a task's slug, title, goal or notes, by id or slug. Fields left unset keep their values. Changing the notes needs the `notes_updated_at` they were read with, and fails with `failed_precondition` when they changed since. Agents see the change the next time they read the task.",
+          "summary": "Change a task's slug, title, goal or notes, by `task_id` or `task_slug`.",
+          "description": "Change a task's slug, title, goal or notes, by `task_id` or `task_slug`. Fields left unset keep their values. Changing the notes needs the `notes_updated_at` they were read with, and fails with `failed_precondition` when they changed since. Agents see the change the next time they read the task.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -1746,8 +1746,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Archive a task by id or slug, with the live agents on it.",
-          "description": "Archive a task by id or slug, with the live agents on it. The task keeps its record, and its slug is never reused.",
+          "summary": "Archive a task by `task_id` or `task_slug`, with the live agents on it.",
+          "description": "Archive a task by `task_id` or `task_slug`, with the live agents on it. The task keeps its record, and its slug is never reused.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -1762,8 +1762,8 @@
           "tool": "delete_tasks",
           "mcp": false,
           "roles": [],
-          "summary": "Delete tasks' worktrees, by id or slug, archiving the tasks first.",
-          "description": "Delete tasks' worktrees, by id or slug, archiving the tasks first. With records set, delete the tasks for good too, with every agent on them and their transcripts, documents, mail, notes and reviews.",
+          "summary": "Delete tasks' worktrees, by `task_ids` or `task_slugs`, archiving the tasks first.",
+          "description": "Delete tasks' worktrees, by `task_ids` or `task_slugs`, archiving the tasks first. With records set, delete the tasks for good too, with every agent on them and their transcripts, documents, mail, notes and reviews.",
           "readOnly": false,
           "idempotent": true,
           "destructive": true,
@@ -1780,8 +1780,8 @@
           "roles": [
             "orchestrator"
           ],
-          "summary": "Hide a task by id or slug, or show it again.",
-          "description": "Hide a task by id or slug, or show it again. A hidden task stays live with its agents running, and clients leave it out of their lists.",
+          "summary": "Hide a task by `task_id` or `task_slug`, or show it again.",
+          "description": "Hide a task by `task_id` or `task_slug`, or show it again. A hidden task stays live with its agents running, and clients leave it out of their lists.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -1797,14 +1797,26 @@
       "description": "",
       "fields": [
         {
-          "name": "task",
+          "name": "task_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
+          "oneof": "task",
+          "rules": [
+            "a UUID"
+          ],
+          "description": "The task, by id."
+        },
+        {
+          "name": "task_slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "task",
           "rules": [],
-          "description": "The task whose sequence to abort, by id or slug."
+          "description": "The task, by slug."
         }
       ]
     },
@@ -1856,7 +1868,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The thread to reply in, by id."
         },
@@ -1946,7 +1959,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The workflow to create the agent in, by id. The workflow's directory picks the repository."
         },
@@ -2524,7 +2538,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The workflow to create the agent in, by id. The agent uses the workflow's directory, flags and context."
         },
@@ -2564,17 +2579,29 @@
           "description": "Whether the agent gets a worktree of its own. False keeps the agent in the workflow's directory. Unset to follow the workflow."
         },
         {
-          "name": "task",
+          "name": "task_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
-          "rules": [],
-          "description": "The task to put the agent on, by id or slug, in `workflow_id`. Unset to create a task with the agent as its writer. An agent that joins as a reviewer cannot set `provision_enabled` to true."
+          "oneof": "task",
+          "rules": [
+            "a UUID"
+          ],
+          "description": "The task, by id."
         },
         {
           "name": "task_slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "task",
+          "rules": [],
+          "description": "The task, by slug."
+        },
+        {
+          "name": "new_task_slug",
           "type": "string",
           "ref": "",
           "repeated": false,
@@ -2584,10 +2611,10 @@
             "at most 80 characters",
             "matching ^[a-z0-9]+(-[a-z0-9]+)*$"
           ],
-          "description": "The slug of the task komrad creates when `task` is unset. No task may have used it before. Unset to derive one from the agent's name."
+          "description": "The slug of the task komrad creates when no task is named. No task may have used it before. Unset to derive one from the agent's name."
         },
         {
-          "name": "task_goal",
+          "name": "new_task_goal",
           "type": "string",
           "ref": "",
           "repeated": false,
@@ -2596,17 +2623,29 @@
           "rules": [
             "at most 50000 characters"
           ],
-          "description": "The goal of the task komrad creates when `task` is unset, in markdown. Empty to use the first line of the prompt."
+          "description": "The goal of the task komrad creates when no task is named, in markdown. Empty to use the first line of the prompt."
         },
         {
-          "name": "depends_on",
+          "name": "depends_on_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
+          "oneof": "depends_on",
+          "rules": [
+            "a UUID"
+          ],
+          "description": "The task, by id."
+        },
+        {
+          "name": "depends_on_slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "depends_on",
           "rules": [],
-          "description": "The task the new task depends on, by id or slug, in `workflow_id`. The new task's branch starts from that task's branch on origin, and komrad rebases it as that branch moves and re-targets it onto the base branch once that task merges. Unset to start from the workflow's base branch. Cannot be set with `task`."
+          "description": "The task, by slug."
         }
       ]
     },
@@ -2631,14 +2670,26 @@
       "description": "",
       "fields": [
         {
-          "name": "task",
+          "name": "task_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
+          "oneof": "task",
+          "rules": [
+            "a UUID"
+          ],
+          "description": "The task, by id."
+        },
+        {
+          "name": "task_slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "task",
           "rules": [],
-          "description": "The task whose diff to comment on, by id or slug. Unset uses the caller's own task."
+          "description": "The task, by slug."
         },
         {
           "name": "file_path",
@@ -2773,7 +2824,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The document to delete, by id."
         }
@@ -2791,7 +2843,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The document type to delete, by id."
         }
@@ -3259,7 +3312,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The agent whose newest turns to forward, by id."
         },
@@ -3271,7 +3325,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The agent to forward them to, by id."
         },
@@ -3389,7 +3444,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The agent to get, by id. Archived agents are included."
         }
@@ -3493,7 +3549,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The document to read, by id."
         },
@@ -3581,7 +3638,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The agent whose transcript to read, by id."
         },
@@ -3637,7 +3695,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The review to read, by id."
         }
@@ -3691,7 +3750,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The agent whose transcript to read, by id."
         },
@@ -3819,7 +3879,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The document type whose versions to list, by id."
         }
@@ -3869,7 +3930,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The document whose versions to list, by id."
         }
@@ -3902,7 +3964,9 @@
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [],
+          "rules": [
+            "a UUID"
+          ],
           "description": "The agent whose documents to list, by id. Unset lists every agent's, archived agents included."
         },
         {
@@ -3928,14 +3992,26 @@
           "description": "The page to read."
         },
         {
-          "name": "task",
+          "name": "task_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
+          "oneof": "task",
+          "rules": [
+            "a UUID"
+          ],
+          "description": "The task, by id."
+        },
+        {
+          "name": "task_slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "task",
           "rules": [],
-          "description": "The task whose documents to list, by id or slug. Unset lists every task's."
+          "description": "The task, by slug."
         }
       ]
     },
@@ -3976,7 +4052,9 @@
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [],
+          "rules": [
+            "a UUID"
+          ],
           "description": "The agent whose mail to list, by id. Unset lists the caller's own."
         },
         {
@@ -4032,14 +4110,26 @@
       "description": "",
       "fields": [
         {
-          "name": "task",
+          "name": "task_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
+          "oneof": "task",
+          "rules": [
+            "a UUID"
+          ],
+          "description": "The task, by id."
+        },
+        {
+          "name": "task_slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "task",
           "rules": [],
-          "description": "The task whose snapshots to list, by id or slug. Unset uses the caller's own task."
+          "description": "The task, by slug."
         }
       ]
     },
@@ -4064,14 +4154,26 @@
       "description": "",
       "fields": [
         {
-          "name": "task",
+          "name": "task_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
+          "oneof": "task",
+          "rules": [
+            "a UUID"
+          ],
+          "description": "The task, by id."
+        },
+        {
+          "name": "task_slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "task",
           "rules": [],
-          "description": "The task whose threads to list, by id or slug. Unset uses the caller's own task."
+          "description": "The task, by slug."
         }
       ]
     },
@@ -4096,14 +4198,26 @@
       "description": "",
       "fields": [
         {
-          "name": "task",
+          "name": "task_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
+          "oneof": "task",
+          "rules": [
+            "a UUID"
+          ],
+          "description": "The task, by id."
+        },
+        {
+          "name": "task_slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "task",
           "rules": [],
-          "description": "The task whose reviews to list, by id or slug. Unset uses the caller's own task."
+          "description": "The task, by slug."
         }
       ]
     },
@@ -4134,7 +4248,9 @@
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [],
+          "rules": [
+            "a UUID"
+          ],
           "description": "The agent the line is about, by id. Unset for the caller."
         },
         {
@@ -4275,14 +4391,26 @@
       "description": "",
       "fields": [
         {
-          "name": "task",
+          "name": "task_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
+          "oneof": "task",
+          "rules": [
+            "a UUID"
+          ],
+          "description": "The task, by id."
+        },
+        {
+          "name": "task_slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "task",
           "rules": [],
-          "description": "The child, by id or slug."
+          "description": "The task, by slug."
         },
         {
           "name": "commit",
@@ -4319,14 +4447,26 @@
       "description": "PlanPushRequest asks what a push of a task's branch would do, without doing it.",
       "fields": [
         {
-          "name": "task",
+          "name": "task_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
+          "oneof": "task",
+          "rules": [
+            "a UUID"
+          ],
+          "description": "The task, by id."
+        },
+        {
+          "name": "task_slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "task",
           "rules": [],
-          "description": "The task whose branch to plan a push of, by id or slug."
+          "description": "The task, by slug."
         }
       ]
     },
@@ -4391,14 +4531,26 @@
       "description": "PlanRebaseRequest asks what a rebase of a task's branch would do, without doing it.",
       "fields": [
         {
-          "name": "task",
+          "name": "task_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
+          "oneof": "task",
+          "rules": [
+            "a UUID"
+          ],
+          "description": "The task, by id."
+        },
+        {
+          "name": "task_slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "task",
           "rules": [],
-          "description": "The task whose branch to plan a rebase of, by id or slug."
+          "description": "The task, by slug."
         },
         {
           "name": "onto_base",
@@ -4579,14 +4731,26 @@
       "description": "",
       "fields": [
         {
-          "name": "task",
+          "name": "task_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
+          "oneof": "task",
+          "rules": [
+            "a UUID"
+          ],
+          "description": "The task, by id."
+        },
+        {
+          "name": "task_slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "task",
           "rules": [],
-          "description": "The task whose branch to push to origin, by id or slug."
+          "description": "The task, by slug."
         }
       ]
     },
@@ -4647,7 +4811,9 @@
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [],
+          "rules": [
+            "a UUID"
+          ],
           "description": "The agent whose unread mail to read, by id. Unset reads the caller's own."
         }
       ]
@@ -4673,14 +4839,26 @@
       "description": "",
       "fields": [
         {
-          "name": "task",
+          "name": "task_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
+          "oneof": "task",
+          "rules": [
+            "a UUID"
+          ],
+          "description": "The task, by id."
+        },
+        {
+          "name": "task_slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "task",
           "rules": [],
-          "description": "The task whose branch to rebase onto the base branch, by id or slug."
+          "description": "The task, by slug."
         },
         {
           "name": "onto_base",
@@ -4785,14 +4963,26 @@
       "description": "ReleaseReviewRequest releases the caller's open review on a task.",
       "fields": [
         {
-          "name": "task",
+          "name": "task_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
+          "oneof": "task",
+          "rules": [
+            "a UUID"
+          ],
+          "description": "The task, by id."
+        },
+        {
+          "name": "task_slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "task",
           "rules": [],
-          "description": "The task the review is on, by id or slug. Unset uses the caller's own task."
+          "description": "The task, by slug."
         },
         {
           "name": "verdict",
@@ -4878,7 +5068,9 @@
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [],
+          "rules": [
+            "a UUID"
+          ],
           "description": "The agent whose work to review, by id. Unset for the caller."
         },
         {
@@ -4970,7 +5162,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The writer or orchestrator to restart, by id."
         },
@@ -5075,7 +5268,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The dormant agent to resume, by id."
         }
@@ -5109,7 +5303,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The agent whose failed create to retry, by id."
         },
@@ -5802,7 +5997,9 @@
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [],
+          "rules": [
+            "a UUID"
+          ],
           "description": "The agent whose documents to search, by id. Unset searches every agent's, archived agents included."
         },
         {
@@ -5997,7 +6194,9 @@
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [],
+          "rules": [
+            "a UUID"
+          ],
           "description": "The agent whose transcript to search, by id. Unset searches the caller's own, unless a qualifier names other agents."
         }
       ]
@@ -6043,16 +6242,26 @@
       "description": "",
       "fields": [
         {
-          "name": "to",
+          "name": "to_agent_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
+          "oneof": "to",
           "rules": [
-            "required"
+            "a UUID"
           ],
-          "description": "The agent to send to, by id or by the name of a live agent."
+          "description": "The agent, by id."
+        },
+        {
+          "name": "to_agent_name",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "to",
+          "rules": [],
+          "description": "The agent, by the name of a live agent."
         },
         {
           "name": "body",
@@ -6074,7 +6283,9 @@
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [],
+          "rules": [
+            "a UUID"
+          ],
           "description": "The id of the mail this one answers, so the two read as a thread."
         }
       ]
@@ -6117,7 +6328,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The thread to resolve or reopen, by id."
         },
@@ -6161,7 +6373,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The workflow whose orchestrator to resume or create, by id."
         },
@@ -6200,14 +6413,26 @@
       "description": "TakeReviewSnapshotRequest saves a task's worktree as its next snapshot. When the worktree has not changed since the newest snapshot, the call returns that snapshot.",
       "fields": [
         {
-          "name": "task",
+          "name": "task_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
+          "oneof": "task",
+          "rules": [
+            "a UUID"
+          ],
+          "description": "The task, by id."
+        },
+        {
+          "name": "task_slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "task",
           "rules": [],
-          "description": "The task whose worktree to save, by id or slug. Unset uses the caller's own task."
+          "description": "The task, by slug."
         }
       ]
     },
@@ -6285,7 +6510,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The agent to rename, by id."
         },
@@ -6315,7 +6541,9 @@
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [],
+          "rules": [
+            "a UUID"
+          ],
           "description": "The document to rewrite, by id. Unset creates a document."
         },
         {
@@ -6381,7 +6609,9 @@
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [],
+          "rules": [
+            "a UUID"
+          ],
           "description": "The agent to write the document for, by id. An agent may name only itself."
         }
       ]
@@ -6413,7 +6643,9 @@
           "repeated": false,
           "map": false,
           "oneof": "",
-          "rules": [],
+          "rules": [
+            "a UUID"
+          ],
           "description": "The document type to rewrite, by id. Unset creates a document type."
         },
         {
@@ -7525,7 +7757,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The agent whose log sources to list, by id."
         }
@@ -7593,7 +7826,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The task whose log sources to list, by id."
         }
@@ -8272,7 +8506,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The schedule to archive, by id."
         }
@@ -8359,7 +8594,9 @@
           "repeated": false,
           "map": false,
           "oneof": "target",
-          "rules": [],
+          "rules": [
+            "a UUID"
+          ],
           "description": "The workflow to create a task in, by id. The writer takes the workflow's directory and flags."
         },
         {
@@ -8369,7 +8606,9 @@
           "repeated": false,
           "map": false,
           "oneof": "target",
-          "rules": [],
+          "rules": [
+            "a UUID"
+          ],
           "description": "The orchestrator to mail the prompt to, by id."
         }
       ]
@@ -8402,7 +8641,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The archived schedule to delete, by id."
         }
@@ -8420,7 +8660,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The schedule to get, by id."
         }
@@ -8454,7 +8695,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The schedule whose runs to list, by id."
         },
@@ -8562,7 +8804,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The archived schedule to restore, by id."
         }
@@ -8812,7 +9055,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The schedule to enable or disable, by id."
         },
@@ -8840,7 +9084,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The schedule to update, by id."
         },
@@ -8911,7 +9156,9 @@
           "repeated": false,
           "map": false,
           "oneof": "target",
-          "rules": [],
+          "rules": [
+            "a UUID"
+          ],
           "description": "The workflow to create a task in, by id."
         },
         {
@@ -8921,7 +9168,9 @@
           "repeated": false,
           "map": false,
           "oneof": "target",
-          "rules": [],
+          "rules": [
+            "a UUID"
+          ],
           "description": "The orchestrator to mail the prompt to, by id."
         },
         {
@@ -8941,16 +9190,26 @@
       "description": "",
       "fields": [
         {
-          "name": "task",
+          "name": "task_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
+          "oneof": "task",
           "rules": [
-            "required"
+            "a UUID"
           ],
-          "description": "The task to archive, by id or slug."
+          "description": "The task, by id."
+        },
+        {
+          "name": "task_slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "task",
+          "rules": [],
+          "description": "The task, by slug."
         }
       ]
     },
@@ -9005,7 +9264,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The workflow to create the task in, by id."
         }
@@ -9032,16 +9292,14 @@
       "description": "",
       "fields": [
         {
-          "name": "tasks",
+          "name": "task_ids",
           "type": "string",
           "ref": "",
           "repeated": true,
           "map": false,
           "oneof": "",
-          "rules": [
-            "required"
-          ],
-          "description": "The tasks to delete, by id or slug."
+          "rules": [],
+          "description": "The tasks to delete, by id."
         },
         {
           "name": "records",
@@ -9052,6 +9310,16 @@
           "oneof": "",
           "rules": [],
           "description": "Whether to delete the tasks' agents, transcripts, documents, mail, notes and reviews too. False deletes only the tasks' worktrees and keeps the tasks archived."
+        },
+        {
+          "name": "task_slugs",
+          "type": "string",
+          "ref": "",
+          "repeated": true,
+          "map": false,
+          "oneof": "",
+          "rules": [],
+          "description": "The tasks to delete, by slug."
         }
       ]
     },
@@ -9086,16 +9354,26 @@
       "description": "",
       "fields": [
         {
-          "name": "task",
+          "name": "task_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
+          "oneof": "task",
           "rules": [
-            "required"
+            "a UUID"
           ],
-          "description": "The task to get, by id or slug."
+          "description": "The task, by id."
+        },
+        {
+          "name": "task_slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "task",
+          "rules": [],
+          "description": "The task, by slug."
         }
       ]
     },
@@ -9127,7 +9405,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The workflow whose tasks to list, by id."
         },
@@ -9210,16 +9489,26 @@
       "description": "",
       "fields": [
         {
-          "name": "task",
+          "name": "task_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
+          "oneof": "task",
           "rules": [
-            "required"
+            "a UUID"
           ],
-          "description": "The task to hide or show, by id or slug."
+          "description": "The task, by id."
+        },
+        {
+          "name": "task_slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "task",
+          "rules": [],
+          "description": "The task, by slug."
         },
         {
           "name": "hidden",
@@ -9238,16 +9527,26 @@
       "description": "",
       "fields": [
         {
-          "name": "task",
+          "name": "task_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
+          "oneof": "task",
           "rules": [
-            "required"
+            "a UUID"
           ],
-          "description": "The task whose notes to write, by id or slug."
+          "description": "The task, by id."
+        },
+        {
+          "name": "task_slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "task",
+          "rules": [],
+          "description": "The task, by slug."
         },
         {
           "name": "notes",
@@ -9562,16 +9861,26 @@
       "description": "",
       "fields": [
         {
-          "name": "task",
+          "name": "task_id",
           "type": "string",
           "ref": "",
           "repeated": false,
           "map": false,
-          "oneof": "",
+          "oneof": "task",
           "rules": [
-            "required"
+            "a UUID"
           ],
-          "description": "The task to update, by id or slug."
+          "description": "The task, by id."
+        },
+        {
+          "name": "task_slug",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "task",
+          "rules": [],
+          "description": "The task, by slug."
         },
         {
           "name": "slug",
@@ -9664,7 +9973,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The workflow to archive, by id."
         }
@@ -9821,7 +10131,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The archived workflow to delete, by id."
         },
@@ -9849,7 +10160,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The workflow to get, by id."
         }
@@ -9945,7 +10257,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The archived workflow to restore, by id."
         }
@@ -9979,7 +10292,8 @@
           "map": false,
           "oneof": "",
           "rules": [
-            "required"
+            "required",
+            "a UUID"
           ],
           "description": "The workflow to update, by id."
         },

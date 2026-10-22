@@ -19,12 +19,12 @@ import (
 // of failure they are rather than leaving it to be decided later.
 type WorkflowServiceImpl interface {
 	ListWorkflows(context.Context, *v1.ListWorkflowsRequest) (*v1.ListWorkflowsResponse, *fail.Error)
-	GetWorkflow(context.Context, *v1.GetWorkflowRequest) (*v1.GetWorkflowResponse, *fail.Error)
+	GetWorkflow(context.Context, *GetWorkflowRequest) (*v1.GetWorkflowResponse, *fail.Error)
 	CreateWorkflow(context.Context, *v1.CreateWorkflowRequest) (*v1.CreateWorkflowResponse, *fail.Error)
-	UpdateWorkflow(context.Context, *v1.UpdateWorkflowRequest) (*emptypb.Empty, *fail.Error)
-	ArchiveWorkflow(context.Context, *v1.ArchiveWorkflowRequest) (*emptypb.Empty, *fail.Error)
-	RestoreWorkflow(context.Context, *v1.RestoreWorkflowRequest) (*v1.RestoreWorkflowResponse, *fail.Error)
-	DeleteWorkflow(context.Context, *v1.DeleteWorkflowRequest) (*emptypb.Empty, *fail.Error)
+	UpdateWorkflow(context.Context, *UpdateWorkflowRequest) (*emptypb.Empty, *fail.Error)
+	ArchiveWorkflow(context.Context, *ArchiveWorkflowRequest) (*emptypb.Empty, *fail.Error)
+	RestoreWorkflow(context.Context, *RestoreWorkflowRequest) (*v1.RestoreWorkflowResponse, *fail.Error)
+	DeleteWorkflow(context.Context, *DeleteWorkflowRequest) (*emptypb.Empty, *fail.Error)
 }
 
 // WorkflowServiceAdapter carries what the implementation returned across to the signature
@@ -40,7 +40,12 @@ func (a WorkflowServiceAdapter) ListWorkflows(ctx context.Context, req *connect.
 
 // GetWorkflow answers the request as connect serves it.
 func (a WorkflowServiceAdapter) GetWorkflow(ctx context.Context, req *connect.Request[v1.GetWorkflowRequest]) (*connect.Response[v1.GetWorkflowResponse], error) {
-	return rpcerr.Answer(a.Impl.GetWorkflow(ctx, req.Msg))
+	parsed, err := ParseGetWorkflowRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.GetWorkflowResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.GetWorkflow(ctx, parsed))
 }
 
 // CreateWorkflow answers the request as connect serves it.
@@ -50,22 +55,42 @@ func (a WorkflowServiceAdapter) CreateWorkflow(ctx context.Context, req *connect
 
 // UpdateWorkflow answers the request as connect serves it.
 func (a WorkflowServiceAdapter) UpdateWorkflow(ctx context.Context, req *connect.Request[v1.UpdateWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.UpdateWorkflow(ctx, req.Msg))
+	parsed, err := ParseUpdateWorkflowRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[emptypb.Empty](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.UpdateWorkflow(ctx, parsed))
 }
 
 // ArchiveWorkflow answers the request as connect serves it.
 func (a WorkflowServiceAdapter) ArchiveWorkflow(ctx context.Context, req *connect.Request[v1.ArchiveWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.ArchiveWorkflow(ctx, req.Msg))
+	parsed, err := ParseArchiveWorkflowRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[emptypb.Empty](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.ArchiveWorkflow(ctx, parsed))
 }
 
 // RestoreWorkflow answers the request as connect serves it.
 func (a WorkflowServiceAdapter) RestoreWorkflow(ctx context.Context, req *connect.Request[v1.RestoreWorkflowRequest]) (*connect.Response[v1.RestoreWorkflowResponse], error) {
-	return rpcerr.Answer(a.Impl.RestoreWorkflow(ctx, req.Msg))
+	parsed, err := ParseRestoreWorkflowRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[v1.RestoreWorkflowResponse](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.RestoreWorkflow(ctx, parsed))
 }
 
 // DeleteWorkflow answers the request as connect serves it.
 func (a WorkflowServiceAdapter) DeleteWorkflow(ctx context.Context, req *connect.Request[v1.DeleteWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
-	return rpcerr.Answer(a.Impl.DeleteWorkflow(ctx, req.Msg))
+	parsed, err := ParseDeleteWorkflowRequest(req.Msg)
+	if err != nil {
+		return rpcerr.Answer[emptypb.Empty](nil, rpcerr.Unparsed(err))
+	}
+
+	return rpcerr.Answer(a.Impl.DeleteWorkflow(ctx, parsed))
 }
 
 // RegisterWorkflowService mounts the implementation on the mux behind its adapter.

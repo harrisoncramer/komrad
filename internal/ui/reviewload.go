@@ -230,7 +230,7 @@ func (r *reviewScreen) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 
 func historyRequestOf(params loadReviewCmdParams) *agentv1.OpenReviewHistoryRequest {
 	req := &agentv1.OpenReviewHistoryRequest{
-		Task: params.TaskID,
+		Task: &agentv1.OpenReviewHistoryRequest_TaskId{TaskId: params.TaskID},
 	}
 
 	spec := params.Spec

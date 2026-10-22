@@ -19,6 +19,7 @@ import (
 	"komrad/internal/storetest"
 	"komrad/internal/tasks"
 	"komrad/lib/xslice"
+	"komrad/proto/gen/oneofs"
 
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
@@ -71,7 +72,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "an agent opening a thread on its own work",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-					Task:     *fx.writer.TaskID,
+					Task:     taskByID(*fx.writer.TaskID),
 					FilePath: "greet.go",
 					Body:     "looks fine to me",
 					Author:   newAgentAuthor(fx.writer),
@@ -98,7 +99,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "an agent releasing a review of its own work",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
-					Task:    *fx.writer.TaskID,
+					Task:    taskByID(*fx.writer.TaskID),
 					Verdict: reviewstore.VerdictApproved,
 					Author:  newAgentAuthor(fx.writer),
 				})
@@ -179,7 +180,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "a reviewer writing on a task it does not review",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-					Task:     *fx.otherWriter.TaskID,
+					Task:     taskByID(*fx.otherWriter.TaskID),
 					FilePath: "greet.go",
 					Body:     "this needs a nil check",
 					Author:   newAgentAuthor(fx.reviewer),
@@ -192,7 +193,7 @@ func TestReviewEntitlement(t *testing.T) {
 		{
 			name: "an unrelated agent taking a snapshot",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				_, err := fx.service.TakeSnapshot(t.Context(), *fx.writer.TaskID, newAgentAuthor(fx.otherWriter))
+				_, err := fx.service.TakeSnapshot(t.Context(), taskByID(*fx.writer.TaskID), newAgentAuthor(fx.otherWriter))
 
 				return err
 			},
@@ -201,7 +202,7 @@ func TestReviewEntitlement(t *testing.T) {
 		{
 			name: "an unrelated agent listing the reviews",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				_, err := fx.service.ListReviews(t.Context(), *fx.writer.TaskID, newAgentAuthor(fx.otherWriter))
+				_, err := fx.service.ListReviews(t.Context(), taskByID(*fx.writer.TaskID), newAgentAuthor(fx.otherWriter))
 
 				return err
 			},
@@ -211,7 +212,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "an unrelated agent opening the history",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.GetHistory(t.Context(), GetHistoryParams{
-					Task:   *fx.writer.TaskID,
+					Task:   taskByID(*fx.writer.TaskID),
 					Author: newAgentAuthor(fx.otherWriter),
 				})
 
@@ -234,7 +235,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "an agent marking a file viewed",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.SetReviewFileViewed(t.Context(), SetReviewFileViewedParams{
-					Task:        *fx.writer.TaskID,
+					Task:        taskByID(*fx.writer.TaskID),
 					FilePath:    "greet.go",
 					Fingerprint: "abc123",
 					Viewed:      true,
@@ -249,7 +250,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "an agent listing the files viewed",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.ListReviewViewedFiles(t.Context(), ListReviewViewedFilesParams{
-					Task:   *fx.writer.TaskID,
+					Task:   taskByID(*fx.writer.TaskID),
 					Author: newAgentAuthor(fx.writer),
 				})
 
@@ -285,7 +286,7 @@ func TestReviewEntitlement(t *testing.T) {
 		{
 			name: "the person naming no task",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				_, err := fx.service.ListReviews(t.Context(), "", personAuthor)
+				_, err := fx.service.ListReviews(t.Context(), oneofs.Task{}, personAuthor)
 
 				return err
 			},
@@ -295,7 +296,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "taking a snapshot of a task with no directory",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				homeless := fx.stores.SeedAgent(t, agentstore.Agent{Name: "homeless"})
-				_, err := fx.service.TakeSnapshot(t.Context(), *homeless.TaskID, personAuthor)
+				_, err := fx.service.TakeSnapshot(t.Context(), taskByID(*homeless.TaskID), personAuthor)
 
 				return err
 			},
@@ -305,7 +306,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "taking a snapshot of a task whose worktree was removed",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				require.NoError(t, fx.stores.Tasks.SetHead(t.Context(), *fx.writer.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone}))
-				_, err := fx.service.TakeSnapshot(t.Context(), *fx.writer.TaskID, personAuthor)
+				_, err := fx.service.TakeSnapshot(t.Context(), taskByID(*fx.writer.TaskID), personAuthor)
 
 				return err
 			},
@@ -316,7 +317,7 @@ func TestReviewEntitlement(t *testing.T) {
 			call: func(t *testing.T, fx *reviewFixture) error {
 				fx.removeWorktree(t, "")
 				_, err := fx.service.GetHistory(t.Context(), GetHistoryParams{
-					Task:   *fx.writer.TaskID,
+					Task:   taskByID(*fx.writer.TaskID),
 					Author: personAuthor,
 				})
 
@@ -328,7 +329,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "a reviewer releasing notes with nothing in them",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
-					Task:    *fx.writer.TaskID,
+					Task:    taskByID(*fx.writer.TaskID),
 					Verdict: reviewstore.VerdictCommented,
 					Author:  newAgentAuthor(fx.reviewer),
 				})
@@ -342,7 +343,7 @@ func TestReviewEntitlement(t *testing.T) {
 			call: func(t *testing.T, fx *reviewFixture) error {
 				fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
 				_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
-					Task:   *fx.writer.TaskID,
+					Task:   taskByID(*fx.writer.TaskID),
 					Author: newAgentAuthor(fx.reviewer),
 				})
 
@@ -354,7 +355,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "the person releasing",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
-					Task:    *fx.writer.TaskID,
+					Task:    taskByID(*fx.writer.TaskID),
 					Verdict: reviewstore.VerdictApproved,
 					Author:  personAuthor,
 				})
@@ -367,7 +368,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "a comment read from a commit no snapshot was taken of",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-					Task:        *fx.writer.TaskID,
+					Task:        taskByID(*fx.writer.TaskID),
 					SnapshotSHA: secondSnapshot,
 					FilePath:    "greet.go",
 					Body:        "this rule lives in two places",
@@ -430,7 +431,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "the person remarking on the change as a whole",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-					Task:   *fx.writer.TaskID,
+					Task:   taskByID(*fx.writer.TaskID),
 					Body:   "this whole change needs a rethink",
 					Author: personAuthor,
 				})
@@ -441,7 +442,7 @@ func TestReviewEntitlement(t *testing.T) {
 		{
 			name: "the agent under review listing its own snapshots",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				_, err := fx.service.ListSnapshots(t.Context(), *fx.writer.TaskID, newAgentAuthor(fx.writer))
+				_, err := fx.service.ListSnapshots(t.Context(), taskByID(*fx.writer.TaskID), newAgentAuthor(fx.writer))
 
 				return err
 			},
@@ -449,7 +450,7 @@ func TestReviewEntitlement(t *testing.T) {
 		{
 			name: "the agent under review taking a snapshot of its own work",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				_, err := fx.service.TakeSnapshot(t.Context(), *fx.writer.TaskID, newAgentAuthor(fx.writer))
+				_, err := fx.service.TakeSnapshot(t.Context(), taskByID(*fx.writer.TaskID), newAgentAuthor(fx.writer))
 
 				return err
 			},
@@ -457,7 +458,7 @@ func TestReviewEntitlement(t *testing.T) {
 		{
 			name: "a reviewer naming no task taking a snapshot of the work it reviews",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				_, err := fx.service.TakeSnapshot(t.Context(), "", newAgentAuthor(fx.reviewer))
+				_, err := fx.service.TakeSnapshot(t.Context(), oneofs.Task{}, newAgentAuthor(fx.reviewer))
 
 				return err
 			},
@@ -465,7 +466,7 @@ func TestReviewEntitlement(t *testing.T) {
 		{
 			name: "a reviewer naming no task listing the reviews of the work it reviews",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				_, err := fx.service.ListReviews(t.Context(), "", newAgentAuthor(fx.reviewer))
+				_, err := fx.service.ListReviews(t.Context(), oneofs.Task{}, newAgentAuthor(fx.reviewer))
 
 				return err
 			},
@@ -556,7 +557,7 @@ func TestListReviewThreads(t *testing.T) {
 
 			reader := tt.reader(fx)
 			threads, err := fx.service.ListReviewThreads(t.Context(), ListReviewThreadsParams{
-				Task:   *fx.writer.TaskID,
+				Task:   taskByID(*fx.writer.TaskID),
 				Author: reader,
 			})
 			require.NoError(t, err)
@@ -839,7 +840,7 @@ func TestReviewFileViewed(t *testing.T) {
 	fx := newReviewFixture(t)
 
 	_, err := fx.service.SetReviewFileViewed(t.Context(), SetReviewFileViewedParams{
-		Task:        *fx.writer.TaskID,
+		Task:        taskByID(*fx.writer.TaskID),
 		FilePath:    "greet.go",
 		Fingerprint: "abc123",
 		Viewed:      true,
@@ -848,7 +849,7 @@ func TestReviewFileViewed(t *testing.T) {
 	require.NoError(t, err)
 
 	viewed, err := fx.service.ListReviewViewedFiles(t.Context(), ListReviewViewedFilesParams{
-		Task:   *fx.writer.TaskID,
+		Task:   taskByID(*fx.writer.TaskID),
 		Author: personAuthor,
 	})
 	require.NoError(t, err)
@@ -856,14 +857,14 @@ func TestReviewFileViewed(t *testing.T) {
 	assert.Equal(t, "greet.go", viewed[0].FilePath)
 
 	_, err = fx.service.SetReviewFileViewed(t.Context(), SetReviewFileViewedParams{
-		Task:     *fx.writer.TaskID,
+		Task:     taskByID(*fx.writer.TaskID),
 		FilePath: "greet.go",
 		Author:   personAuthor,
 	})
 	require.NoError(t, err)
 
 	viewed, err = fx.service.ListReviewViewedFiles(t.Context(), ListReviewViewedFilesParams{
-		Task:   *fx.writer.TaskID,
+		Task:   taskByID(*fx.writer.TaskID),
 		Author: personAuthor,
 	})
 	require.NoError(t, err)
@@ -1060,7 +1061,7 @@ func newReviewFixtureReleasing(t *testing.T, params NewReleasedHandlerParams) *r
 		Tracer:   history.NewTracer(gittest.NoRepo{}),
 	})
 
-	_, err := service.TakeSnapshot(t.Context(), *writer.TaskID, personAuthor)
+	_, err := service.TakeSnapshot(t.Context(), taskByID(*writer.TaskID), personAuthor)
 	require.NoError(t, err)
 
 	return &reviewFixture{
@@ -1094,7 +1095,7 @@ func (fx *reviewFixture) writeComment(t *testing.T, author ReviewAuthor, body st
 	t.Helper()
 
 	written, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-		Task:        *fx.writer.TaskID,
+		Task:        taskByID(*fx.writer.TaskID),
 		FilePath:    "greet.go",
 		NewStart:    41,
 		NewEnd:      41,
@@ -1111,7 +1112,7 @@ func (fx *reviewFixture) writeCommentOn(t *testing.T, author ReviewAuthor, snaps
 	t.Helper()
 
 	written, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-		Task:        *fx.writer.TaskID,
+		Task:        taskByID(*fx.writer.TaskID),
 		SnapshotSHA: snapshot,
 		FilePath:    "greet.go",
 		Body:        "this needs a nil check",
@@ -1127,7 +1128,7 @@ func (fx *reviewFixture) tryComment(t *testing.T, author ReviewAuthor, snapshot 
 	t.Helper()
 
 	_, err := fx.service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
-		Task:        *fx.writer.TaskID,
+		Task:        taskByID(*fx.writer.TaskID),
 		SnapshotSHA: snapshot,
 		FilePath:    "greet.go",
 		Body:        "and another thing",
@@ -1141,7 +1142,7 @@ func (fx *reviewFixture) releaseReview(t *testing.T, author ReviewAuthor, verdic
 	t.Helper()
 
 	released, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
-		Task:    *fx.writer.TaskID,
+		Task:    taskByID(*fx.writer.TaskID),
 		Verdict: verdict,
 		Author:  author,
 	})
@@ -1182,7 +1183,7 @@ func (fx *reviewFixture) advanceTree(t *testing.T) *reviewstore.Snapshot {
 	t.Helper()
 
 	fx.snapshots.SHA = secondSnapshot
-	snapshot, err := fx.service.TakeSnapshot(t.Context(), *fx.writer.TaskID, personAuthor)
+	snapshot, err := fx.service.TakeSnapshot(t.Context(), taskByID(*fx.writer.TaskID), personAuthor)
 	require.NoError(t, err)
 
 	return snapshot
@@ -1210,4 +1211,11 @@ func (fx *reviewFixture) listMail(t *testing.T, agentID string) []mailstore.Mail
 	slices.Reverse(listed)
 
 	return listed
+}
+
+// taskByID names a task by the id the store gave it.
+func taskByID(id string) oneofs.Task {
+	parsed := uuid.MustParse(id)
+
+	return oneofs.Task{TaskId: &parsed}
 }

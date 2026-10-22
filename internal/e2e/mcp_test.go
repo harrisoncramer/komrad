@@ -74,8 +74,8 @@ func TestIntegrationMCPTools(t *testing.T) {
 
 	t.Run("a call is made as the agent calling it", func(t *testing.T) {
 		answer, failed := writerTools.call(t, "send_mail", map[string]any{
-			"to":   migrations.GetId(),
-			"body": "what is the refund column called?",
+			"to_agent_id": migrations.GetId(),
+			"body":        "what is the refund column called?",
 		})
 		require.False(t, failed, answer)
 
@@ -91,8 +91,8 @@ func TestIntegrationMCPTools(t *testing.T) {
 
 	t.Run("a refusal comes back as a tool error naming its code", func(t *testing.T) {
 		answer, failed := writerTools.call(t, "send_mail", map[string]any{
-			"to":   "nobody",
-			"body": "hello?",
+			"to_agent_name": "nobody",
+			"body":          "hello?",
 		})
 
 		assert.True(t, failed)

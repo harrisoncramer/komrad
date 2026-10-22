@@ -944,20 +944,30 @@ type CreateAgentRequest struct {
 	// Whether the agent gets a worktree of its own. False keeps the agent in the workflow's
 	// directory. Unset to follow the workflow.
 	ProvisionEnabled *bool `protobuf:"varint,7,opt,name=provision_enabled,json=provisionEnabled,proto3,oneof" json:"provision_enabled,omitempty"`
-	// The task to put the agent on, by id or slug, in `workflow_id`. Unset to create a task with the
-	// agent as its writer. An agent that joins as a reviewer cannot set `provision_enabled` to true.
-	Task *string `protobuf:"bytes,8,opt,name=task,proto3,oneof" json:"task,omitempty"`
-	// The slug of the task komrad creates when `task` is unset. No task may have used it before.
+	// The task in `workflow_id` to put the agent on. Unset to create a task with the agent as its
+	// writer. An agent that joins as a reviewer cannot set `provision_enabled` to true.
+	//
+	// Types that are valid to be assigned to Task:
+	//
+	//	*CreateAgentRequest_TaskId
+	//	*CreateAgentRequest_TaskSlug
+	Task isCreateAgentRequest_Task `protobuf_oneof:"task"`
+	// The slug of the task komrad creates when no task is named. No task may have used it before.
 	// Unset to derive one from the agent's name.
-	TaskSlug *string `protobuf:"bytes,9,opt,name=task_slug,json=taskSlug,proto3,oneof" json:"task_slug,omitempty"`
-	// The goal of the task komrad creates when `task` is unset, in markdown. Empty to use the
+	NewTaskSlug *string `protobuf:"bytes,9,opt,name=new_task_slug,json=newTaskSlug,proto3,oneof" json:"new_task_slug,omitempty"`
+	// The goal of the task komrad creates when no task is named, in markdown. Empty to use the
 	// first line of the prompt.
-	TaskGoal string `protobuf:"bytes,10,opt,name=task_goal,json=taskGoal,proto3" json:"task_goal,omitempty"`
-	// The task the new task depends on, by id or slug, in `workflow_id`. The new task's branch starts
-	// from that task's branch on origin, and komrad rebases it as that branch moves and re-targets it
-	// onto the base branch once that task merges. Unset to start from the workflow's base branch.
-	// Cannot be set with `task`.
-	DependsOn     *string `protobuf:"bytes,11,opt,name=depends_on,json=dependsOn,proto3,oneof" json:"depends_on,omitempty"`
+	NewTaskGoal string `protobuf:"bytes,10,opt,name=new_task_goal,json=newTaskGoal,proto3" json:"new_task_goal,omitempty"`
+	// The task in `workflow_id` the new task depends on. The new task's branch starts from that
+	// task's branch on origin, and komrad rebases it as that branch moves and re-targets it onto the
+	// base branch once that task merges. Unset to start from the workflow's base branch. Cannot be
+	// set with a task to put the agent on.
+	//
+	// Types that are valid to be assigned to DependsOn:
+	//
+	//	*CreateAgentRequest_DependsOnId
+	//	*CreateAgentRequest_DependsOnSlug
+	DependsOn     isCreateAgentRequest_DependsOn `protobuf_oneof:"depends_on"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1041,33 +1051,105 @@ func (x *CreateAgentRequest) GetProvisionEnabled() bool {
 	return false
 }
 
-func (x *CreateAgentRequest) GetTask() string {
-	if x != nil && x.Task != nil {
-		return *x.Task
+func (x *CreateAgentRequest) GetTask() isCreateAgentRequest_Task {
+	if x != nil {
+		return x.Task
+	}
+	return nil
+}
+
+func (x *CreateAgentRequest) GetTaskId() string {
+	if x != nil {
+		if x, ok := x.Task.(*CreateAgentRequest_TaskId); ok {
+			return x.TaskId
+		}
 	}
 	return ""
 }
 
 func (x *CreateAgentRequest) GetTaskSlug() string {
-	if x != nil && x.TaskSlug != nil {
-		return *x.TaskSlug
-	}
-	return ""
-}
-
-func (x *CreateAgentRequest) GetTaskGoal() string {
 	if x != nil {
-		return x.TaskGoal
+		if x, ok := x.Task.(*CreateAgentRequest_TaskSlug); ok {
+			return x.TaskSlug
+		}
 	}
 	return ""
 }
 
-func (x *CreateAgentRequest) GetDependsOn() string {
-	if x != nil && x.DependsOn != nil {
-		return *x.DependsOn
+func (x *CreateAgentRequest) GetNewTaskSlug() string {
+	if x != nil && x.NewTaskSlug != nil {
+		return *x.NewTaskSlug
 	}
 	return ""
 }
+
+func (x *CreateAgentRequest) GetNewTaskGoal() string {
+	if x != nil {
+		return x.NewTaskGoal
+	}
+	return ""
+}
+
+func (x *CreateAgentRequest) GetDependsOn() isCreateAgentRequest_DependsOn {
+	if x != nil {
+		return x.DependsOn
+	}
+	return nil
+}
+
+func (x *CreateAgentRequest) GetDependsOnId() string {
+	if x != nil {
+		if x, ok := x.DependsOn.(*CreateAgentRequest_DependsOnId); ok {
+			return x.DependsOnId
+		}
+	}
+	return ""
+}
+
+func (x *CreateAgentRequest) GetDependsOnSlug() string {
+	if x != nil {
+		if x, ok := x.DependsOn.(*CreateAgentRequest_DependsOnSlug); ok {
+			return x.DependsOnSlug
+		}
+	}
+	return ""
+}
+
+type isCreateAgentRequest_Task interface {
+	isCreateAgentRequest_Task()
+}
+
+type CreateAgentRequest_TaskId struct {
+	// The task, by id.
+	TaskId string `protobuf:"bytes,8,opt,name=task_id,json=taskId,proto3,oneof"`
+}
+
+type CreateAgentRequest_TaskSlug struct {
+	// The task, by slug.
+	TaskSlug string `protobuf:"bytes,12,opt,name=task_slug,json=taskSlug,proto3,oneof"`
+}
+
+func (*CreateAgentRequest_TaskId) isCreateAgentRequest_Task() {}
+
+func (*CreateAgentRequest_TaskSlug) isCreateAgentRequest_Task() {}
+
+type isCreateAgentRequest_DependsOn interface {
+	isCreateAgentRequest_DependsOn()
+}
+
+type CreateAgentRequest_DependsOnId struct {
+	// The task, by id.
+	DependsOnId string `protobuf:"bytes,11,opt,name=depends_on_id,json=dependsOnId,proto3,oneof"`
+}
+
+type CreateAgentRequest_DependsOnSlug struct {
+	// The task, by slug.
+	DependsOnSlug string `protobuf:"bytes,13,opt,name=depends_on_slug,json=dependsOnSlug,proto3,oneof"`
+}
+
+func (*CreateAgentRequest_DependsOnId) isCreateAgentRequest_DependsOn() {}
+
+func (*CreateAgentRequest_DependsOnSlug) isCreateAgentRequest_DependsOn() {}
 
 type CreateAgentResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1568,8 +1650,13 @@ func (x *GetAgentResponse) GetTask() *v13.Task {
 // PlanRebaseRequest asks what a rebase of a task's branch would do, without doing it.
 type PlanRebaseRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task whose branch to plan a rebase of, by id or slug.
-	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
+	// The task whose branch to plan a rebase of.
+	//
+	// Types that are valid to be assigned to Task:
+	//
+	//	*PlanRebaseRequest_TaskId
+	//	*PlanRebaseRequest_TaskSlug
+	Task isPlanRebaseRequest_Task `protobuf_oneof:"task"`
 	// Plan a re-target of a child onto the workflow's base branch, rebasing only its own commits,
 	// in place of a rebase onto its parent.
 	OntoBase      bool `protobuf:"varint,2,opt,name=onto_base,json=ontoBase,proto3" json:"onto_base,omitempty"`
@@ -1607,9 +1694,27 @@ func (*PlanRebaseRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{14}
 }
 
-func (x *PlanRebaseRequest) GetTask() string {
+func (x *PlanRebaseRequest) GetTask() isPlanRebaseRequest_Task {
 	if x != nil {
 		return x.Task
+	}
+	return nil
+}
+
+func (x *PlanRebaseRequest) GetTaskId() string {
+	if x != nil {
+		if x, ok := x.Task.(*PlanRebaseRequest_TaskId); ok {
+			return x.TaskId
+		}
+	}
+	return ""
+}
+
+func (x *PlanRebaseRequest) GetTaskSlug() string {
+	if x != nil {
+		if x, ok := x.Task.(*PlanRebaseRequest_TaskSlug); ok {
+			return x.TaskSlug
+		}
 	}
 	return ""
 }
@@ -1620,6 +1725,24 @@ func (x *PlanRebaseRequest) GetOntoBase() bool {
 	}
 	return false
 }
+
+type isPlanRebaseRequest_Task interface {
+	isPlanRebaseRequest_Task()
+}
+
+type PlanRebaseRequest_TaskId struct {
+	// The task, by id.
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3,oneof"`
+}
+
+type PlanRebaseRequest_TaskSlug struct {
+	// The task, by slug.
+	TaskSlug string `protobuf:"bytes,3,opt,name=task_slug,json=taskSlug,proto3,oneof"`
+}
+
+func (*PlanRebaseRequest_TaskId) isPlanRebaseRequest_Task() {}
+
+func (*PlanRebaseRequest_TaskSlug) isPlanRebaseRequest_Task() {}
 
 type PlanRebaseResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1831,8 +1954,13 @@ func (x *StartOrchestratorResponse) GetAgent() *Agent {
 
 type RebaseWorktreeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task whose branch to rebase onto the base branch, by id or slug.
-	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
+	// The task whose branch to rebase onto the base branch.
+	//
+	// Types that are valid to be assigned to Task:
+	//
+	//	*RebaseWorktreeRequest_TaskId
+	//	*RebaseWorktreeRequest_TaskSlug
+	Task isRebaseWorktreeRequest_Task `protobuf_oneof:"task"`
 	// Re-target a child onto the workflow's base branch, rebasing only its own commits, so it no
 	// longer has a parent.
 	OntoBase      bool `protobuf:"varint,2,opt,name=onto_base,json=ontoBase,proto3" json:"onto_base,omitempty"`
@@ -1870,9 +1998,27 @@ func (*RebaseWorktreeRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{18}
 }
 
-func (x *RebaseWorktreeRequest) GetTask() string {
+func (x *RebaseWorktreeRequest) GetTask() isRebaseWorktreeRequest_Task {
 	if x != nil {
 		return x.Task
+	}
+	return nil
+}
+
+func (x *RebaseWorktreeRequest) GetTaskId() string {
+	if x != nil {
+		if x, ok := x.Task.(*RebaseWorktreeRequest_TaskId); ok {
+			return x.TaskId
+		}
+	}
+	return ""
+}
+
+func (x *RebaseWorktreeRequest) GetTaskSlug() string {
+	if x != nil {
+		if x, ok := x.Task.(*RebaseWorktreeRequest_TaskSlug); ok {
+			return x.TaskSlug
+		}
 	}
 	return ""
 }
@@ -1883,6 +2029,24 @@ func (x *RebaseWorktreeRequest) GetOntoBase() bool {
 	}
 	return false
 }
+
+type isRebaseWorktreeRequest_Task interface {
+	isRebaseWorktreeRequest_Task()
+}
+
+type RebaseWorktreeRequest_TaskId struct {
+	// The task, by id.
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3,oneof"`
+}
+
+type RebaseWorktreeRequest_TaskSlug struct {
+	// The task, by slug.
+	TaskSlug string `protobuf:"bytes,3,opt,name=task_slug,json=taskSlug,proto3,oneof"`
+}
+
+func (*RebaseWorktreeRequest_TaskId) isRebaseWorktreeRequest_Task() {}
+
+func (*RebaseWorktreeRequest_TaskSlug) isRebaseWorktreeRequest_Task() {}
 
 type RebaseWorktreeResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1996,8 +2160,13 @@ func (x *RebaseWorktreeResponse) GetReplayCommits() int32 {
 // PlanPushRequest asks what a push of a task's branch would do, without doing it.
 type PlanPushRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task whose branch to plan a push of, by id or slug.
-	Task          string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
+	// The task whose branch to plan a push of.
+	//
+	// Types that are valid to be assigned to Task:
+	//
+	//	*PlanPushRequest_TaskId
+	//	*PlanPushRequest_TaskSlug
+	Task          isPlanPushRequest_Task `protobuf_oneof:"task"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2032,12 +2201,48 @@ func (*PlanPushRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{20}
 }
 
-func (x *PlanPushRequest) GetTask() string {
+func (x *PlanPushRequest) GetTask() isPlanPushRequest_Task {
 	if x != nil {
 		return x.Task
 	}
+	return nil
+}
+
+func (x *PlanPushRequest) GetTaskId() string {
+	if x != nil {
+		if x, ok := x.Task.(*PlanPushRequest_TaskId); ok {
+			return x.TaskId
+		}
+	}
 	return ""
 }
+
+func (x *PlanPushRequest) GetTaskSlug() string {
+	if x != nil {
+		if x, ok := x.Task.(*PlanPushRequest_TaskSlug); ok {
+			return x.TaskSlug
+		}
+	}
+	return ""
+}
+
+type isPlanPushRequest_Task interface {
+	isPlanPushRequest_Task()
+}
+
+type PlanPushRequest_TaskId struct {
+	// The task, by id.
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3,oneof"`
+}
+
+type PlanPushRequest_TaskSlug struct {
+	// The task, by slug.
+	TaskSlug string `protobuf:"bytes,2,opt,name=task_slug,json=taskSlug,proto3,oneof"`
+}
+
+func (*PlanPushRequest_TaskId) isPlanPushRequest_Task() {}
+
+func (*PlanPushRequest_TaskSlug) isPlanPushRequest_Task() {}
 
 type PlanPushResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -2123,8 +2328,13 @@ func (x *PlanPushResponse) GetInSync() bool {
 
 type PushWorktreeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task whose branch to push to origin, by id or slug.
-	Task          string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
+	// The task whose branch to push to origin.
+	//
+	// Types that are valid to be assigned to Task:
+	//
+	//	*PushWorktreeRequest_TaskId
+	//	*PushWorktreeRequest_TaskSlug
+	Task          isPushWorktreeRequest_Task `protobuf_oneof:"task"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2159,12 +2369,48 @@ func (*PushWorktreeRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{22}
 }
 
-func (x *PushWorktreeRequest) GetTask() string {
+func (x *PushWorktreeRequest) GetTask() isPushWorktreeRequest_Task {
 	if x != nil {
 		return x.Task
 	}
+	return nil
+}
+
+func (x *PushWorktreeRequest) GetTaskId() string {
+	if x != nil {
+		if x, ok := x.Task.(*PushWorktreeRequest_TaskId); ok {
+			return x.TaskId
+		}
+	}
 	return ""
 }
+
+func (x *PushWorktreeRequest) GetTaskSlug() string {
+	if x != nil {
+		if x, ok := x.Task.(*PushWorktreeRequest_TaskSlug); ok {
+			return x.TaskSlug
+		}
+	}
+	return ""
+}
+
+type isPushWorktreeRequest_Task interface {
+	isPushWorktreeRequest_Task()
+}
+
+type PushWorktreeRequest_TaskId struct {
+	// The task, by id.
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3,oneof"`
+}
+
+type PushWorktreeRequest_TaskSlug struct {
+	// The task, by slug.
+	TaskSlug string `protobuf:"bytes,2,opt,name=task_slug,json=taskSlug,proto3,oneof"`
+}
+
+func (*PushWorktreeRequest_TaskId) isPushWorktreeRequest_Task() {}
+
+func (*PushWorktreeRequest_TaskSlug) isPushWorktreeRequest_Task() {}
 
 type PushWorktreeResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -2240,8 +2486,13 @@ func (x *PushWorktreeResponse) GetSha() string {
 
 type PickForkPointRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The child, by id or slug.
-	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
+	// The child task.
+	//
+	// Types that are valid to be assigned to Task:
+	//
+	//	*PickForkPointRequest_TaskId
+	//	*PickForkPointRequest_TaskSlug
+	Task isPickForkPointRequest_Task `protobuf_oneof:"task"`
 	// The commit the child's own commits sit on, which its branch must hold. Any name git reads as
 	// a commit.
 	Commit        string `protobuf:"bytes,2,opt,name=commit,proto3" json:"commit,omitempty"`
@@ -2279,9 +2530,27 @@ func (*PickForkPointRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{24}
 }
 
-func (x *PickForkPointRequest) GetTask() string {
+func (x *PickForkPointRequest) GetTask() isPickForkPointRequest_Task {
 	if x != nil {
 		return x.Task
+	}
+	return nil
+}
+
+func (x *PickForkPointRequest) GetTaskId() string {
+	if x != nil {
+		if x, ok := x.Task.(*PickForkPointRequest_TaskId); ok {
+			return x.TaskId
+		}
+	}
+	return ""
+}
+
+func (x *PickForkPointRequest) GetTaskSlug() string {
+	if x != nil {
+		if x, ok := x.Task.(*PickForkPointRequest_TaskSlug); ok {
+			return x.TaskSlug
+		}
 	}
 	return ""
 }
@@ -2292,6 +2561,24 @@ func (x *PickForkPointRequest) GetCommit() string {
 	}
 	return ""
 }
+
+type isPickForkPointRequest_Task interface {
+	isPickForkPointRequest_Task()
+}
+
+type PickForkPointRequest_TaskId struct {
+	// The task, by id.
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3,oneof"`
+}
+
+type PickForkPointRequest_TaskSlug struct {
+	// The task, by slug.
+	TaskSlug string `protobuf:"bytes,3,opt,name=task_slug,json=taskSlug,proto3,oneof"`
+}
+
+func (*PickForkPointRequest_TaskId) isPickForkPointRequest_Task() {}
+
+func (*PickForkPointRequest_TaskSlug) isPickForkPointRequest_Task() {}
 
 type PickForkPointResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -2340,8 +2627,13 @@ func (x *PickForkPointResponse) GetForkPoint() string {
 
 type AbortSequenceRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task whose sequence to abort, by id or slug.
-	Task          string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
+	// The task whose sequence to abort.
+	//
+	// Types that are valid to be assigned to Task:
+	//
+	//	*AbortSequenceRequest_TaskId
+	//	*AbortSequenceRequest_TaskSlug
+	Task          isAbortSequenceRequest_Task `protobuf_oneof:"task"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2376,12 +2668,48 @@ func (*AbortSequenceRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{26}
 }
 
-func (x *AbortSequenceRequest) GetTask() string {
+func (x *AbortSequenceRequest) GetTask() isAbortSequenceRequest_Task {
 	if x != nil {
 		return x.Task
 	}
+	return nil
+}
+
+func (x *AbortSequenceRequest) GetTaskId() string {
+	if x != nil {
+		if x, ok := x.Task.(*AbortSequenceRequest_TaskId); ok {
+			return x.TaskId
+		}
+	}
 	return ""
 }
+
+func (x *AbortSequenceRequest) GetTaskSlug() string {
+	if x != nil {
+		if x, ok := x.Task.(*AbortSequenceRequest_TaskSlug); ok {
+			return x.TaskSlug
+		}
+	}
+	return ""
+}
+
+type isAbortSequenceRequest_Task interface {
+	isAbortSequenceRequest_Task()
+}
+
+type AbortSequenceRequest_TaskId struct {
+	// The task, by id.
+	TaskId string `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3,oneof"`
+}
+
+type AbortSequenceRequest_TaskSlug struct {
+	// The task, by slug.
+	TaskSlug string `protobuf:"bytes,2,opt,name=task_slug,json=taskSlug,proto3,oneof"`
+}
+
+func (*AbortSequenceRequest_TaskId) isAbortSequenceRequest_Task() {}
+
+func (*AbortSequenceRequest_TaskSlug) isAbortSequenceRequest_Task() {}
 
 type AbortSequenceResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -3233,34 +3561,35 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12ListAgentsResponse\x12*\n" +
 	"\x06agents\x18\x01 \x03(\v2\x12.agent.v1.AgentRowR\x06agents\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\"\xd4\x04\n" +
+	"\x10_next_page_token\"\xc6\x05\n" +
 	"\x12CreateAgentRequest\x12#\n" +
 	"\x06prompt\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12\"\n" +
 	"\x05title\x18\x02 \x01(\tB\f\xbaH\tr\aػ\x18\x01\x18\xc8\x01R\x05title\x12\"\n" +
-	"\x05flags\x18\x03 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\x12(\n" +
-	"\vworkflow_id\x18\x04 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
+	"\x05flags\x18\x03 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\x12)\n" +
+	"\vworkflow_id\x18\x04 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\n" +
 	"workflowId\x12/\n" +
 	"\aharness\x18\x05 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x128\n" +
 	"\x0fidempotency_key\x18\x06 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xc8\x01H\x00R\x0eidempotencyKey\x88\x01\x01\x120\n" +
-	"\x11provision_enabled\x18\a \x01(\bH\x01R\x10provisionEnabled\x88\x01\x01\x12 \n" +
-	"\x04task\x18\b \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x02R\x04task\x88\x01\x01\x12C\n" +
-	"\ttask_slug\x18\t \x01(\tB!\xbaH\x1er\x1c\x18P2\x18^[a-z0-9]+(-[a-z0-9]+)*$H\x03R\btaskSlug\x88\x01\x01\x12&\n" +
-	"\ttask_goal\x18\n" +
-	" \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\btaskGoal\x12+\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xc8\x01H\x02R\x0eidempotencyKey\x88\x01\x01\x120\n" +
+	"\x11provision_enabled\x18\a \x01(\bH\x03R\x10provisionEnabled\x88\x01\x01\x12#\n" +
+	"\atask_id\x18\b \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
+	"\ttask_slug\x18\f \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlug\x12J\n" +
+	"\rnew_task_slug\x18\t \x01(\tB!\xbaH\x1er\x1c\x18P2\x18^[a-z0-9]+(-[a-z0-9]+)*$H\x04R\vnewTaskSlug\x88\x01\x01\x12-\n" +
+	"\rnew_task_goal\x18\n" +
+	" \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\vnewTaskGoal\x12.\n" +
+	"\rdepends_on_id\x18\v \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x01R\vdependsOnId\x121\n" +
+	"\x0fdepends_on_slug\x18\r \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x01R\rdependsOnSlugB\x06\n" +
+	"\x04taskB\f\n" +
 	"\n" +
-	"depends_on\x18\v \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x04R\tdependsOn\x88\x01\x01B\x12\n" +
+	"depends_onB\x12\n" +
 	"\x10_idempotency_keyB\x14\n" +
-	"\x12_provision_enabledB\a\n" +
-	"\x05_taskB\f\n" +
-	"\n" +
-	"_task_slugB\r\n" +
-	"\v_depends_on\"<\n" +
+	"\x12_provision_enabledB\x10\n" +
+	"\x0e_new_task_slug\"<\n" +
 	"\x13CreateAgentResponse\x12%\n" +
-	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\xb8\x02\n" +
+	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\xb9\x02\n" +
 	"\x14RequestReviewRequest\x12#\n" +
-	"\x06prompt\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12'\n" +
-	"\bagent_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x88\x01\x01\x12\"\n" +
+	"\x06prompt\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12(\n" +
+	"\bagent_id\x18\x02 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\aagentId\x88\x01\x01\x12\"\n" +
 	"\x05title\x18\x03 \x01(\tB\f\xbaH\tr\aػ\x18\x01\x18\xc8\x01R\x05title\x128\n" +
 	"\x0fidempotency_key\x18\x04 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01H\x01R\x0eidempotencyKey\x88\x01\x01\x12/\n" +
@@ -3270,10 +3599,10 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x10_idempotency_key\"`\n" +
 	"\x15RequestReviewResponse\x12+\n" +
 	"\breviewer\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\breviewer\x12\x1a\n" +
-	"\bguidance\x18\x02 \x01(\tR\bguidance\"\xc4\x02\n" +
+	"\bguidance\x18\x02 \x01(\tR\bguidance\"\xc5\x02\n" +
 	"\fAdoptRequest\x12 \n" +
-	"\x03ref\x18\x01 \x01(\tB\x0e\xbaH\vr\t\xa0\xbb\x18\x01\x10\x01\x18\x90\x03R\x03ref\x12(\n" +
-	"\vworkflow_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
+	"\x03ref\x18\x01 \x01(\tB\x0e\xbaH\vr\t\xa0\xbb\x18\x01\x10\x01\x18\x90\x03R\x03ref\x12)\n" +
+	"\vworkflow_id\x18\x02 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\n" +
 	"workflowId\x12!\n" +
 	"\x06prompt\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\x06prompt\x12\"\n" +
 	"\x05title\x18\x04 \x01(\tB\f\xbaH\tr\aػ\x18\x01\x18\xc8\x01R\x05title\x12\"\n" +
@@ -3284,9 +3613,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x10_idempotency_key\"R\n" +
 	"\rAdoptResponse\x12%\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\x12\x1a\n" +
-	"\bexisting\x18\x02 \x01(\bR\bexisting\"*\n" +
-	"\x0fGetAgentRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"\x81\x04\n" +
+	"\bexisting\x18\x02 \x01(\bR\bexisting\"+\n" +
+	"\x0fGetAgentRequest\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"\x81\x04\n" +
 	"\x10GetAgentResponse\x12%\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\x12\x1f\n" +
 	"\vunread_mail\x18\x02 \x01(\bR\n" +
@@ -3299,11 +3628,12 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x04task\x18\b \x01(\v2\r.task.v1.TaskH\x02R\x04task\x88\x01\x01B\x14\n" +
 	"\x12_reviewer_commentsB\x12\n" +
 	"\x10_person_commentsB\a\n" +
-	"\x05_task\"\x89\x01\n" +
-	"\x11PlanRebaseRequest\x12W\n" +
-	"\x04task\x18\x01 \x01(\tBC\xbaH@\xba\x01=\n" +
-	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\x12\x1b\n" +
-	"\tonto_base\x18\x02 \x01(\bR\bontoBase\"\x89\x02\n" +
+	"\x05_task\"\x8c\x01\n" +
+	"\x11PlanRebaseRequest\x12#\n" +
+	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
+	"\ttask_slug\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlug\x12\x1b\n" +
+	"\tonto_base\x18\x02 \x01(\bR\bontoBaseB\r\n" +
+	"\x04task\x12\x05\xbaH\x02\b\x01\"\x89\x02\n" +
 	"\x12PlanRebaseResponse\x12\x19\n" +
 	"\bbase_ref\x18\x01 \x01(\tR\abaseRef\x12\x19\n" +
 	"\bbase_sha\x18\x02 \x01(\tR\abaseSha\x12\x18\n" +
@@ -3312,17 +3642,18 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x0elanded_commits\x18\x05 \x01(\x05R\rlandedCommits\x12%\n" +
 	"\x0ereplay_commits\x18\x06 \x01(\x05R\rreplayCommits\x12\x16\n" +
 	"\x06merges\x18\a \x01(\x05R\x06merges\x12%\n" +
-	"\x0econflict_paths\x18\b \x03(\tR\rconflictPaths\"g\n" +
-	"\x18StartOrchestratorRequest\x12(\n" +
-	"\vworkflow_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
+	"\x0econflict_paths\x18\b \x03(\tR\rconflictPaths\"h\n" +
+	"\x18StartOrchestratorRequest\x12)\n" +
+	"\vworkflow_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\n" +
 	"workflowId\x12!\n" +
 	"\x06prompt\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\x06prompt\"B\n" +
 	"\x19StartOrchestratorResponse\x12%\n" +
-	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\x8d\x01\n" +
-	"\x15RebaseWorktreeRequest\x12W\n" +
-	"\x04task\x18\x01 \x01(\tBC\xbaH@\xba\x01=\n" +
-	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\x12\x1b\n" +
-	"\tonto_base\x18\x02 \x01(\bR\bontoBase\"\x84\x02\n" +
+	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\x90\x01\n" +
+	"\x15RebaseWorktreeRequest\x12#\n" +
+	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
+	"\ttask_slug\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlug\x12\x1b\n" +
+	"\tonto_base\x18\x02 \x01(\bR\bontoBaseB\r\n" +
+	"\x04task\x12\x05\xbaH\x02\b\x01\"\x84\x02\n" +
 	"\x16RebaseWorktreeResponse\x12\x19\n" +
 	"\bbase_ref\x18\x01 \x01(\tR\abaseRef\x12\x19\n" +
 	"\bbase_sha\x18\x02 \x01(\tR\abaseSha\x12\x18\n" +
@@ -3333,34 +3664,38 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"conflicted\x12\x14\n" +
 	"\x05moved\x18\x06 \x01(\bR\x05moved\x12%\n" +
 	"\x0elanded_commits\x18\a \x01(\x05R\rlandedCommits\x12%\n" +
-	"\x0ereplay_commits\x18\b \x01(\x05R\rreplayCommits\"j\n" +
-	"\x0fPlanPushRequest\x12W\n" +
-	"\x04task\x18\x01 \x01(\tBC\xbaH@\xba\x01=\n" +
-	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\"\xa2\x01\n" +
+	"\x0ereplay_commits\x18\b \x01(\x05R\rreplayCommits\"m\n" +
+	"\x0fPlanPushRequest\x12#\n" +
+	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
+	"\ttask_slug\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlugB\r\n" +
+	"\x04task\x12\x05\xbaH\x02\b\x01\"\xa2\x01\n" +
 	"\x10PlanPushResponse\x12\x16\n" +
 	"\x06branch\x18\x01 \x01(\tR\x06branch\x12\x18\n" +
 	"\acommits\x18\x02 \x01(\x05R\acommits\x12\x16\n" +
 	"\x06forced\x18\x03 \x01(\bR\x06forced\x12+\n" +
 	"\x11uncommitted_files\x18\x04 \x01(\x05R\x10uncommittedFiles\x12\x17\n" +
-	"\ain_sync\x18\x05 \x01(\bR\x06inSync\"n\n" +
-	"\x13PushWorktreeRequest\x12W\n" +
-	"\x04task\x18\x01 \x01(\tBC\xbaH@\xba\x01=\n" +
-	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\"r\n" +
+	"\ain_sync\x18\x05 \x01(\bR\x06inSync\"q\n" +
+	"\x13PushWorktreeRequest\x12#\n" +
+	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
+	"\ttask_slug\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlugB\r\n" +
+	"\x04task\x12\x05\xbaH\x02\b\x01\"r\n" +
 	"\x14PushWorktreeResponse\x12\x16\n" +
 	"\x06branch\x18\x01 \x01(\tR\x06branch\x12\x18\n" +
 	"\acommits\x18\x02 \x01(\x05R\acommits\x12\x16\n" +
 	"\x06forced\x18\x03 \x01(\bR\x06forced\x12\x10\n" +
-	"\x03sha\x18\x04 \x01(\tR\x03sha\"\x90\x01\n" +
-	"\x14PickForkPointRequest\x12W\n" +
-	"\x04task\x18\x01 \x01(\tBC\xbaH@\xba\x01=\n" +
-	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\x12\x1f\n" +
-	"\x06commit\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x06commit\"6\n" +
+	"\x03sha\x18\x04 \x01(\tR\x03sha\"\x93\x01\n" +
+	"\x14PickForkPointRequest\x12#\n" +
+	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
+	"\ttask_slug\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlug\x12\x1f\n" +
+	"\x06commit\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x06commitB\r\n" +
+	"\x04task\x12\x05\xbaH\x02\b\x01\"6\n" +
 	"\x15PickForkPointResponse\x12\x1d\n" +
 	"\n" +
-	"fork_point\x18\x01 \x01(\tR\tforkPoint\"o\n" +
-	"\x14AbortSequenceRequest\x12W\n" +
-	"\x04task\x18\x01 \x01(\tBC\xbaH@\xba\x01=\n" +
-	"\rtask.required\x12\x1bpass task, by id or by slug\x1a\x0fthis.size() > 0R\x04task\"}\n" +
+	"fork_point\x18\x01 \x01(\tR\tforkPoint\"r\n" +
+	"\x14AbortSequenceRequest\x12#\n" +
+	"\atask_id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x06taskId\x12&\n" +
+	"\ttask_slug\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\btaskSlugB\r\n" +
+	"\x04task\x12\x05\xbaH\x02\b\x01\"}\n" +
 	"\x15AbortSequenceResponse\x12-\n" +
 	"\bsequence\x18\x01 \x01(\x0e2\x11.task.v1.SequenceR\bsequence\x12\x16\n" +
 	"\x06branch\x18\x02 \x01(\tR\x06branch\x12\x1d\n" +
@@ -3373,45 +3708,43 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"r\bػ\x18\x01\x10\x01\x18@R\x04hook\x12 \n" +
 	"\x04tool\x18\x03 \x01(\tB\f\xbaH\tr\aػ\x18\x01\x18\xc8\x01R\x04tool\x12+\n" +
 	"\n" +
-	"turn_error\x18\x04 \x01(\tB\f\xbaH\tr\aػ\x18\x01\x18\xc8\x01R\tturnError\".\n" +
-	"\x13MarkRunsReadRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"\xf2\x01\n" +
+	"turn_error\x18\x04 \x01(\tB\f\xbaH\tr\aػ\x18\x01\x18\xc8\x01R\tturnError\"/\n" +
+	"\x13MarkRunsReadRequest\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"\xf3\x01\n" +
 	"\n" +
-	"LogRequest\x12\x1c\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x02id\x88\x01\x01\x12\x88\x01\n" +
+	"LogRequest\x12\x1d\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01H\x00R\x02id\x88\x01\x01\x12\x88\x01\n" +
 	"\amessage\x18\x02 \x01(\tBn\xbaHk\xba\x01a\n" +
 	"\x11message.printable\x12.a log message must carry no control characters\x1a\x1c!this.matches('[[:cntrl:]]')r\x05\x10\x01\x18\x80\x10R\amessage\x12)\n" +
 	"\x06script\x18\x03 \x01(\tB\f\xbaH\tr\a\xc0\xbb\x18\x01\x18\xff\x01H\x01R\x06script\x88\x01\x01B\x05\n" +
 	"\x03_idB\t\n" +
-	"\a_script\":\n" +
-	"\x14ArchiveAgentsRequest\x12\"\n" +
-	"\x03ids\x18\x01 \x03(\tB\x10\xbaH\r\x92\x01\n" +
-	"\b\x01\x18\x01\"\x04r\x02\x10\x01R\x03ids\":\n" +
-	"\x14RestoreAgentsRequest\x12\"\n" +
-	"\x03ids\x18\x01 \x03(\tB\x10\xbaH\r\x92\x01\n" +
-	"\b\x01\x18\x01\"\x04r\x02\x10\x01R\x03ids\"@\n" +
+	"\a_script\";\n" +
+	"\x14ArchiveAgentsRequest\x12#\n" +
+	"\x03ids\x18\x01 \x03(\tB\x11\xbaH\x0e\x92\x01\v\b\x01\x18\x01\"\x05r\x03\xb0\x01\x01R\x03ids\";\n" +
+	"\x14RestoreAgentsRequest\x12#\n" +
+	"\x03ids\x18\x01 \x03(\tB\x11\xbaH\x0e\x92\x01\v\b\x01\x18\x01\"\x05r\x03\xb0\x01\x01R\x03ids\"@\n" +
 	"\x15RestoreAgentsResponse\x12'\n" +
-	"\x06agents\x18\x01 \x03(\v2\x0f.agent.v1.AgentR\x06agents\"\xa4\x01\n" +
-	"\x11RetryAgentRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\"\n" +
+	"\x06agents\x18\x01 \x03(\v2\x0f.agent.v1.AgentR\x06agents\"\xa5\x01\n" +
+	"\x11RetryAgentRequest\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\x12\"\n" +
 	"\x05flags\x18\x02 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\x12!\n" +
 	"\x06prompt\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\x06prompt\x12/\n" +
 	"\aharness\x18\x04 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\";\n" +
 	"\x12RetryAgentResponse\x12%\n" +
-	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"-\n" +
-	"\x12ResumeAgentRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"<\n" +
+	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\".\n" +
+	"\x12ResumeAgentRequest\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"<\n" +
 	"\x13ResumeAgentResponse\x12%\n" +
-	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\xa2\x01\n" +
-	"\x13RestartAgentRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x1d\n" +
+	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\xa3\x01\n" +
+	"\x13RestartAgentRequest\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\x12\x1d\n" +
 	"\x04note\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\x04note\x12/\n" +
 	"\aharness\x18\x03 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x12\"\n" +
 	"\x05flags\x18\x04 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\"=\n" +
 	"\x14RestartAgentResponse\x12%\n" +
-	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\xf9\x01\n" +
-	"\x12UpdateAgentRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xc9\x01\n" +
+	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\xfa\x01\n" +
+	"\x12UpdateAgentRequest\x12\x18\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\x12\xc9\x01\n" +
 	"\x04name\x18\x02 \x01(\tB\xb4\x01\xbaH\xb0\x01\xba\x01\xa1\x01\n" +
 	"\rname.storable\x126name must not contain spaces, colons, dots, or slashes\x1aX!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/')r\tػ\x18\x01\x10\x01\x18\xc8\x01R\x04name*\x87\x02\n" +
 	"\n" +
@@ -3437,16 +3770,16 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x19REPORT_EVENT_TOOL_STARTED\x10\x03\x12\x1e\n" +
 	"\x1aREPORT_EVENT_TOOL_FINISHED\x10\x04\x12 \n" +
 	"\x1cREPORT_EVENT_APPROVAL_WANTED\x10\x05\x12\x1a\n" +
-	"\x16REPORT_EVENT_COMPACTED\x10\x062\xb4\x83\x01\n" +
+	"\x16REPORT_EVENT_COMPACTED\x10\x062ۃ\x01\n" +
 	"\fAgentService\x12\x82\x02\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb8\x01\x9a\xb5\x18\xb0\x01\b\x01\x10\x01\x1a\vlist_agents\"\x97\x01List the agents komrad tracks, most recently updated first, each with the opening of its prompt. Archived agents are left out unless `archived` is set.:\x03\x03\x01\x02\x90\x02\x01\x12\x9e\x01\n" +
-	"\bGetAgent\x12\x19.agent.v1.GetAgentRequest\x1a\x1a.agent.v1.GetAgentResponse\"[\x9a\xb5\x18T\b\x01\x10\x01\x1a\tget_agent\">Get one agent by id, archived or not, with its prompt in full.:\x03\x03\x01\x02\x90\x02\x01\x12\xe4\x03\n" +
-	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\x97\x03\x9a\xb5\x18\x92\x03\b\x01\x10\x01\x1a\fcreate_agent\"\xb1\x02Create an agent and launch it with a prompt. With `task` set, the agent becomes the task's writer when the task has none, and otherwise a reviewer in the writer's checkout. With `task` unset, komrad creates a task with the agent as its writer, and the agent returned carries its `task_id` and `task_slug`.(\x00:\x02\x03\x02JDresource_exhausted means komrad is running as many agents as it may.\x12\x87\x04\n" +
+	"\bGetAgent\x12\x19.agent.v1.GetAgentRequest\x1a\x1a.agent.v1.GetAgentResponse\"[\x9a\xb5\x18T\b\x01\x10\x01\x1a\tget_agent\">Get one agent by id, archived or not, with its prompt in full.:\x03\x03\x01\x02\x90\x02\x01\x12\xf5\x03\n" +
+	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\xa8\x03\x9a\xb5\x18\xa3\x03\b\x01\x10\x01\x1a\fcreate_agent\"\xc2\x02Create an agent and launch it with a prompt. With `task_id` or `task_slug` set, the agent becomes the task's writer when the task has none, and otherwise a reviewer in the writer's checkout. With neither set, komrad creates a task with the agent as its writer, and the agent returned carries its `task_id` and `task_slug`.(\x00:\x02\x03\x02JDresource_exhausted means komrad is running as many agents as it may.\x12\x87\x04\n" +
 	"\rRequestReview\x12\x1e.agent.v1.RequestReviewRequest\x1a\x1f.agent.v1.RequestReviewResponse\"\xb4\x03\x9a\xb5\x18\xaf\x03\b\x01\x10\x01\x1a\x0erequest_review\"eCreate a reviewer for the caller's committed work, on the caller's task and in the caller's checkout.(\x00:\x01\x03J\xac\x02resource_exhausted means komrad is running as many agents as it may, or the task has as many reviewers as it may. When komrad is full, say so, carry on without the review and leave the change for the person. When the task is full, resolve what the reviewers raised and ask again once one is archived.\x12\x91\x02\n" +
 	"\x05Adopt\x12\x16.agent.v1.AdoptRequest\x1a\x17.agent.v1.AdoptResponse\"\xd6\x01\x9a\xb5\x18\xd1\x01\b\x01\x10\x01\x1a\x05adopt\"\xbe\x01Create an agent on a branch that already exists, such as one the person pushed. Komrad never creates, resets or deletes the branch, and a branch that already has an agent returns that agent.(\x00:\x01\x02\x12\xc1\x01\n" +
-	"\x03Log\x12\x14.agent.v1.LogRequest\x1a\x16.google.protobuf.Empty\"\x8b\x01\x9a\xb5\x18\x86\x01\b\x01\x10\x01\x1a\x03log\"rWrite one line to komrad's log, under the caller unless `id` names another agent. A hook uses it to leave a trace.(\x000\x00:\x03\x03\x01\x02\x12\xde\x02\n" +
-	"\bSendMail\x12\x19.agent.v1.SendMailRequest\x1a\x1a.agent.v1.SendMailResponse\"\x9a\x02\x9a\xb5\x18\x95\x02\b\x01\x10\x01\x1a\tsend_mail\"\xd3\x01Send mail to another agent by id or name, setting `reply_to` when answering. Komrad refuses a name used in more than one workflow. A reviewer may mail only the agents on its task and its workflow's orchestrator.(\x000\x00:\x03\x03\x01\x02J%Say who is asking and what they want.\x12\xc5\x02\n" +
+	"\x03Log\x12\x14.agent.v1.LogRequest\x1a\x16.google.protobuf.Empty\"\x8b\x01\x9a\xb5\x18\x86\x01\b\x01\x10\x01\x1a\x03log\"rWrite one line to komrad's log, under the caller unless `id` names another agent. A hook uses it to leave a trace.(\x000\x00:\x03\x03\x01\x02\x12\xf4\x02\n" +
+	"\bSendMail\x12\x19.agent.v1.SendMailRequest\x1a\x1a.agent.v1.SendMailResponse\"\xb0\x02\x9a\xb5\x18\xab\x02\b\x01\x10\x01\x1a\tsend_mail\"\xe9\x01Send mail to another agent by `to_agent_id` or `to_agent_name`, setting `reply_to` when answering. Komrad refuses a name used in more than one workflow. A reviewer may mail only the agents on its task and its workflow's orchestrator.(\x000\x00:\x03\x03\x01\x02J%Say who is asking and what they want.\x12\xc5\x02\n" +
 	"\x10ForwardLastTurns\x12!.agent.v1.ForwardLastTurnsRequest\x1a\".agent.v1.ForwardLastTurnsResponse\"\xe9\x01\x9a\xb5\x18\xe4\x01\b\x01\x10\x01\x1a\x12forward_last_turns\"\x88\x01Send an agent's latest turns to another agent as mail, without the text passing through the caller. Mail holds at most 10000 characters.(\x000\x00:\x03\x03\x01\x02J6When refused, pass fewer turns or a smaller max_bytes.\x12\xad\x02\n" +
 	"\bReadMail\x12\x19.agent.v1.ReadMailRequest\x1a\x1a.agent.v1.ReadMailResponse\"\xe9\x01\x9a\xb5\x18\xe4\x01\b\x01\x10\x01\x1a\tread_mail\"\x9d\x01Read the caller's waiting mail, oldest first. Reading claims the mail, so a second call returns nothing. Passing another agent's id claims that agent's mail.(\x000\x00:\x03\x03\x01\x02J*Read another agent's mail only when asked.\x12\xca\x01\n" +
 	"\bListMail\x12\x19.agent.v1.ListMailRequest\x1a\x1a.agent.v1.ListMailResponse\"\x86\x01\x9a\xb5\x18\x7f\b\x01\x10\x01\x1a\tlist_mail\"iList an agent's mail without claiming it, most recent first. Set `direction` to list what the agent sent.:\x03\x03\x01\x02\x90\x02\x01\x12\xc1\x01\n" +
@@ -3816,10 +4149,39 @@ func file_agent_v1_agent_proto_init() {
 	file_agent_v1_agent_proto_msgTypes[3].OneofWrappers = []any{}
 	file_agent_v1_agent_proto_msgTypes[4].OneofWrappers = []any{}
 	file_agent_v1_agent_proto_msgTypes[5].OneofWrappers = []any{}
-	file_agent_v1_agent_proto_msgTypes[6].OneofWrappers = []any{}
+	file_agent_v1_agent_proto_msgTypes[6].OneofWrappers = []any{
+		(*CreateAgentRequest_TaskId)(nil),
+		(*CreateAgentRequest_TaskSlug)(nil),
+		(*CreateAgentRequest_DependsOnId)(nil),
+		(*CreateAgentRequest_DependsOnSlug)(nil),
+	}
 	file_agent_v1_agent_proto_msgTypes[8].OneofWrappers = []any{}
 	file_agent_v1_agent_proto_msgTypes[10].OneofWrappers = []any{}
 	file_agent_v1_agent_proto_msgTypes[13].OneofWrappers = []any{}
+	file_agent_v1_agent_proto_msgTypes[14].OneofWrappers = []any{
+		(*PlanRebaseRequest_TaskId)(nil),
+		(*PlanRebaseRequest_TaskSlug)(nil),
+	}
+	file_agent_v1_agent_proto_msgTypes[18].OneofWrappers = []any{
+		(*RebaseWorktreeRequest_TaskId)(nil),
+		(*RebaseWorktreeRequest_TaskSlug)(nil),
+	}
+	file_agent_v1_agent_proto_msgTypes[20].OneofWrappers = []any{
+		(*PlanPushRequest_TaskId)(nil),
+		(*PlanPushRequest_TaskSlug)(nil),
+	}
+	file_agent_v1_agent_proto_msgTypes[22].OneofWrappers = []any{
+		(*PushWorktreeRequest_TaskId)(nil),
+		(*PushWorktreeRequest_TaskSlug)(nil),
+	}
+	file_agent_v1_agent_proto_msgTypes[24].OneofWrappers = []any{
+		(*PickForkPointRequest_TaskId)(nil),
+		(*PickForkPointRequest_TaskSlug)(nil),
+	}
+	file_agent_v1_agent_proto_msgTypes[26].OneofWrappers = []any{
+		(*AbortSequenceRequest_TaskId)(nil),
+		(*AbortSequenceRequest_TaskSlug)(nil),
+	}
 	file_agent_v1_agent_proto_msgTypes[30].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

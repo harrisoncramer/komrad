@@ -439,6 +439,49 @@ func TestParseEither(t *testing.T) {
 	})
 }
 
+// TestParsePick covers a oneof written as a type it shares with oneofs in other messages.
+func TestParsePick(t *testing.T) {
+	name := "name"
+	runParseTests(t, testparsed.ParsePick, []parseTest[*testpb.Pick, testparsed.Pick]{
+		{
+			name:     "a bad id in a shared oneof is refused",
+			input:    &testpb.Pick{Ref: &testpb.Pick_RefId{RefId: "bad"}},
+			wantPath: "ref_id",
+		},
+		{
+			name:  "an unset shared oneof converts to no member",
+			input: &testpb.Pick{},
+			want:  &testparsed.Pick{},
+		},
+		{
+			name:  "an id in a shared oneof converts",
+			input: &testpb.Pick{Ref: &testpb.Pick_RefId{RefId: first}},
+			want:  &testparsed.Pick{Ref: testparsed.Ref{RefId: &firstID}},
+		},
+		{
+			name:  "a raw value in a shared oneof is kept",
+			input: &testpb.Pick{Ref: &testpb.Pick_RefName{RefName: name}},
+			want:  &testparsed.Pick{Ref: testparsed.Ref{RefName: &name}},
+		},
+	})
+}
+
+// TestParsePoint covers a wrapped id in a shared oneof, which converts to the type the other members share.
+func TestParsePoint(t *testing.T) {
+	runParseTests(t, testparsed.ParsePoint, []parseTest[*testpb.Point, testparsed.Point]{
+		{
+			name:     "a bad wrapped id in a shared oneof is refused",
+			input:    &testpb.Point{Ref: &testpb.Point_RefId{RefId: wrapperspb.String("bad")}},
+			wantPath: "ref_id",
+		},
+		{
+			name:  "a wrapped id in a shared oneof converts",
+			input: &testpb.Point{Ref: &testpb.Point_RefId{RefId: wrapperspb.String(first)}},
+			want:  &testparsed.Point{Ref: testparsed.Ref{RefId: &firstID}},
+		},
+	})
+}
+
 // TestParseWrapped covers ids held in string and bytes wrappers.
 func TestParseWrapped(t *testing.T) {
 	name := wrapperspb.String("name")
@@ -495,7 +538,7 @@ func TestParseWrapped(t *testing.T) {
 				Trimmed: &firstID,
 				Binary:  &secondID,
 				Name:    name,
-				Target:  &testparsed.Wrapped_Id{Id: secondID},
+				Target:  testparsed.Target{Id: &secondID},
 			},
 		},
 	})

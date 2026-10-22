@@ -11,7 +11,7 @@ database="${KOMRAD_DATABASE_URL%&pool_max_conns=*}"
 
 branch_of() {
 	for _ in $(seq 60); do
-		branch="$(komrad rpc get-task --task "$1" --compact | jq -r '.task.branch // empty')"
+		branch="$(komrad rpc get-task --task-id "$1" --compact | jq -r '.task.branch // empty')"
 		if [ -n "$branch" ]; then
 			echo "$branch"
 			return
@@ -28,7 +28,7 @@ number=41200
 
 pull_request() {
 	local name="$1" state="$2" check_state="$3" conclusion="$4" decision="$5" mergeability="$6" task branch
-	task="$(komrad rpc create-agent --workflow-id "$workflow" --title "$name" --task-slug "$name" \
+	task="$(komrad rpc create-agent --workflow-id "$workflow" --title "$name" --new-task-slug "$name" \
 		--prompt "Reply with the single word ready, then wait." \
 		--compact | jq -r '.agent.task_id')"
 	branch="$(branch_of "$task")"

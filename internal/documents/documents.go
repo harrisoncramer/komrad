@@ -16,6 +16,8 @@ import (
 	documentstore "komrad/internal/store/document"
 	documenttypestore "komrad/internal/store/documenttype"
 	taskstore "komrad/internal/store/task"
+	"komrad/lib/xptr"
+	"komrad/proto/gen/oneofs"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -55,8 +57,8 @@ type eventRecorder interface {
 	InsertManyTx(ctx context.Context, build func(tx pgx.Tx) ([]river.JobArgs, error)) error
 }
 
-type taskGetter interface {
-	GetTask(ctx context.Context, ref string) (*taskstore.Task, error)
+type taskFinder interface {
+	FindTask(ctx context.Context, task oneofs.Task) (*taskstore.Task, error)
 }
 
 type NewDocumentServiceParams struct {
@@ -64,7 +66,7 @@ type NewDocumentServiceParams struct {
 	Documents *documentstore.DocumentStore
 	Types     *documenttypestore.DocumentTypeStore
 	Events    eventRecorder
-	Tasks     taskGetter
+	Tasks     taskFinder
 }
 
 type DocumentService struct {
@@ -72,7 +74,7 @@ type DocumentService struct {
 	documents *documentstore.DocumentStore
 	types     *documenttypestore.DocumentTypeStore
 	events    eventRecorder
-	tasks     taskGetter
+	tasks     taskFinder
 }
 
 // NewDocumentService builds the service over the agents that write documents, the store that
@@ -99,10 +101,9 @@ type WriteDocumentParams struct {
 	Version *int32
 	Name    string
 	Type    string
-	Body    string
-	// Path is a file on this machine to read the body from, resolved against the agent's
+	// Source is the body, or a file on this machine to read it from, resolved against the agent's
 	// working directory when relative.
-	Path string
+	Source oneofs.Source
 }
 
 // WriteDocument creates a document, or rewrites the one ID names.
@@ -133,9 +134,9 @@ func (s *DocumentService) WriteDocument(ctx context.Context, params WriteDocumen
 		return nil, err
 	}
 
-	body := params.Body
-	if params.Path != "" {
-		body, err = readBody(agent.Cwd, params.Path)
+	body := xptr.Deref(params.Source.Body)
+	if params.Source.Path != nil {
+		body, err = readBody(agent.Cwd, *params.Source.Path)
 		if err != nil {
 			return nil, err
 		}
@@ -307,10 +308,10 @@ func (s *DocumentService) ListDocumentVersions(ctx context.Context, id string) (
 	return got.AgentID, versions, nil
 }
 
-// ListDocumentsParams narrows a page of documents, naming the task by id or slug.
+// ListDocumentsParams narrows a page of documents.
 type ListDocumentsParams struct {
 	AgentID *string
-	Task    *string
+	Task    oneofs.Task
 	Type    *string
 	Limit   int32
 	Cursor  *documentstore.Cursor
@@ -319,8 +320,8 @@ type ListDocumentsParams struct {
 // ListDocuments returns a page of documents without their bodies, newest write first.
 func (s *DocumentService) ListDocuments(ctx context.Context, params ListDocumentsParams) ([]documentstore.Document, error) {
 	var taskID *string
-	if params.Task != nil {
-		task, err := s.tasks.GetTask(ctx, *params.Task)
+	if params.Task != (oneofs.Task{}) {
+		task, err := s.tasks.FindTask(ctx, params.Task)
 		if err != nil {
 			return nil, err
 		}
