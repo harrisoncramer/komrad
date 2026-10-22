@@ -29,12 +29,12 @@ type Menu struct {
 	InPlace bool
 }
 
-// After is what becomes of the menu once an entry is picked.
-type After int
+// after is what becomes of the menu once an entry is picked.
+type after int
 
 const (
 	// Leave takes the menu down before the pick runs.
-	Leave After = iota
+	Leave after = iota
 	// Hold keeps the menu up while a write the pick began is in flight.
 	Hold
 	// Stay keeps the menu up beside the form the pick opens.
@@ -54,7 +54,7 @@ type Entry struct {
 	// Opens is the menu the entry opens to the right of its own.
 	Opens *Menu
 	Pick  func() tea.Cmd
-	After After
+	After after
 }
 
 // Open renders a menu, its cursor on the first entry that would do something.
