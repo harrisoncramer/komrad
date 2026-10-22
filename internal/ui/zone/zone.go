@@ -23,7 +23,7 @@ type Hit struct {
 	Nth  int
 }
 
-// A mark is a terminal command string, which the terminal draws nothing for, built from these pieces.
+// A mark is an invisible tag hidden in a frame, wrapped in escape codes the terminal skips over.
 const (
 	commandStart     = "\x1b_"
 	stringTerminator = "\x1b\\"
@@ -34,19 +34,19 @@ const (
 	fieldSeparator   = ":"
 )
 
-// blockMark matches either end of a marked block, such as "\x1b_kzs:list:40\x1b\\" opening a list 40
-// cells wide and "\x1b_kze:list:\x1b\\" closing it, for Scan to find blocks by.
+// blockMark finds the tags at each end of a block, which read like kzs:list:40 where a list 40 cells
+// wide starts and kze:list: where it ends.
 var blockMark = regexp.MustCompile(regexp.QuoteMeta(commandStart+markPrefix) +
 	"([" + blockStartTag + blockEndTag + "])" + fieldSeparator + "([a-z]+)" + fieldSeparator + "([0-9]*)" +
 	regexp.QuoteMeta(stringTerminator))
 
-// keyMark matches the mark opening a marked row, such as "\x1b_kzr:menu:12:0:6131\x1b\\" for the first
-// row keyed "a1" in the menu, 12 cells wide, for HitAt to read and StripKeys to remove.
+// keyMark finds the tag in front of a row, which reads like kzr:menu:12:0:6131 for a menu row 12
+// cells wide whose key is "a1" spelled in hex.
 var keyMark = regexp.MustCompile(regexp.QuoteMeta(commandStart+markPrefix+rowTag) +
 	fieldSeparator + "([a-z]+)" + fieldSeparator + "([0-9]+)" + fieldSeparator + "([0-9]+)" + fieldSeparator + "([0-9a-f]*)" +
 	regexp.QuoteMeta(stringTerminator))
 
-// mark is the command string carrying one mark's tag and fields.
+// mark is one tag with its fields, wrapped in the escape codes.
 func mark(tag string, fields ...string) string {
 	return commandStart + markPrefix + tag + fieldSeparator + strings.Join(fields, fieldSeparator) + stringTerminator
 }
