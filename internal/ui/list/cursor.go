@@ -38,14 +38,14 @@ type Keyed interface {
 	Key() string
 }
 
-// KeyAt is the key of the row at cursor, empty off the end of the rows.
-func KeyAt[T Keyed](rows []T, cursor int) string {
-	row, ok := At(rows, cursor)
+// KeyAt is the key of the row at index row, empty off the end of the rows.
+func KeyAt[T Keyed](rows []T, row int) string {
+	found, ok := At(rows, row)
 	if !ok {
 		return ""
 	}
 
-	return row.Key()
+	return found.Key()
 }
 
 // IndexOf is the index of the row with the key, -1 when no row has it.
@@ -63,13 +63,13 @@ func IndexOf[T Keyed](rows []T, key string) int {
 	return -1
 }
 
-// At is the row at cursor, refused off the end of the rows.
-func At[T any](rows []T, cursor int) (T, bool) {
-	if cursor < 0 || cursor >= len(rows) {
+// At is the row at index row, refused off the end of the rows.
+func At[T any](rows []T, row int) (T, bool) {
+	if row < 0 || row >= len(rows) {
 		var zero T
 
 		return zero, false
 	}
 
-	return rows[cursor], true
+	return rows[row], true
 }

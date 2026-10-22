@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestRowCursor covers the arrow the lists render on the hovered row.
-func TestRowCursor(t *testing.T) {
+// TestKeyholder covers which section renders the arrow on its hovered row.
+func TestKeyholder(t *testing.T) {
 	t.Run("the arrow stays on the hovered row while the timers run", func(t *testing.T) {
 		harness := openAgents(t, buildSelectable()...)
 

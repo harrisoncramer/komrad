@@ -37,9 +37,9 @@ type logsScreen struct {
 	sources    []*logv1.LogSource
 	listed     bool
 	// reading is the source the block holds lines of.
-	reading *logv1.LogSource
-	viewer  *logview.Tail
-	cursor  string
+	reading    *logv1.LogSource
+	viewer     *logview.Tail
+	readCursor string
 	// generation tells this visit's and this source's reads apart from an earlier one's.
 	generation int
 	read       bool
@@ -164,7 +164,7 @@ func (l *logsScreen) readCmd(m *model) tea.Cmd {
 	}
 	req := &logv1.ReadAgentLogsRequest{
 		AgentIds: []string{agentID},
-		Cursor:   l.cursor,
+		Cursor:   l.readCursor,
 		Limit:    logsReadLimit,
 		Source:   l.reading.GetId(),
 		Pattern:  l.pattern,
@@ -230,7 +230,7 @@ func (m *model) applyLogsRead(msg logsReadMsg) tea.Cmd {
 	}
 	l.replacing = false
 	l.viewer.Append(msg.resp.GetLines())
-	l.cursor, l.read = msg.resp.GetCursor(), true
+	l.readCursor, l.read = msg.resp.GetCursor(), true
 
 	if msg.resp.GetMore() {
 		return l.readCmd(m)
@@ -287,14 +287,14 @@ func (l *logsScreen) markFailedRunReadCmd(m *model, row logSourceRow) tea.Cmd {
 func (l *logsScreen) restart(m *model) tea.Cmd {
 	l.generation++
 	l.viewer.Reset()
-	l.cursor, l.read, l.err, l.replacing = "", false, nil, false
+	l.readCursor, l.read, l.err, l.replacing = "", false, nil, false
 
 	return l.readCmd(m)
 }
 
 func (l *logsScreen) reread(m *model) tea.Cmd {
 	l.generation++
-	l.cursor, l.err, l.replacing = "", nil, true
+	l.readCursor, l.err, l.replacing = "", nil, true
 
 	return l.readCmd(m)
 }

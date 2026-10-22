@@ -19,7 +19,7 @@ const legendRuleFloor = 2
 type detailsState struct {
 	focused bool
 	list.Cursor
-	row     string
+	held    string
 	flashed int
 }
 
@@ -83,7 +83,7 @@ func (m *model) detailsRows(held details) []detailsRow {
 }
 
 func (m *model) detailsCursor(held details) int {
-	if m.details.row != held.id {
+	if m.details.held != held.id {
 		return 0
 	}
 
@@ -99,9 +99,9 @@ func (m *model) detailsList() screenList[detailsRow] {
 }
 
 func (m *model) detailsRowCursor() *list.Cursor {
-	if held := m.hoveredDetails(); m.details.row != held.id {
+	if held := m.hoveredDetails(); m.details.held != held.id {
 		m.details.Cursor = list.Cursor{}
-		m.details.row = held.id
+		m.details.held = held.id
 	}
 
 	return &m.details.Cursor

@@ -36,9 +36,9 @@ func (s Selection) Has(key string) bool {
 	return slices.Contains(s.Keys, key)
 }
 
-// Toggle is the selection with the row at cursor flipped, or every row under a header at cursor.
-func (s Selection) Toggle(refs []Ref, cursor int) Selection {
-	ref, ok := At(refs, cursor)
+// Toggle is the selection with the row at index row flipped, or every row under it when it is a header.
+func (s Selection) Toggle(refs []Ref, row int) Selection {
+	ref, ok := At(refs, row)
 	if !ok {
 		return s
 	}
@@ -63,15 +63,15 @@ func (s Selection) Toggle(refs []Ref, cursor int) Selection {
 	return s.with(keys...)
 }
 
-// Extend is the selection grown from the nearest selected row to the row at cursor.
-func (s Selection) Extend(refs []Ref, cursor int) Selection {
-	if ref, ok := At(refs, cursor); !ok || (ref.Header && !ref.isTask()) {
+// Extend is the selection grown from the nearest selected row to the row at index row.
+func (s Selection) Extend(refs []Ref, row int) Selection {
+	if ref, ok := At(refs, row); !ok || (ref.Header && !ref.isTask()) {
 		return s
 	}
 
-	first, last := cursor, cursor
-	if anchor := s.nearest(refs, cursor); anchor >= 0 {
-		first, last = min(anchor, cursor), max(anchor, cursor)
+	first, last := row, row
+	if anchor := s.nearest(refs, row); anchor >= 0 {
+		first, last = min(anchor, row), max(anchor, row)
 	}
 
 	var keys []string
@@ -108,13 +108,13 @@ func (s Selection) Pruned(refs []Ref) Selection {
 	return Selection{Keys: kept}
 }
 
-func (s Selection) nearest(refs []Ref, cursor int) int {
+func (s Selection) nearest(refs []Ref, row int) int {
 	closest := -1
 	for i, r := range refs {
 		if !s.holds(r) {
 			continue
 		}
-		if closest < 0 || rowDistance(i, cursor) < rowDistance(closest, cursor) {
+		if closest < 0 || rowDistance(i, row) < rowDistance(closest, row) {
 			closest = i
 		}
 	}
