@@ -9,33 +9,6 @@ import (
 	"komrad/internal/store"
 )
 
-// ClaimNudge takes the right to tell an agent about unread mail written since it was last told.
-func (s *AgentStore) ClaimNudge(ctx context.Context, id string) (bool, error) {
-	if !store.IsID(id) {
-		return false, nil
-	}
-
-	claimed, err := s.queries.ClaimAgentNudge(ctx, id)
-	if err != nil {
-		return false, fmt.Errorf("failed to claim the nudge for agent %q: %w", id, err)
-	}
-
-	return len(claimed) > 0, nil
-}
-
-// ClearNudge gives back a claim whose nudge reached nothing, so the next pass tries again.
-func (s *AgentStore) ClearNudge(ctx context.Context, id string) error {
-	if !store.IsID(id) {
-		return nil
-	}
-
-	if err := s.queries.ClearAgentNudge(ctx, id); err != nil {
-		return fmt.Errorf("failed to clear the nudge claim for agent %q: %w", id, err)
-	}
-
-	return nil
-}
-
 // SetStateByID records the state a reconcile pass observed, stamping when it was seen whether
 // or not the value moved, and clearing the reported reason when it did.
 func (s *AgentStore) SetStateByID(ctx context.Context, id string, state State) error {

@@ -49,6 +49,7 @@ WHERE
             events = EXCLUDED.events,
             expires_at = EXCLUDED.expires_at,
             reported_at = NULL,
+            nudged_at = NULL,
             updated_at = NOW()
         RETURNING
             *;
@@ -143,6 +144,28 @@ WHERE
     m.to_agent_id = @to_agent_id
     AND m.claimed_at IS NULL
     AND m.expires_at > NOW();
+
+-- name: ClaimMailNudge :many
+UPDATE
+    mail
+SET
+    nudged_at = NOW()
+WHERE
+    to_agent_id = @to_agent_id
+    AND claimed_at IS NULL
+    AND expires_at > NOW()
+    AND nudged_at IS NULL
+RETURNING
+    id;
+
+-- name: ClearMailNudge :exec
+UPDATE
+    mail
+SET
+    nudged_at = NULL
+WHERE
+    to_agent_id = @to_agent_id
+    AND claimed_at IS NULL;
 
 -- name: ReportExpiredMail :many
 WITH unreported AS (

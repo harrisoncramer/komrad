@@ -67,7 +67,7 @@ func TestDeliver(t *testing.T) {
 		{
 			name: "an agent already told about the mail it holds",
 			arrange: func(t *testing.T, st *storetest.Stores, id string) {
-				claimed, err := st.Agents.ClaimNudge(t.Context(), id)
+				claimed, err := st.Mail.ClaimNudge(t.Context(), id)
 				require.NoError(t, err)
 				require.True(t, claimed)
 			},
@@ -80,7 +80,14 @@ func TestDeliver(t *testing.T) {
 			want:   DeliveryLater,
 		},
 		{
-			name:      "a send that failed keeps the claim, since the line may have landed",
+			name:    "a send that failed before reaching the CLI gives the claim back",
+			refuse:  true,
+			sendErr: errors.New("initialize timed out"),
+			want:    DeliveryLater,
+			wantErr: true,
+		},
+		{
+			name:      "a send that failed after the line went out keeps the claim",
 			sendErr:   errors.New("connection reset"),
 			want:      DeliveryLater,
 			wantErr:   true,
@@ -130,9 +137,7 @@ func TestDeliver(t *testing.T) {
 				assert.Empty(t, channel.Sent)
 			}
 
-			stored, err := st.Agents.GetByID(t.Context(), agent.ID)
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantClaim, stored.NudgedAt != nil)
+			assert.Equal(t, tt.wantClaim, holdsClaim(t, st, agent.ID))
 		})
 	}
 }
@@ -185,10 +190,10 @@ func (movingTrees) IsMoving(dir string) bool {
 
 func newDeliveryService(st *storetest.Stores, channel *harnesstest.Channel) *DeliveryService {
 	return NewDeliveryService(NewDeliveryServiceParams{
-		Mail:         st.Mail,
-		NudgeClaimer: st.Agents,
-		Harnesses:    harnesstest.Registry{Harness: &harnesstest.Fake{Delivery: channel}},
-		Trees:        movingTrees{},
+		Mail:      st.Mail,
+		Agents:    st.Agents,
+		Harnesses: harnesstest.Registry{Harness: &harnesstest.Fake{Delivery: channel}},
+		Trees:     movingTrees{},
 		Now: func() time.Time {
 			return time.Date(2026, time.October, 22, 15, 4, 5, 0, time.Local)
 		},
@@ -243,4 +248,15 @@ func newLoggedContext(t *testing.T) (context.Context, func() []map[string]any) {
 
 		return records
 	}
+}
+
+func holdsClaim(t *testing.T, st *storetest.Stores, agentID string) bool {
+	t.Helper()
+
+	var held bool
+	err := st.Pool.GetRawPool().QueryRow(t.Context(),
+		"SELECT EXISTS (SELECT 1 FROM mail WHERE to_agent_id = $1 AND nudged_at IS NOT NULL)", agentID).Scan(&held)
+	require.NoError(t, err)
+
+	return held
 }

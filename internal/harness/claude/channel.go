@@ -69,7 +69,7 @@ func (c channel) Send(ctx context.Context, target harness.Target, text string) (
 		return false, fmt.Errorf("failed to write to the messaging socket of agent %q: %w", target.AgentID, err)
 	}
 	if _, err := conn.Write(append(line, '\n')); err != nil {
-		return false, fmt.Errorf("failed to write to the messaging socket of agent %q: %w", target.AgentID, err)
+		return true, fmt.Errorf("failed to write to the messaging socket of agent %q: %w", target.AgentID, err)
 	}
 
 	return true, nil

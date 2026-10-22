@@ -719,10 +719,6 @@ table "agents" {
     type    = boolean
     default = false
   }
-  column "nudged_at" {
-    null = true
-    type = timestamptz
-  }
   column "branch" {
     null = true
     type = text

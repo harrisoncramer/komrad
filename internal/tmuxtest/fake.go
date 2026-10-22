@@ -17,7 +17,6 @@ type Fake struct {
 	Screens         map[string]string
 	Sizes           map[string]Size
 	Commands        map[string]string
-	InMode          map[string]bool
 	Exited          map[string]bool
 	ClientDir       string
 	Sent            map[string][][]string
@@ -68,7 +67,6 @@ func NewFake() *Fake {
 		Screens:        map[string]string{},
 		Sizes:          map[string]Size{},
 		Commands:       map[string]string{},
-		InMode:         map[string]bool{},
 		Exited:         map[string]bool{},
 		Sent:           map[string][][]string{},
 		Globals:        map[string]string{},
@@ -350,14 +348,6 @@ func (f *Fake) KillPane(pane string) {
 	if after != nil {
 		after(pane)
 	}
-}
-
-// IsPaneInMode answers InMode for the pane.
-func (f *Fake) IsPaneInMode(pane string) bool {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	return f.InMode[pane]
 }
 
 // IsPaneRunningCLI is true when the pane runs something other than a shell.

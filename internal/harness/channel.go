@@ -24,8 +24,8 @@ type Target struct {
 
 // Channel is how komrad says something to an agent's CLI.
 type Channel interface {
-	// Send hands text to the agent's CLI, returning false when the text reached nothing and an
-	// error when it may have arrived.
+	// Send hands text to the agent's CLI, returning true when the text reached the CLI or may have
+	// and false when it reached nothing, with an error saying what went wrong either way.
 	Send(ctx context.Context, target Target, text string) (bool, error)
 }
 

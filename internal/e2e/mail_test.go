@@ -53,7 +53,7 @@ func TestIntegrationAgentsMailEachOther(t *testing.T) {
 		assert.Empty(t, instance.Received(migrations.GetId()), "sending reaches nobody yet")
 	})
 
-	t.Run("delivery types one line at the idle recipient", func(t *testing.T) {
+	t.Run("delivery sends one line to the idle recipient", func(t *testing.T) {
 		assert.Equal(t, mail.DeliverySoon, instance.Deliver(migrations.GetId()))
 
 		received := instance.WaitForReceived(migrations.GetId(), 1)

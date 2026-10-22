@@ -188,13 +188,14 @@ type Channel struct {
 	Sent       []string
 }
 
-// Send records text unless the channel was told to refuse it.
+// Send records text unless the channel was told to refuse it, failing with SendErr either side of
+// the text reaching the agent.
 func (c *Channel) Send(_ context.Context, _ harness.Target, text string) (bool, error) {
-	if c.SendErr != nil {
+	if c.RefuseSend {
 		return false, c.SendErr
 	}
-	if c.RefuseSend {
-		return false, nil
+	if c.SendErr != nil {
+		return true, c.SendErr
 	}
 	c.Sent = append(c.Sent, text)
 

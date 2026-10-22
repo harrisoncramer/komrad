@@ -161,7 +161,7 @@ func (r *rpcConn) deliver(ctx context.Context, threadID, text string) (bool, err
 
 		var refused *rpcError
 		if !errors.As(err, &refused) {
-			return false, fmt.Errorf("failed to steer thread %q: %w", threadID, err)
+			return true, fmt.Errorf("failed to steer thread %q: %w", threadID, err)
 		}
 	}
 
@@ -173,7 +173,7 @@ func (r *rpcConn) deliver(ctx context.Context, threadID, text string) (bool, err
 		return false, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("failed to queue a message on thread %q: %w", threadID, err)
+		return true, fmt.Errorf("failed to queue a message on thread %q: %w", threadID, err)
 	}
 
 	return true, nil

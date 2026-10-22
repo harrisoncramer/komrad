@@ -98,7 +98,6 @@ type Agent struct {
 	// ArchiveBatchID is the archive that took this agent, shared by every agent it took.
 	ArchiveBatchID     *string
 	DeletingAt         *time.Time
-	NudgedAt           *time.Time
 	SpawnedByAgentID   *string
 	RequestedByAgentID *string
 
@@ -242,7 +241,6 @@ func FromRow(agent models.Agent) Agent {
 		ArchivedAt:         agent.ArchivedAt,
 		ArchiveBatchID:     agent.ArchiveBatchID,
 		DeletingAt:         agent.DeletingAt,
-		NudgedAt:           agent.NudgedAt,
 		SpawnedByAgentID:   agent.SpawnedByAgentID,
 		RequestedByAgentID: agent.RequestedByAgentID,
 		TaskID:             agent.TaskID,

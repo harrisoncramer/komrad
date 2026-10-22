@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"komrad/internal/panes"
-	"komrad/lib/clock"
 
 	"github.com/creack/pty"
 	"github.com/stretchr/testify/assert"
@@ -662,77 +661,6 @@ func tmuxRun(t *testing.T, socket string, args ...string) string {
 	require.NoError(t, err, "tmux %v", args)
 
 	return strings.TrimSpace(string(out))
-}
-
-// TestIntegrationPaneInAModeTakesNoKeys proves that nothing sent to a pane in a mode arrives, literally or
-// not.
-func TestIntegrationPaneInAModeTakesNoKeys(t *testing.T) {
-	client := testServer(t, "komrad")
-
-	pane, err := client.query("display-message", "-p", "-t", "komrad:", "#{pane_id}")
-	require.NoError(t, err)
-
-	received := filepath.Join(t.TempDir(), "received")
-	sendText(t, client, pane, `while IFS= read -r line; do printf '%s\n' "$line" >> `+received+`; done`)
-	require.NoError(t, client.SendKeys(pane, "Enter"))
-
-	sendText(t, client, pane, "before-the-mode")
-	require.NoError(t, client.SendKeys(pane, "Enter"))
-	waitForLine(t, received, "before-the-mode")
-	assert.False(t, client.IsPaneInMode(pane), "a pane nobody has scrolled back in is in no mode")
-
-	_, err = client.query("copy-mode", "-t", pane)
-	require.NoError(t, err)
-	assert.True(t, client.IsPaneInMode(pane), "a pane scrolled back is in a mode")
-
-	if _, err := client.query("send-keys", "-t", pane, "-l", "--", "swallowed-by-the-mode"); err != nil {
-		t.Logf("tmux refused the text while the pane was in a mode: %v", err)
-	}
-	if err := client.SendKeys(pane, "Enter"); err != nil {
-		t.Logf("tmux refused the newline while the pane was in a mode: %v", err)
-	}
-
-	_, err = client.query("copy-mode", "-q", "-t", pane)
-	require.NoError(t, err)
-	sendText(t, client, pane, "after-the-mode")
-	require.NoError(t, client.SendKeys(pane, "Enter"))
-	waitForLine(t, received, "after-the-mode")
-
-	assert.NotContains(t, readFile(t, received), "swallowed-by-the-mode",
-		"nothing sent while the pane was in a mode reached the program")
-}
-
-func waitForLine(t *testing.T, path, want string) {
-	t.Helper()
-
-	for range 100 {
-		if strings.Contains(readFile(t, path), want) {
-			return
-		}
-
-		clock.Sleep(t.Context(), 50*time.Millisecond)
-	}
-
-	t.Fatalf("the program never received %q; it holds:\n%s", want, readFile(t, path))
-}
-
-func readFile(t *testing.T, path string) string {
-	t.Helper()
-
-	out, err := os.ReadFile(path)
-	if !os.IsNotExist(err) {
-		require.NoError(t, err, "could not read what the program received")
-	}
-
-	return string(out)
-}
-
-// sendText types a string into a pane literally, a word naming a key included.
-func sendText(t *testing.T, client *Client, pane, text string) {
-	t.Helper()
-
-	_, err := client.query("send-keys", "-t", pane, "-l", "--", text)
-	require.NoError(t, err)
 }
 
 // TestIntegrationInsetPanelWindowLeavesAGutterPastEveryClient pins the hook arithmetic, a client

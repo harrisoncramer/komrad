@@ -27,10 +27,8 @@ type treeReader interface {
 	IsMoving(dir string) bool
 }
 
-type nudgeClaimer interface {
+type agentGetter interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
-	ClaimNudge(ctx context.Context, id string) (bool, error)
-	ClearNudge(ctx context.Context, id string) error
 }
 
 type harnessGetter interface {
@@ -38,19 +36,19 @@ type harnessGetter interface {
 }
 
 type NewDeliveryServiceParams struct {
-	Mail         *mailstore.MailStore
-	NudgeClaimer nudgeClaimer
-	Harnesses    harnessGetter
-	Trees        treeReader
-	Now          func() time.Time
+	Mail      *mailstore.MailStore
+	Agents    agentGetter
+	Harnesses harnessGetter
+	Trees     treeReader
+	Now       func() time.Time
 }
 
 type DeliveryService struct {
-	mail         *mailstore.MailStore
-	nudgeClaimer nudgeClaimer
-	harnesses    harnessGetter
-	trees        treeReader
-	now          func() time.Time
+	mail      *mailstore.MailStore
+	agents    agentGetter
+	harnesses harnessGetter
+	trees     treeReader
+	now       func() time.Time
 }
 
 // NewDeliveryService builds the service from its dependencies.
@@ -61,11 +59,11 @@ func NewDeliveryService(params NewDeliveryServiceParams) *DeliveryService {
 	}
 
 	return &DeliveryService{
-		mail:         params.Mail,
-		nudgeClaimer: params.NudgeClaimer,
-		harnesses:    params.Harnesses,
-		trees:        params.Trees,
-		now:          now,
+		mail:      params.Mail,
+		agents:    params.Agents,
+		harnesses: params.Harnesses,
+		trees:     params.Trees,
+		now:       now,
 	}
 }
 
@@ -99,7 +97,7 @@ func (s *DeliveryService) DeliverAll(ctx context.Context) error {
 // Deliver makes one attempt at telling an agent about what is waiting for it, and reports what
 // it managed.
 func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery, error) {
-	agent, err := s.nudgeClaimer.GetByID(ctx, agentID)
+	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return DeliveryDone, nil
 	}
@@ -127,7 +125,7 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 		return DeliveryLater, nil
 	}
 
-	claimed, err := s.nudgeClaimer.ClaimNudge(ctx, agent.ID)
+	claimed, err := s.mail.ClaimNudge(ctx, agent.ID)
 	if err != nil {
 		return DeliveryLater, err
 	}
@@ -154,11 +152,11 @@ func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pen
 	}
 
 	sent, err := hn.Channel().Send(ctx, buildTarget(agent), formatNudge(pending, s.now()))
+	if !sent {
+		return false, errors.Join(err, s.mail.ClearNudge(ctx, agent.ID))
+	}
 	if err != nil {
 		return false, err
-	}
-	if !sent {
-		return false, s.nudgeClaimer.ClearNudge(ctx, agent.ID)
 	}
 
 	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "told an agent to read its mail",
