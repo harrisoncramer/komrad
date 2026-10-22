@@ -307,17 +307,16 @@ func FilterClearDescOf[S any](in screen.Inputs) func(S) string {
 	return func(S) string { return filter.PatternMode(in.Room.Pattern).ClearDesc() }
 }
 
+// KeyedList is a list a search narrows and a click lands in.
 type KeyedList interface {
 	// Hovered is the key of the row the cursor is on, read before the pattern changes.
 	Hovered(in screen.Inputs) string
-
 	// Place puts the cursor back on that row, or as near to where it was as the narrowed list
 	// allows.
 	Place(in screen.Inputs, key string) screen.Request
-
 	// FilterRows is every row on screen with the text a search reads, in the order they are
 	// rendered.
 	FilterRows(in screen.Inputs) []list.Row
-
+	// Click puts the cursor on the nth row holding key.
 	Click(in screen.Inputs, key string, nth int) screen.Request
 }
