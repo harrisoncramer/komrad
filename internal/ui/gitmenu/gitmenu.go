@@ -139,41 +139,45 @@ func (g Menus) branchEntries(l panel.Listing, task panel.Task) []menu.Entry {
 // forgeMenu is the actions on a task's pull request, opened from the git menu, with the ways to
 // merge it under a rule.
 func (g Menus) forgeMenu(l panel.Listing, task panel.Task) menu.Menu {
-	pullRequest := menu.Menu{
-		Title: "forge",
-		Entries: []menu.Entry{
-			{
-				Label:     "open " + task.PullRequest.Abbrev(),
-				Keys:      g.deps.Keys.Forge.OpenPullRequest,
-				IsDimmed:  task.PullRequest.URL == "",
-				AfterPick: menu.KeepOpenWhileWriting,
-				Pick:      g.gitWrite(task.ID, gitChoiceOpenPullRequest),
-			},
-			{
-				Label:     "copy " + task.PullRequest.Abbrev() + " url",
-				Keys:      g.deps.Keys.Forge.CopyPullRequestURL,
-				IsDimmed:  task.PullRequest.URL == "",
-				AfterPick: menu.KeepOpenWhileWriting,
-				Pick:      g.gitWrite(task.ID, gitChoiceCopyPullRequestURL),
-			},
-			{
-				Label:     draftLabel(task),
-				Keys:      g.deps.Keys.Forge.ToggleDraft,
-				IsDimmed:  openPullRequestRefusal(task) != nil,
-				AfterPick: menu.KeepOpenWhileWriting,
-				Pick:      g.gitWrite(task.ID, gitChoiceToggleDraft),
-			},
-			{
-				Label:     "re-request review",
-				Keys:      g.deps.Keys.Forge.RequestRereview,
-				IsDimmed:  rereviewRefusal(task) != nil,
-				AfterPick: menu.KeepOpenWhileWriting,
-				Pick:      g.gitWrite(task.ID, gitChoiceRequestRereview),
-			},
+	return menu.Join(
+		menu.Menu{Title: "forge", Entries: g.pullRequestEntries(task)},
+		menu.Menu{Entries: g.mergeEntries(l, task)},
+	)
+}
+
+// pullRequestEntries are the forge menu's entries that open, copy, draft or re-request review on a
+// task's pull request.
+func (g Menus) pullRequestEntries(task panel.Task) []menu.Entry {
+	return []menu.Entry{
+		{
+			Label:     "open " + task.PullRequest.Abbrev(),
+			Keys:      g.deps.Keys.Forge.OpenPullRequest,
+			IsDimmed:  task.PullRequest.URL == "",
+			AfterPick: menu.KeepOpenWhileWriting,
+			Pick:      g.gitWrite(task.ID, gitChoiceOpenPullRequest),
+		},
+		{
+			Label:     "copy " + task.PullRequest.Abbrev() + " url",
+			Keys:      g.deps.Keys.Forge.CopyPullRequestURL,
+			IsDimmed:  task.PullRequest.URL == "",
+			AfterPick: menu.KeepOpenWhileWriting,
+			Pick:      g.gitWrite(task.ID, gitChoiceCopyPullRequestURL),
+		},
+		{
+			Label:     draftLabel(task),
+			Keys:      g.deps.Keys.Forge.ToggleDraft,
+			IsDimmed:  openPullRequestRefusal(task) != nil,
+			AfterPick: menu.KeepOpenWhileWriting,
+			Pick:      g.gitWrite(task.ID, gitChoiceToggleDraft),
+		},
+		{
+			Label:     "re-request review",
+			Keys:      g.deps.Keys.Forge.RequestRereview,
+			IsDimmed:  rereviewRefusal(task) != nil,
+			AfterPick: menu.KeepOpenWhileWriting,
+			Pick:      g.gitWrite(task.ID, gitChoiceRequestRereview),
 		},
 	}
-
-	return menu.Join(pullRequest, menu.Menu{Entries: g.mergeEntries(l, task)})
 }
 
 // gitWrite is the write a git menu entry makes on a task.
