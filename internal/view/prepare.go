@@ -49,33 +49,34 @@ func prepareLine(params prepareLineParams) line {
 	caret := focused && params.caret == CaretRendered
 
 	return line{
-		Focused:  focused,
-		Focus:    textCell(chromeIf(caret, glyph.Focus), paint.TonePrimary),
-		Columns:  columnCells(row, params.columns),
-		Branch:   branchFor(row.Tree),
-		Rule:     (row.Kind == KindChild || row.Nested) && row.Tree == nil,
-		Indent:   indentFor(row),
-		Lead:     row.Lead,
-		Role:     markCell(row.Reviewer, glyph.Reviewer, paint.ToneMuted),
-		Name:     row.Name,
-		Matches:  row.Matches,
-		Editing:  row.Editing,
-		Behind:   row.Behind,
-		Weight:   weightFor(row.Kind),
-		Emphasis: emphasisFor(row, caret),
-		Working:  workingCell(row),
-		Hidden:   HiddenCell(row),
-		Document: DocumentCell(row),
-		Mail:     MailCell(row),
-		Alert:    AlertCell(row),
-		Tool:     toolCell(row),
-		Tally:    row.HiddenCount,
-		Schedule: markCell(row.Scheduled, glyph.Schedule, paint.ToneMuted),
-		Workflow: row.Workflow,
-		Tail:     row.Tail,
-		Comments: buildCommentCells(row),
-		Selected: row.Selected,
-		Divider:  row.Kind == KindDivider,
+		Focused:   focused,
+		Focus:     textCell(chromeIf(caret, glyph.Focus), paint.TonePrimary),
+		Columns:   columnCells(row, params.columns),
+		Branch:    branchFor(row.Tree),
+		Rule:      (row.Kind == KindChild || row.Nested) && row.Tree == nil,
+		Indent:    indentFor(row),
+		Lead:      row.Lead,
+		Role:      markCell(row.Reviewer, glyph.Reviewer, paint.ToneMuted),
+		Name:      row.Name,
+		Matches:   row.Matches,
+		Editing:   row.Editing,
+		Behind:    row.Behind,
+		Weight:    weightFor(row.Kind),
+		Emphasis:  emphasisFor(row, caret),
+		Working:   workingCell(row),
+		Hidden:    HiddenCell(row),
+		Document:  DocumentCell(row),
+		AutoMerge: AutoMergeCell(row),
+		Mail:      MailCell(row),
+		Alert:     AlertCell(row),
+		Tool:      toolCell(row),
+		Tally:     row.HiddenCount,
+		Schedule:  markCell(row.Scheduled, glyph.Schedule, paint.ToneMuted),
+		Workflow:  row.Workflow,
+		Tail:      row.Tail,
+		Comments:  buildCommentCells(row),
+		Selected:  row.Selected,
+		Divider:   row.Kind == KindDivider,
 	}
 }
 
@@ -200,10 +201,6 @@ func ForgeCell(row Row) Cell {
 		return Cell{}
 	}
 
-	if row.AutoMerge && isQueueable(row.Forge) {
-		return Cell{Glyph: glyph.Merged, Tone: paint.ToneMuted}
-	}
-
 	switch row.Forge {
 	case ForgeUnread, ForgeNone, ForgeEnd:
 		return Cell{}
@@ -232,12 +229,6 @@ func ForgeCell(row Row) Cell {
 	}
 
 	return Cell{}
-}
-
-// isQueueable is whether a pull request in the state is only waiting, so the merge it is queued
-// for is worth more to the person than the state itself.
-func isQueueable(forge Forge) bool {
-	return forge == ForgeOpen || forge == ForgeApprovedWaiting || forge == ForgeApproved
 }
 
 // workingCell is the loader turning after the name of an agent at work, greyed so it is there to
@@ -276,6 +267,17 @@ func MailCell(row Row) Cell {
 // DocumentCell is the mark a row renders once its agent has written a document for a person to read.
 func DocumentCell(row Row) Cell {
 	return markCell(row.Documents, glyph.Document, paint.ToneMuted)
+}
+
+// AutoMergeCell is the mark a row renders while the forge is set to merge its open pull request
+// on its own.
+func AutoMergeCell(row Row) Cell {
+	return markCell(carriesWork(row) && row.AutoMerge && !isFinished(row.Forge), glyph.AutoMerge, paint.ToneMerged)
+}
+
+// isFinished reports whether the pull request in the state was merged or closed.
+func isFinished(forge Forge) bool {
+	return forge == ForgeMerged || forge == ForgeClosed
 }
 
 // AlertCell is the mark a row renders for a script komrad fired that failed.
@@ -399,11 +401,11 @@ func fitRow(line line, width int) line {
 // shedMarks gives the marks after a name up, in the order of what a person can do without,
 // where even a nameless row will not fit the pane.
 func shedMarks(line line, width int) line {
-	// The schedule and the documents are standing facts about the row, hiding is
+	// The schedule, the documents and the auto-merge are standing facts about the row, hiding is
 	// something a person did themselves, the loader only says what the name already did, mail goes
 	// before the output nobody has read, which asks the person to look, and the failed run nobody
 	// else will mention goes last.
-	for _, shed := range []*Cell{&line.Schedule, &line.Document, &line.Hidden, &line.Working, &line.Mail, &line.Alert} {
+	for _, shed := range []*Cell{&line.Schedule, &line.Document, &line.AutoMerge, &line.Hidden, &line.Working, &line.Mail, &line.Alert} {
 		if roomForName(line, width) >= 0 {
 			return line
 		}

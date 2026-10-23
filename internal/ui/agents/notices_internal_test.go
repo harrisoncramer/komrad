@@ -282,15 +282,23 @@ func TestAgentNoticesWearTheGlyphTheRowRenders(t *testing.T) {
 		FailedRun:  true,
 		Documents:  3,
 	}
-	tasks := map[string]panel.Task{"t1": {Sequence: taskv1.Sequence_SEQUENCE_REBASE}}
+	tasks := map[string]panel.Task{"t1": {
+		Sequence: taskv1.Sequence_SEQUENCE_REBASE,
+		PullRequest: panel.PullRequestStanding{
+			State:          pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+			MergeReadiness: panel.MergeReadiness{AutoMerge: true},
+		},
+	}}
 
 	line := view.Prepare(view.Snapshot{Rows: []view.Row{snapshotRow(buildNoticeRow(item), snapshotParams{tasks: tasks})}}).Lines[0]
 
 	want := map[string]view.Cell{
-		failedRunNotice:  line.Alert,
-		unreadMailNotice: line.Mail,
-		documentsNotice:  line.Document,
-		sequenceNotice:   line.Columns[0],
+		failedRunNotice:                     line.Alert,
+		unreadMailNotice:                    line.Mail,
+		documentsNotice:                     line.Document,
+		sequenceNotice:                      line.Columns[0],
+		"its pull request " + autoMergeSaid: line.AutoMerge,
+		"its pull request " + forgeSaid[view.ForgeOpen]: line.Columns[1],
 	}
 
 	notices := agentNotices(glyph.Defaults(), "", tasks, buildNoticeRow(item))

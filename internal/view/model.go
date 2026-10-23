@@ -67,11 +67,12 @@ type line struct {
 	Weight   weight
 	Emphasis emphasis
 	// Working is the loader turning after the name of an agent at work.
-	Working  Cell
-	Hidden   Cell
-	Document Cell
-	Mail     Cell
-	Alert    Cell
+	Working   Cell
+	Hidden    Cell
+	Document  Cell
+	AutoMerge Cell
+	Mail      Cell
+	Alert     Cell
 	// Tool is the tool the agent is running, rendered greyed after the marks.
 	Tool Cell
 	// Tally is how many rows this one stands in for, rendered as a number.

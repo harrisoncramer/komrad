@@ -1346,6 +1346,13 @@
               "default": "\"\""
             },
             {
+              "key": "auto_merge",
+              "path": "glyphs.marks.auto_merge",
+              "type": "string",
+              "description": "The forge will merge the pull request on its own once its checks and reviews pass.",
+              "default": "\"\""
+            },
+            {
               "key": "reviewer_comments",
               "path": "glyphs.marks.reviewer_comments",
               "type": "string",

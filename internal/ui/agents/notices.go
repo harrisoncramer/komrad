@@ -21,6 +21,7 @@ const (
 	sequenceNotice        = "a rebase is stopped part way in it"
 	hiddenNotice          = "hidden from the sidebar"
 	documentsNotice       = "it has written documents for you to read"
+	autoMergeSaid         = "merges on its own once checks and reviews pass"
 )
 
 var (
@@ -78,6 +79,7 @@ func agentNotices(glyphs glyph.Set, loaderFrame string, tasks panel.Tasks, r age
 	notices = appendCellNotice(notices, glyphs, view.RepoCell(row), repoSaid[row.Repo])
 	notices = appendCellNotice(notices, glyphs, view.HiddenCell(row), hiddenNotice)
 	notices = appendCellNotice(notices, glyphs, view.DocumentCell(row), documentsNotice)
+	notices = appendCellNotice(notices, glyphs, view.AutoMergeCell(row), standing.Describe(autoMergeSaid))
 	notices = appendCellNotice(notices, glyphs, view.ForgeCell(row), standing.Describe(forgeSaid[row.Forge]))
 
 	return appendUnreadNotice(notices, glyphs, row)
