@@ -42,7 +42,7 @@ var (
 )
 
 // unreachableCodes are the codes a dial fails with when it cannot reach the engine.
-var unreachableCodes = []connect.Code{connect.CodeUnavailable, connect.CodeDeadlineExceeded, connect.CodeAborted}
+var unreachableCodes = []connect.Code{connect.CodeUnavailable, connect.CodeDeadlineExceeded, connect.CodeAborted, connect.CodeCanceled}
 
 // droppedCodes are what a carried stream fails with when its connection is lost.
 var droppedCodes = append(slices.Clone(unreachableCodes), connect.CodeUnknown, connect.CodeInternal, connect.CodeInvalidArgument)
