@@ -2,9 +2,13 @@ package panel
 
 import (
 	"cmp"
+	"errors"
 	"strings"
 	"time"
 )
+
+// ErrNoWorkflow refuses a form that needs a workflow when none exists.
+var ErrNoWorkflow = errors.New("every agent belongs to a workflow, so create one first")
 
 // Workflow is one workflow as the server listed it.
 type Workflow struct {

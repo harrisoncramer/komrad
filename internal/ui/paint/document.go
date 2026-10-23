@@ -1,6 +1,7 @@
 package paint
 
 import (
+	"fmt"
 	"strings"
 
 	"charm.land/glamour/v2/ansi"
@@ -14,4 +15,21 @@ func (p Palette) DocRows(markdown string, width int) []string {
 // DocStyledRows renders markdown a row at a time in the style it is handed.
 func DocStyledRows(markdown string, width int, style ansi.StyleConfig) []string {
 	return strings.Split(strings.TrimRight(renderWith(markdown, width, style), "\n"), "\n")
+}
+
+// DocumentMarkdown is the markdown of a titled page with an optional notice, prose and footer.
+func DocumentMarkdown(title, notice, prose, footer string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "# %s\n\n", title)
+	if notice != "" {
+		b.WriteString(notice + "\n\n")
+	}
+	if prose != "" {
+		b.WriteString(prose + "\n")
+	}
+	if footer != "" {
+		b.WriteString("\n" + footer + "\n")
+	}
+
+	return b.String()
 }

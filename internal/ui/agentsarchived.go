@@ -38,7 +38,7 @@ type archivedAgents struct {
 	kind agentsKind
 	list.Cursor
 	sort  tabs.State
-	built derived[archivedRowsKey, []agentRow]
+	built screen.Derived[archivedRowsKey, []agentRow]
 	renameSlot
 }
 
@@ -240,7 +240,7 @@ func (a *archivedAgents) listRows(in screen.Inputs) []agentRow {
 		filter:     in.Room.Pattern.Key(),
 	}
 
-	return a.built.read(key, func() []agentRow {
+	return a.built.Read(key, func() []agentRow {
 		return narrowedAgentRows(in, treeRows(treeRowsParams{
 			workflows:         a.headers(in.Listing),
 			agents:            sortedAgents(a.listedAgents(in.Listing), archivedAgentSorts, order),

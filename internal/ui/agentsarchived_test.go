@@ -319,7 +319,7 @@ func TestArchivedAgentsReportsRefusedWrites(t *testing.T) {
 			harness := openArchivedAgents(t, tt.rows...)
 			harness.Refuse(tt.refused, connect.NewError(connect.CodeNotFound, errors.New("no such agent")))
 
-			harness.Press(append(tt.press, widenListPresses...)...)
+			harness.Press(append(tt.press, paneltest.WidenListPresses...)...)
 
 			assert.Contains(t, readEngineLine(harness.Frame()), tt.wantSummary)
 			assert.Contains(t, readOpenMessages(harness), "no such agent")
@@ -725,7 +725,7 @@ func TestArchivedAgentsDocument(t *testing.T) {
 			},
 		)
 
-		harness.Press(append([]string{"j", "pick:record"}, widenListPresses...)...)
+		harness.Press(append([]string{"j", "pick:record"}, paneltest.WidenListPresses...)...)
 
 		frame := harness.Frame()
 		assert.Contains(t, frame, "agent/a1", "the task's record carries its checkout")
@@ -970,7 +970,7 @@ func TestArchivedAgentsKinds(t *testing.T) {
 			harness := paneltest.OpenAgents(t, rows...)
 
 			harness.Press(tt.press...)
-			harness.Press(widenListPresses...)
+			harness.Press(paneltest.WidenListPresses...)
 
 			frame := ansi.Strip(harness.Frame())
 			assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
@@ -982,7 +982,7 @@ func TestArchivedAgentsKinds(t *testing.T) {
 	t.Run("the row of kinds refuses the keys while agents are selected", func(t *testing.T) {
 		harness := paneltest.OpenAgents(t, rows...)
 
-		harness.Press(append(widenListPresses, "j", "v", "F", "?")...)
+		harness.Press(append(paneltest.WidenListPresses, "j", "v", "F", "?")...)
 		frame := harness.Frame()
 		assert.NotEmpty(t, paneltest.HoveredRow(frame), "the list keeps the keys")
 		assert.NotContains(t, paneltest.Legend(frame), "F kind")
@@ -991,7 +991,7 @@ func TestArchivedAgentsKinds(t *testing.T) {
 	t.Run("the row of kinds holds the keys until escape", func(t *testing.T) {
 		harness := paneltest.OpenAgents(t, rows...)
 
-		harness.Press(append(widenListPresses, "F")...)
+		harness.Press(append(paneltest.WidenListPresses, "F")...)
 		frame := harness.Frame()
 		legend := paneltest.Legend(frame)
 		assert.Contains(t, legend, "tab/S-tab switch")
@@ -1010,7 +1010,7 @@ func TestArchivedAgentsKinds(t *testing.T) {
 			newArchivedAgent("a1", "api-refactor", "w1"),
 			newArchivedAgent("a2", "billing", "w1"),
 		)
-		harness.Press(append(widenListPresses, "j")...)
+		harness.Press(append(paneltest.WidenListPresses, "j")...)
 		live := paneltest.HoveredRow(harness.Frame())
 		harness.Press("F", "tab", "esc", "j")
 		archived := paneltest.HoveredRow(harness.Frame())
@@ -1258,6 +1258,10 @@ func newArchivedWorkflow(id, name string) *workflowv1.Workflow {
 		ArchivedAt: archivedAt,
 	}
 }
+
+const deleteTitle = "Delete "
+
+var archivedAt = timestamppb.New(time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC))
 
 func newArchivedAgent(id, name, workflowID string) *agentv1.Agent {
 	return &agentv1.Agent{

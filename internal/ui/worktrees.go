@@ -62,7 +62,7 @@ type worktreesScreen struct {
 	scopeFocus bool
 	sort       tabs.State
 	revision   int
-	built      derived[worktreeRowsKey, []worktreeRow]
+	built      screen.Derived[worktreeRowsKey, []worktreeRow]
 }
 
 // apply takes a fresh listing, keeping the cursor on the row it was on, or on the agent the

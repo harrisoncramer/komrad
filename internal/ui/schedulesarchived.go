@@ -32,7 +32,7 @@ const (
 type archivedSchedules struct {
 	deps schedulesDeps
 	list.Cursor
-	built derived[listingKey, []scheduleItem]
+	built screen.Derived[screen.ListingKey, []scheduleItem]
 }
 
 func (w *schedulesScreen) Kinds() tabs.Stops {
@@ -136,7 +136,7 @@ func (a *archivedSchedules) list() keys.ScreenList[scheduleItem] {
 }
 
 func (a *archivedSchedules) listRows(in screen.Inputs) []scheduleItem {
-	return a.built.read(listingKeyOf(in), func() []scheduleItem {
+	return a.built.Read(in.ListingKey(), func() []scheduleItem {
 		return list.Narrowed(in.Room.Pattern, list.NarrowedParams[scheduleItem]{
 			Rows:  xslice.Map(in.Listing.ArchivedSchedules, scheduleItemOf),
 			Depth: func(scheduleItem) int { return 0 },

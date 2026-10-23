@@ -1,7 +1,6 @@
 package ui_test
 
 import (
-	"slices"
 	"testing"
 	"time"
 
@@ -80,7 +79,7 @@ func TestArchivedSchedules(t *testing.T) {
 				require.Contains(t, harness.Frame(), deletePrompt, "the prompt waits for the schedule to leave")
 				harness.Watch(tt.gone)
 			}
-			harness.Press(widenListPresses...)
+			harness.Press(paneltest.WidenListPresses...)
 
 			frame := ansi.Strip(harness.Frame())
 			assert.Equal(t, screen.Schedules, paneltest.Screen(harness.Frame()))
@@ -95,14 +94,7 @@ func TestArchivedSchedules(t *testing.T) {
 	}
 }
 
-const (
-	deletePrompt = "Permanently delete"
-	deleteTitle  = "Delete "
-)
-
-var archivedAt = timestamppb.New(time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC))
-
-var widenListPresses = slices.Repeat([]string{"ctrl+space", "l"}, 10)
+const deletePrompt = "Permanently delete"
 
 func newArchivedSchedule(name string) *schedulev1.Schedule {
 	schedule := newSchedule("s2", name)

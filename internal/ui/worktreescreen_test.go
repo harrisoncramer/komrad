@@ -582,7 +582,7 @@ func TestWorktreesDeleteAnswer(t *testing.T) {
 			if tt.refusal != nil {
 				harness.Refuse(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure, tt.refusal)
 			}
-			harness.Press(widenListPresses...)
+			harness.Press(paneltest.WidenListPresses...)
 
 			harness.Press("space", "c", tt.answer)
 			if len(tt.gone) > 0 {
@@ -606,7 +606,7 @@ func TestWorktreesRecord(t *testing.T) {
 
 		harness := openWorktrees(t)
 		moveToWorktree(t, harness, "broken")
-		harness.Press(widenListPresses...)
+		harness.Press(paneltest.WidenListPresses...)
 
 		frame := harness.Frame()
 		assert.Equal(t, "/var/folders/T/repo", paneltest.RecordField(frame, "repository"))
@@ -620,7 +620,7 @@ func TestWorktreesRecord(t *testing.T) {
 
 		harness := openWorktrees(t)
 		moveToWorktree(t, harness, "reviewer")
-		harness.Press(widenListPresses...)
+		harness.Press(paneltest.WidenListPresses...)
 
 		frame := harness.Frame()
 		assert.Equal(t, "reviewer", paneltest.RecordField(frame, "name"))
@@ -661,7 +661,7 @@ func TestWorktreesRecord(t *testing.T) {
 			},
 		)
 		moveToWorktree(t, harness, task.GetSlug())
-		harness.Press(widenListPresses...)
+		harness.Press(paneltest.WidenListPresses...)
 		harness.Press("pick:record")
 
 		assert.Equal(t, "writer, reviewer", paneltest.RecordField(harness.Frame(), "agents"))
@@ -693,7 +693,7 @@ func TestWorktreesRecord(t *testing.T) {
 			},
 		)
 		moveToWorktree(t, harness, task.GetSlug())
-		harness.Press(widenListPresses...)
+		harness.Press(paneltest.WidenListPresses...)
 		harness.Press("pick:record")
 
 		assert.Equal(t, "writer, reviewer", paneltest.RecordField(harness.Frame(), "agents"))
@@ -717,7 +717,7 @@ func TestWorktreesRecord(t *testing.T) {
 			},
 		)
 		moveToWorktree(t, harness, "fix-login")
-		harness.Press(widenListPresses...)
+		harness.Press(paneltest.WidenListPresses...)
 
 		frame := harness.Frame()
 		assert.Equal(t, "fix-login", paneltest.RecordField(frame, "task"))
@@ -728,7 +728,7 @@ func TestWorktreesRecord(t *testing.T) {
 		t.Parallel()
 
 		harness := openReadWorktree(t)
-		harness.Press(widenListPresses...)
+		harness.Press(paneltest.WidenListPresses...)
 
 		frame := harness.Frame()
 		assert.Equal(t, "origin/main ↑2 ↓12", paneltest.RecordField(frame, "base"))
@@ -751,7 +751,7 @@ func TestWorktreesRecord(t *testing.T) {
 		t.Parallel()
 
 		harness := openReadWorktree(t)
-		harness.Press(append([]string{"pick:record", "/", "m", "a", "i", "n", "enter"}, widenListPresses...)...)
+		harness.Press(append([]string{"pick:record", "/", "m", "a", "i", "n", "enter"}, paneltest.WidenListPresses...)...)
 
 		line := findRawLine(harness.RawFrame(), regexp.MustCompile(`base\s+origin/main`))
 		assert.Contains(t, line, paint.Panel.Match().Render("main"))
@@ -818,7 +818,7 @@ func TestWorktreesRecordActivity(t *testing.T) {
 			harness := openWorktrees(t, rows...)
 			harness.Watch(paneltest.Puts(tt.worktree))
 			moveToWorktree(t, harness, tt.row)
-			harness.Press(widenListPresses...)
+			harness.Press(paneltest.WidenListPresses...)
 
 			frame := harness.Frame()
 			assert.Equal(t, tt.wantSize, paneltest.RecordField(frame, "size"))
@@ -880,7 +880,7 @@ func TestWorktreesRecordOccupants(t *testing.T) {
 			rows = append(rows, buildWatchedWorktrees()...)
 			harness := openWorktrees(t, rows...)
 			moveToWorktree(t, harness, tt.row)
-			harness.Press(widenListPresses...)
+			harness.Press(paneltest.WidenListPresses...)
 			harness.Press("pick:record")
 
 			assert.Equal(t, tt.want, paneltest.RecordField(harness.Frame(), "agents"))
@@ -1255,7 +1255,7 @@ func TestWorktreesScope(t *testing.T) {
 		t.Parallel()
 
 		harness := openWorktrees(t, buildMeasuredWorktrees()...)
-		harness.Press(append(widenListPresses, "v", "F", "?")...)
+		harness.Press(append(paneltest.WidenListPresses, "v", "F", "?")...)
 
 		frame := harness.Frame()
 		assert.NotEmpty(t, paneltest.HoveredRow(frame), "the list keeps the keys")

@@ -4,34 +4,19 @@ import (
 	"fmt"
 	"strings"
 
+	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/record"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 )
 
-func renderDocument(title, notice, prose, footer string) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "# %s\n\n", title)
-	if notice != "" {
-		b.WriteString(notice + "\n\n")
-	}
-	if prose != "" {
-		b.WriteString(prose + "\n")
-	}
-	if footer != "" {
-		b.WriteString("\n" + footer + "\n")
-	}
-
-	return b.String()
-}
-
 func workflowFields(w panel.Workflow, agentCount int) []record.Field {
 	fields := []record.Field{
 		{Label: "name", Value: label.OrDash(w.Name)},
 		{Label: "agents", Value: fmt.Sprintf("%d", agentCount)},
 	}
-	fields = append(fields, workflowConfigFields(w)...)
+	fields = append(fields, record.WorkflowConfigFields(w)...)
 
 	return append(fields,
 		record.Field{Label: "reviewer agent", Value: label.OrDash(w.ReviewerHarness)},
@@ -40,36 +25,8 @@ func workflowFields(w panel.Workflow, agentCount int) []record.Field {
 	)
 }
 
-func workflowConfigFields(w panel.Workflow) []record.Field {
-	fields := []record.Field{
-		{Label: "default agent", Value: label.OrDash(w.Harness)},
-		{Label: "directory", Value: label.OrDash(w.Cwd)},
-		{Label: "flags", Value: label.OrDash(w.Flags)},
-	}
-
-	if !w.Worktree.Enabled {
-		return append(fields, record.Field{Label: "worktree", Value: "off"})
-	}
-
-	fields = append(fields,
-		record.Field{Label: "worktree", Value: "on"},
-		record.Field{Label: "base branch", Value: label.OrDash(w.Worktree.BaseBranch)},
-	)
-	if len(w.Worktree.CopyPaths) > 0 {
-		fields = append(fields, record.Field{Label: "copy", Value: strings.Join(w.Worktree.CopyPaths, ", ")})
-	}
-	if len(w.Worktree.SymlinkPaths) > 0 {
-		fields = append(fields, record.Field{Label: "symlink", Value: strings.Join(w.Worktree.SymlinkPaths, ", ")})
-	}
-	if w.Worktree.SetupCommand != "" {
-		fields = append(fields, record.Field{Label: "setup", Value: w.Worktree.SetupCommand})
-	}
-
-	return fields
-}
-
 func workflowContextMarkdown(w panel.Workflow) string {
-	return renderDocument(w.Name, "", workflowProse(w), "")
+	return paint.DocumentMarkdown(w.Name, "", workflowProse(w), "")
 }
 
 func workflowProse(w panel.Workflow) string {
@@ -174,7 +131,7 @@ func scheduleFields(sched panel.Schedule, target scheduleTarget) []record.Field 
 
 	fields = append(fields, record.Field{Label: "workflow", Value: target.workflow.Name})
 
-	return append(fields, workflowConfigFields(*target.workflow)...)
+	return append(fields, record.WorkflowConfigFields(*target.workflow)...)
 }
 
 const emptyArchiveMarkdown = "# Archive\n\n_nothing archived_\n\nKomrad keeps the agents you archive here until you delete them.\n"
@@ -184,6 +141,6 @@ const emptyDeletedMarkdown = "# Deleted\n\n_nothing deleted_\n\nKomrad lists the
 const emptyScheduleArchiveMarkdown = "# Archive\n\n_no archived schedules_\n\nKomrad keeps the schedules you archive here until you delete them.\n"
 
 func archiveMarkdown(agent panel.Agent) string {
-	return renderDocument(agent.Name, "_archived — kept until deleted_", "",
+	return paint.DocumentMarkdown(agent.Name, "_archived — kept until deleted_", "",
 		"Restore brings it back and picks the conversation up where it stopped.")
 }

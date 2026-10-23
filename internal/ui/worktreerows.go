@@ -173,7 +173,7 @@ func (w *worktreesScreen) rows(in screen.Inputs) []worktreeRow {
 		filter:   in.Room.Pattern.Key(),
 	}
 
-	return w.built.read(key, func() []worktreeRow {
+	return w.built.Read(key, func() []worktreeRow {
 		return list.Narrowed(in.Room.Pattern, list.NarrowedParams[worktreeRow]{
 			Rows: worktreeRows(worktreeRowsParams{
 				items: w.shown(),

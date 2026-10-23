@@ -115,7 +115,7 @@ func scheduleDocRows(item scheduleItem, width int) []string {
 		prose += "\n\nIts runs start hidden."
 	}
 
-	rows := paint.DocStyledRows(renderDocument(sched.Name, notice, "", ""), width, columnStyle())
+	rows := paint.DocStyledRows(paint.DocumentMarkdown(sched.Name, notice, "", ""), width, columnStyle())
 	if runRows := scheduleRunRows(sched.RecentRuns, width); len(runRows) > 0 {
 		rows = append(append(rows, ""), runRows...)
 	}

@@ -77,3 +77,8 @@ func JoinSome(items []string, limit int) string {
 
 	return fmt.Sprintf("%s, and %d more", strings.Join(items[:limit], ", "), len(items)-limit)
 }
+
+// ContainsFold reports whether sub is within s, ignoring case.
+func ContainsFold(s, sub string) bool {
+	return strings.Contains(strings.ToLower(s), strings.ToLower(sub))
+}

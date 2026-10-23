@@ -142,7 +142,7 @@ func TestReviewJump(t *testing.T) {
 
 		harness.Press("<", "t", "space", "c")
 		require.Contains(t, harness.Frame(), "  Reply")
-		typeText(harness, "still wrong")
+		harness.Type("still wrong")
 		harness.Press("enter")
 
 		harness.AssertSentTo(agentv1connect.AgentServiceAddReviewMessageProcedure, &agentv1.AddReviewMessageRequest{

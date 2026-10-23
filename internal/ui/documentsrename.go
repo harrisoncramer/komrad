@@ -52,7 +52,7 @@ func (d *documentsScreen) openRename(in screen.Inputs) screen.Request {
 
 // reconcileRename drops an open rename once the cursor leaves its row.
 func (d *documentsScreen) reconcileRename(in screen.Inputs) {
-	if d.renaming != nil && !reconcileNameEdit(d.renaming.NameEdit, d.rows(in), d.ActiveList().Hovered(in), func(r documentRow) string { return r.item.name }) {
+	if d.renaming != nil && !field.ReconcileNameEdit(d.renaming.NameEdit, d.rows(in), d.ActiveList().Hovered(in), func(r documentRow) string { return r.item.name }) {
 		d.renaming = nil
 	}
 }

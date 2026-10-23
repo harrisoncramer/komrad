@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -18,11 +17,9 @@ import (
 	"charm.land/huh/v2"
 )
 
-var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one first")
-
 func (a *agentsScreen) openNewTask(workflow *panel.Workflow) screen.Request {
 	if workflow == nil {
-		return screen.Report{Summary: "Could not start a task", Err: errNoWorkflow}
+		return screen.Report{Summary: "Could not start a task", Err: panel.ErrNoWorkflow}
 	}
 
 	values := taskPrefill(*workflow)
@@ -109,7 +106,7 @@ func (a *agentsScreen) openRetryForm(agent panel.Agent) screen.Request {
 
 func (a *agentsScreen) openAdopt(workflow *panel.Workflow) screen.Request {
 	if workflow == nil {
-		return screen.Report{Summary: "Could not adopt", Err: errNoWorkflow}
+		return screen.Report{Summary: "Could not adopt", Err: panel.ErrNoWorkflow}
 	}
 
 	values := adoptPrefill(*workflow)

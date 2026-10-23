@@ -12,6 +12,7 @@ import (
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/menu"
+	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/record"
@@ -57,7 +58,7 @@ func taskMarkdown(task panel.Task) string {
 		notes = "_no notes yet_"
 	}
 
-	return renderDocument(task.Title, "", goal+"\n\n## Notes\n\n"+notes, "")
+	return paint.DocumentMarkdown(task.Title, "", goal+"\n\n## Notes\n\n"+notes, "")
 }
 
 // isShowingNotes reports whether the row stands for the task whose notes are shown in place of its

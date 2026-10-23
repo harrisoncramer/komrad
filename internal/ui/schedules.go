@@ -34,7 +34,7 @@ type schedulesDeps struct {
 type schedulesScreen struct {
 	deps schedulesDeps
 	list.Cursor
-	built derived[listingKey, []scheduleItem]
+	built screen.Derived[screen.ListingKey, []scheduleItem]
 	renameSlot
 	kind      schedulesKind
 	kindFocus bool
@@ -107,7 +107,7 @@ func (w *schedulesScreen) list() keys.ScreenList[scheduleItem] {
 }
 
 func (w *schedulesScreen) listRows(in screen.Inputs) []scheduleItem {
-	return w.built.read(listingKeyOf(in), func() []scheduleItem {
+	return w.built.Read(in.ListingKey(), func() []scheduleItem {
 		return list.Narrowed(in.Room.Pattern, list.NarrowedParams[scheduleItem]{
 			Rows:  xslice.Map(in.Listing.Schedules, scheduleItemOf),
 			Depth: func(scheduleItem) int { return 0 },
@@ -169,7 +169,7 @@ func (w *schedulesScreen) toggleSchedule(schedule panel.Schedule) screen.Request
 // newScheduleForm puts up the form for a new schedule.
 func (w *schedulesScreen) newScheduleForm(in screen.Inputs) screen.Request {
 	if len(in.Listing.Workflows) == 0 {
-		return screen.Report{Summary: "Could not create a schedule", Err: errNoWorkflow}
+		return screen.Report{Summary: "Could not create a schedule", Err: panel.ErrNoWorkflow}
 	}
 
 	values := panel.ScheduleConfig{

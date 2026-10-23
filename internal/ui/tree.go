@@ -40,7 +40,7 @@ type agentsScreen struct {
 	sort       tabs.State
 	// rendered is the list built for the frame once an update settles, and nil while one runs.
 	rendered *agentsLayout
-	tree     derived[agentTreeKey, []agentRow]
+	tree     screen.Derived[agentTreeKey, []agentRow]
 	triage   triageZone
 	editing  *agentEdit
 	// resuming is the agents a resume is in flight for.
@@ -414,7 +414,7 @@ func (a *agentsScreen) buildTree(in screen.Inputs) []agentRow {
 		filter:     in.Room.Pattern.Key(),
 	}
 
-	return a.tree.read(key, func() []agentRow {
+	return a.tree.Read(key, func() []agentRow {
 		return narrowedAgentRows(in, treeRows(treeRowsParams{
 			workflows:         in.Listing.Workflows,
 			agents:            sortedAgents(in.Listing.Agents, agentSorts, order),

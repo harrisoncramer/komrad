@@ -209,9 +209,7 @@ func ListLines(frame string) []ListLine {
 	lines := SplitLines(frame)
 	width := ListWidth(frame)
 	start := slices.IndexFunc(lines, func(line string) bool {
-		prompt := strings.TrimSpace(ansi.Truncate(line, width, ""))
-
-		return strings.HasPrefix(prompt, "/") || strings.HasPrefix(prompt, glyph.Defaults().Spell(glyph.Filter))
+		return isSearchPrompt(strings.TrimSpace(ansi.Truncate(line, width, "")))
 	})
 	if start < 0 {
 		return nil
@@ -401,6 +399,23 @@ func Sidebar(frame string) []string {
 	return xslice.Map(BelowViews(frame), func(line string) string {
 		return strings.TrimRight(ansi.Truncate(line, width, ""), " ")
 	})
+}
+
+// Search is the filter's prompt under the views, empty while none is rendered.
+func Search(frame string) string {
+	width := ListWidth(frame)
+	for _, line := range BelowViews(frame) {
+		prompt := strings.TrimSpace(ansi.Truncate(line, width, ""))
+		if isSearchPrompt(prompt) {
+			return prompt
+		}
+	}
+
+	return ""
+}
+
+func isSearchPrompt(prompt string) bool {
+	return strings.HasPrefix(prompt, "/") || strings.HasPrefix(prompt, glyph.Defaults().Spell(glyph.Filter))
 }
 
 // SidebarProse is the sidebar's words joined on single spaces.

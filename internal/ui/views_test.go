@@ -90,7 +90,7 @@ func TestViews(t *testing.T) {
 
 	t.Run("the list keeps its arrow while the switcher is open", func(t *testing.T) {
 		harness := openCrowded(t, paneltest.Params{})
-		harness.Press(widenListPresses...)
+		harness.Press(paneltest.WidenListPresses...)
 		hovered := paneltest.HoveredRow(harness.Frame())
 		require.NotEmpty(t, hovered)
 
@@ -102,7 +102,7 @@ func TestViews(t *testing.T) {
 	t.Run("a key the switcher has no use for closes it and reaches the view", func(t *testing.T) {
 		harness := openCrowded(t, paneltest.Params{})
 
-		harness.Press(append(widenListPresses, "tab", "G")...)
+		harness.Press(append(paneltest.WidenListPresses, "tab", "G")...)
 
 		frame := harness.Frame()
 		assert.Equal(t, screen.Schedules, paneltest.Screen(harness.Frame()))

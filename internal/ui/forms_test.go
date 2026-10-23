@@ -695,7 +695,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 		harness.Refuse(workflowv1connect.WorkflowServiceArchiveWorkflowProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("agents still running")))
 
-		harness.Press(slices.Concat([]string{"space", "a", "enter"}, widenListPresses)...)
+		harness.Press(slices.Concat([]string{"space", "a", "enter"}, paneltest.WidenListPresses)...)
 
 		assert.Contains(t, paneltest.ListRows(harness.Frame()), "api")
 		assert.Contains(t, readOpenMessages(harness), "agents still running")
@@ -780,7 +780,7 @@ func TestFormsArchivePrompt(t *testing.T) {
 		harness := openTaskForms(t, newFormAuthor())
 		harness.Refuse(taskv1connect.TaskServiceDeleteTasksProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("already deleting")))
 
-		harness.Press(slices.Concat([]string{"j", "space", "a", "down", "enter", "enter"}, widenListPresses)...)
+		harness.Press(slices.Concat([]string{"j", "space", "a", "down", "enter", "enter"}, paneltest.WidenListPresses)...)
 
 		assert.Contains(t, harness.Frame(), `Could not delete task "task-a1"`)
 	})

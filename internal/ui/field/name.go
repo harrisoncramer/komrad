@@ -146,6 +146,16 @@ func (e *NameEdit) Reconcile(hovered, name string, listed bool) bool {
 	return true
 }
 
+// ReconcileNameEdit says whether a field stays open over rows whose cursor is on hovered.
+func ReconcileNameEdit[T interface{ Key() string }](e *NameEdit, rows []T, hovered string, name func(T) string) bool {
+	at := slices.IndexFunc(rows, func(r T) bool { return r.Key() == e.Key() })
+	if at < 0 {
+		return e.Reconcile(hovered, "", false)
+	}
+
+	return e.Reconcile(hovered, name(rows[at]), true)
+}
+
 // Submit marks the field saving and gives the name to send, or false when there is nothing to.
 func (e *NameEdit) Submit() (string, bool) {
 	name := strings.TrimSpace(e.input.Value())

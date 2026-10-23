@@ -60,7 +60,7 @@ func TestVimEditing(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
 
 		harness.Press("space", "c")
-		typeText(harness, "gone")
+		harness.Type("gone")
 		harness.Press("ctrl+[")
 		assert.Contains(t, harness.Frame(), "  Comment")
 
@@ -146,7 +146,7 @@ func TestVimEditing(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
 
 		harness.Press("space", "c")
-		typeText(harness, "still here")
+		harness.Type("still here")
 		harness.Press("esc", "b", "d", "w", "enter")
 
 		harness.AssertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
@@ -167,7 +167,7 @@ func TestVimEditing(t *testing.T) {
 		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
 
 		harness.Press("space", "c")
-		typeText(harness, "still here")
+		harness.Type("still here")
 		harness.Press("esc", "b", "d", "w")
 
 		frame := harness.Frame()
@@ -262,7 +262,7 @@ func TestVimLineEditing(t *testing.T) {
 
 			harness.Press(tt.press...)
 
-			assert.Equal(t, tt.wantSearch, readSearch(harness.TypedFrame()))
+			assert.Equal(t, tt.wantSearch, paneltest.Search(harness.TypedFrame()))
 		})
 	}
 

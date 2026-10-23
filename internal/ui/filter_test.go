@@ -151,7 +151,7 @@ func TestFilterSearch(t *testing.T) {
 			frame := harness.TypedFrame()
 			assert.Equal(t, filterableRows, paneltest.ListRows(frame), "a search never takes a row off the screen")
 			assert.Equal(t, tt.wantHovered, paneltest.HoveredRow(frame))
-			assert.Equal(t, tt.wantSearch, readSearch(frame))
+			assert.Equal(t, tt.wantSearch, paneltest.Search(frame))
 		})
 	}
 
@@ -168,7 +168,7 @@ func TestFilterSearch(t *testing.T) {
 
 		harness.Press("/", "d", "b", "enter", "tab", "tab")
 
-		assert.Equal(t, "/", readSearch(harness.Frame()))
+		assert.Equal(t, "/", paneltest.Search(harness.Frame()))
 	})
 
 	t.Run("a click on a row while typing keeps the search and hands the keys to the list", func(t *testing.T) {
@@ -178,7 +178,7 @@ func TestFilterSearch(t *testing.T) {
 		harness.Send(harness.ClickOn("frontend"))
 		harness.Press("j")
 
-		assert.Equal(t, "/ db", readSearch(harness.Frame()))
+		assert.Equal(t, "/ db", paneltest.Search(harness.Frame()))
 	})
 
 	t.Run("a click on the search line while typing in it types nothing", func(t *testing.T) {
@@ -188,7 +188,7 @@ func TestFilterSearch(t *testing.T) {
 		harness.Send(harness.ClickOnLineStart("/"))
 		harness.Press("b", "enter")
 
-		assert.Equal(t, "/ db", readSearch(harness.Frame()))
+		assert.Equal(t, "/ db", paneltest.Search(harness.Frame()))
 	})
 }
 
@@ -357,7 +357,7 @@ func TestFilterNarrow(t *testing.T) {
 			frame := harness.Frame()
 			assert.Equal(t, tt.wantRows, paneltest.ListRows(frame))
 			assert.Equal(t, tt.wantHovered, paneltest.HoveredRow(frame))
-			assert.Equal(t, tt.wantSearch, readSearch(frame))
+			assert.Equal(t, tt.wantSearch, paneltest.Search(frame))
 		})
 	}
 }
@@ -375,7 +375,7 @@ func TestFilterSays(t *testing.T) {
 		frame := harness.Frame()
 		assert.Equal(t, filterableRows, paneltest.ListRows(frame))
 		assert.Equal(t, "backend", paneltest.HoveredRow(frame))
-		assert.Equal(t, "▽ says:x d  no search", readSearch(frame))
+		assert.Equal(t, "▽ says:x d  no search", paneltest.Search(frame))
 	})
 
 	t.Run("a says: answer opens the hovered agent's conversation beside the list on its first match", func(t *testing.T) {

@@ -37,12 +37,12 @@ func TestNoticesGolden(t *testing.T) {
 	}{
 		{
 			name:  "marks-beside-the-name",
-			press: widenListPresses,
+			press: paneltest.WidenListPresses,
 			rows:  []proto.Message{newFailedRun(), newUnreadMail("n1")},
 		},
 		{
 			name:  "column-facts",
-			press: widenListPresses,
+			press: paneltest.WidenListPresses,
 			rows: append(newRebasing(),
 				&agentv1.WatchedReview{
 					Id:              "v1",
@@ -56,12 +56,12 @@ func TestNoticesGolden(t *testing.T) {
 		},
 		{
 			name:  "a-conflicting-pull-request",
-			press: widenListPresses,
+			press: paneltest.WidenListPresses,
 			rows:  newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING),
 		},
 		{
 			name:  "a-failing-pull-request",
-			press: widenListPresses,
+			press: paneltest.WidenListPresses,
 			rows:  newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING),
 		},
 		{

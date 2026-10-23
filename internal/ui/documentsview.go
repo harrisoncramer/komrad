@@ -104,19 +104,19 @@ func (d *documentsScreen) documentTypeSnapshot(in screen.Inputs, pane list.Pane)
 func (d *documentsScreen) doc(in screen.Inputs) string {
 	item, ok := d.hovered(in)
 	if !ok {
-		return renderDocument("Documents", "_"+d.emptyLine()+"_", "", "")
+		return paint.DocumentMarkdown("Documents", "_"+d.emptyLine()+"_", "", "")
 	}
 
 	read, asked := d.bodies[item.id]
 	notice := fmt.Sprintf("_%s, written %s ago_", item.typeName, label.AgeAt(item.updatedAt, in.Room.Now))
 	switch {
 	case !asked || (read.pending && read.body == ""):
-		return renderDocument(item.name, notice, "_reading…_", "")
+		return paint.DocumentMarkdown(item.name, notice, "_reading…_", "")
 	case read.err != nil:
-		return renderDocument(item.name, notice, "could not read: "+errui.GetReason(read.err), "")
+		return paint.DocumentMarkdown(item.name, notice, "could not read: "+errui.GetReason(read.err), "")
 	}
 
-	return renderDocument(item.name, notice, documentProse(item.name, read.body), "")
+	return paint.DocumentMarkdown(item.name, notice, documentProse(item.name, read.body), "")
 }
 
 // documentProse is a document's text without the heading that opens it when that heading only
@@ -183,7 +183,7 @@ func (h *documentHistory) head(in screen.Inputs, glyphs glyph.Set, item document
 		notice = h.notice(in.Room.Now)
 	}
 
-	rows := paint.DocStyledRows(renderDocument(item.name, notice, "", ""), width, columnStyle())
+	rows := paint.DocStyledRows(paint.DocumentMarkdown(item.name, notice, "", ""), width, columnStyle())
 	if h.err != nil || h.versions == nil {
 		return rows
 	}
@@ -248,10 +248,10 @@ func (h *documentHistory) changeRows(width int) []string {
 // documentTypeFrom is a type's context as the panel renders it beside the list.
 func documentTypeFrom(documentType *agentv1.DocumentType, now time.Time) string {
 	if documentType == nil {
-		return renderDocument("Document types", "_no document types yet_", "", "")
+		return paint.DocumentMarkdown("Document types", "_no document types yet_", "", "")
 	}
 
 	notice := fmt.Sprintf("_version %d, written %s ago_", documentType.GetVersion(), label.AgeAt(dates.Read(documentType.GetUpdatedAt()), now))
 
-	return renderDocument(documentType.GetName(), notice, documentProse(documentType.GetName(), documentType.GetContext()), "")
+	return paint.DocumentMarkdown(documentType.GetName(), notice, documentProse(documentType.GetName(), documentType.GetContext()), "")
 }
