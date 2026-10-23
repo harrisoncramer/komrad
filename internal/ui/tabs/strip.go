@@ -44,8 +44,7 @@ type State struct {
 	// FocusedColumn is the column the keys act on, the chosen one while empty.
 	FocusedColumn string
 	// IsOnGroupStop says the focus is on the stop after the columns.
-	IsOnGroupStop bool
-	// AreHeadingsOff says the headings are off.
+	IsOnGroupStop  bool
 	AreHeadingsOff bool
 }
 
