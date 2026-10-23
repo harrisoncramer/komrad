@@ -231,7 +231,7 @@ func TestStatusChecksOpen(t *testing.T) {
 		harness := openTaskChecks(t)
 
 		frame := harness.Frame()
-		assert.Equal(t, screen.StatusChecks, paneltest.Screen(harness.Frame()))
+		assert.Equal(t, screen.StatusChecks, paneltest.Screen(frame))
 		assert.Contains(t, frame, "agents › author › status checks")
 		assert.Contains(t, frame, "no pull request")
 	})
