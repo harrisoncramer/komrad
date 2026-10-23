@@ -2,8 +2,8 @@
 // services, runs each call under its own deadline, and holds the calls the screens make.
 //
 // The package also builds the writes that more than one screen sends. These archive or delete
-// tasks, send a name typed over a row, and hold a write once it lands until the panel shows what it
-// did. A write that only one screen sends lives in that screen's package.
+// tasks and send a name typed over a row. Some writes stay held once they land, until the panel
+// shows what they did. A write that only one screen sends lives in that screen's package.
 //
 // The root and every screen domain import api. It imports only the shared packages below it, and
 // never the root or a domain.
