@@ -1,4 +1,3 @@
-// Package document stores the markdown documents agents write for people to read.
 package document
 
 import (

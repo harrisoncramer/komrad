@@ -1,5 +1,3 @@
-// Package generate writes, for a protobuf message, a Go type holding each value its protovalidate
-// rules describe as the Go type it stands for, and a function converting the message into it.
 package generate
 
 import (

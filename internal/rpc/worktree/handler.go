@@ -1,4 +1,3 @@
-// Package worktree serves the directories komrad cut for its agents.
 package worktree
 
 import (

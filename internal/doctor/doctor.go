@@ -1,13 +1,3 @@
-// Package doctor checks the things komrad needs from the machine around it and reports what is
-// wrong in terms a person can act on: the configuration file, the database and its schema, the
-// server, tmux and its shell, the directories the hooks and worktree features read and write,
-// and the CLI binary each harness runs.
-//
-// Every one of these fails at a distance from where it is noticed. A missing tmux shell shows
-// up as an agent whose pane dies on launch, a schema behind the binary shows up as a query
-// against a column that is not there, and a hooks directory that has been moved away shows up
-// as a workflow form offering no hooks to hang. The doctor is where those are asked about
-// directly.
 package doctor
 
 import (

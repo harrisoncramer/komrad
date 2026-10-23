@@ -14,7 +14,7 @@ const defaultSignInAddr = "127.0.0.1:8788"
 // requests reach it on.
 type SignIn struct {
 	// The provider's issuer, like https://accounts.google.com, which every ID token it signs
-	// names. Left empty, along with client_id, the engine takes no signed-in requests.
+	// names. Left empty, along with client_id, the engine doesn't take signed-in requests.
 	Issuer string `mapstructure:"issuer"`
 	// The id the owner registered komrad under at the provider, which every ID token for komrad
 	// names as its audience.

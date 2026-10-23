@@ -1,4 +1,3 @@
-// Package main gives each komrad checkout a throwaway instance of its own.
 package main
 
 import (

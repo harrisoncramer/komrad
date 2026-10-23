@@ -1,5 +1,3 @@
-// Package gitlab is the forge behind gitlab.com and self-hosted GitLab, where a pull request is
-// a merge request.
 package gitlab
 
 import (

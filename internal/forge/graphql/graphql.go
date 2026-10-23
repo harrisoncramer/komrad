@@ -1,4 +1,3 @@
-// Package graphql is the client every forge speaks its GraphQL API through.
 package graphql
 
 import (

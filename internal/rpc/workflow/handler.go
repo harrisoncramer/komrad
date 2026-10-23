@@ -1,5 +1,3 @@
-// Package workflow serves the workflow RPCs, which create, edit, archive and restore the groups
-// agents are filed under.
 package workflow
 
 import (

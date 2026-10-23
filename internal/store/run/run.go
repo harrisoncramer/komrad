@@ -1,6 +1,3 @@
-// Package run records one row for every script komrad fires against an agent, so a hook that
-// failed is a fact on the agent rather than a line in a log file nobody knows to open. The
-// output stays on disk and the row says where to find it.
 package run
 
 import (

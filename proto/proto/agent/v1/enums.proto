@@ -28,7 +28,7 @@ export enum ReviewVerdict {
   REVIEW_VERDICT_APPROVED = 1 [(pb.enumvalue.json).string = "approved"];
   // The writer has more to do.
   REVIEW_VERDICT_CHANGES_REQUESTED = 2 [(pb.enumvalue.json).string = "changes_requested"];
-  // Comments with no conclusion either way.
+  // Comments without a conclusion either way.
   REVIEW_VERDICT_COMMENTED = 3 [(pb.enumvalue.json).string = "commented"];
 }
 
@@ -73,7 +73,7 @@ export enum AgentState {
   AGENT_STATE_THINKING = 2 [(pb.enumvalue.json).string = "thinking"];
   // The CLI is waiting for the person to answer a selection.
   AGENT_STATE_WAITING = 3 [(pb.enumvalue.json).string = "waiting"];
-  // The agent is launching and has no pane to read yet.
+  // The agent is launching and doesn't have a pane to read yet.
   AGENT_STATE_SETTING_UP = 4 [(pb.enumvalue.json).string = "setting_up"];
   // The launch failed. `retry_agent` launches the agent again.
   AGENT_STATE_FAILED_TO_CREATE = 5 [(pb.enumvalue.json).string = "failed_to_create"];

@@ -156,7 +156,7 @@ type ConnectForgeRequest struct {
 	ApiUrl string `protobuf:"bytes,3,opt,name=api_url,json=apiUrl,proto3" json:"api_url,omitempty"`
 	// How the credential is given. Unspecified gives a token.
 	Method CredentialMethod `protobuf:"varint,4,opt,name=method,proto3,enum=forge.v1.CredentialMethod" json:"method,omitempty"`
-	// The token for the token and rotating token methods. No call ever returns it.
+	// The token for the token and rotating token methods. Calls never return it.
 	Token         string `protobuf:"bytes,5,opt,name=token,proto3" json:"token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -790,7 +790,7 @@ type MergeOption struct {
 	Method MergeMethod `protobuf:"varint,1,opt,name=method,proto3,enum=forge.v1.MergeMethod" json:"method,omitempty"`
 	// Whether the repository and the pull request's base branch allow the method.
 	Allowed bool `protobuf:"varint,2,opt,name=allowed,proto3" json:"allowed,omitempty"`
-	// The message the forge writes for the method by itself. Unset for a method that writes no
+	// The message the forge writes for the method by itself. Unset for a method that doesn't write a
 	// commit of its own.
 	Message       *CommitMessage `protobuf:"bytes,3,opt,name=message,proto3,oneof" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields

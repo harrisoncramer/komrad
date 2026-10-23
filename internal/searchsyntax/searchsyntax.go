@@ -1,4 +1,3 @@
-// Package searchsyntax reads a typed query into its words and qualifiers, for the panel and the server alike.
 package searchsyntax
 
 import (

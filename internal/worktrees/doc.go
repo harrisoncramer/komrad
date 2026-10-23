@@ -1,12 +1,11 @@
-// Package worktrees reads the directories komrad cut for its agents and removes the ones no
-// agent answers for.
+// Package worktrees lists the directories under komrad's worktree directories, measures them, and
+// removes the ones tasks and agents don't need. The panel's worktrees screen reads and removes
+// through it.
 //
-// The listing runs no git. It reads the .git file and the gitdir's HEAD of each directory and
-// joins the size stored for it. A directory belongs to the agent row named by its basename, and
-// the other rows whose cwd is the directory are the agents working in it. Inspect asks git about
-// one directory and walks its size, which it records. The Measurer records every directory no
-// delete names and walks a few of them a pass, so every directory gets a size in time.
-// Remove takes a directory no row answers for, or one whose row is stuck in failed_to_cleanup
-// because git can no longer read the registration, and leaves alone anything an agent works in
-// or under.
+// The [Lister] doesn't run git. It reads each directory's .git file and HEAD and joins what komrad
+// recorded about it, which is the task whose checkout it is and the agents working in it. The
+// [Inspector] asks git about one directory, and the [Measurer] walks a few directories a pass so
+// each gets a size in time. The [Remover] refuses any directory whose task is live, archived or
+// being deleted, one an agent works in or under, and one holding another worktree, and names the
+// reason for each.
 package worktrees

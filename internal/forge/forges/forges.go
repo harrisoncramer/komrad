@@ -1,4 +1,3 @@
-// Package forges is every forge this build can speak to, by kind.
 package forges
 
 import (

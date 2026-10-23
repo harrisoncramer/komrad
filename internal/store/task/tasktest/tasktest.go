@@ -1,5 +1,3 @@
-// Package tasktest makes the task every agent but an orchestrator must work on, for tests that
-// write agents straight to the store.
 package tasktest
 
 import (

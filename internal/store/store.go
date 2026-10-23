@@ -1,11 +1,3 @@
-// Package store owns the connection to Postgres and the transaction the domain stores run in,
-// with the queries themselves in a package beneath it, one per domain.
-//
-// A write that touches more than one domain is handed a transaction through InTx and the domain
-// stores take it as their DBTX, so archiving an agent and settling the mail addressed to it
-// either both happen or neither does. A pool connects as one engine's login, which is what
-// scopes every row it reads or writes to that engine, and it never migrates: the database
-// owner does that through Migrate.
 package store
 
 import (

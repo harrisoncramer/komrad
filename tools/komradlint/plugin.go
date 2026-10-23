@@ -1,17 +1,3 @@
-// Package komradlint holds the lint rules that are about komrad's own conventions rather than
-// about Go, and registers them with golangci-lint so they run in the one lint pass.
-//
-// It is a module of its own because golangci-lint builds its custom binary by importing the
-// plugin by module path, which it cannot do for a package inside a module whose root is a
-// command. Nothing else imports it, and `go list ./...` in the main module does not see it, so
-// its own tests are run by the test task rather than by the suite.
-//
-// The sentinel, handler, one-line and comment rules read syntax alone, so for them a name is only a name: a package
-// aliased to errors reads as the standard library's, and one brought in by a dot import does not
-// read as anything at all. The secret rule needs to know a method's receiver, the conversion
-// rule where a result type is declared and the mapping rule what a loop ranges over, so the
-// plugin loads types for every package it runs over, which the other linters in the pass
-// already pay for.
 package komradlint
 
 import (

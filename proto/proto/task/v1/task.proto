@@ -99,7 +99,7 @@ message Parent {
 }
 
 message CreateTaskRequest {
-  // The task's slug. No task may have used it before.
+  // The task's slug. A task can't take a slug another task has used.
   string slug = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 80

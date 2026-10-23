@@ -1,4 +1,3 @@
-// Package xstr holds small generic string helpers.
 package xstr
 
 import (

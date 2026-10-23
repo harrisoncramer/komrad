@@ -1,4 +1,3 @@
-// Package agentdirs decides whether a directory on the engine is one a live agent works in.
 package agentdirs
 
 import (

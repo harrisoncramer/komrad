@@ -1,4 +1,3 @@
-// Package terminal is the ConnectRPC transport over the terminals a person opens on the engine.
 package terminal
 
 import (

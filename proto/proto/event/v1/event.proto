@@ -275,7 +275,7 @@ export enum Event {
     (pb.enumvalue.json).string = "review.commented",
     (annotation.v1.label) = {
       title: "Review commented"
-      description: "a reviewer released comments with no verdict either way"
+      description: "a reviewer released comments without a verdict either way"
     }
   ];
   EVENT_REVIEW_COMMENTED_BY_PERSON = 18 [

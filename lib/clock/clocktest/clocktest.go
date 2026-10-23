@@ -1,4 +1,3 @@
-// Package clocktest holds a sleeper that never waits.
 package clocktest
 
 import (

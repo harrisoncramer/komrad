@@ -44,7 +44,7 @@ message ConnectForgeRequest {
   string api_url = 3;
   // How the credential is given. Unspecified gives a token.
   CredentialMethod method = 4 [(buf.validate.field).enum.defined_only = true];
-  // The token for the token and rotating token methods. No call ever returns it.
+  // The token for the token and rotating token methods. Calls never return it.
   string token = 5;
 }
 
@@ -146,7 +146,7 @@ message MergeOption {
   MergeMethod method = 1;
   // Whether the repository and the pull request's base branch allow the method.
   bool allowed = 2;
-  // The message the forge writes for the method by itself. Unset for a method that writes no
+  // The message the forge writes for the method by itself. Unset for a method that doesn't write a
   // commit of its own.
   optional CommitMessage message = 3;
 }

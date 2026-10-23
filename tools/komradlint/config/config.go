@@ -1,4 +1,3 @@
-// Package config is the shape of the settings block komrad's .golangci.yaml hands the plugin.
 package config
 
 // Config is every rule's settings.

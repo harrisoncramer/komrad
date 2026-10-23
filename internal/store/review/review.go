@@ -1,5 +1,3 @@
-// Package review stores the conversations pinned to the lines of a task's diff and the
-// messages in them.
 package review
 
 import (

@@ -1,4 +1,3 @@
-// Package watched lists every resource the watch carries.
 package watched
 
 import (

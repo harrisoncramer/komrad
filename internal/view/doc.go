@@ -1,99 +1,24 @@
-// Package view renders the agents list in three steps: a snapshot of what the panel found, a
-// pure preparation of that snapshot into resolved glyphs and tones, and a pure rendering of
-// those into a string.
+// Package view draws the panel's lists of rows, for the agents list with its workflows and tasks
+// and for the worktrees, documents, schedules and search screens built on the same rows.
 //
-// Nothing here holds a client, a clock, a terminal or a context. A Snapshot is plain data the
-// panel gathers; Prepare makes every decision about which glyph, which tone and which weight a
-// row wears; Render spells those decisions out with the palette of its region.
-// The split is what lets a change of logic fail a readable assertion and a change of palette
-// move only a golden file.
+// Drawing takes three steps. The panel gathers a [Snapshot] of plain data. [Prepare] decides
+// every glyph, tone and weight each row wears and returns a [List]. [Window] renders the part of
+// that list the pane holds, scrolled to the focused row. Nothing here holds a client, a clock or a
+// terminal, so a change of logic fails a readable assertion and a change of palette moves only a
+// golden file.
 //
-// # Tasks hang off their workflow
+// A row is a fixed run of cells. It holds focus, the columns its screen declares, the name,
+// trailing marks, and the comment counts. Each screen names its own columns in
+// [Snapshot.Columns], and a snapshot that doesn't name any gets the agents list's repo, review and
+// forge columns. A blank cell has nothing to say, and every gutter cell keeps its width so the
+// columns line up on every row. When a row is too wide for the pane, it gives up its tally, then
+// its comment counts, then room in its name, and its marks last.
 //
-// A row is a fixed sequence of cells: focus, the columns the list declares, name, trailing marks,
-// then the comment counts against the right edge. Every gutter cell is always rendered and holds
-// its column whether or not it has anything to say, so the gutter is identical on every row
-// whatever kind it is.
+// In the agents list, a tree in grey hangs each task off its workflow and each agent off its task,
+// and the task row stands for its writer. A name renders dim only when nothing runs behind the row
+// any more, because its process stopped or it was archived. A hidden task stays bright and
+// carries a mark after its name instead.
 //
-// Only the name is set in. The agents list draws a tree in grey before each name: a workflow at
-// the gutter, its tasks hung off it, and the agents on each task hung off the task, a Tree saying
-// where each row hangs. A list with no tree indents instead, a workflow at the gutter, an agent
-// one step in, and a reviewer one step further on the corner it hangs off its writer by. Weight
-// carries a workflow over again in bold, so the tree is not the only thing saying where it sits.
-//
-// The task row stands for the task's writer. It wears the task's checkout, pull request and
-// comments, and says what the writer is doing. The reviewers under it are Nested and leave their
-// gutter blank, since the task row already says how their work stands.
-//
-// An agent's name says what it is doing instead of a bar does. The name is bold in the warning
-// colour while the agent waits on a person or is broken, and plain otherwise, with the loader
-// turning greyed after it while it thinks. A workflow's name says the same of its orchestrator.
-//
-// One rule covers every cell of the row: blank is nothing to say, anything rendered is applicable,
-// and the shape says which state it is in. The agents list declares three glyph columns, repo,
-// review and forge, and they are blank on a row that can never own a checkout, the review column
-// blank as well on a branch no review has been released on.
-//
-// # Dim means the process is gone
-//
-// A name renders dim for exactly one reason: nothing runs behind the row any more, whether the
-// agent's process has stopped or the row has been archived. Nothing a person did to a row dims
-// it, and an idle agent with a pane of its own is alive and stays bright. Dim reaches the name
-// alone, so a dormant agent still says in colour where its review and its pull request stand.
-//
-// Only an agent's own row, or a task's standing for its writer, is ever ProcessStopped. A
-// workflow is not a process, its orchestrator is, and a workflow whose orchestrator has died still
-// has live agents under it, so its header stays bright and plain, the same as one whose
-// orchestrator was archived or never existed. The sidebar does not tell those apart; an archived
-// orchestrator has a row in the archive, and a stopped one reads the same as none at all.
-//
-// Hidden is a thing a person did to the row, so it is a mark after the name, in the family the
-// pause and the schedule belong to. A hidden task is bright with the mark, and an archived one is
-// dim without it.
-//
-// A branch or an indent costs the name the columns it spends, so an agent has less room for its
-// name than a workflow at the same pane, and the name clip and the mark shedding both read them
-// rather than the gutter alone.
-//
-// # A list declares its columns
-//
-// The columns between the mark and the name are the screen's to name, in Snapshot.Columns, each
-// with a kind and a width. A glyph column is one of repo, review or forge, one column wide and
-// filled from the row's own state. A text column is as wide as the screen says and filled by the
-// row through Row.Cells, indexed by column position, set against the right edge of the column.
-// A snapshot naming no columns renders the agents list's three, so a test writing Snapshot{} gets
-// the agents list it meant.
-//
-// The worktrees list declares a size and an age. A directory is the row there, and its checkout,
-// its review and its pull request belong to whichever agent holds it rather than to the row
-// itself. A search declares none: a result is a pointer into a conversation, not a piece of work
-// to triage.
-//
-// Every declared column is rendered at every pane, and a column not declared buys the name its
-// room. Nothing is given up for width but the row's own odds and ends: a row too full for what
-// is left gives up its tally, then its comment counts, then its name, a row at a time rather
-// than the whole list, and gives up its marks only where the marks alone would not fit the pane:
-// the schedule first, then the hiding, then the pause, then the loader, then the mail, and the
-// failed run last.
-//
-// # A list of results is not a tree
-//
-// A search renders the agents it found rather than a tree, so its rows are KindResult: nothing
-// sits under anything, every name opens at the gutter and no row is lettered for structure.
-//
-// # Scrolling belongs to the caller
-//
-// Rows hands back one rendered string per row and stops there. Which of them fit the pane, and
-// which the list is scrolled to, is the caller's. A caller measuring those rows measures what
-// lipgloss measures, an Octicon rendering the single column the font gives it.
-//
-// Window does that work already, for a caller that only has to say how many lines it has
-// left. It scrolls to the row the snapshot named, and a key naming no row at all leaves the
-// list where a fresh one opens.
-//
-// # Zero values are the ordinary case
-//
-// Every enum in a Snapshot starts at what an unremarkable row would say: an agent, a clean
-// checkout, no review, no pull request, idle. A test writing Row{} therefore gets the row it
-// meant rather than a workflow.
+// Every enum in a [Row] starts at what an unremarkable agent would show, so a test writing Row{}
+// gets an idle agent with a clean checkout.
 package view

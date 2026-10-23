@@ -2,9 +2,9 @@
 // styles, markdown rendering, the arithmetic that fits a list of rows into a pane, and the spans a
 // search hit marks.
 //
-// The package holds no panel state and knows nothing about an agent, a workflow or a schedule. No
-// function in it takes a model or reads the store. A screen decides what to render, and paint
-// decides how it looks.
+// The package doesn't hold panel state or know about agents, workflows or schedules. Its functions
+// don't take a model or read the store. A screen decides what to render, and paint decides how it
+// looks.
 //
 // Any package under internal/ui may import paint. A few packages outside the panel import it too,
 // such as the cli and setup packages. The package imports nothing under internal/ui.

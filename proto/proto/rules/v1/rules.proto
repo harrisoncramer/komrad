@@ -31,14 +31,14 @@ extend buf.validate.StringRules {
   // Requires a bare file name, so a caller cannot reach outside the hooks directory.
   bool script_name = 50104 [(buf.validate.predefined).cel = {
     id: "string.script_name"
-    message: "must be a file name, with no slash, no leading dot, and no control characters"
+    message: "must be a file name without a slash, a leading dot or control characters"
     expression: "!rule || (this != '' && !this.contains('/') && !this.startsWith('.') && !this.matches('[[:cntrl:]]'))"
   }];
 
   // Like `script_name`, but allows an empty string to run no hook.
   bool script_name_or_blank = 50105 [(buf.validate.predefined).cel = {
     id: "string.script_name_or_blank"
-    message: "must be blank or a file name, with no slash, no leading dot, and no control characters"
+    message: "must be blank or a file name without a slash, a leading dot or control characters"
     expression: "!rule || this == '' || (!this.contains('/') && !this.startsWith('.') && !this.matches('[[:cntrl:]]'))"
   }];
 
@@ -56,10 +56,10 @@ extend buf.validate.StringRules {
     expression: "!rule || !this.matches('[\\x00-\\x1f\\x7f]')"
   }];
 
-  // Requires a path inside the checkout, with no way up out of it.
+  // Requires a path that stays inside the checkout.
   bool relative_path = 50106 [(buf.validate.predefined).cel = {
     id: "string.relative_path"
-    message: "must be a relative path, with no leading / or ~ and no .. segment"
+    message: "must be a relative path without a leading / or ~ or a .. segment"
     expression: "!rule || (this != '' && !this.startsWith('/') && !this.startsWith('~') && !this.contains(\"..\"))"
   }];
 }

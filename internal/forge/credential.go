@@ -1,5 +1,3 @@
-// Package forge is the boundary between komrad and the service a repository's pull requests
-// live on.
 package forge
 
 import (

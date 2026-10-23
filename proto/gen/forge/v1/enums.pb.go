@@ -187,7 +187,7 @@ const (
 	MergeMethod_MERGE_METHOD_SQUASH MergeMethod = 2
 	// The commits are replayed onto the base branch one by one.
 	MergeMethod_MERGE_METHOD_REBASE MergeMethod = 3
-	// The base branch moves to the head commit, with no commit of its own.
+	// The base branch moves to the head commit, without a commit of its own.
 	MergeMethod_MERGE_METHOD_FAST_FORWARD MergeMethod = 4
 )
 

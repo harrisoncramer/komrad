@@ -213,10 +213,10 @@ message StatusCheck {
   // The check run's steps, in order. Empty when the check lists none.
   repeated StatusCheckStep steps = 11;
   // The event that started the check's CI workflow, such as `pull_request` or `push`. Empty when
-  // no CI workflow ran the check.
+  // the check didn't come from a CI workflow.
   string run_event = 12;
-  // When the check's CI workflow run was created. Unset when no CI workflow ran the
-  // check.
+  // When the check's CI workflow run was created. Unset when the check didn't
+  // come from a CI workflow.
   optional google.protobuf.Timestamp run_started_at = 13;
   // The check's log, as komrad keeps it.
   CheckLog log = 14;
@@ -285,7 +285,7 @@ service PullRequestService {
       cli: true
       mcp: true
       name: "list_pull_requests"
-      description: "List the pull requests komrad has recorded for a repository, open ones first. A repository with no live agent may be out of date. `list_forge_pull_requests` reads the forge directly."
+      description: "List the pull requests komrad has recorded for a repository, open ones first. A repository without a live agent may be out of date. `list_forge_pull_requests` reads the forge directly."
       roles: [
         ROLE_WRITER,
         ROLE_ORCHESTRATOR

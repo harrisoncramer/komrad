@@ -1,6 +1,3 @@
-// Package logging builds the slog logger komrad writes with, carries it on the context so any
-// layer can reach it, and turns errors and recovered panics into the attributes a line is
-// written with.
 package logging
 
 import (

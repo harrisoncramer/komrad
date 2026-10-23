@@ -1,5 +1,3 @@
-// Package shells opens a shell on the engine for a person at a terminal somewhere else, rooted
-// in a directory some live agent works in.
 package shells
 
 import (

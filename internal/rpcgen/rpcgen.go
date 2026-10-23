@@ -1,16 +1,3 @@
-// Package rpcgen writes the strict handler interface and the adapter for each service, which is
-// what keeps a failure's code decided by its type rather than by whoever wrote the handler.
-//
-// A unary method answers with a message and a failure. A streaming method receives its stream
-// and answers with a failure alone. The generator refuses a method that streams only from the client.
-//
-// A request whose protovalidate rules describe values with a Go type of their own reaches the
-// implementation parsed, and a request holding a value that would not convert is refused as an
-// invalid argument before the implementation sees it.
-//
-// A oneof holding no message reaches the implementation as the type named for it in the oneofs
-// package, one type for every oneof with that name, which a service takes without knowing the
-// request it came in.
 package rpcgen
 
 import (

@@ -1,4 +1,3 @@
-// Package rpccodec holds the codecs komrad hangs on its connect handlers.
 package rpccodec
 
 import (

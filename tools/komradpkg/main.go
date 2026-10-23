@@ -1,4 +1,3 @@
-// Package main answers which Go packages a branch changed, and how many packages import them.
 package main
 
 import (

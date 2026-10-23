@@ -1,5 +1,3 @@
-// Package assemble draws the agent and task rows the panel and the agent listing both show,
-// once, from the resources a caller holds.
 package assemble
 
 import (

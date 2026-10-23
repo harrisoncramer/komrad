@@ -1,4 +1,3 @@
-// Package dates turns a time into the timestamp the wire carries, reads one back, and says how long passed between two.
 package dates
 
 import (

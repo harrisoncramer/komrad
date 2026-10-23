@@ -745,7 +745,7 @@ type FileMapping struct {
 	OldPath string `protobuf:"bytes,1,opt,name=old_path,json=oldPath,proto3" json:"old_path,omitempty"`
 	// The file's path in the later commit. Empty when the file is not in that commit.
 	NewPath string `protobuf:"bytes,2,opt,name=new_path,json=newPath,proto3" json:"new_path,omitempty"`
-	// The lines the later commit changed. Empty for a file the patch shows no content for.
+	// The lines the later commit changed. Empty for a file the patch doesn't show content for.
 	Ranges        []*RangeMapping `protobuf:"bytes,3,rep,name=ranges,proto3" json:"ranges,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

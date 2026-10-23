@@ -1,4 +1,3 @@
-// Package loop serves the wakes of the server's background loops.
 package loop
 
 import (

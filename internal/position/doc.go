@@ -1,30 +1,17 @@
-// Package position moves a place in one commit to the place it has become in another. That is
-// how a comment written against an old snapshot is drawn against a newer one.
+// Package position moves a place in one commit to the place it has become in a later one. Reviews
+// use it to draw a comment written against an old snapshot on a newer snapshot of the same work.
 //
-// A review comment is written against a snapshot, a frozen commit of an agent's worktree, and the
-// agent keeps writing afterwards. To draw that comment against a later snapshot something has to
-// say where those lines went. Both snapshots are ordinary commits komrad still holds, so the answer
-// is in git rather than in a guess, and this package is the arithmetic that reads it.
+// Both snapshots are commits komrad still holds, so git's diff between them says where each line
+// went. [Transform] settles renames and copies first, so the line walk never has to know a file
+// moved, and a file copied to two paths turns one position into two results. The walk then
+// carries a running shift down the file. A change before a position moves it, and lines added
+// inside a position make it longer instead of moving its start.
 //
-// A range holds its start and not its end. That choice does two things. It makes a span of no
-// lines a point between two lines, an insertion, and it lets two regions meet end to start
-// without overlapping. Lines are numbered from one. There are no character offsets anywhere:
-// git only works to line precision.
+// A [Range] holds its start line but not its end, so an empty range is a point between two lines.
+// Lines count from one, and a position is never finer than a line. When a later commit rewrites a
+// position's lines, the caller's policy decides the result. [FileOnConflict] keeps the file for a
+// comment, and [OmitOnConflict] drops the position for anything that would mislead.
 //
-// Paths are resolved before any line is counted, and the order is load-bearing. A rename or a
-// copy is settled first, so the line walk never has to know a file moved, and a file copied to
-// two paths turns one position into two results rather than forcing a choice between them.
-//
-// The line walk carries a running shift down the file. A region above a position moves it. A
-// region the position overlaps is a conflict. Lines arriving inside a position make it longer
-// rather than moving where it starts, so a comment on a block still covers that block when
-// something is added to the middle of it.
-//
-// The caller decides what to do with a conflict, not this package, so Policy is an
-// argument. A comment wants to survive as something said about the file, so it keeps the file
-// and loses the lines; a fold or a mark wants to disappear rather than mislead.
-//
-// The design is Gerrit's GitPositionTransformer, which has done this since 2020 and had the
-// sense to keep the transformer ignorant of comments. Reimplemented here rather than translated,
-// and the same ignorance is the reason this package imports nothing of komrad's.
+// The design follows Gerrit's GitPositionTransformer, and like it, the package knows nothing of
+// comments or of the rest of komrad.
 package position

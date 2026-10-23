@@ -1,4 +1,3 @@
-// Package doctor serves the checks the doctor makes, made on the machine the server runs on.
 package doctor
 
 import (

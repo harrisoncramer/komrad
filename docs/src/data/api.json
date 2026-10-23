@@ -627,8 +627,8 @@
           "roles": [
             "reviewer"
           ],
-          "summary": "Start a thread on a line range of the diff under review, with the diff lines as `quoted_lines` and the snapshot's `sha` as `snapshot_sha`, or on the change as a whole with no file and no lines.",
-          "description": "Start a thread on a line range of the diff under review, with the diff lines as `quoted_lines` and the snapshot's `sha` as `snapshot_sha`, or on the change as a whole with no file and no lines. Pass `suggestion` for exact replacement lines. The thread is released with `release_review`.",
+          "summary": "Start a thread on a line range of the diff under review, with the diff lines as `quoted_lines` and the snapshot's `sha` as `snapshot_sha`, or on the change as a whole without a file or lines.",
+          "description": "Start a thread on a line range of the diff under review, with the diff lines as `quoted_lines` and the snapshot's `sha` as `snapshot_sha`, or on the change as a whole without a file or lines. Pass `suggestion` for exact replacement lines. The thread is released with `release_review`.",
           "readOnly": false,
           "idempotent": false,
           "destructive": false,
@@ -802,7 +802,7 @@
             "reviewer"
           ],
           "summary": "Take a snapshot of a task's checkout to review, the caller's task by default.",
-          "description": "Take a snapshot of a task's checkout to review, the caller's task by default. Diff the snapshot's `base_sha` against its `sha` to read the change. A checkout with no change since the newest snapshot returns that snapshot.",
+          "description": "Take a snapshot of a task's checkout to review, the caller's task by default. Diff the snapshot's `base_sha` against its `sha` to read the change. A checkout that hasn't changed since the newest snapshot returns that snapshot.",
           "readOnly": false,
           "idempotent": true,
           "destructive": false,
@@ -1547,7 +1547,7 @@
             "orchestrator"
           ],
           "summary": "List the pull requests komrad has recorded for a repository, open ones first.",
-          "description": "List the pull requests komrad has recorded for a repository, open ones first. A repository with no live agent may be out of date. `list_forge_pull_requests` reads the forge directly.",
+          "description": "List the pull requests komrad has recorded for a repository, open ones first. A repository without a live agent may be out of date. `list_forge_pull_requests` reads the forge directly.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -1573,7 +1573,7 @@
             "orchestrator"
           ],
           "summary": "List every worktree with its repository, branch, agents and last measured size.",
-          "description": "List every worktree with its repository, branch, agents and last measured size. The call runs no git, so it is fast.",
+          "description": "List every worktree with its repository, branch, agents and last measured size. The call doesn't run git, so it is fast.",
           "readOnly": true,
           "idempotent": true,
           "destructive": false,
@@ -2001,7 +2001,7 @@
           "constraints": {
             "maxLength": 50000
           },
-          "description": "The agent's prompt. Empty to launch the CLI with no prompt."
+          "description": "The agent's prompt. Empty to launch the CLI without a prompt."
         },
         {
           "name": "title",
@@ -2720,7 +2720,7 @@
             "maxLength": 80,
             "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
           },
-          "description": "The slug of the task komrad creates when no task is named. No task may have used it before. Unset to derive one from the agent's name."
+          "description": "The slug of the task komrad creates when the call doesn't name one. A task can't take a slug another task has used. Unset to derive one from the agent's name."
         },
         {
           "name": "new_task_goal",
@@ -4628,7 +4628,7 @@
           "constraints": {
             "maxLength": 255,
             "rules": [
-              "must be a file name, with no slash, no leading dot, and no control characters"
+              "must be a file name without a slash, a leading dot or control characters"
             ]
           },
           "description": "The hook whose run the line belongs to. A running hook finds its name in `KOMRAD_SCRIPT`."
@@ -8241,7 +8241,7 @@
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "The message the forge writes for the method by itself. Unset for a method that writes no commit of its own."
+          "description": "The message the forge writes for the method by itself. Unset for a method that doesn't write a commit of its own."
         }
       ],
       "oneofs": []
@@ -10237,7 +10237,7 @@
             "maxLength": 80,
             "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
           },
-          "description": "The task's slug. No task may have used it before."
+          "description": "The task's slug. A task can't take a slug another task has used."
         },
         {
           "name": "title",
@@ -11801,7 +11801,7 @@
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "Whether the event is muted. A muted event sends no mail of its own, and updates the agent's unread mail without its prompt."
+          "description": "Whether the event is muted. A muted event doesn't send mail of its own, and updates the agent's unread mail without its prompt."
         }
       ],
       "oneofs": []
@@ -11869,7 +11869,7 @@
             "minLength": 1,
             "maxLength": 255,
             "rules": [
-              "must be blank or a file name, with no slash, no leading dot, and no control characters"
+              "must be blank or a file name without a slash, a leading dot or control characters"
             ]
           },
           "description": "The hook's script, by file name in the hooks directory."
@@ -11921,7 +11921,7 @@
             "items": {
               "maxLength": 255,
               "rules": [
-                "must be a relative path, with no leading / or ~ and no .. segment"
+                "must be a relative path without a leading / or ~ or a .. segment"
               ]
             }
           },
@@ -11940,7 +11940,7 @@
             "items": {
               "maxLength": 255,
               "rules": [
-                "must be a relative path, with no leading / or ~ and no .. segment"
+                "must be a relative path without a leading / or ~ or a .. segment"
               ]
             }
           },
@@ -11960,7 +11960,7 @@
               "minLength": 1,
               "maxLength": 255,
               "rules": [
-                "must be a relative path, with no leading / or ~ and no .. segment"
+                "must be a relative path without a leading / or ~ or a .. segment"
               ]
             }
           },
@@ -12798,7 +12798,7 @@
         },
         {
           "name": "setting_up",
-          "description": "The agent is launching and has no pane to read yet."
+          "description": "The agent is launching and doesn't have a pane to read yet."
         },
         {
           "name": "failed_to_create",
@@ -12928,7 +12928,7 @@
         },
         {
           "name": "commented",
-          "description": "Comments with no conclusion either way."
+          "description": "Comments without a conclusion either way."
         }
       ]
     },
@@ -13024,7 +13024,7 @@
         },
         {
           "name": "review.commented",
-          "description": "a reviewer released comments with no verdict either way"
+          "description": "a reviewer released comments without a verdict either way"
         },
         {
           "name": "review.commented_by_person",
@@ -13160,7 +13160,7 @@
         },
         {
           "name": "fast_forward",
-          "description": "The base branch moves to the head commit, with no commit of its own."
+          "description": "The base branch moves to the head commit, without a commit of its own."
         }
       ]
     },
@@ -13252,7 +13252,7 @@
         },
         {
           "name": "open",
-          "description": "Open, with no review decision that decides it."
+          "description": "Open, without a review decision that decides it."
         },
         {
           "name": "approved",
@@ -13610,7 +13610,7 @@
     },
     {
       "name": "review.commented",
-      "description": "a reviewer released comments with no verdict either way",
+      "description": "a reviewer released comments without a verdict either way",
       "defaultPrompt": "Answer each comment. Push back where you disagree rather than changing code just to fit."
     },
     {

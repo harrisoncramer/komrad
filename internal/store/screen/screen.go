@@ -1,4 +1,3 @@
-// Package screen keeps the last screen each agent's pane drew at rest.
 package screen
 
 import (

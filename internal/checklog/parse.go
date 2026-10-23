@@ -1,4 +1,3 @@
-// Package checklog cleans the log of a check's Actions job and maps the check run's steps onto its lines.
 package checklog
 
 import (

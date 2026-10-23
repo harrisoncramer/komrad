@@ -1,6 +1,3 @@
-// Package diff loads the change an agent has made in its worktree and parses it into
-// lines that carry their own numbers, so a cursor over the diff can be turned back into a
-// place in a file.
 package diff
 
 import (

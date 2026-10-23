@@ -1,5 +1,3 @@
-// Package agent stores the agents themselves: the row for each one, the state the reconciler
-// keeps up to date, and whether it is archived or still on screen.
 package agent
 
 import (

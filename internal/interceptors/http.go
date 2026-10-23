@@ -1,7 +1,3 @@
-// Package interceptors holds the rules every request passes through before a handler sees it:
-// the log line it is recorded in, the panic that would otherwise take the server down, the
-// protovalidate constraints declared in the proto, and the guard that refuses a call aimed at
-// this machine from somewhere else.
 package interceptors
 
 import (

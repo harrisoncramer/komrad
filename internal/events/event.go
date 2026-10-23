@@ -1,5 +1,3 @@
-// Package events hands each change recorded with its transaction to the handler that mails the
-// agents it concerns.
 package events
 
 import (

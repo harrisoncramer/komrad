@@ -249,7 +249,7 @@ service WorktreeService {
       cli: true
       mcp: true
       name: "list_worktrees"
-      description: "List every worktree with its repository, branch, agents and last measured size. The call runs no git, so it is fast."
+      description: "List every worktree with its repository, branch, agents and last measured size. The call doesn't run git, so it is fast."
       roles: [ROLE_ORCHESTRATOR]
     };
   }
@@ -281,7 +281,7 @@ service WorktreeService {
       mcp: false
       name: "delete_worktrees"
       description: "Queue worktrees for deletion in the background, each as its fate says. Komrad skips any worktree with a live agent."
-      reason: "The call returns no outcome, and `remove_unowned_worktrees` already deletes worktrees and reports the result."
+      reason: "The call doesn't return an outcome, and `remove_unowned_worktrees` already deletes worktrees and reports the result."
       destructive: true
     };
   }

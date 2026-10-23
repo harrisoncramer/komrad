@@ -1,4 +1,3 @@
-// Package hook serves the hooks a person has written.
 package hook
 
 import (

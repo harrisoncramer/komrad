@@ -1,6 +1,3 @@
-// Package browser hands a URL to whatever the person at the panel opens links with, which is
-// the desktop's own opener rather than a browser komrad picks. Nothing here knows what the URL
-// is for, so anything with an address to show a person can use it.
 package browser
 
 import (

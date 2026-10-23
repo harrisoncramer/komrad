@@ -251,7 +251,7 @@ type MenuKeys struct {
 	// Opens the menu, which shows the hovered row's entries, or the chosen tasks', over the screen's own.
 	// The key opens nothing on a screen with neither.
 	Open []string `mapstructure:"open" default:"space"`
-	// Open the review of the task's diff. The entry is gray on a task with no worktree, and in
+	// Open the review of the task's diff. The entry is gray on a task without a worktree, and in
 	// the archive.
 	Review []string `mapstructure:"review" default:"r"`
 	// Open the agent's logs, the server log lines about it.
@@ -527,9 +527,9 @@ type ArchiveMenuKeys struct {
 	// and takes you to it. The entry is gray on an agent that never got as far as starting.
 	RestoreOpen []string `mapstructure:"restore_open" default:"o"`
 	// Deletes every unused worktree. That covers every directory whose agent is archived, through
-	// the agent delete and its hooks, and every directory no agent answers for. A directory with a live
-	// agent in it is never deleted. The entry is only on the worktrees screen, and is gray when
-	// no worktree is unused.
+	// the agent delete and its hooks, and every directory agents don't answer for. A directory
+	// with a live agent in it is never deleted. The entry is only on the worktrees screen, and is
+	// gray when every worktree is in use.
 	Clear []string `mapstructure:"clear" default:"c"`
 }
 

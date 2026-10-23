@@ -1054,10 +1054,10 @@ type StatusCheck struct {
 	// The check run's steps, in order. Empty when the check lists none.
 	Steps []*StatusCheckStep `protobuf:"bytes,11,rep,name=steps,proto3" json:"steps,omitempty"`
 	// The event that started the check's CI workflow, such as `pull_request` or `push`. Empty when
-	// no CI workflow ran the check.
+	// the check didn't come from a CI workflow.
 	RunEvent string `protobuf:"bytes,12,opt,name=run_event,json=runEvent,proto3" json:"run_event,omitempty"`
-	// When the check's CI workflow run was created. Unset when no CI workflow ran the
-	// check.
+	// When the check's CI workflow run was created. Unset when the check didn't
+	// come from a CI workflow.
 	RunStartedAt *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=run_started_at,json=runStartedAt,proto3,oneof" json:"run_started_at,omitempty"`
 	// The check's log, as komrad keeps it.
 	Log *CheckLog `protobuf:"bytes,14,opt,name=log,proto3" json:"log,omitempty"`
@@ -1654,9 +1654,9 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"finishedAt\x88\x01\x01\x12\x16\n" +
 	"\x06passed\x18\a \x01(\bR\x06passedB\r\n" +
 	"\v_started_atB\x0e\n" +
-	"\f_finished_at2\xe9\x06\n" +
-	"\x12PullRequestService\x12\xc5\x02\n" +
-	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xdd\x01\x9a\xb5\x18\xd5\x01\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb6\x01List the pull requests komrad has recorded for a repository, open ones first. A repository with no live agent may be out of date. `list_forge_pull_requests` reads the forge directly.:\x02\x03\x02\x90\x02\x01\x12\xee\x01\n" +
+	"\f_finished_at2\xeb\x06\n" +
+	"\x12PullRequestService\x12\xc7\x02\n" +
+	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xdf\x01\x9a\xb5\x18\xd7\x01\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb8\x01List the pull requests komrad has recorded for a repository, open ones first. A repository without a live agent may be out of date. `list_forge_pull_requests` reads the forge directly.:\x02\x03\x02\x90\x02\x01\x12\xee\x01\n" +
 	"\x10ListStatusChecks\x12'.pullrequest.v1.ListStatusChecksRequest\x1a(.pullrequest.v1.ListStatusChecksResponse\"\x86\x01\x9a\xb5\x18\x7fB}Only the person reads each status check, and an agent reads the checks' state from `merge_readiness` on `list_pull_requests`.\x90\x02\x01\x12\x85\x01\n" +
 	"\fReadCheckLog\x12#.pullrequest.v1.ReadCheckLogRequest\x1a$.pullrequest.v1.ReadCheckLogResponse\"*\x9a\xb5\x18#B!Only the person reads check logs.\x90\x02\x01\x12\x91\x01\n" +
 	"\x0fSearchCheckLogs\x12&.pullrequest.v1.SearchCheckLogsRequest\x1a'.pullrequest.v1.SearchCheckLogsResponse\"-\x9a\xb5\x18&B$Only the person searches check logs.\x90\x02\x01B/Z-komrad/proto/gen/pullrequest/v1;pullrequestv1b\x06proto3"

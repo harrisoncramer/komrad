@@ -1,4 +1,3 @@
-// Package render holds what the handlers' resource renderers have in common.
 package render
 
 import "github.com/google/uuid"

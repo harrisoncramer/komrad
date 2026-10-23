@@ -193,7 +193,7 @@ type WorkflowEventPrompt struct {
 	Event v1.Event `protobuf:"varint,1,opt,name=event,proto3,enum=event.v1.Event" json:"event,omitempty"`
 	// The text added to the mail about the event. Empty adds nothing.
 	Prompt string `protobuf:"bytes,2,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	// Whether the event is muted. A muted event sends no mail of its own, and updates the agent's
+	// Whether the event is muted. A muted event doesn't send mail of its own, and updates the agent's
 	// unread mail without its prompt.
 	Muted         bool `protobuf:"varint,3,opt,name=muted,proto3" json:"muted,omitempty"`
 	unknownFields protoimpl.UnknownFields

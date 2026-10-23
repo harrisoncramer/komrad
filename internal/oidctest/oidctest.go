@@ -1,5 +1,3 @@
-// Package oidctest runs an identity provider in the test's own process, answering discovery, the
-// browser's sign-in, and the token trades the way a real provider does.
 package oidctest
 
 import (

@@ -1,4 +1,3 @@
-// Package postgres runs the embedded Postgres under komrad's state directory on a laptop.
 package postgres
 
 import (

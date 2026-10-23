@@ -1,8 +1,3 @@
-// Package codex runs Codex as a komrad agent, building the command that starts or resumes a
-// conversation, reading its rollout log, and telling from a captured frame whether it is
-// working, waiting on a person, or idle.
-//
-// It also owns the trust file.
 package codex
 
 import (

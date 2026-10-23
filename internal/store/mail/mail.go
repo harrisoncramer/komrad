@@ -1,5 +1,3 @@
-// Package mail stores the messages agents send each other and which of them the recipient has
-// claimed.
 package mail
 
 import (

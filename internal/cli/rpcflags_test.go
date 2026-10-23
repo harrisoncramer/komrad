@@ -233,7 +233,7 @@ func TestDescribeField(t *testing.T) {
 		{
 			message: (&workflowv1.WorktreeConfig{}).ProtoReflect().Descriptor(),
 			field:   "copy_paths",
-			want:    "string, at most 50 items, each at most 255 characters, each must be a relative path, with no leading / or ~ and no .. segment",
+			want:    "string, at most 50 items, each at most 255 characters, each must be a relative path without a leading / or ~ or a .. segment",
 		},
 	}
 

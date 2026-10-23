@@ -32,7 +32,7 @@ Parameter Store holds the control plane's Tailscale identity, so a replaced cont
 
 ## The control plane
 
-The control plane holds no agents and no engine. It keeps only Caddy's state on a data volume, so Terraform can replace it at any time. Engines keep running while it is replaced.
+The control plane doesn't hold agents or an engine. It keeps only Caddy's state on a data volume, so Terraform can replace it at any time. Engines keep running while it is replaced.
 
 Its user data writes the tailnet name into Caddy's config, starts Caddy and joins the tailnet. Caddy sends each engine's path, such as `/harry`, to that person's engine.
 
@@ -114,7 +114,7 @@ Komrad asks the engine's `/sign-in` page which identity provider it trusts and o
 
 The panel can sign a person in too. On an engine at a URL, the panel asks the engine whether the person has access before it shows anything. Without a sign-in it shows only a sign-in screen, and enter opens the provider's page in the browser. If nobody granted the person access, the panel says to ask an operator. If the engine or the provider doesn't answer, the panel says so, and enter tries again.
 
-Komrad keeps both tokens in the system keychain. A machine with no keychain keeps them in a private file under komrad's state directory. <Command path="logout" /> removes them from both places. If a panel for that engine is open on the same machine, logout closes any agent terminal it was showing and restarts it at the sign-in screen. A terminal you started yourself keeps its stream until the token it holds runs out, at most an hour later. A terminal opened while the machine has no sign-in says so and attaches once you run <Command path="login" />.
+Komrad keeps both tokens in the system keychain. A machine without a keychain keeps them in a private file under komrad's state directory. <Command path="logout" /> removes them from both places. If a panel for that engine is open on the same machine, logout closes any agent terminal it was showing and restarts it at the sign-in screen. A terminal you started yourself keeps its stream until the token it holds runs out, at most an hour later. A terminal opened while the machine has no sign-in says so and attaches once you run <Command path="login" />.
 
 ### Tokens
 
@@ -154,7 +154,7 @@ The loopback listener serves the agents' MCP tools and the CLI in a shell on the
 
 ### Operator and CI access
 
-Operators reach the control plane and every engine through AWS Systems Manager, which needs no open port and no keys on the instance. A session opens a shell as a user with sudo, and `sudo -u komrad -i` switches to the account the agents run as. Deploys and restarts also go through Systems Manager, whether they start on a laptop or in GitHub Actions.
+Operators reach the control plane and every engine through AWS Systems Manager, which doesn't need an open port or keys on the instance. A session opens a shell as a user with sudo, and `sudo -u komrad -i` switches to the account the agents run as. Deploys and restarts also go through Systems Manager, whether they start on a laptop or in GitHub Actions.
 
 Anyone whose AWS credentials let them open a session or send a command to an instance has root on it. Guard those credentials the way you would guard root.
 
@@ -192,7 +192,7 @@ People reach the control plane on 443. Tailscale's default policy lets every mem
 
 ### The host firewall
 
-On the Tailscale interface the control plane's firewall accepts new connections to 443 only. The control plane takes no DNS settings, routes, exit nodes or SSH from Tailscale.
+On the Tailscale interface the control plane's firewall accepts new connections to 443 only. The control plane doesn't take DNS settings, routes, exit nodes or SSH from Tailscale.
 
 ### Outside users
 
@@ -200,7 +200,7 @@ Someone outside your tailnet needs the control plane shared with them from Tails
 
 ## Forge credentials
 
-No engine holds a forge token. Git and `gh` on an engine send their requests to `github.com`, `api.github.com`, `uploads.github.com`, `codeload.github.com` and `raw.githubusercontent.com` through the forge proxy on the control plane, and trust its certificate for those hosts. Their credential helper and `GH_TOKEN` hand out a placeholder. The forge proxy knows which engine sent each request, strips the placeholder and adds that person's GitHub login. The server's own forge calls, such as pull request sync, take the same path.
+Engines don't hold forge tokens. Git and `gh` on an engine send their requests to `github.com`, `api.github.com`, `uploads.github.com`, `codeload.github.com` and `raw.githubusercontent.com` through the forge proxy on the control plane, and trust its certificate for those hosts. Their credential helper and `GH_TOKEN` hand out a placeholder. The forge proxy knows which engine sent each request, strips the placeholder and adds that person's GitHub login. The server's own forge calls, such as pull request sync, take the same path.
 
 The login reaches everything the person reaches, private repositories and other organisations included. An operator registers a GitHub OAuth app for it with device flow turned on. Komrad asks for the `repo`, `read:org` and `workflow` scopes when the person authorizes the app.
 

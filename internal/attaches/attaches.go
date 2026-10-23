@@ -1,5 +1,3 @@
-// Package attaches shows an agent's terminal on the engine to a person at a terminal somewhere
-// else, through a view session of the agent's own that shares the engine's windows.
 package attaches
 
 import (

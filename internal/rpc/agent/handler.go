@@ -1,5 +1,3 @@
-// Package agent serves the agent RPCs, translating each request into a call on the agent
-// services and each domain error into the connect code the caller sees.
 package agent
 
 import (

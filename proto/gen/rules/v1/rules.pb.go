@@ -118,7 +118,7 @@ var (
 	//
 	// optional bool printable = 50107;
 	E_Printable = &file_rules_v1_rules_proto_extTypes[6]
-	// Requires a path inside the checkout, with no way up out of it.
+	// Requires a path that stays inside the checkout.
 	//
 	// optional bool relative_path = 50106;
 	E_RelativePath = &file_rules_v1_rules_proto_extTypes[7]
@@ -138,23 +138,23 @@ const file_rules_v1_rules_proto_rawDesc = "" +
 	"\x14string.absolute_path\x12(must be an absolute path or start with ~\x1a5!rule || this.startsWith('/') || this.startsWith('~')R\fabsolutePath:\xe8\x01\n" +
 	"\x16absolute_path_or_blank\x12\x19.buf.validate.StringRules\x18\xb6\x87\x03 \x01(\bB\x95\x01\xc2H\x91\x01\n" +
 	"\x8e\x01\n" +
-	"\x1dstring.absolute_path_or_blank\x12(must be blank, absolute, or start with ~\x1aC!rule || this == '' || this.startsWith('/') || this.startsWith('~')R\x13absolutePathOrBlank:\x90\x02\n" +
-	"\vscript_name\x12\x19.buf.validate.StringRules\x18\xb8\x87\x03 \x01(\bB\xd1\x01\xc2H\xcd\x01\n" +
-	"\xca\x01\n" +
-	"\x12string.script_name\x12Mmust be a file name, with no slash, no leading dot, and no control characters\x1ae!rule || (this != '' && !this.contains('/') && !this.startsWith('.') && !this.matches('[[:cntrl:]]'))R\n" +
-	"scriptName:\xb2\x02\n" +
-	"\x14script_name_or_blank\x12\x19.buf.validate.StringRules\x18\xb9\x87\x03 \x01(\bB\xe3\x01\xc2H\xdf\x01\n" +
-	"\xdc\x01\n" +
-	"\x1bstring.script_name_or_blank\x12Vmust be blank or a file name, with no slash, no leading dot, and no control characters\x1ae!rule || this == '' || (!this.contains('/') && !this.startsWith('.') && !this.matches('[[:cntrl:]]'))R\x11scriptNameOrBlank:\xe0\x01\n" +
+	"\x1dstring.absolute_path_or_blank\x12(must be blank, absolute, or start with ~\x1aC!rule || this == '' || this.startsWith('/') || this.startsWith('~')R\x13absolutePathOrBlank:\x8b\x02\n" +
+	"\vscript_name\x12\x19.buf.validate.StringRules\x18\xb8\x87\x03 \x01(\bB\xcc\x01\xc2H\xc8\x01\n" +
+	"\xc5\x01\n" +
+	"\x12string.script_name\x12Hmust be a file name without a slash, a leading dot or control characters\x1ae!rule || (this != '' && !this.contains('/') && !this.startsWith('.') && !this.matches('[[:cntrl:]]'))R\n" +
+	"scriptName:\xad\x02\n" +
+	"\x14script_name_or_blank\x12\x19.buf.validate.StringRules\x18\xb9\x87\x03 \x01(\bB\xde\x01\xc2H\xda\x01\n" +
+	"\xd7\x01\n" +
+	"\x1bstring.script_name_or_blank\x12Qmust be blank or a file name without a slash, a leading dot or control characters\x1ae!rule || this == '' || (!this.contains('/') && !this.startsWith('.') && !this.matches('[[:cntrl:]]'))R\x11scriptNameOrBlank:\xe0\x01\n" +
 	"\x0fcron_expression\x12\x19.buf.validate.StringRules\x18\xb7\x87\x03 \x01(\bB\x99\x01\xc2H\x95\x01\n" +
 	"\x92\x01\n" +
 	"\x16string.cron_expression\x12?must be five whitespace-separated fields, such as '0 9 * * 1-5'\x1a7!rule || this.split(' ').filter(f, f != '').size() == 5R\x0ecronExpression:\xa2\x01\n" +
 	"\tprintable\x12\x19.buf.validate.StringRules\x18\xbb\x87\x03 \x01(\bBg\xc2Hd\n" +
 	"b\n" +
-	"\x10string.printable\x12#must not contain control characters\x1a)!rule || !this.matches('[\\x00-\\x1f\\x7f]')R\tprintable:\x84\x02\n" +
-	"\rrelative_path\x12\x19.buf.validate.StringRules\x18\xba\x87\x03 \x01(\bB\xc1\x01\xc2H\xbd\x01\n" +
-	"\xba\x01\n" +
-	"\x14string.relative_path\x12Amust be a relative path, with no leading / or ~ and no .. segment\x1a_!rule || (this != '' && !this.startsWith('/') && !this.startsWith('~') && !this.contains(\"..\"))R\frelativePathB#Z!komrad/proto/gen/rules/v1;rulesv1b\beditionsp\xe8\a"
+	"\x10string.printable\x12#must not contain control characters\x1a)!rule || !this.matches('[\\x00-\\x1f\\x7f]')R\tprintable:\x83\x02\n" +
+	"\rrelative_path\x12\x19.buf.validate.StringRules\x18\xba\x87\x03 \x01(\bB\xc0\x01\xc2H\xbc\x01\n" +
+	"\xb9\x01\n" +
+	"\x14string.relative_path\x12@must be a relative path without a leading / or ~ or a .. segment\x1a_!rule || (this != '' && !this.startsWith('/') && !this.startsWith('~') && !this.contains(\"..\"))R\frelativePathB#Z!komrad/proto/gen/rules/v1;rulesv1b\beditionsp\xe8\a"
 
 var file_rules_v1_rules_proto_goTypes = []any{
 	(*validate.StringRules)(nil), // 0: buf.validate.StringRules
