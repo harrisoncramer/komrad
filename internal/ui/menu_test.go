@@ -165,7 +165,11 @@ func TestGitMenuOnTheReview(t *testing.T) {
 
 		harness := openPullRequestReview(t)
 		harness.Answer(agentv1connect.AgentServicePlanPushProcedure, paneltest.AnswerWith(&agentv1.PlanPushResponse{Branch: "agent/auth", Commits: 2}))
-		harness.Answer(agentv1connect.AgentServicePushWorktreeProcedure, paneltest.AnswerWith(&agentv1.PushWorktreeResponse{Branch: "agent/auth", Commits: 2, Sha: "abcdef1234567"}))
+		harness.Answer(agentv1connect.AgentServicePushWorktreeProcedure, paneltest.AnswerWith(&agentv1.PushWorktreeResponse{
+			Branch:  "agent/auth",
+			Commits: 2,
+			Sha:     "abcdef1234567",
+		}))
 
 		harness.Press("space", "g", "p")
 
