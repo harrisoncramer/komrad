@@ -254,6 +254,24 @@ func TestGitMenuRefusals(t *testing.T) {
 			wantRefusal: "komrad has not read this task's repository yet",
 		},
 		{
+			name:        "the merge then rebase of a pull request a forge rule blocks",
+			rows:        append(buildGitAgent(), withMergeability(newOpenPullRequest(), pullrequestv1.Mergeability_MERGEABILITY_BLOCKED)),
+			press:       []string{"f", "r"},
+			wantRefusal: "its pull request is blocked by a rule on the forge, so merge it when ready instead",
+		},
+		{
+			name:        "the merge then rebase of a pull request behind its base branch",
+			rows:        append(buildGitAgent(), withMergeability(newOpenPullRequest(), pullrequestv1.Mergeability_MERGEABILITY_BEHIND)),
+			press:       []string{"f", "r"},
+			wantRefusal: "its pull request is behind the base branch, so rebase it first",
+		},
+		{
+			name:        "the merge then rebase of a pull request that conflicts with its base branch",
+			rows:        append(buildGitAgent(), withMergeability(newOpenPullRequest(), pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING)),
+			press:       []string{"f", "r"},
+			wantRefusal: "its pull request conflicts with the base branch, so rebase it first",
+		},
+		{
 			name:        "the draft toggle of a pull request that has already merged",
 			rows:        append(buildGitAgent(), newCurrentMergedPullRequest()),
 			press:       []string{"f", "d"},
@@ -1205,4 +1223,10 @@ func answerMergePlan(harness *paneltest.Panel, plan *forgev1.PlanForgePullReques
 	harness.Answer(forgev1connect.ForgeServicePlanForgePullRequestMergeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(plan), nil
 	})
+}
+
+func withMergeability(pullRequest *pullrequestv1.PullRequest, mergeability pullrequestv1.Mergeability) *pullrequestv1.PullRequest {
+	pullRequest.MergeReadiness = &pullrequestv1.MergeReadiness{Mergeability: mergeability}
+
+	return pullRequest
 }

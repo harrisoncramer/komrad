@@ -236,8 +236,30 @@ func mergeRebaseRefusal(l panel.Listing, task panel.Task) error {
 	if err := pushRefusal(l, task); err != nil {
 		return err
 	}
+	if err := openPullRequestRefusal(task); err != nil {
+		return err
+	}
 
-	return openPullRequestRefusal(task)
+	return forgeMergeRefusal(task)
+}
+
+// forgeMergeRefusal is why the forge last said it would not merge the task's pull request, nil
+// when it said nothing against it.
+func forgeMergeRefusal(task panel.Task) error {
+	switch task.PullRequest.MergeReadiness.Mergeability {
+	case pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING:
+		return errors.New(task.PullRequest.Describe("conflicts with the base branch, so rebase it first"))
+	case pullrequestv1.Mergeability_MERGEABILITY_BEHIND:
+		return errors.New(task.PullRequest.Describe("is behind the base branch, so rebase it first"))
+	case pullrequestv1.Mergeability_MERGEABILITY_BLOCKED:
+		return errors.New(task.PullRequest.Describe("is blocked by a rule on the forge, so merge it when ready instead"))
+	case pullrequestv1.Mergeability_MERGEABILITY_UNSPECIFIED,
+		pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN,
+		pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
+		pullrequestv1.Mergeability_MERGEABILITY_UNSTABLE:
+	}
+
+	return nil
 }
 
 // abortRefusal returns the reason a task refuses an abort, or nil when its worktree has an
