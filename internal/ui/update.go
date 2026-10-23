@@ -312,7 +312,7 @@ func (m *model) routeScreenMessage(msg tea.Msg) tea.Cmd {
 	return m.apply(m.active().Update(m.inputs(), msg))
 }
 
-// routeResult hands a message to every screen, and reports whether any of them owned it.
+// routeResult hands a message to the git menu and then to every screen, and reports whether any of them owned it.
 func (m *model) routeResult(msg tea.Msg) (tea.Cmd, bool) {
 	if request, ok := m.git.Receive(m.inputs(), msg); ok {
 		return m.apply(request), true
