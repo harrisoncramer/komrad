@@ -125,9 +125,23 @@ func TestDocumentsOpen(t *testing.T) {
 			Version:   1,
 			UpdatedAt: timestamppb.New(time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)),
 		})
-		rows := buildTasks()
-		rows[2].(*taskv1.Task).Slug = "fix-login-2"
-		harness := paneltest.OpenAgents(t, rows...)
+		agentOn := func(id, name, taskID, slug string, role agentv1.AgentRole, minute int) *agentv1.Agent {
+			agent := paneltest.Agent(id, name, "w1")
+			agent.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 12, minute, 0, 0, time.UTC))
+			agent.Role = role
+			agent.TaskId = xptr.Ptr(taskID)
+			agent.TaskSlug = xptr.Ptr(slug)
+
+			return agent
+		}
+		harness := paneltest.OpenAgents(t,
+			paneltest.Workflow("w1", "komrad"),
+			&taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login", Title: "Fix login"},
+			&taskv1.Task{Id: "t2", WorkflowId: "w1", Slug: "fix-login-2", Title: "Solo"},
+			agentOn("a1", "author", "t1", "fix-login", agentv1.AgentRole_AGENT_ROLE_WRITER, 0),
+			agentOn("a2", "follow-up", "t1", "fix-login", agentv1.AgentRole_AGENT_ROLE_REVIEWER, 5),
+			agentOn("a3", "loner", "t2", "fix-login-2", agentv1.AgentRole_AGENT_ROLE_WRITER, 10),
+		)
 		docs.answer(harness)
 		harness.Press("j")
 		require.Contains(t, paneltest.HoveredRow(harness.Frame()), "fix-login")
@@ -193,9 +207,26 @@ func TestDocumentsOpen(t *testing.T) {
 	})
 }
 
-// TestDocumentsFilter covers the qualifiers the documents filter reads.
+// TestDocumentsFilter covers the documents filter walking its matches and the qualifiers it reads.
 func TestDocumentsFilter(t *testing.T) {
 	t.Parallel()
+
+	t.Run("a search walks its matches and a filter narrows to them", func(t *testing.T) {
+		t.Parallel()
+
+		harness, _ := openDocuments(t)
+
+		harness.Press("esc", "/", "r", "o", "l", "l", "enter")
+		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "Rollout report")
+		harness.Advance(time.Second)
+		assert.Contains(t, paneltest.StageText(harness.Frame()), "It went out on Tuesday.")
+
+		harness.Press("esc", "/", "tab", "r", "o", "l", "l", "enter")
+		harness.Advance(time.Second)
+		frame := harness.Frame()
+		assert.NotContains(t, paneltest.SidebarProse(frame), "Design the cache")
+		assert.Contains(t, paneltest.StageText(frame), "It went out on Tuesday.")
+	})
 
 	tests := []struct {
 		name       string
