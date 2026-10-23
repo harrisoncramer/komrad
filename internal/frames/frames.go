@@ -1,9 +1,3 @@
-// Package frames keeps the pane captures behind an agent's reconciled state.
-//
-// A pane redraws over the frame a wrong state was read from, so without a recording the only
-// account of a misread left is the code. A recording is off unless the config turns it on, and
-// it writes the capture exactly as the harness read it, so a frame can be replayed through the
-// classifier that misjudged it.
 package frames
 
 import (

@@ -1,11 +1,3 @@
-// Package caller carries who is making a request, and the id that ties its log lines together,
-// across the hop between the panel, the CLI, an agent's MCP call and the server.
-//
-// The identity travels in headers so it survives that hop, and on the context so a handler and
-// the store beneath it read it without receiving it as an argument. It lets a log line say which
-// agent asked, and lets komrad record that an agent read another agent's transcript
-// deliberately. A request that names nobody is unattributed rather than wrong, so the
-// logs show the panel and curl without the fields rather than with empty ones.
 package caller
 
 import (

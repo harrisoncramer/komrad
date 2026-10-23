@@ -1,4 +1,3 @@
-// Package agenterr declares the sentinels the agent lifecycle returns.
 package agenterr
 
 import "komrad/internal/fail"

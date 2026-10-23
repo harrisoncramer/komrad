@@ -1,4 +1,3 @@
-// Package command runs other programs on this machine.
 package command
 
 import (

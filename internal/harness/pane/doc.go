@@ -1,6 +1,4 @@
-// Package pane learns what an agent is doing by reading what the terminal it runs in draws.
-//
-// It sits behind harness.Observer, and each harness reads its own frames. Komrad says things to
-// an agent through the harness's channel rather than the terminal, and the agent still runs in a
-// pane a person can attach to and take over.
+// Package pane reads what an agent is doing from the frame its terminal draws, through the
+// harness that drew it, and whether the agent's CLI still runs in its pane. The reconciler and
+// the panel both read agents through it.
 package pane

@@ -1,4 +1,3 @@
-// Package triggers declares every trigger the schema carries and writes the files the binary applies them from.
 package triggers
 
 import (

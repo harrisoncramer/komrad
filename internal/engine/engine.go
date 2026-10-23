@@ -1,9 +1,3 @@
-// Package engine says how the panel reaches the komrad an agent is running in.
-//
-// An agent's terminal belongs to the tmux server the engine runs on. When that is this machine
-// the panel shows it by moving the pane itself into the stage with swap-pane, which the rest of
-// the layout code assumes. When the engine is somewhere else the panel reaches its api at the
-// engine's url, and the stage streams the agent's terminal over that api.
 package engine
 
 import (

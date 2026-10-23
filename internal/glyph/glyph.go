@@ -1,5 +1,3 @@
-// Package glyph is every character the panel draws: the icons a person may choose in the
-// [glyphs] section of the config, and the chrome the layout is drawn with, which is fixed.
 package glyph
 
 import (

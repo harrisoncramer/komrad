@@ -1,4 +1,3 @@
-// Package tasks owns the rules for tasks, the outcomes agents are linked to and work toward.
 package tasks
 
 import (

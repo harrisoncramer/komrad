@@ -1,5 +1,3 @@
-// Package harnesstest is a harness for tests: a script standing in for a CLI, which can be told
-// to look like it is working, waiting on a person, or idle.
 package harnesstest
 
 import (

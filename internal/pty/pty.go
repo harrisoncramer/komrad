@@ -1,4 +1,3 @@
-// Package pty runs a program on a pseudo-terminal.
 package pty
 
 import (

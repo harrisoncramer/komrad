@@ -1,14 +1,3 @@
-// Package fail declares the sentinels the domain returns, each carrying the kind of failure it
-// is so the transport can answer without a registry of its own.
-//
-// A sentinel built here is compared with errors.Is exactly as one from errors.New is, and the
-// kind rides along for whoever has to turn it into a status code. Saying fills in what only the
-// raise site knows, such as the id that was not found, in place of the sentinel's own wording.
-//
-// Answer hands back that wording as a string rather than the error itself because
-// the domain may have wrapped the sentinel on its way up. Those prefixes say what the code was
-// doing, which belongs in the log, while the caller wants the one sentence the raise site chose
-// about their own request.
 package fail
 
 import (

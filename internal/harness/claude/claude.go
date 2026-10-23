@@ -1,6 +1,3 @@
-// Package claude runs Claude Code as a komrad agent, building the command that starts or
-// resumes a conversation, reading its JSONL transcript, and telling from a captured frame
-// whether it is working, waiting on a person, or idle.
 package claude
 
 import (

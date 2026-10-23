@@ -1,4 +1,3 @@
-// Package documents owns the markdown documents agents write for people to read.
 package documents
 
 import (

@@ -1,4 +1,3 @@
-// Package gittest holds fakes of the git a test would otherwise run for real.
 package gittest
 
 import (

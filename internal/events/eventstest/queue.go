@@ -1,4 +1,3 @@
-// Package eventstest routes events as they are recorded.
 package eventstest
 
 import (

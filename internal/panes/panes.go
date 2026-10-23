@@ -1,8 +1,3 @@
-// Package panes is the handful of pane moves the panel asks of tmux, named as values so that
-// the panel can decide a whole change before any of it is sent.
-//
-// It sits between the two because neither may name the other: the panel may not import the
-// tmux adapter, and the adapter has no business importing the panel.
 package panes
 
 // Kind is which tmux command a move stands for.

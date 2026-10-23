@@ -1,5 +1,3 @@
-// Package pgtest hands a test its own Postgres database, and skips the test rather than failing
-// it when there is no server to make one on.
 package pgtest
 
 import (

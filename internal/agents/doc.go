@@ -1,14 +1,13 @@
-// Package agents holds the lifecycle of an agent: what it means to launch one, resume one,
-// archive one, or adopt work that already exists.
+// Package agents holds the agent lifecycle: launching, resuming, restarting, archiving and
+// deleting agents, starting a workflow's orchestrator, adopting a branch komrad did not make, and
+// spawning a reviewer when an agent asks for one.
 //
-// It sits between the handlers, which only parse and translate, and the stores, which only
-// read and write rows. The rules that need more than one of those live here. Launching an
-// agent, for instance, is a check that the workflow has room under the ceiling, a provisioner
-// run to completion, a tmux window created, a harness asked for its command line, and a row
-// written, and none of those layers can decide the order on its own.
+// The handlers parse requests and the stores read and write, and this package holds the rules
+// that span them. A launch checks the workflow's ceilings, records the agent, runs the
+// provisioner and the task's hooks, and starts the harness in a pane with the agent's briefing.
+// When a step fails, the launch gives back the checkout it provisioned.
 //
-// The reconcile loops are here too, and they are the reason komrad keeps working when something
-// goes wrong outside it. Nothing tells komrad that an agent stopped thinking or that its pane
-// died. Each loop reads what is actually true, compares it against the rows, and closes the
-// gap, so a missed event costs one pass rather than a stuck agent.
+// The [Reconciler] runs here too. Nothing tells komrad that an agent stopped working or that its
+// pane died, so each pass reads every pane, compares what it sees with the agent's recorded
+// state, and corrects the difference. A missed signal costs one pass instead of a stuck agent.
 package agents

@@ -1,14 +1,3 @@
-// Package mcp serves komrad's API to the agents themselves, turning each RPC method into a tool
-// an agent's CLI can call.
-//
-// The build generates the tools from the same descriptors the handlers use, so a tool takes
-// the request's fields as its inputs and its annotations say whether it only reads. That is
-// what lets one agent spawn, address, or read another without komrad keeping a second
-// hand-written surface in step with the first.
-//
-// A tool's annotation also says which roles it is offered to, and the caller names itself on
-// every request, so a reviewer is served the tools for reading work and a writer the
-// tools for writing it.
 package mcp
 
 import (

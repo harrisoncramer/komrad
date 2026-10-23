@@ -1,5 +1,3 @@
-// Package internaljobs holds the job arguments and the workers that do the work, so a new
-// kind of job is a file here rather than a change to the client.
 package internaljobs
 
 import (

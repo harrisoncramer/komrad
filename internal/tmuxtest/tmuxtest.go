@@ -1,9 +1,3 @@
-// Package tmuxtest runs a real tmux server for a test to drive, on a socket of its own that is
-// killed when the test ends.
-//
-// A fake tmux would only ever agree with what komrad already assumes about tmux, which is
-// where the bugs in an adapter live, so these tests spawn panes, type into them, and read
-// frames back for real.
 package tmuxtest
 
 import (

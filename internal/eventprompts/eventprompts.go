@@ -1,4 +1,3 @@
-// Package eventprompts writes the mail komrad sends an agent about each event, and holds the prompt a new workflow attaches to each.
 package eventprompts
 
 import eventv1 "komrad/proto/gen/event/v1"

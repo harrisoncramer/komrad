@@ -1,4 +1,3 @@
-// Package wake names what asks a background loop to run early or more often.
 package wake
 
 // Waker asks a background loop to run before its next tick.

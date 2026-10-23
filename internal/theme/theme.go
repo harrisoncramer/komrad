@@ -1,5 +1,3 @@
-// Package theme is the colours the panel may be drawn in, each spelled as a terminal colour
-// number or a hex code, and named for the part it plays rather than for how it looks.
 package theme
 
 import (

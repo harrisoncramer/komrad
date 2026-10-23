@@ -1,4 +1,3 @@
-// Package github is the forge behind github.com and GitHub Enterprise.
 package github
 
 import (

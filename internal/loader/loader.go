@@ -1,4 +1,3 @@
-// Package loader is the spinner the panel draws while something is loading.
 package loader
 
 import (

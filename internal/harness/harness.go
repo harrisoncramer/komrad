@@ -1,10 +1,3 @@
-// Package harness is the boundary between komrad and the CLI an agent actually runs.
-//
-// A harness knows what komrad cannot know generically: the command line that starts a
-// conversation, where the CLI writes its conversation log and how to flatten that log into turns,
-// how to read a captured frame for whether the agent is working or waiting, how to read one of
-// its own hook payloads, and how to hand its CLI a line of text. The registry holds the harnesses
-// this build was compiled with and hands one back by the id an agent or workflow named.
 package harness
 
 import (

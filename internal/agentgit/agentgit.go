@@ -1,5 +1,3 @@
-// Package agentgit runs git on the engine for a panel somewhere else, in the directories live
-// agents work in.
 package agentgit
 
 import (

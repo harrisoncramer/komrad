@@ -1,5 +1,3 @@
-// Package sshserver serves SSH on the engine over connections the engine's api has already signed
-// in, so editors reach the agents' files with no SSH port open.
 package sshserver
 
 import (

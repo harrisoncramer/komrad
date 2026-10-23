@@ -1,4 +1,3 @@
-// Package logread reads the server's own log back, by the trace id its lines carry.
 package logread
 
 import (

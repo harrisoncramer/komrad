@@ -1,18 +1,13 @@
-// Package watch is the coordinator between the panel's rows and the database.
+// Package watch streams changes from the database to each watching panel.
 //
-// The package watch handles the collection of data via the Postgres LISTEN notifications.
-// The broker gathers those hints, reads the named rows back through the same store and render code the list RPCs use, and sends
-// each panel whatever differs. If a hint is lost, the panel takes a fresh snapshot.
+// Database triggers notify a Postgres channel when a watched row changes. The [Broker] listens on
+// that channel with a connection of its own, gathers the keys it hears about, reads those rows
+// back through the same store and render code the list RPCs use, and sends each [Subscription]
+// what changed, or a tombstone for a row it should drop. It compares each row with the last one
+// it sent for that key, so a write that moves only a timestamp sends nothing.
 //
-// The Broker holds one connection of its own on the watch channel, coalesces what it receives into
-// a pending set of IDs, then reads those rows and sends each Subscription the row (or for a key its
-// watched set no longer holds, a tombstone).
-//
-// The broker drops every Subscription when that connection is lost. This is intentional. Komrad doesn't
-// replay events or store a durable event log. Instead, the pane just re-snapshots the database, which
-// is enough for a UI with a few thousand records at most.
-//
-// The database triggers fire on any change outside a resource's ignored columns; it's the broker's
-// responsibility to compare each row it reads back against the last one it sent for that key, so a
-// write that moves only a timestamp, for instance, doesn't send along the new data.
+// A subscription opens with a snapshot of every row. The broker drops every subscription when its
+// connection is lost, and the panel takes a fresh snapshot instead of replaying missed events.
+// [Resource] declares each watched table and the tables that feed it, and the triggers package
+// builds the triggers from those declarations.
 package watch

@@ -1,5 +1,3 @@
-// Package jobs owns the queue komrad's background work runs on, with the jobs themselves in
-// internaljobs.
 package jobs
 
 import (

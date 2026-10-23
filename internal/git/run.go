@@ -1,5 +1,3 @@
-// Package git runs git and holds the operations komrad needs from it, with one convention for
-// timeouts, context and error wrapping covering every caller.
 package git
 
 import (
