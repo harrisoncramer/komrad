@@ -15,7 +15,8 @@ import (
 const deleteDocuments = `-- name: DeleteDocuments :many
 DELETE FROM documents
 WHERE id = ANY ($1::uuid[])
-RETURNING id
+RETURNING
+    id
 `
 
 func (q *Queries) DeleteDocuments(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, error) {

@@ -157,7 +157,8 @@ WHERE
 -- name: DeleteDocuments :many
 DELETE FROM documents
 WHERE id = ANY (@ids::uuid[])
-RETURNING id;
+RETURNING
+    id;
 
 -- name: SearchDocuments :many
 WITH q AS (
