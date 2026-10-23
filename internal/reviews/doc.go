@@ -1,4 +1,4 @@
-// Package reviews holds the rules for reviewing an agent's work: snapshots, threads and
+// Package reviews holds the rules for reviewing an agent's work. It owns snapshots, threads and
 // comments, the reviews reviewers release, and the person's replies on the forge.
 //
 // A snapshot freezes a task's checkout as a commit, and a thread pins a conversation to a place

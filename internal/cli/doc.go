@@ -1,5 +1,5 @@
-// Package cli builds the komrad command tree: serving the engine, opening the panel, attaching
-// to an agent, running the doctor, connecting a forge, signing in to a remote engine, and the
+// Package cli builds the komrad command tree. Its commands serve the engine, open the panel,
+// attach to an agent, run the doctor, connect a forge, sign in to a remote engine, and carry the
 // hooks each harness runs.
 //
 // The rpc subcommands come from the same proto descriptors as the handlers and the MCP tools,

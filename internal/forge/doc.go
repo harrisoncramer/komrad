@@ -1,7 +1,7 @@
 // Package forge is komrad's boundary with the service that hosts a repository's pull requests.
 //
-// The [Forge] interface lists what komrad asks of one: reading pull requests and their checks,
-// review threads, merging, setting draft, base and auto-merge, and replying to a thread. The
+// The [Forge] interface lists what komrad asks of one. It reads pull requests with their checks
+// and review threads, merges, sets draft, base and auto-merge, and replies to a thread. The
 // github and gitlab packages implement it.
 //
 // The [Service] connects and disconnects a forge for a host and builds the Forge for that
