@@ -102,7 +102,7 @@ func (m *model) clickerOf(name zone.Name) (clicker, bool) {
 
 			return nil
 		})), true
-	case zoneDiff:
+	case zone.Diff:
 		if m.screen == screen.Review {
 			return m.stopClicker(stopList, clickFunc(func(m *model, key string, _ int) tea.Cmd {
 				return m.apply(m.review.diffKeys().Click(m.inputs(), key))

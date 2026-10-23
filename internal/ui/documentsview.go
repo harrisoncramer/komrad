@@ -167,7 +167,7 @@ func (d *documentsScreen) docRows(in screen.Inputs, width int) []string {
 
 	lines := h.pane.Render(window, held)
 	if in.Room.Marks {
-		lines = markDiff(&h.pane, window, lines)
+		lines = h.pane.Mark(window, lines)
 	}
 
 	return append(head, lines...)
@@ -188,7 +188,7 @@ func (h *documentHistory) head(in screen.Inputs, glyphs glyph.Set, item document
 		return rows
 	}
 
-	count := strings.TrimRight(diffMatchCount(&h.pane, h.filter), "\n")
+	count := strings.TrimRight(h.pane.MatchCount(h.filter), "\n")
 
 	return append(rows, filterHead(h.filter, filterHeadParams{glyphs: glyphs, marks: in.Room.Marks, count: count, width: width})...)
 }

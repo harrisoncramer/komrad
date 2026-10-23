@@ -51,7 +51,7 @@ func (r reviewScreen) bandView(in screen.Inputs) string {
 		search = zone.MarkKey(zone.Search, r.measureBandWidth(in), 0, zone.SearchList) + search
 	}
 
-	return r.rangeView(in) + search + diffMatchCount(&r.diff.Pane, r.diff.filter)
+	return r.rangeView(in) + search + r.diff.MatchCount(r.diff.filter)
 }
 
 // rangeView names both ends of the range on screen and, past its end, the snapshot new comments go on.
@@ -105,7 +105,7 @@ func (r reviewScreen) diffView(in screen.Inputs, split column.Split) string {
 
 	lines := r.diff.Render(window, held)
 	if in.Room.Marks {
-		lines = markDiff(&r.diff.Pane, window, lines)
+		lines = r.diff.Mark(window, lines)
 	}
 
 	return strings.Join(lines, "\n")

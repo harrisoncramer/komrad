@@ -1,26 +1,28 @@
-package ui
+package diffview
 
 import (
 	"fmt"
 	"slices"
 	"strconv"
 
-	"komrad/internal/ui/diffview"
+	"komrad/internal/glyph"
 	"komrad/internal/ui/filter"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/zone"
 )
 
-// diffMatchCount is where in the search the cursor is standing, rendered under the pattern.
-func diffMatchCount(pane *diffview.Pane, search filter.State) string {
-	view := pane.View()
+const separated = " " + glyph.Separator + " "
+
+// MatchCount is where in the search the cursor is standing, rendered under the pattern.
+func (p *Pane) MatchCount(search filter.State) string {
+	view := p.View()
 	if view == nil || !search.IsStanding() {
 		return ""
 	}
 
 	where := label.Counted(view.MatchCount(), "match")
-	if at, ok := view.MatchNumber(pane.Cursor()); ok {
+	if at, ok := view.MatchNumber(p.Cursor()); ok {
 		where = label.OfCount(at, view.MatchCount())
 	}
 
@@ -33,10 +35,11 @@ func diffMatchCount(pane *diffview.Pane, search filter.State) string {
 	return paint.Panel.Style(paint.ToneMuted).Render("  "+where) + "\n\n"
 }
 
-func markDiff(pane *diffview.Pane, window diffview.Window, lines []string) []string {
+// Mark keys each rendered line by the diff row it shows.
+func (p *Pane) Mark(window Window, lines []string) []string {
 	marked := slices.Clone(lines)
-	for i, row := range pane.Rows(window) {
-		marked[i] = zone.MarkKey(zoneDiff, window.Width, 0, strconv.Itoa(row)) + marked[i]
+	for i, row := range p.Rows(window) {
+		marked[i] = zone.MarkKey(zone.Diff, window.Width, 0, strconv.Itoa(row)) + marked[i]
 	}
 
 	return marked

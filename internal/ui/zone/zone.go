@@ -19,6 +19,9 @@ type Name string
 // Search names the search line over a list or a block.
 const Search Name = "search"
 
+// Diff names the rows of a diff pane, each keyed by the diff row it renders.
+const Diff Name = "diff"
+
 // SearchList and SearchBlock key the search line by the list or the block it searches.
 const (
 	SearchList  = "list"
