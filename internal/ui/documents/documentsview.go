@@ -1,4 +1,4 @@
-package ui
+package documents
 
 import (
 	"fmt"
@@ -20,7 +20,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
-func (d *documentsScreen) emptyLine() string {
+func (d *Screen) emptyLine() string {
 	switch {
 	case d.err != nil:
 		return "could not list: " + errui.GetReason(d.err)
@@ -31,14 +31,14 @@ func (d *documentsScreen) emptyLine() string {
 	return "no documents"
 }
 
-// documentColumns is the gutter of the documents list: how long ago each was last written.
-func documentColumns() view.Columns {
+// columns is the gutter of the documents list: how long ago each was last written.
+func columns() view.Columns {
 	return view.Columns{{Kind: view.ColumnText, Width: label.AgeWidth}}
 }
 
-func (d *documentsScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
+func (d *Screen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
 	rows := d.rows(in)
-	picked := list.Picked(in.Room.Pattern, rows, d.documentRowFits(in))
+	picked := list.Picked(in.Room.Pattern, rows, d.rowFits(in))
 	now := in.Room.Now
 	caret := pane.Caret
 	if d.isDiffFocused(in) {
@@ -46,7 +46,7 @@ func (d *documentsScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapsh
 	}
 
 	return view.Snapshot{
-		Rows: xslice.Map(rows, func(r documentRow) view.Row {
+		Rows: xslice.Map(rows, func(r row) view.Row {
 			return d.renamingField().RenderedOver(view.Row{
 				Key:     r.Key(),
 				Kind:    view.KindResult,
@@ -59,11 +59,12 @@ func (d *documentsScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapsh
 		Caret:   caret,
 		Focused: list.KeyAt(rows, d.Row),
 		Pane:    pane.Width,
-		Columns: documentColumns(),
+		Columns: columns(),
 	}
 }
 
-func (d *documentsScreen) Details(in screen.Inputs) record.Details {
+// Details is the record of the document the cursor is on.
+func (d *Screen) Details(in screen.Inputs) record.Details {
 	item, ok := d.hovered(in)
 	if !ok {
 		return record.Details{}
@@ -79,12 +80,12 @@ func (d *documentsScreen) Details(in screen.Inputs) record.Details {
 	}
 }
 
-func (d *documentsScreen) documentTypeSnapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
-	rows := d.documentTypeRows(in)
+func (d *Screen) typeSnapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
+	rows := d.typeRows(in)
 	now := in.Room.Now
 
 	return view.Snapshot{
-		Rows: xslice.Map(rows, func(r documentTypeRow) view.Row {
+		Rows: xslice.Map(rows, func(r typeRow) view.Row {
 			return view.Row{
 				Key:     r.Key(),
 				Kind:    view.KindResult,
@@ -95,14 +96,14 @@ func (d *documentsScreen) documentTypeSnapshot(in screen.Inputs, pane list.Pane)
 			}
 		}),
 		Caret:   pane.Caret,
-		Focused: list.KeyAt(rows, d.documentTypes.Row),
+		Focused: list.KeyAt(rows, d.types.Row),
 		Pane:    pane.Width,
-		Columns: documentColumns(),
+		Columns: columns(),
 	}
 }
 
 // doc is the markdown rendered beside the list for the document the cursor is on.
-func (d *documentsScreen) doc(in screen.Inputs) string {
+func (d *Screen) doc(in screen.Inputs) string {
 	item, ok := d.hovered(in)
 	if !ok {
 		return paint.DocumentMarkdown("Documents", "_"+d.emptyLine()+"_", "", "")
@@ -117,12 +118,12 @@ func (d *documentsScreen) doc(in screen.Inputs) string {
 		return paint.DocumentMarkdown(item.name, notice, "could not read: "+errui.GetReason(read.err), "")
 	}
 
-	return paint.DocumentMarkdown(item.name, notice, documentProse(item.name, read.body), "")
+	return paint.DocumentMarkdown(item.name, notice, prose(item.name, read.body), "")
 }
 
-// documentProse is a document's text without the heading that opens it when that heading only
+// prose is a document's text without the heading that opens it when that heading only
 // repeats the name.
-func documentProse(name, body string) string {
+func prose(name, body string) string {
 	body = strings.TrimSpace(body)
 	first, rest, _ := strings.Cut(body, "\n")
 	heading, isHeading := strings.CutPrefix(first, "# ")
@@ -135,21 +136,21 @@ func documentProse(name, body string) string {
 
 // docRows is the document rendered beside the list at a width: the write stepped to and what it
 // changed, or the document as it stands.
-func (d *documentsScreen) docRows(in screen.Inputs, width int) []string {
-	if d.kind == documentKindTypes {
-		return paint.DocStyledRows(documentTypeFrom(d.hoveredDocumentType(in), in.Room.Now), max(width, 1), columnStyle())
+func (d *Screen) docRows(in screen.Inputs, width int) []string {
+	if d.kind == kindTypes {
+		return paint.DocStyledRows(typeMarkdown(d.hoveredType(in), in.Room.Now), max(width, 1), paint.Panel.Stage())
 	}
 
 	item, ok := d.hovered(in)
 	if !ok {
-		return paint.DocStyledRows(d.doc(in), max(width, 1), columnStyle())
+		return paint.DocStyledRows(d.doc(in), max(width, 1), paint.Panel.Stage())
 	}
 	if !d.isSteppingHovered(in) {
-		return in.Room.Pattern.MarkSaid(item.id, paint.DocStyledRows(d.doc(in), max(width, 1), columnStyle()))
+		return in.Room.Pattern.MarkSaid(item.id, paint.DocStyledRows(d.doc(in), max(width, 1), paint.Panel.Stage()))
 	}
 
 	h := d.history
-	head := h.head(in, d.deps.glyphs, item, width)
+	head := h.head(in, d.deps.Glyphs, item, width)
 	if h.err != nil || h.versions == nil {
 		return head
 	}
@@ -175,7 +176,7 @@ func (d *documentsScreen) docRows(in screen.Inputs, width int) []string {
 }
 
 // head is the rows over the change: which write it is and the search.
-func (h *documentHistory) head(in screen.Inputs, glyphs glyph.Set, item documentItem, width int) []string {
+func (h *history) head(in screen.Inputs, glyphs glyph.Set, item document, width int) []string {
 	notice := "_reading its versions…_"
 	switch {
 	case h.err != nil:
@@ -184,7 +185,7 @@ func (h *documentHistory) head(in screen.Inputs, glyphs glyph.Set, item document
 		notice = h.notice(in.Room.Now)
 	}
 
-	rows := paint.DocStyledRows(paint.DocumentMarkdown(item.name, notice, "", ""), width, columnStyle())
+	rows := paint.DocStyledRows(paint.DocumentMarkdown(item.name, notice, "", ""), width, paint.Panel.Stage())
 	if h.err != nil || h.versions == nil {
 		return rows
 	}
@@ -195,7 +196,7 @@ func (h *documentHistory) head(in screen.Inputs, glyphs glyph.Set, item document
 }
 
 // notice names the write stepped to, who made it and how long ago.
-func (h *documentHistory) notice(now time.Time) string {
+func (h *history) notice(now time.Time) string {
 	current := h.versions[h.at]
 	written := "written"
 	if current.by != "" {
@@ -216,7 +217,7 @@ func (h *documentHistory) notice(now time.Time) string {
 
 // renamedFrom is the name the write before the one stood on had, where the write stood on renamed
 // it, and empty otherwise.
-func (h *documentHistory) renamedFrom() string {
+func (h *history) renamedFrom() string {
 	if h.at+1 >= len(h.versions) {
 		return ""
 	}
@@ -230,7 +231,7 @@ func (h *documentHistory) renamedFrom() string {
 }
 
 // changeRows is what stands in place of the diff while the change is not rendered as one.
-func (h *documentHistory) changeRows(width int) []string {
+func (h *history) changeRows(width int) []string {
 	before, after, ok := h.readChange()
 	switch {
 	case !ok:
@@ -240,19 +241,19 @@ func (h *documentHistory) changeRows(width int) []string {
 	case before.err != nil:
 		return []string{paint.FitRow("could not read: "+errui.GetReason(before.err), width)}
 	case h.isOldestKeptLate():
-		return paint.DocStyledRows(after.body+"\n", width, columnStyle())
+		return paint.DocStyledRows(after.body+"\n", width, paint.Panel.Stage())
 	}
 
 	return []string{paint.FitRow(paint.Panel.Style(paint.ToneMuted).Render("no change to the text"), width)}
 }
 
-// documentTypeFrom is a type's context as the panel renders it beside the list.
-func documentTypeFrom(documentType *agentv1.DocumentType, now time.Time) string {
+// typeMarkdown is a type's context as the panel renders it beside the list.
+func typeMarkdown(documentType *agentv1.DocumentType, now time.Time) string {
 	if documentType == nil {
 		return paint.DocumentMarkdown("Document types", "_no document types yet_", "", "")
 	}
 
 	notice := fmt.Sprintf("_version %d, written %s ago_", documentType.GetVersion(), label.AgeAt(dates.Read(documentType.GetUpdatedAt()), now))
 
-	return paint.DocumentMarkdown(documentType.GetName(), notice, documentProse(documentType.GetName(), documentType.GetContext()), "")
+	return paint.DocumentMarkdown(documentType.GetName(), notice, prose(documentType.GetName(), documentType.GetContext()), "")
 }

@@ -1,4 +1,4 @@
-package ui
+package documents
 
 import (
 	"fmt"
@@ -11,14 +11,14 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// documentRename is a document's or a type's name as the user types over it in the list.
-type documentRename struct {
+// rename is a document's or a type's name as the user types over it in the list.
+type rename struct {
 	*field.NameEdit
-	item documentItem
-	read documentBody
+	item document
+	read text
 }
 
-func (d *documentsScreen) renamingField() *field.NameEdit {
+func (d *Screen) renamingField() *field.NameEdit {
 	if d.renaming == nil {
 		return nil
 	}
@@ -27,7 +27,7 @@ func (d *documentsScreen) renamingField() *field.NameEdit {
 }
 
 // openRename types over the name of the item under the cursor once its text has been read.
-func (d *documentsScreen) openRename(in screen.Inputs) screen.Request {
+func (d *Screen) openRename(in screen.Inputs) screen.Request {
 	item, ok := d.hovered(in)
 	if !ok || d.editing != nil {
 		return nil
@@ -41,8 +41,8 @@ func (d *documentsScreen) openRename(in screen.Inputs) screen.Request {
 		return screen.NewNote(screen.Warning, fmt.Sprintf("%q has not been read yet, so it cannot be renamed", item.name))
 	}
 
-	d.renaming = &documentRename{
-		NameEdit: field.NewNameEdit(documentRow{item: item}.Key(), item.name),
+	d.renaming = &rename{
+		NameEdit: field.NewNameEdit(row{item: item}.Key(), item.name),
 		item:     item,
 		read:     read,
 	}
@@ -51,14 +51,14 @@ func (d *documentsScreen) openRename(in screen.Inputs) screen.Request {
 }
 
 // reconcileRename drops an open rename once the cursor leaves its row.
-func (d *documentsScreen) reconcileRename(in screen.Inputs) {
-	if d.renaming != nil && !field.ReconcileNameEdit(d.renaming.NameEdit, d.rows(in), d.ActiveList().Hovered(in), func(r documentRow) string { return r.item.name }) {
+func (d *Screen) reconcileRename(in screen.Inputs) {
+	if d.renaming != nil && !field.ReconcileNameEdit(d.renaming.NameEdit, d.rows(in), d.ActiveList().Hovered(in), func(r row) string { return r.item.name }) {
 		d.renaming = nil
 	}
 }
 
-func (d *documentsScreen) updateRename(msg tea.Msg) screen.Request {
-	switch d.renaming.Take(msg, d.deps.register) {
+func (d *Screen) updateRename(msg tea.Msg) screen.Request {
+	switch d.renaming.Take(msg, d.deps.Register) {
 	case field.NameGone:
 		return screen.NewNote(screen.Warning, d.renaming.GoneWarning())
 	case field.NameHidden:
@@ -73,17 +73,17 @@ func (d *documentsScreen) updateRename(msg tea.Msg) screen.Request {
 	return nil
 }
 
-func (d *documentsScreen) saveRename() screen.Request {
-	rename := d.renaming
-	name, ok := rename.Submit()
+func (d *Screen) saveRename() screen.Request {
+	renaming := d.renaming
+	name, ok := renaming.Submit()
 	if !ok {
 		d.renaming = nil
 
 		return nil
 	}
 
-	item, read := rename.item, rename.read
-	if i := slices.IndexFunc(d.items, func(i documentItem) bool { return i.id == item.id }); i >= 0 {
+	item, read := renaming.item, renaming.read
+	if i := slices.IndexFunc(d.items, func(i document) bool { return i.id == item.id }); i >= 0 {
 		item = d.items[i]
 	}
 	if fresh, asked := d.bodies[item.id]; asked && !fresh.pending && fresh.err == nil {
@@ -91,10 +91,10 @@ func (d *documentsScreen) saveRename() screen.Request {
 	}
 	item.name = name
 
-	return d.deps.clients.RenameWrite(api.RenameWriteParams{
-		Doing:   "renaming " + rename.Was(),
-		Summary: fmt.Sprintf("Could not rename document %q", rename.Was()),
-		Row:     rename.Key(),
+	return d.deps.Clients.RenameWrite(api.RenameWriteParams{
+		Doing:   "renaming " + renaming.Was(),
+		Summary: fmt.Sprintf("Could not rename document %q", renaming.Was()),
+		Row:     renaming.Key(),
 		Write: func(a api.Clients) error {
 			return a.WriteDocument(api.WriteDocumentParams{
 				ID:      item.id,
@@ -109,20 +109,22 @@ func (d *documentsScreen) saveRename() screen.Request {
 
 // settleRename marks the field saved once its write has landed, or open for another try when it
 // failed.
-func (d *documentsScreen) settleRename(in screen.Inputs, row string, err error) {
+func (d *Screen) settleRename(in screen.Inputs, key string, err error) {
 	if d.renaming == nil {
 		return
 	}
-	d.renaming.Settle(row, err)
+	d.renaming.Settle(key, err)
 
 	d.reconcileRename(in)
 }
 
-func (d *documentsScreen) IsRenaming() bool {
+// IsRenaming reports whether a document's name is being typed over.
+func (d *Screen) IsRenaming() bool {
 	return d.renaming != nil && !d.renaming.IsLanded()
 }
 
-func (d *documentsScreen) TypedLine() (field.Line, bool) {
+// TypedLine is the name being typed over or the diff's search, whichever is typed into.
+func (d *Screen) TypedLine() (field.Line, bool) {
 	switch {
 	case d.IsRenaming():
 		return d.renaming.Input(), true

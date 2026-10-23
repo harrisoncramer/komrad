@@ -13,9 +13,6 @@ const (
 	actionWorkflowRename
 	actionArchiveRename
 	actionArchiveBack
-	actionDocumentsBack
-	actionDocumentsOlder
-	actionDocumentsNewer
 	actionReviewBack
 	actionReviewThread
 	actionReviewOpenThread

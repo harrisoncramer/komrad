@@ -1,4 +1,4 @@
-package ui
+package documents
 
 import (
 	"errors"
@@ -14,9 +14,9 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// documentEdit is one document open in your editor on the stage, from a copy of its text.
-type documentEdit struct {
-	item    documentItem
+// editing is one document open in your editor on the stage, from a copy of its text.
+type editing struct {
+	item    document
 	version int32
 	path    string
 	pane    string
@@ -24,7 +24,7 @@ type documentEdit struct {
 }
 
 // pressEdit opens the document under the cursor in your editor, or saves and closes the one open.
-func (d *documentsScreen) pressEdit(in screen.Inputs) screen.Request {
+func (d *Screen) pressEdit(in screen.Inputs) screen.Request {
 	if d.editing != nil {
 		return d.closeEdit()
 	}
@@ -43,35 +43,35 @@ func (d *documentsScreen) pressEdit(in screen.Inputs) screen.Request {
 		}
 	}
 
-	path, err := writeDocumentCopy(d.deps.draftDir, read.body)
+	path, err := writeCopy(d.deps.DraftDir, read.body)
 	if err != nil {
 		return screen.Report{Summary: "could not edit " + item.name, Err: err}
 	}
 
 	return screen.Stage{
-		Content: editor.Content(d.deps.editorCommand, filepath.Dir(path), path, 1),
+		Content: editor.Content(d.deps.EditorCommand, filepath.Dir(path), path, 1),
 		Staged: func(pane string) tea.Msg {
-			return documentEditorStaged{item: item, read: read, path: path, pane: pane}
+			return editorStaged{item: item, read: read, path: path, pane: pane}
 		},
 	}
 }
 
-// documentEditorStaged is the pane an editor over a document's copy was given, empty where the
+// editorStaged is the pane an editor over a document's copy was given, empty where the
 // split was refused.
-type documentEditorStaged struct {
-	item documentItem
-	read documentBody
+type editorStaged struct {
+	item document
+	read text
 	path string
 	pane string
 }
 
 // applyEditorStaged opens the edit in the editor's pane, or throws the copy away when there was no
 // room for one.
-func (d *documentsScreen) applyEditorStaged(staged documentEditorStaged) screen.Request {
+func (d *Screen) applyEditorStaged(staged editorStaged) screen.Request {
 	item, read, path, pane := staged.item, staged.read, staged.path, staged.pane
 	if pane == "" {
 		return screen.Batch{
-			screen.Report{Summary: "could not edit " + item.name, Err: removeDocumentCopy(path)},
+			screen.Report{Summary: "could not edit " + item.name, Err: removeCopy(path)},
 			screen.Note{
 				Kind:    screen.Error,
 				Summary: "could not edit " + item.name,
@@ -81,7 +81,7 @@ func (d *documentsScreen) applyEditorStaged(staged documentEditorStaged) screen.
 	}
 
 	d.history = nil
-	d.editing = &documentEdit{
+	d.editing = &editing{
 		item:    item,
 		version: read.version,
 		path:    path,
@@ -93,7 +93,7 @@ func (d *documentsScreen) applyEditorStaged(staged documentEditorStaged) screen.
 }
 
 // closeEdit takes the editor down and writes back what changed in the copy.
-func (d *documentsScreen) closeEdit() screen.Request {
+func (d *Screen) closeEdit() screen.Request {
 	if d.editing == nil {
 		return nil
 	}
@@ -105,7 +105,7 @@ func (d *documentsScreen) closeEdit() screen.Request {
 }
 
 // saveEdit writes back what changed in the copy.
-func (d *documentsScreen) saveEdit(edit documentEdit) screen.Request {
+func (d *Screen) saveEdit(edit editing) screen.Request {
 	summary := "could not save " + edit.item.name
 	content, err := os.ReadFile(edit.path)
 	if err != nil {
@@ -122,10 +122,10 @@ func (d *documentsScreen) saveEdit(edit documentEdit) screen.Request {
 	}
 
 	if body == edit.body {
-		return screen.Report{Summary: summary, Err: removeDocumentCopy(edit.path)}
+		return screen.Report{Summary: summary, Err: removeCopy(edit.path)}
 	}
 
-	return d.deps.clients.Write("saving "+edit.item.name, summary, func(a api.Clients) error {
+	return d.deps.Clients.Write("saving "+edit.item.name, summary, func(a api.Clients) error {
 		if err := a.WriteDocument(api.WriteDocumentParams{
 			ID:      edit.item.id,
 			Version: edit.version,
@@ -136,13 +136,13 @@ func (d *documentsScreen) saveEdit(edit documentEdit) screen.Request {
 			return fmt.Errorf("failed to save, so your copy is left at %s: %w", edit.path, err)
 		}
 
-		return removeDocumentCopy(edit.path)
+		return removeCopy(edit.path)
 	})
 }
 
 // ReconcileEditor catches the editor pane going away on its own and saves what it wrote.
-func (d *documentsScreen) ReconcileEditor(in screen.Inputs) screen.Request {
-	if d.editing == nil || d.deps.panes.IsPaneAlive(d.editing.pane) {
+func (d *Screen) ReconcileEditor(in screen.Inputs) screen.Request {
+	if d.editing == nil || d.deps.Panes.IsPaneAlive(d.editing.pane) {
 		return nil
 	}
 
@@ -150,7 +150,7 @@ func (d *documentsScreen) ReconcileEditor(in screen.Inputs) screen.Request {
 }
 
 // editLabel says what the edit entry would do.
-func (d *documentsScreen) editLabel() string {
+func (d *Screen) editLabel() string {
 	if d.editing != nil {
 		return "close editor"
 	}
@@ -158,7 +158,7 @@ func (d *documentsScreen) editLabel() string {
 	return "edit"
 }
 
-func writeDocumentCopy(dir, body string) (string, error) {
+func writeCopy(dir, body string) (string, error) {
 	file, err := os.CreateTemp(dir, "komrad-document-*.md")
 	if err != nil {
 		return "", fmt.Errorf("failed to create a copy to edit: %w", err)
@@ -173,7 +173,7 @@ func writeDocumentCopy(dir, body string) (string, error) {
 	return file.Name(), nil
 }
 
-func removeDocumentCopy(path string) error {
+func removeCopy(path string) error {
 	if err := os.Remove(path); err != nil {
 		return fmt.Errorf("failed to remove your copy at %s: %w", path, err)
 	}

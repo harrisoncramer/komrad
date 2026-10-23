@@ -1,4 +1,4 @@
-package ui
+package documents
 
 import (
 	"komrad/internal/ui/api"
@@ -32,17 +32,17 @@ func listVersions(a api.Clients, id string) ([]historyVersion, error) {
 }
 
 // readVersion reads the text of one write of a document.
-func readVersion(a api.Clients, item documentItem, version int32) (string, error) {
-	document, err := a.GetDocumentVersion(item.id, version)
+func readVersion(a api.Clients, item document, version int32) (string, error) {
+	doc, err := a.GetDocumentVersion(item.id, version)
 	if err != nil {
 		return "", err
 	}
 
-	return document.GetBody(), nil
+	return doc.GetBody(), nil
 }
 
-func documentTypeItem(t *agentv1.DocumentType) documentItem {
-	return documentItem{
+func typeDocument(t *agentv1.DocumentType) document {
+	return document{
 		id:        t.GetId(),
 		name:      t.GetName(),
 		updatedAt: dates.Read(t.GetUpdatedAt()),
@@ -50,7 +50,7 @@ func documentTypeItem(t *agentv1.DocumentType) documentItem {
 }
 
 // keepCursor puts the cursor back on the row it was on once the rows have moved under it.
-func (d *documentsScreen) keepCursor(in screen.Inputs, hovered string) {
+func (d *Screen) keepCursor(in screen.Inputs, hovered string) {
 	rows := d.rows(in)
 	d.Row = cursor.Place(list.IndexOf(rows, hovered), d.Row, len(rows))
 	d.reconcileRename(in)

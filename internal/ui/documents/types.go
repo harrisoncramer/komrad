@@ -1,4 +1,4 @@
-package ui
+package documents
 
 import (
 	"errors"
@@ -16,20 +16,20 @@ import (
 	"charm.land/huh/v2"
 )
 
-// documentTypeNameLimit is the longest name the server takes for a document type.
-const documentTypeNameLimit = 100
+// typeNameLimit is the longest name the server takes for a document type.
+const typeNameLimit = 100
 
-// documentTypeFormValues is what the document type forms ask for.
-type documentTypeFormValues struct {
+// typeFormValues is what the document type forms ask for.
+type typeFormValues struct {
 	Name    string
 	Context string
 }
 
 // newTypeForm is the form that defines a document type, asking its name and its context.
-func (d *documentsScreen) newTypeForm() form.Form {
-	values := &documentTypeFormValues{}
+func (d *Screen) newTypeForm() form.Form {
+	values := &typeFormValues{}
 
-	return d.documentTypeFormOf(documentTypeFormOfParams{
+	return d.typeFormOf(typeFormOfParams{
 		values:  values,
 		title:   "New document type",
 		doing:   "defining",
@@ -41,10 +41,10 @@ func (d *documentsScreen) newTypeForm() form.Form {
 }
 
 // editTypeForm is the form that writes a document type's name and context over the ones it has.
-func (d *documentsScreen) editTypeForm(t *agentv1.DocumentType) form.Form {
-	values := &documentTypeFormValues{Name: t.GetName(), Context: t.GetContext()}
+func (d *Screen) editTypeForm(t *agentv1.DocumentType) form.Form {
+	values := &typeFormValues{Name: t.GetName(), Context: t.GetContext()}
 
-	return d.documentTypeFormOf(documentTypeFormOfParams{
+	return d.typeFormOf(typeFormOfParams{
 		values:  values,
 		title:   "Edit document type",
 		doing:   "editing",
@@ -60,20 +60,20 @@ func (d *documentsScreen) editTypeForm(t *agentv1.DocumentType) form.Form {
 	})
 }
 
-// documentTypeFormOfParams is what a document type form is opened from.
-type documentTypeFormOfParams struct {
-	values  *documentTypeFormValues
+// typeFormOfParams is what a document type form is opened from.
+type typeFormOfParams struct {
+	values  *typeFormValues
 	title   string
 	doing   string
 	refused string
 	write   func(api.Clients) error
 }
 
-func (d *documentsScreen) documentTypeFormOf(params documentTypeFormOfParams) form.Form {
+func (d *Screen) typeFormOf(params typeFormOfParams) form.Form {
 	values := params.values
 
 	return form.Form{
-		Build:    func(form.Inputs) (*huh.Form, []string) { return documentTypeForm(values, params.title, fixedKeys()) },
+		Build:    func(form.Inputs) (*huh.Form, []string) { return typeForm(values, params.title, config.Fixed()) },
 		Editable: []form.Editable{{Key: "context", Value: &values.Context}},
 		Submit: func(form.Inputs) screen.Request {
 			name, typeContext := strings.TrimSpace(values.Name), values.Context
@@ -82,11 +82,11 @@ func (d *documentsScreen) documentTypeFormOf(params documentTypeFormOfParams) fo
 				doing, summary = params.doing+" "+name, fmt.Sprintf("%s document type %q", params.refused, name)
 			}
 
-			return d.deps.clients.Write(
+			return d.deps.Clients.Write(
 				doing,
 				summary,
 				func(a api.Clients) error {
-					if err := errors.Join(checkDocumentTypeName(name), checkDocumentTypeContext(typeContext)); err != nil {
+					if err := errors.Join(checkTypeName(name), checkTypeContext(typeContext)); err != nil {
 						return err
 					}
 
@@ -97,22 +97,22 @@ func (d *documentsScreen) documentTypeFormOf(params documentTypeFormOfParams) fo
 	}
 }
 
-func documentTypeForm(values *documentTypeFormValues, title string, fixed config.FixedKeys) (*huh.Form, []string) {
+func typeForm(values *typeFormValues, title string, fixed config.FixedKeys) (*huh.Form, []string) {
 	return form.Of(fixed,
-		huh.NewInput().Key("name").Title(title).Value(&values.Name).Validate(checkDocumentTypeName),
+		huh.NewInput().Key("name").Title(title).Value(&values.Name).Validate(checkTypeName),
 		form.Text("context").Title("Context").
 			Description(fmt.Sprintf("what an agent reads before writing one; %s opens $EDITOR", keys.Label(fixed.Editor))).
-			Lines(6).Value(&values.Context).Validate(checkDocumentTypeContext),
+			Lines(6).Value(&values.Context).Validate(checkTypeContext),
 	)
 }
 
 // deleteTypeForm asks before it deletes a document type.
-func (d *documentsScreen) deleteTypeForm(item documentItem) form.Form {
+func (d *Screen) deleteTypeForm(item document) form.Form {
 	built, confirmed := form.Confirm(
 		fmt.Sprintf("Delete document type %q?", item.name),
 		"Agents can no longer write documents of this type. Komrad refuses the delete while any document still uses it.",
 		"Delete",
-		fixedKeys(),
+		config.Fixed(),
 	)
 
 	return form.Form{
@@ -122,7 +122,7 @@ func (d *documentsScreen) deleteTypeForm(item documentItem) form.Form {
 				return nil
 			}
 
-			return d.deps.clients.Write(
+			return d.deps.Clients.Write(
 				"deleting "+item.name,
 				fmt.Sprintf("Could not delete document type %q", item.name),
 				func(a api.Clients) error { return a.DeleteDocumentType(item.id) },
@@ -133,19 +133,19 @@ func (d *documentsScreen) deleteTypeForm(item documentItem) form.Form {
 	}
 }
 
-func checkDocumentTypeName(name string) error {
+func checkTypeName(name string) error {
 	trimmed := strings.TrimSpace(name)
 	if trimmed == "" {
 		return errors.New("a document type needs a name")
 	}
-	if utf8.RuneCountInString(trimmed) > documentTypeNameLimit {
-		return fmt.Errorf("a document type's name is at most %d characters", documentTypeNameLimit)
+	if utf8.RuneCountInString(trimmed) > typeNameLimit {
+		return fmt.Errorf("a document type's name is at most %d characters", typeNameLimit)
 	}
 
 	return nil
 }
 
-func checkDocumentTypeContext(typeContext string) error {
+func checkTypeContext(typeContext string) error {
 	if strings.TrimSpace(typeContext) == "" {
 		return errors.New("a document type needs the context an agent reads")
 	}

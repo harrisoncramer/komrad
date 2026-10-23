@@ -1,4 +1,4 @@
-package ui
+package documents
 
 import (
 	"time"
@@ -11,12 +11,12 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// documentDiffPath is the name the panel highlights a document's diff as.
-const documentDiffPath = "document.md"
+// diffPath is the name the panel highlights a document's diff as.
+const diffPath = "document.md"
 
-// documentHistory is one document's writes stepped through, rendering what the one stood on changed.
-type documentHistory struct {
-	item documentItem
+// history is one document's writes stepped through, rendering what the one stood on changed.
+type history struct {
+	item document
 	// versions is every write kept, newest first, and at the one stood on.
 	versions []historyVersion
 	at       int
@@ -47,14 +47,14 @@ type versionRead struct {
 }
 
 // stepOlder steps back to the write before the one rendered, starting from the newest.
-func (d *documentsScreen) stepOlder(in screen.Inputs) screen.Request {
+func (d *Screen) stepOlder(in screen.Inputs) screen.Request {
 	item, ok := d.hovered(in)
 	if !ok || d.editing != nil {
 		return nil
 	}
 
 	if d.history == nil || d.history.item.id != item.id || d.history.err != nil {
-		d.history = &documentHistory{item: item}
+		d.history = &history{item: item}
 
 		return screen.Settle{}
 	}
@@ -70,7 +70,7 @@ func (d *documentsScreen) stepOlder(in screen.Inputs) screen.Request {
 
 // stepNewer steps forward to the write after the one rendered, and past the newest back to the
 // document as it stands.
-func (d *documentsScreen) stepNewer(in screen.Inputs) screen.Request {
+func (d *Screen) stepNewer(in screen.Inputs) screen.Request {
 	if !d.isSteppingHovered(in) {
 		return nil
 	}
@@ -94,7 +94,7 @@ func (d *documentsScreen) stepNewer(in screen.Inputs) screen.Request {
 }
 
 // forgetFailedReads drops the writes that could not be read, so the next step reads them again.
-func (h *documentHistory) forgetFailedReads() {
+func (h *history) forgetFailedReads() {
 	for version, read := range h.reads {
 		if read.err != nil {
 			delete(h.reads, version)
@@ -103,7 +103,7 @@ func (h *documentHistory) forgetFailedReads() {
 }
 
 // isSteppingHovered reports whether the user steps through the document under the cursor.
-func (d *documentsScreen) isSteppingHovered(in screen.Inputs) bool {
+func (d *Screen) isSteppingHovered(in screen.Inputs) bool {
 	item, ok := d.hovered(in)
 
 	return ok && d.history != nil && d.history.item.id == item.id
@@ -111,13 +111,13 @@ func (d *documentsScreen) isSteppingHovered(in screen.Inputs) bool {
 
 // isOldestKeptLate reports whether the write stood on is the oldest kept but not the first
 // written, as for a document written before its writes were kept.
-func (h *documentHistory) isOldestKeptLate() bool {
+func (h *history) isOldestKeptLate() bool {
 	return h.at+1 >= len(h.versions) && h.versions[h.at].version > 1
 }
 
 // readChange is the write stepped to and the one kept before it, and false while either is still
 // being read.
-func (h *documentHistory) readChange() (versionRead, versionRead, bool) {
+func (h *history) readChange() (versionRead, versionRead, bool) {
 	after, ok := h.reads[h.versions[h.at].version]
 	before := versionRead{}
 	if h.at+1 < len(h.versions) {
@@ -138,20 +138,20 @@ type renderedChange struct {
 }
 
 // isRendered reports whether the panel renders the change as a diff.
-func (h *documentHistory) isRendered(isDark bool) bool {
+func (h *history) isRendered(isDark bool) bool {
 	rendered, _, _, ok := h.change(isDark)
 
 	return ok && h.pane.View() != nil && h.rendered == rendered && h.pane.View().Len() > 0
 }
 
 // keepDiff builds the diff of the change once per pair of writes.
-func (h *documentHistory) keepDiff(isDark bool) {
+func (h *history) keepDiff(isDark bool) {
 	rendered, before, after, ok := h.change(isDark)
 	if !ok || (h.pane.View() != nil && h.rendered == rendered) {
 		return
 	}
 
-	view := diffview.NewView(&diff.Patch{Files: []diff.File{diff.FromTexts(documentDiffPath, before.body, after.body)}}, isDark)
+	view := diffview.NewView(&diff.Patch{Files: []diff.File{diff.FromTexts(diffPath, before.body, after.body)}}, isDark)
 	view.SetHeadless(true)
 	view.SetPattern(h.filter.Matcher)
 	h.pane, h.rendered = diffview.NewPane(view), rendered
@@ -159,7 +159,7 @@ func (h *documentHistory) keepDiff(isDark bool) {
 
 // change is the two writes the change is rendered between and what they hold, and false when it is
 // not rendered as a diff.
-func (h *documentHistory) change(isDark bool) (renderedChange, versionRead, versionRead, bool) {
+func (h *history) change(isDark bool) (renderedChange, versionRead, versionRead, bool) {
 	if h.err != nil || h.versions == nil || h.isOldestKeptLate() {
 		return renderedChange{}, versionRead{}, versionRead{}, false
 	}
@@ -177,15 +177,15 @@ func (h *documentHistory) change(isDark bool) (renderedChange, versionRead, vers
 	return rendered, before, after, true
 }
 
-// documentVersionsListedMsg is the writes kept of a document come back.
-type documentVersionsListedMsg struct {
+// versionsListedMsg is the writes kept of a document come back.
+type versionsListedMsg struct {
 	id       string
 	versions []historyVersion
 	err      error
 }
 
-// documentVersionReadMsg is one write's text come back.
-type documentVersionReadMsg struct {
+// versionReadMsg is one write's text come back.
+type versionReadMsg struct {
 	id      string
 	version int32
 	read    versionRead
@@ -193,12 +193,12 @@ type documentVersionReadMsg struct {
 
 // readHistoryCmd lists the writes of the document being stepped through, then reads
 // the one stood on and the one before it.
-func (d *documentsScreen) readHistoryCmd(in screen.Inputs) tea.Cmd {
+func (d *Screen) readHistoryCmd(in screen.Inputs) tea.Cmd {
 	if !d.isSteppingHovered(in) {
 		return nil
 	}
 
-	h, clients := d.history, d.deps.clients
+	h, clients := d.history, d.deps.Clients
 	if h.versions == nil {
 		if h.listing || h.err != nil {
 			return nil
@@ -210,7 +210,7 @@ func (d *documentsScreen) readHistoryCmd(in screen.Inputs) tea.Cmd {
 		return func() tea.Msg {
 			versions, err := listVersions(clients, id)
 
-			return documentVersionsListedMsg{
+			return versionsListedMsg{
 				id:       id,
 				versions: versions,
 				err:      err,
@@ -229,8 +229,8 @@ func (d *documentsScreen) readHistoryCmd(in screen.Inputs) tea.Cmd {
 }
 
 // readVersionCmd reads one write of the document being stepped through, once.
-func (d *documentsScreen) readVersionCmd(version int32) tea.Cmd {
-	h, clients := d.history, d.deps.clients
+func (d *Screen) readVersionCmd(version int32) tea.Cmd {
+	h, clients := d.history, d.deps.Clients
 	if _, asked := h.reads[version]; asked {
 		return nil
 	}
@@ -244,14 +244,14 @@ func (d *documentsScreen) readVersionCmd(version int32) tea.Cmd {
 	return func() tea.Msg {
 		body, err := readVersion(clients, item, version)
 		if err != nil {
-			return documentVersionReadMsg{
+			return versionReadMsg{
 				id:      item.id,
 				version: version,
 				read:    versionRead{err: err},
 			}
 		}
 
-		return documentVersionReadMsg{
+		return versionReadMsg{
 			id:      item.id,
 			version: version,
 			read:    versionRead{body: body},
@@ -259,7 +259,7 @@ func (d *documentsScreen) readVersionCmd(version int32) tea.Cmd {
 	}
 }
 
-func (d *documentsScreen) applyVersionsListed(in screen.Inputs, msg documentVersionsListedMsg) screen.Request {
+func (d *Screen) applyVersionsListed(in screen.Inputs, msg versionsListedMsg) screen.Request {
 	h := d.history
 	if h == nil || h.item.id != msg.id {
 		return nil
@@ -277,7 +277,7 @@ func (d *documentsScreen) applyVersionsListed(in screen.Inputs, msg documentVers
 	return screen.Cmd(d.readHistoryCmd(in))
 }
 
-func (d *documentsScreen) applyVersionRead(msg documentVersionReadMsg) {
+func (d *Screen) applyVersionRead(msg versionReadMsg) {
 	h := d.history
 	if h == nil || h.item.id != msg.id || h.reads == nil {
 		return
@@ -287,14 +287,14 @@ func (d *documentsScreen) applyVersionRead(msg documentVersionReadMsg) {
 }
 
 // BuildFrame builds the diff of the write stepped to once it is rendered beside the list.
-func (d *documentsScreen) BuildFrame(in screen.Inputs) {
+func (d *Screen) BuildFrame(in screen.Inputs) {
 	if in.Room.Split.On && d.isSteppingHovered(in) {
 		d.history.keepDiff(in.Room.Dark)
 	}
 }
 
 // diffWindow is the size the panel renders the diff at, under the rows over it.
-func (d *documentsScreen) diffWindow(in screen.Inputs) diffview.Window {
+func (d *Screen) diffWindow(in screen.Inputs) diffview.Window {
 	split := in.Room.Split
 	item, hovered := d.hovered(in)
 	if !split.On || !hovered || d.history == nil {
@@ -303,7 +303,7 @@ func (d *documentsScreen) diffWindow(in screen.Inputs) diffview.Window {
 
 	return diffview.Window{
 		Width:  split.Column,
-		Height: max(split.Rows-len(d.history.head(in, d.deps.glyphs, item, split.Column)), 1),
+		Height: max(split.Rows-len(d.history.head(in, d.deps.Glyphs, item, split.Column)), 1),
 		Wrap:   in.Room.Wrap,
 	}
 }
