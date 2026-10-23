@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"slices"
+
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
@@ -33,7 +35,7 @@ func (m *model) Jump(from screen.ID, to screen.Target) menu.Menu {
 		worktree := menu.Leaving("worktree", m.keys.JumpMenu.Worktree, func(screen.Inputs) screen.Request {
 			return screen.Open{Screen: screen.Worktrees, Target: target}
 		})
-		worktree.Off = !scopeAll.listsAgent(m.listing.Worktrees, agentID)
+		worktree.Off = !slices.ContainsFunc(m.listing.Worktrees, func(w panel.Worktree) bool { return w.HoldsAgent(agentID) })
 		entries = append(entries, worktree)
 	}
 	if from != screen.Documents {
