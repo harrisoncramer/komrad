@@ -31,6 +31,7 @@ import (
 	"komrad/internal/transcripts"
 	"komrad/internal/watch"
 	"komrad/internal/worktrees"
+	forgev1 "komrad/proto/gen/forge/v1"
 )
 
 type services struct {
@@ -508,7 +509,7 @@ func buildAgents(params buildAgentsParams) agentServices {
 }
 
 type buildPullRequestsParams struct {
-	Builders   map[string]forge.Builder
+	Builders   map[forgev1.Kind]forge.Builder
 	Server     NewServerParams
 	Stores     *stores
 	Queue      *jobs.Enqueuer

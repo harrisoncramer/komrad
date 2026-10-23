@@ -11,6 +11,7 @@ import (
 	"komrad/internal/dbtest"
 	"komrad/internal/store"
 	forgestore "komrad/internal/store/forge"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -89,8 +90,8 @@ func TestConnectThroughForgeProxyKeepsGitHubsConnectionOnTheEnginesPerson(t *tes
 			service := NewService(NewServiceParams{
 				Connections: connections,
 				Credentials: credentials,
-				Builders: map[string]Builder{
-					KindGitHub: func(_ string, auth Authenticator) Forge {
+				Builders: map[forgev1.Kind]Builder{
+					forgev1.Kind_KIND_GITHUB: func(_ string, auth Authenticator) Forge {
 						return &viewerForge{fakeForge: fakeForge{auth: auth, login: login}, viewer: tt.viewer, viewErr: tt.viewErr}
 					},
 				},

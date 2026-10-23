@@ -130,11 +130,7 @@ func (s *ForgeStore) SetVerifiedAt(ctx context.Context, id uuid.UUID, at *time.T
 }
 
 // SetLogin records who the forge says the credential belongs to, as of at.
-func (s *ForgeStore) SetLogin(ctx context.Context, id, login string, at time.Time) error {
-	if !store.IsID(id) {
-		return store.ErrNotFound.Saying("no connection with id %q", id)
-	}
-
+func (s *ForgeStore) SetLogin(ctx context.Context, id uuid.UUID, login string, at time.Time) error {
 	updated, err := s.queries.SetForgeConnectionLogin(ctx, models.SetForgeConnectionLoginParams{ID: id, Login: login, VerifiedAt: &at})
 	if err != nil {
 		return fmt.Errorf("failed to set the login on connection %q: %w", id, err)

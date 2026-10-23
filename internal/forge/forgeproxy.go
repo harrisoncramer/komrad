@@ -15,6 +15,7 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/store"
 	"komrad/lib/xfile"
+	forgev1 "komrad/proto/gen/forge/v1"
 )
 
 // githubHost is the host the forge proxy connection is for.
@@ -40,7 +41,7 @@ type viewerReader interface {
 // ConnectThroughForgeProxy asks GitHub through the forge proxy who the engine's GitHub login
 // belongs to, and keeps github.com's connection holding the placeholder for that account.
 func (s *Service) ConnectThroughForgeProxy(ctx context.Context) (*Viewer, error) {
-	build, ok := s.builders[KindGitHub]
+	build, ok := s.builders[forgev1.Kind_KIND_GITHUB]
 	if !ok {
 		return nil, errUnknownKind.Saying("this build knows no GitHub")
 	}

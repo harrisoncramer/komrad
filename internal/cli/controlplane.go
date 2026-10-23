@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"komrad/internal/controlplane"
-	"komrad/internal/forge"
 	"komrad/internal/interceptors"
 	"komrad/internal/logging"
 	"komrad/internal/store"
@@ -98,7 +97,7 @@ func serveControlPlane(ctx context.Context, state *app) error {
 		Logger:  logger,
 		Engines: engines,
 		CA:      ca,
-		Logins:  forge.NewFileStore(filepath.Join(state.env.StateDir, controlPlaneLoginsDir)),
+		Logins:  controlplane.NewFileStore(filepath.Join(state.env.StateDir, controlPlaneLoginsDir)),
 		Grants:  grants,
 		Verifier: interceptors.NewProviderVerifier(interceptors.NewProviderVerifierParams{
 			Issuer:   state.signIn.Issuer,

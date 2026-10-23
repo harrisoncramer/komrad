@@ -35,7 +35,7 @@ func TestIntegrationForgeProxySendsEachEngineToGitHubAsItsOwnPerson(t *testing.T
 	ca := controlplanetest.NewCA(t)
 	github := controlplanetest.StartGitHub(t, ca)
 
-	logins := forge.NewFileStore(t.TempDir())
+	logins := controlplane.NewFileStore(t.TempDir())
 	require.NoError(t, logins.Set(t.Context(), "harry", forge.NewSecret("gho_harry")))
 	require.NoError(t, logins.Set(t.Context(), "ada", forge.NewSecret("gho_ada")))
 

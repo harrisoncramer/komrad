@@ -32,7 +32,7 @@ type engine struct {
 type plane struct {
 	github    *controlplanetest.GitHub
 	ca        *controlplanetest.CA
-	logins    *forge.FileStore
+	logins    *controlplane.FileStore
 	clock     *clock
 	engines   map[string]engine
 	proxy     *httptest.Server
@@ -63,7 +63,7 @@ func startPlane(t *testing.T) *plane {
 
 	ca := controlplanetest.NewCA(t)
 	github := controlplanetest.StartGitHub(t, ca)
-	logins := forge.NewFileStore(t.TempDir())
+	logins := controlplane.NewFileStore(t.TempDir())
 	now := &clock{at: time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC)}
 
 	require.NoError(t, logins.Set(t.Context(), engines["harry"].name, forge.NewSecret("gho_harry")))

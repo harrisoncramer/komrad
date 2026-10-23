@@ -498,6 +498,7 @@ linters:
             allow:
               - (komrad/internal/forge.Credential).HeaderValue
               - (*komrad/internal/forge.FileStore).Set
+              - (*komrad/internal/controlplane.FileStore).Set
               - komrad/internal/cli.tokenForTheWire
               - komrad/internal/controlplane.formatLogin
           handler_shape:

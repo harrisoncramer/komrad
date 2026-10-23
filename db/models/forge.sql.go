@@ -221,7 +221,7 @@ WHERE
 type SetForgeConnectionLoginParams struct {
 	Login      string
 	VerifiedAt *time.Time
-	ID         string
+	ID         uuid.UUID
 }
 
 func (q *Queries) SetForgeConnectionLogin(ctx context.Context, arg SetForgeConnectionLoginParams) (int64, error) {
