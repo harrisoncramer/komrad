@@ -7,6 +7,8 @@ import (
 	"komrad/internal/ui/screen"
 )
 
+const emptyArchiveMarkdown = "# Archive\n\n_no archived schedules_\n\nKomrad keeps the schedules you archive here until you delete them.\n"
+
 // Details is the record of the archived schedule the cursor is on.
 func (a Archive) Details(in screen.Inputs) record.Details {
 	item, ok := list.At(a.listRows(in), a.Row)

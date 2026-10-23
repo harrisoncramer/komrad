@@ -24,8 +24,6 @@ A schedule launches an agent, or mails an orchestrator, on a cron expression.
 Press the new key to write one.
 `
 
-const emptyArchiveMarkdown = "# Archive\n\n_no archived schedules_\n\nKomrad keeps the schedules you archive here until you delete them.\n"
-
 // Details is the record of the schedule the cursor is on.
 func (w *Screen) Details(in screen.Inputs) record.Details {
 	item, ok := w.selected(in)
