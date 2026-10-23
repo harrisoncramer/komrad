@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
+// TestParse pins that only a JSON name parses to its value.
 func TestParse(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -55,6 +56,7 @@ func TestParse(t *testing.T) {
 	}
 }
 
+// TestParseAll pins that one undefined name fails the whole list.
 func TestParseAll(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -93,15 +95,28 @@ func TestParseAll(t *testing.T) {
 	}
 }
 
+// TestName pins the name each kind of value writes.
 func TestName(t *testing.T) {
 	tests := []struct {
 		name string
 		in   eventv1.Moment
 		want string
 	}{
-		{name: "an undefined number is its number", in: eventv1.Moment(99), want: "99"},
-		{name: "the zero value is its constant name", in: eventv1.Moment_MOMENT_UNSPECIFIED, want: "MOMENT_UNSPECIFIED"},
-		{name: "a value is its dotted name", in: eventv1.Moment_MOMENT_TASK_PRE_OPEN, want: "task.pre-open"},
+		{
+			name: "an undefined number is its number",
+			in:   eventv1.Moment(99),
+			want: "99",
+		},
+		{
+			name: "the zero value is its constant name",
+			in:   eventv1.Moment_MOMENT_UNSPECIFIED,
+			want: "MOMENT_UNSPECIFIED",
+		},
+		{
+			name: "a value is its dotted name",
+			in:   eventv1.Moment_MOMENT_TASK_PRE_OPEN,
+			want: "task.pre-open",
+		},
 	}
 
 	for _, tt := range tests {
@@ -111,15 +126,26 @@ func TestName(t *testing.T) {
 	}
 }
 
+// TestLabel pins that a value without a label has an empty one.
 func TestLabel(t *testing.T) {
 	tests := []struct {
 		name      string
 		in        eventv1.Moment
 		wantTitle string
 	}{
-		{name: "an undefined number has an empty label", in: eventv1.Moment(99)},
-		{name: "the zero value has an empty label", in: eventv1.Moment_MOMENT_UNSPECIFIED},
-		{name: "a value has its title", in: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH, wantTitle: "Agent pre-launch hook"},
+		{
+			name: "an undefined number has an empty label",
+			in:   eventv1.Moment(99),
+		},
+		{
+			name: "the zero value has an empty label",
+			in:   eventv1.Moment_MOMENT_UNSPECIFIED,
+		},
+		{
+			name:      "a value has its title",
+			in:        eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH,
+			wantTitle: "Agent pre-launch hook",
+		},
 	}
 
 	for _, tt := range tests {
@@ -131,6 +157,7 @@ func TestLabel(t *testing.T) {
 	}
 }
 
+// TestAcceptedOf pins that a field accepts the values its enum rules leave in.
 func TestAcceptedOf(t *testing.T) {
 	tests := []struct {
 		name  string
