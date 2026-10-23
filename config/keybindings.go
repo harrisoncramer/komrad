@@ -340,6 +340,8 @@ type DocumentMenuKeys struct {
 	// Write a new document for the agent whose documents are listed, from a form. The entry is
 	// only on the documents view opened from an agent.
 	New []string `mapstructure:"new" default:"c"`
+	// Delete the document and every earlier version of it, once you confirm.
+	Delete []string `mapstructure:"delete" default:"d"`
 }
 
 // DocumentsKeys are the bindings for the documents view, which lists every document agents

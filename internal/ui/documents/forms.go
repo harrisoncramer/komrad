@@ -104,3 +104,30 @@ func (d *Screen) pressNew(in screen.Inputs) screen.Request {
 
 	return d.newForm(in, agentID)
 }
+
+// deleteForm asks before it deletes a document.
+func (d *Screen) deleteForm(item document) form.Form {
+	built, confirmed := form.Confirm(
+		fmt.Sprintf("Delete document %q?", item.name),
+		"Komrad deletes every version of it, and agents can no longer read it.",
+		"Delete",
+		config.Fixed(),
+	)
+
+	return form.Form{
+		Built: built,
+		Submit: func(form.Inputs) screen.Request {
+			if !*confirmed {
+				return nil
+			}
+
+			return d.deps.Clients.Write(
+				"deleting "+item.name,
+				fmt.Sprintf("Could not delete document %q", item.name),
+				func(a api.Clients) error { return a.DeleteDocument(item.id) },
+			)
+		},
+		Narrow:          true,
+		ClosesOnRefusal: true,
+	}
+}
