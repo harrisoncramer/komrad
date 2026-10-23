@@ -267,3 +267,68 @@ func startReviewed(t *testing.T, params paneltest.Params) (*paneltest.Panel, *re
 func (r *reviewed) snapshot(rows ...proto.Message) *watchv1.WatchEvent {
 	return paneltest.Snapshot(append([]proto.Message{r.workflow, r.agent, r.task}, rows...)...)
 }
+
+// TestMenuStaysOpenAfterAWrite covers a menu that stays up through a write it began, giving the
+// keys back once the list shows the change or the wait runs out, and closing when its task leaves
+// the list.
+func TestMenuStaysOpenAfterAWrite(t *testing.T) {
+	t.Parallel()
+
+	t.Run("a change the list never shows leaves the menu as it was once the wait runs out", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openForgeMenu(t)
+
+		harness.Press("d")
+		harness.Advance(5 * time.Second)
+
+		frame := harness.Frame()
+		assert.Equal(t, "agents › auth › git › forge", paneltest.Trail(frame))
+		assert.Contains(t, frame, "toggle draft on")
+		assert.Contains(t, harness.ReadMessages(), "auth: #7 is a draft")
+	})
+
+	t.Run("a task that leaves the list closes the menus", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openForgeMenu(t)
+
+		harness.Press("d")
+		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend")))
+
+		assert.NotContains(t, harness.Frame(), "toggle draft")
+	})
+}
+
+// openForgeMenu opens the forge menu on a task with an open pull request.
+func openForgeMenu(t *testing.T) *paneltest.Panel {
+	t.Helper()
+
+	agent := paneltest.Agent("a1", "auth", "w1")
+	agent.Cwd = "/trees/auth"
+	task := paneltest.TaskOf(agent)
+	task.Slug = "auth"
+	task.RepositoryUrl = xptr.Ptr(paneltest.RepositoryURL)
+	task.Branch = xptr.Ptr("agent/auth")
+	task.Cwd = xptr.Ptr("/trees/auth")
+	harness := paneltest.OpenAgents(t,
+		&workflowv1.Workflow{Id: "w1", Name: "backend", Worktree: &workflowv1.WorktreeConfig{Enabled: true}},
+		agent,
+		task,
+		&pullrequestv1.PullRequest{
+			Id:                "pr-1",
+			RepositoryUrl:     paneltest.RepositoryURL,
+			HeadRepositoryUrl: paneltest.RepositoryURL,
+			HeadBranch:        "agent/auth",
+			Number:            7,
+			Url:               paneltest.RepositoryURL + "/pull/7",
+			State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
+			OpenedAt:          timestamppb.New(time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)),
+		},
+	)
+	harness.MoveToRow("auth")
+	harness.Press("space", "g", "f")
+	require.Equal(t, "agents › auth › git › forge", paneltest.Trail(harness.Frame()))
+
+	return harness
+}
