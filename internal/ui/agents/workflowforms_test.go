@@ -24,7 +24,7 @@ import (
 
 // TestFormsWorkflowProvisioner covers the workflow form asking only what its provisioner needs.
 func TestFormsWorkflowProvisioner(t *testing.T) {
-	harness := openForms(t, newFormWorkflow(), newFormAuthor())
+	harness := openForms(t, paneltest.FormWorkflow(), paneltest.FormAuthor())
 
 	harness.Press(slices.Concat([]string{"space", "w"}, slices.Repeat([]string{"tab"}, 3))...)
 	frame := harness.Frame()
@@ -46,7 +46,7 @@ func TestFormsWorkflowProvisioner(t *testing.T) {
 // TestFormsWorkflowSubforms covers drilling into a subform of the workflow form and coming back.
 func TestFormsWorkflowSubforms(t *testing.T) {
 	t.Run("back keeps what the subform was given and lands on the list of subforms", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness := openForms(t, paneltest.FormWorkflow(), paneltest.FormAuthor())
 
 		harness.Press(slices.Concat([]string{"space", "w"}, strings.Split("web", ""), openWorkflowSubformKeys(0), strings.Split("codex", ""), []string{"esc"})...)
 		assert.NotContains(t, harness.Frame(), "Default Agent", "the subform closed")
@@ -64,7 +64,7 @@ func TestFormsWorkflowSubforms(t *testing.T) {
 	})
 
 	t.Run("back on the top form throws the edit away", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness := openForms(t, paneltest.FormWorkflow(), paneltest.FormAuthor())
 
 		harness.Press(slices.Concat([]string{"space", "w"}, strings.Split("web", ""), []string{"esc"})...)
 
@@ -97,7 +97,7 @@ func TestFormsWorkflowHooks(t *testing.T) {
 	})
 
 	t.Run("a hook still waiting on a chmod is offered", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness := openForms(t, paneltest.FormWorkflow(), paneltest.FormAuthor())
 		harness.Answer(hookv1connect.HookServiceListHooksProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 			return connect.NewResponse(&hookv1.ListHooksResponse{Hooks: []*hookv1.Hook{{Name: "unrunnable"}}}), nil
 		})
@@ -154,12 +154,12 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 	}
 
 	t.Run("the prompts come back in the order the events are listed", func(t *testing.T) {
-		workflow := newFormWorkflow()
+		workflow := paneltest.FormWorkflow()
 		workflow.EventPrompts = []*workflowv1.WorkflowEventPrompt{
 			{Event: eventv1.Event_EVENT_REVIEW_APPROVED, Prompt: "open the pull request"},
 			{Event: eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING, Prompt: "fix the checks"},
 		}
-		harness := openForms(t, workflow, newFormAuthor())
+		harness := openForms(t, workflow, paneltest.FormAuthor())
 
 		harness.Press("space", "E", "enter")
 
@@ -170,7 +170,7 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 	})
 
 	t.Run("a prompt typed under its event is sent with it", func(t *testing.T) {
-		harness := openWideForms(t, newFormWorkflow(), newFormAuthor())
+		harness := openWideForms(t, paneltest.FormWorkflow(), paneltest.FormAuthor())
 
 		harness.Press(append([]string{"space", "E"}, openWorkflowSubformKeys(3)...)...)
 		frame := harness.Frame()
@@ -184,12 +184,12 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 	})
 
 	t.Run("a muted event with no prompt comes back muted", func(t *testing.T) {
-		workflow := newFormWorkflow()
+		workflow := paneltest.FormWorkflow()
 		workflow.EventPrompts = []*workflowv1.WorkflowEventPrompt{
 			{Event: eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING, Prompt: "fix the checks"},
 			{Event: eventv1.Event_EVENT_PULL_REQUEST_BEHIND, Muted: true},
 		}
-		harness := openForms(t, workflow, newFormAuthor())
+		harness := openForms(t, workflow, paneltest.FormAuthor())
 
 		harness.Press("space", "E", "enter")
 
@@ -197,7 +197,7 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 	})
 
 	t.Run("muting an event under its prompt sends it muted", func(t *testing.T) {
-		harness := openWideForms(t, newFormWorkflow(), newFormAuthor())
+		harness := openWideForms(t, paneltest.FormWorkflow(), paneltest.FormAuthor())
 
 		harness.Press(append([]string{"space", "E"}, openWorkflowSubformKeys(3)...)...)
 		harness.Press(slices.Concat(strings.Split("fix the checks", ""), []string{"tab"})...)
@@ -216,7 +216,7 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 	})
 
 	t.Run("a new workflow starts with each event's default", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness := openForms(t, paneltest.FormWorkflow(), paneltest.FormAuthor())
 
 		harness.Press(slices.Concat([]string{"space", "w"}, strings.Split("web", ""), []string{"enter"})...)
 
@@ -243,9 +243,9 @@ func openWideForms(t *testing.T, workflow *workflowv1.Workflow, author *agentv1.
 func openHookForm(t *testing.T, hooks []*workflowv1.WorkflowHook, available ...string) *paneltest.Panel {
 	t.Helper()
 
-	workflow := newFormWorkflow()
+	workflow := paneltest.FormWorkflow()
 	workflow.Hooks = hooks
-	harness := openWideForms(t, workflow, newFormAuthor())
+	harness := openWideForms(t, workflow, paneltest.FormAuthor())
 	harness.Answer(hookv1connect.HookServiceListHooksProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&hookv1.ListHooksResponse{Hooks: xslice.Map(available, func(name string) *hookv1.Hook {
 			return &hookv1.Hook{Name: name, Executable: true}

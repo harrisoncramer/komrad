@@ -37,7 +37,7 @@ func TestNoticesGolden(t *testing.T) {
 		{
 			name:  "marks-beside-the-name",
 			press: paneltest.WidenListPresses,
-			rows:  []proto.Message{newFailedRun(), newUnreadMail("n1")},
+			rows:  []proto.Message{newFailedRun(), paneltest.UnreadMail("n1")},
 		},
 		{
 			name:  "column-facts",
@@ -108,16 +108,16 @@ func newNoticed() *agentv1.Agent {
 func newPullRequested(state pullrequestv1.PullRequestState) []proto.Message {
 	agent := newNoticed()
 	task := paneltest.TaskOf(agent)
-	task.RepositoryUrl = xptr.Ptr(repositoryURL)
+	task.RepositoryUrl = xptr.Ptr(paneltest.RepositoryURL)
 	task.Branch = xptr.Ptr("agent/n1")
 
 	return []proto.Message{
 		agent,
-		&pullrequestv1.Repository{Url: repositoryURL},
+		&pullrequestv1.Repository{Url: paneltest.RepositoryURL},
 		&pullrequestv1.PullRequest{
 			Id:                "pr-1",
-			RepositoryUrl:     repositoryURL,
-			HeadRepositoryUrl: repositoryURL,
+			RepositoryUrl:     paneltest.RepositoryURL,
+			HeadRepositoryUrl: paneltest.RepositoryURL,
 			HeadBranch:        "agent/n1",
 			Number:            7,
 			State:             state,
@@ -174,12 +174,4 @@ func readNoticeBlock(harness *paneltest.Panel) []string {
 	}
 
 	return block
-}
-
-func newUnreadMail(agentID string) *agentv1.Mail {
-	return &agentv1.Mail{
-		Id:        "m1",
-		ToAgentId: agentID,
-		ExpiresAt: timestamppb.New(time.Now().Add(time.Hour).UTC()),
-	}
 }

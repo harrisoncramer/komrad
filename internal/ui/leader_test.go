@@ -248,7 +248,7 @@ func openTaskDocuments(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
 	harness := paneltest.OpenAgents(t, buildSubpagesAgents()...)
-	answerDocuments(harness, buildAuthorDocuments())
+	harness.AnswerDocuments(paneltest.BuildAuthorDocuments())
 	harness.MoveToRow("task-author")
 	harness.Press("space", "J", "d")
 	harness.Advance(time.Second)

@@ -131,7 +131,7 @@ func TestMenu(t *testing.T) {
 
 		harness := paneltest.Start(t, paneltest.Params{TriageRows: 3})
 		harness.AnswerWorktreeReads()
-		harness.Watch(paneltest.Snapshot(buildTriage()...))
+		harness.Watch(paneltest.Snapshot(paneltest.BuildTriage()...))
 		harness.Press("t")
 		harness.Advance(time.Second)
 		harness.Press("space")
@@ -194,12 +194,12 @@ func openPullRequestReview(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
 	harness, reviewed := startReviewed(t, paneltest.Params{})
-	reviewed.task.RepositoryUrl = xptr.Ptr(repositoryURL)
+	reviewed.task.RepositoryUrl = xptr.Ptr(paneltest.RepositoryURL)
 	reviewed.task.Branch = xptr.Ptr("agent/auth")
 	harness.Watch(reviewed.snapshot(&pullrequestv1.PullRequest{
 		Id:                "pr-1",
-		RepositoryUrl:     repositoryURL,
-		HeadRepositoryUrl: repositoryURL,
+		RepositoryUrl:     paneltest.RepositoryURL,
+		HeadRepositoryUrl: paneltest.RepositoryURL,
 		HeadBranch:        "agent/auth",
 		Number:            7,
 		State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
@@ -269,26 +269,3 @@ func startReviewed(t *testing.T, params paneltest.Params) (*paneltest.Panel, *re
 func (r *reviewed) snapshot(rows ...proto.Message) *watchv1.WatchEvent {
 	return paneltest.Snapshot(append([]proto.Message{r.workflow, r.agent, r.task}, rows...)...)
 }
-
-// buildTriage is a workflow with three agents waiting on a person and one that is not, broken the
-// longest but in a tier below the others.
-func buildTriage() []proto.Message {
-	return []proto.Message{
-		paneltest.Workflow("w1", "backend"),
-		paneltest.AgentAt("quiet", "w1", 1),
-		newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
-		newTriageAgent("broken", agentv1.AgentState_AGENT_STATE_ERRORED, 2),
-		newTriageAgent("third", agentv1.AgentState_AGENT_STATE_WAITING, 4),
-	}
-}
-
-func newTriageAgent(name string, state agentv1.AgentState, minute int) *agentv1.Agent {
-	agent := paneltest.AgentAt(name, "w1", minute)
-	agent.State = state
-	agent.Alive = xptr.Ptr(true)
-	agent.StateChangedAt = timestamppb.New(time.Date(2026, 9, 20, 13, minute, 0, 0, time.UTC))
-
-	return agent
-}
-
-const repositoryURL = "https://github.com/harrisoncramer/komrad"

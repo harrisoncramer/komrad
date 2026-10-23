@@ -208,7 +208,7 @@ func openArchivedSubpages(t *testing.T) *paneltest.Panel {
 	task.ArchivedAt = paneltest.ArchivedAt
 
 	harness := paneltest.OpenArchivedAgents(t, paneltest.Workflow("w1", "komrad"), author, task)
-	answerDocuments(harness, buildAuthorDocuments())
+	harness.AnswerDocuments(paneltest.BuildAuthorDocuments())
 	harness.Press("j", "j", "space")
 	require.Contains(t, harness.Frame(), "  author")
 
@@ -238,37 +238,4 @@ func buildSubpagesAgents() []proto.Message {
 		paneltest.TaskOf(quiet),
 		paneltest.Reviewer("reviewer", "reviewer", "author"),
 	}
-}
-
-// buildAuthorDocuments is the two documents the author wrote on its task, newest first.
-func buildAuthorDocuments() []*agentv1.Document {
-	return []*agentv1.Document{
-		{
-			Id:        "d1",
-			AgentId:   "author",
-			TaskId:    xptr.Ptr("task-author"),
-			Name:      "Design the cache",
-			Type:      "RFC",
-			Version:   3,
-			UpdatedAt: timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)),
-		},
-		{
-			Id:        "d2",
-			AgentId:   "author",
-			TaskId:    xptr.Ptr("task-author"),
-			Name:      "Rollout report",
-			Type:      "report",
-			Version:   5,
-			UpdatedAt: timestamppb.New(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC)),
-		},
-	}
-}
-
-// answerDocuments lists the documents and reads the first of them whichever one is asked for.
-func answerDocuments(harness *paneltest.Panel, documents []*agentv1.Document) {
-	read := proto.CloneOf(documents[0])
-	read.Body = "# Design the cache\n\nKeep the cache warm."
-
-	harness.Answer(agentv1connect.AgentServiceListDocumentsProcedure, paneltest.AnswerWith(&agentv1.ListDocumentsResponse{Documents: documents}))
-	harness.Answer(agentv1connect.AgentServiceGetDocumentProcedure, paneltest.AnswerWith(&agentv1.GetDocumentResponse{Document: read}))
 }

@@ -7,7 +7,6 @@ import (
 
 	"komrad/internal/ui/paneltest"
 	"komrad/lib/xslice"
-	agentv1 "komrad/proto/gen/agent/v1"
 	watchv1 "komrad/proto/gen/watch/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 
@@ -119,14 +118,14 @@ func TestWatch(t *testing.T) {
 	t.Run("unclaimed mail is marked until it expires by the panel's clock or is claimed", func(t *testing.T) {
 		t.Parallel()
 
-		expired := newUnreadMail("expired")
+		expired := paneltest.UnreadMail("expired")
 		expired.Id = "m2"
 		expired.ExpiresAt = timestamppb.New(time.Now().Add(-time.Hour).UTC())
 		harness := paneltest.OpenAgents(t,
 			paneltest.Workflow("w1", "api"),
 			paneltest.AgentAt("waiting", "w1", 2),
 			paneltest.AgentAt("expired", "w1", 1),
-			newUnreadMail("waiting"),
+			paneltest.UnreadMail("waiting"),
 			expired,
 		)
 
@@ -181,12 +180,4 @@ func findRow(rows []string, name string) string {
 	}
 
 	return ""
-}
-
-func newUnreadMail(agentID string) *agentv1.Mail {
-	return &agentv1.Mail{
-		Id:        "m1",
-		ToAgentId: agentID,
-		ExpiresAt: timestamppb.New(time.Now().Add(time.Hour).UTC()),
-	}
 }

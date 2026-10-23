@@ -25,15 +25,15 @@ func TestSelection(t *testing.T) {
 	}{
 		{
 			name: "the agents tree",
-			rows: buildSelectable(),
+			rows: paneltest.BuildSelectable(),
 		},
 		{
 			name: "the archived agents",
 			rows: []proto.Message{
 				paneltest.Workflow("w1", "backend"),
-				newArchivedAgentAt("auth", time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC)),
-				newArchivedAgentAt("api", time.Date(2026, 7, 30, 11, 0, 0, 0, time.UTC)),
-				newArchivedAgentAt("db", time.Date(2026, 7, 30, 10, 0, 0, 0, time.UTC)),
+				paneltest.ArchivedAgentAt("auth", time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC)),
+				paneltest.ArchivedAgentAt("api", time.Date(2026, 7, 30, 11, 0, 0, 0, time.UTC)),
+				paneltest.ArchivedAgentAt("db", time.Date(2026, 7, 30, 10, 0, 0, 0, time.UTC)),
 			},
 			press: []string{"F", "tab", "esc", "j"},
 		},
@@ -54,7 +54,7 @@ func TestSelection(t *testing.T) {
 	}
 
 	t.Run("the bar stays while a menu has the keys", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, withTasks(buildSelectable())...)
+		harness := paneltest.OpenAgents(t, withTasks(paneltest.BuildSelectable())...)
 		harness.Press("j", "v")
 
 		harness.Press("space", "a")
@@ -64,7 +64,7 @@ func TestSelection(t *testing.T) {
 	})
 
 	t.Run("a selection survives a search", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, withTasks(buildSelectable())...)
+		harness := paneltest.OpenAgents(t, withTasks(paneltest.BuildSelectable())...)
 
 		harness.Press("v", "j", "j", "v", "/", "d", "b", "enter", "space", "a")
 
@@ -103,7 +103,7 @@ func findRenderedRows(t *testing.T, harness *paneltest.Panel, name string) []str
 	lines := paneltest.SplitLines(raw)
 	var found []string
 	for _, line := range paneltest.ListLines(ansi.Strip(raw)) {
-		if strings.TrimPrefix(strings.TrimLeft(line.Row, "│├└─ "), reviewerMark) == name {
+		if strings.TrimPrefix(strings.TrimLeft(line.Row, "│├└─ "), paneltest.ReviewerMark) == name {
 			found = append(found, lines[line.Index])
 		}
 	}

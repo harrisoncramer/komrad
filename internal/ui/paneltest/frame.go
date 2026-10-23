@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"testing"
 	"time"
 
 	"komrad/internal/glyph"
@@ -595,4 +596,40 @@ func (p *Panel) WheelOver(x int) {
 		Button: tea.MouseWheelDown,
 	})
 	p.Advance(WheelFrame)
+}
+
+// FindRowWith is the first sidebar line carrying the text given, failing the test when none does.
+func FindRowWith(t *testing.T, frame, want string) string {
+	t.Helper()
+
+	for _, line := range Sidebar(frame) {
+		if strings.Contains(line, want) {
+			return line
+		}
+	}
+
+	require.Failf(t, "no row carries the text", "%q", want)
+
+	return ""
+}
+
+// ReadWriteFrame is the loader frame rendered before the write notice given.
+func ReadWriteFrame(t *testing.T, frame, doing string) string {
+	t.Helper()
+
+	for _, line := range SplitLines(ansi.Strip(frame)) {
+		at := strings.Index(line, doing)
+		if at < 0 {
+			continue
+		}
+
+		fields := strings.Fields(line[:at])
+		require.NotEmpty(t, fields)
+
+		return fields[len(fields)-1]
+	}
+
+	require.Fail(t, "nothing is rendered doing "+doing)
+
+	return ""
 }

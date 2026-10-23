@@ -15,7 +15,6 @@ import (
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
 
 	"connectrpc.com/connect"
-	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -87,7 +86,7 @@ func TestLoaderSpinsWhileAWriteIsInFlight(t *testing.T) {
 		Loader: loader.Arcs,
 	})
 	harness.AnswerWorktreeReads()
-	harness.Watch(paneltest.Snapshot(newFormWorkflow()))
+	harness.Watch(paneltest.Snapshot(paneltest.FormWorkflow()))
 	harness.Answer(create, func(connect.AnyRequest) (connect.AnyResponse, error) {
 		return connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "w2"}}), nil
 	})
@@ -96,7 +95,7 @@ func TestLoaderSpinsWhileAWriteIsInFlight(t *testing.T) {
 
 	var rendered []string
 	for range 3 {
-		rendered = append(rendered, readWriteFrame(t, harness.Frame(), "creating workflow web…"))
+		rendered = append(rendered, paneltest.ReadWriteFrame(t, harness.Frame(), "creating workflow web…"))
 		require.True(t, harness.IsSpinning(), "the loader stopped ticking with the write in flight")
 	}
 
@@ -112,7 +111,12 @@ func openAgentsWithPullRequest(state pullrequestv1.PullRequestState) func(t *tes
 	return func(t *testing.T) *paneltest.Panel {
 		t.Helper()
 
-		return openNoticed(t, paneltest.Params{Loader: loader.Arcs}, newPullRequested(state)...)
+		harness := paneltest.Start(t, paneltest.Params{Loader: loader.Arcs})
+		harness.AnswerWorktreeReads()
+		harness.Watch(paneltest.Snapshot(append([]proto.Message{paneltest.Workflow("w1", "backend")}, newPullRequested(state)...)...))
+		harness.Press("g", "g", "j")
+
+		return harness
 	}
 }
 
@@ -125,37 +129,6 @@ func openArchiveWithChecksRunning(t *testing.T) *paneltest.Panel {
 	agent.ArchivedAt = paneltest.ArchivedAt
 
 	return paneltest.OpenArchivedAgents(t, append([]proto.Message{paneltest.Workflow("w1", "backend")}, rows...)...)
-}
-
-func readWriteFrame(t *testing.T, frame, doing string) string {
-	t.Helper()
-
-	for _, line := range paneltest.SplitLines(ansi.Strip(frame)) {
-		at := strings.Index(line, doing)
-		if at < 0 {
-			continue
-		}
-
-		fields := strings.Fields(line[:at])
-		require.NotEmpty(t, fields)
-
-		return fields[len(fields)-1]
-	}
-
-	require.Fail(t, "nothing is rendered doing "+doing)
-
-	return ""
-}
-
-func openNoticed(t *testing.T, params paneltest.Params, rows ...proto.Message) *paneltest.Panel {
-	t.Helper()
-
-	harness := paneltest.Start(t, params)
-	harness.AnswerWorktreeReads()
-	harness.Watch(paneltest.Snapshot(append([]proto.Message{paneltest.Workflow("w1", "backend")}, rows...)...))
-	harness.Press("g", "g", "j")
-
-	return harness
 }
 
 func newNoticed() *agentv1.Agent {
@@ -171,16 +144,16 @@ func newNoticed() *agentv1.Agent {
 func newPullRequested(state pullrequestv1.PullRequestState) []proto.Message {
 	agent := newNoticed()
 	task := paneltest.TaskOf(agent)
-	task.RepositoryUrl = xptr.Ptr(repositoryURL)
+	task.RepositoryUrl = xptr.Ptr(paneltest.RepositoryURL)
 	task.Branch = xptr.Ptr("agent/n1")
 
 	return []proto.Message{
 		agent,
-		&pullrequestv1.Repository{Url: repositoryURL},
+		&pullrequestv1.Repository{Url: paneltest.RepositoryURL},
 		&pullrequestv1.PullRequest{
 			Id:                "pr-1",
-			RepositoryUrl:     repositoryURL,
-			HeadRepositoryUrl: repositoryURL,
+			RepositoryUrl:     paneltest.RepositoryURL,
+			HeadRepositoryUrl: paneltest.RepositoryURL,
 			HeadBranch:        "agent/n1",
 			Number:            7,
 			State:             state,

@@ -27,7 +27,7 @@ func TestTasksTree(t *testing.T) {
 	t.Run("every task stands over the agents on it", func(t *testing.T) {
 		harness := paneltest.OpenAgents(t, buildTasks()...)
 
-		assert.Equal(t, []string{"komrad", "├─ solo", "└─ fix-login", "   └─ " + reviewerMark + "follow-up"}, paneltest.ListRows(harness.Frame()))
+		assert.Equal(t, []string{"komrad", "├─ solo", "└─ fix-login", "   └─ " + paneltest.ReviewerMark + "follow-up"}, paneltest.ListRows(harness.Frame()))
 	})
 
 	t.Run("enter on a task opens its writer", func(t *testing.T) {
@@ -46,7 +46,7 @@ func TestTasksTree(t *testing.T) {
 
 		harness.Press(slices.Concat([]string{"/", "tab"}, strings.Split("task:fix", ""), []string{"enter"})...)
 
-		assert.Equal(t, []string{"komrad", "└─ fix-login", "   └─ " + reviewerMark + "follow-up"}, paneltest.ListRows(harness.Frame()))
+		assert.Equal(t, []string{"komrad", "└─ fix-login", "   └─ " + paneltest.ReviewerMark + "follow-up"}, paneltest.ListRows(harness.Frame()))
 	})
 
 	t.Run("selecting a task archives only that task", func(t *testing.T) {
@@ -197,7 +197,7 @@ func TestTasksTree(t *testing.T) {
 					onTask = newTaskAgent("a2", "reviewer", "t1", agentv1.AgentRole_AGENT_ROLE_REVIEWER, 0)
 				}
 				harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "komrad"), tt.task, onTask)
-				answerAgentCreate(harness, "")
+				harness.AnswerAgentCreate("")
 				if tt.deleting {
 					harness.Watch(paneltest.Deleted(watchv1.Resource_RESOURCE_TASK, "t1"))
 				}

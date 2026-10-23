@@ -32,13 +32,13 @@ func TestTriageRows(t *testing.T) {
 		{
 			name:     "a zone with no rows is not rendered",
 			capacity: 0,
-			rows:     buildTriage(),
+			rows:     paneltest.BuildTriage(),
 			want:     []string{"backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 		},
 		{
 			name:     "a zone with nothing in triage says so",
 			capacity: 2,
-			rows:     []proto.Message{paneltest.Workflow("w1", "backend"), newTriageAgent("└─ └─ quiet", agentv1.AgentState_AGENT_STATE_IDLE, 1)},
+			rows:     []proto.Message{paneltest.Workflow("w1", "backend"), paneltest.TriageAgent("└─ └─ quiet", agentv1.AgentState_AGENT_STATE_IDLE, 1)},
 			want:     []string{"nothing to triage", "backend", "└─ └─ └─ quiet"},
 		},
 		{
@@ -67,48 +67,48 @@ func TestTriageRows(t *testing.T) {
 			rows: append(withTasks([]proto.Message{
 				paneltest.Workflow("w1", "backend"),
 				paneltest.AgentAt("quiet", "w1", 1),
-				newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
+				paneltest.TriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
 			}),
 				paneltest.Reviewer("reviewer", "reviewer", "asker"),
 				paneltest.Reviewer("second-reviewer", "second-reviewer", "asker"),
 			),
-			want: []string{"asker backend", "└ " + reviewerMark + "second-reviewer", "└ " + reviewerMark + "reviewer", "backend", "├─ task-asker", "│ ├─ " + reviewerMark + "second-reviewer", "│ └─ " + reviewerMark + "reviewer", "└─ task-quiet"},
+			want: []string{"asker backend", "└ " + paneltest.ReviewerMark + "second-reviewer", "└ " + paneltest.ReviewerMark + "reviewer", "backend", "├─ task-asker", "│ ├─ " + paneltest.ReviewerMark + "second-reviewer", "│ └─ " + paneltest.ReviewerMark + "reviewer", "└─ task-quiet"},
 		},
 		{
 			name:     "a reviewer in triage brings its writer with it",
 			capacity: 2,
 			rows:     buildTriageTask()[:5],
-			want:     []string{"writer backend", "└ " + reviewerMark + "reviewer", "backend", "├─ task-writer", "│ └─ " + reviewerMark + "reviewer", "└─ quiet"},
+			want:     []string{"writer backend", "└ " + paneltest.ReviewerMark + "reviewer", "backend", "├─ task-writer", "│ └─ " + paneltest.ReviewerMark + "reviewer", "└─ quiet"},
 		},
 		{
 			name:     "the most urgent tier takes the slots and the rest wait in the tree",
 			capacity: 2,
-			rows:     buildTriage(),
+			rows:     paneltest.BuildTriage(),
 			want:     []string{"asker", "third", "+1 more waiting for a slot", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 		},
 		{
 			name:     "within a tier the agent waiting longest comes first",
 			capacity: 3,
-			rows:     buildTriage(),
+			rows:     paneltest.BuildTriage(),
 			want:     []string{"asker", "third", "broken", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 		},
 		{
 			name:     "a task with a reviewer asking takes one slot",
 			capacity: 2,
-			rows:     append(withTasks(buildTriage()[:3]), buildTriageTask()[2:5]...),
-			want:     []string{"asker backend", "writer backend", "└ " + reviewerMark + "reviewer", "backend", "├─ task-asker", "├─ task-writer", "│ └─ " + reviewerMark + "reviewer", "└─ task-quiet"},
+			rows:     append(withTasks(paneltest.BuildTriage()[:3]), buildTriageTask()[2:5]...),
+			want:     []string{"asker backend", "writer backend", "└ " + paneltest.ReviewerMark + "reviewer", "backend", "├─ task-asker", "├─ task-writer", "│ └─ " + paneltest.ReviewerMark + "reviewer", "└─ task-quiet"},
 		},
 		{
 			name:     "three tasks come whole with their reviewers and a fourth waits for a slot",
 			capacity: 3,
-			rows: append(withTasks(buildTriage()),
+			rows: append(withTasks(paneltest.BuildTriage()),
 				paneltest.Reviewer("second-reviewer", "second-reviewer", "asker"),
 				buildTriageTask()[2],
 				buildTriageTask()[3],
 				buildTriageTask()[4],
 				paneltest.Reviewer("third-reviewer", "third-reviewer", "third"),
 			),
-			want: []string{"asker backend", "└ " + reviewerMark + "second-reviewer", "writer backend", "└ " + reviewerMark + "reviewer", "third backend", "└ " + reviewerMark + "third-reviewer", "+1 more waiting for a slot", "backend", "├─ task-third", "│ └─ " + reviewerMark + "third-reviewer", "├─ task-asker", "│ └─ " + reviewerMark + "second-reviewer", "├─ task-writer", "│ └─ " + reviewerMark + "reviewer", "├─ task-broken", "└─ task-quiet"},
+			want: []string{"asker backend", "└ " + paneltest.ReviewerMark + "second-reviewer", "writer backend", "└ " + paneltest.ReviewerMark + "reviewer", "third backend", "└ " + paneltest.ReviewerMark + "third-reviewer", "+1 more waiting for a slot", "backend", "├─ task-third", "│ └─ " + paneltest.ReviewerMark + "third-reviewer", "├─ task-asker", "│ └─ " + paneltest.ReviewerMark + "second-reviewer", "├─ task-writer", "│ └─ " + paneltest.ReviewerMark + "reviewer", "├─ task-broken", "└─ task-quiet"},
 		},
 	}
 
@@ -129,11 +129,11 @@ func TestTriageHeight(t *testing.T) {
 		name string
 		rows []proto.Message
 	}{
-		{name: "full", rows: append(buildTriage(), newTriageAgent("fourth", agentv1.AgentState_AGENT_STATE_WAITING, 5))},
-		{name: "part full", rows: buildTriage()[:3]},
+		{name: "full", rows: append(paneltest.BuildTriage(), paneltest.TriageAgent("fourth", agentv1.AgentState_AGENT_STATE_WAITING, 5))},
+		{name: "part full", rows: paneltest.BuildTriage()[:3]},
 	}
 
-	want := findTreeLine(openTriage(t, 4, buildTriage()[:2]...).Frame())
+	want := findTreeLine(openTriage(t, 4, paneltest.BuildTriage()[:2]...).Frame())
 	require.GreaterOrEqual(t, want, 0)
 
 	for _, tt := range tests {
@@ -163,13 +163,13 @@ func TestTriageJump(t *testing.T) {
 		},
 		{
 			name:  "the key puts the cursor on the first agent in triage",
-			rows:  buildTriage(),
+			rows:  paneltest.BuildTriage(),
 			press: []string{"G", "t"},
 			want:  "asker",
 		},
 		{
 			name:  "the cursor moves on out of the zone into the tree",
-			rows:  buildTriage(),
+			rows:  paneltest.BuildTriage(),
 			press: []string{"t", "j", "j"},
 			want:  "backend",
 		},
@@ -210,24 +210,24 @@ func TestTriageSnooze(t *testing.T) {
 			press:    []string{"t", "space", "z"},
 			relisted: []proto.Message{paneltest.Workflow("w1", "backend"), paneltest.AgentAt("quiet", "w1", 1), buildTriageTask()[5]},
 			then:     buildTriageTask(),
-			want:     []string{"writer backend", "└ " + reviewerMark + "reviewer", "third", "backend", "├─ third", "├─ task-writer", "│ └─ " + reviewerMark + "reviewer", "└─ quiet"},
+			want:     []string{"writer backend", "└ " + paneltest.ReviewerMark + "reviewer", "third", "backend", "├─ third", "├─ task-writer", "│ └─ " + paneltest.ReviewerMark + "reviewer", "└─ quiet"},
 		},
 		{
 			name:     "a task hidden and shown again keeps its snooze",
 			capacity: 3,
-			rows:     withTasks(buildTriage()),
+			rows:     withTasks(paneltest.BuildTriage()),
 			press:    []string{"t", "space", "z"},
-			relisted: hideTaskOf(withTasks(buildTriage()), "asker"),
-			then:     withTasks(buildTriage()),
+			relisted: hideTaskOf(withTasks(paneltest.BuildTriage()), "asker"),
+			then:     withTasks(paneltest.BuildTriage()),
 			want:     []string{"third backend", "broken backend", "backend", "├─ task-third", "├─ task-asker", "├─ task-broken", "└─ task-quiet"},
 		},
 		{
 			name:     "an agent that asks again ends its snooze",
 			capacity: 3,
-			rows:     buildTriage(),
+			rows:     paneltest.BuildTriage(),
 			press:    []string{"t", "space", "z"},
 			relisted: func() []proto.Message {
-				rows := buildTriage()
+				rows := paneltest.BuildTriage()
 				rows[2].(*agentv1.Agent).StateChangedAt = timestamppb.New(time.Date(2026, 9, 20, 13, 6, 0, 0, time.UTC))
 
 				return rows
@@ -237,11 +237,11 @@ func TestTriageSnooze(t *testing.T) {
 		{
 			name:     "an agent that moves tier ends its snooze",
 			capacity: 3,
-			rows:     buildTriage(),
+			rows:     paneltest.BuildTriage(),
 			press:    []string{"t", "space", "z"},
 			relisted: func() []proto.Message {
-				rows := buildTriage()
-				rows[2] = newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_ERRORED, 1)
+				rows := paneltest.BuildTriage()
+				rows[2] = paneltest.TriageAgent("asker", agentv1.AgentState_AGENT_STATE_ERRORED, 1)
 
 				return rows
 			}(),
@@ -257,14 +257,14 @@ func TestTriageSnooze(t *testing.T) {
 		{
 			name:     "waking a snoozed agent from the tree puts it back in the zone",
 			capacity: 3,
-			rows:     buildTriage(),
+			rows:     paneltest.BuildTriage(),
 			press:    []string{"t", "space", "z", "G", "k", "k", "space", "z"},
 			want:     []string{"asker", "third", "broken", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 		},
 		{
 			name:     "waking a snoozed task from its row in the tree puts it back in the zone",
 			capacity: 3,
-			rows:     withTasks(buildTriage()),
+			rows:     withTasks(paneltest.BuildTriage()),
 			press:    []string{"t", "space", "z", "G", "k", "k", "space", "z"},
 			want:     []string{"asker backend", "third backend", "broken backend", "backend", "├─ task-third", "├─ task-asker", "├─ task-broken", "└─ task-quiet"},
 		},
@@ -287,16 +287,16 @@ func TestTriageSnooze(t *testing.T) {
 		{
 			name:     "a snoozed agent gives up its slot",
 			capacity: 2,
-			rows:     buildTriage(),
+			rows:     paneltest.BuildTriage(),
 			press:    []string{"t", "space", "z"},
 			want:     []string{"third", "broken", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 		},
 		{
 			name:     "a snooze outlasts a listing that changes nothing",
 			capacity: 3,
-			rows:     buildTriage(),
+			rows:     paneltest.BuildTriage(),
 			press:    []string{"t", "space", "z"},
-			relisted: buildTriage(),
+			relisted: paneltest.BuildTriage(),
 			want:     []string{"third", "broken", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 		},
 		{
@@ -309,7 +309,7 @@ func TestTriageSnooze(t *testing.T) {
 		{
 			name:     "a snoozed agent leaves the zone and stays in the tree",
 			capacity: 3,
-			rows:     buildTriage(),
+			rows:     paneltest.BuildTriage(),
 			press:    []string{"t", "space", "z"},
 			want:     []string{"third", "broken", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 		},
@@ -336,7 +336,7 @@ func TestTriageSnooze(t *testing.T) {
 // TestTriageFreeze covers the zone holding still while a person reads it and settling once they
 // leave.
 func TestTriageFreeze(t *testing.T) {
-	withoutThird := func() []proto.Message { return buildTriage()[:4] }
+	withoutThird := func() []proto.Message { return paneltest.BuildTriage()[:4] }
 	tests := []struct {
 		name     string
 		capacity int
@@ -358,17 +358,17 @@ func TestTriageFreeze(t *testing.T) {
 			name:     "an agent that needs triage while the zone is read waits for a slot",
 			capacity: 3,
 			rows:     withoutThird(),
-			relisted: buildTriage(),
+			relisted: paneltest.BuildTriage(),
 			want:     []string{"asker", "broken", "+1 more waiting for a slot", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 			hovered:  "asker",
 		},
 		{
 			name:     "a slot freed while the zone is read stays empty",
 			capacity: 2,
-			rows:     buildTriage(),
+			rows:     paneltest.BuildTriage(),
 			relisted: func() []proto.Message {
-				rows := buildTriage()
-				rows[4] = newTriageAgent("third", agentv1.AgentState_AGENT_STATE_THINKING, 4)
+				rows := paneltest.BuildTriage()
+				rows[4] = paneltest.TriageAgent("third", agentv1.AgentState_AGENT_STATE_THINKING, 4)
 
 				return rows
 			}(),
@@ -378,7 +378,7 @@ func TestTriageFreeze(t *testing.T) {
 		{
 			name:     "an agent snoozed while the zone is read leaves it and the cursor moves on to the next",
 			capacity: 3,
-			rows:     buildTriage(),
+			rows:     paneltest.BuildTriage(),
 			press:    []string{"space", "z"},
 			want:     []string{"third", "broken", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 			hovered:  "third",
@@ -386,7 +386,7 @@ func TestTriageFreeze(t *testing.T) {
 		{
 			name:     "an agent snoozed below the top takes the cursor to the one above",
 			capacity: 3,
-			rows:     buildTriage(),
+			rows:     paneltest.BuildTriage(),
 			press:    []string{"j", "j", "space", "z"},
 			want:     []string{"asker", "third", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 			hovered:  "third",
@@ -394,7 +394,7 @@ func TestTriageFreeze(t *testing.T) {
 		{
 			name:     "an agent waiting for a slot comes in once snoozes make room for it",
 			capacity: 3,
-			rows:     append(buildTriage(), newTriageAgent("fourth", agentv1.AgentState_AGENT_STATE_WAITING, 5)),
+			rows:     append(paneltest.BuildTriage(), paneltest.TriageAgent("fourth", agentv1.AgentState_AGENT_STATE_WAITING, 5)),
 			press:    []string{"space", "z", "space", "z", "space", "z"},
 			want:     []string{"broken", "backend", "├─ fourth", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 			hovered:  "broken",
@@ -402,7 +402,7 @@ func TestTriageFreeze(t *testing.T) {
 		{
 			name:     "the last agent snoozed takes the cursor to the first agent in the list and says so",
 			capacity: 3,
-			rows:     append(buildTriage()[:3], newTriageAgent("├─ newest", agentv1.AgentState_AGENT_STATE_IDLE, 9)),
+			rows:     append(paneltest.BuildTriage()[:3], paneltest.TriageAgent("├─ newest", agentv1.AgentState_AGENT_STATE_IDLE, 9)),
 			press:    []string{"space", "z"},
 			want:     []string{"nothing to triage", "backend", "├─ ├─ newest", "├─ asker", "└─ quiet"},
 			hovered:  "├─ ├─ newest",
@@ -427,23 +427,23 @@ func TestTriageFreeze(t *testing.T) {
 		{
 			name:     "the last agent in triage archived lands the cursor in the tree",
 			capacity: 3,
-			rows:     buildTriage()[:3],
-			relisted: buildTriage()[:2],
+			rows:     paneltest.BuildTriage()[:3],
+			relisted: paneltest.BuildTriage()[:2],
 			hovered:  "└─ quiet",
 		},
 		{
 			name:     "a task archived from the bottom of the zone lands the cursor on the one above",
 			capacity: 3,
-			rows:     append(buildTriageTask()[:5], newTriageAgent("early", agentv1.AgentState_AGENT_STATE_WAITING, 1)),
+			rows:     append(buildTriageTask()[:5], paneltest.TriageAgent("early", agentv1.AgentState_AGENT_STATE_WAITING, 1)),
 			press:    []string{"j"},
-			then:     []proto.Message{paneltest.Workflow("w1", "backend"), paneltest.AgentAt("quiet", "w1", 1), newTriageAgent("early", agentv1.AgentState_AGENT_STATE_WAITING, 1)},
+			then:     []proto.Message{paneltest.Workflow("w1", "backend"), paneltest.AgentAt("quiet", "w1", 1), paneltest.TriageAgent("early", agentv1.AgentState_AGENT_STATE_WAITING, 1)},
 			want:     []string{"early", "backend", "├─ quiet", "└─ early"},
 			hovered:  "early",
 		},
 		{
 			name:     "the agent the cursor is on archived lands it on the next in triage",
 			capacity: 3,
-			rows:     buildTriage(),
+			rows:     paneltest.BuildTriage(),
 			press:    []string{"j"},
 			then:     withoutThird(),
 			want:     []string{"asker", "broken", "backend", "├─ asker", "├─ broken", "└─ quiet"},
@@ -452,7 +452,7 @@ func TestTriageFreeze(t *testing.T) {
 		{
 			name:     "an answered agent leaves once the cursor moves off it",
 			capacity: 3,
-			rows:     buildTriage(),
+			rows:     paneltest.BuildTriage(),
 			relisted: buildAnswered(),
 			press:    []string{"j"},
 			then:     buildAnswered(),
@@ -462,7 +462,7 @@ func TestTriageFreeze(t *testing.T) {
 		{
 			name:     "the agent the cursor is on keeps its place while its pane has the keys",
 			capacity: 3,
-			rows:     buildTriage(),
+			rows:     paneltest.BuildTriage(),
 			blur:     true,
 			relisted: buildAnswered(),
 			want:     []string{"asker ⠋", "third", "broken", "backend", "├─ third", "├─ asker ⠋", "├─ broken", "└─ quiet"},
@@ -471,7 +471,7 @@ func TestTriageFreeze(t *testing.T) {
 		{
 			name:     "the agent the cursor is on keeps its place once it is answered",
 			capacity: 3,
-			rows:     buildTriage(),
+			rows:     paneltest.BuildTriage(),
 			relisted: buildAnswered(),
 			want:     []string{"asker ⠋", "third", "broken", "backend", "├─ third", "├─ asker ⠋", "├─ broken", "└─ quiet"},
 			hovered:  "asker ⠋",
@@ -481,7 +481,7 @@ func TestTriageFreeze(t *testing.T) {
 			capacity: 3,
 			rows:     withoutThird(),
 			blur:     true,
-			relisted: buildTriage(),
+			relisted: paneltest.BuildTriage(),
 			want:     []string{"asker", "broken", "+1 more waiting for a slot", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 			hovered:  "asker",
 		},
@@ -489,7 +489,7 @@ func TestTriageFreeze(t *testing.T) {
 			name:     "the zone settles once the panel leaves the agents list",
 			capacity: 3,
 			rows:     withoutThird(),
-			relisted: buildTriage(),
+			relisted: paneltest.BuildTriage(),
 			press:    []string{"tab", "shift+tab", "esc"},
 			want:     []string{"asker", "third", "broken", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 			hovered:  "asker",
@@ -498,7 +498,7 @@ func TestTriageFreeze(t *testing.T) {
 			name:     "the zone settles once the cursor leaves it",
 			capacity: 3,
 			rows:     withoutThird(),
-			relisted: buildTriage(),
+			relisted: paneltest.BuildTriage(),
 			press:    []string{"j", "j"},
 			want:     []string{"asker", "third", "broken", "backend", "├─ third", "├─ asker", "├─ broken", "└─ quiet"},
 			hovered:  "backend",
@@ -536,7 +536,7 @@ func TestTriageCopies(t *testing.T) {
 	bar := paint.BackgroundSequence(paint.Panel.Background(paint.ShadeSelection))
 
 	t.Run("marking the zone's copy marks the tree's too", func(t *testing.T) {
-		harness := openTriage(t, 3, buildTriage()...)
+		harness := openTriage(t, 3, paneltest.BuildTriage()...)
 
 		harness.Press("t", "v")
 
@@ -547,7 +547,7 @@ func TestTriageCopies(t *testing.T) {
 	})
 
 	t.Run("an action over both copies takes the agent once", func(t *testing.T) {
-		harness := openTriage(t, 3, withTasks(buildTriage())...)
+		harness := openTriage(t, 3, withTasks(paneltest.BuildTriage())...)
 
 		harness.Press("t", "v", "space", "a")
 
@@ -557,7 +557,7 @@ func TestTriageCopies(t *testing.T) {
 	})
 
 	t.Run("a zone row acts through its task's writer", func(t *testing.T) {
-		writer := newTriageAgent("writer", agentv1.AgentState_AGENT_STATE_WAITING, 3)
+		writer := paneltest.TriageAgent("writer", agentv1.AgentState_AGENT_STATE_WAITING, 3)
 		task := paneltest.TaskOf(writer)
 		sweeper := paneltest.AgentAt("sweeper", "w1", 9)
 		sweeper.PaneId = "%5"
@@ -582,27 +582,6 @@ func openTriage(t *testing.T, capacity int, rows ...proto.Message) *paneltest.Pa
 	return harness
 }
 
-// buildTriage is a workflow with three agents waiting on a person and one that is not, broken the
-// longest but in a tier below the others.
-func buildTriage() []proto.Message {
-	return []proto.Message{
-		paneltest.Workflow("w1", "backend"),
-		paneltest.AgentAt("quiet", "w1", 1),
-		newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
-		newTriageAgent("broken", agentv1.AgentState_AGENT_STATE_ERRORED, 2),
-		newTriageAgent("third", agentv1.AgentState_AGENT_STATE_WAITING, 4),
-	}
-}
-
-func newTriageAgent(name string, state agentv1.AgentState, minute int) *agentv1.Agent {
-	agent := paneltest.AgentAt(name, "w1", minute)
-	agent.State = state
-	agent.Alive = xptr.Ptr(true)
-	agent.StateChangedAt = timestamppb.New(time.Date(2026, 9, 20, 13, minute, 0, 0, time.UTC))
-
-	return agent
-}
-
 // readTriageList is the list's rows down to the record under it, with every run of spaces cut
 // to one.
 func readTriageList(frame string) []string {
@@ -617,14 +596,14 @@ func buildFinished() []proto.Message {
 	return []proto.Message{
 		paneltest.Workflow("w1", "backend"),
 		paneltest.AgentAt("quiet", "w1", 1),
-		newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
+		paneltest.TriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
 		newFinishedAgent("done", 5),
 		newFinishedAgent("later", 6),
 	}
 }
 
 func newFinishedAgent(name string, minute int) *agentv1.Agent {
-	agent := newTriageAgent(name, agentv1.AgentState_AGENT_STATE_IDLE, minute)
+	agent := paneltest.TriageAgent(name, agentv1.AgentState_AGENT_STATE_IDLE, minute)
 	agent.Role = agentv1.AgentRole_AGENT_ROLE_WRITER
 	agent.PaneId = "%" + name
 
@@ -634,9 +613,9 @@ func newFinishedAgent(name string, minute int) *agentv1.Agent {
 // buildTriageTask is a workflow with a writer whose reviewer is asking, ahead of another agent
 // asking.
 func buildTriageTask() []proto.Message {
-	writer := newTriageAgent("writer", agentv1.AgentState_AGENT_STATE_IDLE, 2)
+	writer := paneltest.TriageAgent("writer", agentv1.AgentState_AGENT_STATE_IDLE, 2)
 	writerTask := paneltest.TaskOf(writer)
-	reviewer := newTriageAgent("reviewer", agentv1.AgentState_AGENT_STATE_WAITING, 3)
+	reviewer := paneltest.TriageAgent("reviewer", agentv1.AgentState_AGENT_STATE_WAITING, 3)
 	reviewer.TaskId = writer.TaskId
 	reviewer.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
 
@@ -646,14 +625,14 @@ func buildTriageTask() []proto.Message {
 		writer,
 		reviewer,
 		writerTask,
-		newTriageAgent("third", agentv1.AgentState_AGENT_STATE_WAITING, 4),
+		paneltest.TriageAgent("third", agentv1.AgentState_AGENT_STATE_WAITING, 4),
 	}
 }
 
-// buildAnswered is buildTriage once asker has been answered and gone back to work.
+// buildAnswered is paneltest.BuildTriage once asker has been answered and gone back to work.
 func buildAnswered() []proto.Message {
-	rows := buildTriage()
-	rows[2] = newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_THINKING, 3)
+	rows := paneltest.BuildTriage()
+	rows[2] = paneltest.TriageAgent("asker", agentv1.AgentState_AGENT_STATE_THINKING, 3)
 
 	return rows
 }

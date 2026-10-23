@@ -78,7 +78,7 @@ func TestAgentsRows(t *testing.T) {
 		{
 			name: "a reviewer is rendered under its task rather than where the listing put it",
 			rows: buildReviewedTasks(),
-			want: []string{"komrad", "├─ task-fix-gutter", "└─ task-writer", "   ├─ " + reviewerMark + "second-reviewer", "   └─ " + reviewerMark + "reviewer"},
+			want: []string{"komrad", "├─ task-fix-gutter", "└─ task-writer", "   ├─ " + paneltest.ReviewerMark + "second-reviewer", "   └─ " + paneltest.ReviewerMark + "reviewer"},
 		},
 		{
 			name: "a reviewer whose writer is archived stays under its task",
@@ -90,7 +90,7 @@ func TestAgentsRows(t *testing.T) {
 				paneltest.Reviewer("a3", "reviewer", "writer"),
 				paneltest.Reviewer("a4", "second-reviewer", "writer"),
 			},
-			want: []string{"komrad", "├─ fix-gutter", "└─ task-writer", "   ├─ " + reviewerMark + "second-reviewer", "   └─ " + reviewerMark + "reviewer"},
+			want: []string{"komrad", "├─ fix-gutter", "└─ task-writer", "   ├─ " + paneltest.ReviewerMark + "second-reviewer", "   └─ " + paneltest.ReviewerMark + "reviewer"},
 		},
 		{
 			name: "a hidden task gives its row to its workflow's count",
@@ -177,7 +177,7 @@ func TestAgentsShowHidden(t *testing.T) {
 
 		harness.Press("k", "space", "h", "H")
 
-		assert.Equal(t, []string{"komrad", "├─ task-fix-gutter", "└─ task-writer" + hiddenMark, "   ├─ " + reviewerMark + "second-reviewer", "   └─ " + reviewerMark + "reviewer"}, paneltest.ListRows(harness.Frame()))
+		assert.Equal(t, []string{"komrad", "├─ task-fix-gutter", "└─ task-writer" + hiddenMark, "   ├─ " + paneltest.ReviewerMark + "second-reviewer", "   └─ " + paneltest.ReviewerMark + "reviewer"}, paneltest.ListRows(harness.Frame()))
 	})
 
 	t.Run("the hide entry hides the hovered task", func(t *testing.T) {
@@ -257,38 +257,38 @@ func TestAgentsSort(t *testing.T) {
 	}{
 		{
 			name: "created down is the fallback, the newest task first",
-			want: []string{"gadgets", "└─ echo", "komrad", "├─ delta", "├─ Zulu", "└─ task-alpha", "   ├─ " + reviewerMark + "charlie", "   └─ " + reviewerMark + "bob"},
+			want: []string{"gadgets", "└─ echo", "komrad", "├─ delta", "├─ Zulu", "└─ task-alpha", "   ├─ " + paneltest.ReviewerMark + "charlie", "   └─ " + paneltest.ReviewerMark + "bob"},
 		},
 		{
 			name:  "created up is the oldest task first",
 			press: []string{"f", "k"},
-			want:  []string{"gadgets", "└─ echo", "komrad", "├─ task-alpha", "│  ├─ " + reviewerMark + "bob", "│  └─ " + reviewerMark + "charlie", "├─ Zulu", "└─ delta"},
+			want:  []string{"gadgets", "└─ echo", "komrad", "├─ task-alpha", "│  ├─ " + paneltest.ReviewerMark + "bob", "│  └─ " + paneltest.ReviewerMark + "charlie", "├─ Zulu", "└─ delta"},
 		},
 		{
 			name:  "activity down is the task whose writer changed state last first",
 			press: []string{"f", "tab", "j"},
-			want:  []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ task-alpha", "│  ├─ " + reviewerMark + "bob", "│  └─ " + reviewerMark + "charlie", "└─ delta"},
+			want:  []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ task-alpha", "│  ├─ " + paneltest.ReviewerMark + "bob", "│  └─ " + paneltest.ReviewerMark + "charlie", "└─ delta"},
 		},
 		{
 			name:  "name up sorts a name in capitals as its lowercase",
 			press: []string{"f", "tab", "tab", "k"},
-			want:  []string{"gadgets", "└─ echo", "komrad", "├─ task-alpha", "│  ├─ " + reviewerMark + "bob", "│  └─ " + reviewerMark + "charlie", "├─ delta", "└─ Zulu"},
+			want:  []string{"gadgets", "└─ echo", "komrad", "├─ task-alpha", "│  ├─ " + paneltest.ReviewerMark + "bob", "│  └─ " + paneltest.ReviewerMark + "charlie", "├─ delta", "└─ Zulu"},
 		},
 		{
 			name:  "name down",
 			press: []string{"f", "tab", "tab", "j"},
-			want:  []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ delta", "└─ task-alpha", "   ├─ " + reviewerMark + "charlie", "   └─ " + reviewerMark + "bob"},
+			want:  []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ delta", "└─ task-alpha", "   ├─ " + paneltest.ReviewerMark + "charlie", "   └─ " + paneltest.ReviewerMark + "bob"},
 		},
 		{
 			name:  "a flat list drops the headers and walks every workflow's tasks together",
 			press: []string{"f", "shift+tab", "j"},
-			want:  []string{"delta", "Zulu", "alpha", "  └ " + reviewerMark + "charlie", "  └ " + reviewerMark + "bob", "echo"},
+			want:  []string{"delta", "Zulu", "alpha", "  └ " + paneltest.ReviewerMark + "charlie", "  └ " + paneltest.ReviewerMark + "bob", "echo"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := paneltest.OpenAgents(t, buildSortable()...)
+			harness := paneltest.OpenAgents(t, paneltest.BuildSortable()...)
 
 			harness.Press(tt.press...)
 
@@ -297,7 +297,7 @@ func TestAgentsSort(t *testing.T) {
 	}
 
 	t.Run("the cursor keeps its row as the tree is reordered", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, buildSortable()...)
+		harness := paneltest.OpenAgents(t, paneltest.BuildSortable()...)
 		harness.Press("j", "j", "j", "j")
 		require.Equal(t, "└─ task-alpha", paneltest.HoveredRow(harness.Frame()))
 
@@ -312,7 +312,7 @@ func TestAgentsSort(t *testing.T) {
 	})
 
 	t.Run("the cursor keeps its agent across the flip to a flat list and back", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, buildSortable()...)
+		harness := paneltest.OpenAgents(t, paneltest.BuildSortable()...)
 		require.Equal(t, "└─ echo", paneltest.HoveredRow(harness.Frame()))
 
 		harness.Press("f", "shift+tab", "j", "esc")
@@ -560,14 +560,14 @@ func TestAgentsRecord(t *testing.T) {
 	}{
 		{
 			name:       "a workflow shows how many agents it holds and has no session of its own",
-			rows:       buildRecorded(),
+			rows:       paneltest.BuildRecorded(),
 			press:      []string{"k"},
 			want:       map[string]string{"name": "backend", "agents": "1"},
 			wantAbsent: []string{"session_id"},
 		},
 		{
 			name: "an agent shows what it was launched with",
-			rows: buildRecorded(),
+			rows: paneltest.BuildRecorded(),
 			want: map[string]string{
 				"directory":  "/repo",
 				"agent_id":   "a1",
@@ -587,7 +587,7 @@ func TestAgentsRecord(t *testing.T) {
 		},
 		{
 			name:       "an agent running no tool shows none",
-			rows:       buildRecorded(),
+			rows:       paneltest.BuildRecorded(),
 			want:       map[string]string{"hooks": "—"},
 			wantAbsent: []string{"tool"},
 		},
@@ -627,7 +627,7 @@ func TestAgentsRecord(t *testing.T) {
 // TestAgentsRecordFocus covers the focus key handing the keys to the record and back.
 func TestAgentsRecordFocus(t *testing.T) {
 	t.Run("movement runs down the fields while the list keeps its row", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, buildRecorded()...)
+		harness := paneltest.OpenAgents(t, paneltest.BuildRecorded()...)
 
 		harness.Press("pick:record", "j")
 
@@ -646,7 +646,7 @@ func TestAgentsRecordFocus(t *testing.T) {
 	})
 
 	t.Run("the wheel over the record hands it the keys and over the list hands them back", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, buildRecorded()...)
+		harness := paneltest.OpenAgents(t, paneltest.BuildRecorded()...)
 		y := paneltest.RecordLine(harness.Frame(), "agent")
 		require.GreaterOrEqual(t, y, 0)
 
@@ -672,7 +672,7 @@ func TestAgentsRecordFocus(t *testing.T) {
 	})
 
 	t.Run("one cursor is rendered at a time", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, buildRecorded()...)
+		harness := paneltest.OpenAgents(t, paneltest.BuildRecorded()...)
 		require.Equal(t, 1, countCursors(harness.Frame()))
 
 		harness.Press("pick:record")
@@ -683,7 +683,7 @@ func TestAgentsRecordFocus(t *testing.T) {
 	})
 
 	t.Run("another row's record opens at its top", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, buildRecorded()...)
+		harness := paneltest.OpenAgents(t, paneltest.BuildRecorded()...)
 
 		harness.Press("pick:record", "j", "j", "pick:list", "k", "pick:record")
 
@@ -691,7 +691,7 @@ func TestAgentsRecordFocus(t *testing.T) {
 	})
 
 	t.Run("the keys that act on a row stand down while the record has them", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, buildRecorded()...)
+		harness := paneltest.OpenAgents(t, paneltest.BuildRecorded()...)
 		harness.Press("pick:record")
 		before := harness.Frame()
 		sent := harness.Requests()
@@ -711,7 +711,7 @@ func TestAgentsRecordFocus(t *testing.T) {
 	})
 
 	t.Run("a record shortened under the cursor holds it on its last field", func(t *testing.T) {
-		rows := buildRecorded()
+		rows := paneltest.BuildRecorded()
 		agent, _ := rows[1].(*agentv1.Agent)
 		task := paneltest.TaskOf(agent)
 		task.Branch = xptr.Ptr("agent/auth")
@@ -727,7 +727,7 @@ func TestAgentsRecordFocus(t *testing.T) {
 	})
 
 	t.Run("the row going from under a focused record renders the next from its top", func(t *testing.T) {
-		rows := buildRecorded()
+		rows := paneltest.BuildRecorded()
 		harness := paneltest.OpenAgents(t, rows...)
 		harness.Press("pick:record", "j", "j", "j")
 
@@ -745,7 +745,7 @@ func TestAgentsRecordCopy(t *testing.T) {
 		harness := paneltest.Start(t, paneltest.Params{})
 		harness.SetClipboardErr(errors.New("no clipboard utility found"))
 		harness.AnswerWorktreeReads()
-		harness.Watch(paneltest.Snapshot(buildRecorded()...))
+		harness.Watch(paneltest.Snapshot(paneltest.BuildRecorded()...))
 
 		harness.Press("pick:record", "y")
 		harness.Advance(time.Second)
@@ -775,7 +775,7 @@ func TestAgentsRecordCopy(t *testing.T) {
 			open: func(t *testing.T) *paneltest.Panel {
 				t.Helper()
 
-				rows := buildRecorded()
+				rows := paneltest.BuildRecorded()
 				agent, _ := rows[1].(*agentv1.Agent)
 				agent.Flags = strings.Repeat("--append-system-prompt read every file on the branch ", 4)
 				harness := paneltest.Start(t, paneltest.Params{})
@@ -810,7 +810,7 @@ func TestAgentsRecordCopy(t *testing.T) {
 	}
 
 	t.Run("the field on screen is taken after the row goes from under the record", func(t *testing.T) {
-		rows := buildRecorded()
+		rows := paneltest.BuildRecorded()
 		harness := openCopyRecord(t)
 		harness.Press("pick:record", "j", "j", "j")
 
@@ -872,7 +872,7 @@ func TestAgentsRecordHeight(t *testing.T) {
 				DetailsHeight: tt.detailsHeight,
 			})
 			harness.AnswerWorktreeReads()
-			harness.Watch(paneltest.Snapshot(buildRecorded()...))
+			harness.Watch(paneltest.Snapshot(paneltest.BuildRecorded()...))
 
 			frame := harness.Frame()
 			assert.Equal(t, tt.want > 0, paneltest.IsRecordRendered(frame))
@@ -883,7 +883,7 @@ func TestAgentsRecordHeight(t *testing.T) {
 
 // TestAgentsRecordFocusAndSize covers the record giving up the keys when the pane has no room to render it.
 func TestAgentsRecordFocusAndSize(t *testing.T) {
-	rows := append(buildRecorded(), paneltest.AgentAt("billing", "w1", 1))
+	rows := append(paneltest.BuildRecorded(), paneltest.AgentAt("billing", "w1", 1))
 
 	tests := []struct {
 		name   string
@@ -1113,7 +1113,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				recorded := buildRecorded()
+				recorded := paneltest.BuildRecorded()
 				task := paneltest.TaskOf(recorded[1].(*agentv1.Agent))
 				task.DiffStat = tt.diffStat
 				task.Cwd = xptr.Ptr("/repo")
@@ -1161,7 +1161,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				harness := paneltest.OpenAgents(t, buildRecorded()...)
+				harness := paneltest.OpenAgents(t, paneltest.BuildRecorded()...)
 				harness.AssertSentTo(loopv1connect.LoopServiceWakeLoopProcedure)
 
 				harness.Press(tt.presses...)
@@ -1393,7 +1393,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				harness := paneltest.Start(t, tt.params)
 				harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, paneltest.AnswerWith(buildWorktreeRead()))
-				harness.Watch(paneltest.Snapshot(buildRecorded()...))
+				harness.Watch(paneltest.Snapshot(paneltest.BuildRecorded()...))
 				harness.Press(tt.press...)
 				if tt.wantLegend {
 					require.Contains(t, paneltest.Legend(harness.Frame()), "hide help", "the legend is expanded")
@@ -1438,7 +1438,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 // TestAgentsSearchAcrossSections covers one search standing over both the list and the record.
 func TestAgentsSearchAcrossSections(t *testing.T) {
 	t.Run("a filter typed on the list narrows the list alone", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, append(buildRecorded(), paneltest.AgentAt("billing", "w1", 1))...)
+		harness := paneltest.OpenAgents(t, append(paneltest.BuildRecorded(), paneltest.AgentAt("billing", "w1", 1))...)
 		harness.Press("j")
 		fields := len(paneltest.Record(harness.Frame()))
 
@@ -1450,7 +1450,7 @@ func TestAgentsSearchAcrossSections(t *testing.T) {
 	})
 
 	t.Run("the focus key while typing jumps into the record's first match and back out moves nothing", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, buildRecorded()...)
+		harness := paneltest.OpenAgents(t, paneltest.BuildRecorded()...)
 
 		harness.Press("/", "a", "b", "c", "pick:record")
 
@@ -1467,7 +1467,7 @@ func TestAgentsSearchAcrossSections(t *testing.T) {
 	})
 
 	t.Run("clearing the search where it opened puts the cursor back and from the record leaves it", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, buildRecorded()...)
+		harness := paneltest.OpenAgents(t, paneltest.BuildRecorded()...)
 		harness.Press("k", "/", "a", "u", "t", "enter")
 		require.Equal(t, "└─ auth", paneltest.HoveredRow(harness.Frame()))
 
@@ -1485,7 +1485,7 @@ func TestAgentsSearchAcrossSections(t *testing.T) {
 	})
 
 	t.Run("the page keys move the record's cursor ten fields at a time", func(t *testing.T) {
-		rows := buildRecorded()
+		rows := paneltest.BuildRecorded()
 		rows[0].(*workflowv1.Workflow).Worktree.CopyPaths = []string{".env"}
 		harness := paneltest.OpenAgents(t, rows...)
 		harness.Press("k", "pick:record")
@@ -1504,7 +1504,7 @@ func TestAgentsSearchAcrossSections(t *testing.T) {
 	})
 
 	t.Run("the match keys walk only the section holding the keys", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, buildRecorded()...)
+		harness := paneltest.OpenAgents(t, paneltest.BuildRecorded()...)
 
 		harness.Press("k", "/", "b", "a", "c", "k", "enter", "n")
 
@@ -1517,7 +1517,7 @@ func TestAgentsSearchAcrossSections(t *testing.T) {
 	})
 
 	t.Run("enter walks the list only onto a row the list matches", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, buildRecorded()...)
+		harness := paneltest.OpenAgents(t, paneltest.BuildRecorded()...)
 
 		harness.Press("/", "b", "a", "c", "k")
 		assert.Equal(t, "└─ auth", paneltest.HoveredRow(harness.Frame()), "typing moves nothing")
@@ -1530,7 +1530,7 @@ func TestAgentsSearchAcrossSections(t *testing.T) {
 	})
 
 	t.Run("escape after the jump into the record clears the search and leaves both cursors", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, buildRecorded()...)
+		harness := paneltest.OpenAgents(t, paneltest.BuildRecorded()...)
 		harness.Press("/", "a", "b", "c", "pick:record")
 
 		harness.Press("esc")
@@ -1541,7 +1541,7 @@ func TestAgentsSearchAcrossSections(t *testing.T) {
 	})
 
 	t.Run("a filter matching only a field empties the list and the record with it", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, buildRecorded()...)
+		harness := paneltest.OpenAgents(t, paneltest.BuildRecorded()...)
 
 		harness.Press("/", "a", "b", "c", "tab", "enter")
 
@@ -1623,7 +1623,7 @@ func TestAgentsLastScreen(t *testing.T) {
 		},
 		{
 			name:  "a running agent asks for no saved screen",
-			agent: newThinking(),
+			agent: paneltest.Thinking(),
 		},
 	}
 
@@ -1756,7 +1756,7 @@ func TestAgentsEdit(t *testing.T) {
 	t.Run("a task's edit opens the worktree its writer was provisioned, not a newer agent's own directory", func(t *testing.T) {
 		writer := newEditable()
 		task := paneltest.TaskOf(writer)
-		adopter := newThinking()
+		adopter := paneltest.Thinking()
 		adopter.Id = "a2"
 		adopter.Name = "adopter"
 		adopter.PaneId = "%8"
@@ -1937,16 +1937,16 @@ func TestAgentsOrchestrator(t *testing.T) {
 
 		harness.Press("f", "shift+tab", "j")
 
-		assert.Equal(t, []string{"telescope", "  └ " + reviewerMark + "reviewer"}, paneltest.ListRows(harness.Frame()))
+		assert.Equal(t, []string{"telescope", "  └ " + paneltest.ReviewerMark + "reviewer"}, paneltest.ListRows(harness.Frame()))
 	})
 
 	t.Run("a workflow made in the panel comes with its orchestrator", func(t *testing.T) {
 		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "backend"))
-		answerWorkflowCreate(harness)
+		harness.AnswerWorkflowCreate()
 
 		harness.Press("space", "w", "a", "p", "i", "enter")
 
-		harness.AssertSentWith(ignoringEventPrompts,
+		harness.AssertSentWith(paneltest.IgnoringEventPrompts,
 			paneltest.Request{
 				Procedure: workflowv1connect.WorkflowServiceCreateWorkflowProcedure,
 				Msg: &workflowv1.CreateWorkflowRequest{
@@ -1963,7 +1963,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 
 	t.Run("a workflow stands when its orchestrator will not start", func(t *testing.T) {
 		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "backend"))
-		answerWorkflowCreate(harness)
+		harness.AnswerWorkflowCreate()
 		harness.Refuse(agentv1connect.AgentServiceStartOrchestratorProcedure, connect.NewError(connect.CodePermissionDenied, errors.New("the person refused the directory")))
 
 		harness.Press("space", "w", "a", "p", "i", "enter")
@@ -2048,22 +2048,22 @@ func TestAgentsWatchedEdits(t *testing.T) {
 			paneltest.Workflow("w1", "api"),
 			agent,
 			task,
-			&pullrequestv1.Repository{Url: repositoryURL},
+			&pullrequestv1.Repository{Url: paneltest.RepositoryURL},
 		)
 		harness.Press(paneltest.WidenListPresses...)
 
 		harness.Watch(paneltest.Puts(&pullrequestv1.PullRequest{
 			Id:                "pr-1",
-			RepositoryUrl:     repositoryURL,
-			HeadRepositoryUrl: repositoryURL,
+			RepositoryUrl:     paneltest.RepositoryURL,
+			HeadRepositoryUrl: paneltest.RepositoryURL,
 			HeadBranch:        "agent/other",
 			Number:            7,
 			State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
 			OpenedAt:          timestamppb.New(time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)),
 		}, &pullrequestv1.PullRequest{
 			Id:                "pr-0",
-			RepositoryUrl:     repositoryURL,
-			HeadRepositoryUrl: repositoryURL,
+			RepositoryUrl:     paneltest.RepositoryURL,
+			HeadRepositoryUrl: paneltest.RepositoryURL,
 			HeadBranch:        "agent/other",
 			Number:            5,
 			State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED,
@@ -2088,14 +2088,14 @@ func TestAgentsWatchedEdits(t *testing.T) {
 			paneltest.Workflow("w1", "api"),
 			agent,
 			task,
-			&pullrequestv1.Repository{Url: repositoryURL},
+			&pullrequestv1.Repository{Url: paneltest.RepositoryURL},
 		)
 		harness.Press(paneltest.WidenListPresses...)
 
 		harness.Watch(paneltest.Puts(&pullrequestv1.PullRequest{
 			Id:                "pr-1",
-			RepositoryUrl:     repositoryURL,
-			HeadRepositoryUrl: repositoryURL,
+			RepositoryUrl:     paneltest.RepositoryURL,
+			HeadRepositoryUrl: paneltest.RepositoryURL,
 			HeadBranch:        "agent/x",
 			Number:            7,
 			Title:             "Pull more pull request info",
@@ -2191,7 +2191,7 @@ func TestAgentsSelection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := paneltest.OpenAgents(t, withTasks(buildSelectable())...)
+			harness := paneltest.OpenAgents(t, withTasks(paneltest.BuildSelectable())...)
 			harness.Press(tt.press...)
 
 			harness.Press("space", "a")
@@ -2203,7 +2203,7 @@ func TestAgentsSelection(t *testing.T) {
 	}
 
 	t.Run("a folder with no rows under it opens no selection", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, append(buildSelectable(), paneltest.Workflow("w3", "chores"))...)
+		harness := paneltest.OpenAgents(t, append(paneltest.BuildSelectable(), paneltest.Workflow("w3", "chores"))...)
 
 		harness.Press("j", "j", "j")
 		require.Equal(t, "chores", paneltest.HoveredRow(harness.Frame()))
@@ -2213,7 +2213,7 @@ func TestAgentsSelection(t *testing.T) {
 	})
 
 	t.Run("keys with nothing to say about a set stand down and escape clears it", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, buildSelectable()...)
+		harness := paneltest.OpenAgents(t, paneltest.BuildSelectable()...)
 		harness.Press("v")
 
 		harness.Press("r")
@@ -2227,7 +2227,7 @@ func TestAgentsSelection(t *testing.T) {
 	})
 
 	t.Run("an agent gone from the listing drops out of the selection", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, withTasks(buildSelectable())...)
+		harness := paneltest.OpenAgents(t, withTasks(paneltest.BuildSelectable())...)
 		harness.Press("v", "G", "v")
 
 		ui := paneltest.AgentAt("ui", "w2", 1)
@@ -2238,7 +2238,7 @@ func TestAgentsSelection(t *testing.T) {
 	})
 
 	t.Run("so does one the hidden toggle puts away", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, withTasks(buildSelectable())...)
+		harness := paneltest.OpenAgents(t, withTasks(paneltest.BuildSelectable())...)
 		harness.Press("space", "h", "H", "v", "j", "j", "j", "v", "space", "h", "H")
 
 		harness.Press("space", "a", "enter")
@@ -2254,10 +2254,8 @@ func readArchiveTaskRequests(ids []string) []proto.Message {
 }
 
 const (
-	hiddenMark    = " \uf4c5"
-	reviewerMark  = "\uf442 "
-	heldAt        = "2026-09-20T12:00:00Z"
-	repositoryURL = "https://github.com/harrisoncramer/komrad"
+	hiddenMark = " \uf4c5"
+	heldAt     = "2026-09-20T12:00:00Z"
 )
 
 func buildCursorable() []proto.Message {
@@ -2287,36 +2285,6 @@ func buildReviewedTasks() []proto.Message {
 		reviewer,
 		secondReviewer,
 		writerTask,
-	}
-}
-
-func buildSortable() []proto.Message {
-	newSortable := func(name, workflowID string, created, changed int) *agentv1.Agent {
-		agent := paneltest.AgentAt(name, workflowID, created)
-		agent.StateChangedAt = timestamppb.New(time.Date(2026, 9, 20, 12, changed, 0, 0, time.UTC))
-
-		return agent
-	}
-	charlie := newSortable("charlie", "w1", 25, 5)
-	charlie.TaskId = xptr.Ptr("task-alpha")
-	charlie.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
-	bob := newSortable("bob", "w1", 5, 40)
-	bob.TaskId = xptr.Ptr("task-alpha")
-	bob.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
-	zulu := newSortable("zulu", "w1", 20, 30)
-	zulu.Name = "Zulu"
-	alpha := newSortable("alpha", "w1", 10, 20)
-
-	return []proto.Message{
-		paneltest.Workflow("w1", "komrad"),
-		paneltest.Workflow("w2", "gadgets"),
-		newSortable("delta", "w1", 30, 10),
-		charlie,
-		zulu,
-		alpha,
-		paneltest.TaskOf(alpha),
-		bob,
-		newSortable("echo", "w2", 0, 50),
 	}
 }
 
@@ -2361,7 +2329,7 @@ func openCopyRecord(t *testing.T) *paneltest.Panel {
 
 	harness := paneltest.Start(t, paneltest.Params{})
 	harness.AnswerWorktreeReads()
-	harness.Watch(paneltest.Snapshot(buildRecorded()...))
+	harness.Watch(paneltest.Snapshot(paneltest.BuildRecorded()...))
 
 	return harness
 }
@@ -2369,7 +2337,7 @@ func openCopyRecord(t *testing.T) *paneltest.Panel {
 func openAgentRecord(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
-	harness := paneltest.OpenAgents(t, buildRecorded()...)
+	harness := paneltest.OpenAgents(t, paneltest.BuildRecorded()...)
 	harness.Press("pick:record")
 
 	return harness
@@ -2451,50 +2419,23 @@ func buildWorktreeReads(count int) []proto.Message {
 	return slices.Repeat([]proto.Message{&worktreev1.GetWorktreeRequest{Dir: "/repo"}}, count)
 }
 
-func buildRecorded() []proto.Message {
-	agent := paneltest.AgentAt("auth", "w1", 0)
-	agent.Id = "a1"
-	agent.Cwd = "/repo"
-	agent.SessionId = "abc"
-
-	return []proto.Message{
-		&workflowv1.Workflow{
-			Id:       "w1",
-			Name:     "backend",
-			Worktree: &workflowv1.WorktreeConfig{Enabled: true},
-		},
-		agent,
-	}
-}
-
-// buildRecordedWith is buildRecorded with its agent changed by edit.
+// buildRecordedWith is paneltest.BuildRecorded with its agent changed by edit.
 func buildRecordedWith(edit func(agent *agentv1.Agent)) []proto.Message {
-	rows := buildRecorded()
+	rows := paneltest.BuildRecorded()
 	edit(rows[1].(*agentv1.Agent))
 
 	return rows
 }
 
-// buildRecordedTask is buildRecorded with its agent on a task whose checkout is /repo.
+// buildRecordedTask is paneltest.BuildRecorded with its agent on a task whose checkout is /repo.
 func buildRecordedTask() []proto.Message {
-	rows := buildRecorded()
+	rows := paneltest.BuildRecorded()
 	task := paneltest.TaskOf(rows[1].(*agentv1.Agent))
 	task.Cwd = xptr.Ptr("/repo")
 	task.Branch = xptr.Ptr("agent/auth")
 	task.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC))
 
 	return append(rows, task)
-}
-
-func newThinking() *agentv1.Agent {
-	return &agentv1.Agent{
-		Id:         "a1",
-		Name:       "telescope",
-		WorkflowId: "w1",
-		PaneId:     "%9",
-		Alive:      xptr.Ptr(true),
-		State:      agentv1.AgentState_AGENT_STATE_THINKING,
-	}
 }
 
 func recordMail(harness *paneltest.Panel) *[]*agentv1.SendMailRequest {
@@ -2509,34 +2450,17 @@ func recordMail(harness *paneltest.Panel) *[]*agentv1.SendMailRequest {
 	return &said
 }
 
-func answerWorkflowCreate(harness *paneltest.Panel) {
-	harness.Answer(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-		return connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "w2"}}), nil
-	})
-}
-
 func newBranchAgent(id, name, branch string) (*agentv1.Agent, *taskv1.Task) {
 	agent := paneltest.Agent(id, name, "w1")
 	task := paneltest.TaskOf(agent)
-	task.RepositoryUrl = xptr.Ptr(repositoryURL)
+	task.RepositoryUrl = xptr.Ptr(paneltest.RepositoryURL)
 	task.Branch = xptr.Ptr(branch)
 
 	return agent, task
 }
 
-func buildSelectable() []proto.Message {
-	return slices.Concat([]proto.Message{
-		paneltest.Workflow("w1", "backend"),
-		paneltest.Workflow("w2", "frontend"),
-		paneltest.AgentAt("auth", "w1", 5),
-		paneltest.AgentAt("api", "w1", 4),
-		paneltest.AgentAt("db", "w1", 3),
-		paneltest.AgentAt("ui", "w2", 1),
-	}, newAgentOnHiddenTask("sweep", "sweep"))
-}
-
 func newEditable() *agentv1.Agent {
-	agent := newThinking()
+	agent := paneltest.Thinking()
 	agent.State = agentv1.AgentState_AGENT_STATE_IDLE
 	agent.Cwd = "/work/telescope"
 
@@ -2545,24 +2469,10 @@ func newEditable() *agentv1.Agent {
 
 // TestAgentsRowShowsTheTool covers the tool an agent reported, drawn after its name while it works.
 func TestAgentsRowShowsTheTool(t *testing.T) {
-	agent := newThinking()
+	agent := paneltest.Thinking()
 	agent.ReportedReason = "WebFetch"
 	harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "backend"), agent)
 
-	row := findRowWith(t, harness.Frame(), "telescope")
+	row := paneltest.FindRowWith(t, harness.Frame(), "telescope")
 	assert.Contains(t, row, "WebFetch")
-}
-
-func findRowWith(t *testing.T, frame, want string) string {
-	t.Helper()
-
-	for _, line := range paneltest.Sidebar(frame) {
-		if strings.Contains(line, want) {
-			return line
-		}
-	}
-
-	require.Failf(t, "no row carries the text", "%q", want)
-
-	return ""
 }

@@ -6,9 +6,7 @@ import (
 
 	"komrad/internal/ui/paneltest"
 	"komrad/internal/ui/screen"
-	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
-	"komrad/proto/gen/agent/v1/agentv1connect"
 	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -77,7 +75,7 @@ func TestDocumentsJump(t *testing.T) {
 		t.Helper()
 
 		harness := paneltest.OpenAgents(t, buildSubpagesAgents()...)
-		answerDocuments(harness, documents)
+		harness.AnswerDocuments(documents)
 		harness.MoveToRow("task-quiet")
 		harness.Press("tab", "tab")
 		harness.Advance(time.Second)
@@ -92,13 +90,13 @@ func TestDocumentsJump(t *testing.T) {
 	}{
 		{
 			name: "the jump menu lands on the task the hovered document belongs to",
-			open: func(t *testing.T) *paneltest.Panel { return openEvery(t, buildAuthorDocuments()) },
+			open: func(t *testing.T) *paneltest.Panel { return openEvery(t, paneltest.BuildAuthorDocuments()) },
 			jump: "t",
 		},
 		{
 			name: "the jump menu on a document with no task lands on its author",
 			open: func(t *testing.T) *paneltest.Panel {
-				documents := buildAuthorDocuments()
+				documents := paneltest.BuildAuthorDocuments()
 				for _, document := range documents {
 					document.TaskId = nil
 				}
@@ -116,7 +114,7 @@ func TestDocumentsJump(t *testing.T) {
 				task := paneltest.TaskOf(author)
 				task.ArchivedAt = paneltest.ArchivedAt
 				harness := paneltest.OpenArchivedAgents(t, paneltest.Workflow("w1", "komrad"), author, task)
-				answerDocuments(harness, buildAuthorDocuments())
+				harness.AnswerDocuments(paneltest.BuildAuthorDocuments())
 				harness.Press("j", "j", "space")
 				require.Contains(t, harness.Frame(), "  author")
 				harness.Press("J", "d")
@@ -138,7 +136,7 @@ func TestDocumentsJump(t *testing.T) {
 				harness := paneltest.Start(t, paneltest.Params{})
 				harness.Press("F", "shift+tab", "esc")
 				harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "komrad"), author, deleted))
-				answerDocuments(harness, buildAuthorDocuments())
+				harness.AnswerDocuments(paneltest.BuildAuthorDocuments())
 				harness.Press("j", "j", "space", "J", "d")
 				harness.Advance(time.Second)
 
@@ -184,37 +182,4 @@ func buildSubpagesAgents() []proto.Message {
 		paneltest.TaskOf(quiet),
 		paneltest.Reviewer("reviewer", "reviewer", "author"),
 	}
-}
-
-// buildAuthorDocuments is the two documents the author wrote on its task, newest first.
-func buildAuthorDocuments() []*agentv1.Document {
-	return []*agentv1.Document{
-		{
-			Id:        "d1",
-			AgentId:   "author",
-			TaskId:    xptr.Ptr("task-author"),
-			Name:      "Design the cache",
-			Type:      "RFC",
-			Version:   3,
-			UpdatedAt: timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)),
-		},
-		{
-			Id:        "d2",
-			AgentId:   "author",
-			TaskId:    xptr.Ptr("task-author"),
-			Name:      "Rollout report",
-			Type:      "report",
-			Version:   5,
-			UpdatedAt: timestamppb.New(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC)),
-		},
-	}
-}
-
-// answerDocuments lists the documents and reads the first of them whichever one is asked for.
-func answerDocuments(harness *paneltest.Panel, documents []*agentv1.Document) {
-	read := proto.CloneOf(documents[0])
-	read.Body = "# Design the cache\n\nKeep the cache warm."
-
-	harness.Answer(agentv1connect.AgentServiceListDocumentsProcedure, paneltest.AnswerWith(&agentv1.ListDocumentsResponse{Documents: documents}))
-	harness.Answer(agentv1connect.AgentServiceGetDocumentProcedure, paneltest.AnswerWith(&agentv1.GetDocumentResponse{Document: read}))
 }

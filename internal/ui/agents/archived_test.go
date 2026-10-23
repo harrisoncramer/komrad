@@ -11,7 +11,6 @@ import (
 
 	"komrad/internal/ui/paneltest"
 	"komrad/internal/ui/screen"
-	"komrad/lib/dates"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -747,9 +746,9 @@ func TestArchivedAgentsDocument(t *testing.T) {
 func TestArchivedAgentsSort(t *testing.T) {
 	unsorted := []proto.Message{
 		paneltest.Workflow("w1", "backend"),
-		newArchivedAgentAt("zeta", time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC)),
-		newArchivedAgentAt("mid", time.Date(2026, 7, 30, 13, 0, 0, 0, time.UTC)),
-		newArchivedAgentAt("alpha", time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC)),
+		paneltest.ArchivedAgentAt("zeta", time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC)),
+		paneltest.ArchivedAgentAt("mid", time.Date(2026, 7, 30, 13, 0, 0, 0, time.UTC)),
+		paneltest.ArchivedAgentAt("alpha", time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC)),
 	}
 
 	tests := []struct {
@@ -836,9 +835,9 @@ func TestArchivedAgentsWindow(t *testing.T) {
 func TestArchivedAgentsSelection(t *testing.T) {
 	rows := []proto.Message{
 		paneltest.Workflow("w1", "backend"),
-		newArchivedAgentAt("auth", time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC)),
-		newArchivedAgentAt("api", time.Date(2026, 7, 30, 11, 0, 0, 0, time.UTC)),
-		newArchivedAgentAt("db", time.Date(2026, 7, 30, 10, 0, 0, 0, time.UTC)),
+		paneltest.ArchivedAgentAt("auth", time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC)),
+		paneltest.ArchivedAgentAt("api", time.Date(2026, 7, 30, 11, 0, 0, 0, time.UTC)),
+		paneltest.ArchivedAgentAt("db", time.Date(2026, 7, 30, 10, 0, 0, 0, time.UTC)),
 	}
 
 	tests := []struct {
@@ -1255,13 +1254,6 @@ func newRestoredAgent() *agentv1.Agent {
 	agent.ArchivedAt = nil
 	agent.PaneId = "%9"
 	agent.Alive = xptr.Ptr(true)
-
-	return agent
-}
-
-func newArchivedAgentAt(name string, at time.Time) *agentv1.Agent {
-	agent := paneltest.ArchivedAgent(name, name, "w1")
-	agent.ArchivedAt = dates.Stamp(at)
 
 	return agent
 }

@@ -11,8 +11,6 @@ import (
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
-	workflowv1 "komrad/proto/gen/workflow/v1"
-	"komrad/proto/gen/workflow/v1/workflowv1connect"
 
 	watchv1 "komrad/proto/gen/watch/v1"
 
@@ -42,14 +40,14 @@ func TestListingSettlesWrites(t *testing.T) {
 	}{
 		{
 			name:    "a created agent is parked until the watch carries it",
-			setup:   func(harness *paneltest.Panel) { answerAgentCreate(harness, "") },
+			setup:   func(harness *paneltest.Panel) { harness.AnswerAgentCreate("") },
 			press:   []string{"k", "space", "c", "h", "i", "enter"},
 			settle:  []*watchv1.WatchEvent{paneltest.Puts(paneltest.Agent("a2", "new", "w1"))},
 			wantRow: "├─ new",
 		},
 		{
 			name:    "a created workflow settles once its header arrives",
-			setup:   answerWorkflowCreate,
+			setup:   (*paneltest.Panel).AnswerWorkflowCreate,
 			press:   []string{"k", "space", "w", "w", "e", "b", "enter"},
 			settle:  []*watchv1.WatchEvent{paneltest.Puts(paneltest.Workflow("w2", "web"))},
 			wantRow: "web",
@@ -57,7 +55,7 @@ func TestListingSettlesWrites(t *testing.T) {
 		{
 			name: "a row the watch delivered before the write answered settles it at once",
 			setup: func(harness *paneltest.Panel) {
-				answerAgentCreate(harness, "")
+				harness.AnswerAgentCreate("")
 				harness.Watch(paneltest.Puts(paneltest.Agent("a2", "new", "w1")))
 			},
 			press:   []string{"k", "k", "space", "c", "h", "i", "enter"},
@@ -74,7 +72,7 @@ func TestListingSettlesWrites(t *testing.T) {
 		},
 		{
 			name:    "a row arriving after the parked write ran out of time leaves the cursor where it was",
-			setup:   func(harness *paneltest.Panel) { answerAgentCreate(harness, "") },
+			setup:   func(harness *paneltest.Panel) { harness.AnswerAgentCreate("") },
 			press:   []string{"k", "space", "c", "h", "i", "enter"},
 			expire:  true,
 			settle:  []*watchv1.WatchEvent{paneltest.Puts(paneltest.Agent("a2", "new", "w1"))},
@@ -108,7 +106,7 @@ func TestListingSettlesWrites(t *testing.T) {
 			name: "a focused write settled by one watch batch selects its pane once it is swapped in",
 			open: openSettlingBackend,
 			setup: func(harness *paneltest.Panel) {
-				answerWorkflowCreate(harness)
+				harness.AnswerWorkflowCreate()
 				answerOrchestratorStart(harness)
 			},
 			press:        []string{"space", "w", "a", "p", "i", "enter"},
@@ -119,7 +117,7 @@ func TestListingSettlesWrites(t *testing.T) {
 		},
 		{
 			name:    "a row the filter hides leaves the cursor on a row it can see",
-			setup:   func(harness *paneltest.Panel) { answerAgentCreate(harness, "") },
+			setup:   func(harness *paneltest.Panel) { harness.AnswerAgentCreate("") },
 			press:   []string{"/", "tab", "^", "o", "l", "d", "$", "enter", "k", "space", "c", "h", "i", "enter"},
 			settle:  []*watchv1.WatchEvent{paneltest.Puts(paneltest.Agent("a2", "new", "w1"))},
 			wantRow: "api",
@@ -127,9 +125,9 @@ func TestListingSettlesWrites(t *testing.T) {
 		{
 			name:         "a batch for another row after the write settled keeps the pane the write showed",
 			open:         openSettlingStaged,
-			setup:        func(harness *paneltest.Panel) { answerAgentCreate(harness, "%9") },
+			setup:        func(harness *paneltest.Panel) { harness.AnswerAgentCreate("%9") },
 			press:        []string{"k", "space", "c", "h", "i", "enter"},
-			settle:       []*watchv1.WatchEvent{paneltest.Puts(newCreatedAgent()), paneltest.Puts(newStagedOld("renamed"))},
+			settle:       []*watchv1.WatchEvent{paneltest.Puts(paneltest.CreatedAgent()), paneltest.Puts(newStagedOld("renamed"))},
 			wantRow:      "├─ check-ci",
 			wantGuest:    "%9",
 			wantSelected: []string{},
@@ -252,10 +250,10 @@ func TestListingFocus(t *testing.T) {
 		t.Parallel()
 
 		harness := openSettling(t)
-		answerAgentCreate(harness, "%9")
+		harness.AnswerAgentCreate("%9")
 
 		harness.Press("k", "space", "c", "h", "i", "enter")
-		harness.Watch(paneltest.Puts(newCreatedAgent()))
+		harness.Watch(paneltest.Puts(paneltest.CreatedAgent()))
 
 		assert.Equal(t, "%9", harness.Tmux().GuestPane())
 		assert.Empty(t, harness.Tmux().SelectedPanes())
@@ -396,20 +394,6 @@ func newWorkflowOrchestrator(workflow string) *agentv1.Agent {
 	return orch
 }
 
-func answerAgentCreate(harness *paneltest.Panel, pane string) {
-	harness.Answer(agentv1connect.AgentServiceCreateAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-		return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: &agentv1.Agent{Id: "a2", PaneId: pane}}), nil
-	})
-}
-
-func newCreatedAgent() *agentv1.Agent {
-	agent := paneltest.Agent("a2", "check-ci", "w1")
-	agent.PaneId = "%9"
-	agent.Alive = xptr.Ptr(true)
-
-	return agent
-}
-
 func openUnreachable(t *testing.T, remote engine.Remote) *paneltest.Panel {
 	t.Helper()
 
@@ -430,11 +414,5 @@ func answerOrchestratorStart(harness *paneltest.Panel) {
 			PaneId:  "%9",
 			Harness: "claude",
 		}}), nil
-	})
-}
-
-func answerWorkflowCreate(harness *paneltest.Panel) {
-	harness.Answer(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-		return connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "w2"}}), nil
 	})
 }

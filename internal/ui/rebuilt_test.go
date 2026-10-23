@@ -92,7 +92,7 @@ func TestRebuilt(t *testing.T) {
 		binary := &fakeBinary{}
 		harness := paneltest.Start(t, paneltest.Params{Binary: binary})
 		harness.AnswerWorktreeReads()
-		harness.Watch(paneltest.Snapshot(newFormWorkflow(), newFormAuthor()))
+		harness.Watch(paneltest.Snapshot(paneltest.FormWorkflow(), paneltest.FormAuthor()))
 		harness.Hold(agentv1connect.AgentServiceArchiveAgentsProcedure)
 		harness.Press("g", "g", "j", "space", "a", "enter")
 
@@ -101,7 +101,7 @@ func TestRebuilt(t *testing.T) {
 		require.NotContains(t, harness.Frame(), "komrad was rebuilt", "the write is still in flight")
 
 		harness.Release(agentv1connect.AgentServiceArchiveAgentsProcedure)
-		harness.Watch(paneltest.Snapshot(newFormWorkflow()))
+		harness.Watch(paneltest.Snapshot(paneltest.FormWorkflow()))
 		harness.Advance(time.Second)
 		assert.Contains(t, harness.Frame(), "komrad was rebuilt")
 	})

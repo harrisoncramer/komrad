@@ -83,7 +83,7 @@ func TestRenameSends(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openForms(t, newFormWorkflow(), newFormAuthor())
+			harness := openForms(t, paneltest.FormWorkflow(), paneltest.FormAuthor())
 
 			harness.Press(tt.press...)
 
@@ -96,7 +96,7 @@ func TestRenameSends(t *testing.T) {
 // TestRenameField covers the name being typed over its row, rendered where the name was.
 func TestRenameField(t *testing.T) {
 	t.Run("the field opens on the name the row had", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness := openForms(t, paneltest.FormWorkflow(), paneltest.FormAuthor())
 
 		harness.Press("j", "r")
 
@@ -109,7 +109,7 @@ func TestRenameField(t *testing.T) {
 	})
 
 	t.Run("a paste goes in on one line", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness := openForms(t, paneltest.FormWorkflow(), paneltest.FormAuthor())
 
 		harness.Press("j", "r")
 		harness.Send(tea.PasteMsg{Content: "-a\nb"})
@@ -118,7 +118,7 @@ func TestRenameField(t *testing.T) {
 	})
 
 	t.Run("esc puts the name back and the keys go back to the list", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness := openForms(t, paneltest.FormWorkflow(), paneltest.FormAuthor())
 
 		harness.Press(slices.Concat([]string{"j", "r"}, strings.Split("-v2", ""), []string{"esc", "k"})...)
 
@@ -127,10 +127,10 @@ func TestRenameField(t *testing.T) {
 	})
 
 	t.Run("a row that leaves the list holds the keys until esc or enter and says it is gone", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness := openForms(t, paneltest.FormWorkflow(), paneltest.FormAuthor())
 		harness.Press(slices.Concat([]string{"j", "r"}, strings.Split("-v2", ""))...)
 
-		harness.Watch(paneltest.Snapshot(newFormWorkflow()))
+		harness.Watch(paneltest.Snapshot(paneltest.FormWorkflow()))
 		harness.Press("space", "c", "enter")
 
 		assert.NotContains(t, harness.Frame(), "enter submit", "no action ran on the row the cursor landed on")
@@ -142,16 +142,16 @@ func TestRenameField(t *testing.T) {
 	})
 
 	t.Run("a listing landing under the field leaves it open", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness := openForms(t, paneltest.FormWorkflow(), paneltest.FormAuthor())
 		harness.Press(slices.Concat([]string{"j", "r"}, strings.Split("-v2", ""))...)
 
-		harness.Watch(paneltest.Snapshot(newFormWorkflow(), newFormAuthor(), paneltest.Agent("a2", "another", "w1")))
+		harness.Watch(paneltest.Snapshot(paneltest.FormWorkflow(), paneltest.FormAuthor(), paneltest.Agent("a2", "another", "w1")))
 
 		assert.Equal(t, "└─ author-v2▏", paneltest.HoveredRow(harness.Frame()))
 	})
 
 	t.Run("the field takes no keys while the name is being saved", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness := openForms(t, paneltest.FormWorkflow(), paneltest.FormAuthor())
 		harness.Hold(agentv1connect.AgentServiceUpdateAgentProcedure)
 
 		harness.Press(slices.Concat([]string{"j", "r"}, strings.Split("-v2", ""), []string{"enter", "x", "k"})...)
@@ -163,18 +163,18 @@ func TestRenameField(t *testing.T) {
 	})
 
 	t.Run("a saved name stands until the listing shows it", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness := openForms(t, paneltest.FormWorkflow(), paneltest.FormAuthor())
 
 		harness.Press(slices.Concat([]string{"j", "r"}, strings.Split("-v2", ""), []string{"enter"})...)
 		assert.Equal(t, "└─ author-v2", paneltest.HoveredRow(harness.Frame()), "not the old name before the watch catches up")
 
-		harness.Watch(paneltest.Snapshot(newFormWorkflow(), paneltest.Agent("a1", "author-v2", "w1")))
-		harness.Watch(paneltest.Snapshot(newFormWorkflow(), paneltest.Agent("a1", "author-v3", "w1")))
+		harness.Watch(paneltest.Snapshot(paneltest.FormWorkflow(), paneltest.Agent("a1", "author-v2", "w1")))
+		harness.Watch(paneltest.Snapshot(paneltest.FormWorkflow(), paneltest.Agent("a1", "author-v3", "w1")))
 		assert.Equal(t, "└─ author-v3", paneltest.HoveredRow(harness.Frame()), "the listing renders the name once it has caught up")
 	})
 
 	t.Run("a refused name opens the field again holding it", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness := openForms(t, paneltest.FormWorkflow(), paneltest.FormAuthor())
 		harness.Refuse(agentv1connect.AgentServiceUpdateAgentProcedure, connect.NewError(connect.CodeAlreadyExists, errors.New("name taken")))
 
 		harness.Press(slices.Concat([]string{"j", "r"}, strings.Split("-v2", ""), []string{"enter"})...)

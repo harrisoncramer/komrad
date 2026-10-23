@@ -83,7 +83,7 @@ func TestLoaderSpinsWhileAnAgentSetsUp(t *testing.T) {
 
 			var rendered []string
 			for range 3 {
-				rendered = append(rendered, readWriteFrame(t, harness.Frame(), tt.doing))
+				rendered = append(rendered, paneltest.ReadWriteFrame(t, harness.Frame(), tt.doing))
 				require.True(t, harness.IsSpinning(), "the loader stopped ticking with the agent still setting up")
 			}
 
@@ -106,26 +106,6 @@ func readChecksFrame(t *testing.T, harness *paneltest.Panel) string {
 	}
 
 	require.Fail(t, "no notice says the checks are running")
-
-	return ""
-}
-
-func readWriteFrame(t *testing.T, frame, doing string) string {
-	t.Helper()
-
-	for _, line := range paneltest.SplitLines(ansi.Strip(frame)) {
-		at := strings.Index(line, doing)
-		if at < 0 {
-			continue
-		}
-
-		fields := strings.Fields(line[:at])
-		require.NotEmpty(t, fields)
-
-		return fields[len(fields)-1]
-	}
-
-	require.Fail(t, "nothing is rendered doing "+doing)
 
 	return ""
 }
