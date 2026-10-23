@@ -1,4 +1,4 @@
-package ui
+package worktrees
 
 import (
 	"fmt"
@@ -8,7 +8,6 @@ import (
 	"komrad/internal/ui/legend"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
-	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/tabs"
 	"komrad/internal/view"
@@ -21,7 +20,7 @@ const entriesShown = 10
 
 // Enter lands on the directory of the agent the target names, remembering it as the focus for
 // the listing on its way.
-func (w *worktreesScreen) Enter(in screen.Inputs, target screen.Target) screen.Request {
+func (w *Screen) Enter(in screen.Inputs, target screen.Target) screen.Request {
 	w.focus = target.AgentID
 	if target.AgentID != "" && !w.scope.listsAgent(in.Listing.Worktrees, target.AgentID) {
 		w.scope = scopeAll
@@ -31,16 +30,18 @@ func (w *worktreesScreen) Enter(in screen.Inputs, target screen.Target) screen.R
 	return screen.Batch{w.Stage(), screen.Settle{}}
 }
 
-func (w *worktreesScreen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
+// Update sends a key to the screen's table.
+func (w *Screen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return nil
 	}
 
-	return w.actions(in).DispatchTop(w.deps.top, w, w.deps.keys, key.String())
+	return w.actions(in).DispatchTop(w.deps.Top, w, w.deps.Keys, key.String())
 }
 
-func (w *worktreesScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
+// Receive takes a fresh listing and asks for the hovered directory's standing the first time.
+func (w *Screen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 	relisted, ok := msg.(screen.Relisted)
 	if !ok {
 		return nil, false
@@ -48,37 +49,43 @@ func (w *worktreesScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request
 
 	w.apply(in, w.list().Hovered(relisted.Before(in)))
 
-	return nil, true
+	return w.inspectUnread(in), true
 }
 
-func (w *worktreesScreen) list() keys.ScreenList[worktreeRow] {
-	return keys.ScreenList[worktreeRow]{
-		Keys:   w.deps.keys,
+func (w *Screen) list() keys.ScreenList[row] {
+	return keys.ScreenList[row]{
+		Keys:   w.deps.Keys,
 		Cursor: func() *list.Cursor { return &w.Cursor },
 		Rows:   w.rows,
-		Name:   worktreeRow.name,
-		Refs:   worktreeRefs,
+		Name:   row.name,
+		Refs:   refs,
 		Header: "repository",
 		Placed: func(screen.Inputs) screen.Request { return w.Stage() },
 		Moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
 	}
 }
 
-func (w *worktreesScreen) hovered(in screen.Inputs) (worktreeRow, bool) {
-	row, ok := list.At(w.rows(in), w.Row)
-	if !ok || row.header {
-		return worktreeRow{}, false
+func (w *Screen) hovered(in screen.Inputs) (row, bool) {
+	hovered, ok := list.At(w.rows(in), w.Row)
+	if !ok || hovered.header {
+		return row{}, false
 	}
 
-	return row, true
+	return hovered, true
 }
 
-func (w *worktreesScreen) Stage() screen.Request {
+// Stage puts the terminal on the stage beside the list.
+func (w *Screen) Stage() screen.Request {
 	return screen.StageTerminal{}
 }
 
+// StageResting stages the row the cursor came to rest on, with its standing and its agent's saved screen.
+func (w *Screen) StageResting(in screen.Inputs) screen.Request {
+	return screen.Batch{w.Stage(), w.inspect(in), screen.ReadLastScreen{}}
+}
+
 // inspect asks the server for the hovered directory's standing.
-func (w *worktreesScreen) inspect(in screen.Inputs) screen.Request {
+func (w *Screen) inspect(in screen.Inputs) screen.Request {
 	row, ok := w.hovered(in)
 	if !ok {
 		return nil
@@ -88,7 +95,7 @@ func (w *worktreesScreen) inspect(in screen.Inputs) screen.Request {
 }
 
 // inspectUnread asks for the hovered directory's standing the first time, while the screen is up.
-func (w *worktreesScreen) inspectUnread(in screen.Inputs) screen.Request {
+func (w *Screen) inspectUnread(in screen.Inputs) screen.Request {
 	if !in.Up {
 		return nil
 	}
@@ -104,38 +111,64 @@ func (w *worktreesScreen) inspectUnread(in screen.Inputs) screen.Request {
 	return screen.Inspect{Dir: row.item.Dir}
 }
 
-func worktreesTabs() tabs.Strip {
+// ScreenedAgentID is the stopped agent working in the hovered directory, whose saved screen is rendered beside the list.
+func (w *Screen) ScreenedAgentID(in screen.Inputs) (string, bool) {
+	row, ok := w.hovered(in)
+	if !ok {
+		return "", false
+	}
+
+	occupant, ok := row.item.FirstOccupant()
+	if !ok {
+		return "", false
+	}
+
+	if live, ok := in.Listing.LiveAgent(occupant.ID); ok && live.Alive {
+		return "", false
+	}
+
+	return occupant.ID, true
+}
+
+// ScreenNotice is the line over a stopped agent's saved screen.
+func (w *Screen) ScreenNotice(screen.Inputs) string {
+	return "not running"
+}
+
+func sortStrip() tabs.Strip {
 	return tabs.Strip{
 		Title:    "f",
 		Legend:   "sort",
-		Options:  tabs.OptionsOf(worktreeSorts),
+		Options:  tabs.OptionsOf(sorts),
 		Fallback: "size",
 		Grouped:  "repo",
 	}
 }
 
-func (w *worktreesScreen) Kinds() tabs.Stops {
+// Kinds is the worktrees screen's row of scopes.
+func (w *Screen) Kinds() tabs.Stops {
 	return tabs.Stops{
-		Labels: worktreeScopeLabels,
+		Labels: scopeLabels,
 		Focus:  tabs.NoStop,
 		Lit:    int(w.scope),
 	}
 }
 
-func (w *worktreesScreen) KindsFocused() *bool {
+// KindsFocused is whether the row of scopes holds the keys.
+func (w *Screen) KindsFocused() *bool {
 	return &w.scopeFocus
 }
 
 // KindsSwitch holds the scope while any directories are selected.
-func (w *worktreesScreen) KindsSwitch() bool {
+func (w *Screen) KindsSwitch() bool {
 	return !w.Selected.IsActive()
 }
 
 // StepKind moves the listing to another scope, keeping the cursor on its row when the new scope
 // lists it.
-func (w *worktreesScreen) StepKind(in screen.Inputs, delta int) screen.Request {
+func (w *Screen) StepKind(in screen.Inputs, delta int) screen.Request {
 	hovered := w.list().Hovered(in)
-	w.scope = worktreeScope(tabs.StepStop(int(w.scope), delta, len(worktreeScopeLabels)))
+	w.scope = scope(tabs.StepStop(int(w.scope), delta, len(scopeLabels)))
 	w.place(in, hovered)
 
 	return screen.Batch{w.Stage(), screen.Settle{}}
@@ -143,7 +176,7 @@ func (w *worktreesScreen) StepKind(in screen.Inputs, delta int) screen.Request {
 
 // tally is how many directories the scope lists, what the measured ones take, and whether they
 // are rendered as one list.
-func (w *worktreesScreen) tally() string {
+func (w *Screen) tally() string {
 	shown := w.shown()
 	tally := fmt.Sprintf("%d"+separated+"%s", len(shown), totalLabel(shown))
 	if w.sort.Flat {
@@ -153,7 +186,8 @@ func (w *worktreesScreen) tally() string {
 	return tally
 }
 
-func (w *worktreesScreen) ListParams(in screen.Inputs) list.Params {
+// ListParams is the worktrees list as the root renders it.
+func (w *Screen) ListParams(in screen.Inputs) list.Params {
 	return list.Params{
 		Tally:    w.tally(),
 		Help:     w.help(in),
@@ -163,59 +197,56 @@ func (w *worktreesScreen) ListParams(in screen.Inputs) list.Params {
 	}
 }
 
-func (w *worktreesScreen) help(in screen.Inputs) legend.Help {
-	return w.actions(in).Help(w, w.deps.keys)
+func (w *Screen) help(in screen.Inputs) legend.Help {
+	return w.actions(in).Help(w, w.deps.Keys)
 }
 
-func (w *worktreesScreen) countUnder(repo string) int {
+func (w *Screen) countUnder(repo string) int {
 	return len(itemsUnder(w.shown(), repo))
 }
 
-var (
-	_ recordRenderer      = (*worktreesScreen)(nil)
-	_ activeLister        = (*worktreesScreen)(nil)
-	_ kindSwitcher        = (*worktreesScreen)(nil)
-	_ tabSwitcher         = (*worktreesScreen)(nil)
-	_ rowStager           = (*worktreesScreen)(nil)
-	_ hoveredNamer        = (*worktreesScreen)(nil)
-	_ itemMenuBuilder     = (*worktreesScreen)(nil)
-	_ savedScreenRenderer = (*worktreesScreen)(nil)
-)
-
-func (w *worktreesScreen) DoesRenderFromListing() bool {
+// DoesRenderFromListing reports that the screen renders the watched directories.
+func (w *Screen) DoesRenderFromListing() bool {
 	return true
 }
 
-func (w *worktreesScreen) TakesEveryKey() bool {
+// TakesEveryKey reports that nothing on the screen takes every key.
+func (w *Screen) TakesEveryKey() bool {
 	return false
 }
 
-func (w *worktreesScreen) ActiveList() keys.KeyedList {
+// ActiveList is the worktrees list the filter narrows.
+func (w *Screen) ActiveList() keys.KeyedList {
 	return w.list()
 }
 
-func (w *worktreesScreen) HoveredName(in screen.Inputs) string {
+// HoveredName is the name of the row the cursor is on.
+func (w *Screen) HoveredName(in screen.Inputs) string {
 	return w.list().HoveredName(in)
 }
 
-func (w *worktreesScreen) Tabs() tabs.Strip {
-	return worktreesTabs()
+// Tabs is the strip of columns the list can be ordered by.
+func (w *Screen) Tabs() tabs.Strip {
+	return sortStrip()
 }
 
-func (w *worktreesScreen) TabsState() *tabs.State {
+// TabsState is where the screen keeps the column chosen and whether the strip holds the keys.
+func (w *Screen) TabsState() *tabs.State {
 	return &w.sort
 }
 
-func (w *worktreesScreen) Column(in screen.Inputs) column.Spec {
+// Column is the hovered directory's document rendered in the block beside the list.
+func (w *Screen) Column(in screen.Inputs) column.Spec {
 	return column.Spec{
 		Floor: column.Narrowest,
 		Read:  column.IsAlwaysRead,
 		DocRows: func(width int) []string {
-			return paint.DocStyledRows(w.doc(in), max(width, 1), columnStyle())
+			return paint.DocStyledRows(w.doc(in), max(width, 1), paint.Panel.Stage())
 		},
 	}
 }
 
-func (w *worktreesScreen) Dispatches() []keys.Table {
+// Dispatches is the screen's one table.
+func (w *Screen) Dispatches() []keys.Table {
 	return []keys.Table{w.actions(screen.Inputs{})}
 }

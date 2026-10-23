@@ -19,6 +19,7 @@ import (
 	"komrad/internal/ui/schedules"
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/tabs"
+	"komrad/internal/ui/worktrees"
 	"komrad/lib/xslice"
 
 	tea "charm.land/bubbletea/v2"
@@ -323,6 +324,17 @@ var (
 	_ itemMenuBuilder = schedules.Archive{}
 	_ kindSwitcher    = schedules.Archive{}
 	_ queryGrammarer  = schedules.Archive{}
+)
+
+var (
+	_ recordRenderer      = (*worktrees.Screen)(nil)
+	_ activeLister        = (*worktrees.Screen)(nil)
+	_ kindSwitcher        = (*worktrees.Screen)(nil)
+	_ tabSwitcher         = (*worktrees.Screen)(nil)
+	_ rowStager           = (*worktrees.Screen)(nil)
+	_ hoveredNamer        = (*worktrees.Screen)(nil)
+	_ itemMenuBuilder     = (*worktrees.Screen)(nil)
+	_ savedScreenRenderer = (*worktrees.Screen)(nil)
 )
 
 // stageEditor puts an editor on the stage with the keys in it, and answers the pane it was

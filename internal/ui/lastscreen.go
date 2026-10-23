@@ -55,24 +55,6 @@ func (a *agentsScreen) ScreenedAgentID(in screen.Inputs) (string, bool) {
 	return item.Agent.ID, ok
 }
 
-func (w *worktreesScreen) ScreenedAgentID(in screen.Inputs) (string, bool) {
-	row, ok := w.hovered(in)
-	if !ok {
-		return "", false
-	}
-
-	occupant, ok := row.item.FirstOccupant()
-	if !ok {
-		return "", false
-	}
-
-	if live, ok := in.Listing.LiveAgent(occupant.ID); ok && live.Alive {
-		return "", false
-	}
-
-	return occupant.ID, true
-}
-
 func (m *model) isScreenShown() bool {
 	_, ok := m.screenedAgentID()
 
@@ -149,10 +131,6 @@ func (a *archivedAgents) ScreenNotice(in screen.Inputs) string {
 
 func (a *agentsScreen) ScreenNotice(in screen.Inputs) string {
 	return "dormant" + separated + "press " + keys.Label(fixedKeys().Open) + " to restore"
-}
-
-func (w *worktreesScreen) ScreenNotice(screen.Inputs) string {
-	return "not running"
 }
 
 // columnHeight is the rows that render the block beside the list.

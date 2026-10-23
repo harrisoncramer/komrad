@@ -1,4 +1,4 @@
-package ui
+package worktrees
 
 import (
 	"cmp"
@@ -19,18 +19,18 @@ import (
 	"komrad/lib/xslice"
 )
 
-// worktreeRow is one line of the worktrees list: a repository heading its directories, or a
+// row is one line of the worktrees list: a repository heading its directories, or a
 // directory.
-type worktreeRow struct {
+type row struct {
 	header bool
 	// repo is the repository the row sits under, which is the header's own name.
 	repo string
 	item panel.Worktree
 }
 
-// worktreeColumns is the gutter of the worktrees list: a directory's size, its age, then where
+// columns is the gutter of the worktrees list: a directory's size, its age, then where
 // it stands against its base.
-func worktreeColumns() view.Columns {
+func columns() view.Columns {
 	return view.Columns{
 		{Kind: view.ColumnText, Width: sizeColumns},
 		{Kind: view.ColumnText, Width: label.AgeWidth},
@@ -44,7 +44,7 @@ const sizeColumns = 4
 // noRepository heads the directories whose .git file names nothing.
 const noRepository = "no repository"
 
-func (r worktreeRow) Key() string {
+func (r row) Key() string {
 	if r.header {
 		return repoRowKey(r.repo)
 	}
@@ -61,7 +61,7 @@ func treeRowKey(dir string) string {
 }
 
 // name is what the row is listed as.
-func (r worktreeRow) name() string {
+func (r row) name() string {
 	switch {
 	case r.header:
 		return label.Path(r.repo, homeDir())
@@ -74,8 +74,8 @@ func (r worktreeRow) name() string {
 	return filepath.Base(r.item.Dir)
 }
 
-// worktreeSorts is every column the worktrees list can be ordered by.
-var worktreeSorts = []tabs.Column[panel.Worktree]{
+// sorts is every column the worktrees list can be ordered by.
+var sorts = []tabs.Column[panel.Worktree]{
 	{
 		ID:    "size",
 		Label: "size",
@@ -96,22 +96,22 @@ var worktreeSorts = []tabs.Column[panel.Worktree]{
 	},
 }
 
-type worktreeRowsParams struct {
+type buildRowsParams struct {
 	items []panel.Worktree
 	order tabs.Order
 	// flat orders the whole listing as one list.
 	flat bool
 }
 
-// worktreeRows groups the listing under its repositories in path order, or orders it whole.
-func worktreeRows(params worktreeRowsParams) []worktreeRow {
+// buildRows groups the listing under its repositories in path order, or orders it whole.
+func buildRows(params buildRowsParams) []row {
 	items, order := params.items, params.order
 	if params.flat {
 		members := slices.Clone(items)
-		sortWorktreeItems(members, order)
+		sortItems(members, order)
 
-		return xslice.Map(members, func(item panel.Worktree) worktreeRow {
-			return worktreeRow{item: item}
+		return xslice.Map(members, func(item panel.Worktree) row {
+			return row{item: item}
 		})
 	}
 
@@ -126,26 +126,26 @@ func worktreeRows(params worktreeRowsParams) []worktreeRow {
 	}
 	slices.Sort(repos)
 
-	var rows []worktreeRow
+	var rows []row
 	for _, repo := range repos {
 		members := byRepo[repo]
 		heading := repoHeading(members[0])
-		rows = append(rows, worktreeRow{header: true, repo: heading})
+		rows = append(rows, row{header: true, repo: heading})
 
-		sortWorktreeItems(members, order)
-		rows = append(rows, xslice.Map(members, func(item panel.Worktree) worktreeRow {
-			return worktreeRow{repo: heading, item: item}
+		sortItems(members, order)
+		rows = append(rows, xslice.Map(members, func(item panel.Worktree) row {
+			return row{repo: heading, item: item}
 		})...)
 	}
 
 	return rows
 }
 
-// sortWorktreeItems orders the directories by the column, the path settling a tie.
-func sortWorktreeItems(items []panel.Worktree, order tabs.Order) {
+// sortItems orders the directories by the column, the path settling a tie.
+func sortItems(items []panel.Worktree, order tabs.Order) {
 	tabs.Sort(tabs.SortParams[panel.Worktree]{
 		Rows:    items,
-		Columns: worktreeSorts,
+		Columns: sorts,
 		Order:   order,
 		Tiebreak: func(a, b panel.Worktree) int {
 			return strings.Compare(a.Dir, b.Dir)
@@ -153,17 +153,17 @@ func sortWorktreeItems(items []panel.Worktree, order tabs.Order) {
 	})
 }
 
-type worktreeRowsKey struct {
+type rowsKey struct {
 	revision int
-	scope    worktreeScope
+	scope    scope
 	order    tabs.Order
 	flat     bool
 	filter   list.PatternKey
 }
 
-func (w *worktreesScreen) rows(in screen.Inputs) []worktreeRow {
-	order := worktreesTabs().Order(w.sort)
-	key := worktreeRowsKey{
+func (w *Screen) rows(in screen.Inputs) []row {
+	order := sortStrip().Order(w.sort)
+	key := rowsKey{
 		revision: w.revision,
 		scope:    w.scope,
 		order:    order,
@@ -171,20 +171,20 @@ func (w *worktreesScreen) rows(in screen.Inputs) []worktreeRow {
 		filter:   in.Room.Pattern.Key(),
 	}
 
-	return w.built.Read(key, func() []worktreeRow {
-		return list.Narrowed(in.Room.Pattern, list.NarrowedParams[worktreeRow]{
-			Rows: worktreeRows(worktreeRowsParams{
+	return w.built.Read(key, func() []row {
+		return list.Narrowed(in.Room.Pattern, list.NarrowedParams[row]{
+			Rows: buildRows(buildRowsParams{
 				items: w.shown(),
 				order: order,
 				flat:  w.sort.Flat,
 			}),
-			Depth: worktreeRowDepth,
-			Name:  worktreeRow.name,
+			Depth: rowDepth,
+			Name:  row.name,
 		})
 	})
 }
 
-func worktreeRowDepth(row worktreeRow) int {
+func rowDepth(row row) int {
 	if row.header {
 		return 0
 	}
@@ -207,9 +207,9 @@ func repoHeading(item panel.Worktree) string {
 	return item.RepoDir
 }
 
-// worktreeRefs is the worktrees list as the selection sees it.
-func worktreeRefs(rows []worktreeRow) []list.Ref {
-	return xslice.Map(rows, func(row worktreeRow) list.Ref {
+// refs is the worktrees list as the selection sees it.
+func refs(rows []row) []list.Ref {
+	return xslice.Map(rows, func(row row) list.Ref {
 		return list.Ref{
 			Key:    row.Key(),
 			Header: row.header,
@@ -218,8 +218,8 @@ func worktreeRefs(rows []worktreeRow) []list.Ref {
 	})
 }
 
-// rowIndexOfWorktreeAgent is the row of the directory an agent was cut for or works in.
-func rowIndexOfWorktreeAgent(rows []worktreeRow, id string) int {
+// rowIndexOfAgent is the row of the directory an agent was cut for or works in.
+func rowIndexOfAgent(rows []row, id string) int {
 	if id == "" {
 		return -1
 	}
@@ -236,9 +236,9 @@ func rowIndexOfWorktreeAgent(rows []worktreeRow, id string) int {
 	return -1
 }
 
-// worktreesSnapshotParams is what the panel holds about the worktrees list, as plain data.
-type worktreesSnapshotParams struct {
-	rows []worktreeRow
+// listSnapshotParams is what the panel holds about the worktrees list, as plain data.
+type listSnapshotParams struct {
+	rows []row
 	// items is the whole listing, which is what a repository's own figures are read off.
 	items    []panel.Worktree
 	selected list.Selection
@@ -253,8 +253,8 @@ type worktreesSnapshotParams struct {
 	now     time.Time
 }
 
-// worktreesSnapshot reads the rows into the plain data the list renders itself from.
-func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
+// listSnapshot reads the rows into the plain data the list renders itself from.
+func listSnapshot(params listSnapshotParams) view.Snapshot {
 	live := xslice.KeyBy(params.live, func(item panel.AgentRow) string { return item.Agent.ID })
 
 	rows := make([]view.Row, 0, len(params.rows))
@@ -277,7 +277,7 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 			}
 			row.Cells = rowCells(r.item, params.now)
 			if occupant, ok := r.item.FirstOccupant(); ok {
-				row = worktreeAgentFacts(row, occupant, live)
+				row = agentFacts(row, occupant, live)
 			} else {
 				row.Process = view.ProcessStopped
 			}
@@ -292,12 +292,12 @@ func worktreesSnapshot(params worktreesSnapshotParams) view.Snapshot {
 		Caret:   params.caret,
 		Focused: params.focused,
 		Pane:    params.pane,
-		Columns: worktreeColumns(),
+		Columns: columns(),
 	}
 }
 
-// worktreeAgentFacts is what a row says about the agent behind it.
-func worktreeAgentFacts(row view.Row, agent panel.WorktreeAgent, live map[string]panel.AgentRow) view.Row {
+// agentFacts is what a row says about the agent behind it.
+func agentFacts(row view.Row, agent panel.WorktreeAgent, live map[string]panel.AgentRow) view.Row {
 	item, ok := live[agent.ID]
 	if !ok {
 		item = panel.AgentRow{Agent: panel.Agent{
@@ -314,19 +314,15 @@ func worktreeAgentFacts(row view.Row, agent panel.WorktreeAgent, live map[string
 // rowCells are a directory's size, its age, then where it stands.
 func rowCells(item panel.Worktree, now time.Time) []view.Cell {
 	return []view.Cell{
-		mutedCell(sizeLabel(item)),
-		mutedCell(label.AgeAt(item.LastActiveAt, now)),
+		{Text: sizeLabel(item), Tone: paint.ToneMuted},
+		{Text: label.AgeAt(item.LastActiveAt, now), Tone: paint.ToneMuted},
 		standingCell(item),
 	}
 }
 
 // groupCells are the total of the measured directories under a header, over the size column.
 func groupCells(items []panel.Worktree, repo string) []view.Cell {
-	return []view.Cell{mutedCell(totalLabel(itemsUnder(items, repo)))}
-}
-
-func mutedCell(text string) view.Cell {
-	return view.Cell{Text: text, Tone: paint.ToneMuted}
+	return []view.Cell{{Text: totalLabel(itemsUnder(items, repo)), Tone: paint.ToneMuted}}
 }
 
 // sizeLabel is what a directory takes, or a dash while it is unmeasured.
@@ -345,7 +341,7 @@ func standingCell(item panel.Worktree) view.Cell {
 	case !item.Readable:
 		return view.Cell{Glyph: glyph.WorktreeGone, Tone: paint.ToneDanger}
 	case standing == nil || standing.Err != "":
-		return mutedCell(label.Dash)
+		return view.Cell{Text: label.Dash, Tone: paint.ToneMuted}
 	case standing.Dirty || standing.Sequencing:
 		return view.Cell{Glyph: glyph.Worktree, Tone: paint.ToneWarning}
 	case standing.Unlanded > 0:

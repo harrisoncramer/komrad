@@ -1,4 +1,4 @@
-package ui_test
+package worktrees_test
 
 import (
 	"errors"

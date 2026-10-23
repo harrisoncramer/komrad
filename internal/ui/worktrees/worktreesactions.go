@@ -1,4 +1,4 @@
-package ui
+package worktrees
 
 import (
 	"slices"
@@ -13,59 +13,61 @@ import (
 	"komrad/lib/xslice"
 )
 
+const actionBack keys.ID = keys.Own + iota
+
 // actions is the worktrees screen as one table and the legend that names it.
-func (w *worktreesScreen) actions(in screen.Inputs) keys.Spec[*worktreesScreen] {
-	return keys.Spec[*worktreesScreen]{
+func (w *Screen) actions(in screen.Inputs) keys.Spec[*Screen] {
+	return keys.Spec[*Screen]{
 		Table:  w.table(in),
 		Legend: w.legend(in),
 	}
 }
 
-func (w *worktreesScreen) table(in screen.Inputs) []keys.Action[*worktreesScreen] {
+func (w *Screen) table(in screen.Inputs) []keys.Action[*Screen] {
 	list := w.list()
 
-	return append(keys.ListActions[*worktreesScreen](list, in),
-		keys.Action[*worktreesScreen]{
-			ID:   actionWorktreesBack,
+	return append(keys.ListActions[*Screen](list, in),
+		keys.Action[*Screen]{
+			ID:   actionBack,
 			Keys: keys.FixedBack,
-			When: func(*worktreesScreen) bool { return list.IsBrowsing() },
-			Nav:  func(*worktreesScreen, string) screen.Request { return screen.PickView{} },
+			When: func(*Screen) bool { return list.IsBrowsing() },
+			Nav:  func(*Screen, string) screen.Request { return screen.PickView{} },
 		},
 	)
 }
 
-func (w *worktreesScreen) legend(in screen.Inputs) []keys.LegendRow[*worktreesScreen] {
+func (w *Screen) legend(in screen.Inputs) []keys.LegendRow[*Screen] {
 	list := w.list()
 
-	return slices.Concat(keys.SelectionLegend[*worktreesScreen](list, in), []keys.LegendRow[*worktreesScreen]{
+	return slices.Concat(keys.SelectionLegend[*Screen](list, in), []keys.LegendRow[*Screen]{
 		{
 			Of:   []keys.ID{keys.SelectToggle},
-			Desc: func(*worktreesScreen) string { return list.ToggleDesc(in) },
-			Show: func(*worktreesScreen) bool { return w.holdsARow(in) },
+			Desc: func(*Screen) string { return list.ToggleDesc(in) },
+			Show: func(*Screen) bool { return w.holdsARow(in) },
 		},
 		{
 			Of:   []keys.ID{keys.FilterOpen},
-			Desc: keys.FilterDescOf[*worktreesScreen](in),
+			Desc: keys.FilterDescOf[*Screen](in),
 		},
-	}, keys.NavLegend[*worktreesScreen](), []keys.LegendRow[*worktreesScreen]{
+	}, keys.NavLegend[*Screen](), []keys.LegendRow[*Screen]{
 		{
-			Of:   []keys.ID{actionWorktreesBack},
-			Desc: func(*worktreesScreen) string { return "back" },
+			Of:   []keys.ID{actionBack},
+			Desc: func(*Screen) string { return "back" },
 		},
 		{
 			Of:    []keys.ID{keys.FilterClear},
-			Desc:  keys.FilterClearDescOf[*worktreesScreen](in),
+			Desc:  keys.FilterClearDescOf[*Screen](in),
 			Strip: true,
 		},
 		{
 			Of:    []keys.ID{keys.FilterMatch},
-			Desc:  func(*worktreesScreen) string { return "next/prev match" },
+			Desc:  func(*Screen) string { return "next/prev match" },
 			Strip: true,
 		},
 	})
 }
 
-func (w *worktreesScreen) holdsARow(in screen.Inputs) bool {
+func (w *Screen) holdsARow(in screen.Inputs) bool {
 	if w.Selected.IsActive() {
 		return false
 	}
@@ -91,16 +93,16 @@ func deleteDesc(fate panel.WorktreeFate) string {
 }
 
 // deleteWorktree asks before a directory goes the way its fate decides.
-func (w *worktreesScreen) deleteWorktree(in screen.Inputs, item panel.Worktree) screen.Request {
+func (w *Screen) deleteWorktree(in screen.Inputs, item panel.Worktree) screen.Request {
 	switch item.Fate {
 	case panel.FateLive:
 		tasks := []panel.Task{*item.Task}
 
-		return w.deps.clients.ArchiveTasksWrite(tasks, in.Listing.AgentsOnTasks(tasks))
+		return w.deps.Clients.ArchiveTasksWrite(tasks, in.Listing.AgentsOnTasks(tasks))
 	case panel.FateArchived:
-		return w.deps.clients.ConfirmDeleteTasks(in, []panel.Task{*item.Task})
+		return w.deps.Clients.ConfirmDeleteTasks(in, []panel.Task{*item.Task})
 	case panel.FateUnowned:
-		return w.confirmDeleteWorktrees(in, worktreeDeletion{unowned: []panel.Worktree{item}})
+		return w.confirmDeleteWorktrees(in, deletion{unowned: []panel.Worktree{item}})
 	case panel.FateDeleting:
 	}
 
@@ -108,8 +110,8 @@ func (w *worktreesScreen) deleteWorktree(in screen.Inputs, item panel.Worktree) 
 }
 
 // chosenDeletion is what deleting every chosen directory takes.
-func (w *worktreesScreen) chosenDeletion(in screen.Inputs) worktreeDeletion {
-	deletion := worktreeDeletion{}
+func (w *Screen) chosenDeletion(in screen.Inputs) deletion {
+	deletion := deletion{}
 	for _, row := range w.rows(in) {
 		if row.header || !w.Selected.Has(row.Key()) {
 			continue
@@ -128,8 +130,8 @@ func (w *worktreesScreen) chosenDeletion(in screen.Inputs) worktreeDeletion {
 }
 
 // clearDeletion is every directory on the screen no task answers for.
-func (w *worktreesScreen) clearDeletion(in screen.Inputs) worktreeDeletion {
-	deletion := worktreeDeletion{}
+func (w *Screen) clearDeletion(in screen.Inputs) deletion {
+	deletion := deletion{}
 	for _, row := range w.rows(in) {
 		if !row.header && row.item.Fate == panel.FateUnowned {
 			deletion.unowned = append(deletion.unowned, row.item)
@@ -139,38 +141,38 @@ func (w *worktreesScreen) clearDeletion(in screen.Inputs) worktreeDeletion {
 	return deletion
 }
 
-// worktreeDeletion is what one delete takes: the directories the remover takes on its own, and
+// deletion is what one delete takes: the directories the remover takes on its own, and
 // the tasks whose delete takes theirs.
-type worktreeDeletion struct {
+type deletion struct {
 	unowned []panel.Worktree
 	tasks   []panel.Task
 }
 
-func (d worktreeDeletion) count() int {
+func (d deletion) count() int {
 	return len(d.unowned)
 }
 
-func (d worktreeDeletion) isEmpty() bool {
+func (d deletion) isEmpty() bool {
 	return d.count() == 0
 }
 
 // dirs is the directories the remover takes.
-func (d worktreeDeletion) dirs() []string {
+func (d deletion) dirs() []string {
 	return xslice.Map(d.unowned, func(item panel.Worktree) string { return item.Dir })
 }
 
 // chosen is how many chosen directories the deletion holds, task checkouts included.
-func (d worktreeDeletion) chosen() int {
+func (d deletion) chosen() int {
 	return d.count() + len(d.tasks)
 }
 
 // confirmDeleteChosen asks before the chosen directories go, with the confirm that fits the choice.
-func (w *worktreesScreen) confirmDeleteChosen(in screen.Inputs, deletion worktreeDeletion) screen.Request {
+func (w *Screen) confirmDeleteChosen(in screen.Inputs, deletion deletion) screen.Request {
 	switch {
 	case len(deletion.tasks) == 0:
 		return w.confirmDeleteWorktrees(in, deletion)
 	case deletion.isEmpty():
-		return w.deps.clients.ConfirmDeleteTasks(in, deletion.tasks)
+		return w.deps.Clients.ConfirmDeleteTasks(in, deletion.tasks)
 	default:
 		return w.confirmDeleteMixed(in, deletion)
 	}
@@ -178,16 +180,16 @@ func (w *worktreesScreen) confirmDeleteChosen(in screen.Inputs, deletion worktre
 
 // confirmDeleteMixed asks once before task checkouts go with their tasks and the other directories
 // through the remover.
-func (w *worktreesScreen) confirmDeleteMixed(in screen.Inputs, deletion worktreeDeletion) screen.Request {
+func (w *Screen) confirmDeleteMixed(in screen.Inputs, deletion deletion) screen.Request {
 	confirm := deleteMixedConfirm(deletion, len(in.Listing.AgentsOnTasks(deletion.tasks)))
 
 	return confirm.Open(in, func(submitted form.Inputs) screen.Request {
-		return screen.Batch{w.deps.clients.DeleteTasksWrite(deletion.tasks, submitted.Listing.AgentsOnTasks(deletion.tasks), confirm.Values.DeletesRecords()), w.deleteWorktreesWrite(deletion)}
+		return screen.Batch{w.deps.Clients.DeleteTasksWrite(deletion.tasks, submitted.Listing.AgentsOnTasks(deletion.tasks), confirm.Values.DeletesRecords()), w.deleteWorktreesWrite(deletion)}
 	})
 }
 
 // confirmDeleteWorktrees asks before a deletion.
-func (w *worktreesScreen) confirmDeleteWorktrees(in screen.Inputs, deletion worktreeDeletion) screen.Request {
+func (w *Screen) confirmDeleteWorktrees(in screen.Inputs, deletion deletion) screen.Request {
 	if deletion.isEmpty() {
 		return nil
 	}
@@ -198,11 +200,11 @@ func (w *worktreesScreen) confirmDeleteWorktrees(in screen.Inputs, deletion work
 }
 
 // deleteWorktreesWrite is the write that queues the deletion as one background job.
-func (w *worktreesScreen) deleteWorktreesWrite(deletion worktreeDeletion) screen.Write {
+func (w *Screen) deleteWorktreesWrite(deletion deletion) screen.Write {
 	dirs := deletion.dirs()
 	subject := label.Count(len(dirs), "worktree", "worktrees")
 
-	clients := w.deps.clients
+	clients := w.deps.Clients
 
 	return screen.Write{
 		Doing:   "deleting " + subject,
@@ -220,16 +222,20 @@ func (w *worktreesScreen) deleteWorktreesWrite(deletion worktreeDeletion) screen
 	}
 }
 
-func (w *worktreesScreen) BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
+// BuildItemMenu builds the band on the hovered directory, or on every chosen one while any are selected.
+func (w *Screen) BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
 	if w.list().IsSelecting() {
 		deletion := w.chosenDeletion(in)
 		if deletion.chosen() == 0 {
 			return menu.Menu{}, false
 		}
 
-		return menu.WithNested(rowMenu(label.Count(deletion.chosen(), "worktree", "worktrees")), "archive", w.deps.keys.Menu.Archive, liveArchiveMenu(menu.Leaving("delete all", w.deps.keys.ArchiveMenu.Delete, func(in screen.Inputs) screen.Request {
-			return w.confirmDeleteChosen(in, deletion)
-		}))), true
+		return menu.WithNested(menu.Menu{Title: label.Count(deletion.chosen(), "worktree", "worktrees")}, "archive", w.deps.Keys.Menu.Archive, menu.Menu{
+			Title: "archive",
+			Entries: []menu.Entry{menu.Leaving("delete all", w.deps.Keys.ArchiveMenu.Delete, func(in screen.Inputs) screen.Request {
+				return w.confirmDeleteChosen(in, deletion)
+			})},
+		}), true
 	}
 
 	row, ok := list.At(w.rows(in), w.Row)
@@ -241,9 +247,9 @@ func (w *worktreesScreen) BuildItemMenu(in screen.Inputs, nest menu.Nester) (men
 		return menu.Menu{}, false
 	}
 
-	band := rowMenu(row.name())
-	if entry, ok := w.worktreeDeleteEntry(row.item); ok {
-		band = menu.WithNested(band, "archive", w.deps.keys.Menu.Archive, liveArchiveMenu(entry))
+	band := menu.Menu{Title: row.name()}
+	if entry, ok := w.deleteEntry(row.item); ok {
+		band = menu.WithNested(band, "archive", w.deps.Keys.Menu.Archive, menu.Menu{Title: "archive", Entries: []menu.Entry{entry}})
 	}
 
 	occupant, ok := row.item.FirstOccupant()
@@ -256,13 +262,13 @@ func (w *worktreesScreen) BuildItemMenu(in screen.Inputs, nest menu.Nester) (men
 		to.TaskID = row.item.Task.ID
 	}
 
-	return menu.WithNested(band, "jump", w.deps.keys.Menu.Jump, nest.Jump(screen.Worktrees, to)), true
+	return menu.WithNested(band, "jump", w.deps.Keys.Menu.Jump, nest.Jump(screen.Worktrees, to)), true
 }
 
 // BuildScreenMenu builds the worktrees screen's own band, for clearing every directory that can go.
-func (w *worktreesScreen) BuildScreenMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
+func (w *Screen) BuildScreenMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
 	clearable := w.clearDeletion(in)
-	clearAll := menu.Leaving("delete unused worktrees", w.deps.keys.ArchiveMenu.Clear, func(in screen.Inputs) screen.Request {
+	clearAll := menu.Leaving("delete unused worktrees", w.deps.Keys.ArchiveMenu.Clear, func(in screen.Inputs) screen.Request {
 		return w.confirmDeleteWorktrees(in, clearable)
 	})
 	clearAll.Off = clearable.isEmpty()
@@ -273,16 +279,16 @@ func (w *worktreesScreen) BuildScreenMenu(in screen.Inputs, _ menu.Nester) (menu
 	}, true
 }
 
-// worktreeDeleteEntry is the entry that sends a directory the way its fate decides, false when
+// deleteEntry is the entry that sends a directory the way its fate decides, false when
 // the fate offers none.
-func (w *worktreesScreen) worktreeDeleteEntry(item panel.Worktree) (menu.Entry, bool) {
+func (w *Screen) deleteEntry(item panel.Worktree) (menu.Entry, bool) {
 	desc := deleteDesc(item.Fate)
 	run := func(in screen.Inputs) screen.Request { return w.deleteWorktree(in, item) }
 	switch item.Fate {
 	case panel.FateLive:
-		return menu.Holding(desc, w.deps.keys.ArchiveMenu.Archive, run), true
+		return menu.Holding(desc, w.deps.Keys.ArchiveMenu.Archive, run), true
 	case panel.FateArchived, panel.FateUnowned:
-		return menu.Leaving(desc, w.deps.keys.ArchiveMenu.Delete, run), true
+		return menu.Leaving(desc, w.deps.Keys.ArchiveMenu.Delete, run), true
 	case panel.FateDeleting:
 	}
 

@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/schedules"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/worktrees"
 	"komrad/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
@@ -112,7 +113,7 @@ func armsOf(t *testing.T, s screen.ID) []specArm {
 			arms = append(arms, specArms(spec)...)
 		case keys.Spec[*reviewScreen]:
 			arms = append(arms, specArms(spec)...)
-		case keys.Spec[*worktreesScreen]:
+		case keys.Spec[*worktrees.Screen]:
 			arms = append(arms, specArms(spec)...)
 		case keys.Spec[*documentsScreen]:
 			arms = append(arms, specArms(spec)...)

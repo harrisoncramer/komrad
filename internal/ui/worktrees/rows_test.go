@@ -1,4 +1,4 @@
-package ui
+package worktrees
 
 import (
 	"testing"
@@ -109,9 +109,9 @@ func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rows := worktreeRows(worktreeRowsParams{items: tt.items, order: worktreesOrder(tt.state)})
+			rows := buildRows(buildRowsParams{items: tt.items, order: worktreesOrder(tt.state)})
 
-			assert.Equal(t, tt.want, xslice.Map(rows, worktreeRow.Key))
+			assert.Equal(t, tt.want, xslice.Map(rows, row.Key))
 		})
 	}
 }
@@ -152,13 +152,13 @@ func TestWorktreeRowsFlatOrderTheWholeListing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rows := worktreeRows(worktreeRowsParams{
+			rows := buildRows(buildRowsParams{
 				items: items,
 				order: worktreesOrder(tt.state),
 				flat:  true,
 			})
 
-			assert.Equal(t, tt.want, xslice.Map(rows, worktreeRow.Key))
+			assert.Equal(t, tt.want, xslice.Map(rows, row.Key))
 			for _, row := range rows {
 				assert.False(t, row.header)
 				assert.Empty(t, row.repo)
@@ -172,8 +172,8 @@ func TestWorktreeRowsFlatOrderTheWholeListing(t *testing.T) {
 func TestWorktreesSnapshotRendersFlatRowsAtTheHeadingIndent(t *testing.T) {
 	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 	items := measuredFixture(now)
-	snapshot := worktreesSnapshot(worktreesSnapshotParams{
-		rows: worktreeRows(worktreeRowsParams{
+	snapshot := listSnapshot(listSnapshotParams{
+		rows: buildRows(buildRowsParams{
 			items: items,
 			order: worktreesOrder(tabs.State{}),
 			flat:  true,
@@ -187,23 +187,23 @@ func TestWorktreesSnapshotRendersFlatRowsAtTheHeadingIndent(t *testing.T) {
 	for _, row := range snapshot.Rows {
 		assert.Equal(t, view.KindResult, row.Kind)
 	}
-	assert.Equal(t, []view.Cell{mutedCell("1.5G"), mutedCell("12h"), {Glyph: glyph.Merged, Tone: paint.ToneMerged}}, snapshot.Rows[0].Cells)
+	assert.Equal(t, []view.Cell{{Text: "1.5G", Tone: paint.ToneMuted}, {Text: "12h", Tone: paint.ToneMuted}, {Glyph: glyph.Merged, Tone: paint.ToneMerged}}, snapshot.Rows[0].Cells)
 }
 
 // TestWorktreeRowsLeaveTheOccupantOffTheList covers an agent working in a task's directory
 // getting no row of its own.
 func TestWorktreeRowsLeaveTheOccupantOffTheList(t *testing.T) {
-	rows := worktreeRows(worktreeRowsParams{items: worktreeFixture(), order: worktreesOrder(tabs.State{})})
+	rows := buildRows(buildRowsParams{items: worktreeFixture(), order: worktreesOrder(tabs.State{})})
 
 	assert.Len(t, rows, 8)
-	assert.NotContains(t, xslice.Map(rows, func(row worktreeRow) string { return row.name() }), "review-607")
+	assert.NotContains(t, xslice.Map(rows, func(row row) string { return row.name() }), "review-607")
 }
 
 // TestWorktreeRowNames covers the name falling from the task to the branch to the directory.
 func TestWorktreeRowNames(t *testing.T) {
-	rows := worktreeRows(worktreeRowsParams{items: worktreeFixture(), order: worktreesOrder(tabs.State{})})
+	rows := buildRows(buildRowsParams{items: worktreeFixture(), order: worktreesOrder(tabs.State{})})
 
-	names := xslice.Map(rows, func(row worktreeRow) string {
+	names := xslice.Map(rows, func(row row) string {
 		return row.name()
 	})
 
@@ -222,7 +222,7 @@ func TestWorktreeRowNames(t *testing.T) {
 // TestWorktreeRowsHeadTheDirectoriesWithNoRepository covers a directory whose .git file names
 // nothing sitting under a heading of its own.
 func TestWorktreeRowsHeadTheDirectoriesWithNoRepository(t *testing.T) {
-	rows := worktreeRows(worktreeRowsParams{items: []panel.Worktree{{Dir: "/trees/stray"}}, order: worktreesOrder(tabs.State{})})
+	rows := buildRows(buildRowsParams{items: []panel.Worktree{{Dir: "/trees/stray"}}, order: worktreesOrder(tabs.State{})})
 
 	require.Len(t, rows, 2)
 	assert.Equal(t, noRepository, rows[0].name())
@@ -232,7 +232,7 @@ func TestWorktreeRowsHeadTheDirectoriesWithNoRepository(t *testing.T) {
 // TestRowIndexOfWorktreeAgent covers the lead and another occupant both landing on the directory,
 // and an agent with no directory landing nowhere.
 func TestRowIndexOfWorktreeAgent(t *testing.T) {
-	rows := worktreeRows(worktreeRowsParams{items: worktreeFixture(), order: worktreesOrder(tabs.State{})})
+	rows := buildRows(buildRowsParams{items: worktreeFixture(), order: worktreesOrder(tabs.State{})})
 
 	tests := []struct {
 		name string
@@ -263,7 +263,7 @@ func TestRowIndexOfWorktreeAgent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, rowIndexOfWorktreeAgent(rows, tt.id))
+			assert.Equal(t, tt.want, rowIndexOfAgent(rows, tt.id))
 		})
 	}
 }
@@ -271,8 +271,8 @@ func TestRowIndexOfWorktreeAgent(t *testing.T) {
 // TestWorktreesSnapshotReadsEveryRow covers the kind, the process, the status and the repo
 // glyph each kind of row carries.
 func TestWorktreesSnapshotReadsEveryRow(t *testing.T) {
-	rows := worktreeRows(worktreeRowsParams{items: worktreeFixture(), order: worktreesOrder(tabs.State{})})
-	snapshot := worktreesSnapshot(worktreesSnapshotParams{
+	rows := buildRows(buildRowsParams{items: worktreeFixture(), order: worktreesOrder(tabs.State{})})
+	snapshot := listSnapshot(listSnapshotParams{
 		rows:     rows,
 		selected: list.Selection{Keys: []string{"tree:/trees/orphan"}},
 		focused:  "tree:/trees/live",
@@ -312,7 +312,7 @@ func TestWorktreesSnapshotReadsEveryRow(t *testing.T) {
 	assert.Equal(t, view.ProcessStopped, orphan.Process)
 	assert.True(t, orphan.Selected)
 
-	assert.Equal(t, worktreeColumns(), snapshot.Columns)
+	assert.Equal(t, columns(), snapshot.Columns)
 	assert.Equal(t, "tree:/trees/live", snapshot.Focused)
 }
 
@@ -373,7 +373,7 @@ func TestWorktreeAgentFactsOffTheWorktreeListing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row := worktreeAgentFacts(view.Row{}, panel.WorktreeAgent{
+			row := agentFacts(view.Row{}, panel.WorktreeAgent{
 				ID:         "gone",
 				State:      tt.state,
 				ArchivedAt: tt.archivedAt,
@@ -393,8 +393,8 @@ func TestWorktreeAgentFactsOffTheWorktreeListing(t *testing.T) {
 func TestWorktreesSnapshotCellsAreSizeAgeThenStanding(t *testing.T) {
 	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 	items := measuredFixture(now)
-	snapshot := worktreesSnapshot(worktreesSnapshotParams{
-		rows:  worktreeRows(worktreeRowsParams{items: items, order: worktreesOrder(tabs.State{})}),
+	snapshot := listSnapshot(listSnapshotParams{
+		rows:  buildRows(buildRowsParams{items: items, order: worktreesOrder(tabs.State{})}),
 		items: items,
 		now:   now,
 	})
@@ -405,14 +405,14 @@ func TestWorktreesSnapshotCellsAreSizeAgeThenStanding(t *testing.T) {
 	}
 
 	assert.Equal(t, map[string][]view.Cell{
-		"repo:/home/h/gadgets/admin": {mutedCell("1.5G")},
-		"tree:/trees/admin":          {mutedCell("1.5G"), mutedCell("12h"), {Glyph: glyph.Merged, Tone: paint.ToneMerged}},
-		"repo:/home/h/komrad":        {mutedCell("60M")},
-		"tree:/trees/live":           {mutedCell("49M"), mutedCell("30s"), {Glyph: glyph.Worktree, Tone: paint.ToneWarning}},
-		"tree:/trees/archived":       {mutedCell("49M"), mutedCell("4d"), {Glyph: glyph.Worktree, Tone: paint.ToneMuted}},
-		"tree:/trees/orphan":         {mutedCell("—"), mutedCell("3h"), mutedCell("—")},
-		"repo:/var/folders/T/repo":   {mutedCell("—")},
-		"tree:/trees/broken":         {mutedCell("—"), mutedCell("2w"), {Glyph: glyph.WorktreeGone, Tone: paint.ToneDanger}},
+		"repo:/home/h/gadgets/admin": {{Text: "1.5G", Tone: paint.ToneMuted}},
+		"tree:/trees/admin":          {{Text: "1.5G", Tone: paint.ToneMuted}, {Text: "12h", Tone: paint.ToneMuted}, {Glyph: glyph.Merged, Tone: paint.ToneMerged}},
+		"repo:/home/h/komrad":        {{Text: "60M", Tone: paint.ToneMuted}},
+		"tree:/trees/live":           {{Text: "49M", Tone: paint.ToneMuted}, {Text: "30s", Tone: paint.ToneMuted}, {Glyph: glyph.Worktree, Tone: paint.ToneWarning}},
+		"tree:/trees/archived":       {{Text: "49M", Tone: paint.ToneMuted}, {Text: "4d", Tone: paint.ToneMuted}, {Glyph: glyph.Worktree, Tone: paint.ToneMuted}},
+		"tree:/trees/orphan":         {{Text: "—", Tone: paint.ToneMuted}, {Text: "3h", Tone: paint.ToneMuted}, {Text: "—", Tone: paint.ToneMuted}},
+		"repo:/var/folders/T/repo":   {{Text: "—", Tone: paint.ToneMuted}},
+		"tree:/trees/broken":         {{Text: "—", Tone: paint.ToneMuted}, {Text: "2w", Tone: paint.ToneMuted}, {Glyph: glyph.WorktreeGone, Tone: paint.ToneDanger}},
 	}, cells)
 }
 
@@ -497,7 +497,7 @@ func worktreeFixture() []panel.Worktree {
 
 // worktreesOrder is the order the strip names for a state.
 func worktreesOrder(state tabs.State) tabs.Order {
-	return worktreesTabs().Order(state)
+	return sortStrip().Order(state)
 }
 
 // measuredFixture is the fixture with the loop having been round: the live and archived
