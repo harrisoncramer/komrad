@@ -25,5 +25,5 @@ func (m *model) isBusy() bool {
 	return len(m.writes.inflight) > 0 ||
 		m.writes.held.active ||
 		m.form.isActive() ||
-		m.review.isBusy()
+		m.review.IsBusy()
 }

@@ -13,11 +13,4 @@ const (
 	actionWorkflowRename
 	actionArchiveRename
 	actionArchiveBack
-	actionReviewBack
-	actionReviewThread
-	actionReviewOpenThread
-	actionReviewBase
-	actionReviewBaseForward
-	actionReviewFolder
-	actionReviewSide
 )

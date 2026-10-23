@@ -156,6 +156,9 @@ func (p Palette) Mark(show bool, icon string, tone Tone) string {
 	return " " + p.Style(tone).Render(icon)
 }
 
+// NameWidth is the cells a name is clipped to and the fewest a sidebar renders its text in.
+const NameWidth = 30
+
 // Clip cuts text to a width, ending it in an ellipsis.
 func Clip(text string, width int) string {
 	runes := []rune(text)

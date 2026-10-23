@@ -1,0 +1,140 @@
+package review
+
+import (
+	"testing"
+	"time"
+
+	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
+
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+// TestReviewDeliveryOf covers the word under a comment and the moment it names: the last thing
+// that happened to the comment, and nothing under what an agent wrote.
+func TestReviewDeliveryOf(t *testing.T) {
+	human := agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN
+	agent := agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT
+	const writer, reviewer = "writer", "reviewer"
+
+	tests := []struct {
+		name     string
+		thread   *agentv1.ReviewThread
+		message  *agentv1.ReviewMessage
+		wantWord string
+		wantAt   time.Time
+	}{
+		{
+			name: "an agent's reply carries nothing",
+			message: &agentv1.ReviewMessage{
+				Id:            "m1",
+				AuthorKind:    agent,
+				AuthorAgentId: xptr.Ptr(writer),
+			},
+			wantWord: "",
+		},
+		{
+			name: "a comment just written is released the moment it was written",
+			message: &agentv1.ReviewMessage{
+				Id:         "m1",
+				AuthorKind: human,
+				CreatedAt:  timestamppb.New(time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC)),
+			},
+			wantWord: "released",
+			wantAt:   time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC),
+		},
+		{
+			name: "a comment the writer read names when it was read",
+			message: &agentv1.ReviewMessage{
+				Id:         "m1",
+				AuthorKind: human,
+				CreatedAt:  timestamppb.New(time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC)),
+				ReadAt:     timestamppb.New(time.Date(2026, 9, 2, 10, 1, 0, 0, time.UTC)),
+			},
+			wantWord: "read",
+			wantAt:   time.Date(2026, 9, 2, 10, 1, 0, 0, time.UTC),
+		},
+		{
+			name: "a comment the writer answered names the answer",
+			thread: &agentv1.ReviewThread{Messages: []*agentv1.ReviewMessage{
+				{
+					Id:            "m0",
+					AuthorKind:    agent,
+					AuthorAgentId: xptr.Ptr(writer),
+					CreatedAt:     timestamppb.New(time.Date(2026, 9, 2, 9, 0, 0, 0, time.UTC)),
+				},
+				{
+					Id:         "m1",
+					AuthorKind: human,
+					CreatedAt:  timestamppb.New(time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC)),
+					ReadAt:     timestamppb.New(time.Date(2026, 9, 2, 10, 1, 0, 0, time.UTC)),
+				},
+				{
+					Id:            "m2",
+					AuthorKind:    agent,
+					AuthorAgentId: xptr.Ptr(writer),
+					CreatedAt:     timestamppb.New(time.Date(2026, 9, 2, 10, 2, 0, 0, time.UTC)),
+				},
+			}},
+			message: &agentv1.ReviewMessage{
+				Id:         "m1",
+				AuthorKind: human,
+				ReadAt:     timestamppb.New(time.Date(2026, 9, 2, 10, 1, 0, 0, time.UTC)),
+			},
+			wantWord: "answered",
+			wantAt:   time.Date(2026, 9, 2, 10, 2, 0, 0, time.UTC),
+		},
+		{
+			name: "a reviewer's words after the comment do not answer it",
+			thread: &agentv1.ReviewThread{Messages: []*agentv1.ReviewMessage{
+				{
+					Id:            "m0",
+					AuthorKind:    agent,
+					AuthorAgentId: xptr.Ptr(reviewer),
+					CreatedAt:     timestamppb.New(time.Date(2026, 9, 2, 9, 0, 0, 0, time.UTC)),
+				},
+				{
+					Id:         "m1",
+					AuthorKind: human,
+					CreatedAt:  timestamppb.New(time.Date(2026, 9, 2, 10, 0, 0, 0, time.UTC)),
+					ReadAt:     timestamppb.New(time.Date(2026, 9, 2, 10, 1, 0, 0, time.UTC)),
+				},
+				{
+					Id:            "m2",
+					AuthorKind:    agent,
+					AuthorAgentId: xptr.Ptr(reviewer),
+					CreatedAt:     timestamppb.New(time.Date(2026, 9, 2, 10, 2, 0, 0, time.UTC)),
+				},
+			}},
+			message: &agentv1.ReviewMessage{
+				Id:         "m1",
+				AuthorKind: human,
+				ReadAt:     timestamppb.New(time.Date(2026, 9, 2, 10, 1, 0, 0, time.UTC)),
+			},
+			wantWord: "read",
+			wantAt:   time.Date(2026, 9, 2, 10, 1, 0, 0, time.UTC),
+		},
+		{
+			name: "a forge comment the person has not accepted is held",
+			message: &agentv1.ReviewMessage{
+				Id:         "m1",
+				AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_FORGE,
+				Held:       true,
+			},
+			wantWord: "held",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := deliveryOf(deliveryParams{
+				thread:   tt.thread,
+				message:  tt.message,
+				writerID: writer,
+			})
+			assert.Equal(t, tt.wantWord, got.word)
+			assert.Equal(t, tt.wantAt, got.at)
+		})
+	}
+}

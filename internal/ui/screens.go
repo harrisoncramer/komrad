@@ -17,6 +17,7 @@ import (
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/record"
+	"komrad/internal/ui/review"
 	"komrad/internal/ui/schedules"
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/tabs"
@@ -352,6 +353,16 @@ var (
 	_ recordRenderer   = (*documents.Screen)(nil)
 )
 
+var (
+	_ columnFocuser    = (*review.Screen)(nil)
+	_ crumbRenderer    = (*review.Screen)(nil)
+	_ loadingReporter  = (*review.Screen)(nil)
+	_ lineTyper        = (*review.Screen)(nil)
+	_ listScroller     = (*review.Screen)(nil)
+	_ editorReconciler = (*review.Screen)(nil)
+	_ popupHost        = (*review.Screen)(nil)
+)
+
 // stageEditor puts an editor on the stage with the keys in it, and answers the pane it was
 // given, empty where the split was refused.
 func (m *model) stageEditor(content layout.Content) string {
@@ -402,7 +413,7 @@ func (m *model) enter(next screen.ID, target screen.Target) tea.Cmd {
 			return nil
 		}
 
-		opened := m.apply(m.review.open(m.listing, item.Agent))
+		opened := m.apply(m.review.Open(m.listing, item.Agent))
 		left := m.enterScreen(screen.Review)
 		m.leftStop = stopList
 		m.stageSelection()

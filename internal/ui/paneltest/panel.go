@@ -45,6 +45,9 @@ const Rest = "<rest>"
 // restWait is how long a cursor rests before the panel stages what it stands on.
 const restWait = 90 * time.Millisecond
 
+// Settings is what the panel under test is launched with.
+type Settings = ui.PanelSettings
+
 // Params is what a panel under test is built over.
 type Params struct {
 	Width         int
@@ -54,7 +57,7 @@ type Params struct {
 	TriageRows    int
 	Keys          *config.Keybindings
 	Git           *gittest.Repo
-	Settings      ui.PanelSettings
+	Settings      Settings
 	Engine        engine.Remote
 	ShellCommand  []string
 	// TerminalCommand is what the stage attaches to a remote agent with.
@@ -75,13 +78,13 @@ type Params struct {
 }
 
 // RemoteEditSettings opens files in the editor given over ssh to a host its own ssh config names.
-func RemoteEditSettings(t *testing.T, editor string) ui.PanelSettings {
+func RemoteEditSettings(t *testing.T, editor string) Settings {
 	t.Helper()
 
 	sshConfig := filepath.Join(t.TempDir(), "komrad-remote.conf")
 	require.NoError(t, os.WriteFile(sshConfig, []byte("Host komrad-remote\n"), 0o600))
 
-	return ui.PanelSettings{
+	return Settings{
 		Editor:        editor,
 		SSHHost:       "komrad-remote",
 		SSHConfig:     sshConfig,

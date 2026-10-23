@@ -44,16 +44,6 @@ func (a *agentsScreen) IsLoading(in screen.Inputs) bool {
 	return slices.ContainsFunc(a.rows(in), func(r agentRow) bool { return isRowLoading(in.Listing, r) })
 }
 
-func (r reviewScreen) IsLoading(in screen.Inputs) bool {
-	if r.loading {
-		return true
-	}
-
-	item, ok := in.Listing.LiveAgent(r.agentID)
-
-	return ok && in.Listing.Tasks.FindForAgent(item.Agent).PullRequest.IsChecksRunning()
-}
-
 func isRowLoading(l panel.Listing, r agentRow) bool {
 	if r.isTask() {
 		writer, ok := r.writer()

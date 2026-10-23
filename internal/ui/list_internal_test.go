@@ -9,6 +9,7 @@ import (
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/logs"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/review"
 	"komrad/internal/ui/schedules"
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/worktrees"
@@ -112,7 +113,7 @@ func armsOf(t *testing.T, s screen.ID) []specArm {
 			arms = append(arms, specArms(spec)...)
 		case keys.Spec[schedules.Archive]:
 			arms = append(arms, specArms(spec)...)
-		case keys.Spec[*reviewScreen]:
+		case keys.Spec[*review.Screen]:
 			arms = append(arms, specArms(spec)...)
 		case keys.Spec[*worktrees.Screen]:
 			arms = append(arms, specArms(spec)...)
