@@ -17,6 +17,14 @@ var editTargetQuery string
 //go:embed updatemergerequest.gql
 var updateMergeRequestMutation string
 
+// editTarget is a merge request's text and whether the credential may change it, with the project
+// and number a mutation names it by.
+type editTarget struct {
+	forge.TextTarget
+	path   string
+	number int
+}
+
 // ReadText is the merge request's title and description, refused when the credential may not
 // change them.
 func (f *Forge) ReadText(ctx context.Context, address string) (*forge.Text, error) {
@@ -34,21 +42,16 @@ func (f *Forge) ReadText(ctx context.Context, address string) (*forge.Text, erro
 // Edit changes the merge request's title or description, asking nothing of GitLab when neither
 // would change.
 func (f *Forge) Edit(ctx context.Context, params forge.EditParams) error {
-	path, number, err := parseMergeRequestURL(params.URL)
-	if err != nil {
-		return err
-	}
-
 	target, err := f.readEditTarget(ctx, params.URL)
 	if err != nil {
 		return err
 	}
-	changes, err := params.Changes(*target)
+	changes, err := params.Changes(target.TextTarget)
 	if err != nil || !changes {
 		return err
 	}
 
-	variables := map[string]any{"path": path, "iid": strconv.Itoa(number)}
+	variables := map[string]any{"path": target.path, "iid": strconv.Itoa(target.number)}
 	if params.Title != nil {
 		variables["title"] = *params.Title
 	}
@@ -70,16 +73,16 @@ func (f *Forge) Edit(ctx context.Context, params forge.EditParams) error {
 			return err
 		}
 
-		return fmt.Errorf("%w: gitlab has no merge request %d in %s", forge.ErrNotFound, number, path)
+		return fmt.Errorf("%w: gitlab has no merge request %d in %s", forge.ErrNotFound, target.number, target.path)
 	}
 	if said := data.MergeRequestUpdate.Errors; len(said) > 0 {
-		return forge.ErrNotEditable.Saying("gitlab will not edit !%d: %s", number, strings.Join(said, "; "))
+		return forge.ErrNotEditable.Saying("gitlab will not edit !%d: %s", target.number, strings.Join(said, "; "))
 	}
 
 	return failureOf(answer)
 }
 
-func (f *Forge) readEditTarget(ctx context.Context, address string) (*forge.TextTarget, error) {
+func (f *Forge) readEditTarget(ctx context.Context, address string) (*editTarget, error) {
 	path, number, err := parseMergeRequestURL(address)
 	if err != nil {
 		return nil, err
@@ -108,10 +111,17 @@ func (f *Forge) readEditTarget(ctx context.Context, address string) (*forge.Text
 	}
 	read := data.Project.MergeRequest
 
-	return &forge.TextTarget{
-		Forge:   forgev1.Kind_KIND_GITLAB,
-		Ref:     forge.Ref(forgev1.Kind_KIND_GITLAB, number),
-		Text:    forge.Text{Title: read.Title, Body: read.Description},
-		CanEdit: read.UserPermissions.UpdateMergeRequest,
+	return &editTarget{
+		TextTarget: forge.TextTarget{
+			Forge: forgev1.Kind_KIND_GITLAB,
+			Ref:   forge.Ref(forgev1.Kind_KIND_GITLAB, number),
+			Text: forge.Text{
+				Title: read.Title,
+				Body:  read.Description,
+			},
+			CanEdit: read.UserPermissions.UpdateMergeRequest,
+		},
+		path:   path,
+		number: number,
 	}, nil
 }
