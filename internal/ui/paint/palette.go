@@ -68,7 +68,7 @@ func NewPalette(colors theme.Colors) (*Palette, error) {
 		return nil, fmt.Errorf("failed to build the palette: %w", err)
 	}
 
-	palette := Palette{colors: colors, renders: &docRenders{rows: map[docRender][]string{}}}
+	palette := Palette{colors: colors, renders: &docRenders{rows: map[docRenderKey][]string{}}}
 	style := stageStyle(palette)
 	palette.stage = &style
 

@@ -13,34 +13,24 @@ const maxDocRenders = 64
 // docRenders is the rows a palette has rendered markdown to.
 type docRenders struct {
 	mu   sync.Mutex
-	rows map[docRender][]string
+	rows map[docRenderKey][]string
 }
 
-// docRender is one markdown rendered at one width.
-type docRender struct {
+// docRenderKey is one markdown rendered at one width.
+type docRenderKey struct {
 	markdown string
 	width    int
 }
 
 // DocRows renders markdown into a column of its own, a row at a time.
 func (p Palette) DocRows(markdown string, width int) []string {
-	key := docRender{markdown: markdown, width: width}
-
-	p.renders.mu.Lock()
-	rows, ok := p.renders.rows[key]
-	p.renders.mu.Unlock()
-	if ok {
-		return slices.Clone(rows)
+	key := docRenderKey{markdown: markdown, width: width}
+	if rows, ok := p.renders.get(key); ok {
+		return rows
 	}
 
-	rows = strings.Split(strings.TrimRight(renderWith(markdown, width, p.Stage()), "\n"), "\n")
-
-	p.renders.mu.Lock()
-	if len(p.renders.rows) >= maxDocRenders {
-		clear(p.renders.rows)
-	}
-	p.renders.rows[key] = rows
-	p.renders.mu.Unlock()
+	rows := strings.Split(strings.TrimRight(p.Render(markdown, width), "\n"), "\n")
+	p.renders.keep(key, rows)
 
 	return slices.Clone(rows)
 }
@@ -60,4 +50,25 @@ func DocumentMarkdown(title, notice, prose, footer string) string {
 	}
 
 	return b.String()
+}
+
+// get is a copy of the rows kept for a render.
+func (r *docRenders) get(key docRenderKey) ([]string, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	rows, ok := r.rows[key]
+
+	return slices.Clone(rows), ok
+}
+
+// keep holds the rows of a render, forgetting every other once it holds as many as it may.
+func (r *docRenders) keep(key docRenderKey, rows []string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if len(r.rows) >= maxDocRenders {
+		clear(r.rows)
+	}
+	r.rows[key] = rows
 }
