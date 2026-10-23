@@ -223,11 +223,11 @@ func (m *model) isOverColumn(x int) bool {
 // paneWidth is the column the panel renders its own list, record and legend in, which is the whole
 // pane except while it is rendering a block beside them.
 func (m *model) paneWidth() int {
-	return m.measuredInputsFor(m.active()).Room.Width
+	return m.measuredInputsFor(m.active()).Room.DrawingWidth
 }
 
-// paneWidthAt is the pane's width beside the window's split.
-func (m *model) paneWidthAt(windowSplit column.Split) int {
+// drawingWidthAt is the pane's width beside the window's split.
+func (m *model) drawingWidthAt(windowSplit column.Split) int {
 	// A half of a split is laid out at the column already chosen for it rather than asking for the
 	// split again.
 	if m.term.paneMeasure > 0 {

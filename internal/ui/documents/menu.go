@@ -70,10 +70,10 @@ func (d *Screen) BuildScreenMenu(in screen.Inputs, _ menu.NestedMenuBuilder) (me
 		Title: "documents",
 		Entries: []menu.Entry{
 			{
-				Label: "new document",
-				Keys:  d.deps.Keys.DocumentMenu.New,
-				IsDimmed:   d.editing != nil || !named,
-				Pick:  d.pressNew,
+				Label:    "new document",
+				Keys:     d.deps.Keys.DocumentMenu.New,
+				IsDimmed: d.editing != nil || !named,
+				Pick:     d.pressNew,
 			},
 		},
 	}, true
@@ -101,16 +101,16 @@ func (d *Screen) documentMenu(in screen.Inputs, nest menu.NestedMenuBuilder) (me
 				Pick:  d.pressEdit,
 			},
 			{
-				Label: "rename",
-				Keys:  d.deps.Keys.DocumentMenu.Rename,
-				IsDimmed:   !hovered || d.editing != nil,
-				Pick:  d.openRename,
+				Label:    "rename",
+				Keys:     d.deps.Keys.DocumentMenu.Rename,
+				IsDimmed: !hovered || d.editing != nil,
+				Pick:     d.openRename,
 			},
 			{
-				Label: "delete",
-				Keys:  d.deps.Keys.DocumentMenu.Delete,
-				IsDimmed:   !hovered || d.editing != nil,
-				Form:  func() form.Form { return d.deleteForm([]document{item}) },
+				Label:    "delete",
+				Keys:     d.deps.Keys.DocumentMenu.Delete,
+				IsDimmed: !hovered || d.editing != nil,
+				Form:     func() form.Form { return d.deleteForm([]document{item}) },
 			},
 		},
 	}
@@ -132,10 +132,10 @@ func (d *Screen) chosenMenu(in screen.Inputs) (menu.Menu, bool) {
 		Title: label.Count(len(chosen), "document", "documents"),
 		Entries: []menu.Entry{
 			{
-				Label: "delete all",
-				Keys:  d.deps.Keys.DocumentMenu.Delete,
-				IsDimmed:   d.editing != nil,
-				Form:  func() form.Form { return d.deleteForm(chosen) },
+				Label:    "delete all",
+				Keys:     d.deps.Keys.DocumentMenu.Delete,
+				IsDimmed: d.editing != nil,
+				Form:     func() form.Form { return d.deleteForm(chosen) },
 			},
 		},
 	}, true

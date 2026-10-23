@@ -23,7 +23,7 @@ type parkedWrite struct {
 // its harness warm, and the rows of the agents it killed gone.
 func awaitsOf(landed screen.WriteResult, unstaged []panel.Agent) screen.WaitFor {
 	awaits := landed.WaitFor
-	if made := landed.CreatedRow; made != nil && !made.Archived {
+	if made := landed.CreatedRow; made != nil && !made.IsArchived {
 		awaits.Pane, awaits.Harness = made.Pane, made.Harness
 	}
 

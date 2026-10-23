@@ -48,7 +48,7 @@ func (r *rowRename) save(clients api.Clients) (screen.Request, bool) {
 		id := r.task.ID
 
 		return clients.RenameWrite(api.RenameWriteParams{
-			Doing:          "renaming " + r.Was(),
+			InFlightText:   "renaming " + r.Was(),
 			FailureSummary: fmt.Sprintf("Could not rename task %q", r.Was()),
 			Row:            r.Key(),
 			Write:          func(a api.Clients) error { return a.UpdateTask(api.UpdateTaskParams{ID: id, Slug: &name}) },
@@ -58,7 +58,7 @@ func (r *rowRename) save(clients api.Clients) (screen.Request, bool) {
 		renamed.Name = name
 
 		return clients.RenameWrite(api.RenameWriteParams{
-			Doing:          "renaming " + r.Was(),
+			InFlightText:   "renaming " + r.Was(),
 			FailureSummary: fmt.Sprintf("Could not rename workflow %q", r.Was()),
 			Row:            r.Key(),
 			Write:          func(a api.Clients) error { return a.UpdateWorkflow(renamed) },
@@ -68,7 +68,7 @@ func (r *rowRename) save(clients api.Clients) (screen.Request, bool) {
 	agent := r.agent
 
 	return clients.RenameWrite(api.RenameWriteParams{
-		Doing:          "renaming " + r.Was(),
+		InFlightText:   "renaming " + r.Was(),
 		FailureSummary: fmt.Sprintf("Could not rename agent %q", r.Was()),
 		Row:            r.Key(),
 		Write:          func(a api.Clients) error { return a.RenameAgent(agent, name) },

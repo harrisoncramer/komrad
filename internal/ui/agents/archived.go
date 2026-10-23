@@ -491,7 +491,7 @@ func restoreAgents(clients api.Clients, agents []panel.Agent) screen.Request {
 	}
 
 	return clients.AwaitingWrite(api.AwaitingWriteParams{
-		Doing:          "restoring " + describeAgents(agents),
+		InFlightText:   "restoring " + describeAgents(agents),
 		FailureSummary: fmt.Sprintf("Could not restore %s", describeAgents(agents)),
 		WaitFor:        screen.WaitFor{RowsShown: screen.RowsIn(screen.ListAgents, panel.IDs(agents)...)},
 		Write:          func(a api.Clients) error { return a.RestoreAgents(panel.IDs(agents)) },
@@ -504,7 +504,7 @@ func confirmDeleteWorkflow(in screen.Inputs, clients api.Clients, workflow panel
 
 	return confirm.Open(in, func(form.Inputs) screen.Request {
 		return clients.AwaitingWrite(api.AwaitingWriteParams{
-			Doing:          "deleting " + workflow.Name,
+			InFlightText:   "deleting " + workflow.Name,
 			FailureSummary: fmt.Sprintf("Could not delete workflow %q", workflow.Name),
 			WaitFor:        waitForDeleted(confirm.Values.DeletesRecords(), screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)),
 			Write:          func(a api.Clients) error { return a.DeleteWorkflow(workflow.ID, confirm.Values.DeletesRecords()) },

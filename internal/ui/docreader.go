@@ -50,10 +50,10 @@ func (m *model) isDocReadable(in screen.Inputs) bool {
 // holds the keys.
 func (m *model) docReaderOf(in screen.Inputs) screen.DocReader {
 	return screen.DocReader{
-		CursorLine: m.reading.CursorLine,
-		TopLine:    m.reading.TopLine,
-		HoldsKeys:  m.reading.focused && m.isDocReadable(in) && in.Room.IsListFocused,
-		Held:       m.reading.focused,
+		CursorLine:      m.reading.CursorLine,
+		TopLine:         m.reading.TopLine,
+		HoldsKeys:       m.reading.focused && m.isDocReadable(in) && in.Room.IsListFocused,
+		IsReaderFocused: m.reading.focused,
 	}
 }
 

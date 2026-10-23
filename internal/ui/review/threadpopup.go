@@ -14,7 +14,7 @@ import (
 func (r Screen) popupAnchor(in screen.Inputs) popupAnchor {
 	split := in.Room.OwnBlockSplit
 	if !split.IsDivided {
-		return popupAnchor{right: in.Room.Width}
+		return popupAnchor{right: in.Room.DrawingWidth}
 	}
 
 	return popupAnchor{right: split.SidebarWidth + column.DividerCols + diffview.GutterWidth, codeOnRight: true}

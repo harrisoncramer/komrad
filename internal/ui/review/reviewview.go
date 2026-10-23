@@ -71,7 +71,7 @@ func (r Screen) sidebarView(in screen.Inputs, chrome screen.Chrome) string {
 	sidebar := r.layoutSidebar(in, chrome)
 	block := sidebar.block()
 	if in.Room.ShouldMarkZones {
-		block = zone.MarkBlock(zone.Block, block, layout.LineWidth(in.Room.Width))
+		block = zone.MarkBlock(zone.Block, block, layout.LineWidth(in.Room.DrawingWidth))
 	}
 
 	return strings.TrimRight(r.renderSidebar(sidebar, block), "\n")
@@ -252,11 +252,11 @@ func (r Screen) notesView(in screen.Inputs) string {
 	}
 
 	if notice := r.notice; notice != "" {
-		return "\n" + proseLine(layout.LineWidth(in.Room.Width), paint.Panel.Style(noticeTone), notice)
+		return "\n" + proseLine(layout.LineWidth(in.Room.DrawingWidth), paint.Panel.Style(noticeTone), notice)
 	}
 
 	if since := r.diff.since; since != "" && r.diff.spec.isWholeChange() {
-		return "\n" + proseLine(layout.LineWidth(in.Room.Width), paint.Panel.Style(paint.ToneMuted), since)
+		return "\n" + proseLine(layout.LineWidth(in.Room.DrawingWidth), paint.Panel.Style(paint.ToneMuted), since)
 	}
 
 	return ""
@@ -497,7 +497,7 @@ func (r Screen) changeView(in screen.Inputs, fold int) string {
 		rows = []string{joinViews(r.agentName, stat)}
 	}
 
-	width := layout.LineWidth(in.Room.Width)
+	width := layout.LineWidth(in.Room.DrawingWidth)
 
 	var out strings.Builder
 	for _, row := range rows {

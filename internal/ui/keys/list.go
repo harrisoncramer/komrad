@@ -288,7 +288,9 @@ func filterActions[S any, T list.Keyed](l ScreenList[T], in screen.Inputs) []Act
 			ID:   FilterClear,
 			Keys: FixedBack,
 			When: standing,
-			Nav:  func(S, string) screen.Request { return screen.Batch{screen.ClearFilterRestoreCursor{}, screen.WaitForCursorRest{}} },
+			Nav: func(S, string) screen.Request {
+				return screen.Batch{screen.ClearFilterRestoreCursor{}, screen.WaitForCursorRest{}}
+			},
 		},
 	}
 }

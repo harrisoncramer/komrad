@@ -69,7 +69,7 @@ func (w *Screen) saveRename() screen.Request {
 	id := w.renaming.schedule.ID
 
 	return w.deps.Clients.RenameWrite(api.RenameWriteParams{
-		Doing:          "renaming " + w.renaming.Was(),
+		InFlightText:   "renaming " + w.renaming.Was(),
 		FailureSummary: fmt.Sprintf("Could not rename schedule %q", w.renaming.Was()),
 		Row:            w.renaming.Key(),
 		Write:          func(a api.Clients) error { return a.UpdateSchedule(id, renamed) },

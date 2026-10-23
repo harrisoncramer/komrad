@@ -397,7 +397,7 @@ func (r Screen) writeMsg(in screen.Inputs, doing string, unsent *unsentMessage, 
 	_, live := r.agentRow(in)
 
 	return screen.Write{
-		Doing: doing,
+		InFlightText: doing,
 		Send: func() screen.WriteResult {
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()

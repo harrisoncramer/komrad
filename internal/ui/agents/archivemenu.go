@@ -79,7 +79,7 @@ func archiveMenu(in screen.Inputs, bindings config.Keybindings, clients api.Clie
 			{
 				Label:     "restore and open",
 				Keys:      bindings.ArchiveMenu.RestoreOpen,
-				IsDimmed:       err != nil,
+				IsDimmed:  err != nil,
 				AfterPick: menu.KeepOpenWhileWriting,
 				Pick:      func(in screen.Inputs) screen.Request { return restoreAndOpen(in.Listing, clients, target) },
 			},
@@ -122,7 +122,7 @@ func restoreArchived(clients api.Clients, target archived) screen.Request {
 		workflow := *target.workflow
 
 		return clients.AwaitingWrite(api.AwaitingWriteParams{
-			Doing:          "restoring " + workflow.Name,
+			InFlightText:   "restoring " + workflow.Name,
 			FailureSummary: fmt.Sprintf("Could not restore workflow %q", workflow.Name),
 			WaitFor:        screen.WaitFor{RowsGone: screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)},
 			Write:          func(c api.Clients) error { return c.RestoreWorkflow(workflow.ID) },
@@ -208,7 +208,7 @@ func (a *Screen) archiveChosenAgents(in screen.Inputs, work chosenWork) screen.R
 	subject := describeAgents(work.chosen)
 
 	return a.deps.Clients.ArchivingWrite(api.ArchivingWriteParams{
-		Doing:          "archiving " + subject,
+		InFlightText:   "archiving " + subject,
 		FailureSummary: "Could not archive " + subject,
 		Agents:         work.affected(in.Listing),
 		Write: func(clients api.Clients) error {
@@ -232,7 +232,7 @@ func deleteChosenWrite(l panel.Listing, clients api.Clients, work chosenWork, re
 	subject := describeAgents(work.chosen)
 
 	return clients.ArchivingWrite(api.ArchivingWriteParams{
-		Doing:          "deleting " + subject,
+		InFlightText:   "deleting " + subject,
 		FailureSummary: "Could not delete " + subject,
 		Agents:         work.affected(l),
 		WaitFor:        waitForDeleted(records, screen.RowsIn(screen.ListArchivedAgents, panel.IDs(work.chosen)...)),

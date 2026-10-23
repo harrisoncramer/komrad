@@ -35,7 +35,7 @@ func (g Menus) toggleDraft(task panel.Task) screen.Request {
 	}
 
 	return screen.Write{
-		Doing:          doing,
+		InFlightText:   doing,
 		FailureSummary: "Could not change " + standing.Ref() + " of " + task.Slug,
 		Send: func() screen.WriteResult {
 			return screen.WriteResult{

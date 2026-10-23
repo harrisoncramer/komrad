@@ -207,7 +207,7 @@ func (w *Screen) deleteWorktreesWrite(deletion deletion) screen.Write {
 	clients := w.deps.Clients
 
 	return screen.Write{
-		Doing:          "deleting " + subject,
+		InFlightText:   "deleting " + subject,
 		FailureSummary: "Could not delete " + subject,
 		Send: func() screen.WriteResult {
 			return screen.WriteResult{

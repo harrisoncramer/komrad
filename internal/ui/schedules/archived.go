@@ -186,7 +186,7 @@ func (a Archive) archiveMenu(schedule panel.Schedule) menu.Menu {
 			{
 				Label:     "restore and open",
 				Keys:      bindings.RestoreOpen,
-				IsDimmed:       true,
+				IsDimmed:  true,
 				AfterPick: menu.KeepOpenWhileWriting,
 				Pick: func(screen.Inputs) screen.Request {
 					return screen.Report{Summary: "Could not restore and open " + schedule.Name, Err: errOpensOneAgent}
@@ -201,7 +201,7 @@ func (a Archive) archiveMenu(schedule panel.Schedule) menu.Menu {
 
 func (a Archive) restore(schedule panel.Schedule) screen.Request {
 	return a.deps.Clients.AwaitingWrite(api.AwaitingWriteParams{
-		Doing:          "restoring " + schedule.Name,
+		InFlightText:   "restoring " + schedule.Name,
 		FailureSummary: fmt.Sprintf("Could not restore schedule %q", schedule.Name),
 		WaitFor:        screen.WaitFor{RowsGone: screen.RowsIn(screen.ListArchivedSchedules, schedule.ID)},
 		Write:          func(c api.Clients) error { return c.RestoreSchedule(schedule.ID) },
@@ -220,14 +220,14 @@ func confirmDelete(clients api.Clients, schedule panel.Schedule) screen.Request 
 			}
 
 			return clients.AwaitingWrite(api.AwaitingWriteParams{
-				Doing:          "deleting " + schedule.Name,
+				InFlightText:   "deleting " + schedule.Name,
 				FailureSummary: fmt.Sprintf("Could not delete schedule %q", schedule.Name),
 				WaitFor:        screen.WaitFor{RowsGone: screen.RowsIn(screen.ListArchivedSchedules, schedule.ID)},
 				Write:          func(c api.Clients) error { return c.DeleteSchedule(schedule.ID) },
 			})
 		},
-		CanUseNarrowestWidth:          true,
-		ClosesOnRefusal: true,
+		CanUseNarrowestWidth: true,
+		ClosesOnRefusal:      true,
 	}}
 }
 

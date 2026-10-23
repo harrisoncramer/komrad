@@ -43,7 +43,7 @@ func (m *model) measuredInputsFor(s screenModel) screen.Inputs {
 		},
 	}
 	in.Room.WindowSplit = m.windowSplitOf(in)
-	in.Room.Width = m.paneWidthAt(in.Room.WindowSplit)
+	in.Room.DrawingWidth = m.drawingWidthAt(in.Room.WindowSplit)
 
 	return in
 }

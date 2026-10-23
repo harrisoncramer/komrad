@@ -51,28 +51,28 @@ func (g Menus) mergeMenu(l panel.Listing, task panel.Task) menu.Menu {
 			{
 				Label:     "merge",
 				Keys:      g.deps.Keys.Merge.Merge,
-				IsDimmed:       refused,
+				IsDimmed:  refused,
 				AfterPick: menu.KeepOpenWhileWriting,
 				Pick:      run(mergeChoiceMerge),
 			},
 			{
 				Label:     "merge and archive",
 				Keys:      g.deps.Keys.Merge.MergeArchive,
-				IsDimmed:       refused || task.ArchivedAt != nil,
+				IsDimmed:  refused || task.ArchivedAt != nil,
 				AfterPick: menu.KeepOpenWhileWriting,
 				Pick:      run(mergeChoiceMergeArchive),
 			},
 			{
 				Label:     autoMergeLabel(task),
 				Keys:      g.deps.Keys.Merge.AutoMerge,
-				IsDimmed:       autoMergeRefusal(task) != nil,
+				IsDimmed:  autoMergeRefusal(task) != nil,
 				AfterPick: menu.KeepOpenWhileWriting,
 				Pick:      run(mergeChoiceAutoMerge),
 			},
 			{
 				Label:     "merge then rebase",
 				Keys:      g.deps.Keys.Merge.MergeRebase,
-				IsDimmed:       mergeRebaseRefusal(l, task) != nil,
+				IsDimmed:  mergeRebaseRefusal(l, task) != nil,
 				AfterPick: menu.KeepOpenWhileWriting,
 				Pick:      run(mergeChoiceMergeRebase),
 			},
@@ -118,7 +118,7 @@ func (g Menus) planMerge(task panel.Task, choice mergeChoice) screen.Request {
 	clients := g.deps.Clients
 
 	return screen.Write{
-		Doing: "planning the merge of " + task.PullRequest.Ref(),
+		InFlightText: "planning the merge of " + task.PullRequest.Ref(),
 		Send: func() screen.WriteResult {
 			plan, err := clients.PlanPullRequestMerge(task.PullRequest.URL)
 
@@ -167,8 +167,8 @@ func (g Menus) openMergeForm(task panel.Task, choice mergeChoice, plan *forgev1.
 
 			return g.mergeWrite(task, choice, *params)
 		},
-		CanUseNarrowestWidth:          true,
-		ClosesOnRefusal: true,
+		CanUseNarrowestWidth: true,
+		ClosesOnRefusal:      true,
 	}}
 }
 

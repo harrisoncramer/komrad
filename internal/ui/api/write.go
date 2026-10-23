@@ -12,7 +12,7 @@ import (
 // Write is a write whose landing carries only whether it failed.
 func (a Clients) Write(doing, summary string, write func(Clients) error) screen.Write {
 	return a.AwaitingWrite(AwaitingWriteParams{
-		Doing:          doing,
+		InFlightText:   doing,
 		FailureSummary: summary,
 		Write:          write,
 	})
@@ -20,7 +20,7 @@ func (a Clients) Write(doing, summary string, write func(Clients) error) screen.
 
 // AwaitingWriteParams is a write and the rows the panel waits on once it lands.
 type AwaitingWriteParams struct {
-	Doing          string
+	InFlightText   string
 	FailureSummary string
 	WaitFor        screen.WaitFor
 	Write          func(Clients) error
@@ -29,7 +29,7 @@ type AwaitingWriteParams struct {
 // AwaitingWrite is a write that is held, once it lands, until the panel shows what it did.
 func (a Clients) AwaitingWrite(params AwaitingWriteParams) screen.Write {
 	return screen.Write{
-		Doing:          params.Doing,
+		InFlightText:   params.InFlightText,
 		FailureSummary: params.FailureSummary,
 		Send: func() screen.WriteResult {
 			return screen.WriteResult{Err: params.Write(a), WaitFor: params.WaitFor}
@@ -40,7 +40,7 @@ func (a Clients) AwaitingWrite(params AwaitingWriteParams) screen.Write {
 // ArchivingWriteParams is a write that archives agents, their panes taken off the stage before it
 // is sent.
 type ArchivingWriteParams struct {
-	Doing          string
+	InFlightText   string
 	FailureSummary string
 	Agents         []panel.Agent
 	WaitFor        screen.WaitFor
@@ -50,7 +50,7 @@ type ArchivingWriteParams struct {
 // ArchivingWrite sends the write the params name, taking the agents' panes off the stage first.
 func (a Clients) ArchivingWrite(params ArchivingWriteParams) screen.Write {
 	return screen.Write{
-		Doing:          params.Doing,
+		InFlightText:   params.InFlightText,
 		FailureSummary: params.FailureSummary,
 		UnstageFirst:   params.Agents,
 		Send: func() screen.WriteResult {
@@ -64,7 +64,7 @@ func (a Clients) ArchivingWrite(params ArchivingWriteParams) screen.Write {
 // ArchiveTasksWrite archives the tasks along with the live agents on them.
 func (a Clients) ArchiveTasksWrite(tasks []panel.Task, agents []panel.Agent) screen.Write {
 	return a.ArchivingWrite(ArchivingWriteParams{
-		Doing:          "archiving " + panel.DescribeTasks(tasks),
+		InFlightText:   "archiving " + panel.DescribeTasks(tasks),
 		FailureSummary: "Could not archive " + panel.DescribeTasks(tasks),
 		Agents:         agents,
 		Write: func(clients Clients) error {
@@ -83,7 +83,7 @@ func (a Clients) ArchiveTasksWrite(tasks []panel.Task, agents []panel.Agent) scr
 // everything on them.
 func (a Clients) DeleteTasksWrite(tasks []panel.Task, agents []panel.Agent, records bool) screen.Write {
 	return a.ArchivingWrite(ArchivingWriteParams{
-		Doing:          "deleting " + panel.DescribeTasks(tasks),
+		InFlightText:   "deleting " + panel.DescribeTasks(tasks),
 		FailureSummary: "Could not delete " + panel.DescribeTasks(tasks),
 		Agents:         agents,
 		Write: func(clients Clients) error {
@@ -120,7 +120,7 @@ type RenameSettled struct {
 
 // RenameWriteParams is a name typed over a row and the write that sends it.
 type RenameWriteParams struct {
-	Doing          string
+	InFlightText   string
 	FailureSummary string
 	Row            string
 	Write          func(Clients) error
@@ -129,7 +129,7 @@ type RenameWriteParams struct {
 // RenameWrite sends a name typed over a row, handing the outcome to the screens that type names.
 func (a Clients) RenameWrite(params RenameWriteParams) screen.Write {
 	return screen.Write{
-		Doing:          params.Doing,
+		InFlightText:   params.InFlightText,
 		FailureSummary: params.FailureSummary,
 		Send: func() screen.WriteResult {
 			err := params.Write(a)

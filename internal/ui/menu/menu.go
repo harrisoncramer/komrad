@@ -93,10 +93,10 @@ func (m Menu) FirstOn() int {
 // Nested is an entry that opens a menu, off when nothing inside it would do anything.
 func Nested(label string, keys []string, menu Menu) Entry {
 	return Entry{
-		Label:   label,
-		Keys:    keys,
-		IsDimmed:     !menu.IsList() && menu.FirstOn() == Cancel,
-		Submenu: &menu,
+		Label:    label,
+		Keys:     keys,
+		IsDimmed: !menu.IsList() && menu.FirstOn() == Cancel,
+		Submenu:  &menu,
 	}
 }
 

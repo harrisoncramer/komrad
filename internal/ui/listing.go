@@ -120,8 +120,8 @@ type focusGuestMsg struct {
 // send runs a write off the panel's loop, counted in flight under what it is doing.
 func (m *model) send(write screen.Write) tea.Cmd {
 	id := 0
-	if write.Doing != "" {
-		id = m.beginWrite(write.Doing)
+	if write.InFlightText != "" {
+		id = m.beginWrite(write.InFlightText)
 	}
 
 	if len(write.UnstageFirst) > 0 {
@@ -237,9 +237,9 @@ func (m *model) finishWrite(result writeResult) tea.Cmd {
 // landOnMade takes the panel to the row a write made, showing its pane.
 func (m *model) landOnMade(made screen.CreatedRow, keyMoved bool) tea.Cmd {
 	switch {
-	case made.Archived && keyMoved:
+	case made.IsArchived && keyMoved:
 		return m.apply(m.enterArchived(screen.Target{}))
-	case made.Archived:
+	case made.IsArchived:
 		return m.apply(m.enterArchived(screen.Target{AgentID: made.Agent}))
 	}
 
@@ -258,7 +258,7 @@ func (m *model) landOnMade(made screen.CreatedRow, keyMoved bool) tea.Cmd {
 	m.frame.ShowGuest(layout.Guest{Agent: made.Agent, Pane: pane})
 	delete(m.warm.since, pane)
 
-	if made.Focus {
+	if made.ShouldFocusPane {
 		cmds = append(cmds, func() tea.Msg { return focusGuestMsg{pane: pane} })
 	}
 

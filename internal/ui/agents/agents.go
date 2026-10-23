@@ -98,7 +98,7 @@ func (a *Screen) archiveAgents(agents []panel.Agent) screen.Request {
 	}
 
 	return a.deps.Clients.ArchivingWrite(api.ArchivingWriteParams{
-		Doing:          "archiving " + describeAgents(agents),
+		InFlightText:   "archiving " + describeAgents(agents),
 		FailureSummary: fmt.Sprintf("Could not archive %s", describeAgents(agents)),
 		Agents:         agents,
 		Write: func(clients api.Clients) error {
@@ -153,7 +153,7 @@ func (a *Screen) resume(agent panel.Agent) screen.Request {
 	clients := a.deps.Clients
 
 	return screen.Write{
-		Doing:          "resuming " + agent.Name,
+		InFlightText:   "resuming " + agent.Name,
 		FailureSummary: fmt.Sprintf("Could not resume agent %q", agent.Name),
 		Send: func() screen.WriteResult {
 			_, err := clients.ResumeAgent(agent.ID)

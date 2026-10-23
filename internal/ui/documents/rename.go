@@ -92,7 +92,7 @@ func (d *Screen) saveRename() screen.Request {
 	item.name = name
 
 	return d.deps.Clients.RenameWrite(api.RenameWriteParams{
-		Doing:          "renaming " + renaming.Was(),
+		InFlightText:   "renaming " + renaming.Was(),
 		FailureSummary: fmt.Sprintf("Could not rename document %q", renaming.Was()),
 		Row:            renaming.Key(),
 		Write: func(a api.Clients) error {

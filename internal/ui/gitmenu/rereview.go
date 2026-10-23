@@ -34,7 +34,7 @@ func (g Menus) requestRereview(task panel.Task) screen.Request {
 	standing := task.PullRequest
 
 	return screen.Write{
-		Doing:          "asking for another review of " + standing.Ref(),
+		InFlightText:   "asking for another review of " + standing.Ref(),
 		FailureSummary: "Could not ask for another review of " + standing.Ref() + " of " + task.Slug,
 		Send: func() screen.WriteResult {
 			return screen.WriteResult{

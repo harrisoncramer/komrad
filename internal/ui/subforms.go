@@ -38,10 +38,10 @@ func subformState(top form.Form, sub form.Subform, rendered []string) formState 
 		Build: func(in form.Inputs) (*huh.Form, []string) {
 			return form.Of(fixedKeys(), sub.Fields(in)...)
 		},
-		Submit:          top.Submit,
-		Editable:        sub.Editable,
-		CanUseNarrowestWidth:          top.CanUseNarrowestWidth,
-		ClosesOnRefusal: top.ClosesOnRefusal,
+		Submit:               top.Submit,
+		Editable:             sub.Editable,
+		CanUseNarrowestWidth: top.CanUseNarrowestWidth,
+		ClosesOnRefusal:      top.ClosesOnRefusal,
 	})
 	state.leading = func(_, height int) []string {
 		return []string{strings.Join(rendered[:min(len(rendered), max(height, 0))], "\n")}

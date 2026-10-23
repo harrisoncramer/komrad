@@ -39,8 +39,8 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 			Build: func(form.Inputs) (*huh.Form, []string) {
 				return submenuForm(level, len(parents) > 0, fixedKeys()), nil
 			},
-			CanUseNarrowestWidth:          true,
-			ClosesOnRefusal: true,
+			CanUseNarrowestWidth: true,
+			ClosesOnRefusal:      true,
 		},
 		isMenu: true,
 		crumbs: append(xslice.Map(parents, func(p submenuLevel) string { return p.menu.Title }), level.menu.Title),

@@ -54,9 +54,9 @@ type Subform struct {
 	Key   string
 	Title string
 	// IsRefused says enter refuses the subform, which has nothing to ask, nil for never.
-	IsRefused      func() bool
-	Fields   func(Inputs) []huh.Field
-	Editable []Editable
+	IsRefused func() bool
+	Fields    func(Inputs) []huh.Field
+	Editable  []Editable
 }
 
 // IsOff reports whether the subform has nothing to ask.

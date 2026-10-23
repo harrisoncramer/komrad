@@ -223,7 +223,7 @@ func (c Logs) anchor(in screen.Inputs) screen.Request {
 // reanchor keeps the hovered row's header in view as the document changes above it, unless the reader has moved or scrolled off it.
 func (c Logs) reanchor(in screen.Inputs) screen.Request {
 	doc := in.Room.DocumentReader
-	if !in.IsActive || doc.Held || doc.CursorLine != c.placed || doc.TopLine != c.placedTop {
+	if !in.IsActive || doc.IsReaderFocused || doc.CursorLine != c.placed || doc.TopLine != c.placedTop {
 		return nil
 	}
 

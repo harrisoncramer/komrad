@@ -33,7 +33,7 @@ func (r Screen) filesView(in screen.Inputs, lines int) string {
 		return paint.Panel.Style(paint.ToneMuted).Render(emptyWord) + "\n"
 	}
 
-	width := layout.LineWidth(in.Room.Width)
+	width := layout.LineWidth(in.Room.DrawingWidth)
 	tree := r.readFilesTree()
 	_, onSide := r.findSide(in)
 	focused := r.IsBlockFocused(in) && !onSide

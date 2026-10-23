@@ -251,7 +251,7 @@ func prefill(schedule panel.Schedule) panel.ScheduleConfig {
 
 func (w *Screen) archiveSchedule(schedule panel.Schedule) screen.Request {
 	return w.deps.Clients.AwaitingWrite(api.AwaitingWriteParams{
-		Doing:          "archiving " + schedule.Name,
+		InFlightText:   "archiving " + schedule.Name,
 		FailureSummary: fmt.Sprintf("Could not archive schedule %q", schedule.Name),
 		WaitFor:        screen.WaitFor{RowsGone: screen.RowsIn(screen.ListSchedules, schedule.ID)},
 		Write:          func(a api.Clients) error { return a.ArchiveSchedule(schedule.ID) },
