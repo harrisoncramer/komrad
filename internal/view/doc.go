@@ -9,10 +9,10 @@
 //
 // A row is a fixed run of cells. It holds focus, the columns its screen declares, the name,
 // trailing marks, and the comment counts. Each screen names its own columns in
-// [Snapshot.Columns], and a snapshot naming none gets the agents list's repo, review and forge
-// columns. A blank cell has nothing to say, and every gutter cell keeps its width so the columns
-// line up on every row. When a row is too wide for the pane, it gives up its tally, then its
-// comment counts, then room in its name, and its marks last.
+// [Snapshot.Columns], and a snapshot that doesn't name any gets the agents list's repo, review and
+// forge columns. A blank cell has nothing to say, and every gutter cell keeps its width so the
+// columns line up on every row. When a row is too wide for the pane, it gives up its tally, then
+// its comment counts, then room in its name, and its marks last.
 //
 // In the agents list, a tree in grey hangs each task off its workflow and each agent off its task,
 // and the task row stands for its writer. A name renders dim only when nothing runs behind the row

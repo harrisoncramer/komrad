@@ -5,7 +5,7 @@
 // write that changes git first makes a plan, asks the person to confirm, and then reports what
 // came of it.
 //
-// The package has no screen. The root nests these menus wherever a band asks for git, hands the git
-// results back to the package, and applies the requests its entries return. It never imports the
-// root or another domain.
+// The package doesn't have a screen. The root nests these menus wherever a band asks for git,
+// hands the git results back to the package, and applies the requests its entries return. It never
+// imports the root or another domain.
 package gitmenu

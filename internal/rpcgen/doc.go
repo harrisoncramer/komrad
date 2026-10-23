@@ -7,6 +7,6 @@
 //
 // A request field whose validation rules describe a Go type of its own reaches the handler parsed.
 // A request holding a value that would not convert is refused as an invalid argument before the
-// handler sees it. A oneof holding no message reaches the handler as a type in the oneofs package,
-// one type for every oneof with that name.
+// handler sees it. A oneof that doesn't hold a message reaches the handler as a type in the oneofs
+// package, one type for every oneof with that name.
 package rpcgen

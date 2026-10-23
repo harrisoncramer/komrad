@@ -12,6 +12,8 @@ Name the thing. A sentence that opens with "it" or "this" makes the reader look 
 
 Say what is true and stop. Leave out why a thing matters, what it reflects, and what it makes possible, unless the reader needs that to act.
 
+Write a negative the plain way. "Handlers don't pick a code" reads faster than "no handler picks a code", and "without a header" reads faster than "with no header". Contractions are fine. Leave out a sentence whose only point is what a thing doesn't do.
+
 Avoid the patterns that mark generated text. These include trailing "-ing" clauses that add significance ("ensuring that agents stay in sync"), negative parallels ("not just X, but Y"), lists padded to three, and vague attributions ("some callers find"). Do not use em dashes, bold, emoji or title case.
 
 Put names from code in backticks, such as `notes_updated_at` or `get_task`.
@@ -76,7 +78,7 @@ embedded Postgres: The Postgres a release binary carries, which komrad runs unde
 
 writer: The one agent on a task that changes its checkout, for the whole life of the task.
 
-reviewer: An agent on a task that reads the writer's change and gives a review. It makes no changes of its own.
+reviewer: An agent on a task that reads the writer's change and gives a review. It doesn't change the work itself.
 
 orchestrator: The one agent per workflow that hands work out across its tasks.
 
@@ -90,7 +92,7 @@ goal: What a task is meant to achieve, in markdown.
 
 notes: The markdown page on a task that says where its work stands.
 
-slug: The short readable name of a task, such as `fix-login`. No two tasks ever share one.
+slug: The short readable name of a task, such as `fix-login`. Each task's slug is unique.
 
 id: The opaque string that every other call uses to name a record. Not "handle".
 
@@ -104,7 +106,7 @@ flags: The command-line flags a CLI starts with.
 
 worktree: A git worktree komrad creates for one task, on a branch named `task/<task id>`. Not "cut", "provisioned directory", or "directory komrad cut".
 
-checkout: The directory an agent works in. This is the task's worktree, or the workflow's directory when the workflow creates no worktrees.
+checkout: The directory an agent works in. This is the task's worktree, or the workflow's directory when the workflow doesn't create worktrees.
 
 base branch: The branch worktrees are created from and changes are measured against. Not "the base" on its own.
 
@@ -142,7 +144,7 @@ engine: A komrad server, its records and the machine its agents run on, either a
 
 operator: A person who runs komrad's remote infrastructure. Operators grant access, add engines and deploy. Not "the engine's owner".
 
-control plane: The machine in front of every remote engine. It routes each request to its engine, holds people's GitHub logins, and starts and stops engines. No engine runs on it.
+control plane: The machine in front of every remote engine. It routes each request to its engine, holds people's GitHub logins, and starts and stops engines.
 
 ### Reviews
 
@@ -172,7 +174,7 @@ create: Make a new agent and launch it. Not "spawn".
 
 launch: Start a CLI in a new pane.
 
-dormant: Kept as a record with no pane. A dormant agent keeps its conversation.
+dormant: Kept as a record without a pane. A dormant agent keeps its conversation.
 
 resume: Launch a dormant agent on its existing conversation.
 
@@ -210,7 +212,7 @@ empty: A string or list with nothing in it. Use it for fields without presence.
 
 unset: An optional field or message field the caller did not set. Not "absent", "blank", or "missing".
 
-timestamp: A google.protobuf.Timestamp field. Its comment names no format.
+timestamp: A google.protobuf.Timestamp field. Its comment doesn't name a format.
 
 ## Words not to use
 
