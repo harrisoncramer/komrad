@@ -246,6 +246,10 @@ func mergeRebaseRefusal(l panel.Listing, task panel.Task) error {
 // forgeMergeRefusal is why the forge last said it would not merge the task's pull request, nil
 // when it said nothing against it.
 func forgeMergeRefusal(task panel.Task) error {
+	if isDraft(task) {
+		return errors.New(task.PullRequest.Describe("is a draft, so mark it ready first"))
+	}
+
 	switch task.PullRequest.MergeReadiness.Mergeability {
 	case pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING:
 		return errors.New(task.PullRequest.Describe("conflicts with the base branch, so rebase it first"))

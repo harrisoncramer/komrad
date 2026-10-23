@@ -260,6 +260,12 @@ func TestGitMenuRefusals(t *testing.T) {
 			wantRefusal: "its pull request is blocked by a rule on the forge, so merge it when ready instead",
 		},
 		{
+			name:        "the merge then rebase of a draft the forge blocks",
+			rows:        append(buildGitAgent(), withMergeability(newQueueableDraft(), pullrequestv1.Mergeability_MERGEABILITY_BLOCKED)),
+			press:       []string{"f", "r"},
+			wantRefusal: "its pull request is a draft, so mark it ready first",
+		},
+		{
 			name:        "the merge then rebase of a pull request behind its base branch",
 			rows:        append(buildGitAgent(), withMergeability(newOpenPullRequest(), pullrequestv1.Mergeability_MERGEABILITY_BEHIND)),
 			press:       []string{"f", "r"},
