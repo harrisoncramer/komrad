@@ -1,4 +1,4 @@
-h1:nP5cllx719tx2hF0Zcvq+EwdiBFYRo23QFfeOUFesn0=
+h1:mqfuQD0p1a1pwHu6FJKBJbGFZBptXiTchSMxOu9h4w4=
 20261002173502_baseline.sql h1:9d8cMqM4pjaXPZ1GoiSuGxOMMRegbNB1TYG3Gw8tqYw=
 20261003155931_transcript_synced_at_default.sql h1:Jtvi8tLVWC4qxstK0x7tymn0Vno5hrw7mDHBXA3Lji4=
 20261003175808_scope_agent_idempotency_key_to_requester.sql h1:j9KesdPVx/XPRlNWbCdWkXKFKb6f6ox/88fwoSGIp8Q=
@@ -42,3 +42,4 @@ h1:nP5cllx719tx2hF0Zcvq+EwdiBFYRo23QFfeOUFesn0=
 20261021212108_komrad_owned_stacks.sql h1:lktm1/ff0Dnm+hxoLhrbiYYiKDWsOzRMgXafk2tpfsk=
 20261022163211_drop_agent_holds.sql h1:0tNi4YZr5jFHm6snRs5S5vaA8Da0jqPYp+6bxxsdPz8=
 20261022202912_nudge_each_mail.sql h1:DMQZfNKHHtLH3OGNUYlbw1ngSgLRr8rRYQEWyC7V7B8=
+20261023025031_forge_enum_comments.sql h1:dq9ZYik3udRdZAI1P8xnDjfkko2rGRaVhOQg7hrphx8=
