@@ -1,4 +1,3 @@
-// Package main reports, and with --fix unexports, every exported identifier nothing outside its package uses.
 package main
 
 import (
