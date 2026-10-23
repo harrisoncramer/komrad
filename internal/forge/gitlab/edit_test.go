@@ -1,6 +1,7 @@
 package gitlab
 
 import (
+	"strconv"
 	"testing"
 
 	"komrad/internal/forge"
@@ -15,11 +16,6 @@ const editAddress = "https://gitlab.com/harrisoncramer/komrad/-/merge_requests/7
 
 // editTargetAnswer is the read of a merge request's text, with whether the user may change it.
 func editTargetAnswer(canUpdate bool) answer {
-	permission := "false"
-	if canUpdate {
-		permission = "true"
-	}
-
 	return answer{body: `{
 	"data": {
 		"project": {
@@ -27,7 +23,7 @@ func editTargetAnswer(canUpdate bool) answer {
 				"title": "fix the sync",
 				"description": "The sync read twice.",
 				"userPermissions": {
-					"updateMergeRequest": ` + permission + `
+					"updateMergeRequest": ` + strconv.FormatBool(canUpdate) + `
 				}
 			}
 		}
