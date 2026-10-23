@@ -755,7 +755,7 @@ func TestAgentsRecordCopy(t *testing.T) {
 		harness.Press("ctrl+g")
 		settleFlash(harness)
 		refused := harness.Frame()
-		require.Contains(t, readEngineLine(refused), "✗ 1")
+		require.Contains(t, paneltest.EngineLine(refused), "✗ 1")
 
 		harness.SetClipboardErr(nil)
 		harness.Press("y")

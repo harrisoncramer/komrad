@@ -161,6 +161,13 @@ func Trail(frame string) string {
 	return first
 }
 
+// EngineLine is what the frame's second line says of the engine, left of the divider.
+func EngineLine(frame string) string {
+	line, _, _ := strings.Cut(SplitLines(frame)[1], glyph.Divider)
+
+	return strings.TrimSpace(line)
+}
+
 // Screen is the screen the frame's trail names.
 func Screen(frame string) screen.ID {
 	trail, _, _ := strings.Cut(Trail(frame), " "+glyph.Separator+" ")

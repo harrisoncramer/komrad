@@ -1017,7 +1017,7 @@ func TestReviewSearch(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
 		harness.Press("n")
-		assert.Contains(t, readEngineLine(harness.Frame()), "nothing to search for yet")
+		assert.Contains(t, paneltest.EngineLine(harness.Frame()), "nothing to search for yet")
 
 		harness.Press("/")
 		harness.Type("wallaby")
@@ -1025,7 +1025,7 @@ func TestReviewSearch(t *testing.T) {
 
 		frame := harness.Frame()
 		assert.Contains(t, paneltest.Stage(frame), "/ wallaby")
-		assert.Contains(t, readEngineLine(frame), "no matches")
+		assert.Contains(t, paneltest.EngineLine(frame), "no matches")
 	})
 
 	t.Run("the prompt takes every key typed", func(t *testing.T) {
@@ -1314,7 +1314,7 @@ func TestReviewOfAnArchivedAgent(t *testing.T) {
 	frame := harness.Frame()
 	assert.NotContains(t, frame, "reply in this thread")
 
-	assert.Contains(t, readEngineLine(frame), "this agent is archived")
+	assert.Contains(t, paneltest.EngineLine(frame), "this agent is archived")
 	harness.Watch(server.buildSnapshot())
 	harness.Press("space", "R")
 	assert.Equal(t, 1, strings.Count(harness.ReadMessages(), "this agent is archived"))
@@ -1447,7 +1447,7 @@ func TestReviewReload(t *testing.T) {
 
 		frame := harness.Frame()
 		assert.NotContains(t, frame, "written by the agent")
-		assert.Contains(t, readEngineLine(frame), "the worktree has moved")
+		assert.Contains(t, paneltest.EngineLine(frame), "the worktree has moved")
 		assert.Len(t, harness.Sent(agentv1connect.AgentServiceOpenReviewHistoryProcedure), 1)
 
 		harness.Press("space", "R")
@@ -1476,7 +1476,7 @@ func TestReviewReload(t *testing.T) {
 		server.repo.Wrote(newSnapshotWrittenOver())
 		server.task.MovedSinceSnapshot = gittest.SnapshotSHA
 		harness.Watch(server.buildSnapshot())
-		require.Contains(t, readEngineLine(harness.Frame()), "the worktree has moved")
+		require.Contains(t, paneltest.EngineLine(harness.Frame()), "the worktree has moved")
 
 		harness.Press("space", "R")
 
@@ -1561,7 +1561,7 @@ func TestReviewOwnComments(t *testing.T) {
 		harness.Press("u", "u")
 		frame := harness.Frame()
 		assert.Contains(t, paneltest.PopupProse(frame), "the third open comment")
-		assert.Contains(t, readEngineLine(frame), "comment")
+		assert.Contains(t, paneltest.EngineLine(frame), "comment")
 	})
 
 	t.Run("the place row counts the open comment the cursor is on", func(t *testing.T) {
@@ -1666,7 +1666,7 @@ func TestReviewExpand(t *testing.T) {
 
 		harness.Press("space", "E")
 
-		assert.Contains(t, readEngineLine(harness.Frame()), "no more of that file")
+		assert.Contains(t, paneltest.EngineLine(harness.Frame()), "no more of that file")
 	})
 
 	t.Run("a folded file refuses and says so", func(t *testing.T) {
@@ -1676,7 +1676,7 @@ func TestReviewExpand(t *testing.T) {
 
 		frame := harness.Frame()
 		assert.NotContains(t, frame, "func Four()")
-		assert.Contains(t, readEngineLine(frame), "folded away")
+		assert.Contains(t, paneltest.EngineLine(frame), "folded away")
 	})
 
 	t.Run("a line only the expansion renders takes a comment", func(t *testing.T) {
@@ -1774,7 +1774,7 @@ func TestReviewSnapshots(t *testing.T) {
 
 		harness.Press("n")
 		frame := harness.Frame()
-		assert.Contains(t, readEngineLine(frame), "nothing to search for yet")
+		assert.Contains(t, paneltest.EngineLine(frame), "nothing to search for yet")
 		assert.Contains(t, paneltest.SidebarProse(frame), "1 file changed since you last reviewed")
 	})
 
@@ -1789,7 +1789,7 @@ func TestReviewSnapshots(t *testing.T) {
 		frame := harness.Frame()
 		assert.True(t, isBeside(harness))
 		assert.Contains(t, paneltest.StageText(frame), "greet.go")
-		assert.Contains(t, readEngineLine(frame), "nothing written")
+		assert.Contains(t, paneltest.EngineLine(frame), "nothing written")
 	})
 
 	t.Run("the newest snapshot takes a comment measured from the snapshot reviewed before", func(t *testing.T) {

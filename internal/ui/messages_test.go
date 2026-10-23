@@ -27,7 +27,7 @@ func TestMessagesHeader(t *testing.T) {
 
 		harness.Press("enter", "enter", "ctrl+g", "d", "esc")
 
-		assert.Equal(t, "\uf444 local  ✗ 1  C-g", readEngineLine(harness.Frame()))
+		assert.Equal(t, "\uf444 local  ✗ 1  C-g", paneltest.EngineLine(harness.Frame()))
 	})
 
 	t.Run("an info message leaves nothing once the flash is over", func(t *testing.T) {
@@ -40,10 +40,10 @@ func TestMessagesHeader(t *testing.T) {
 
 		harness.Press("shift+tab", "esc", "space", "c", "y")
 		harness.Watch(buildDeletedWorktrees("/trees/orphan"))
-		require.Contains(t, readEngineLine(harness.Frame()), "·")
+		require.Contains(t, paneltest.EngineLine(harness.Frame()), "·")
 		settleFlash(harness)
 
-		assert.Equal(t, " local", readEngineLine(harness.Frame()))
+		assert.Equal(t, " local", paneltest.EngineLine(harness.Frame()))
 	})
 }
 
@@ -107,7 +107,7 @@ func TestMessagesPane(t *testing.T) {
 
 		frame := harness.Frame()
 		assert.NotContains(t, frame, "Could not resume")
-		assert.Equal(t, " local", readEngineLine(frame))
+		assert.Equal(t, " local", paneltest.EngineLine(frame))
 	})
 
 	t.Run("esc hands the keys back and keeps the messages", func(t *testing.T) {
@@ -117,7 +117,7 @@ func TestMessagesPane(t *testing.T) {
 
 		frame := harness.Frame()
 		assert.Equal(t, "backend", paneltest.HoveredRow(frame))
-		assert.Equal(t, " local  ✗ 1  C-g", readEngineLine(frame))
+		assert.Equal(t, " local  ✗ 1  C-g", paneltest.EngineLine(frame))
 	})
 
 	t.Run("a message landing while the pane is read leaves the reader where they were", func(t *testing.T) {
