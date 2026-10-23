@@ -315,7 +315,7 @@ func TestFormsAdoptExisting(t *testing.T) {
 		},
 		{
 			name:        "an archived agent lands the archive on its row",
-			existing:    newArchivedAgent("a3", "old-work", "w1"),
+			existing:    paneltest.ArchivedAgent("a3", "old-work", "w1"),
 			wantScreen:  screen.Agents,
 			wantHovered: "old-work",
 		},
@@ -323,7 +323,7 @@ func TestFormsAdoptExisting(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := paneltest.OpenAgents(t, newFormWorkflow(), newFormAuthor(), newArchivedAgent("a3", "old-work", "w1"), tucked, tuckedTask, reviewer)
+			harness := paneltest.OpenAgents(t, newFormWorkflow(), newFormAuthor(), paneltest.ArchivedAgent("a3", "old-work", "w1"), tucked, tuckedTask, reviewer)
 			harness.Press("g", "g")
 			harness.Answer(agentv1connect.AgentServiceAdoptProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 				return connect.NewResponse(&agentv1.AdoptResponse{Agent: tt.existing, Existing: true}), nil

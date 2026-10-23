@@ -311,21 +311,15 @@ func (a *agentsScreen) startOrchestrator(workflow panel.Workflow) screen.Request
 	return rowWrite(a.deps.clients,
 		"starting the orchestrator of "+workflow.Name,
 		fmt.Sprintf("Could not reach the orchestrator of workflow %q", workflow.Name),
-		func(clients api.Clients) (*screen.Made, error) {
+		func(clients api.Clients) screen.Landed {
 			agent, err := clients.StartOrchestrator(workflow.ID)
 			if err != nil {
-				return nil, err
+				return screen.Landed{Err: err}
 			}
 
 			// The orchestrator has no row of its own, so the landing goes to the workflow it
 			// stands behind.
-			return &screen.Made{
-				Row:     workflowRowKey(workflow.ID),
-				Agent:   agent.GetId(),
-				Pane:    agent.GetPaneId(),
-				Harness: agent.GetHarness(),
-				Focus:   true,
-			}, nil
+			return madeWorkflow(workflow.ID, agent)
 		},
 	)
 }
@@ -392,7 +386,7 @@ func (a *agentsScreen) Column(in screen.Inputs) column.Spec {
 }
 
 func (a *agentsScreen) openRename(in screen.Inputs) screen.Request {
-	row, ok := a.HoveredRow(in)
+	row, ok := a.hoveredRow(in)
 	if !ok {
 		return nil
 	}
@@ -413,5 +407,5 @@ func (a *agentsScreen) settleRename(in screen.Inputs, row string, err error) {
 }
 
 func (a *agentsScreen) Dispatches() []keys.Table {
-	return []keys.Table{a.actions(screen.Inputs{}), a.archived.actions(screen.Inputs{})}
+	return []keys.Table{a.actions(screen.Inputs{}), a.archiveScreen(&a.archived).actions(screen.Inputs{})}
 }

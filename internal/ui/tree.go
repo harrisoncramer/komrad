@@ -436,18 +436,18 @@ func narrowedAgentRows(in screen.Inputs, rows []agentRow) []agentRow {
 	})
 }
 
-func (a *agentsScreen) HoveredRow(in screen.Inputs) (agentRow, bool) {
+func (a *agentsScreen) hoveredRow(in screen.Inputs) (agentRow, bool) {
 	return a.layout(in).cursorRow(a.Row)
 }
 
 func (a *agentsScreen) hoveredWorkflow(in screen.Inputs) (panel.Workflow, bool) {
-	return hoveredHeader(a.HoveredRow(in))
+	return hoveredHeader(a.hoveredRow(in))
 }
 
 // hoveredPane is the agent whose pane the row under the cursor shows, and none where that row
 // has no pane worth putting in the window.
 func (a *agentsScreen) hoveredPane(in screen.Inputs) (panel.AgentRow, bool) {
-	r, ok := a.HoveredRow(in)
+	r, ok := a.hoveredRow(in)
 	if !ok {
 		return panel.AgentRow{}, false
 	}
@@ -462,7 +462,7 @@ func (a *agentsScreen) hoveredPane(in screen.Inputs) (panel.AgentRow, bool) {
 
 // Resting is the agent the row under the cursor stands for when it is dormant or paused.
 func (a *agentsScreen) Resting(in screen.Inputs) (panel.AgentRow, bool) {
-	r, ok := a.HoveredRow(in)
+	r, ok := a.hoveredRow(in)
 	if !ok {
 		return panel.AgentRow{}, false
 	}
@@ -473,6 +473,26 @@ func (a *agentsScreen) Resting(in screen.Inputs) (panel.AgentRow, bool) {
 	}
 
 	return item, true
+}
+
+// RecordAgent is the agent the record under the cursor is about, which for a task is its writer.
+func (a *agentsScreen) RecordAgent(in screen.Inputs) (panel.AgentRow, bool) {
+	row, ok := a.hoveredRow(in)
+	if !ok {
+		return panel.AgentRow{}, false
+	}
+
+	return row.recordAgent(in.Listing)
+}
+
+// RecordTask is the task whose checkout the record under the cursor shows.
+func (a *agentsScreen) RecordTask(in screen.Inputs) (panel.Task, bool) {
+	row, ok := a.hoveredRow(in)
+	if !ok {
+		return panel.Task{}, false
+	}
+
+	return row.recordTask(in.Listing)
 }
 
 // hasNoAgentPane reports whether the row the cursor is on has no pane of its own.
@@ -494,7 +514,7 @@ func (a *agentsScreen) HoveredAgentID(in screen.Inputs) string {
 
 // hoveredPaneItem is the agent under the cursor, or the orchestrator of the workflow under it.
 func (a *agentsScreen) hoveredPaneItem(in screen.Inputs) (panel.AgentRow, bool) {
-	row, ok := a.HoveredRow(in)
+	row, ok := a.hoveredRow(in)
 	if !ok {
 		return panel.AgentRow{}, false
 	}

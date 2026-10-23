@@ -17,6 +17,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	schedulev1 "komrad/proto/gen/schedule/v1"
 	taskv1 "komrad/proto/gen/task/v1"
 	"komrad/proto/gen/task/v1/taskv1connect"
 	watchv1 "komrad/proto/gen/watch/v1"
@@ -35,9 +36,9 @@ import (
 
 // TestArchivedAgentsMenu covers what each entry of the archive menu does on the row under the cursor.
 func TestArchivedAgentsMenu(t *testing.T) {
-	neverStarted := newArchivedAgent("a1", "api-refactor", "w1")
+	neverStarted := paneltest.ArchivedAgent("a1", "api-refactor", "w1")
 	neverStarted.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
-	deletedAgent := newArchivedAgent("a1", "api-refactor", "w1")
+	deletedAgent := paneltest.ArchivedAgent("a1", "api-refactor", "w1")
 
 	tests := []struct {
 		name       string
@@ -89,8 +90,8 @@ func TestArchivedAgentsMenu(t *testing.T) {
 			name: "restore and open refuses a selection, which is not one agent",
 			rows: []proto.Message{
 				paneltest.Workflow("w1", "backend"),
-				newArchivedAgent("a1", "api-refactor", "w1"),
-				newArchivedAgent("a2", "db-tune", "w1"),
+				paneltest.ArchivedAgent("a1", "api-refactor", "w1"),
+				paneltest.ArchivedAgent("a2", "db-tune", "w1"),
 			},
 			press:      []string{"j", "v", "j", "v", "space", "a", "o", "ctrl+g"},
 			wantScreen: screen.Agents,
@@ -131,7 +132,7 @@ func TestArchivedAgentsMenu(t *testing.T) {
 		},
 		{
 			name:       "restore on an archived folder restores the workflow",
-			rows:       []proto.Message{newArchivedWorkflow("w1", "backend")},
+			rows:       []proto.Message{paneltest.ArchivedWorkflow("w1", "backend")},
 			press:      []string{"space", "a", "r"},
 			wantScreen: screen.Agents,
 			wantSent: []paneltest.Request{{
@@ -141,7 +142,7 @@ func TestArchivedAgentsMenu(t *testing.T) {
 		},
 		{
 			name:       "restore on a folder of the deleted list restores the workflow",
-			rows:       []proto.Message{newArchivedWorkflow("w1", "backend"), deletedAgent, newDeletedTaskOf(deletedAgent)},
+			rows:       []proto.Message{paneltest.ArchivedWorkflow("w1", "backend"), deletedAgent, newDeletedTaskOf(deletedAgent)},
 			press:      []string{"F", "tab", "esc", "space", "u"},
 			wantScreen: screen.Agents,
 			wantSent: []paneltest.Request{{
@@ -158,7 +159,7 @@ func TestArchivedAgentsMenu(t *testing.T) {
 		},
 		{
 			name:       "delete on an archived folder opens the confirm prompt",
-			rows:       []proto.Message{newArchivedWorkflow("w1", "backend")},
+			rows:       []proto.Message{paneltest.ArchivedWorkflow("w1", "backend")},
 			press:      []string{"space", "a", "d"},
 			wantScreen: screen.Agents,
 			wantFrame:  `Delete workflow "backend"?`,
@@ -167,8 +168,8 @@ func TestArchivedAgentsMenu(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openArchivedAgents(t, tt.rows...)
-			answerResume(harness)
+			harness := paneltest.OpenArchivedAgents(t, tt.rows...)
+			harness.AnswerResume()
 
 			harness.Press(tt.press...)
 			if len(tt.watch) > 0 {
@@ -189,9 +190,9 @@ func TestArchivedAgentsMenu(t *testing.T) {
 
 // TestArchivedAgentsPrompts covers answering the delete prompts.
 func TestArchivedAgentsPrompts(t *testing.T) {
-	archivedWithWorktree := newArchivedWorkflow("w1", "backend")
+	archivedWithWorktree := paneltest.ArchivedWorkflow("w1", "backend")
 	archivedWithWorktree.Worktree = &workflowv1.WorktreeConfig{Enabled: true}
-	deleted := newArchivedAgent("a1", "api-refactor", "w1")
+	deleted := paneltest.ArchivedAgent("a1", "api-refactor", "w1")
 
 	tests := []struct {
 		name     string
@@ -207,7 +208,7 @@ func TestArchivedAgentsPrompts(t *testing.T) {
 		},
 		{
 			name:  "declining the workflow delete destroys nothing",
-			rows:  []proto.Message{newArchivedWorkflow("w1", "backend")},
+			rows:  []proto.Message{paneltest.ArchivedWorkflow("w1", "backend")},
 			press: []string{"space", "a", "d", "tab", "n"},
 		},
 		{
@@ -228,7 +229,7 @@ func TestArchivedAgentsPrompts(t *testing.T) {
 		},
 		{
 			name:  "confirming the workflow delete destroys the workflow it was opened on",
-			rows:  []proto.Message{newArchivedWorkflow("w1", "backend")},
+			rows:  []proto.Message{paneltest.ArchivedWorkflow("w1", "backend")},
 			press: []string{"space", "a", "d", "enter"},
 			gone:  paneltest.Deleted(watchv1.Resource_RESOURCE_WORKFLOW, "w1"),
 			wantSent: []paneltest.Request{{
@@ -259,7 +260,7 @@ func TestArchivedAgentsPrompts(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openArchivedAgents(t, tt.rows...)
+			harness := paneltest.OpenArchivedAgents(t, tt.rows...)
 
 			harness.Press(tt.press...)
 			if tt.gone != nil {
@@ -293,7 +294,7 @@ func TestArchivedAgentsReportsRefusedWrites(t *testing.T) {
 		},
 		{
 			name:        "a refused workflow restore",
-			rows:        []proto.Message{newArchivedWorkflow("w1", "backend")},
+			rows:        []proto.Message{paneltest.ArchivedWorkflow("w1", "backend")},
 			refused:     workflowv1connect.WorkflowServiceRestoreWorkflowProcedure,
 			press:       []string{"space", "a", "r"},
 			wantSummary: `Could not restore workflow "backend"`,
@@ -316,7 +317,7 @@ func TestArchivedAgentsReportsRefusedWrites(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openArchivedAgents(t, tt.rows...)
+			harness := paneltest.OpenArchivedAgents(t, tt.rows...)
 			harness.Refuse(tt.refused, connect.NewError(connect.CodeNotFound, errors.New("no such agent")))
 
 			harness.Press(append(tt.press, paneltest.WidenListPresses...)...)
@@ -329,17 +330,17 @@ func TestArchivedAgentsReportsRefusedWrites(t *testing.T) {
 
 // TestArchivedAgentsRows covers which folders and agents the archived and deleted kinds render.
 func TestArchivedAgentsRows(t *testing.T) {
-	kept := newArchivedAgent("a1", "auth", "w1")
-	deleted := newArchivedAgent("a2", "billing", "w1")
+	kept := paneltest.ArchivedAgent("a1", "auth", "w1")
+	deleted := paneltest.ArchivedAgent("a2", "billing", "w1")
 	orchestrator := &agentv1.Agent{
 		Id:         "o1",
 		Name:       "orchestrator",
 		WorkflowId: "w1",
 		Role:       agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
-		ArchivedAt: archivedAt,
+		ArchivedAt: paneltest.ArchivedAt,
 	}
-	keptAndDeleted := []proto.Message{newArchivedWorkflow("w1", "backend"), kept, newArchivedTaskOf(kept), deleted, newDeletedTaskOf(deleted)}
-	everyDeleted := []proto.Message{newArchivedWorkflow("w1", "backend"), orchestrator, deleted, newDeletedTaskOf(deleted)}
+	keptAndDeleted := []proto.Message{paneltest.ArchivedWorkflow("w1", "backend"), kept, newArchivedTaskOf(kept), deleted, newDeletedTaskOf(deleted)}
+	everyDeleted := []proto.Message{paneltest.ArchivedWorkflow("w1", "backend"), orchestrator, deleted, newDeletedTaskOf(deleted)}
 
 	tests := []struct {
 		name     string
@@ -354,7 +355,7 @@ func TestArchivedAgentsRows(t *testing.T) {
 		},
 		{
 			name:     "an archived folder emptied of its agents keeps its header",
-			rows:     []proto.Message{newArchivedWorkflow("w1", "backend")},
+			rows:     []proto.Message{paneltest.ArchivedWorkflow("w1", "backend")},
 			wantRows: []string{"backend"},
 		},
 		{
@@ -362,7 +363,7 @@ func TestArchivedAgentsRows(t *testing.T) {
 			rows: []proto.Message{
 				paneltest.Workflow("w1", "backend"),
 				paneltest.Workflow("w2", "frontend"),
-				newArchivedAgent("a1", "auth", "w1"),
+				paneltest.ArchivedAgent("a1", "auth", "w1"),
 			},
 			wantRows: []string{"backend", "└─ auth"},
 		},
@@ -375,7 +376,7 @@ func TestArchivedAgentsRows(t *testing.T) {
 					Name:       "orchestrator",
 					WorkflowId: "w1",
 					Role:       agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
-					ArchivedAt: archivedAt,
+					ArchivedAt: paneltest.ArchivedAt,
 				},
 			},
 			wantRows: []string{"backend"},
@@ -384,10 +385,10 @@ func TestArchivedAgentsRows(t *testing.T) {
 			name: "live and archived folders are rendered together by name",
 			rows: []proto.Message{
 				paneltest.Workflow("w2", "frontend"),
-				newArchivedWorkflow("w1", "backend"),
-				newArchivedWorkflow("w3", "infra"),
-				newArchivedAgent("a1", "auth", "w1"),
-				newArchivedAgent("a2", "ui", "w2"),
+				paneltest.ArchivedWorkflow("w1", "backend"),
+				paneltest.ArchivedWorkflow("w3", "infra"),
+				paneltest.ArchivedAgent("a1", "auth", "w1"),
+				paneltest.ArchivedAgent("a2", "ui", "w2"),
 			},
 			wantRows: []string{"backend", "└─ auth", "frontend", "└─ ui", "infra"},
 		},
@@ -415,7 +416,7 @@ func TestArchivedAgentsRows(t *testing.T) {
 		},
 		{
 			name:     "an archived folder with no tasks stays off the deleted list",
-			rows:     []proto.Message{newArchivedWorkflow("w1", "backend")},
+			rows:     []proto.Message{paneltest.ArchivedWorkflow("w1", "backend")},
 			deleted:  true,
 			wantRows: []string{},
 		},
@@ -423,7 +424,7 @@ func TestArchivedAgentsRows(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openArchivedAgents(t, tt.rows...)
+			harness := paneltest.OpenArchivedAgents(t, tt.rows...)
 			if tt.deleted {
 				harness.Press("F", "tab", "esc")
 			}
@@ -435,7 +436,7 @@ func TestArchivedAgentsRows(t *testing.T) {
 
 // TestArchivedAgentsMenuEntries covers the archive menu naming what the hovered row takes.
 func TestArchivedAgentsMenuEntries(t *testing.T) {
-	neverStarted := newArchivedAgent("a1", "api-refactor", "w1")
+	neverStarted := paneltest.ArchivedAgent("a1", "api-refactor", "w1")
 	neverStarted.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
 	openOff := paneltest.OffEntry("restore and open", "o")
 	archiveEntry := regexp.MustCompile(`archive ›\s+a`)
@@ -455,7 +456,7 @@ func TestArchivedAgentsMenuEntries(t *testing.T) {
 		},
 		{
 			name:    "on an archived folder",
-			rows:    []proto.Message{newArchivedWorkflow("w1", "backend")},
+			rows:    []proto.Message{paneltest.ArchivedWorkflow("w1", "backend")},
 			want:    []string{"restore", "delete for good"},
 			wantOff: true,
 		},
@@ -483,7 +484,7 @@ func TestArchivedAgentsMenuEntries(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openArchivedAgents(t, tt.rows...)
+			harness := paneltest.OpenArchivedAgents(t, tt.rows...)
 
 			harness.Press(append(tt.press, "space")...)
 			if tt.wantNone {
@@ -507,9 +508,9 @@ func TestArchivedAgentsMenuEntries(t *testing.T) {
 	}
 
 	t.Run("an archived folder's menu holds none of its orchestrator's entries", func(t *testing.T) {
-		orchestrator := newArchivedAgent("o1", "orchestrator", "w1")
+		orchestrator := paneltest.ArchivedAgent("o1", "orchestrator", "w1")
 		orchestrator.Role = agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR
-		harness := openArchivedAgents(t, newArchivedWorkflow("w1", "backend"), orchestrator)
+		harness := paneltest.OpenArchivedAgents(t, paneltest.ArchivedWorkflow("w1", "backend"), orchestrator)
 
 		harness.Press("space")
 
@@ -520,8 +521,8 @@ func TestArchivedAgentsMenuEntries(t *testing.T) {
 		}
 	})
 
-	deletedAgent := newArchivedAgent("a1", "api-refactor", "w1")
-	onDeleted := []proto.Message{newArchivedWorkflow("w1", "backend"), deletedAgent, newDeletedTaskOf(deletedAgent)}
+	deletedAgent := paneltest.ArchivedAgent("a1", "api-refactor", "w1")
+	onDeleted := []proto.Message{paneltest.ArchivedWorkflow("w1", "backend"), deletedAgent, newDeletedTaskOf(deletedAgent)}
 
 	for _, tt := range []struct {
 		name    string
@@ -541,7 +542,7 @@ func TestArchivedAgentsMenuEntries(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openArchivedAgents(t, onDeleted...)
+			harness := paneltest.OpenArchivedAgents(t, onDeleted...)
 
 			harness.Press(append(append([]string{"F", "tab", "esc"}, tt.press...), "space")...)
 
@@ -559,17 +560,20 @@ func TestArchivedAgentsMenuEntries(t *testing.T) {
 
 // TestArchivedAgentsRename covers a name typed over an archived agents row going out as its rename.
 func TestArchivedAgentsRename(t *testing.T) {
-	archivedSchedule := newNamedSchedule("s2", "weekly-gone")
-	archivedSchedule.ArchivedAt = archivedAt
-
 	archived := []proto.Message{
-		newArchivedWorkflow("w1", "backend"),
-		newArchivedAgent("a1", "api-refactor", "w1"),
-		archivedSchedule,
+		paneltest.ArchivedWorkflow("w1", "backend"),
+		paneltest.ArchivedAgent("a1", "api-refactor", "w1"),
+		&schedulev1.Schedule{
+			Id:         "s2",
+			Name:       "weekly-gone",
+			WorkflowId: "w1",
+			Cron:       "0 9 * * *",
+			ArchivedAt: paneltest.ArchivedAt,
+		},
 	}
 	live := []proto.Message{
 		paneltest.Workflow("w1", "backend"),
-		newArchivedAgent("a1", "api-refactor", "w1"),
+		paneltest.ArchivedAgent("a1", "api-refactor", "w1"),
 	}
 
 	tests := []struct {
@@ -616,7 +620,7 @@ func TestArchivedAgentsRename(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openArchivedAgents(t, tt.rows...)
+			harness := paneltest.OpenArchivedAgents(t, tt.rows...)
 
 			harness.Press(tt.press...)
 
@@ -634,14 +638,14 @@ func TestArchivedAgentsRename(t *testing.T) {
 
 // TestArchivedAgentsDocument covers what the panel renders beside the list for the hovered row.
 func TestArchivedAgentsDocument(t *testing.T) {
-	stuck := newArchivedAgent("a1", "api-refactor", "w1")
+	stuck := paneltest.ArchivedAgent("a1", "api-refactor", "w1")
 	stuck.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP
 	stuck.FailureReason = "the worktree is dirty"
-	measured := newArchivedAgent("a1", "api-refactor", "w1")
+	measured := paneltest.ArchivedAgent("a1", "api-refactor", "w1")
 	measuredTask := paneltest.TaskOf(measured)
 	measuredTask.DiffStat = &taskv1.DiffStat{Added: 200, Removed: 100}
-	measuredTask.ArchivedAt = archivedAt
-	measuredReview := newArchivedAgent("a2", "api-review", "w1")
+	measuredTask.ArchivedAt = paneltest.ArchivedAt
+	measuredReview := paneltest.ArchivedAgent("a2", "api-review", "w1")
 	measuredReview.TaskId = xptr.Ptr(measuredTask.GetId())
 	measuredReview.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
 
@@ -689,7 +693,7 @@ func TestArchivedAgentsDocument(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openArchivedAgents(t, tt.rows...)
+			harness := paneltest.OpenArchivedAgents(t, tt.rows...)
 
 			harness.Press(tt.press...)
 
@@ -704,14 +708,14 @@ func TestArchivedAgentsDocument(t *testing.T) {
 	}
 
 	t.Run("the record says what the agents list would say of it", func(t *testing.T) {
-		agent := newArchivedAgent("a1", "api-refactor", "w1")
+		agent := paneltest.ArchivedAgent("a1", "api-refactor", "w1")
 		agent.CreatedAt = timestamppb.New(time.Date(2026, 7, 29, 9, 0, 0, 0, time.UTC))
 		task := paneltest.TaskOf(agent)
 		task.Branch = xptr.Ptr("agent/a1")
 		task.RepositoryUrl = xptr.Ptr("https://github.com/harrisoncramer/komrad")
 		task.CreatedAt = timestamppb.New(time.Date(2026, 7, 29, 9, 0, 0, 0, time.UTC))
-		task.ArchivedAt = archivedAt
-		harness := openArchivedAgents(t,
+		task.ArchivedAt = paneltest.ArchivedAt
+		harness := paneltest.OpenArchivedAgents(t,
 			paneltest.Workflow("w1", "backend"),
 			agent,
 			task,
@@ -723,8 +727,8 @@ func TestArchivedAgentsDocument(t *testing.T) {
 				Number:            42,
 				State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
 				OpenedAt:          timestamppb.New(time.Date(2026, 7, 30, 8, 0, 0, 0, time.UTC)),
-				MergedAt:          archivedAt,
-				ClosedAt:          archivedAt,
+				MergedAt:          paneltest.ArchivedAt,
+				ClosedAt:          paneltest.ArchivedAt,
 			},
 		)
 
@@ -776,7 +780,7 @@ func TestArchivedAgentsSort(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openArchivedAgents(t, unsorted...)
+			harness := paneltest.OpenArchivedAgents(t, unsorted...)
 
 			harness.Press(tt.press...)
 
@@ -788,14 +792,14 @@ func TestArchivedAgentsSort(t *testing.T) {
 // TestArchivedAgentsWindow covers the archived agents holding the window and the keyboard.
 func TestArchivedAgentsWindow(t *testing.T) {
 	t.Run("entering the archived agents asks for nothing", func(t *testing.T) {
-		harness := openArchivedAgents(t, buildOneArchivedAgent()...)
+		harness := paneltest.OpenArchivedAgents(t, buildOneArchivedAgent()...)
 
 		assert.Contains(t, harness.Frame(), "api-refactor")
 		harness.AssertSent()
 	})
 
 	t.Run("the archived agents take the window and gives it back for a running agent", func(t *testing.T) {
-		harness := openArchivedAgents(t,
+		harness := paneltest.OpenArchivedAgents(t,
 			paneltest.Workflow("w1", "backend"),
 			&agentv1.Agent{
 				Id:         "a2",
@@ -805,7 +809,7 @@ func TestArchivedAgentsWindow(t *testing.T) {
 				Alive:      xptr.Ptr(true),
 				State:      agentv1.AgentState_AGENT_STATE_IDLE,
 			},
-			newArchivedAgent("a1", "api-refactor", "w1"),
+			paneltest.ArchivedAgent("a1", "api-refactor", "w1"),
 		)
 		require.True(t, harness.Tmux().IsZoomed(), "the archived agents render both columns themselves")
 
@@ -816,9 +820,9 @@ func TestArchivedAgentsWindow(t *testing.T) {
 	})
 
 	t.Run("restoring and opening an agent hands the window to the pane it opens", func(t *testing.T) {
-		harness := openArchivedAgents(t, buildOneArchivedAgent()...)
+		harness := paneltest.OpenArchivedAgents(t, buildOneArchivedAgent()...)
 		require.True(t, harness.Tmux().IsZoomed())
-		answerResume(harness)
+		harness.AnswerResume()
 
 		harness.Press("j", "space", "a", "o")
 		harness.Watch(paneltest.Puts(newRestoredAgent()))
@@ -858,7 +862,7 @@ func TestArchivedAgentsSelection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openArchivedAgents(t, rows...)
+			harness := paneltest.OpenArchivedAgents(t, rows...)
 
 			harness.Press(tt.press...)
 
@@ -868,7 +872,7 @@ func TestArchivedAgentsSelection(t *testing.T) {
 	}
 
 	t.Run("a folder restore stands down while a selection is up", func(t *testing.T) {
-		harness := openArchivedAgents(t, newArchivedWorkflow("w1", "backend"), newArchivedAgent("a1", "auth", "w1"))
+		harness := paneltest.OpenArchivedAgents(t, paneltest.ArchivedWorkflow("w1", "backend"), paneltest.ArchivedAgent("a1", "auth", "w1"))
 
 		harness.Press("j", "v", "g", "g", "space", "a", "r")
 
@@ -879,7 +883,7 @@ func TestArchivedAgentsSelection(t *testing.T) {
 	})
 
 	t.Run("the selection outlives a refused restore", func(t *testing.T) {
-		harness := openArchivedAgents(t, rows...)
+		harness := paneltest.OpenArchivedAgents(t, rows...)
 		harness.Refuse(agentv1connect.AgentServiceRestoreAgentsProcedure, connect.NewError(connect.CodeUnavailable, errors.New("down")))
 
 		harness.Press("j", "v", "space", "a", "r")
@@ -888,7 +892,7 @@ func TestArchivedAgentsSelection(t *testing.T) {
 	})
 
 	t.Run("escape clears the selection before it leaves the archived agents", func(t *testing.T) {
-		harness := openArchivedAgents(t, rows...)
+		harness := paneltest.OpenArchivedAgents(t, rows...)
 		harness.Press("j", "v")
 
 		harness.Press("esc")
@@ -902,7 +906,7 @@ func TestArchivedAgentsSelection(t *testing.T) {
 	})
 
 	t.Run("an agent gone from the archived agents drops out of the selection", func(t *testing.T) {
-		harness := openArchivedAgents(t, rows...)
+		harness := paneltest.OpenArchivedAgents(t, rows...)
 		harness.Press("j", "v", "G", "v")
 
 		harness.Watch(paneltest.Snapshot(rows[0], rows[3]))
@@ -912,7 +916,7 @@ func TestArchivedAgentsSelection(t *testing.T) {
 	})
 
 	t.Run("selecting among the archived agents leaves the agents tree alone", func(t *testing.T) {
-		harness := openArchivedAgents(t, append(slices.Clone(rows), paneltest.Agent("a9", "live", "w1"))...)
+		harness := paneltest.OpenArchivedAgents(t, append(slices.Clone(rows), paneltest.Agent("a9", "live", "w1"))...)
 		harness.Press("j", "v", "esc", "F", "tab", "esc")
 
 		assert.NotContains(t, paneltest.Legend(harness.Frame()), "selected")
@@ -921,11 +925,11 @@ func TestArchivedAgentsSelection(t *testing.T) {
 
 // TestArchivedAgentsKinds covers the row of kinds switching the agents view between its live, archived and deleted agents.
 func TestArchivedAgentsKinds(t *testing.T) {
-	deleted := newArchivedAgent("a2", "billing", "w1")
+	deleted := paneltest.ArchivedAgent("a2", "billing", "w1")
 	rows := []proto.Message{
 		paneltest.Workflow("w1", "backend"),
 		paneltest.Agent("a9", "auth-live", "w1"),
-		newArchivedAgent("a1", "api-refactor", "w1"),
+		paneltest.ArchivedAgent("a1", "api-refactor", "w1"),
 		deleted,
 		newDeletedTaskOf(deleted),
 	}
@@ -1010,8 +1014,8 @@ func TestArchivedAgentsKinds(t *testing.T) {
 			paneltest.Workflow("w1", "backend"),
 			paneltest.Agent("a8", "auth-live", "w1"),
 			paneltest.Agent("a9", "billing-live", "w1"),
-			newArchivedAgent("a1", "api-refactor", "w1"),
-			newArchivedAgent("a2", "billing", "w1"),
+			paneltest.ArchivedAgent("a1", "api-refactor", "w1"),
+			paneltest.ArchivedAgent("a2", "billing", "w1"),
 		)
 		harness.Press(append(paneltest.WidenListPresses, "j")...)
 		live := paneltest.HoveredRow(harness.Frame())
@@ -1029,7 +1033,7 @@ func TestArchivedAgentsKinds(t *testing.T) {
 // TestArchivedAgentsLastScreen covers the saved screen rendered under an archived agent.
 func TestArchivedAgentsLastScreen(t *testing.T) {
 	t.Run("the saved screen is asked for once the cursor rests and rendered under the document", func(t *testing.T) {
-		harness := openArchivedAgents(t, buildOneArchivedAgent()...)
+		harness := paneltest.OpenArchivedAgents(t, buildOneArchivedAgent()...)
 		harness.AnswerLastScreens(map[string]string{"a1": "❯ ship the refactor\n⏺ the refactor is merged"})
 
 		harness.Press("j")
@@ -1045,7 +1049,7 @@ func TestArchivedAgentsLastScreen(t *testing.T) {
 	})
 
 	t.Run("a saved screen taller than the room left is fitted under the document and its banner", func(t *testing.T) {
-		harness := openArchivedAgents(t, buildOneArchivedAgent()...)
+		harness := paneltest.OpenArchivedAgents(t, buildOneArchivedAgent()...)
 		harness.Answer(agentv1connect.AgentServiceGetLastScreenProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 			return connect.NewResponse(&agentv1.GetLastScreenResponse{
 				Frame:      "❯ the first ask\n" + strings.Repeat("working through it\n", 60) + "⏺ the refactor is merged",
@@ -1066,7 +1070,7 @@ func TestArchivedAgentsLastScreen(t *testing.T) {
 	})
 
 	t.Run("an agent with no saved screen says so", func(t *testing.T) {
-		harness := openArchivedAgents(t, buildOneArchivedAgent()...)
+		harness := paneltest.OpenArchivedAgents(t, buildOneArchivedAgent()...)
 		harness.AnswerLastScreens(nil)
 
 		harness.Press("j")
@@ -1076,7 +1080,7 @@ func TestArchivedAgentsLastScreen(t *testing.T) {
 	})
 
 	t.Run("a refused read says why", func(t *testing.T) {
-		harness := openArchivedAgents(t, buildOneArchivedAgent()...)
+		harness := paneltest.OpenArchivedAgents(t, buildOneArchivedAgent()...)
 		harness.Answer(agentv1connect.AgentServiceGetLastScreenProcedure, paneltest.RefuseWith(connect.CodeInternal, "screens exploded"))
 
 		harness.Press("j")
@@ -1088,7 +1092,7 @@ func TestArchivedAgentsLastScreen(t *testing.T) {
 	})
 
 	t.Run("a folder has no saved screen", func(t *testing.T) {
-		harness := openArchivedAgents(t, buildOneArchivedAgent()...)
+		harness := paneltest.OpenArchivedAgents(t, buildOneArchivedAgent()...)
 		harness.Advance(time.Second)
 
 		assert.NotContains(t, harness.Frame(), "saved screen")
@@ -1096,10 +1100,10 @@ func TestArchivedAgentsLastScreen(t *testing.T) {
 	})
 
 	t.Run("an answer for an agent the cursor has left is not rendered", func(t *testing.T) {
-		harness := openArchivedAgents(t,
+		harness := paneltest.OpenArchivedAgents(t,
 			paneltest.Workflow("w1", "backend"),
-			newArchivedAgent("a1", "api-refactor", "w1"),
-			newArchivedAgent("a2", "billing", "w1"),
+			paneltest.ArchivedAgent("a1", "api-refactor", "w1"),
+			paneltest.ArchivedAgent("a2", "billing", "w1"),
 		)
 		harness.AnswerLastScreens(map[string]string{
 			"a1": "words from api-refactor",
@@ -1119,10 +1123,10 @@ func TestArchivedAgentsLastScreen(t *testing.T) {
 	})
 
 	t.Run("clearing a search that moved the cursor asks for the agent it lands back on", func(t *testing.T) {
-		harness := openArchivedAgents(t,
+		harness := paneltest.OpenArchivedAgents(t,
 			paneltest.Workflow("w1", "backend"),
-			newArchivedAgent("a1", "api-refactor", "w1"),
-			newArchivedAgent("a2", "billing", "w1"),
+			paneltest.ArchivedAgent("a1", "api-refactor", "w1"),
+			paneltest.ArchivedAgent("a2", "billing", "w1"),
 		)
 		harness.AnswerLastScreens(map[string]string{
 			"a1": "words from api-refactor",
@@ -1142,10 +1146,10 @@ func TestArchivedAgentsLastScreen(t *testing.T) {
 	})
 
 	t.Run("a listing that moves the cursor onto another agent asks for it", func(t *testing.T) {
-		harness := openArchivedAgents(t,
+		harness := paneltest.OpenArchivedAgents(t,
 			paneltest.Workflow("w1", "backend"),
-			newArchivedAgent("a1", "api-refactor", "w1"),
-			newArchivedAgent("a2", "billing", "w1"),
+			paneltest.ArchivedAgent("a1", "api-refactor", "w1"),
+			paneltest.ArchivedAgent("a2", "billing", "w1"),
 		)
 		harness.AnswerLastScreens(nil)
 		harness.Press("j")
@@ -1153,7 +1157,7 @@ func TestArchivedAgentsLastScreen(t *testing.T) {
 
 		requireLastScreenFor(t, harness, "a2")
 
-		restored := newArchivedAgent("a2", "billing", "w1")
+		restored := paneltest.ArchivedAgent("a2", "billing", "w1")
 		restored.ArchivedAt = nil
 		harness.Watch(paneltest.Puts(restored))
 
@@ -1196,10 +1200,10 @@ func TestArchivedAgentsReading(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openArchivedAgents(t,
+			harness := paneltest.OpenArchivedAgents(t,
 				paneltest.Workflow("w1", "backend"),
-				newArchivedAgent("a1", "api-refactor", "w1"),
-				newArchivedAgent("a2", "billing", "w1"),
+				paneltest.ArchivedAgent("a1", "api-refactor", "w1"),
+				paneltest.ArchivedAgent("a2", "billing", "w1"),
 			)
 			harness.AnswerLastScreens(map[string]string{"a1": screen, "a2": screen})
 			harness.Press("j")
@@ -1218,15 +1222,15 @@ func TestArchivedAgentsReading(t *testing.T) {
 	}
 
 	t.Run("the saved screen takes the keys while the live list stands on a stopped agent", func(t *testing.T) {
-		stopped := newDormant("sleepy")
+		stopped := paneltest.Dormant("sleepy")
 		stopped.Id = "d1"
 		harness := paneltest.Start(t, paneltest.Params{})
 		harness.AnswerLastScreens(map[string]string{"a1": screen, "a2": screen})
 		harness.Watch(paneltest.Snapshot(
 			paneltest.Workflow("w1", "backend"),
 			stopped,
-			newArchivedAgent("a1", "api-refactor", "w1"),
-			newArchivedAgent("a2", "billing", "w1"),
+			paneltest.ArchivedAgent("a1", "api-refactor", "w1"),
+			paneltest.ArchivedAgent("a2", "billing", "w1"),
 		))
 		harness.Press("F", "tab", "esc", "j")
 		harness.Advance(time.Second)
@@ -1237,47 +1241,17 @@ func TestArchivedAgentsReading(t *testing.T) {
 	})
 }
 
-func openArchivedAgents(t *testing.T, rows ...proto.Message) *paneltest.Panel {
-	t.Helper()
-
-	harness := paneltest.Start(t, paneltest.Params{})
-	harness.Press("F", "tab", "esc")
-	harness.Watch(paneltest.Snapshot(rows...))
-
-	return harness
-}
-
 func buildOneArchivedAgent() []proto.Message {
 	return []proto.Message{
 		paneltest.Workflow("w1", "backend"),
-		newArchivedAgent("a1", "api-refactor", "w1"),
-	}
-}
-
-func newArchivedWorkflow(id, name string) *workflowv1.Workflow {
-	return &workflowv1.Workflow{
-		Id:         id,
-		Name:       name,
-		ArchivedAt: archivedAt,
+		paneltest.ArchivedAgent("a1", "api-refactor", "w1"),
 	}
 }
 
 const deleteTitle = "Delete "
 
-var archivedAt = timestamppb.New(time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC))
-
-func newArchivedAgent(id, name, workflowID string) *agentv1.Agent {
-	return &agentv1.Agent{
-		Id:         id,
-		Name:       name,
-		WorkflowId: workflowID,
-		State:      agentv1.AgentState_AGENT_STATE_IDLE,
-		ArchivedAt: archivedAt,
-	}
-}
-
 func newRestoredAgent() *agentv1.Agent {
-	agent := newArchivedAgent("a1", "api-refactor", "w1")
+	agent := paneltest.ArchivedAgent("a1", "api-refactor", "w1")
 	agent.ArchivedAt = nil
 	agent.PaneId = "%9"
 	agent.Alive = xptr.Ptr(true)
@@ -1286,7 +1260,7 @@ func newRestoredAgent() *agentv1.Agent {
 }
 
 func newArchivedAgentAt(name string, at time.Time) *agentv1.Agent {
-	agent := newArchivedAgent(name, name, "w1")
+	agent := paneltest.ArchivedAgent(name, name, "w1")
 	agent.ArchivedAt = dates.Stamp(at)
 
 	return agent
@@ -1322,17 +1296,17 @@ func TestArchivedTasks(t *testing.T) {
 
 		return ok && agent.GetId() == "a5"
 	})
-	archivedWorkflow := newArchivedWorkflow("w1", "backend")
+	archivedWorkflow := paneltest.ArchivedWorkflow("w1", "backend")
 	archivedWorkflow.Worktree = &workflowv1.WorktreeConfig{Enabled: true}
-	inArchivedWorkflow := newArchivedAgent("a1", "api-refactor", "w1")
+	inArchivedWorkflow := paneltest.ArchivedAgent("a1", "api-refactor", "w1")
 	inArchivedWorkflowTask := paneltest.TaskOf(inArchivedWorkflow)
 	inArchivedWorkflowTask.Cwd = xptr.Ptr("/trees/api")
-	inArchivedWorkflowTask.ArchivedAt = archivedAt
-	goneAgent := newArchivedAgent("a1", "api-refactor", "w1")
+	inArchivedWorkflowTask.ArchivedAt = paneltest.ArchivedAt
+	goneAgent := paneltest.ArchivedAgent("a1", "api-refactor", "w1")
 	goneTask := newArchivedTaskOf(goneAgent)
 	goneTask.Cwd = xptr.Ptr("/trees/api")
 	goneTask.WorktreeRemovalReason = taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE
-	deletedAgent := newArchivedAgent("a1", "api-refactor", "w1")
+	deletedAgent := paneltest.ArchivedAgent("a1", "api-refactor", "w1")
 	deletedTask := newDeletedTaskOf(deletedAgent)
 	deletedTask.Cwd = xptr.Ptr("/trees/api")
 	onAPIWork := []string{"j", "j", "j", "j"}
@@ -1461,9 +1435,9 @@ func TestArchivedTasks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness := openArchivedAgents(t, tt.rows...)
+			harness := paneltest.OpenArchivedAgents(t, tt.rows...)
 			harness.AnswerWorktreeReads()
-			answerResume(harness)
+			harness.AnswerResume()
 
 			harness.Press(tt.press...)
 
@@ -1475,7 +1449,7 @@ func TestArchivedTasks(t *testing.T) {
 	}
 
 	t.Run("a task's menu leaves out what only a live task takes", func(t *testing.T) {
-		harness := openArchivedAgents(t, buildArchivedTasks()...)
+		harness := paneltest.OpenArchivedAgents(t, buildArchivedTasks()...)
 
 		harness.Press(append(onAPIWork, "space")...)
 
@@ -1488,10 +1462,10 @@ func TestArchivedTasks(t *testing.T) {
 
 // buildArchivedTasks is two archived tasks and a live one with an agent archived out of it.
 func buildArchivedTasks() []proto.Message {
-	refactor := newArchivedAgent("a1", "api-refactor", "w1")
-	review := newArchivedAgent("a2", "api-review", "w1")
-	tune := newArchivedAgent("a3", "db-tune", "w1")
-	auth := newArchivedAgent("a4", "auth", "w1")
+	refactor := paneltest.ArchivedAgent("a1", "api-refactor", "w1")
+	review := paneltest.ArchivedAgent("a2", "api-review", "w1")
+	tune := paneltest.ArchivedAgent("a3", "db-tune", "w1")
+	auth := paneltest.ArchivedAgent("a4", "auth", "w1")
 	authLive := paneltest.Agent("a5", "auth-live", "w1")
 	for _, agent := range []*agentv1.Agent{refactor, review} {
 		agent.TaskId = xptr.Ptr("t1")
@@ -1514,13 +1488,13 @@ func buildArchivedTasks() []proto.Message {
 			Id:         "t1",
 			WorkflowId: "w1",
 			Slug:       "api-work",
-			ArchivedAt: archivedAt,
+			ArchivedAt: paneltest.ArchivedAt,
 		},
 		&taskv1.Task{
 			Id:         "t2",
 			WorkflowId: "w1",
 			Slug:       "db-work",
-			ArchivedAt: archivedAt,
+			ArchivedAt: paneltest.ArchivedAt,
 		},
 		&taskv1.Task{
 			Id:         "t3",
@@ -1532,7 +1506,7 @@ func buildArchivedTasks() []proto.Message {
 
 func newArchivedTaskOf(agent *agentv1.Agent) *taskv1.Task {
 	task := paneltest.TaskOf(agent)
-	task.ArchivedAt = archivedAt
+	task.ArchivedAt = paneltest.ArchivedAt
 
 	return task
 }

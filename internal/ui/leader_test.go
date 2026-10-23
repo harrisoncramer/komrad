@@ -63,7 +63,7 @@ func TestLeader(t *testing.T) {
 	})
 
 	t.Run("the leader twice returns to the record rather than moving on to the next stop", func(t *testing.T) {
-		harness := openArchivedAgents(t, buildOneArchivedAgent()...)
+		harness := paneltest.OpenArchivedAgents(t, buildOneArchivedAgent()...)
 
 		harness.Press("j", "pick:record", "esc", "ctrl+space", "ctrl+space")
 
@@ -82,7 +82,7 @@ func TestLeader(t *testing.T) {
 	}{
 		{
 			name:     "the leader twice over a dormant agent resumes it",
-			agent:    newDormant("login"),
+			agent:    paneltest.Dormant("login"),
 			press:    []string{"j"},
 			wantSent: paneltest.Request{Procedure: agentv1connect.AgentServiceResumeAgentProcedure, Msg: &agentv1.ResumeAgentRequest{Id: "a1"}},
 		},
@@ -96,7 +96,7 @@ func TestLeader(t *testing.T) {
 			harness := paneltest.Start(t, paneltest.Params{})
 			harness.AnswerWorktreeReads()
 			harness.AnswerLastScreens(map[string]string{tt.agent.GetId(): "⏺ the migration is written"})
-			answerResume(harness)
+			harness.AnswerResume()
 			harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), tt.agent))
 			harness.Press(tt.press...)
 			harness.Advance(time.Second)

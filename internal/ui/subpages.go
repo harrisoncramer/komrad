@@ -58,10 +58,10 @@ func agentMenu(params agentMenuParams) menu.Menu {
 // subpageEntries are the entries that open the agent's pages from the agents list.
 func subpageEntries(l panel.Listing, bindings config.Keybindings, item panel.AgentRow, pages []subpage) []menu.Entry {
 	return xslice.Map(pages, func(page subpage) menu.Entry {
-		entry := page.entry(l, bindings, screen.Agents, item)
+		entry := page.entry(l, bindings, item)
 		if entry.Opens == nil {
 			entry.Pick = func(in screen.Inputs) screen.Request {
-				return enterSubpage(in.Listing, screen.Agents, item.Agent.ID, page)
+				return enterSubpage(in.Listing, item.Agent.ID, page)
 			}
 		}
 
@@ -82,7 +82,7 @@ func agentSubpages(agent panel.Agent) []subpage {
 }
 
 // entry is how the subpage is rendered in an agent's menu.
-func (p subpage) entry(l panel.Listing, bindings config.Keybindings, openedFrom screen.ID, item panel.AgentRow) menu.Entry {
+func (p subpage) entry(l panel.Listing, bindings config.Keybindings, item panel.AgentRow) menu.Entry {
 	switch p {
 	case subpageReview:
 		return menu.Entry{
@@ -98,7 +98,7 @@ func (p subpage) entry(l panel.Listing, bindings config.Keybindings, openedFrom 
 		return menu.Entry{
 			Label: "terminal",
 			Keys:  bindings.Menu.Terminal,
-			Off:   terminalRefusal(openedFrom, item.Agent) != nil,
+			Off:   terminalRefusal(item.Agent) != nil,
 		}
 	}
 
@@ -117,14 +117,13 @@ func reviewRefusal(l panel.Listing, agent panel.Agent) error {
 	return nil
 }
 
-// terminalRefusal is why a shell cannot open on an agent from where the menu was opened, nil when
-// it can.
-func terminalRefusal(openedFrom screen.ID, agent panel.Agent) error {
+// terminalRefusal is why a shell cannot open on an agent, nil when it can.
+func terminalRefusal(agent panel.Agent) error {
 	switch {
-	case !opensTerminal(openedFrom), agent.ArchivedAt != nil:
+	case agent.ArchivedAt != nil:
 		return errTerminalHere
 	case agent.Cwd == "":
-		return errNoAgentDir
+		return panel.ErrNoAgentDir
 	}
 
 	return nil
@@ -132,7 +131,7 @@ func terminalRefusal(openedFrom screen.ID, agent panel.Agent) error {
 
 // enterSubpage goes from the menu to the subpage picked, or closes it and says why the agent has
 // nothing there.
-func enterSubpage(l panel.Listing, openedFrom screen.ID, agentID string, picked subpage) screen.Request {
+func enterSubpage(l panel.Listing, agentID string, picked subpage) screen.Request {
 	item, ok := l.AnyAgent(agentID)
 	if !ok {
 		return refuseSubpage("Could not open the subpage", errAgentGone)
@@ -148,11 +147,11 @@ func enterSubpage(l panel.Listing, openedFrom screen.ID, agentID string, picked 
 
 		return screen.Open{Screen: screen.Review, Target: screen.Target{AgentID: agentID}}
 	case subpageLogs:
-		return screen.Open{Screen: screen.Logs, Target: screen.Target{AgentID: agentID, OpenedFrom: openedFrom}}
+		return screen.Open{Screen: screen.Logs, Target: screen.Target{AgentID: agentID, OpenedFrom: screen.Agents}}
 	case subpageChecks:
-		return screen.Open{Screen: screen.StatusChecks, Target: screen.Target{AgentID: agentID, OpenedFrom: openedFrom}}
+		return screen.Open{Screen: screen.StatusChecks, Target: screen.Target{AgentID: agentID, OpenedFrom: screen.Agents}}
 	case subpageTerminal:
-		if err := terminalRefusal(openedFrom, item.Agent); err != nil {
+		if err := terminalRefusal(item.Agent); err != nil {
 			return refuseSubpage("Could not open a terminal", err)
 		}
 

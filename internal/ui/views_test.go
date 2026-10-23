@@ -221,6 +221,44 @@ func TestWorktreesLanding(t *testing.T) {
 	}
 }
 
+// TestStatusChecksOpen covers the status checks screen opening from the subpages menu.
+func TestStatusChecksOpen(t *testing.T) {
+	t.Parallel()
+
+	t.Run("a task with no pull request has no status checks to list", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openTaskChecks(t)
+
+		frame := harness.Frame()
+		assert.Equal(t, screen.StatusChecks, paneltest.Screen(frame))
+		assert.Contains(t, frame, "agents › author › status checks")
+		assert.Contains(t, frame, "no pull request")
+	})
+
+	t.Run("back returns to the list on the agent it opened for", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openTaskChecks(t)
+		harness.Press("esc")
+
+		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
+		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "author")
+	})
+}
+
+// openTaskChecks opens the status checks of a task with no pull request from the agents list.
+func openTaskChecks(t *testing.T) *paneltest.Panel {
+	t.Helper()
+
+	author := paneltest.Agent("author", "author", "w1")
+	harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "komrad"), author, paneltest.TaskOf(author))
+	harness.MoveToRow("task-author")
+	harness.Press("space", "x")
+
+	return harness
+}
+
 // buildWorktreeRows is a live task's checkout holding its writer and an occupant, two archived
 // tasks' checkouts, and one no task answers for.
 func buildWorktreeRows() []proto.Message {
@@ -238,13 +276,13 @@ func buildWorktreeRows() []proto.Message {
 	archived := paneltest.Agent("archived", "reviewer", "w1")
 	archived.Cwd = "/trees/archived"
 	archived.Role = agentv1.AgentRole_AGENT_ROLE_WRITER
-	archived.ArchivedAt = archivedAt
+	archived.ArchivedAt = paneltest.ArchivedAt
 	archived.TaskId = xptr.Ptr("archived")
 
 	admin := paneltest.Agent("admin", "cargo-fix", "w1")
 	admin.Cwd = "/trees/admin"
 	admin.Role = agentv1.AgentRole_AGENT_ROLE_WRITER
-	admin.ArchivedAt = archivedAt
+	admin.ArchivedAt = paneltest.ArchivedAt
 	admin.TaskId = xptr.Ptr("admin")
 
 	return []proto.Message{
@@ -254,8 +292,8 @@ func buildWorktreeRows() []proto.Message {
 		archived,
 		admin,
 		&taskv1.Task{Id: "live", WorkflowId: "w1", Slug: "treeview", Cwd: xptr.Ptr("/trees/live")},
-		&taskv1.Task{Id: "archived", WorkflowId: "w1", Slug: "reviewer", Cwd: xptr.Ptr("/trees/archived"), ArchivedAt: archivedAt},
-		&taskv1.Task{Id: "admin", WorkflowId: "w1", Slug: "cargo-fix", Cwd: xptr.Ptr("/trees/admin"), ArchivedAt: archivedAt},
+		&taskv1.Task{Id: "archived", WorkflowId: "w1", Slug: "reviewer", Cwd: xptr.Ptr("/trees/archived"), ArchivedAt: paneltest.ArchivedAt},
+		&taskv1.Task{Id: "admin", WorkflowId: "w1", Slug: "cargo-fix", Cwd: xptr.Ptr("/trees/admin"), ArchivedAt: paneltest.ArchivedAt},
 		&worktreev1.WatchedWorktree{Dir: "/trees/live", RepoDir: "/home/h/komrad", Branch: "task/live", Readable: true},
 		&worktreev1.WatchedWorktree{Dir: "/trees/archived", RepoDir: "/home/h/komrad", Branch: "task/archived", Readable: true},
 		&worktreev1.WatchedWorktree{Dir: "/trees/admin", RepoDir: "/home/h/gadgets/admin", Branch: "task/admin", Readable: true},

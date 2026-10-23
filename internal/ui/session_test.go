@@ -121,7 +121,7 @@ func buildFocusRows() []proto.Message {
 }
 
 func newFocusAgent(id, pane string) *agentv1.Agent {
-	agent := newAgentAt(id, "w1", 30)
+	agent := paneltest.AgentAt(id, "w1", 30)
 	agent.PaneId = pane
 	agent.Alive = xptr.Ptr(true)
 

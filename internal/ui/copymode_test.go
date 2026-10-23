@@ -113,7 +113,7 @@ func TestVisualMode(t *testing.T) {
 func openFailedSetup(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
-	failed := newDormant("login")
+	failed := paneltest.Dormant("login")
 	failed.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
 	failed.FailureReason = "the worktree could not be made"
 

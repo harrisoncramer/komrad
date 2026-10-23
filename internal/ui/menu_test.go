@@ -5,15 +5,20 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/gittest"
 	"komrad/internal/panes"
 	"komrad/internal/ui/paneltest"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	taskv1 "komrad/proto/gen/task/v1"
+	watchv1 "komrad/proto/gen/watch/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -201,4 +206,64 @@ func openPullRequestReview(t *testing.T) *paneltest.Panel {
 	harness.Press("space", "r")
 
 	return harness
+}
+
+// reviewed is a workflow that cuts worktrees, its writer alive in pane %9 and the writer's task,
+// kept in a repository the panel can read.
+type reviewed struct {
+	workflow *workflowv1.Workflow
+	agent    *agentv1.Agent
+	task     *taskv1.Task
+}
+
+// startReviewed starts the panel over a repository of its own and answers the reads that open its
+// review.
+func startReviewed(t *testing.T, params paneltest.Params) (*paneltest.Panel, *reviewed) {
+	t.Helper()
+
+	repo := gittest.NewRepo(t.TempDir())
+	params.Git = repo
+	harness := paneltest.Start(t, params)
+	harness.AnswerWorktreeReads()
+	harness.Answer(agentv1connect.AgentServiceOpenReviewHistoryProcedure, paneltest.AnswerWith(&agentv1.OpenReviewHistoryResponse{
+		Snapshot: &agentv1.ReviewSnapshot{
+			Id:      "snapshot-1",
+			TaskId:  "t1",
+			Ordinal: 1,
+			BaseSha: gittest.BaseSHA,
+			Sha:     gittest.SnapshotSHA,
+		},
+		Resolved: &agentv1.ReviewResolvedSpan{BaseSha: gittest.BaseSHA, HeadSha: gittest.SnapshotSHA},
+	}))
+	harness.Answer(agentv1connect.AgentServiceListReviewViewedFilesProcedure, paneltest.AnswerWith(&agentv1.ListReviewViewedFilesResponse{}))
+
+	return harness, &reviewed{
+		workflow: &workflowv1.Workflow{
+			Id:       "w1",
+			Name:     "backend",
+			Worktree: &workflowv1.WorktreeConfig{Enabled: true, BaseBranch: "main"},
+		},
+		agent: &agentv1.Agent{
+			Id:         "a1",
+			Name:       "auth",
+			WorkflowId: "w1",
+			Role:       agentv1.AgentRole_AGENT_ROLE_WRITER,
+			TaskId:     xptr.Ptr("t1"),
+			Cwd:        repo.Root,
+			PaneId:     "%9",
+			Alive:      xptr.Ptr(true),
+			State:      agentv1.AgentState_AGENT_STATE_IDLE,
+		},
+		task: &taskv1.Task{
+			Id:         "t1",
+			WorkflowId: "w1",
+			Slug:       "auth",
+			Cwd:        xptr.Ptr(repo.Root),
+		},
+	}
+}
+
+// snapshot is the reviewed rows beside any others given.
+func (r *reviewed) snapshot(rows ...proto.Message) *watchv1.WatchEvent {
+	return paneltest.Snapshot(append([]proto.Message{r.workflow, r.agent, r.task}, rows...)...)
 }

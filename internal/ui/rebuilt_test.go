@@ -142,7 +142,7 @@ func openRebuilt(t *testing.T, binary ui.BinaryWatcher) *paneltest.Panel {
 
 	harness := paneltest.Start(t, paneltest.Params{Binary: binary})
 	harness.AnswerWorktreeReads()
-	running := newRunning()
+	running := paneltest.Running()
 	harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "api"), running, paneltest.TaskOf(running)))
 	harness.Press("j")
 	harness.Advance(time.Second)

@@ -33,7 +33,7 @@ func TestTasksTree(t *testing.T) {
 	t.Run("enter on a task opens its writer", func(t *testing.T) {
 		for _, press := range [][]string{{"j", "enter"}, {"j", "space", "n", "enter"}} {
 			harness := paneltest.OpenAgents(t, buildTasks()...)
-			answerResume(harness)
+			harness.AnswerResume()
 
 			harness.Press(press...)
 
@@ -257,7 +257,7 @@ func buildTasks() []proto.Message {
 
 func newTaskAgent(id, name, taskID string, role agentv1.AgentRole, minute int) *agentv1.Agent {
 	slugs := map[string]string{"t1": "fix-login", "t2": "solo"}
-	agent := newAgentAt(name, "w1", minute)
+	agent := paneltest.AgentAt(name, "w1", minute)
 	agent.Id = id
 	agent.Role = role
 	agent.TaskId = xptr.Ptr(taskID)

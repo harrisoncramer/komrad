@@ -47,7 +47,7 @@ func TestLoaderSpinsForATaskWithoutItsWriter(t *testing.T) {
 	writer.TaskId = xptr.Ptr("t1")
 	writer.TaskSlug = xptr.Ptr("fix-login")
 	writer.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 12, 5, 0, 0, time.UTC))
-	other := newAgentAt("checker", "w1", 0)
+	other := paneltest.AgentAt("checker", "w1", 0)
 	other.TaskId = xptr.Ptr("t1")
 	other.TaskSlug = xptr.Ptr("fix-login")
 	rows = append(rows, other)
@@ -149,7 +149,7 @@ func TestLoaderSpinsWhileAnAgentSetsUp(t *testing.T) {
 
 			assert.Equal(t, []string{"◜", "◝", "◞"}, rendered)
 
-			harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), newRunning()))
+			harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), paneltest.Running()))
 			harness.Advance(loader.Interval)
 			assert.False(t, harness.IsSpinning(), "the loader goes quiet once the agent is up")
 		})
@@ -200,9 +200,9 @@ func openArchiveWithChecksRunning(t *testing.T) *paneltest.Panel {
 	rows := newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING)
 	agent, ok := rows[0].(*agentv1.Agent)
 	require.True(t, ok)
-	agent.ArchivedAt = archivedAt
+	agent.ArchivedAt = paneltest.ArchivedAt
 
-	return openArchivedAgents(t, append([]proto.Message{paneltest.Workflow("w1", "backend")}, rows...)...)
+	return paneltest.OpenArchivedAgents(t, append([]proto.Message{paneltest.Workflow("w1", "backend")}, rows...)...)
 }
 
 func readChecksFrame(t *testing.T, harness *paneltest.Panel) string {

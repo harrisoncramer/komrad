@@ -79,10 +79,10 @@ func TestClickBlock(t *testing.T) {
 		for i := range lines {
 			lines[i] = fmt.Sprintf("line number %d", i)
 		}
-		harness := openArchivedAgents(t,
+		harness := paneltest.OpenArchivedAgents(t,
 			paneltest.Workflow("w1", "backend"),
-			newArchivedAgent("a1", "api-refactor", "w1"),
-			newArchivedAgent("a2", "billing", "w1"),
+			paneltest.ArchivedAgent("a1", "api-refactor", "w1"),
+			paneltest.ArchivedAgent("a2", "billing", "w1"),
 		)
 		harness.AnswerLastScreens(map[string]string{"a1": strings.Join(lines, "\n"), "a2": strings.Join(lines, "\n")})
 		harness.Press("j")

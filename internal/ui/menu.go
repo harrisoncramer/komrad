@@ -56,7 +56,7 @@ func (a *agentsScreen) BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.M
 		return menu.Menu{}, false
 	}
 
-	row, ok := a.HoveredRow(in)
+	row, ok := a.hoveredRow(in)
 	if !ok {
 		return menu.Menu{}, false
 	}

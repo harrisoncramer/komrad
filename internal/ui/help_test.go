@@ -37,7 +37,7 @@ func TestHelp(t *testing.T) {
 func openHelp(t *testing.T, params paneltest.Params, press ...string) *paneltest.Panel {
 	t.Helper()
 
-	dormant := newDormant("api-refactor")
+	dormant := paneltest.Dormant("api-refactor")
 	dormant.Id = "a2"
 
 	harness := paneltest.Start(t, params)

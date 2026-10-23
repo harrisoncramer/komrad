@@ -15,6 +15,9 @@ var ErrNoWorkflow = errors.New("every agent belongs to a workflow, so create one
 // ErrNoCheckout refuses the review of an agent with no checkout of its own.
 var ErrNoCheckout = errors.New("this agent has no checkout of its own to read")
 
+// ErrNoAgentDir refuses a shell on an agent with no directory.
+var ErrNoAgentDir = errors.New("the agent has no directory")
+
 // Workflow is one workflow as the server listed it.
 type Workflow struct {
 	ID              string

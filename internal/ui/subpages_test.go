@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"komrad/internal/gittest"
 	"komrad/internal/ui/paneltest"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xptr"
@@ -12,8 +11,6 @@ import (
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	paginationv1 "komrad/proto/gen/pagination/v1"
 	taskv1 "komrad/proto/gen/task/v1"
-	watchv1 "komrad/proto/gen/watch/v1"
-	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -222,8 +219,8 @@ func TestSubpagesInArchive(t *testing.T) {
 	t.Run("an archived agent on a live task has no git, since the checkout is not its own", func(t *testing.T) {
 		t.Parallel()
 
-		author := newArchivedAgent("author", "author", "w1")
-		harness := openArchivedAgents(t, paneltest.Workflow("w1", "komrad"), author, paneltest.TaskOf(author))
+		author := paneltest.ArchivedAgent("author", "author", "w1")
+		harness := paneltest.OpenArchivedAgents(t, paneltest.Workflow("w1", "komrad"), author, paneltest.TaskOf(author))
 		harness.Press("j", "j", "space")
 		require.Contains(t, harness.Frame(), "  author")
 
@@ -247,35 +244,6 @@ func TestSubpagesInArchive(t *testing.T) {
 	})
 }
 
-// TestStatusChecksOpen covers the status checks screen opening from the subpages menu.
-func TestStatusChecksOpen(t *testing.T) {
-	t.Parallel()
-
-	t.Run("a task with no pull request has no status checks to list", func(t *testing.T) {
-		t.Parallel()
-
-		harness := paneltest.OpenAgents(t, buildSubpagesAgents()...)
-		harness.MoveToRow("task-author")
-		harness.Press("space", "x")
-
-		frame := harness.Frame()
-		assert.Equal(t, screen.StatusChecks, paneltest.Screen(harness.Frame()))
-		assert.Contains(t, frame, "agents › author › status checks")
-		assert.Contains(t, frame, "no pull request")
-	})
-
-	t.Run("back returns to the list on the agent it opened for", func(t *testing.T) {
-		t.Parallel()
-
-		harness := paneltest.OpenAgents(t, buildSubpagesAgents()...)
-		harness.MoveToRow("task-author")
-		harness.Press("space", "x", "esc")
-
-		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
-		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "author")
-	})
-}
-
 // openSubpages opens the subpages menu from the agents list on the row named.
 func openSubpages(t *testing.T, row string) *paneltest.Panel {
 	t.Helper()
@@ -287,77 +255,17 @@ func openSubpages(t *testing.T, row string) *paneltest.Panel {
 	return harness
 }
 
-// reviewed is a workflow that cuts worktrees, its writer alive in pane %9 and the writer's task,
-// kept in a repository the panel can read.
-type reviewed struct {
-	workflow *workflowv1.Workflow
-	agent    *agentv1.Agent
-	task     *taskv1.Task
-}
-
-// startReviewed starts the panel over a repository of its own and answers the reads that open its
-// review.
-func startReviewed(t *testing.T, params paneltest.Params) (*paneltest.Panel, *reviewed) {
-	t.Helper()
-
-	repo := gittest.NewRepo(t.TempDir())
-	params.Git = repo
-	harness := paneltest.Start(t, params)
-	harness.AnswerWorktreeReads()
-	harness.Answer(agentv1connect.AgentServiceOpenReviewHistoryProcedure, paneltest.AnswerWith(&agentv1.OpenReviewHistoryResponse{
-		Snapshot: &agentv1.ReviewSnapshot{
-			Id:      "snapshot-1",
-			TaskId:  "t1",
-			Ordinal: 1,
-			BaseSha: gittest.BaseSHA,
-			Sha:     gittest.SnapshotSHA,
-		},
-		Resolved: &agentv1.ReviewResolvedSpan{BaseSha: gittest.BaseSHA, HeadSha: gittest.SnapshotSHA},
-	}))
-	harness.Answer(agentv1connect.AgentServiceListReviewViewedFilesProcedure, paneltest.AnswerWith(&agentv1.ListReviewViewedFilesResponse{}))
-
-	return harness, &reviewed{
-		workflow: &workflowv1.Workflow{
-			Id:       "w1",
-			Name:     "backend",
-			Worktree: &workflowv1.WorktreeConfig{Enabled: true, BaseBranch: "main"},
-		},
-		agent: &agentv1.Agent{
-			Id:         "a1",
-			Name:       "auth",
-			WorkflowId: "w1",
-			Role:       agentv1.AgentRole_AGENT_ROLE_WRITER,
-			TaskId:     xptr.Ptr("t1"),
-			Cwd:        repo.Root,
-			PaneId:     "%9",
-			Alive:      xptr.Ptr(true),
-			State:      agentv1.AgentState_AGENT_STATE_IDLE,
-		},
-		task: &taskv1.Task{
-			Id:         "t1",
-			WorkflowId: "w1",
-			Slug:       "auth",
-			Cwd:        xptr.Ptr(repo.Root),
-		},
-	}
-}
-
-// snapshot is the reviewed rows beside any others given.
-func (r *reviewed) snapshot(rows ...proto.Message) *watchv1.WatchEvent {
-	return paneltest.Snapshot(append([]proto.Message{r.workflow, r.agent, r.task}, rows...)...)
-}
-
 // openArchivedSubpages opens the subpages menu on an archived agent that has written documents.
 func openArchivedSubpages(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
-	author := newArchivedAgent("author", "author", "w1")
+	author := paneltest.ArchivedAgent("author", "author", "w1")
 	author.Documents = 2
 	author.DocumentsUpdatedAt = timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
 	task := paneltest.TaskOf(author)
-	task.ArchivedAt = archivedAt
+	task.ArchivedAt = paneltest.ArchivedAt
 
-	harness := openArchivedAgents(t, paneltest.Workflow("w1", "komrad"), author, task)
+	harness := paneltest.OpenArchivedAgents(t, paneltest.Workflow("w1", "komrad"), author, task)
 	answerDocuments(harness, buildAuthorDocuments())
 	harness.Press("j", "j", "space")
 	require.Contains(t, harness.Frame(), "  author")

@@ -40,6 +40,17 @@ func OpenAgentsWith(t *testing.T, params Params, rows ...proto.Message) *Panel {
 	return harness
 }
 
+// OpenArchivedAgents starts a panel on the archived agents over rows.
+func OpenArchivedAgents(t *testing.T, rows ...proto.Message) *Panel {
+	t.Helper()
+
+	harness := Start(t, Params{})
+	harness.Press("F", "tab", "esc")
+	harness.Watch(Snapshot(rows...))
+
+	return harness
+}
+
 // AnswerWorktreeReads answers each worktree read with a worktree at the directory asked for.
 func (p *Panel) AnswerWorktreeReads() {
 	p.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
@@ -71,6 +82,13 @@ func (p *Panel) AnswerLastScreens(screens map[string]string) {
 			Height:     24,
 			CapturedAt: timestamppb.New(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)),
 		}), nil
+	})
+}
+
+// AnswerResume answers each resume with agent a1 back in pane %9.
+func (p *Panel) AnswerResume() {
+	p.Answer(agentv1connect.AgentServiceResumeAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&agentv1.ResumeAgentResponse{Agent: &agentv1.Agent{Id: "a1", PaneId: "%9"}}), nil
 	})
 }
 

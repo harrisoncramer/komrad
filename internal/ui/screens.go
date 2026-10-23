@@ -160,7 +160,8 @@ type crumbRenderer interface {
 // hoveredAgentReporter is a screen whose cursor can rest on an agent's row.
 type hoveredAgentReporter interface {
 	HoveredAgentID(in screen.Inputs) string
-	HoveredRow(in screen.Inputs) (agentRow, bool)
+	RecordAgent(in screen.Inputs) (panel.AgentRow, bool)
+	RecordTask(in screen.Inputs) (panel.Task, bool)
 	Resting(in screen.Inputs) (panel.AgentRow, bool)
 }
 

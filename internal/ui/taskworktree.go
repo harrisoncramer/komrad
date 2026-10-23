@@ -30,22 +30,11 @@ func isStale(read panel.WorktreeInspection, now time.Time) bool {
 // inspectTaskWorktree asks for the hovered task's directory where nothing stands for it or
 // what stands is stale.
 func (m *model) inspectTaskWorktree(now time.Time) screen.Request {
-	r, ok := m.active().(hoveredAgentReporter)
-	if !ok {
-		return nil
-	}
-
-	return inspectRecordTask(r, m.inputs(), now)
-}
-
-// inspectRecordTask asks for the directory of the task the screen's record is about where
-// nothing stands for it or what stands is stale.
-func inspectRecordTask(r hoveredAgentReporter, in screen.Inputs, now time.Time) screen.Request {
-	task, ok := recordTask(r, in)
+	task, ok := m.hoveredRecordTask()
 	if !ok || task.Cwd == "" {
 		return nil
 	}
-	if read, asked := in.Inspections[task.Cwd]; asked && !isStale(read, now) {
+	if read, asked := m.inspections[task.Cwd]; asked && !isStale(read, now) {
 		return nil
 	}
 
@@ -171,23 +160,12 @@ func worktreeStandingFields(read panel.WorktreeInspection, now time.Time) []reco
 // hoveredRecordAgent is the agent the record under the agents list or the archive is about, which
 // for a task is its writer, and none on any other screen or row.
 func (m *model) hoveredRecordAgent() (panel.AgentRow, bool) {
-	screen, ok := m.active().(hoveredAgentReporter)
+	r, ok := m.active().(hoveredAgentReporter)
 	if !ok {
 		return panel.AgentRow{}, false
 	}
 
-	row, ok := screen.HoveredRow(m.inputs())
-	if !ok {
-		return panel.AgentRow{}, false
-	}
-	if row.isTask() {
-		return m.listing.FindWriterInCheckout(*row.task)
-	}
-	if row.header {
-		return panel.AgentRow{}, false
-	}
-
-	return row.item, true
+	return r.RecordAgent(m.inputs())
 }
 
 // hoveredRecordTask is the task whose checkout the record under the agents list or the archive
@@ -198,20 +176,30 @@ func (m *model) hoveredRecordTask() (panel.Task, bool) {
 		return panel.Task{}, false
 	}
 
-	return recordTask(r, m.inputs())
+	return r.RecordTask(m.inputs())
 }
 
-// recordTask is the task whose checkout the screen's record shows, and none on a row with none.
-func recordTask(r hoveredAgentReporter, in screen.Inputs) (panel.Task, bool) {
-	row, ok := r.HoveredRow(in)
+// recordAgent is the agent the row's record is about, which for a task is its writer, and none on
+// a workflow.
+func (r agentRow) recordAgent(l panel.Listing) (panel.AgentRow, bool) {
 	switch {
-	case !ok:
-		return panel.Task{}, false
-	case row.isTask():
-		return *row.task, true
-	case row.header || row.underTask:
+	case r.isTask():
+		return l.FindWriterInCheckout(*r.task)
+	case r.header:
+		return panel.AgentRow{}, false
+	}
+
+	return r.item, true
+}
+
+// recordTask is the task whose checkout the row's record shows, and none on a row with none.
+func (r agentRow) recordTask(l panel.Listing) (panel.Task, bool) {
+	switch {
+	case r.isTask():
+		return *r.task, true
+	case r.header || r.underTask:
 		return panel.Task{}, false
 	}
 
-	return in.Listing.Tasks.FindForAgent(row.item.Agent), true
+	return l.Tasks.FindForAgent(r.item.Agent), true
 }

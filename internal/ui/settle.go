@@ -2,7 +2,6 @@ package ui
 
 import (
 	"slices"
-	"strings"
 	"time"
 
 	"komrad/internal/ui/panel"
@@ -29,15 +28,12 @@ func awaitDeleted(records bool, rows []screen.Row) screen.Awaits {
 	return screen.Awaits{Gone: rows}
 }
 
-// awaitsOf is everything a landed write waits on: what it named, the row it made with its pane
-// warm, and the rows of the agents it killed gone.
+// awaitsOf is everything a landed write waits on: the rows it named, the live pane it made with
+// its harness warm, and the rows of the agents it killed gone.
 func awaitsOf(landed screen.Landed, unstaged []panel.Agent) screen.Awaits {
 	awaits := landed.Awaits
-	if made := landed.Made; made != nil {
-		awaits.Shown = append(awaits.Shown, madeRow(*made))
-		if !made.Archived {
-			awaits.Pane, awaits.Harness = made.Pane, made.Harness
-		}
+	if made := landed.Made; made != nil && !made.Archived {
+		awaits.Pane, awaits.Harness = made.Pane, made.Harness
 	}
 
 	if landed.Killed {
@@ -45,19 +41,6 @@ func awaitsOf(landed screen.Landed, unstaged []panel.Agent) screen.Awaits {
 	}
 
 	return awaits
-}
-
-// madeRow is the row of the listing a write made.
-func madeRow(made screen.Made) screen.Row {
-	if made.Archived {
-		return screen.Row{List: screen.ListArchivedAgents, ID: made.Agent}
-	}
-
-	if id, ok := strings.CutPrefix(made.Row, workflowRowPrefix); ok {
-		return screen.Row{List: screen.ListWorkflows, ID: id}
-	}
-
-	return screen.Row{List: screen.ListAgents, ID: made.Agent}
 }
 
 // isSettled reports whether the panel shows everything a write waits on.

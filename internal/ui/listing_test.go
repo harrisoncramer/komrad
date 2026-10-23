@@ -81,12 +81,12 @@ func TestListingSettlesWrites(t *testing.T) {
 		{
 			name: "a key pressed while a write is parked takes the cursor back",
 			open: func(t *testing.T, _ *harnessFrameFake) *paneltest.Panel {
-				return paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), newDormant("old"))
+				return paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), paneltest.Dormant("old"))
 			},
-			setup:       answerResume,
+			setup:       (*paneltest.Panel).AnswerResume,
 			press:       []string{"j", "enter"},
 			parkedPress: []string{"k"},
-			settle:      []*watchv1.WatchEvent{paneltest.Puts(newRunning())},
+			settle:      []*watchv1.WatchEvent{paneltest.Puts(paneltest.Running())},
 			wantRow:     "api",
 		},
 		{
@@ -196,20 +196,20 @@ func TestListingKeepsItsPlace(t *testing.T) {
 	t.Run("the archive cursor keeps its agent when a folder above it goes", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openArchivedAgents(t,
+		harness := paneltest.OpenArchivedAgents(t,
 			paneltest.Workflow("w1", "api"),
 			paneltest.Workflow("w2", "infra"),
-			newArchivedAgent("x1", "api-spike", "w1"),
-			newArchivedAgent("x2", "infra-audit", "w2"),
-			newArchivedAgent("x3", "infra-upgrade", "w2"),
+			paneltest.ArchivedAgent("x1", "api-spike", "w1"),
+			paneltest.ArchivedAgent("x2", "infra-audit", "w2"),
+			paneltest.ArchivedAgent("x3", "infra-upgrade", "w2"),
 		)
 		harness.Press("j", "j", "j")
 		require.Equal(t, "├─ infra-upgrade", paneltest.HoveredRow(harness.Frame()))
 
 		harness.Watch(paneltest.Snapshot(
 			paneltest.Workflow("w2", "infra"),
-			newArchivedAgent("x2", "infra-audit", "w2"),
-			newArchivedAgent("x3", "infra-upgrade", "w2"),
+			paneltest.ArchivedAgent("x2", "infra-audit", "w2"),
+			paneltest.ArchivedAgent("x3", "infra-upgrade", "w2"),
 		))
 
 		assert.Equal(t, "├─ infra-upgrade", paneltest.HoveredRow(harness.Frame()))
@@ -223,7 +223,7 @@ func TestListingFocus(t *testing.T) {
 	t.Run("the open key over a staged agent hands it the keys", func(t *testing.T) {
 		t.Parallel()
 
-		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), newRunning())
+		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), paneltest.Running())
 		harness.Press("j")
 		harness.Advance(time.Second)
 
@@ -237,7 +237,7 @@ func TestListingFocus(t *testing.T) {
 
 		harness := paneltest.Start(t, paneltest.Params{RefuseSplits: true})
 		harness.AnswerWorktreeReads()
-		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "api"), newRunning()))
+		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "api"), paneltest.Running()))
 
 		harness.Press("j")
 		harness.Advance(time.Second)
@@ -262,8 +262,8 @@ func TestListingFocus(t *testing.T) {
 	t.Run("a resume leaves the keys on the panel", func(t *testing.T) {
 		t.Parallel()
 
-		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), newDormant("old"))
-		answerResume(harness)
+		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), paneltest.Dormant("old"))
+		harness.AnswerResume()
 
 		harness.Press("j", "enter")
 
@@ -416,20 +416,6 @@ func newCreatedAgent() *agentv1.Agent {
 	return agent
 }
 
-func answerResume(harness *paneltest.Panel) {
-	harness.Answer(agentv1connect.AgentServiceResumeAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-		return connect.NewResponse(&agentv1.ResumeAgentResponse{Agent: &agentv1.Agent{Id: "a1", PaneId: "%9"}}), nil
-	})
-}
-
-func newRunning() *agentv1.Agent {
-	agent := paneltest.Agent("a1", "old", "w1")
-	agent.PaneId = "%9"
-	agent.Alive = xptr.Ptr(true)
-
-	return agent
-}
-
 func openUnreachable(t *testing.T, remote engine.Remote) *paneltest.Panel {
 	t.Helper()
 
@@ -441,16 +427,6 @@ func openUnreachable(t *testing.T, remote engine.Remote) *paneltest.Panel {
 	harness.LoseWatch(errors.New("connection refused"))
 
 	return harness
-}
-
-func newDormant(name string) *agentv1.Agent {
-	return &agentv1.Agent{
-		Id:         "a1",
-		Name:       name,
-		WorkflowId: "w1",
-		State:      agentv1.AgentState_AGENT_STATE_IDLE,
-		Alive:      xptr.Ptr(false),
-	}
 }
 
 func answerOrchestratorStart(harness *paneltest.Panel) {
