@@ -8,6 +8,7 @@ import (
 	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/filter"
+	"komrad/internal/ui/layout"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/screen"
@@ -29,7 +30,7 @@ func (r reviewScreen) filesView(in screen.Inputs, lines int) string {
 		return paint.Panel.Style(paint.ToneMuted).Render(reviewEmptyWord) + "\n"
 	}
 
-	width := lineWidthOf(in.Room.Width)
+	width := layout.LineWidth(in.Room.Width)
 	tree := r.readFilesTree()
 	_, onSide := r.findSide(in)
 	focused := r.IsBlockFocused(in) && !onSide

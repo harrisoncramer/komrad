@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/ui/column"
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/layout"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
@@ -73,7 +74,7 @@ func (r reviewScreen) measureBandWidth(in screen.Inputs) int {
 		return split.Column
 	}
 
-	return lineWidthOf(in.Room.Width)
+	return layout.LineWidth(in.Room.Width)
 }
 
 // diffNotice is what stands in the diff's own column before a patch does.

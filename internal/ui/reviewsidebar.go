@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/layout"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
@@ -341,7 +342,7 @@ func (r reviewScreen) descriptionRows(in screen.Inputs) []sideRow {
 		rows = append(rows, sideRow{sideCursor: sideCursor{kind: sideDescriptionLine, id: "author"}, text: "@" + pullRequest.Author})
 	}
 
-	width := lineWidthOf(in.Room.Width) - len(sideMarkBlank) - len(descriptionIndent)
+	width := layout.LineWidth(in.Room.Width) - len(sideMarkBlank) - len(descriptionIndent)
 	for at, line := range pullRequestBodyRows(pullRequest.Body, width) {
 		rows = append(rows, sideRow{sideCursor: sideCursor{kind: sideDescriptionLine, id: strconv.Itoa(at)}, text: line})
 	}

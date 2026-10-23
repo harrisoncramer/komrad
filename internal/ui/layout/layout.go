@@ -52,3 +52,14 @@ type Content struct {
 	Wraps  bool
 	Render func(Target) ([]string, bool)
 }
+
+const unmeasuredWidth = 30
+
+// LineWidth is the column a line of prose wraps at, in a pane of the width given.
+func LineWidth(pane int) int {
+	if pane <= 0 {
+		return unmeasuredWidth
+	}
+
+	return pane
+}

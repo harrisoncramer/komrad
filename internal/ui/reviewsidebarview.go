@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"komrad/internal/glyph"
+	"komrad/internal/ui/layout"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/zone"
@@ -25,7 +26,7 @@ func (r reviewScreen) sideView(in screen.Inputs, lines int) string {
 		return ""
 	}
 
-	width := lineWidthOf(in.Room.Width)
+	width := layout.LineWidth(in.Room.Width)
 	focused := r.IsBlockFocused(in)
 	rows := make([]string, 0, len(sideRows))
 	keys := make([]string, 0, len(sideRows))
