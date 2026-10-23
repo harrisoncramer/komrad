@@ -332,7 +332,7 @@ func TestReviewCursor(t *testing.T) {
 	t.Run("the wheel over the diff turns the cursor", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
-		wheelOver(harness, paneltest.DefaultWidth-1)
+		harness.WheelOver(paneltest.DefaultWidth - 1)
 
 		assert.Equal(t, "greet.go:4 (removed)", paneltest.ReviewCursor(harness.Frame()))
 	})
@@ -342,7 +342,7 @@ func TestReviewCursor(t *testing.T) {
 		harness.Press("space", "c")
 		harness.Type("still here")
 
-		wheelOver(harness, paneltest.DefaultWidth-1)
+		harness.WheelOver(paneltest.DefaultWidth - 1)
 		harness.Press("enter")
 
 		harness.AssertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
@@ -2096,7 +2096,7 @@ func TestReviewEdit(t *testing.T) {
 		require.Contains(t, harness.Frame(), "editing greet.go")
 		swaps, respawns := harness.Tmux().Swaps(), len(harness.Tmux().Respawns())
 
-		wheelOver(harness, paneltest.DefaultWidth-1)
+		harness.WheelOver(paneltest.DefaultWidth - 1)
 		harness.Press(paneltest.Rest)
 		harness.Advance(time.Second)
 

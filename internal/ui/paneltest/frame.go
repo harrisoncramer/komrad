@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
@@ -581,4 +582,17 @@ func (p *Panel) ClickOnLineStart(prefix string) tea.MouseClickMsg {
 	require.Failf(p.t, "no line in the frame", "a line starting %q", prefix)
 
 	return tea.MouseClickMsg{}
+}
+
+// WheelFrame is long enough for the panel to flush the turns of the wheel it holds.
+const WheelFrame = 20 * time.Millisecond
+
+// WheelOver turns the wheel down once at column x and lets the panel flush the turn.
+func (p *Panel) WheelOver(x int) {
+	p.Send(tea.MouseWheelMsg{
+		X:      x,
+		Y:      5,
+		Button: tea.MouseWheelDown,
+	})
+	p.Advance(WheelFrame)
 }

@@ -655,7 +655,7 @@ func TestAgentsRecordFocus(t *testing.T) {
 			Y:      y,
 			Button: tea.MouseWheelDown,
 		})
-		harness.Advance(wheelFrame)
+		harness.Advance(paneltest.WheelFrame)
 
 		frame := harness.Frame()
 		assert.Regexp(t, `^directory\s+/repo$`, paneltest.RecordCursor(frame))
