@@ -57,7 +57,7 @@ func valueConstraints(rules *validate.FieldRules) Constraints {
 	if text.HasMaxLen() {
 		constraints.MaxLength = new(text.GetMaxLen())
 	}
-	if isUUID(rules) {
+	if rules.GetString().GetUuid() {
 		constraints.Format = "uuid"
 	}
 

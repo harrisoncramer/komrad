@@ -246,10 +246,6 @@ func IsUUID(field protoreflect.FieldDescriptor) bool {
 		rules = rules.GetRepeated().GetItems()
 	}
 
-	return isUUID(rules)
-}
-
-func isUUID(rules *validate.FieldRules) bool {
 	return rules.GetString().GetUuid() || rules.GetString().GetTuuid() || rules.GetBytes().GetUuid()
 }
 
