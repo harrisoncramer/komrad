@@ -86,7 +86,7 @@ func (r *Screen) diffKeys() keys.Diff {
 		Moved: func() screen.Request {
 			r.threads.scroll.reset()
 
-			return screen.Settle{}
+			return screen.WaitForCursorRest{}
 		},
 		RefuseExpand: r.refuseExpand,
 	}

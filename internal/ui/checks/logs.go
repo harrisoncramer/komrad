@@ -342,8 +342,8 @@ func (c Logs) Column(screen.Inputs) column.Spec {
 	}
 }
 
-// StageResting stages nothing for the row the cursor rests on.
-func (c Logs) StageResting(screen.Inputs) screen.Request {
+// OnCursorRest stages nothing for the row the cursor rests on.
+func (c Logs) OnCursorRest(screen.Inputs) screen.Request {
 	return nil
 }
 

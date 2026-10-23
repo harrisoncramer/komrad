@@ -33,7 +33,7 @@ func (a *Screen) Enter(in screen.Inputs, target screen.Target) screen.Request {
 
 	a.reconcileRename(in)
 
-	return screen.Restage{}
+	return screen.RefreshStage{}
 }
 
 // Update sends a key to the rename being typed, or to the screen's table.
@@ -83,13 +83,13 @@ func (a *Screen) list() keys.ScreenList[agentRow] {
 		Refs:   refsOf,
 		Header: "folder",
 		Placed: func(screen.Inputs) screen.Request { return a.Stage() },
-		Moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
+		Moved:  func(screen.Inputs) screen.Request { return screen.WaitForCursorRest{} },
 	}
 }
 
 // Stage puts the pane of whatever the cursor is standing on beside the list.
 func (a *Screen) Stage() screen.Request {
-	return screen.Restage{}
+	return screen.RefreshStage{}
 }
 
 func (a *Screen) archiveAgents(agents []panel.Agent) screen.Request {
@@ -404,7 +404,7 @@ func (a *Screen) Dispatches() []keys.Table {
 	return []keys.Table{a.actions(screen.Inputs{}), a.archiveScreen(&a.archived).actions(screen.Inputs{})}
 }
 
-// StageResting restages the row the cursor came to rest on and reads its agent's saved screen.
-func (a *Screen) StageResting(screen.Inputs) screen.Request {
-	return screen.Batch{screen.Restage{}, screen.ReadSavedScreen{}}
+// OnCursorRest restages the row the cursor came to rest on and reads its agent's saved screen.
+func (a *Screen) OnCursorRest(screen.Inputs) screen.Request {
+	return screen.Batch{screen.RefreshStage{}, screen.ReadSavedScreen{}}
 }

@@ -24,7 +24,7 @@ func (a *Screen) closeEdit() screen.Request {
 		return nil
 	}
 
-	return screen.Batch{a.dropEdit(), screen.Restage{}}
+	return screen.Batch{a.dropEdit(), screen.RefreshStage{}}
 }
 
 // pressEdit opens an editor on the agent's worktree, or closes the one already open.
@@ -100,7 +100,7 @@ func (a *Screen) applyEditorStaged(staged agentEditorStaged) screen.Request {
 			Summary:     "could not edit " + edit.agent.Name,
 			Detail:      "there is no room beside the sidebar for an editor",
 		},
-		screen.Restage{},
+		screen.RefreshStage{},
 	}
 }
 
@@ -125,7 +125,7 @@ func (a *Screen) ReconcileEditor(in screen.Inputs) screen.Request {
 		return nil
 	}
 
-	return screen.Batch{a.dropEdit(), screen.Restage{}}
+	return screen.Batch{a.dropEdit(), screen.RefreshStage{}}
 }
 
 // LeaveScreen drops the rename being typed and takes down an editor open on the stage.

@@ -281,14 +281,14 @@ func filterActions[S any, T list.Keyed](l ScreenList[T], in screen.Inputs) []Act
 			Keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
 			When: standing,
 			Nav: func(_ S, pressed string) screen.Request {
-				return screen.StepMatch{Delta: DirectionOf(pressed, l.Keys.Filter.PrevMatch)}
+				return screen.MoveToMatch{Direction: DirectionOf(pressed, l.Keys.Filter.PrevMatch)}
 			},
 		},
 		{
 			ID:   FilterClear,
 			Keys: FixedBack,
 			When: standing,
-			Nav:  func(S, string) screen.Request { return screen.Batch{screen.ClearFilter{}, screen.Settle{}} },
+			Nav:  func(S, string) screen.Request { return screen.Batch{screen.ClearFilterRestoreCursor{}, screen.WaitForCursorRest{}} },
 		},
 	}
 }

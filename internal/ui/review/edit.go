@@ -164,7 +164,7 @@ func (r Screen) agentRow(in screen.Inputs) (panel.AgentRow, bool) {
 // closeEdit gives the stage back to the diff, tells the agent which files the reader opened, and
 // reads the worktree again with the reader's own writing in it.
 func (r *Screen) closeEdit(in screen.Inputs) screen.Request {
-	return screen.Batch{screen.UnstageEditor{}, r.mailEdited(in), screen.Restage{}, r.catchUp()}
+	return screen.Batch{screen.UnstageEditor{}, r.mailEdited(in), screen.RefreshStage{}, r.catchUp()}
 }
 
 // mailEdited puts the editor down and tells the agent which files the reader opened in it.

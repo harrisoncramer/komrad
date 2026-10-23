@@ -296,8 +296,8 @@ func (l *Screen) switchSource(in screen.Inputs) screen.Request {
 	return screen.Batch{screen.RunCmd(l.restart()), l.markFailedRunRead(row)}
 }
 
-// StageResting reads the source the cursor came to rest on.
-func (l *Screen) StageResting(in screen.Inputs) screen.Request {
+// OnCursorRest reads the source the cursor came to rest on.
+func (l *Screen) OnCursorRest(in screen.Inputs) screen.Request {
 	return l.switchSource(in)
 }
 
@@ -428,7 +428,7 @@ func (l *Screen) list() keys.ScreenList[sourceRow] {
 		Cursor: func() *list.Cursor { return &l.Cursor },
 		Rows:   l.rows,
 		Name:   sourceRowName,
-		Moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
+		Moved:  func(screen.Inputs) screen.Request { return screen.WaitForCursorRest{} },
 	}
 }
 

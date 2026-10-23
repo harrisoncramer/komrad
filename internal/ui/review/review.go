@@ -202,13 +202,13 @@ func (r Screen) IsLoading(in screen.Inputs) bool {
 	return ok && in.Listing.Tasks.FindForAgent(item.Agent).PullRequest.IsChecksRunning()
 }
 
-// StageResting stages the terminal and marks the thread the cursor came to rest on read.
-func (r *Screen) StageResting(in screen.Inputs) screen.Request {
+// OnCursorRest stages the terminal and marks the thread the cursor came to rest on read.
+func (r *Screen) OnCursorRest(in screen.Inputs) screen.Request {
 	if r.edit.atEditor {
 		return r.markThreadRead(in)
 	}
 
-	return screen.Batch{screen.Restage{}, r.markThreadRead(in)}
+	return screen.Batch{screen.RefreshStage{}, r.markThreadRead(in)}
 }
 
 // DoesRenderFromListing reports that the review renders from its own read of the diff.

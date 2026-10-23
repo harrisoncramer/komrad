@@ -75,7 +75,7 @@ func (a *Screen) StepKind(_ screen.Inputs, delta int) screen.Request {
 			staged = a.Stage()
 		}
 
-		return screen.Batch{screen.DropFilterLeaveCursor{}, screen.RestoreWindowLayout{}, staged, screen.Settle{}}
+		return screen.Batch{screen.DropFilterLeaveCursor{}, screen.RestoreWindowLayout{}, staged, screen.WaitForCursorRest{}}
 	}}
 }
 
@@ -164,7 +164,7 @@ func (a *archivedAgents) Enter(in screen.Inputs, target screen.Target) screen.Re
 		a.Row = idx
 	}
 
-	return screen.Batch{a.Stage(), screen.Settle{}}
+	return screen.Batch{a.Stage(), screen.WaitForCursorRest{}}
 }
 
 // Update sends a key to the rename being typed, or to the archive's table.
@@ -212,7 +212,7 @@ func (a *archivedAgents) list() keys.ScreenList[agentRow] {
 		Refs:   refsOf,
 		Header: "folder",
 		Placed: func(screen.Inputs) screen.Request { return a.Stage() },
-		Moved:  func(screen.Inputs) screen.Request { return screen.Batch{a.Stage(), screen.Settle{}} },
+		Moved:  func(screen.Inputs) screen.Request { return screen.Batch{a.Stage(), screen.WaitForCursorRest{}} },
 	}
 }
 
@@ -384,7 +384,7 @@ func (a *archivedAgents) IsLoading(in screen.Inputs) bool {
 	return slices.ContainsFunc(a.listRows(in), func(r agentRow) bool { return isRowLoading(in.Listing, r) })
 }
 
-func (a *archivedAgents) StageResting(screen.Inputs) screen.Request {
+func (a *archivedAgents) OnCursorRest(screen.Inputs) screen.Request {
 	return screen.Batch{a.Stage(), screen.ReadSavedScreen{}}
 }
 
@@ -514,7 +514,7 @@ func confirmDeleteWorkflow(in screen.Inputs, clients api.Clients, workflow panel
 
 // Stage keeps the info pane on the row the cursor is standing on.
 func (a *archivedAgents) Stage() screen.Request {
-	return screen.StageTerminal{}
+	return screen.ReshowOpenShell{}
 }
 
 // ListParams is the list of archived or deleted agents as the root renders it.

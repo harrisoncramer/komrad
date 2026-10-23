@@ -38,7 +38,7 @@ func (w *Screen) actions(in screen.Inputs) keys.Spec[*Screen] {
 				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
 				When: standing,
 				Nav: func(_ *Screen, pressed string) screen.Request {
-					return screen.StepMatch{Delta: keys.DirectionOf(pressed, w.deps.Keys.Filter.PrevMatch)}
+					return screen.MoveToMatch{Direction: keys.DirectionOf(pressed, w.deps.Keys.Filter.PrevMatch)}
 				},
 			},
 			{
@@ -46,7 +46,7 @@ func (w *Screen) actions(in screen.Inputs) keys.Spec[*Screen] {
 				Keys: keys.FixedBack,
 				When: standing,
 				Nav: func(*Screen, string) screen.Request {
-					return screen.Batch{screen.ClearFilter{}, screen.Settle{}}
+					return screen.Batch{screen.ClearFilterRestoreCursor{}, screen.WaitForCursorRest{}}
 				},
 			},
 			{

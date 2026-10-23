@@ -63,7 +63,7 @@ func (w *Screen) StepKind(in screen.Inputs, delta int) screen.Request {
 	return screen.Leave{AfterClose: func() screen.Request {
 		w.kind = kind(tabs.StepStop(int(w.kind), delta, len(w.Kinds().Labels)))
 
-		return screen.Batch{screen.DropFilterLeaveCursor{}, screen.StageTerminal{}, screen.Settle{}}
+		return screen.Batch{screen.DropFilterLeaveCursor{}, screen.ReshowOpenShell{}, screen.WaitForCursorRest{}}
 	}}
 }
 
@@ -110,7 +110,7 @@ func (a Archive) StepKind(in screen.Inputs, delta int) screen.Request {
 
 // Enter stages the archived schedule the cursor is on.
 func (a Archive) Enter(in screen.Inputs, _ screen.Target) screen.Request {
-	return screen.Batch{a.Stage(), screen.Settle{}}
+	return screen.Batch{a.Stage(), screen.WaitForCursorRest{}}
 }
 
 // Update sends a key to the archive's table.
@@ -143,7 +143,7 @@ func (a Archive) list() keys.ScreenList[row] {
 		Name:   rowName,
 		Fits:   rowFits,
 		Placed: func(screen.Inputs) screen.Request { return a.Stage() },
-		Moved:  func(screen.Inputs) screen.Request { return screen.Batch{a.Stage(), screen.Settle{}} },
+		Moved:  func(screen.Inputs) screen.Request { return screen.Batch{a.Stage(), screen.WaitForCursorRest{}} },
 	}
 }
 
@@ -239,7 +239,7 @@ func (a Archive) place(in screen.Inputs, hovered string) {
 
 // Stage keeps the info pane on the row the cursor is standing on.
 func (a Archive) Stage() screen.Request {
-	return screen.StageTerminal{}
+	return screen.ReshowOpenShell{}
 }
 
 // ListParams is the list of archived schedules as the root renders it.
@@ -297,7 +297,7 @@ func (a Archive) Dispatches() []keys.Table {
 	return []keys.Table{a.actions(screen.Inputs{})}
 }
 
-// StageResting stages the pane for the archived schedule the cursor rests on.
-func (a Archive) StageResting(in screen.Inputs) screen.Request {
+// OnCursorRest stages the pane for the archived schedule the cursor rests on.
+func (a Archive) OnCursorRest(in screen.Inputs) screen.Request {
 	return a.Stage()
 }

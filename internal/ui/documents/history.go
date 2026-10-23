@@ -56,7 +56,7 @@ func (d *Screen) stepOlder(in screen.Inputs) screen.Request {
 	if d.history == nil || d.history.item.id != item.id || d.history.err != nil {
 		d.history = &history{item: item}
 
-		return screen.Settle{}
+		return screen.WaitForCursorRest{}
 	}
 
 	d.history.forgetFailedReads()
@@ -65,7 +65,7 @@ func (d *Screen) stepOlder(in screen.Inputs) screen.Request {
 		d.history.pane.Drop()
 	}
 
-	return screen.Settle{}
+	return screen.WaitForCursorRest{}
 }
 
 // stepNewer steps forward to the write after the one rendered, and past the newest back to the
@@ -90,7 +90,7 @@ func (d *Screen) stepNewer(in screen.Inputs) screen.Request {
 	d.history.at--
 	d.history.pane.Drop()
 
-	return screen.Settle{}
+	return screen.WaitForCursorRest{}
 }
 
 // forgetFailedReads drops the writes that could not be read, so the next step reads them again.
