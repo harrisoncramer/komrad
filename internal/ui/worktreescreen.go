@@ -160,7 +160,7 @@ func worktreesTabs() tabs.Strip {
 	return tabs.Strip{
 		Title:    "f",
 		Legend:   "sort",
-		Options:  tabOptionsOf(worktreeSorts),
+		Options:  tabs.OptionsOf(worktreeSorts),
 		Fallback: "size",
 		Grouped:  "repo",
 	}

@@ -324,25 +324,25 @@ func buildAgentRows(head panel.AgentRow, reviewers []panel.AgentRow) []agentRow 
 }
 
 // agentSorts is every column the agents list can be ordered by.
-var agentSorts = []sortColumn[panel.AgentRow]{
+var agentSorts = []tabs.Column[panel.AgentRow]{
 	{
-		id:    "created",
-		label: "created",
-		compare: func(a, b panel.AgentRow) int {
+		ID:    "created",
+		Label: "created",
+		Compare: func(a, b panel.AgentRow) int {
 			return a.Agent.CreatedAt.Compare(b.Agent.CreatedAt)
 		},
 	},
 	{
-		id:    "activity",
-		label: "activity",
-		compare: func(a, b panel.AgentRow) int {
+		ID:    "activity",
+		Label: "activity",
+		Compare: func(a, b panel.AgentRow) int {
 			return a.Agent.StateChangedAt.Compare(b.Agent.StateChangedAt)
 		},
 	},
 	{
-		id:      "name",
-		label:   "name",
-		compare: byAgentName,
+		ID:      "name",
+		Label:   "name",
+		Compare: byAgentName,
 	},
 }
 
@@ -351,13 +351,13 @@ func byAgentName(a, b panel.AgentRow) int {
 }
 
 // sortedAgents is the listing in the order given, the newest agent settling a tie.
-func sortedAgents(items []panel.AgentRow, columns []sortColumn[panel.AgentRow], order sortOrder) []panel.AgentRow {
+func sortedAgents(items []panel.AgentRow, columns []tabs.Column[panel.AgentRow], order tabs.Order) []panel.AgentRow {
 	sorted := slices.Clone(items)
-	sortRows(sortRowsParams[panel.AgentRow]{
-		rows:    sorted,
-		columns: columns,
-		order:   order,
-		tiebreak: func(a, b panel.AgentRow) int {
+	tabs.Sort(tabs.SortParams[panel.AgentRow]{
+		Rows:    sorted,
+		Columns: columns,
+		Order:   order,
+		Tiebreak: func(a, b panel.AgentRow) int {
 			return b.Agent.CreatedAt.Compare(a.Agent.CreatedAt)
 		},
 	})
@@ -398,14 +398,14 @@ func (a *agentsScreen) buildLayout(in screen.Inputs) agentsLayout {
 
 type agentTreeKey struct {
 	generation int
-	order      sortOrder
+	order      tabs.Order
 	flat       bool
 	showHidden bool
 	filter     list.PatternKey
 }
 
 func (a *agentsScreen) buildTree(in screen.Inputs) []agentRow {
-	order := stripOrder(agentsTabs(), a.sort)
+	order := agentsTabs().Order(a.sort)
 	key := agentTreeKey{
 		generation: in.Listing.Generation,
 		order:      order,

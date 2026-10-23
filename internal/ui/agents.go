@@ -282,7 +282,7 @@ func agentsTabs() tabs.Strip {
 	return tabs.Strip{
 		Title:    "f",
 		Legend:   "sort",
-		Options:  tabOptionsOf(agentSorts),
+		Options:  tabs.OptionsOf(agentSorts),
 		Fallback: "created",
 		Grouped:  "workflow",
 	}

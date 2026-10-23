@@ -14,6 +14,7 @@ import (
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/tabs"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 )
@@ -77,22 +78,22 @@ func (r worktreeRow) name() string {
 }
 
 // worktreeSorts is every column the worktrees list can be ordered by.
-var worktreeSorts = []sortColumn[panel.Worktree]{
+var worktreeSorts = []tabs.Column[panel.Worktree]{
 	{
-		id:    "size",
-		label: "size",
-		has:   panel.Worktree.IsMeasured,
-		compare: func(a, b panel.Worktree) int {
+		ID:    "size",
+		Label: "size",
+		Has:   panel.Worktree.IsMeasured,
+		Compare: func(a, b panel.Worktree) int {
 			return cmp.Compare(a.Size.Bytes, b.Size.Bytes)
 		},
 	},
 	{
-		id:    "last-accessed",
-		label: "last-accessed",
-		has: func(item panel.Worktree) bool {
+		ID:    "last-accessed",
+		Label: "last-accessed",
+		Has: func(item panel.Worktree) bool {
 			return !item.LastActiveAt.IsZero()
 		},
-		compare: func(a, b panel.Worktree) int {
+		Compare: func(a, b panel.Worktree) int {
 			return a.LastActiveAt.Compare(b.LastActiveAt)
 		},
 	},
@@ -100,7 +101,7 @@ var worktreeSorts = []sortColumn[panel.Worktree]{
 
 type worktreeRowsParams struct {
 	items []panel.Worktree
-	order sortOrder
+	order tabs.Order
 	// flat orders the whole listing as one list.
 	flat bool
 }
@@ -144,12 +145,12 @@ func worktreeRows(params worktreeRowsParams) []worktreeRow {
 }
 
 // sortWorktreeItems orders the directories by the column, the path settling a tie.
-func sortWorktreeItems(items []panel.Worktree, order sortOrder) {
-	sortRows(sortRowsParams[panel.Worktree]{
-		rows:    items,
-		columns: worktreeSorts,
-		order:   order,
-		tiebreak: func(a, b panel.Worktree) int {
+func sortWorktreeItems(items []panel.Worktree, order tabs.Order) {
+	tabs.Sort(tabs.SortParams[panel.Worktree]{
+		Rows:    items,
+		Columns: worktreeSorts,
+		Order:   order,
+		Tiebreak: func(a, b panel.Worktree) int {
 			return strings.Compare(a.Dir, b.Dir)
 		},
 	})
@@ -158,13 +159,13 @@ func sortWorktreeItems(items []panel.Worktree, order sortOrder) {
 type worktreeRowsKey struct {
 	revision int
 	scope    worktreeScope
-	order    sortOrder
+	order    tabs.Order
 	flat     bool
 	filter   list.PatternKey
 }
 
 func (w *worktreesScreen) rows(in screen.Inputs) []worktreeRow {
-	order := stripOrder(worktreesTabs(), w.sort)
+	order := worktreesTabs().Order(w.sort)
 	key := worktreeRowsKey{
 		revision: w.revision,
 		scope:    w.scope,

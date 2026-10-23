@@ -206,33 +206,33 @@ func (a *archivedAgents) list() keys.ScreenList[agentRow] {
 }
 
 // archivedAgentSorts is every column the archived agents can be ordered by.
-var archivedAgentSorts = []sortColumn[panel.AgentRow]{
+var archivedAgentSorts = []tabs.Column[panel.AgentRow]{
 	{
-		id:    "archived",
-		label: "archived",
-		has: func(item panel.AgentRow) bool {
+		ID:    "archived",
+		Label: "archived",
+		Has: func(item panel.AgentRow) bool {
 			return item.Agent.ArchivedAt != nil
 		},
-		compare: func(a, b panel.AgentRow) int {
+		Compare: func(a, b panel.AgentRow) int {
 			return a.Agent.ArchivedAt.Compare(*b.Agent.ArchivedAt)
 		},
 	},
 	{
-		id:      "name",
-		label:   "name",
-		compare: byAgentName,
+		ID:      "name",
+		Label:   "name",
+		Compare: byAgentName,
 	},
 }
 
 type archivedRowsKey struct {
 	generation int
-	order      sortOrder
+	order      tabs.Order
 	flat       bool
 	filter     list.PatternKey
 }
 
 func (a *archivedAgents) listRows(in screen.Inputs) []agentRow {
-	order := stripOrder(archivedAgentTabs(), a.sort)
+	order := archivedAgentTabs().Order(a.sort)
 	key := archivedRowsKey{
 		generation: in.Listing.Generation,
 		order:      order,
@@ -523,7 +523,7 @@ func archivedAgentTabs() tabs.Strip {
 	return tabs.Strip{
 		Title:    "f",
 		Legend:   "sort",
-		Options:  tabOptionsOf(archivedAgentSorts),
+		Options:  tabs.OptionsOf(archivedAgentSorts),
 		Fallback: "archived",
 		Grouped:  "workflow",
 	}
