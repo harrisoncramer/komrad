@@ -72,6 +72,8 @@ type MarkGlyphs struct {
 	Schedule string `mapstructure:"schedule"`
 	// The agent has written documents for a person.
 	Document string `mapstructure:"document"`
+	// The forge will merge the pull request on its own once its checks and reviews pass.
+	AutoMerge string `mapstructure:"auto_merge"`
 	// Beside the count of comments reviewer agents left on the agent's work.
 	ReviewerComments string `mapstructure:"reviewer_comments"`
 	// Beside the count of comments you left on the agent's work.

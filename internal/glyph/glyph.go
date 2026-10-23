@@ -32,6 +32,7 @@ const (
 	Hidden
 	Schedule
 	Document
+	AutoMerge
 	ReviewerComments
 	PersonComments
 	Unread
@@ -85,6 +86,7 @@ var defined = [count]struct {
 	Hidden:             {"marks.hidden", ""},
 	Schedule:           {"marks.schedule", ""},
 	Document:           {"marks.document", ""},
+	AutoMerge:          {"marks.auto_merge", "\uf49e"},
 	ReviewerComments:   {"marks.reviewer_comments", ""},
 	PersonComments:     {"marks.person_comments", ""},
 	Unread:             {"marks.unread", "\uf49a"},

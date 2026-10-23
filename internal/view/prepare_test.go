@@ -577,48 +577,62 @@ func TestPrepareForgeColumn(t *testing.T) {
 	assert.Len(t, tests, int(ForgeEnd), "every state is pinned")
 }
 
-// TestPrepareForgeColumnMarksAutoMerge pins the merge a pull request is queued for rendered over a
-// state that is only waiting, and every state that wants the person left as it is.
-func TestPrepareForgeColumnMarksAutoMerge(t *testing.T) {
+// TestPrepareAutoMergeMark pins the auto-merge mark rendered after the name beside whatever the
+// forge column says, and dropped once the pull request is finished.
+func TestPrepareAutoMergeMark(t *testing.T) {
+	mark := Cell{Glyph: glyph.AutoMerge, Tone: paint.ToneMerged}
+
 	tests := []struct {
-		name  string
-		forge Forge
-		want  Cell
+		name       string
+		row        Row
+		wantMark   Cell
+		wantColumn Cell
 	}{
 		{
-			name:  "failing checks still render failing",
-			forge: ForgeFailing,
-			want:  Cell{Glyph: glyph.Failing, Tone: paint.ToneDanger},
+			name:       "an open pull request keeps its own glyph and gains the mark",
+			row:        Row{Kind: KindAgent, Forge: ForgeOpen, AutoMerge: true},
+			wantMark:   mark,
+			wantColumn: Cell{Glyph: glyph.Open, Tone: paint.ToneMuted},
 		},
 		{
-			name:  "checks running still render the loader",
-			forge: ForgeChecksRunning,
-			want:  Cell{Text: "⠙", Tone: paint.ToneWarning},
+			name:       "checks running keep the loader and gain the mark",
+			row:        Row{Kind: KindAgent, Forge: ForgeChecksRunning, AutoMerge: true, LoaderFrame: "⠙"},
+			wantMark:   mark,
+			wantColumn: Cell{Text: "⠙", Tone: paint.ToneWarning},
 		},
 		{
-			name:  "a merged change still renders merged",
-			forge: ForgeMerged,
-			want:  Cell{Glyph: glyph.Merged, Tone: paint.ToneMerged},
+			name:       "failing checks keep the failing glyph and gain the mark",
+			row:        Row{Kind: KindAgent, Forge: ForgeFailing, AutoMerge: true},
+			wantMark:   mark,
+			wantColumn: Cell{Glyph: glyph.Failing, Tone: paint.ToneDanger},
 		},
 		{
-			name:  "an open pull request renders the merge greyed",
-			forge: ForgeOpen,
-			want:  Cell{Glyph: glyph.Merged, Tone: paint.ToneMuted},
+			name:       "a merged pull request drops the mark",
+			row:        Row{Kind: KindAgent, Forge: ForgeMerged, AutoMerge: true},
+			wantColumn: Cell{Glyph: glyph.Merged, Tone: paint.ToneMerged},
 		},
 		{
-			name:  "an approval waiting on the forge renders the merge greyed",
-			forge: ForgeApprovedWaiting,
-			want:  Cell{Glyph: glyph.Merged, Tone: paint.ToneMuted},
+			name:       "a closed pull request drops the mark",
+			row:        Row{Kind: KindAgent, Forge: ForgeClosed, AutoMerge: true},
+			wantColumn: Cell{Glyph: glyph.Closed, Tone: paint.ToneDanger},
+		},
+		{
+			name:       "a pull request without auto-merge renders no mark",
+			row:        Row{Kind: KindAgent, Forge: ForgeOpen},
+			wantColumn: Cell{Glyph: glyph.Open, Tone: paint.ToneMuted},
+		},
+		{
+			name: "a workflow header renders no mark",
+			row:  Row{Kind: KindWorkflow, Forge: ForgeOpen, AutoMerge: true},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, prepareOne(t, Row{
-				Forge:       tt.forge,
-				AutoMerge:   true,
-				LoaderFrame: "⠙",
-			}).Columns[1])
+			line := prepareOne(t, tt.row)
+
+			assert.Equal(t, tt.wantMark, line.AutoMerge)
+			assert.Equal(t, tt.wantColumn, line.Columns[1])
 		})
 	}
 }
@@ -1184,8 +1198,8 @@ func TestPrepareGivesTheToolUpFirst(t *testing.T) {
 }
 
 // TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit pins the last thing a row gives up, on
-// the worst row a panel can hold: an agent a schedule launched, hidden, with documents,
-// unread mail, and a failed run nobody has read.
+// the worst row a panel can hold: an agent a schedule launched, hidden, with documents, a pull
+// request queued to merge, unread mail, and a failed run nobody has read.
 func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 	worst := Row{
 		Kind:       KindAgent,
@@ -1193,6 +1207,8 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 		Scheduled:  true,
 		Hidden:     true,
 		Documents:  true,
+		Forge:      ForgeOpen,
+		AutoMerge:  true,
 		UnreadMail: true,
 		FailedRun:  true,
 	}
@@ -1218,14 +1234,19 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 			want: []glyph.Glyph{glyph.Hidden, glyph.Mail, glyph.FailedScript},
 		},
 		{
-			name: "the next keeps the documents, which go before the hiding",
+			name: "the next keeps the auto-merge, which goes before the hiding",
 			pane: 16,
-			want: []glyph.Glyph{glyph.Hidden, glyph.Document, glyph.Mail, glyph.FailedScript},
+			want: []glyph.Glyph{glyph.Hidden, glyph.AutoMerge, glyph.Mail, glyph.FailedScript},
+		},
+		{
+			name: "the next keeps the documents, which go before the auto-merge",
+			pane: 18,
+			want: []glyph.Glyph{glyph.Hidden, glyph.Document, glyph.AutoMerge, glyph.Mail, glyph.FailedScript},
 		},
 		{
 			name: "wider still keeps every mark, the schedule last",
-			pane: 18,
-			want: []glyph.Glyph{glyph.Hidden, glyph.Document, glyph.Mail, glyph.FailedScript, glyph.Schedule},
+			pane: 20,
+			want: []glyph.Glyph{glyph.Hidden, glyph.Document, glyph.AutoMerge, glyph.Mail, glyph.FailedScript, glyph.Schedule},
 		},
 	}
 
@@ -1234,8 +1255,8 @@ func TestPrepareShedsMarksOnlyWhereTheMarksAloneWillNotFit(t *testing.T) {
 			list := Prepare(Snapshot{Rows: []Row{worst}, Pane: tt.pane})
 			require.Len(t, list.Lines, 1)
 
-			rendered := make([]glyph.Glyph, 0, 5)
-			for _, cell := range []Cell{list.Lines[0].Hidden, list.Lines[0].Document, list.Lines[0].Mail, list.Lines[0].Alert, list.Lines[0].Schedule} {
+			rendered := make([]glyph.Glyph, 0, 6)
+			for _, cell := range []Cell{list.Lines[0].Hidden, list.Lines[0].Document, list.Lines[0].AutoMerge, list.Lines[0].Mail, list.Lines[0].Alert, list.Lines[0].Schedule} {
 				if !cell.IsBlank() {
 					rendered = append(rendered, cell.Glyph)
 				}
