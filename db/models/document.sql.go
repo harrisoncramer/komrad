@@ -12,17 +12,30 @@ import (
 	"github.com/google/uuid"
 )
 
-const deleteDocument = `-- name: DeleteDocument :execrows
+const deleteDocuments = `-- name: DeleteDocuments :many
 DELETE FROM documents
-WHERE id = $1
+WHERE id = ANY ($1::uuid[])
+RETURNING id
 `
 
-func (q *Queries) DeleteDocument(ctx context.Context, id uuid.UUID) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteDocument, id)
+func (q *Queries) DeleteDocuments(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, deleteDocuments, ids)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return result.RowsAffected(), nil
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getDocument = `-- name: GetDocument :one

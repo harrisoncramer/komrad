@@ -13,6 +13,7 @@ import (
 	"komrad/internal/store"
 	textsearchstore "komrad/internal/store/textsearch"
 	"komrad/lib/xslice"
+	"komrad/lib/xstr"
 
 	"github.com/google/uuid"
 )
@@ -282,14 +283,24 @@ func (s *DocumentStore) GetVersion(ctx context.Context, documentID uuid.UUID, ve
 	}, nil
 }
 
-// Delete removes a document and every write of it.
-func (s *DocumentStore) Delete(ctx context.Context, id uuid.UUID) error {
-	deleted, err := s.queries.DeleteDocument(ctx, id)
+// missingShown is how many unknown ids a failed delete names before counting the rest.
+const missingShown = 5
+
+// Delete removes the documents and every write of each, failing on any id that holds none.
+func (s *DocumentStore) Delete(ctx context.Context, ids []uuid.UUID) error {
+	deleted, err := s.queries.DeleteDocuments(ctx, ids)
 	if err != nil {
-		return fmt.Errorf("failed to delete document %q: %w", id, err)
+		return fmt.Errorf("failed to delete %d documents: %w", len(ids), err)
 	}
-	if deleted == 0 {
-		return fmt.Errorf("%w: document %q", store.ErrNotFound, id)
+
+	gone := xslice.KeyBy(deleted, func(id uuid.UUID) uuid.UUID { return id })
+	missing := xslice.Filter(ids, func(id uuid.UUID) bool {
+		_, ok := gone[id]
+
+		return !ok
+	})
+	if len(missing) > 0 {
+		return fmt.Errorf("%w: no document with id %s", store.ErrNotFound, xstr.JoinSome(xslice.Map(missing, uuid.UUID.String), missingShown))
 	}
 
 	return nil

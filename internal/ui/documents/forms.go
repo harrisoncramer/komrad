@@ -10,6 +10,7 @@ import (
 	"komrad/config"
 	"komrad/internal/ui/api"
 	"komrad/internal/ui/form"
+	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 
@@ -105,28 +106,34 @@ func (d *Screen) pressNew(in screen.Inputs) screen.Request {
 	return d.newForm(in, agentID)
 }
 
-// deleteForm asks before it deletes a document.
-func (d *Screen) deleteForm(item document) form.Form {
+// deleteForm asks before it deletes the documents.
+func (d *Screen) deleteForm(items []document) form.Form {
+	subject := label.Count(len(items), "document", "documents")
+	warning := "Komrad deletes every version of each, and agents can no longer read them."
+	if len(items) == 1 {
+		subject = fmt.Sprintf("document %q", items[0].name)
+		warning = "Komrad deletes every version of it, and agents can no longer read it."
+	}
+	ids := xslice.Map(items, func(item document) string { return item.id })
+
 	return d.confirmDeleteForm(confirmDeleteFormParams{
-		noun:    "document",
-		name:    item.name,
-		warning: "Komrad deletes every version of it, and agents can no longer read it.",
-		delete:  func(a api.Clients) error { return a.DeleteDocument(item.id) },
+		subject: subject,
+		warning: warning,
+		delete:  func(a api.Clients) error { return a.DeleteDocuments(ids) },
 	})
 }
 
 // confirmDeleteFormParams is what a delete asks about and the call that carries it out.
 type confirmDeleteFormParams struct {
-	noun    string
-	name    string
+	subject string
 	warning string
 	delete  func(api.Clients) error
 }
 
-// confirmDeleteForm asks before it deletes a document or a document type.
+// confirmDeleteForm asks before it deletes documents or a document type.
 func (d *Screen) confirmDeleteForm(params confirmDeleteFormParams) form.Form {
 	built, confirmed := form.Confirm(
-		fmt.Sprintf("Delete %s %q?", params.noun, params.name),
+		fmt.Sprintf("Delete %s?", params.subject),
 		params.warning,
 		"Delete",
 		config.Fixed(),
@@ -140,8 +147,8 @@ func (d *Screen) confirmDeleteForm(params confirmDeleteFormParams) form.Form {
 			}
 
 			return d.deps.Clients.Write(
-				"deleting "+params.name,
-				fmt.Sprintf("Could not delete %s %q", params.noun, params.name),
+				"deleting "+params.subject,
+				"Could not delete "+params.subject,
 				params.delete,
 			)
 		},

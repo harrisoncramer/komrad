@@ -3,6 +3,7 @@ package documents_test
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 	"testing"
@@ -579,6 +580,7 @@ func newService(stores *storetest.Stores, events *eventstest.Queue) *documents.D
 		Types:     stores.DocumentTypes,
 		Events:    events,
 		Tasks:     tasks.NewTaskService(tasks.NewTaskServiceParams{Tasks: stores.Tasks}),
+		Tx:        stores.Pool,
 	})
 }
 
@@ -597,25 +599,71 @@ func personEdits(t *testing.T, service *documents.DocumentService, written *docu
 	return edited
 }
 
-// TestDeleteDocumentRefusesAnAgent pins that an agent's delete leaves the document in place.
-func TestDeleteDocumentRefusesAnAgent(t *testing.T) {
-	stores := storetest.Open(t)
-	stores.SeedDocumentTypes(t, "notes")
-	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
-	service := newService(stores, eventstest.NewQueue(t, stores, documents.NewEventHandler()))
-	ctx := t.Context()
+// TestDeleteDocuments pins that a delete takes every document it names, or none when one is unknown or an agent asks.
+func TestDeleteDocuments(t *testing.T) {
+	tests := []struct {
+		name     string
+		unknown  bool
+		byAgent  bool
+		wantErr  error
+		wantKept bool
+	}{
+		{
+			name: "a person deletes every document named",
+		},
+		{
+			name:     "an unknown id deletes none of them",
+			unknown:  true,
+			wantErr:  store.ErrNotFound,
+			wantKept: true,
+		},
+		{
+			name:     "an agent deletes none of them",
+			byAgent:  true,
+			wantErr:  documents.ErrDeleteByAgent,
+			wantKept: true,
+		},
+	}
 
-	created, err := service.WriteDocument(ctx, documents.WriteDocumentParams{
-		AgentID: author.ID,
-		Name:    "kept",
-		Type:    "notes",
-		Source:  oneofs.Source{Body: xptr.Ptr("still here")},
-	})
-	require.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stores := storetest.Open(t)
+			stores.SeedDocumentTypes(t, "notes")
+			author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
+			service := newService(stores, eventstest.NewQueue(t, stores, documents.NewEventHandler()))
+			ctx := t.Context()
 
-	err = service.DeleteDocument(ctx, documents.DeleteDocumentParams{ID: created.ID, ByAgentID: author.ID})
-	require.ErrorIs(t, err, documents.ErrDeleteByAgent)
+			var ids []uuid.UUID
+			for _, name := range []string{"first", "second"} {
+				created, err := service.WriteDocument(ctx, documents.WriteDocumentParams{
+					AgentID: author.ID,
+					Name:    name,
+					Type:    "notes",
+					Source:  oneofs.Source{Body: xptr.Ptr("body")},
+				})
+				require.NoError(t, err)
+				ids = append(ids, created.ID)
+			}
 
-	_, err = service.GetDocument(ctx, created.ID, nil)
-	assert.NoError(t, err, "the document is still there")
+			params := documents.DeleteDocumentsParams{IDs: ids}
+			if tt.unknown {
+				params.IDs = append(slices.Clone(ids), uuid.New())
+			}
+			if tt.byAgent {
+				params.ByAgentID = author.ID
+			}
+
+			err := service.DeleteDocuments(ctx, params)
+			require.ErrorIs(t, err, tt.wantErr)
+
+			for _, id := range ids {
+				_, err := service.GetDocument(ctx, id, nil)
+				if tt.wantKept {
+					assert.NoError(t, err, "the document is still there")
+				} else {
+					assert.ErrorIs(t, err, store.ErrNotFound)
+				}
+			}
+		})
+	}
 }

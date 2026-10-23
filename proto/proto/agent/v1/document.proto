@@ -206,9 +206,15 @@ message WriteDocumentTypeResponse {
   DocumentType document_type = 1;
 }
 
-message DeleteDocumentRequest {
-  // The document to delete, by id.
-  string id = 1 [(buf.validate.field).string.uuid = true];
+message DeleteDocumentsRequest {
+  // The documents to delete, by id.
+  repeated string ids = 1 [(buf.validate.field).repeated = {
+    min_items: 1
+    unique: true
+    items: {
+      string: {uuid: true}
+    }
+  }];
 }
 
 message DeleteDocumentTypeRequest {

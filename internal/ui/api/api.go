@@ -862,10 +862,10 @@ func (a Clients) WriteDocumentType(params WriteDocumentTypeParams) error {
 	})
 }
 
-// DeleteDocument deletes a document and every write of it.
-func (a Clients) DeleteDocument(id string) error {
+// DeleteDocuments deletes documents and every write of each.
+func (a Clients) DeleteDocuments(ids []string) error {
 	return mutate(func(ctx context.Context) (any, error) {
-		return a.Agents.DeleteDocument(ctx, connect.NewRequest(&agentv1.DeleteDocumentRequest{Id: id}))
+		return a.Agents.DeleteDocuments(ctx, connect.NewRequest(&agentv1.DeleteDocumentsRequest{Ids: ids}))
 	})
 }
 

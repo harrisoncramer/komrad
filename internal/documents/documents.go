@@ -12,6 +12,7 @@ import (
 
 	"komrad/internal/events"
 	"komrad/internal/fail"
+	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	documentstore "komrad/internal/store/document"
 	documenttypestore "komrad/internal/store/documenttype"
@@ -62,12 +63,17 @@ type taskFinder interface {
 	FindTask(ctx context.Context, task oneofs.Task) (*taskstore.Task, error)
 }
 
+type txRunner interface {
+	InTx(ctx context.Context, fn func(store.DBTX) error) error
+}
+
 type NewDocumentServiceParams struct {
 	Agents    *agentstore.AgentStore
 	Documents *documentstore.DocumentStore
 	Types     *documenttypestore.DocumentTypeStore
 	Events    eventRecorder
 	Tasks     taskFinder
+	Tx        txRunner
 }
 
 type DocumentService struct {
@@ -76,6 +82,7 @@ type DocumentService struct {
 	types     *documenttypestore.DocumentTypeStore
 	events    eventRecorder
 	tasks     taskFinder
+	tx        txRunner
 }
 
 // NewDocumentService builds the service over the agents that write documents, the store that
@@ -87,6 +94,7 @@ func NewDocumentService(params NewDocumentServiceParams) *DocumentService {
 		types:     params.Types,
 		events:    params.Events,
 		tasks:     params.Tasks,
+		tx:        params.Tx,
 	}
 }
 
@@ -278,20 +286,22 @@ func (s *DocumentService) GetDocument(ctx context.Context, id uuid.UUID, version
 	return got, nil
 }
 
-// DeleteDocumentParams is the document to delete and the agent asking.
-type DeleteDocumentParams struct {
-	ID uuid.UUID
+// DeleteDocumentsParams is the documents to delete and the agent asking.
+type DeleteDocumentsParams struct {
+	IDs []uuid.UUID
 	// ByAgentID is the agent asking, empty for a person.
 	ByAgentID uuid.UUID
 }
 
-// DeleteDocument removes a document and every write of it.
-func (s *DocumentService) DeleteDocument(ctx context.Context, params DeleteDocumentParams) error {
+// DeleteDocuments removes documents and every write of each, or none when any id holds no document.
+func (s *DocumentService) DeleteDocuments(ctx context.Context, params DeleteDocumentsParams) error {
 	if params.ByAgentID != uuid.Nil {
 		return ErrDeleteByAgent
 	}
 
-	return s.documents.Delete(ctx, params.ID)
+	return s.tx.InTx(ctx, func(db store.DBTX) error {
+		return documentstore.NewDocumentStore(db).Delete(ctx, params.IDs)
+	})
 }
 
 // ListDocumentVersions returns every write of a document, the newest first, with the agent that owns it.

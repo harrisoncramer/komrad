@@ -48,12 +48,13 @@ func (d *Screen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
 	return view.Snapshot{
 		Rows: xslice.Map(rows, func(r row) view.Row {
 			return d.renamingField().RenderedOver(view.Row{
-				Key:     r.Key(),
-				Kind:    view.KindResult,
-				Name:    r.item.name,
-				Matches: list.PickedMatches(in.Room.Pattern.Regexp, picked, r.Key(), r.item.name),
-				Process: view.ProcessNone,
-				Cells:   []view.Cell{{Text: label.AgeAt(r.item.updatedAt, now), Tone: paint.ToneMuted}},
+				Key:      r.Key(),
+				Kind:     view.KindResult,
+				Name:     r.item.name,
+				Matches:  list.PickedMatches(in.Room.Pattern.Regexp, picked, r.Key(), r.item.name),
+				Process:  view.ProcessNone,
+				Cells:    []view.Cell{{Text: label.AgeAt(r.item.updatedAt, now), Tone: paint.ToneMuted}},
+				Selected: d.Selected.Has(r.Key()),
 			})
 		}),
 		Caret:   caret,

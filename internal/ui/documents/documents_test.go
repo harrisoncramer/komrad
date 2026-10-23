@@ -693,6 +693,16 @@ func TestDocumentsMenu(t *testing.T) {
 			wantOn:  []*regexp.Regexp{regexp.MustCompile(`edit +e`)},
 			wantOff: []*regexp.Regexp{paneltest.OffEntry("new document", "c")},
 		},
+		{
+			name: "a selection's band is titled for the count and deletes them all",
+			open: func(t *testing.T) *paneltest.Panel {
+				harness, _ := openDocuments(t)
+
+				return harness
+			},
+			presses: []string{"v", "j", "v", "space"},
+			wantOn:  []*regexp.Regexp{regexp.MustCompile(`2 documents`), regexp.MustCompile(`delete all +d`)},
+		},
 	}
 
 	for _, tt := range tests {
@@ -713,14 +723,14 @@ func TestDocumentsMenu(t *testing.T) {
 	}
 }
 
-// TestDocumentsDelete covers deleting the hovered document from the menu on it.
+// TestDocumentsDelete covers deleting the hovered document, or every chosen one, from the menu.
 func TestDocumentsDelete(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name    string
 		presses []string
-		want    *agentv1.DeleteDocumentRequest
+		want    *agentv1.DeleteDocumentsRequest
 	}{
 		{
 			name:    "declining the delete deletes nothing",
@@ -729,7 +739,12 @@ func TestDocumentsDelete(t *testing.T) {
 		{
 			name:    "confirming the delete deletes the document",
 			presses: []string{"space", "d", "y"},
-			want:    &agentv1.DeleteDocumentRequest{Id: "d1"},
+			want:    &agentv1.DeleteDocumentsRequest{Ids: []string{"d1"}},
+		},
+		{
+			name:    "confirming the delete over a selection deletes every chosen document",
+			presses: []string{"v", "j", "v", "space", "d", "y"},
+			want:    &agentv1.DeleteDocumentsRequest{Ids: []string{"d1", "d2"}},
 		},
 	}
 
@@ -738,19 +753,19 @@ func TestDocumentsDelete(t *testing.T) {
 			t.Parallel()
 
 			harness, _ := openDocuments(t)
-			harness.Answer(agentv1connect.AgentServiceDeleteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			harness.Answer(agentv1connect.AgentServiceDeleteDocumentsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 				return connect.NewResponse(&emptypb.Empty{}), nil
 			})
 			harness.Press(tt.presses...)
 			harness.Advance(time.Second)
 
-			assert.NotContains(t, harness.Frame(), "Delete document", "the form is down")
+			assert.NotContains(t, harness.Frame(), "Komrad deletes every version", "the form is down")
 			if tt.want == nil {
-				assert.Empty(t, harness.Sent(agentv1connect.AgentServiceDeleteDocumentProcedure))
+				assert.Empty(t, harness.Sent(agentv1connect.AgentServiceDeleteDocumentsProcedure))
 
 				return
 			}
-			harness.AssertSentTo(agentv1connect.AgentServiceDeleteDocumentProcedure, tt.want)
+			harness.AssertSentTo(agentv1connect.AgentServiceDeleteDocumentsProcedure, tt.want)
 		})
 	}
 }

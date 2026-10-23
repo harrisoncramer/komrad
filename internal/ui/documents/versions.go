@@ -52,6 +52,7 @@ func typeDocument(t *agentv1.DocumentType) document {
 // keepCursor puts the cursor back on the row it was on once the rows have moved under it.
 func (d *Screen) keepCursor(in screen.Inputs, hovered string) {
 	rows := d.rows(in)
+	d.Selected = d.Selected.Pruned(refs(rows))
 	d.Row = cursor.Place(list.IndexOf(rows, hovered), d.Row, len(rows))
 	d.reconcileRename(in)
 }

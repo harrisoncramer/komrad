@@ -305,32 +305,40 @@ func TestGet(t *testing.T) {
 	assert.ErrorIs(t, err, store.ErrNotFound)
 }
 
-// TestDelete pins that deleting a document takes every write of it, and that an id holding none is not found.
+// TestDelete pins that a delete takes every write of each document it names, and names each id that held none.
 func TestDelete(t *testing.T) {
 	stores := storetest.Open(t)
 	stores.SeedDocumentTypes(t, "notes")
 	ctx := t.Context()
 	author := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
 
-	created, err := stores.Documents.Create(ctx, documentstore.CreateParams{
-		AgentID: author.ID,
-		Name:    "gone",
-		Type:    "notes",
-		Body:    "soon",
-	})
-	require.NoError(t, err)
-
-	require.NoError(t, stores.Documents.Delete(ctx, created.ID))
-
-	_, err = stores.Documents.Get(ctx, created.ID)
-	require.ErrorIs(t, err, store.ErrNotFound)
-	versions, err := stores.Documents.ListVersions(ctx, created.ID)
-	require.NoError(t, err)
-	assert.Empty(t, versions, "and every write of it")
-
-	for _, id := range []uuid.UUID{created.ID, uuid.New()} {
-		assert.ErrorIs(t, stores.Documents.Delete(ctx, id), store.ErrNotFound, id)
+	var ids []uuid.UUID
+	for _, name := range []string{"gone", "also gone"} {
+		created, err := stores.Documents.Create(ctx, documentstore.CreateParams{
+			AgentID: author.ID,
+			Name:    name,
+			Type:    "notes",
+			Body:    "soon",
+		})
+		require.NoError(t, err)
+		ids = append(ids, created.ID)
 	}
+
+	require.NoError(t, stores.Documents.Delete(ctx, ids))
+
+	for _, id := range ids {
+		_, err := stores.Documents.Get(ctx, id)
+		require.ErrorIs(t, err, store.ErrNotFound)
+		versions, err := stores.Documents.ListVersions(ctx, id)
+		require.NoError(t, err)
+		assert.Empty(t, versions, "and every write of it")
+	}
+
+	unknown := uuid.New()
+	err := stores.Documents.Delete(ctx, []uuid.UUID{ids[0], unknown})
+	require.ErrorIs(t, err, store.ErrNotFound)
+	require.ErrorContains(t, err, ids[0].String())
+	require.ErrorContains(t, err, unknown.String())
 }
 
 // TestList pins whose documents a listing holds and in what order.

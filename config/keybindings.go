@@ -58,7 +58,7 @@ type Keybindings struct {
 	Schedules SchedulesKeys `mapstructure:"schedules"`
 	// The menu on the hovered schedule.
 	ScheduleMenu ScheduleMenuKeys `mapstructure:"schedule_menu"`
-	// Choosing several agents at once, shared by the two screens that draw a tree.
+	// Choosing several rows at once, shared by every list that takes a selection.
 	Selection SelectionKeys `mapstructure:"selection"`
 	// The menu on the hovered row, which lists the screens that belong to it and the menus nested
 	// under it.
@@ -118,14 +118,14 @@ type FilterKeys struct {
 	PrevMatch []string `mapstructure:"prev_match" default:"N"`
 }
 
-// SelectionKeys are the bindings for choosing several agents at once. They are shared by
-// the agents list and the archive rather than set per screen, since the gesture is the same
-// on either tree. While anything is selected that screen is in multi-select mode, where a
-// gutter marks the chosen rows and the keys that act on one agent stand down.
+// SelectionKeys are the bindings for choosing several rows at once. They are shared by every
+// list that takes a selection rather than set per screen, since the gesture is the same on
+// each. While anything is selected that screen is in multi-select mode, where a gutter marks
+// the chosen rows and the keys that act on one row stand down.
 type SelectionKeys struct {
 	// Drop the whole selection, which is the way back out of multi-select mode.
 	Clear []string `mapstructure:"clear" default:"esc"`
-	// Take in every agent between the cursor and the nearest already-selected one.
+	// Take in every row between the cursor and the nearest already-selected one.
 	Range []string `mapstructure:"range" default:"V"`
 	// Take the row under the cursor into the selection, or back out of it.
 	Toggle []string `mapstructure:"toggle" default:"v"`

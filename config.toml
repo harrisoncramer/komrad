@@ -376,11 +376,11 @@ edit   = ["e"]
 # Write a new schedule, offered on the schedules screen whatever is hovered.
 new    = ["c"]
 
-# Choosing several agents at once, shared by the two screens that draw a tree.
+# Choosing several rows at once, shared by every list that takes a selection.
 [keybindings.selection]
 # Drop the whole selection, which is the way back out of multi-select mode.
 clear  = ["esc"]
-# Take in every agent between the cursor and the nearest already-selected one.
+# Take in every row between the cursor and the nearest already-selected one.
 range  = ["V"]
 # Take the row under the cursor into the selection, or back out of it.
 toggle = ["v"]

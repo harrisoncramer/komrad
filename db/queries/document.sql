@@ -154,9 +154,10 @@ WHERE
     document_id = @document_id
     AND version = @version;
 
--- name: DeleteDocument :execrows
+-- name: DeleteDocuments :many
 DELETE FROM documents
-WHERE id = @id;
+WHERE id = ANY (@ids::uuid[])
+RETURNING id;
 
 -- name: SearchDocuments :many
 WITH q AS (

@@ -268,6 +268,7 @@ func buildServices(params NewServerParams, st *stores, wakers *loopWakers) (*ser
 			Types:     st.documentTypes,
 			Events:    queue,
 			Tasks:     taskService,
+			Tx:        st.pool,
 		}),
 		transcripts: transcriptServices{
 			reader: transcripts.NewTranscriptReader(transcripts.NewTranscriptReaderParams{

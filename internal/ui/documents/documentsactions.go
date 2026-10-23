@@ -90,9 +90,16 @@ func (d *Screen) documentTable(in screen.Inputs) []keys.Action[*Screen] {
 }
 
 func (d *Screen) legend(in screen.Inputs) []keys.LegendRow[*Screen] {
+	documents := d.list()
 	onDocument := func(*Screen) bool { return d.isOnDocument(in) }
 
-	return slices.Concat(keys.NavLegend[*Screen](), []keys.LegendRow[*Screen]{
+	return slices.Concat(keys.SelectionLegend[*Screen](documents, in), []keys.LegendRow[*Screen]{
+		{
+			Of:   []keys.ID{keys.SelectToggle},
+			Desc: func(*Screen) string { return documents.ToggleDesc(in) },
+			Show: func(*Screen) bool { return !documents.IsSelecting() && d.isOnDocument(in) },
+		},
+	}, keys.NavLegend[*Screen](), []keys.LegendRow[*Screen]{
 		{
 			Of:   []keys.ID{keys.FilterOpen},
 			Desc: keys.FilterDescOf[*Screen](in),

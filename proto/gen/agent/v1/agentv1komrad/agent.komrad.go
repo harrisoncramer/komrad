@@ -48,7 +48,7 @@ type AgentServiceImpl interface {
 	GetDocumentType(context.Context, *v1.GetDocumentTypeRequest) (*v1.GetDocumentTypeResponse, *fail.Error)
 	ListDocumentTypeVersions(context.Context, *ListDocumentTypeVersionsRequest) (*v1.ListDocumentTypeVersionsResponse, *fail.Error)
 	WriteDocumentType(context.Context, *WriteDocumentTypeRequest) (*v1.WriteDocumentTypeResponse, *fail.Error)
-	DeleteDocument(context.Context, *DeleteDocumentRequest) (*emptypb.Empty, *fail.Error)
+	DeleteDocuments(context.Context, *DeleteDocumentsRequest) (*emptypb.Empty, *fail.Error)
 	DeleteDocumentType(context.Context, *DeleteDocumentTypeRequest) (*emptypb.Empty, *fail.Error)
 	RecordReport(context.Context, *v1.RecordReportRequest) (*emptypb.Empty, *fail.Error)
 	MarkRunsRead(context.Context, *MarkRunsReadRequest) (*emptypb.Empty, *fail.Error)
@@ -370,14 +370,14 @@ func (a AgentServiceAdapter) WriteDocumentType(ctx context.Context, req *connect
 	return rpcerr.Answer(a.Impl.WriteDocumentType(ctx, parsed))
 }
 
-// DeleteDocument answers the request as connect serves it.
-func (a AgentServiceAdapter) DeleteDocument(ctx context.Context, req *connect.Request[v1.DeleteDocumentRequest]) (*connect.Response[emptypb.Empty], error) {
-	parsed, err := ParseDeleteDocumentRequest(req.Msg)
+// DeleteDocuments answers the request as connect serves it.
+func (a AgentServiceAdapter) DeleteDocuments(ctx context.Context, req *connect.Request[v1.DeleteDocumentsRequest]) (*connect.Response[emptypb.Empty], error) {
+	parsed, err := ParseDeleteDocumentsRequest(req.Msg)
 	if err != nil {
 		return rpcerr.Answer[emptypb.Empty](nil, rpcerr.Unparsed(err))
 	}
 
-	return rpcerr.Answer(a.Impl.DeleteDocument(ctx, parsed))
+	return rpcerr.Answer(a.Impl.DeleteDocuments(ctx, parsed))
 }
 
 // DeleteDocumentType answers the request as connect serves it.
