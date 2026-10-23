@@ -14,10 +14,7 @@ import (
 // fallbackShell is what the terminal runs when tmux answers for no default shell.
 const fallbackShell = "sh"
 
-var (
-	errNoTaskDir     = errors.New("the task has no checkout, and its workflow has no directory")
-	errNoEngineShell = errors.New("the engine is not reachable")
-)
+var errNoEngineShell = errors.New("the engine is not reachable")
 
 // terminalContent is a shell rooted where it was opened, keyed to be left alone when the region
 // is rendered again.

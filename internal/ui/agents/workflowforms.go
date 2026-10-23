@@ -1,4 +1,4 @@
-package ui
+package agents
 
 import (
 	"errors"
@@ -246,7 +246,7 @@ func workflowForm(params workflowFormParams) form.Form {
 		Build: func(form.Inputs) (*huh.Form, []string) {
 			renderedProvisioner = values.Provisioner
 
-			return form.Of(fixedKeys(), append(workflowTopFields(params.NameTitle, values), form.SubformList("Settings", subforms, &choice))...)
+			return form.Of(config.Fixed(), append(workflowTopFields(params.NameTitle, values), form.SubformList("Settings", subforms, &choice))...)
 		},
 		Reshaped: func() bool { return values.Provisioner != renderedProvisioner },
 		Editable: []form.Editable{{Key: "context", Value: &values.Context}},
@@ -259,7 +259,7 @@ func workflowTopFields(nameTitle string, values *workflowFormValues) []huh.Field
 	return []huh.Field{
 		huh.NewInput().Key("name").Title(nameTitle).Value(&values.Name),
 		form.Text("context").Title("Context").
-			Description(fmt.Sprintf("shared notes for this workflow; %s opens $EDITOR", keys.Label(fixedKeys().Editor))).
+			Description(fmt.Sprintf("shared notes for this workflow; %s opens $EDITOR", keys.Label(config.Fixed().Editor))).
 			Lines(2).Value(&values.Context),
 		huh.NewInput().Key("dir").Title("Default Directory").
 			Description("agents start here, and worktrees come from this checkout").
@@ -309,7 +309,7 @@ func workflowSubforms(values *workflowFormValues, editing bool, hooks func() []s
 			Key:   workflowSubformEventPrompts,
 			Title: "event prompts",
 			Fields: func(form.Inputs) []huh.Field {
-				return eventPromptFields(values, fixedKeys())
+				return eventPromptFields(values, config.Fixed())
 			},
 			Editable: eventPromptEditables(values),
 		},

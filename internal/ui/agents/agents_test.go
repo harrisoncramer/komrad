@@ -1,4 +1,4 @@
-package ui_test
+package agents_test
 
 import (
 	"errors"
@@ -1884,7 +1884,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 	})
 
 	t.Run("a running orchestrator whose frame reads as no harness is staged at once", func(t *testing.T) {
-		harness := paneltest.Start(t, paneltest.Params{HarnessFrames: &harnessFrameFake{}})
+		harness := paneltest.Start(t, paneltest.Params{HarnessFrames: &paneltest.HarnessFrames{}})
 		harness.AnswerWorktreeReads()
 		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), paneltest.Orchestrator()))
 
@@ -1892,7 +1892,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 	})
 
 	t.Run("an orchestrator setting up is staged once it is running", func(t *testing.T) {
-		harness := paneltest.Start(t, paneltest.Params{HarnessFrames: &harnessFrameFake{}})
+		harness := paneltest.Start(t, paneltest.Params{HarnessFrames: &paneltest.HarnessFrames{}})
 		harness.AnswerWorktreeReads()
 		settingUp := paneltest.Orchestrator()
 		settingUp.State = agentv1.AgentState_AGENT_STATE_SETTING_UP
@@ -2551,4 +2551,18 @@ func TestAgentsRowShowsTheTool(t *testing.T) {
 
 	row := findRowWith(t, harness.Frame(), "telescope")
 	assert.Contains(t, row, "WebFetch")
+}
+
+func findRowWith(t *testing.T, frame, want string) string {
+	t.Helper()
+
+	for _, line := range paneltest.Sidebar(frame) {
+		if strings.Contains(line, want) {
+			return line
+		}
+	}
+
+	require.Failf(t, "no row carries the text", "%q", want)
+
+	return ""
 }

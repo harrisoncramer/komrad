@@ -9,7 +9,7 @@ type frameBuilder interface {
 
 // dropFrames forgets what the screens built for the last frame, so an update reads the state it changes.
 func (m *model) dropFrames() {
-	m.agents.rendered = nil
+	m.agents.DropFrame()
 }
 
 // buildFrame builds what the active screen renders from the state the update left.
@@ -21,7 +21,7 @@ func (m *model) buildFrame() {
 
 type shownScreen struct {
 	screen            screen.ID
-	agents            agentsKind
+	agents            int
 	schedulesArchived bool
 }
 
@@ -30,7 +30,7 @@ func (m *model) shownScreen() shownScreen {
 
 	return shownScreen{
 		screen:            m.screen,
-		agents:            m.agents.kind,
+		agents:            m.agents.Kinds().Lit,
 		schedulesArchived: archived,
 	}
 }

@@ -1,7 +1,6 @@
-package ui_test
+package agents_test
 
 import (
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -148,12 +147,6 @@ func newFailedCreate() []proto.Message {
 	agent.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
 
 	return []proto.Message{agent}
-}
-
-func findRule(frame string) int {
-	return slices.IndexFunc(paneltest.SplitLines(frame), func(line string) bool {
-		return strings.HasPrefix(line, "─")
-	})
 }
 
 func readNoticeBlock(harness *paneltest.Panel) []string {

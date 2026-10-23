@@ -1,4 +1,4 @@
-package ui
+package agents
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ import (
 
 // Enter lands on the task or agent the target names, showing the hidden tasks when it works on
 // one, or comes back to the list as it stands.
-func (a *agentsScreen) Enter(in screen.Inputs, target screen.Target) screen.Request {
+func (a *Screen) Enter(in screen.Inputs, target screen.Target) screen.Request {
 	switch {
 	case target.TaskID != "":
 		a.revealTask(in, target.TaskID, target.AgentID)
@@ -36,25 +36,27 @@ func (a *agentsScreen) Enter(in screen.Inputs, target screen.Target) screen.Requ
 	return screen.Restage{}
 }
 
-func (a *agentsScreen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
+// Update sends a key to the rename being typed, or to the screen's table.
+func (a *Screen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 	switch msg := msg.(type) {
 	case tea.PasteMsg:
 		if a.IsRenaming() {
-			return a.updateRename(a.deps.register, a.deps.clients, msg)
+			return a.updateRename(a.deps.Register, a.deps.Clients, msg)
 		}
 	case tea.KeyPressMsg:
 		a.reconcileRename(in)
 		if a.IsRenaming() {
-			return a.updateRename(a.deps.register, a.deps.clients, msg)
+			return a.updateRename(a.deps.Register, a.deps.Clients, msg)
 		}
 
-		return a.actions(in).DispatchTop(a.deps.top, a, a.deps.keys, msg.String())
+		return a.actions(in).DispatchTop(a.deps.Top, a, a.deps.Keys, msg.String())
 	}
 
 	return nil
 }
 
-func (a *agentsScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
+// Receive takes the editor's pane, a settled resume or rename, and the listing moving.
+func (a *Screen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 	switch msg := msg.(type) {
 	case agentEditorStaged:
 		return a.applyEditorStaged(msg), true
@@ -71,9 +73,9 @@ func (a *agentsScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, b
 	return nil, false
 }
 
-func (a *agentsScreen) list() keys.ScreenList[agentRow] {
+func (a *Screen) list() keys.ScreenList[agentRow] {
 	return keys.ScreenList[agentRow]{
-		Keys:   a.deps.keys,
+		Keys:   a.deps.Keys,
 		Cursor: func() *list.Cursor { return &a.Cursor },
 		Rows:   a.rows,
 		Name:   agentRowName,
@@ -86,16 +88,16 @@ func (a *agentsScreen) list() keys.ScreenList[agentRow] {
 }
 
 // Stage puts the pane of whatever the cursor is standing on beside the list.
-func (a *agentsScreen) Stage() screen.Request {
+func (a *Screen) Stage() screen.Request {
 	return screen.Restage{}
 }
 
-func (a *agentsScreen) archiveAgents(agents []panel.Agent) screen.Request {
+func (a *Screen) archiveAgents(agents []panel.Agent) screen.Request {
 	if len(agents) == 0 {
 		return nil
 	}
 
-	return a.deps.clients.ArchivingWrite(api.ArchivingWriteParams{
+	return a.deps.Clients.ArchivingWrite(api.ArchivingWriteParams{
 		Doing:   "archiving " + describeAgents(agents),
 		Summary: fmt.Sprintf("Could not archive %s", describeAgents(agents)),
 		Agents:  agents,
@@ -105,9 +107,9 @@ func (a *agentsScreen) archiveAgents(agents []panel.Agent) screen.Request {
 	})
 }
 
-// openHovered attaches to whatever the cursor is on, which for a workflow is the orchestrator
+// OpenHovered attaches to whatever the cursor is on, which for a workflow is the orchestrator
 // standing behind it and for a task its writer.
-func (a *agentsScreen) openHovered(in screen.Inputs) screen.Request {
+func (a *Screen) OpenHovered(in screen.Inputs) screen.Request {
 	if workflow, ok := a.hoveredWorkflow(in); ok {
 		return a.startOrchestrator(workflow)
 	}
@@ -123,7 +125,7 @@ func (a *agentsScreen) openHovered(in screen.Inputs) screen.Request {
 	return a.openAgent(in, item)
 }
 
-func (a *agentsScreen) openAgent(in screen.Inputs, item panel.AgentRow) screen.Request {
+func (a *Screen) openAgent(in screen.Inputs, item panel.AgentRow) screen.Request {
 	if _, waking := a.resuming[item.Agent.ID]; waking {
 		return nil
 	}
@@ -142,13 +144,13 @@ func (a *agentsScreen) openAgent(in screen.Inputs, item panel.AgentRow) screen.R
 }
 
 // resume wakes a dormant agent in the background.
-func (a *agentsScreen) resume(agent panel.Agent) screen.Request {
+func (a *Screen) resume(agent panel.Agent) screen.Request {
 	if a.resuming == nil {
 		a.resuming = map[string]struct{}{}
 	}
 	a.resuming[agent.ID] = struct{}{}
 
-	clients := a.deps.clients
+	clients := a.deps.Clients
 
 	return screen.Write{
 		Doing:   "resuming " + agent.Name,
@@ -167,7 +169,7 @@ type resumeSettled struct {
 	err     error
 }
 
-func (a *agentsScreen) settleResume(in screen.Inputs, id string, err error) screen.Request {
+func (a *Screen) settleResume(in screen.Inputs, id string, err error) screen.Request {
 	delete(a.resuming, id)
 	if err != nil {
 		return nil
@@ -182,7 +184,7 @@ func (a *agentsScreen) settleResume(in screen.Inputs, id string, err error) scre
 }
 
 // relist puts the cursors of the tree, the zone and the archive on show back on the rows they were on.
-func (a *agentsScreen) relist(in screen.Inputs, relisted screen.Relisted) screen.Request {
+func (a *Screen) relist(in screen.Inputs, relisted screen.Relisted) screen.Request {
 	before := relisted.Before(in)
 	treeRow := a.list().Hovered(before)
 	triageSlot := a.findZoneSlot(before)
@@ -192,7 +194,7 @@ func (a *agentsScreen) relist(in screen.Inputs, relisted screen.Relisted) screen
 		archivedRow = archiveShown.list().Hovered(before)
 	}
 
-	a.triage.refresh(in.Listing.Agents, in.Listing.Tasks, a.deps.clock.Now())
+	a.triage.refresh(in.Listing.Agents, in.Listing.Tasks, a.deps.Clock.Now())
 	a.apply(in, treeRow)
 	followed := a.followAwaitingCLI(in)
 	a.landInTriage(in, treeRow, triageSlot)
@@ -203,7 +205,7 @@ func (a *agentsScreen) relist(in screen.Inputs, relisted screen.Relisted) screen
 	return followed
 }
 
-func (a *agentsScreen) followAwaitingCLI(in screen.Inputs) screen.Request {
+func (a *Screen) followAwaitingCLI(in screen.Inputs) screen.Request {
 	var notes screen.Batch
 	for id, paneSeen := range a.awaitingCLI {
 		item, ok := in.Listing.LiveAgent(id)
@@ -228,7 +230,7 @@ func (a *agentsScreen) followAwaitingCLI(in screen.Inputs) screen.Request {
 	return notes
 }
 
-func (a *agentsScreen) toggleHidden(in screen.Inputs) screen.Request {
+func (a *Screen) toggleHidden(in screen.Inputs) screen.Request {
 	selected := a.list().Hovered(in)
 
 	a.showHidden = !a.showHidden
@@ -242,7 +244,7 @@ func (a *agentsScreen) toggleHidden(in screen.Inputs) screen.Request {
 
 // seeFinished snoozes the agent's task when it waits only to be looked at and the tree renders the
 // agent, keeping the cursor on the agent's tree row.
-func (a *agentsScreen) seeFinished(in screen.Inputs, item panel.AgentRow) {
+func (a *Screen) seeFinished(in screen.Inputs, item panel.AgentRow) {
 	treeKey := toTreeRowKey(a.list().Hovered(in))
 	if list.IndexOf(a.rows(in), treeKey) < 0 {
 		return
@@ -255,7 +257,7 @@ func (a *agentsScreen) seeFinished(in screen.Inputs, item panel.AgentRow) {
 }
 
 // toggleSnooze snoozes or wakes the task under the key in triage, keeping the cursor in the zone.
-func (a *agentsScreen) toggleSnooze(in screen.Inputs, key string) screen.Request {
+func (a *Screen) toggleSnooze(in screen.Inputs, key string) screen.Request {
 	selected := a.list().Hovered(in)
 	slot := a.findZoneSlot(in)
 	if !a.triage.toggleSnooze(key, in.Listing.Agents) {
@@ -289,26 +291,27 @@ func agentsTabs() tabs.Strip {
 	}
 }
 
-func (a *agentsScreen) ListParams(in screen.Inputs) list.Params {
+// ListParams is the agents list as the root renders it.
+func (a *Screen) ListParams(in screen.Inputs) list.Params {
 	params := list.Params{
 		Help:     a.help(in),
 		Rows:     len(a.rows(in)),
 		Snapshot: func(pane list.Pane) view.Snapshot { return a.snapshot(in, pane) },
 	}
 	if in.Listing.IsEmpty() {
-		params.Welcome = welcomeText(a.deps.keys)
+		params.Welcome = welcomeText(a.deps.Keys)
 	}
 
 	return params
 }
 
-func (a *agentsScreen) help(in screen.Inputs) legend.Help {
-	return a.actions(in).Help(a, a.deps.keys)
+func (a *Screen) help(in screen.Inputs) legend.Help {
+	return a.actions(in).Help(a, a.deps.Keys)
 }
 
 // startOrchestrator brings the workflow's orchestrator back and puts the keyboard in its pane.
-func (a *agentsScreen) startOrchestrator(workflow panel.Workflow) screen.Request {
-	return rowWrite(a.deps.clients,
+func (a *Screen) startOrchestrator(workflow panel.Workflow) screen.Request {
+	return rowWrite(a.deps.Clients,
 		"starting the orchestrator of "+workflow.Name,
 		fmt.Sprintf("Could not reach the orchestrator of workflow %q", workflow.Name),
 		func(clients api.Clients) screen.Landed {
@@ -324,53 +327,43 @@ func (a *agentsScreen) startOrchestrator(workflow panel.Workflow) screen.Request
 	)
 }
 
-var (
-	_ recordRenderer       = (*agentsScreen)(nil)
-	_ activeLister         = (*agentsScreen)(nil)
-	_ tabSwitcher          = (*agentsScreen)(nil)
-	_ screenLeaver         = (*agentsScreen)(nil)
-	_ rowStager            = (*agentsScreen)(nil)
-	_ hoveredNamer         = (*agentsScreen)(nil)
-	_ screenMenuBuilder    = (*agentsScreen)(nil)
-	_ itemMenuBuilder      = (*agentsScreen)(nil)
-	_ loadingReporter      = (*agentsScreen)(nil)
-	_ lineTyper            = (*agentsScreen)(nil)
-	_ renamer              = (*agentsScreen)(nil)
-	_ editorReconciler     = (*agentsScreen)(nil)
-	_ hoveredAgentReporter = (*agentsScreen)(nil)
-	_ savedScreenRenderer  = (*agentsScreen)(nil)
-)
-
-func (a *agentsScreen) DoesRenderFromListing() bool {
+// DoesRenderFromListing reports that the screen renders the listing's agents and tasks.
+func (a *Screen) DoesRenderFromListing() bool {
 	return true
 }
 
-func (a *agentsScreen) TakesEveryKey() bool {
+// TakesEveryKey reports whether a rename is taking the keys.
+func (a *Screen) TakesEveryKey() bool {
 	return a.IsRenaming()
 }
 
-func (a *agentsScreen) ActiveList() keys.KeyedList {
+// ActiveList is the agents list the filter narrows.
+func (a *Screen) ActiveList() keys.KeyedList {
 	return a.list()
 }
 
-func (a *agentsScreen) HoveredName(in screen.Inputs) string {
+// HoveredName is the name of the row under the cursor.
+func (a *Screen) HoveredName(in screen.Inputs) string {
 	return a.list().HoveredName(in)
 }
 
-func (a *agentsScreen) Tabs() tabs.Strip {
+// Tabs is the strip of columns the list can be ordered by.
+func (a *Screen) Tabs() tabs.Strip {
 	return agentsTabs()
 }
 
-func (a *agentsScreen) TabsState() *tabs.State {
+// TabsState is where the screen keeps the column chosen and whether the strip holds the keys.
+func (a *Screen) TabsState() *tabs.State {
 	return &a.sort
 }
 
-func (a *agentsScreen) Column(in screen.Inputs) column.Spec {
+// Column is the hovered row's notes rendered beside the list.
+func (a *Screen) Column(in screen.Inputs) column.Spec {
 	return column.Spec{
 		Floor: column.Narrowest,
 		Read:  column.IsAlwaysRead,
 		DocRows: func(width int) []string {
-			return paint.DocStyledRows(a.doc(in), max(width, 1), columnStyle())
+			return paint.DocStyledRows(a.doc(in), max(width, 1), paint.Panel.Stage())
 		},
 		Said: func() string {
 			if a.isHoveringNotes(in) {
@@ -380,12 +373,12 @@ func (a *agentsScreen) Column(in screen.Inputs) column.Spec {
 			return a.HoveredAgentID(in)
 		},
 		Holds: func() bool {
-			return !a.isEditorOpen() && (a.hasNoAgentPane(in) || in.Room.Pattern.HasSaid(a.HoveredAgentID(in)))
+			return !a.IsEditorOpen() && (a.hasNoAgentPane(in) || in.Room.Pattern.HasSaid(a.HoveredAgentID(in)))
 		},
 	}
 }
 
-func (a *agentsScreen) openRename(in screen.Inputs) screen.Request {
+func (a *Screen) openRename(in screen.Inputs) screen.Request {
 	row, ok := a.hoveredRow(in)
 	if !ok {
 		return nil
@@ -396,16 +389,22 @@ func (a *agentsScreen) openRename(in screen.Inputs) screen.Request {
 	return nil
 }
 
-func (a *agentsScreen) reconcileRename(in screen.Inputs) {
+func (a *Screen) reconcileRename(in screen.Inputs) {
 	reconcileRename(&a.renameSlot, a.rows(in), a.list().Hovered(in), agentRowName)
 }
 
-func (a *agentsScreen) settleRename(in screen.Inputs, row string, err error) {
+func (a *Screen) settleRename(in screen.Inputs, row string, err error) {
 	if a.settleField(row, err) {
 		a.reconcileRename(in)
 	}
 }
 
-func (a *agentsScreen) Dispatches() []keys.Table {
+// Dispatches is the screen's table and its archive's.
+func (a *Screen) Dispatches() []keys.Table {
 	return []keys.Table{a.actions(screen.Inputs{}), a.archiveScreen(&a.archived).actions(screen.Inputs{})}
+}
+
+// StageResting restages the row the cursor came to rest on and reads its agent's saved screen.
+func (a *Screen) StageResting(screen.Inputs) screen.Request {
+	return screen.Batch{screen.Restage{}, screen.ReadLastScreen{}}
 }

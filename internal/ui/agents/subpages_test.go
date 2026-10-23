@@ -1,4 +1,4 @@
-package ui_test
+package agents_test
 
 import (
 	"testing"
@@ -10,7 +10,6 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	paginationv1 "komrad/proto/gen/pagination/v1"
-	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -90,63 +89,6 @@ func TestSubpages(t *testing.T) {
 		frame := paneltest.StageText(harness.Frame())
 		assert.NotContains(t, frame, "review")
 		assert.Contains(t, frame, "terminal")
-	})
-
-	t.Run("review answers its letter", func(t *testing.T) {
-		t.Parallel()
-
-		harness, reviewed := startReviewed(t, paneltest.Params{})
-		harness.Watch(reviewed.snapshot())
-		harness.Press("space")
-		menuUp := len(harness.Tmux().Zooms())
-		require.True(t, harness.Tmux().IsZoomed())
-
-		harness.Press("r")
-
-		assert.Equal(t, screen.Review, paneltest.Screen(harness.Frame()))
-		assert.NotContains(t, harness.Tmux().Zooms()[menuUp:], false, "the list is not rendered again on the way")
-	})
-
-	t.Run("a task's row opens the review of its task", func(t *testing.T) {
-		t.Parallel()
-
-		harness, reviewed := startReviewed(t, paneltest.Params{})
-		reviewed.task.Slug = "login-fix"
-		harness.Watch(reviewed.snapshot())
-		require.Contains(t, paneltest.HoveredRow(harness.Frame()), "login-fix")
-
-		harness.Press("space", "r")
-
-		assert.Equal(t, screen.Review, paneltest.Screen(harness.Frame()))
-		harness.AssertSentTo(agentv1connect.AgentServiceOpenReviewHistoryProcedure, &agentv1.OpenReviewHistoryRequest{Task: &agentv1.OpenReviewHistoryRequest_TaskId{TaskId: "t1"}})
-	})
-
-	t.Run("an agent whose worktree was removed in a workflow with no directory is not opened", func(t *testing.T) {
-		t.Parallel()
-
-		harness, reviewed := startReviewed(t, paneltest.Params{})
-		reviewed.task.WorktreeRemovalReason = taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE
-		reviewed.task.Snapshots = 1
-		harness.Watch(reviewed.snapshot())
-
-		harness.Press("space", "r")
-
-		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
-		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceOpenReviewHistoryProcedure))
-	})
-
-	t.Run("an agent whose worktree was removed with no snapshot is not opened", func(t *testing.T) {
-		t.Parallel()
-
-		harness, reviewed := startReviewed(t, paneltest.Params{})
-		reviewed.task.WorktreeRemovalReason = taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE
-		reviewed.workflow.Cwd = reviewed.agent.GetCwd()
-		harness.Watch(reviewed.snapshot())
-
-		harness.Press("space", "r")
-
-		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
-		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceOpenReviewHistoryProcedure))
 	})
 
 	t.Run("review on a task with no checkout says why", func(t *testing.T) {

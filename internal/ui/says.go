@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"komrad/internal/client"
+	"komrad/internal/ui/agents"
 	"komrad/internal/ui/api"
 	"komrad/internal/ui/paint"
 
@@ -37,9 +38,9 @@ type saidTranscriptMsg struct {
 func (m *model) saidAgentID() (string, bool) {
 	var agentID string
 	switch screen := m.active().(type) {
-	case *agentsScreen:
+	case *agents.Screen:
 		agentID = screen.HoveredAgentID(m.inputs())
-	case archivedAgentsScreen:
+	case agents.Archive:
 		agentID, _ = screen.ScreenedAgentID(m.inputs())
 	default:
 		return "", false

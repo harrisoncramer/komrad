@@ -1,4 +1,4 @@
-package ui
+package agents
 
 import (
 	"komrad/internal/ui/list"
@@ -16,7 +16,7 @@ func (a *archivedAgents) Details(in screen.Inputs) record.Details {
 	}
 
 	if r.isTask() {
-		return taskDetails(in, a.deps.clock.Now(), a.deps.glyphs, r)
+		return taskDetails(in, a.deps.Clock.Now(), a.deps.Glyphs, r)
 	}
 
 	if r.header {
@@ -26,7 +26,7 @@ func (a *archivedAgents) Details(in screen.Inputs) record.Details {
 		}
 	}
 
-	return agentDetails(in, a.deps.clock.Now(), a.deps.glyphs, r)
+	return agentDetails(in, a.deps.Clock.Now(), a.deps.Glyphs, r)
 }
 
 // doc is the markdown rendered beside the list for the row the cursor is on.
@@ -46,7 +46,7 @@ func (a *archivedAgents) doc(in screen.Inputs) string {
 
 // docRows is the block rendered beside the list at a width for the row the cursor is on.
 func (a *archivedAgents) docRows(in screen.Inputs, width int) []string {
-	return paint.DocStyledRows(a.doc(in), width, columnStyle())
+	return paint.DocStyledRows(a.doc(in), width, paint.Panel.Stage())
 }
 
 // archiveDocument is what the panel renders beside an archived agent's row.

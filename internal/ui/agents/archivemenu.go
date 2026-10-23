@@ -1,4 +1,4 @@
-package ui
+package agents
 
 import (
 	"errors"
@@ -149,65 +149,65 @@ func liveArchiveMenu(entries ...menu.Entry) menu.Menu {
 }
 
 // agentArchiveMenu archives the hovered agent alone, its task left standing.
-func (a *agentsScreen) agentArchiveMenu(agent panel.Agent) menu.Menu {
+func (a *Screen) agentArchiveMenu(agent panel.Agent) menu.Menu {
 	return liveArchiveMenu(menu.Entry{
 		Label: "archive this agent",
-		Keys:  a.deps.keys.ArchiveMenu.Archive,
+		Keys:  a.deps.Keys.ArchiveMenu.Archive,
 		After: menu.Hold,
 		Pick:  func(screen.Inputs) screen.Request { return a.archiveAgents([]panel.Agent{agent}) },
 	})
 }
 
-func (a *agentsScreen) workflowArchiveMenu(workflow panel.Workflow) menu.Menu {
+func (a *Screen) workflowArchiveMenu(workflow panel.Workflow) menu.Menu {
 	return liveArchiveMenu(menu.Entry{
 		Label: "archive with its agents",
-		Keys:  a.deps.keys.ArchiveMenu.Archive,
+		Keys:  a.deps.Keys.ArchiveMenu.Archive,
 		After: menu.Hold,
 		Pick:  func(in screen.Inputs) screen.Request { return a.archiveWorkflow(in, workflow) },
 	})
 }
 
 // taskArchiveMenu archives the hovered task with its agents, or deletes it for good.
-func (a *agentsScreen) taskArchiveMenu(task panel.Task) menu.Menu {
+func (a *Screen) taskArchiveMenu(task panel.Task) menu.Menu {
 	tasks := []panel.Task{task}
 
 	return liveArchiveMenu(
 		menu.Entry{
 			Label: "archive with its agents",
-			Keys:  a.deps.keys.ArchiveMenu.Archive,
+			Keys:  a.deps.Keys.ArchiveMenu.Archive,
 			After: menu.Hold,
 			Pick: func(in screen.Inputs) screen.Request {
-				return a.deps.clients.ArchiveTasksWrite(tasks, in.Listing.AgentsOnTasks(tasks))
+				return a.deps.Clients.ArchiveTasksWrite(tasks, in.Listing.AgentsOnTasks(tasks))
 			},
 		},
-		menu.Leaving("archive and delete for good", a.deps.keys.ArchiveMenu.Delete, func(in screen.Inputs) screen.Request {
-			return a.deps.clients.ConfirmDeleteTasks(in, tasks)
+		menu.Leaving("archive and delete for good", a.deps.Keys.ArchiveMenu.Delete, func(in screen.Inputs) screen.Request {
+			return a.deps.Clients.ConfirmDeleteTasks(in, tasks)
 		}),
 	)
 }
 
 // chosenArchiveMenu archives the chosen agents, or deletes them for good with the task of each
 // chosen writer.
-func (a *agentsScreen) chosenArchiveMenu(work chosenWork) menu.Menu {
+func (a *Screen) chosenArchiveMenu(work chosenWork) menu.Menu {
 	return liveArchiveMenu(
 		menu.Entry{
 			Label: "archive all",
-			Keys:  a.deps.keys.ArchiveMenu.Archive,
+			Keys:  a.deps.Keys.ArchiveMenu.Archive,
 			After: menu.Hold,
 			Pick:  func(in screen.Inputs) screen.Request { return a.archiveChosenAgents(in, work) },
 		},
-		menu.DrawnOff(menu.Leaving("archive and delete all for good", a.deps.keys.ArchiveMenu.Delete, func(in screen.Inputs) screen.Request {
-			return confirmDeleteChosenAgents(in, a.deps.clients, work)
+		menu.DrawnOff(menu.Leaving("archive and delete all for good", a.deps.Keys.ArchiveMenu.Delete, func(in screen.Inputs) screen.Request {
+			return confirmDeleteChosenAgents(in, a.deps.Clients, work)
 		}), work.deleteOffSaid()),
 	)
 }
 
 // archiveChosenAgents archives the task of each chosen writer with its agents and the other chosen
 // agents alone.
-func (a *agentsScreen) archiveChosenAgents(in screen.Inputs, work chosenWork) screen.Request {
+func (a *Screen) archiveChosenAgents(in screen.Inputs, work chosenWork) screen.Request {
 	subject := describeAgents(work.chosen)
 
-	return a.deps.clients.ArchivingWrite(api.ArchivingWriteParams{
+	return a.deps.Clients.ArchivingWrite(api.ArchivingWriteParams{
 		Doing:   "archiving " + subject,
 		Summary: "Could not archive " + subject,
 		Agents:  work.affected(in.Listing),
@@ -249,4 +249,13 @@ func confirmDeleteChosenAgents(in screen.Inputs, clients api.Clients, work chose
 	return confirm.Open(in, func(submitted form.Inputs) screen.Request {
 		return deleteChosenWrite(submitted.Listing, clients, work, confirm.Values.DeletesRecords())
 	})
+}
+
+// awaitDeleted waits for the rows to leave the listing when the delete takes the records.
+func awaitDeleted(records bool, rows []screen.Row) screen.Awaits {
+	if !records {
+		return screen.Awaits{}
+	}
+
+	return screen.Awaits{Gone: rows}
 }

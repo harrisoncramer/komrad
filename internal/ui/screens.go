@@ -3,6 +3,7 @@ package ui
 import (
 	"image"
 
+	"komrad/internal/ui/agents"
 	"komrad/internal/ui/checks"
 	"komrad/internal/ui/column"
 	"komrad/internal/ui/documents"
@@ -235,8 +236,8 @@ func (m *model) active() screenModel {
 func (m *model) screens() []screenModel {
 	return []screenModel{
 		&m.agents,
-		m.agents.archiveScreen(&m.agents.archived),
-		m.agents.archiveScreen(&m.agents.deleted),
+		m.agents.Archived(),
+		m.agents.Deleted(),
 		&m.schedules,
 		m.schedules.Archive(),
 		&m.review,
@@ -281,6 +282,38 @@ func (m *model) screenOf(s screen.ID) screenModel {
 	// arm compiles to until the exhaustive check refuses it.
 	return nil
 }
+
+var (
+	_ recordRenderer       = (*agents.Screen)(nil)
+	_ activeLister         = (*agents.Screen)(nil)
+	_ tabSwitcher          = (*agents.Screen)(nil)
+	_ screenLeaver         = (*agents.Screen)(nil)
+	_ rowStager            = (*agents.Screen)(nil)
+	_ hoveredNamer         = (*agents.Screen)(nil)
+	_ screenMenuBuilder    = (*agents.Screen)(nil)
+	_ itemMenuBuilder      = (*agents.Screen)(nil)
+	_ loadingReporter      = (*agents.Screen)(nil)
+	_ lineTyper            = (*agents.Screen)(nil)
+	_ renamer              = (*agents.Screen)(nil)
+	_ editorReconciler     = (*agents.Screen)(nil)
+	_ hoveredAgentReporter = (*agents.Screen)(nil)
+	_ savedScreenRenderer  = (*agents.Screen)(nil)
+)
+
+var (
+	_ recordRenderer       = agents.Archive{}
+	_ activeLister         = agents.Archive{}
+	_ tabSwitcher          = agents.Archive{}
+	_ rowStager            = agents.Archive{}
+	_ hoveredNamer         = agents.Archive{}
+	_ itemMenuBuilder      = agents.Archive{}
+	_ loadingReporter      = agents.Archive{}
+	_ lineTyper            = agents.Archive{}
+	_ renamer              = agents.Archive{}
+	_ hoveredAgentReporter = agents.Archive{}
+	_ savedScreenRenderer  = agents.Archive{}
+	_ kindSwitcher         = agents.Archive{}
+)
 
 var (
 	_ activeLister  = (*logs.Screen)(nil)

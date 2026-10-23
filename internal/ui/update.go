@@ -6,6 +6,7 @@ import (
 	"komrad/internal/client"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -58,7 +59,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	cmd := m.route(msg)
 	caught := m.releaseWatch(false)
 
-	m.settleTriage()
+	m.agents.SettleTriage(m.inputsFor(&m.agents), m.screen == screen.Agents)
 	warming := m.pollWarmup()
 	spinning := m.spinLoader()
 	pulse := m.pulseMessages(landed)
@@ -76,31 +77,6 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.dropRenderedView()
 
 	return m, tea.Batch(cmd, caught, warming, spinning, pulse, said)
-}
-
-// settleTriage freezes the zone and holds the task the cursor is on while the agents list has the
-// cursor on the zone, whether the keys are in the panel or in that agent's pane, and thaws it the
-// moment the cursor leaves, putting the cursor back on the row it was on.
-func (m *model) settleTriage() {
-	var zone []agentRow
-	if m.screen == screen.Agents && len(m.agents.triage.entries) > 0 {
-		zone = m.agents.layout(m.inputsFor(&m.agents)).zone
-	}
-
-	reading := m.agents.Row < len(zone)
-	m.agents.triage.held = ""
-	if reading {
-		m.agents.triage.held = findZoneHead(zone, m.agents.Row).item.Agent.ID
-	}
-
-	switch {
-	case reading && m.agents.triage.frozen == nil:
-		m.agents.triage.frozen = xslice.Map(zoneHeads(zone), func(i int) string { return zone[i].item.Agent.ID })
-	case !reading && m.agents.triage.frozen != nil:
-		hovered := m.agents.list().Hovered(m.inputs())
-		m.agents.triage.frozen = nil
-		m.agents.apply(m.inputs(), hovered)
-	}
 }
 
 func (m *model) route(msg tea.Msg) tea.Cmd {

@@ -1,4 +1,4 @@
-package ui
+package agents
 
 import (
 	"context"
@@ -32,8 +32,9 @@ func agentsQueryOf(agents api.AgentReads) list.Grammar {
 	}
 }
 
-func (a *agentsScreen) QueryGrammar() (list.Grammar, bool) {
-	return agentsQueryOf(a.deps.clients.Agents), true
+// QueryGrammar is the qualifiers the filter reads over the agents.
+func (a *Screen) QueryGrammar() (list.Grammar, bool) {
+	return agentsQueryOf(a.deps.Clients.Agents), true
 }
 
 func checkAgentsClause(clause searchsyntax.Clause, now time.Time) error {
@@ -123,7 +124,7 @@ func agentFits(in screen.Inputs, row panel.AgentRow, clause searchsyntax.Clause)
 }
 
 func (a *archivedAgents) QueryGrammar() (list.Grammar, bool) {
-	return agentsQueryOf(a.deps.clients.Agents), true
+	return agentsQueryOf(a.deps.Clients.Agents), true
 }
 
 // searchTranscriptsSaid asks the server which agents' transcripts hold the text, with the turns it was found in keyed by agent id.

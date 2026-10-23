@@ -8,6 +8,7 @@ import (
 	"komrad/internal/ui/paneltest"
 
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/proto"
 )
 
 // TestKeyholder covers which section renders the arrow on its hovered row.
@@ -37,4 +38,21 @@ func TestKeyholder(t *testing.T) {
 		assert.False(t, strings.HasPrefix(findRowWith(t, shown, "auth"), "›"), "the list renders no arrow")
 		assert.Equal(t, "agent      —", paneltest.RecordCursor(shown))
 	})
+}
+
+func buildSelectable() []proto.Message {
+	sweep := paneltest.Agent("sweep", "sweep", "w1")
+	hidden := paneltest.TaskOf(sweep)
+	hidden.Hidden = true
+
+	return []proto.Message{
+		paneltest.Workflow("w1", "backend"),
+		paneltest.Workflow("w2", "frontend"),
+		paneltest.AgentAt("auth", "w1", 5),
+		paneltest.AgentAt("api", "w1", 4),
+		paneltest.AgentAt("db", "w1", 3),
+		paneltest.AgentAt("ui", "w2", 1),
+		sweep,
+		hidden,
+	}
 }

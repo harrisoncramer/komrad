@@ -1,4 +1,4 @@
-package ui
+package agents
 
 import (
 	"komrad/internal/ui/panel"
@@ -13,12 +13,13 @@ type agentEdit struct {
 	pane  string
 }
 
-func (a *agentsScreen) isEditorOpen() bool {
+// IsEditorOpen reports whether an editor on an agent's notes is open on the stage.
+func (a *Screen) IsEditorOpen() bool {
 	return a.editing != nil && a.editing.pane != ""
 }
 
 // closeEdit closes the open editor and tells its agent so.
-func (a *agentsScreen) closeEdit() screen.Request {
+func (a *Screen) closeEdit() screen.Request {
 	if a.editing == nil {
 		return nil
 	}
@@ -27,7 +28,7 @@ func (a *agentsScreen) closeEdit() screen.Request {
 }
 
 // pressEdit opens an editor on the agent's worktree, or closes the one already open.
-func (a *agentsScreen) pressEdit(in screen.Inputs, item panel.AgentRow) screen.Request {
+func (a *Screen) pressEdit(in screen.Inputs, item panel.AgentRow) screen.Request {
 	if a.editing != nil {
 		return a.closeEdit()
 	}
@@ -56,7 +57,7 @@ func (a *agentsScreen) pressEdit(in screen.Inputs, item panel.AgentRow) screen.R
 		}
 	}
 
-	if reason, refused := a.deps.editorSettings.IsRemoteEditRefused(); refused {
+	if reason, refused := a.deps.EditorSettings.IsRemoteEditRefused(); refused {
 		return refuse(reason)
 	}
 
@@ -71,15 +72,15 @@ type agentEditorStaged struct {
 	pane string
 }
 
-func (a *agentsScreen) openEditor() screen.Request {
+func (a *Screen) openEditor() screen.Request {
 	return screen.Stage{
-		Content: a.deps.editorSettings.DirContent(a.editing.agent.Cwd),
+		Content: a.deps.EditorSettings.DirContent(a.editing.agent.Cwd),
 		Staged:  func(pane string) tea.Msg { return agentEditorStaged{pane: pane} },
 	}
 }
 
 // applyEditorStaged keeps the editor's pane, or gives the edit up when there was no room for it.
-func (a *agentsScreen) applyEditorStaged(staged agentEditorStaged) screen.Request {
+func (a *Screen) applyEditorStaged(staged agentEditorStaged) screen.Request {
 	if a.editing == nil {
 		return nil
 	}
@@ -103,7 +104,7 @@ func (a *agentsScreen) applyEditorStaged(staged agentEditorStaged) screen.Reques
 	}
 }
 
-func (a *agentsScreen) dropEdit() screen.Request {
+func (a *Screen) dropEdit() screen.Request {
 	if a.editing == nil {
 		return nil
 	}
@@ -115,18 +116,20 @@ func (a *agentsScreen) dropEdit() screen.Request {
 		return nil
 	}
 
-	return screen.Batch{screen.Unstage{}, a.deps.clients.EditedWrite(edit.agent, nil)}
+	return screen.Batch{screen.Unstage{}, a.deps.Clients.EditedWrite(edit.agent, nil)}
 }
 
-func (a *agentsScreen) ReconcileEditor(in screen.Inputs) screen.Request {
-	if !a.isEditorOpen() || a.deps.panes.IsPaneAlive(a.editing.pane) {
+// ReconcileEditor catches the editor pane going away on its own and saves what it wrote.
+func (a *Screen) ReconcileEditor(in screen.Inputs) screen.Request {
+	if !a.IsEditorOpen() || a.deps.Panes.IsPaneAlive(a.editing.pane) {
 		return nil
 	}
 
 	return screen.Batch{a.dropEdit(), screen.Restage{}}
 }
 
-func (a *agentsScreen) LeaveScreen() screen.Request {
+// LeaveScreen drops the rename being typed and takes down an editor open on the stage.
+func (a *Screen) LeaveScreen() screen.Request {
 	a.renaming = nil
 
 	return a.dropEdit()

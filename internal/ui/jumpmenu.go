@@ -71,17 +71,14 @@ func taskJumpEntry(m *model, task panel.Task) menu.Entry {
 // enterArchived lands the agents view on its archived kind, or its deleted kind when that lists the
 // target.
 func (m *model) enterArchived(target screen.Target) screen.Request {
-	m.agents.kind = agentsArchived
-	if isTargetOnDeletedList(m.listing, target) {
-		m.agents.kind = agentsDeleted
-	}
+	m.agents.ShowArchived(m.listing, target)
 
 	return screen.Open{Screen: screen.Agents, Target: target}
 }
 
 // enterLive lands the agents view on the live kind.
 func (m *model) enterLive(target screen.Target) screen.Request {
-	m.agents.kind = agentsLive
+	m.agents.ShowLive()
 
 	return screen.Open{Screen: screen.Agents, Target: target}
 }

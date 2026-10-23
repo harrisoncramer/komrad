@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/ui"
 	"komrad/internal/ui/paneltest"
+	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/task/v1/taskv1connect"
 
 	"github.com/stretchr/testify/assert"
@@ -85,6 +86,24 @@ func TestRebuilt(t *testing.T) {
 				assert.Zero(t, binary.asked, "the file is not looked at while the panel is busy")
 			})
 		}
+	})
+
+	t.Run("a confirmed archive still in flight keeps a rebuilt panel up", func(t *testing.T) {
+		binary := &fakeBinary{}
+		harness := paneltest.Start(t, paneltest.Params{Binary: binary})
+		harness.AnswerWorktreeReads()
+		harness.Watch(paneltest.Snapshot(newFormWorkflow(), newFormAuthor()))
+		harness.Hold(agentv1connect.AgentServiceArchiveAgentsProcedure)
+		harness.Press("g", "g", "j", "space", "a", "enter")
+
+		binary.isReplaced = true
+		harness.Advance(time.Second)
+		require.NotContains(t, harness.Frame(), "komrad was rebuilt", "the write is still in flight")
+
+		harness.Release(agentv1connect.AgentServiceArchiveAgentsProcedure)
+		harness.Watch(paneltest.Snapshot(newFormWorkflow()))
+		harness.Advance(time.Second)
+		assert.Contains(t, harness.Frame(), "komrad was rebuilt")
 	})
 
 	t.Run("a review that is busy is not taken over", func(t *testing.T) {

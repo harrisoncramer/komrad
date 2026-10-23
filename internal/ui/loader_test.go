@@ -11,7 +11,6 @@ import (
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
-	taskv1 "komrad/proto/gen/task/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
 
@@ -22,43 +21,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
-
-// TestLoaderSpinsWhileChecksRun covers a pull request with checks running rendering the configured loader a frame a tick.
-func TestLoaderSpinsWhileChecksRun(t *testing.T) {
-	harness := openNoticed(t, paneltest.Params{Loader: loader.Arcs}, newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING)...)
-
-	var rendered []string
-	for range 5 {
-		rendered = append(rendered, readChecksFrame(t, harness))
-		require.True(t, harness.IsSpinning(), "the loader stopped ticking with checks still running")
-	}
-
-	assert.Equal(t, []string{"◜", "◝", "◞", "◟", "◜"}, rendered)
-}
-
-// TestLoaderSpinsForATaskWithoutItsWriter covers a task row wearing its writer's running checks keeping the loader turning once a search leaves the writer out.
-func TestLoaderSpinsForATaskWithoutItsWriter(t *testing.T) {
-	rows := newPullRequested(pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING)
-	writer, ok := rows[0].(*agentv1.Agent)
-	require.True(t, ok)
-	task, ok := rows[3].(*taskv1.Task)
-	require.True(t, ok)
-	task.Id, task.Slug, task.Title = "t1", "fix-login", "Fix login"
-	writer.TaskId = xptr.Ptr("t1")
-	writer.TaskSlug = xptr.Ptr("fix-login")
-	writer.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 12, 5, 0, 0, time.UTC))
-	other := paneltest.AgentAt("checker", "w1", 0)
-	other.TaskId = xptr.Ptr("t1")
-	other.TaskSlug = xptr.Ptr("fix-login")
-	rows = append(rows, other)
-	harness := openNoticed(t, paneltest.Params{Loader: loader.Arcs}, rows...)
-
-	harness.Press(slices.Concat([]string{"/", "tab"}, strings.Split("checker", ""), []string{"enter"})...)
-	require.Equal(t, []string{"  backend", "◜ └─ fix-login", "     └─ checker"}, paneltest.ListRows(harness.Frame()))
-
-	harness.Advance(loader.Interval)
-	assert.True(t, harness.IsSpinning(), "the task row's spinner froze")
-}
 
 // TestLoaderStopsTicking covers the loader tick going quiet once no rendered row is loading.
 func TestLoaderStopsTicking(t *testing.T) {
@@ -116,46 +78,6 @@ func TestLoaderStopsTicking(t *testing.T) {
 	}
 }
 
-// TestLoaderSpinsWhileAnAgentSetsUp covers the placeholder beside a setting-up agent rendering the configured loader a frame a tick.
-func TestLoaderSpinsWhileAnAgentSetsUp(t *testing.T) {
-	tests := []struct {
-		name  string
-		pane  string
-		doing string
-	}{
-		{
-			name:  "a worktree still being made",
-			doing: "setting up…",
-		},
-		{
-			name:  "a CLI still starting in its pane",
-			pane:  "%9",
-			doing: "starting…",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			agent := paneltest.Agent("a1", "old", "w1")
-			agent.State = agentv1.AgentState_AGENT_STATE_SETTING_UP
-			agent.PaneId = tt.pane
-			harness := openNoticed(t, paneltest.Params{Loader: loader.Arcs}, agent)
-
-			var rendered []string
-			for range 3 {
-				rendered = append(rendered, readWriteFrame(t, harness.Frame(), tt.doing))
-				require.True(t, harness.IsSpinning(), "the loader stopped ticking with the agent still setting up")
-			}
-
-			assert.Equal(t, []string{"◜", "◝", "◞"}, rendered)
-
-			harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), paneltest.Running()))
-			harness.Advance(loader.Interval)
-			assert.False(t, harness.IsSpinning(), "the loader goes quiet once the agent is up")
-		})
-	}
-}
-
 // TestLoaderSpinsWhileAWriteIsInFlight covers a held form's notice rendering the configured loader a frame a tick until its write lands.
 func TestLoaderSpinsWhileAWriteIsInFlight(t *testing.T) {
 	create := workflowv1connect.WorkflowServiceCreateWorkflowProcedure
@@ -205,20 +127,6 @@ func openArchiveWithChecksRunning(t *testing.T) *paneltest.Panel {
 	return paneltest.OpenArchivedAgents(t, append([]proto.Message{paneltest.Workflow("w1", "backend")}, rows...)...)
 }
 
-func readChecksFrame(t *testing.T, harness *paneltest.Panel) string {
-	t.Helper()
-
-	for _, line := range readNoticeBlock(harness) {
-		if strings.Contains(line, "its pull request has checks running") {
-			return strings.Fields(ansi.Strip(line))[0]
-		}
-	}
-
-	require.Fail(t, "no notice says the checks are running")
-
-	return ""
-}
-
 func readWriteFrame(t *testing.T, frame, doing string) string {
 	t.Helper()
 
@@ -237,4 +145,47 @@ func readWriteFrame(t *testing.T, frame, doing string) string {
 	require.Fail(t, "nothing is rendered doing "+doing)
 
 	return ""
+}
+
+func openNoticed(t *testing.T, params paneltest.Params, rows ...proto.Message) *paneltest.Panel {
+	t.Helper()
+
+	harness := paneltest.Start(t, params)
+	harness.AnswerWorktreeReads()
+	harness.Watch(paneltest.Snapshot(append([]proto.Message{paneltest.Workflow("w1", "backend")}, rows...)...))
+	harness.Press("g", "g", "j")
+
+	return harness
+}
+
+func newNoticed() *agentv1.Agent {
+	return &agentv1.Agent{
+		Id:         "n1",
+		Name:       "worker",
+		WorkflowId: "w1",
+		Cwd:        "/repo",
+		State:      agentv1.AgentState_AGENT_STATE_WAITING,
+	}
+}
+
+func newPullRequested(state pullrequestv1.PullRequestState) []proto.Message {
+	agent := newNoticed()
+	task := paneltest.TaskOf(agent)
+	task.RepositoryUrl = xptr.Ptr(repositoryURL)
+	task.Branch = xptr.Ptr("agent/n1")
+
+	return []proto.Message{
+		agent,
+		&pullrequestv1.Repository{Url: repositoryURL},
+		&pullrequestv1.PullRequest{
+			Id:                "pr-1",
+			RepositoryUrl:     repositoryURL,
+			HeadRepositoryUrl: repositoryURL,
+			HeadBranch:        "agent/n1",
+			Number:            7,
+			State:             state,
+			OpenedAt:          timestamppb.New(time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)),
+		},
+		task,
+	}
 }

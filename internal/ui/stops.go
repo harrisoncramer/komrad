@@ -116,7 +116,7 @@ func (m *model) toggleStop() tea.Cmd {
 
 	at := m.atStop()
 	if at == stopList && m.isDormantHovered() {
-		return m.apply(m.agents.openHovered(m.inputs()))
+		return m.apply(m.agents.OpenHovered(m.inputs()))
 	}
 
 	stops := m.listStops()

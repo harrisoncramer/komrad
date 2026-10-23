@@ -1,21 +1,13 @@
-package ui
+package agents
 
 import (
-	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"komrad/internal/errui"
-	"komrad/internal/logging"
-	"komrad/internal/ui/api"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/record"
-	"komrad/internal/ui/screen"
-	loopv1 "komrad/proto/gen/loop/v1"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 // taskWorktree is what has been read of a task's directory, and nothing for one that is not a

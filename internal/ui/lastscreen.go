@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"komrad/internal/ui/keys"
 	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -36,23 +35,6 @@ func (m *model) screenedAgentID() (string, bool) {
 	}
 
 	return screen.ScreenedAgentID(m.inputs())
-}
-
-func (a *archivedAgents) ScreenedAgentID(in screen.Inputs) (string, bool) {
-	row, ok := a.hoveredRow(in)
-	if !ok {
-		return "", false
-	}
-
-	item, ok := row.paneItem()
-
-	return item.Agent.ID, ok
-}
-
-func (a *agentsScreen) ScreenedAgentID(in screen.Inputs) (string, bool) {
-	item, ok := a.Resting(in)
-
-	return item.Agent.ID, ok
 }
 
 func (m *model) isScreenShown() bool {
@@ -116,21 +98,6 @@ func (m *model) screenNotice() string {
 	}
 
 	return screen.ScreenNotice(m.inputs())
-}
-
-func (a *archivedAgents) ScreenNotice(in screen.Inputs) string {
-	restore := a.deps.keys.ArchiveMenu.Restore
-	if target, ok := a.menuTarget(in); ok {
-		if _, err := target.opensAgent(in.Listing); err == nil {
-			restore = a.deps.keys.ArchiveMenu.RestoreOpen
-		}
-	}
-
-	return "archived" + separated + "press " + keys.MenuChordLabel(a.deps.keys, a.deps.keys.Menu.Archive, restore) + " to restore"
-}
-
-func (a *agentsScreen) ScreenNotice(in screen.Inputs) string {
-	return "dormant" + separated + "press " + keys.Label(fixedKeys().Open) + " to restore"
 }
 
 // columnHeight is the rows that render the block beside the list.

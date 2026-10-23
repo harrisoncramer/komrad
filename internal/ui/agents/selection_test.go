@@ -1,4 +1,4 @@
-package ui_test
+package agents_test
 
 import (
 	"strings"
@@ -61,6 +61,14 @@ func TestSelection(t *testing.T) {
 		require.Contains(t, harness.Frame(), "archive all")
 
 		assert.Contains(t, findRenderedRow(t, harness, "task-api"), bar)
+	})
+
+	t.Run("a selection survives a search", func(t *testing.T) {
+		harness := paneltest.OpenAgents(t, withTasks(buildSelectable())...)
+
+		harness.Press("v", "j", "j", "v", "/", "d", "b", "enter", "space", "a")
+
+		assert.Contains(t, harness.Frame(), "2 agents › archive")
 	})
 
 	t.Run("a task's row is under the bar while its writer is", func(t *testing.T) {

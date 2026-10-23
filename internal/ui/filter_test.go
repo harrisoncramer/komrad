@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"komrad/internal/ui/paneltest"
+	"komrad/lib/dates"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -154,14 +155,6 @@ func TestFilterSearch(t *testing.T) {
 			assert.Equal(t, tt.wantSearch, paneltest.Search(frame))
 		})
 	}
-
-	t.Run("a selection survives a search", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, withTasks(buildSelectable())...)
-
-		harness.Press("v", "j", "j", "v", "/", "d", "b", "enter", "space", "a")
-
-		assert.Contains(t, harness.Frame(), "2 agents › archive")
-	})
 
 	t.Run("the search stays on the screen it was typed on", func(t *testing.T) {
 		harness := openFilterable(t, "backend")
@@ -732,4 +725,13 @@ func newNamedSchedule(id, name string) *schedulev1.Schedule {
 		WorkflowId: "w1",
 		Cron:       "0 9 * * *",
 	}
+}
+
+const reviewerMark = " "
+
+func newArchivedAgentAt(name string, at time.Time) *agentv1.Agent {
+	agent := paneltest.ArchivedAgent(name, name, "w1")
+	agent.ArchivedAt = dates.Stamp(at)
+
+	return agent
 }

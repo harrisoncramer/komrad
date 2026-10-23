@@ -1,4 +1,4 @@
-package ui
+package agents
 
 import (
 	"cmp"
@@ -571,6 +571,31 @@ func compareUrgency(a, b triageEntry) int {
 	return cmp.Or(cmp.Compare(a.rule.tier, b.rule.tier), a.since.Compare(b.since))
 }
 
+// SettleTriage freezes the zone and holds the task the cursor is on while the agents list is up with the
+// cursor on the zone, whether the keys are in the panel or in that agent's pane, and thaws it the
+// moment the cursor leaves, putting the cursor back on the row it was on.
+func (a *Screen) SettleTriage(in screen.Inputs, isAgentsUp bool) {
+	var zone []agentRow
+	if isAgentsUp && len(a.triage.entries) > 0 {
+		zone = a.layout(in).zone
+	}
+
+	reading := a.Row < len(zone)
+	a.triage.held = ""
+	if reading {
+		a.triage.held = findZoneHead(zone, a.Row).item.Agent.ID
+	}
+
+	switch {
+	case reading && a.triage.frozen == nil:
+		a.triage.frozen = xslice.Map(zoneHeads(zone), func(i int) string { return zone[i].item.Agent.ID })
+	case !reading && a.triage.frozen != nil:
+		hovered := a.list().Hovered(in)
+		a.triage.frozen = nil
+		a.apply(in, hovered)
+	}
+}
+
 // findZoneHead is the head of the task the zone row at the index belongs to.
 func findZoneHead(zone []agentRow, idx int) agentRow {
 	for i := idx; i > 0; i-- {
@@ -594,7 +619,7 @@ func zoneHeads(zone []agentRow) []int {
 }
 
 // findZoneSlot is which task in the zone the cursor is on, counting from the top, or -1 off the zone.
-func (a *agentsScreen) findZoneSlot(in screen.Inputs) int {
+func (a *Screen) findZoneSlot(in screen.Inputs) int {
 	zone := a.layout(in).zone
 	if a.Row < 0 || a.Row >= len(zone) {
 		return -1
@@ -613,7 +638,7 @@ func (a *agentsScreen) findZoneSlot(in screen.Inputs) int {
 
 // moveAfterSnooze puts the cursor on the task above the zone's slot, on the top task when the
 // slot was the top, or on the first agent of the list once the zone is empty.
-func (a *agentsScreen) moveAfterSnooze(in screen.Inputs, slot int) screen.Request {
+func (a *Screen) moveAfterSnooze(in screen.Inputs, slot int) screen.Request {
 	heads := zoneHeads(a.layout(in).zone)
 	if len(heads) == 0 {
 		a.Row = firstAgentRowIndex(a.rows(in))
@@ -628,7 +653,7 @@ func (a *agentsScreen) moveAfterSnooze(in screen.Inputs, slot int) screen.Reques
 
 // landInTriage moves the cursor off a zone row that has left the list onto the task now in its
 // slot, or into the tree once the zone is empty.
-func (a *agentsScreen) landInTriage(in screen.Inputs, selected string, slot int) {
+func (a *Screen) landInTriage(in screen.Inputs, selected string, slot int) {
 	rows := a.rows(in)
 	if slot < 0 || list.IndexOf(rows, selected) >= 0 {
 		return
@@ -645,7 +670,7 @@ func (a *agentsScreen) landInTriage(in screen.Inputs, selected string, slot int)
 }
 
 // jumpToTriage puts the cursor on the zone's first agent.
-func (a *agentsScreen) jumpToTriage(in screen.Inputs) screen.Request {
+func (a *Screen) jumpToTriage(in screen.Inputs) screen.Request {
 	if len(a.layout(in).zone) == 0 {
 		return screen.NewNote(screen.Info, "nothing to triage")
 	}

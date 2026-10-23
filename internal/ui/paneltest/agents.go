@@ -106,3 +106,13 @@ func (p *Panel) MoveToRow(name string) {
 
 	require.Contains(p.t, strings.Fields(HoveredRow(p.Frame())), name, "no row is named %q", name)
 }
+
+// HarnessFrames reads every pane as showing its harness while IsShowing holds.
+type HarnessFrames struct {
+	IsShowing bool
+}
+
+// DoesFrameShowHarness reports IsShowing whatever the pane.
+func (f *HarnessFrames) DoesFrameShowHarness(string, string) bool {
+	return f.IsShowing
+}

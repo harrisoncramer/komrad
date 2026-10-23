@@ -22,6 +22,7 @@ import (
 	"komrad/internal/glyph"
 	"komrad/internal/loader"
 	"komrad/internal/panes"
+	"komrad/internal/ui/agents"
 	"komrad/internal/ui/api"
 	"komrad/internal/ui/checks"
 	"komrad/internal/ui/documents"
@@ -292,7 +293,7 @@ type model struct {
 	messages        messagesState
 	detailsHeight   float64
 	listing         panel.Listing
-	agents          agentsScreen
+	agents          agents.Screen
 	schedules       schedules.Screen
 	worktrees       worktrees.Screen
 	documents       documents.Screen
@@ -428,17 +429,6 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		SSHConfig:     deps.Settings.SSHConfig,
 		IsSSHIncluded: deps.Settings.IsSSHIncluded,
 	}
-	agents := agentsDeps{
-		keys:           deps.Keys,
-		glyphs:         deps.Glyphs,
-		clock:          clock,
-		register:       register,
-		clients:        clients,
-		panes:          deps.Tmux,
-		top:            top,
-		editorSettings: editorSettings,
-	}
-
 	m := model{
 		term: terminalState{
 			isDark: isDark,
@@ -466,12 +456,17 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		engineStatus:    deps.EngineStatus,
 		engineBuild:     deps.EngineStatus.Build,
 		screen:          screen.Agents,
-		agents: agentsScreen{
-			deps:     agents,
-			triage:   triageZone{capacity: deps.Layout.TriageRows},
-			archived: archivedAgents{deps: agents, kind: agentsArchived},
-			deleted:  archivedAgents{deps: agents, kind: agentsDeleted},
-		},
+		agents: agents.New(agents.Deps{
+			Keys:           deps.Keys,
+			Glyphs:         deps.Glyphs,
+			Clock:          clock,
+			Register:       register,
+			Clients:        clients,
+			Panes:          deps.Tmux,
+			Top:            top,
+			EditorSettings: editorSettings,
+			TriageRows:     deps.Layout.TriageRows,
+		}),
 		schedules: schedules.New(schedules.Deps{
 			Keys:     deps.Keys,
 			Register: register,

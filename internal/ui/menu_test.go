@@ -129,7 +129,9 @@ func TestMenu(t *testing.T) {
 	t.Run("an entry that closes it hands the window back with the stage in one move", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openTriage(t, 3, buildTriage()...)
+		harness := paneltest.Start(t, paneltest.Params{TriageRows: 3})
+		harness.AnswerWorktreeReads()
+		harness.Watch(paneltest.Snapshot(buildTriage()...))
 		harness.Press("t")
 		harness.Advance(time.Second)
 		harness.Press("space")
@@ -267,3 +269,26 @@ func startReviewed(t *testing.T, params paneltest.Params) (*paneltest.Panel, *re
 func (r *reviewed) snapshot(rows ...proto.Message) *watchv1.WatchEvent {
 	return paneltest.Snapshot(append([]proto.Message{r.workflow, r.agent, r.task}, rows...)...)
 }
+
+// buildTriage is a workflow with three agents waiting on a person and one that is not, broken the
+// longest but in a tier below the others.
+func buildTriage() []proto.Message {
+	return []proto.Message{
+		paneltest.Workflow("w1", "backend"),
+		paneltest.AgentAt("quiet", "w1", 1),
+		newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
+		newTriageAgent("broken", agentv1.AgentState_AGENT_STATE_ERRORED, 2),
+		newTriageAgent("third", agentv1.AgentState_AGENT_STATE_WAITING, 4),
+	}
+}
+
+func newTriageAgent(name string, state agentv1.AgentState, minute int) *agentv1.Agent {
+	agent := paneltest.AgentAt(name, "w1", minute)
+	agent.State = state
+	agent.Alive = xptr.Ptr(true)
+	agent.StateChangedAt = timestamppb.New(time.Date(2026, 9, 20, 13, minute, 0, 0, time.UTC))
+
+	return agent
+}
+
+const repositoryURL = "https://github.com/harrisoncramer/komrad"

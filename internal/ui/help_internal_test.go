@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	"komrad/internal/ui/agents"
 	"komrad/internal/ui/filter"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/screen"
@@ -24,8 +25,8 @@ func TestEveryActionHasALegendRow(t *testing.T) {
 		{
 			screen: screen.Agents,
 			excused: map[keys.ID]string{
-				keys.Quit:        quit,
-				actionAgentsBack: "on the root list this is the quit key by another name",
+				keys.Quit:   quit,
+				agents.Back: "on the root list this is the quit key by another name",
 			},
 		},
 		{

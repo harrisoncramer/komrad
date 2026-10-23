@@ -1,4 +1,4 @@
-package ui
+package agents
 
 import (
 	"cmp"
@@ -65,7 +65,7 @@ func taskMarkdown(task panel.Task) string {
 
 // isShowingNotes reports whether the row stands for the task whose notes are shown in place of its
 // writer's pane: the task's own row, or its head in the triage zone.
-func (a *agentsScreen) isShowingNotes(r agentRow) bool {
+func (a *Screen) isShowingNotes(r agentRow) bool {
 	switch {
 	case a.notes == "":
 		return false
@@ -77,12 +77,12 @@ func (a *agentsScreen) isShowingNotes(r agentRow) bool {
 }
 
 // notesEntry swaps the pane beside the list between the task's notes and its writer's pane.
-func (a *agentsScreen) notesEntry(row agentRow) menu.Entry {
+func (a *Screen) notesEntry(row agentRow) menu.Entry {
 	if a.notes == row.task.ID {
-		return menu.Leaving("close the notes", a.deps.keys.Menu.Notes, func(screen.Inputs) screen.Request { return a.closeNotes() })
+		return menu.Leaving("close the notes", a.deps.Keys.Menu.Notes, func(screen.Inputs) screen.Request { return a.closeNotes() })
 	}
 
-	return menu.Leaving("notes", a.deps.keys.Menu.Notes, func(screen.Inputs) screen.Request {
+	return menu.Leaving("notes", a.deps.Keys.Menu.Notes, func(screen.Inputs) screen.Request {
 		a.notes = row.task.ID
 
 		return screen.Restage{}
@@ -90,7 +90,7 @@ func (a *agentsScreen) notesEntry(row agentRow) menu.Entry {
 }
 
 // closeNotes puts the writer's pane back in place of the task's notes.
-func (a *agentsScreen) closeNotes() screen.Request {
+func (a *Screen) closeNotes() screen.Request {
 	a.notes = ""
 
 	return screen.Restage{}
@@ -108,7 +108,7 @@ func isEveryTaskHidden(tasks []panel.Task) bool {
 }
 
 // hideTasks hides the tasks, or unhides them when they are all hidden.
-func (a *agentsScreen) hideTasks(tasks []panel.Task) screen.Request {
+func (a *Screen) hideTasks(tasks []panel.Task) screen.Request {
 	hidden := !isEveryTaskHidden(tasks)
 	changed := xslice.Filter(tasks, func(task panel.Task) bool { return task.Hidden != hidden })
 
@@ -117,7 +117,7 @@ func (a *agentsScreen) hideTasks(tasks []panel.Task) screen.Request {
 		doing, failure = "unhiding "+panel.DescribeTasks(tasks), "Could not unhide "+panel.DescribeTasks(tasks)
 	}
 
-	return a.deps.clients.Write(doing, failure, func(clients api.Clients) error {
+	return a.deps.Clients.Write(doing, failure, func(clients api.Clients) error {
 		for _, task := range changed {
 			if err := clients.SetTaskHidden(task.ID, hidden); err != nil {
 				return err
@@ -138,7 +138,7 @@ type taskEditValues struct {
 }
 
 // openEditTask opens the form that edits a task's title, goal and notes.
-func (a *agentsScreen) openEditTask(task panel.Task) screen.Request {
+func (a *Screen) openEditTask(task panel.Task) screen.Request {
 	values := &taskEditValues{
 		Title: task.Title,
 		Goal:  task.Goal,
@@ -147,7 +147,7 @@ func (a *agentsScreen) openEditTask(task panel.Task) screen.Request {
 
 	return form.Open{Form: form.Form{
 		Build: func(form.Inputs) (*huh.Form, []string) {
-			return editTaskForm(fixedKeys(), values, task.Slug)
+			return editTaskForm(config.Fixed(), values, task.Slug)
 		},
 		Editable: []form.Editable{{Key: "goal", Value: &values.Goal}, {Key: "notes", Value: &values.Notes}},
 		Submit: func(form.Inputs) screen.Request {
@@ -165,7 +165,7 @@ func (a *agentsScreen) openEditTask(task panel.Task) screen.Request {
 				params.Notes, params.NotesUpdatedAt = &notes, task.NotesUpdatedAt
 			}
 
-			return a.deps.clients.Write(
+			return a.deps.Clients.Write(
 				"saving "+task.Slug,
 				fmt.Sprintf("Could not save task %q", task.Slug),
 				func(clients api.Clients) error { return clients.UpdateTask(params) },
@@ -205,7 +205,7 @@ func checkTaskGoal(goal string) error {
 
 // taskRowOf is the task row the hovered row acts as: itself on a task's header, and the header of
 // the agent's task on a row of the triage zone.
-func (a *agentsScreen) taskRowOf(in screen.Inputs, row agentRow) (agentRow, bool) {
+func (a *Screen) taskRowOf(in screen.Inputs, row agentRow) (agentRow, bool) {
 	switch {
 	case row.isTask():
 		return row, true

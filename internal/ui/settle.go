@@ -19,15 +19,6 @@ type parkedWrite struct {
 	deadline time.Time
 }
 
-// awaitDeleted waits for the rows to leave the listing when the delete takes the records.
-func awaitDeleted(records bool, rows []screen.Row) screen.Awaits {
-	if !records {
-		return screen.Awaits{}
-	}
-
-	return screen.Awaits{Gone: rows}
-}
-
 // awaitsOf is everything a landed write waits on: the rows it named, the live pane it made with
 // its harness warm, and the rows of the agents it killed gone.
 func awaitsOf(landed screen.Landed, unstaged []panel.Agent) screen.Awaits {

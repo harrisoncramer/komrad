@@ -2,11 +2,14 @@ package ui_test
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"komrad/internal/ui/paneltest"
+	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 )
 
@@ -47,4 +50,21 @@ func openHelp(t *testing.T, params paneltest.Params, press ...string) *paneltest
 	harness.Press(press...)
 
 	return harness
+}
+
+func findRule(frame string) int {
+	return slices.IndexFunc(paneltest.SplitLines(frame), func(line string) bool {
+		return strings.HasPrefix(line, "─")
+	})
+}
+
+func newThinking() *agentv1.Agent {
+	return &agentv1.Agent{
+		Id:         "a1",
+		Name:       "telescope",
+		WorkflowId: "w1",
+		PaneId:     "%9",
+		Alive:      xptr.Ptr(true),
+		State:      agentv1.AgentState_AGENT_STATE_THINKING,
+	}
 }

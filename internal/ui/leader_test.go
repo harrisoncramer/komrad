@@ -63,7 +63,7 @@ func TestLeader(t *testing.T) {
 	})
 
 	t.Run("the leader twice returns to the record rather than moving on to the next stop", func(t *testing.T) {
-		harness := paneltest.OpenArchivedAgents(t, buildOneArchivedAgent()...)
+		harness := paneltest.OpenArchivedAgents(t, paneltest.Workflow("w1", "backend"), paneltest.ArchivedAgent("a1", "api-refactor", "w1"))
 
 		harness.Press("j", "pick:record", "esc", "ctrl+space", "ctrl+space")
 

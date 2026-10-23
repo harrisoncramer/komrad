@@ -1,4 +1,4 @@
-package ui
+package agents
 
 import (
 	"regexp"

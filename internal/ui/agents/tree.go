@@ -1,4 +1,4 @@
-package ui
+package agents
 
 import (
 	"slices"
@@ -19,22 +19,33 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
-// agentsDeps is what the agents screens are given at launch.
-type agentsDeps struct {
-	keys           config.Keybindings
-	glyphs         glyph.Set
-	clock          screen.Clock
-	register       *vim.Register
-	clients        api.Clients
-	panes          screen.Panes
-	top            *keys.Top
-	editorSettings editor.Settings
+// Deps is what the agents screens are given at launch.
+type Deps struct {
+	Keys           config.Keybindings
+	Glyphs         glyph.Set
+	Clock          screen.Clock
+	Register       *vim.Register
+	Clients        api.Clients
+	Panes          screen.Panes
+	Top            *keys.Top
+	EditorSettings editor.Settings
+	TriageRows     int
 }
 
-// agentsScreen is the agents screen: the cursor in the tree of workflows and agents, how they
+// New is the agents view built from what it is given at launch.
+func New(deps Deps) Screen {
+	return Screen{
+		deps:     deps,
+		triage:   triageZone{capacity: deps.TriageRows},
+		archived: archivedAgents{deps: deps, kind: agentsArchived},
+		deleted:  archivedAgents{deps: deps, kind: agentsDeleted},
+	}
+}
+
+// Screen is the agents screen: the cursor in the tree of workflows and agents, how they
 // are ordered and whether the hidden ones are rendered.
-type agentsScreen struct {
-	deps agentsDeps
+type Screen struct {
+	deps Deps
 	list.Cursor
 	placed     bool
 	showHidden bool
@@ -367,12 +378,12 @@ func sortedAgents(items []panel.AgentRow, columns []tabs.Column[panel.AgentRow],
 }
 
 // rows are the rows the keyboard can reach.
-func (a *agentsScreen) rows(in screen.Inputs) []agentRow {
+func (a *Screen) rows(in screen.Inputs) []agentRow {
 	return a.layout(in).cursorRows()
 }
 
 // layout is the list as rendered, or as it would be rendered when nothing has cached it.
-func (a *agentsScreen) layout(in screen.Inputs) agentsLayout {
+func (a *Screen) layout(in screen.Inputs) agentsLayout {
 	if a.rendered != nil {
 		return *a.rendered
 	}
@@ -380,12 +391,18 @@ func (a *agentsScreen) layout(in screen.Inputs) agentsLayout {
 	return a.buildLayout(in)
 }
 
-func (a *agentsScreen) BuildFrame(in screen.Inputs) {
+// BuildFrame lays the list out once for the frame being drawn.
+func (a *Screen) BuildFrame(in screen.Inputs) {
 	layout := a.buildLayout(in)
 	a.rendered = &layout
 }
 
-func (a *agentsScreen) buildLayout(in screen.Inputs) agentsLayout {
+// DropFrame forgets the list built for the last frame, so an update reads the state it changes.
+func (a *Screen) DropFrame() {
+	a.rendered = nil
+}
+
+func (a *Screen) buildLayout(in screen.Inputs) agentsLayout {
 	zone, waiting := buildZone(a.triage, in.Listing, a.showHidden)
 	tree := a.buildTree(in)
 
@@ -405,7 +422,7 @@ type agentTreeKey struct {
 	filter     list.PatternKey
 }
 
-func (a *agentsScreen) buildTree(in screen.Inputs) []agentRow {
+func (a *Screen) buildTree(in screen.Inputs) []agentRow {
 	order := agentsTabs().Order(a.sort)
 	key := agentTreeKey{
 		generation: in.Listing.Generation,
@@ -436,17 +453,17 @@ func narrowedAgentRows(in screen.Inputs, rows []agentRow) []agentRow {
 	})
 }
 
-func (a *agentsScreen) hoveredRow(in screen.Inputs) (agentRow, bool) {
+func (a *Screen) hoveredRow(in screen.Inputs) (agentRow, bool) {
 	return a.layout(in).cursorRow(a.Row)
 }
 
-func (a *agentsScreen) hoveredWorkflow(in screen.Inputs) (panel.Workflow, bool) {
+func (a *Screen) hoveredWorkflow(in screen.Inputs) (panel.Workflow, bool) {
 	return hoveredHeader(a.hoveredRow(in))
 }
 
-// hoveredPane is the agent whose pane the row under the cursor shows, and none where that row
+// HoveredPane is the agent whose pane the row under the cursor shows, and none where that row
 // has no pane worth putting in the window.
-func (a *agentsScreen) hoveredPane(in screen.Inputs) (panel.AgentRow, bool) {
+func (a *Screen) HoveredPane(in screen.Inputs) (panel.AgentRow, bool) {
 	r, ok := a.hoveredRow(in)
 	if !ok {
 		return panel.AgentRow{}, false
@@ -461,7 +478,7 @@ func (a *agentsScreen) hoveredPane(in screen.Inputs) (panel.AgentRow, bool) {
 }
 
 // Resting is the agent the row under the cursor stands for when it is dormant or paused.
-func (a *agentsScreen) Resting(in screen.Inputs) (panel.AgentRow, bool) {
+func (a *Screen) Resting(in screen.Inputs) (panel.AgentRow, bool) {
 	r, ok := a.hoveredRow(in)
 	if !ok {
 		return panel.AgentRow{}, false
@@ -476,7 +493,7 @@ func (a *agentsScreen) Resting(in screen.Inputs) (panel.AgentRow, bool) {
 }
 
 // RecordAgent is the agent the record under the cursor is about, which for a task is its writer.
-func (a *agentsScreen) RecordAgent(in screen.Inputs) (panel.AgentRow, bool) {
+func (a *Screen) RecordAgent(in screen.Inputs) (panel.AgentRow, bool) {
 	row, ok := a.hoveredRow(in)
 	if !ok {
 		return panel.AgentRow{}, false
@@ -486,7 +503,7 @@ func (a *agentsScreen) RecordAgent(in screen.Inputs) (panel.AgentRow, bool) {
 }
 
 // RecordTask is the task whose checkout the record under the cursor shows.
-func (a *agentsScreen) RecordTask(in screen.Inputs) (panel.Task, bool) {
+func (a *Screen) RecordTask(in screen.Inputs) (panel.Task, bool) {
 	row, ok := a.hoveredRow(in)
 	if !ok {
 		return panel.Task{}, false
@@ -496,14 +513,14 @@ func (a *agentsScreen) RecordTask(in screen.Inputs) (panel.Task, bool) {
 }
 
 // hasNoAgentPane reports whether the row the cursor is on has no pane of its own.
-func (a *agentsScreen) hasNoAgentPane(in screen.Inputs) bool {
-	_, ok := a.hoveredPane(in)
+func (a *Screen) hasNoAgentPane(in screen.Inputs) bool {
+	_, ok := a.HoveredPane(in)
 
 	return !ok
 }
 
 // HoveredAgentID is the agent under the cursor, or the orchestrator behind a hovered workflow.
-func (a *agentsScreen) HoveredAgentID(in screen.Inputs) string {
+func (a *Screen) HoveredAgentID(in screen.Inputs) string {
 	item, ok := a.hoveredPaneItem(in)
 	if !ok {
 		return ""
@@ -513,7 +530,7 @@ func (a *agentsScreen) HoveredAgentID(in screen.Inputs) string {
 }
 
 // hoveredPaneItem is the agent under the cursor, or the orchestrator of the workflow under it.
-func (a *agentsScreen) hoveredPaneItem(in screen.Inputs) (panel.AgentRow, bool) {
+func (a *Screen) hoveredPaneItem(in screen.Inputs) (panel.AgentRow, bool) {
 	row, ok := a.hoveredRow(in)
 	if !ok {
 		return panel.AgentRow{}, false
@@ -638,7 +655,7 @@ func (r agentRow) Key() string {
 }
 
 // apply takes a fresh listing, keeping the cursor on the row named.
-func (a *agentsScreen) apply(in screen.Inputs, selected string) {
+func (a *Screen) apply(in screen.Inputs, selected string) {
 	placed := a.placed
 	if !placed {
 		selected = ""
@@ -666,7 +683,7 @@ func (a *agentsScreen) apply(in screen.Inputs, selected string) {
 }
 
 // revealAgent puts the cursor on an agent, showing the hidden rows when it needs them.
-func (a *agentsScreen) revealAgent(in screen.Inputs, id string) {
+func (a *Screen) revealAgent(in screen.Inputs, id string) {
 	if toTreeRowKey(a.list().Hovered(in)) == agentRowKey(id) {
 		return
 	}
@@ -679,8 +696,25 @@ func (a *agentsScreen) revealAgent(in screen.Inputs, id string) {
 	}
 }
 
+// Land puts the cursor on the row a write made, unless a key moved it while the write was parked, and
+// closes the editor when the made row brings a pane of its own.
+func (a *Screen) Land(in screen.Inputs, made screen.Made, keyMoved bool) screen.Request {
+	a.showHiddenFor(in.Listing, made.Agent)
+
+	rows := a.rows(in)
+	if key := findLandingKey(rows, a.list().Hovered(in), made.Row); !keyMoved && list.IndexOf(rows, key) >= 0 {
+		a.apply(in, key)
+	}
+
+	if made.Pane == "" {
+		return nil
+	}
+
+	return a.dropEdit()
+}
+
 // revealTask puts the cursor on a task's row, or on its writer when the list draws no row for it.
-func (a *agentsScreen) revealTask(in screen.Inputs, taskID, writerID string) {
+func (a *Screen) revealTask(in screen.Inputs, taskID, writerID string) {
 	if in.Listing.Tasks[taskID].Hidden {
 		a.showHidden = true
 	}
@@ -694,8 +728,36 @@ func (a *agentsScreen) revealTask(in screen.Inputs, taskID, writerID string) {
 }
 
 // showHiddenFor shows the hidden tasks when the agent works on one.
-func (a *agentsScreen) showHiddenFor(listing panel.Listing, id string) {
+func (a *Screen) showHiddenFor(listing panel.Listing, id string) {
 	if listing.Tasks.IsHidden(listing.AgentsByID[id].Agent) {
 		a.showHidden = true
 	}
+}
+
+// agentRowName is the text a search reads a row of the tree by: the workflow's own name on a
+// header, the slug on a task, the agent's on a row.
+func agentRowName(row agentRow) string {
+	if row.isTask() {
+		return row.task.Slug
+	}
+	if row.header {
+		return row.workflow.Name
+	}
+
+	return row.item.Agent.Name
+}
+
+// agentRowDepth is how far a row of the tree is indented: a header, an agent or a task under it,
+// or a reviewer under its task.
+func agentRowDepth(row agentRow) int {
+	switch {
+	case row.isTask():
+		return 1 + row.depth
+	case row.header:
+		return 0
+	case row.underTask:
+		return 2 + row.depth
+	}
+
+	return 1
 }

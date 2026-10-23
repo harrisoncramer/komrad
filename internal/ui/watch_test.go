@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/ui/paneltest"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	watchv1 "komrad/proto/gen/watch/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 
@@ -180,4 +181,12 @@ func findRow(rows []string, name string) string {
 	}
 
 	return ""
+}
+
+func newUnreadMail(agentID string) *agentv1.Mail {
+	return &agentv1.Mail{
+		Id:        "m1",
+		ToAgentId: agentID,
+		ExpiresAt: timestamppb.New(time.Now().Add(time.Hour).UTC()),
+	}
 }

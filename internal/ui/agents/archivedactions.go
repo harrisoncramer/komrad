@@ -1,4 +1,4 @@
-package ui
+package agents
 
 import (
 	"slices"
@@ -11,65 +11,65 @@ import (
 )
 
 // actions is the archived agents as one table and the legend that names it.
-func (a archivedAgentsScreen) actions(in screen.Inputs) keys.Spec[archivedAgentsScreen] {
-	return keys.Spec[archivedAgentsScreen]{
+func (a Archive) actions(in screen.Inputs) keys.Spec[Archive] {
+	return keys.Spec[Archive]{
 		Table:  a.table(in),
 		Legend: a.legend(in),
 	}
 }
 
-func (a archivedAgentsScreen) table(in screen.Inputs) []keys.Action[archivedAgentsScreen] {
+func (a Archive) table(in screen.Inputs) []keys.Action[Archive] {
 	list := a.list()
-	browsing := func(archivedAgentsScreen) bool { return list.IsBrowsing() }
+	browsing := func(Archive) bool { return list.IsBrowsing() }
 
-	return append(keys.ListActions[archivedAgentsScreen](list, in),
-		keys.Action[archivedAgentsScreen]{
+	return append(keys.ListActions[Archive](list, in),
+		keys.Action[Archive]{
 			ID:   actionArchiveBack,
 			Keys: keys.FixedBack,
 			When: browsing,
-			Nav:  func(archivedAgentsScreen, string) screen.Request { return screen.PickView{} },
+			Nav:  func(Archive, string) screen.Request { return screen.PickView{} },
 		},
-		keys.Action[archivedAgentsScreen]{
+		keys.Action[Archive]{
 			ID:     actionArchiveRename,
 			Keys:   func(k config.Keybindings) []string { return k.Archive.Rename },
 			When:   browsing,
-			Direct: keys.Directly(keys.NotInMenu, func(archivedAgentsScreen, string) screen.Request { return a.openRename(in) }),
+			Direct: keys.Directly(keys.NotInMenu, func(Archive, string) screen.Request { return a.openRename(in) }),
 		},
 	)
 }
 
-func (a archivedAgentsScreen) legend(in screen.Inputs) []keys.LegendRow[archivedAgentsScreen] {
+func (a Archive) legend(in screen.Inputs) []keys.LegendRow[Archive] {
 	list := a.list()
 
-	return slices.Concat(keys.SelectionLegend[archivedAgentsScreen](list, in), []keys.LegendRow[archivedAgentsScreen]{
+	return slices.Concat(keys.SelectionLegend[Archive](list, in), []keys.LegendRow[Archive]{
 		{
 			Of:    []keys.ID{actionArchiveRename},
-			Desc:  func(archivedAgentsScreen) string { return "rename" },
-			Show:  func(archivedAgentsScreen) bool { return a.holdsARenameable(in) },
+			Desc:  func(Archive) string { return "rename" },
+			Show:  func(Archive) bool { return a.holdsARenameable(in) },
 			Strip: true,
 		},
 		{
 			Of:   []keys.ID{keys.SelectToggle},
-			Desc: func(archivedAgentsScreen) string { return list.ToggleDesc(in) },
-			Show: func(archivedAgentsScreen) bool { return a.holdsAChoosable(in) },
+			Desc: func(Archive) string { return list.ToggleDesc(in) },
+			Show: func(Archive) bool { return a.holdsAChoosable(in) },
 		},
 		{
 			Of:   []keys.ID{keys.FilterOpen},
-			Desc: keys.FilterDescOf[archivedAgentsScreen](in),
+			Desc: keys.FilterDescOf[Archive](in),
 		},
-	}, keys.NavLegend[archivedAgentsScreen](), []keys.LegendRow[archivedAgentsScreen]{
+	}, keys.NavLegend[Archive](), []keys.LegendRow[Archive]{
 		{
 			Of:   []keys.ID{actionArchiveBack},
-			Desc: func(archivedAgentsScreen) string { return "back" },
+			Desc: func(Archive) string { return "back" },
 		},
 		{
 			Of:    []keys.ID{keys.FilterClear},
-			Desc:  keys.FilterClearDescOf[archivedAgentsScreen](in),
+			Desc:  keys.FilterClearDescOf[Archive](in),
 			Strip: true,
 		},
 		{
 			Of:    []keys.ID{keys.FilterMatch},
-			Desc:  func(archivedAgentsScreen) string { return "next/prev match" },
+			Desc:  func(Archive) string { return "next/prev match" },
 			Strip: true,
 		},
 	})

@@ -1,4 +1,4 @@
-package ui
+package agents
 
 import (
 	"fmt"
@@ -16,14 +16,15 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
-func (a *agentsScreen) Details(in screen.Inputs) record.Details {
+// Details is the record of the row the cursor is on.
+func (a *Screen) Details(in screen.Inputs) record.Details {
 	r, ok := a.hoveredRow(in)
 	if !ok {
 		return record.Details{}
 	}
 
 	if r.isTask() {
-		return taskDetails(in, a.deps.clock.Now(), a.deps.glyphs, r)
+		return taskDetails(in, a.deps.Clock.Now(), a.deps.Glyphs, r)
 	}
 
 	if r.header {
@@ -33,7 +34,7 @@ func (a *agentsScreen) Details(in screen.Inputs) record.Details {
 		}
 	}
 
-	return agentDetails(in, a.deps.clock.Now(), a.deps.glyphs, r)
+	return agentDetails(in, a.deps.Clock.Now(), a.deps.Glyphs, r)
 }
 
 // taskDetails is the record for a task's row, with the rule's tags too while the task is live.
@@ -84,7 +85,7 @@ func agentDetails(in screen.Inputs, now time.Time, glyphs glyph.Set, r agentRow)
 }
 
 // doc is the markdown rendered beside the list for a row with no pane of its own.
-func (a *agentsScreen) doc(in screen.Inputs) string {
+func (a *Screen) doc(in screen.Inputs) string {
 	r, ok := a.hoveredRow(in)
 	item, held := r.paneItem()
 
@@ -142,7 +143,7 @@ func failedPlaceholder(agent panel.Agent) string {
 	return fmt.Sprintf("_%s failed_\n\n%s", label, reason)
 }
 
-func (a *agentsScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
+func (a *Screen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
 	layout := a.layout(in)
 	work := splitChosen(in.Listing, chosenAgents(a.Selected, layout.cursorRows()))
 

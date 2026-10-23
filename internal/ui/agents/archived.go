@@ -1,4 +1,4 @@
-package ui
+package agents
 
 import (
 	"fmt"
@@ -35,7 +35,7 @@ const (
 // archivedAgents is the agents view on its archived or deleted kind, holding the cursor in the agents
 // that kind lists and how they sort.
 type archivedAgents struct {
-	deps agentsDeps
+	deps Deps
 	kind agentsKind
 	list.Cursor
 	sort  tabs.State
@@ -43,7 +43,8 @@ type archivedAgents struct {
 	renameSlot
 }
 
-func (a *agentsScreen) Kinds() tabs.Stops {
+// Kinds is the agents view's row of kinds, live, archived and deleted.
+func (a *Screen) Kinds() tabs.Stops {
 	return tabs.Stops{
 		Labels: []string{"live", "archived", "deleted"},
 		Focus:  tabs.NoStop,
@@ -51,17 +52,18 @@ func (a *agentsScreen) Kinds() tabs.Stops {
 	}
 }
 
-func (a *agentsScreen) KindsFocused() *bool {
+// KindsFocused is whether the row of kinds holds the keys.
+func (a *Screen) KindsFocused() *bool {
 	return &a.kindFocus
 }
 
 // KindsSwitch holds the agents view on its kind while the user selects any of its agents.
-func (a *agentsScreen) KindsSwitch() bool {
+func (a *Screen) KindsSwitch() bool {
 	return !a.Selected.IsActive()
 }
 
 // StepKind moves the agents view to its other kind, back on the row it last stood on.
-func (a *agentsScreen) StepKind(_ screen.Inputs, delta int) screen.Request {
+func (a *Screen) StepKind(_ screen.Inputs, delta int) screen.Request {
 	return screen.Leave{Then: func() screen.Request {
 		a.kind = agentsKind(tabs.StepStop(int(a.kind), delta, len(a.Kinds().Labels)))
 		var staged screen.Request
@@ -78,7 +80,7 @@ func (a *agentsScreen) StepKind(_ screen.Inputs, delta int) screen.Request {
 }
 
 // archiveOfKind is the archived or deleted agents the agents view is on, and nil on the live kind.
-func (a *agentsScreen) archiveOfKind() *archivedAgents {
+func (a *Screen) archiveOfKind() *archivedAgents {
 	switch a.kind {
 	case agentsArchived:
 		return &a.archived
@@ -92,40 +94,65 @@ func (a *agentsScreen) archiveOfKind() *archivedAgents {
 
 // ShownArchive is the archived or deleted agents the agents view is on, as the screen that renders
 // them, and false on the live kind.
-func (a *agentsScreen) ShownArchive() (archivedAgentsScreen, bool) {
+func (a *Screen) ShownArchive() (Archive, bool) {
 	shown := a.archiveOfKind()
 	if shown == nil {
-		return archivedAgentsScreen{}, false
+		return Archive{}, false
 	}
 
 	return a.archiveScreen(shown), true
 }
 
-// archivedAgentsScreen is an archive of the agents view, its own state paired with the view whose
+// ShowLive puts the agents view on its live kind.
+func (a *Screen) ShowLive() {
+	a.kind = agentsLive
+}
+
+// ShowArchived puts the agents view on its archived kind, or its deleted kind when that lists the
+// target.
+func (a *Screen) ShowArchived(l panel.Listing, target screen.Target) {
+	a.kind = agentsArchived
+	if isTargetOnDeletedList(l, target) {
+		a.kind = agentsDeleted
+	}
+}
+
+// Archived is the view's archived kind as the screen that renders it.
+func (a *Screen) Archived() Archive {
+	return a.archiveScreen(&a.archived)
+}
+
+// Deleted is the view's deleted kind as the screen that renders it.
+func (a *Screen) Deleted() Archive {
+	return a.archiveScreen(&a.deleted)
+}
+
+// Archive is an archive of the agents view, its own state paired with the view whose
 // kinds row it shares.
-type archivedAgentsScreen struct {
+type Archive struct {
 	*archivedAgents
-	agents *agentsScreen
+	agents *Screen
 }
 
 // archiveScreen is one of the view's archives as the screen that renders it.
-func (a *agentsScreen) archiveScreen(archive *archivedAgents) archivedAgentsScreen {
-	return archivedAgentsScreen{archivedAgents: archive, agents: a}
+func (a *Screen) archiveScreen(archive *archivedAgents) Archive {
+	return Archive{archivedAgents: archive, agents: a}
 }
 
-func (a archivedAgentsScreen) Kinds() tabs.Stops {
+// Kinds is the agents view's row of kinds.
+func (a Archive) Kinds() tabs.Stops {
 	return a.agents.Kinds()
 }
 
-func (a archivedAgentsScreen) KindsFocused() *bool {
+// KindsFocused is whether the row of kinds holds the keys.
+func (a Archive) KindsFocused() *bool {
 	return a.agents.KindsFocused()
 }
 
-func (a archivedAgentsScreen) StepKind(in screen.Inputs, delta int) screen.Request {
+// StepKind moves the agents view to another kind.
+func (a Archive) StepKind(in screen.Inputs, delta int) screen.Request {
 	return a.agents.StepKind(in, delta)
 }
-
-var _ kindSwitcher = archivedAgentsScreen{}
 
 // Enter lands on the task the target names, or on its agent when no row stands for the task.
 func (a *archivedAgents) Enter(in screen.Inputs, target screen.Target) screen.Request {
@@ -140,9 +167,10 @@ func (a *archivedAgents) Enter(in screen.Inputs, target screen.Target) screen.Re
 	return screen.Batch{a.Stage(), screen.Settle{}}
 }
 
-func (a archivedAgentsScreen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
+// Update sends a key to the rename being typed, or to the archive's table.
+func (a Archive) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 	if _, ok := msg.(tea.PasteMsg); ok && a.IsRenaming() {
-		return a.updateRename(a.deps.register, a.deps.clients, msg)
+		return a.updateRename(a.deps.Register, a.deps.Clients, msg)
 	}
 
 	key, ok := msg.(tea.KeyPressMsg)
@@ -152,10 +180,10 @@ func (a archivedAgentsScreen) Update(in screen.Inputs, msg tea.Msg) screen.Reque
 
 	a.reconcileRename(in)
 	if a.IsRenaming() {
-		return a.updateRename(a.deps.register, a.deps.clients, msg)
+		return a.updateRename(a.deps.Register, a.deps.Clients, msg)
 	}
 
-	return a.actions(in).DispatchTop(a.deps.top, a, a.deps.keys, key.String())
+	return a.actions(in).DispatchTop(a.deps.Top, a, a.deps.Keys, key.String())
 }
 
 func (a *archivedAgents) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
@@ -176,7 +204,7 @@ func (a *archivedAgents) KindsSwitch() bool {
 
 func (a *archivedAgents) list() keys.ScreenList[agentRow] {
 	return keys.ScreenList[agentRow]{
-		Keys:   a.deps.keys,
+		Keys:   a.deps.Keys,
 		Cursor: func() *list.Cursor { return &a.Cursor },
 		Rows:   a.listRows,
 		Name:   agentRowName,
@@ -432,18 +460,18 @@ func (a *archivedAgents) BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu
 		band = agentMenu(agentMenuParams{
 			in:       in,
 			nest:     nest,
-			bindings: a.deps.keys,
+			bindings: a.deps.Keys,
 			item:     item,
 		})
 	}
 
 	if a.kind == agentsDeleted {
-		band.Entries = append(band.Entries, deletedEntries(a.deps.keys, a.deps.clients, target)...)
+		band.Entries = append(band.Entries, deletedEntries(a.deps.Keys, a.deps.Clients, target)...)
 
 		return band, true
 	}
 
-	return menu.WithNested(band, "archive", a.deps.keys.Menu.Archive, archiveMenu(in, a.deps.keys, a.deps.clients, target)), true
+	return menu.WithNested(band, "archive", a.deps.Keys.Menu.Archive, archiveMenu(in, a.deps.Keys, a.deps.Clients, target)), true
 }
 
 // restoreAndResume takes the agents out of the archive and puts the resumed agent's conversation back in a pane.
@@ -489,7 +517,8 @@ func (a *archivedAgents) Stage() screen.Request {
 	return screen.StageTerminal{}
 }
 
-func (a archivedAgentsScreen) ListParams(in screen.Inputs) list.Params {
+// ListParams is the list of archived or deleted agents as the root renders it.
+func (a Archive) ListParams(in screen.Inputs) list.Params {
 	return list.Params{
 		Help:     a.help(in),
 		Empty:    a.emptySaid(),
@@ -498,8 +527,8 @@ func (a archivedAgentsScreen) ListParams(in screen.Inputs) list.Params {
 	}
 }
 
-func (a archivedAgentsScreen) help(in screen.Inputs) legend.Help {
-	return a.actions(in).Help(a, a.deps.keys)
+func (a Archive) help(in screen.Inputs) legend.Help {
+	return a.actions(in).Help(a, a.deps.Keys)
 }
 
 func archivedAgentTabs() tabs.Strip {
@@ -511,20 +540,6 @@ func archivedAgentTabs() tabs.Strip {
 		Grouped:  "workflow",
 	}
 }
-
-var (
-	_ recordRenderer       = (*archivedAgents)(nil)
-	_ activeLister         = (*archivedAgents)(nil)
-	_ tabSwitcher          = (*archivedAgents)(nil)
-	_ rowStager            = (*archivedAgents)(nil)
-	_ hoveredNamer         = (*archivedAgents)(nil)
-	_ itemMenuBuilder      = (*archivedAgents)(nil)
-	_ loadingReporter      = (*archivedAgents)(nil)
-	_ lineTyper            = (*archivedAgents)(nil)
-	_ renamer              = (*archivedAgents)(nil)
-	_ hoveredAgentReporter = (*archivedAgents)(nil)
-	_ savedScreenRenderer  = (*archivedAgents)(nil)
-)
 
 func (a *archivedAgents) DoesRenderFromListing() bool {
 	return true
@@ -599,6 +614,7 @@ func (a *archivedAgents) settleRename(in screen.Inputs, row string, err error) {
 	}
 }
 
-func (a archivedAgentsScreen) Dispatches() []keys.Table {
+// Dispatches is the archive's table.
+func (a Archive) Dispatches() []keys.Table {
 	return []keys.Table{a.actions(screen.Inputs{})}
 }

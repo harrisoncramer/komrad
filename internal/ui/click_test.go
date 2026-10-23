@@ -9,10 +9,15 @@ import (
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paneltest"
 	"komrad/internal/ui/screen"
+	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // TestClickRow covers a left click putting the cursor on the list row under it.
@@ -127,4 +132,50 @@ func TestClickMenu(t *testing.T) {
 	harness.Send(harness.ClickOn("cancel"))
 
 	assert.NotContains(t, harness.Frame(), "edit files")
+}
+
+func buildSortable() []proto.Message {
+	newSortable := func(name, workflowID string, created, changed int) *agentv1.Agent {
+		agent := paneltest.AgentAt(name, workflowID, created)
+		agent.StateChangedAt = timestamppb.New(time.Date(2026, 9, 20, 12, changed, 0, 0, time.UTC))
+
+		return agent
+	}
+	charlie := newSortable("charlie", "w1", 25, 5)
+	charlie.TaskId = xptr.Ptr("task-alpha")
+	charlie.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
+	bob := newSortable("bob", "w1", 5, 40)
+	bob.TaskId = xptr.Ptr("task-alpha")
+	bob.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
+	zulu := newSortable("zulu", "w1", 20, 30)
+	zulu.Name = "Zulu"
+	alpha := newSortable("alpha", "w1", 10, 20)
+
+	return []proto.Message{
+		paneltest.Workflow("w1", "komrad"),
+		paneltest.Workflow("w2", "gadgets"),
+		newSortable("delta", "w1", 30, 10),
+		charlie,
+		zulu,
+		alpha,
+		paneltest.TaskOf(alpha),
+		bob,
+		newSortable("echo", "w2", 0, 50),
+	}
+}
+
+func buildRecorded() []proto.Message {
+	agent := paneltest.AgentAt("auth", "w1", 0)
+	agent.Id = "a1"
+	agent.Cwd = "/repo"
+	agent.SessionId = "abc"
+
+	return []proto.Message{
+		&workflowv1.Workflow{
+			Id:       "w1",
+			Name:     "backend",
+			Worktree: &workflowv1.WorktreeConfig{Enabled: true},
+		},
+		agent,
+	}
 }

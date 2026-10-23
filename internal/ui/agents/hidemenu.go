@@ -1,4 +1,4 @@
-package ui
+package agents
 
 import (
 	"komrad/internal/ui/menu"
@@ -7,14 +7,14 @@ import (
 )
 
 // hideMenu is the agents list's hide menu, hiding the tasks given and gray when there are none.
-func (a *agentsScreen) hideMenu(tasks []panel.Task) menu.Menu {
+func (a *Screen) hideMenu(tasks []panel.Task) menu.Menu {
 	return menu.Menu{
 		Title: "hide",
 		Entries: []menu.Entry{
 			a.hideEntry(tasks),
 			{
 				Label: a.showHiddenDesc(),
-				Keys:  a.deps.keys.HideMenu.ShowHidden,
+				Keys:  a.deps.Keys.HideMenu.ShowHidden,
 				Pick: func(in screen.Inputs) screen.Request {
 					return screen.Batch{screen.Reconcile{}, a.toggleHidden(in)}
 				},
@@ -24,11 +24,11 @@ func (a *agentsScreen) hideMenu(tasks []panel.Task) menu.Menu {
 }
 
 // hideEntry hides or unhides the tasks, and is gray on a row that is no task.
-func (a *agentsScreen) hideEntry(tasks []panel.Task) menu.Entry {
+func (a *Screen) hideEntry(tasks []panel.Task) menu.Entry {
 	if len(tasks) == 0 {
 		return menu.Entry{
 			Label: "hide",
-			Keys:  a.deps.keys.HideMenu.Hide,
+			Keys:  a.deps.Keys.HideMenu.Hide,
 			Off:   true,
 		}
 	}
@@ -38,5 +38,5 @@ func (a *agentsScreen) hideEntry(tasks []panel.Task) menu.Entry {
 		label = "unhide"
 	}
 
-	return menu.Holding(label, a.deps.keys.HideMenu.Hide, func(screen.Inputs) screen.Request { return a.hideTasks(tasks) })
+	return menu.Holding(label, a.deps.Keys.HideMenu.Hide, func(screen.Inputs) screen.Request { return a.hideTasks(tasks) })
 }

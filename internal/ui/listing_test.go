@@ -11,6 +11,8 @@ import (
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
+	workflowv1 "komrad/proto/gen/workflow/v1"
+	"komrad/proto/gen/workflow/v1/workflowv1connect"
 
 	watchv1 "komrad/proto/gen/watch/v1"
 
@@ -26,7 +28,7 @@ func TestListingSettlesWrites(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		open         func(t *testing.T, frames *harnessFrameFake) *paneltest.Panel
+		open         func(t *testing.T, frames *paneltest.HarnessFrames) *paneltest.Panel
 		setup        func(harness *paneltest.Panel)
 		press        []string
 		parkedPress  []string
@@ -80,7 +82,7 @@ func TestListingSettlesWrites(t *testing.T) {
 		},
 		{
 			name: "a key pressed while a write is parked takes the cursor back",
-			open: func(t *testing.T, _ *harnessFrameFake) *paneltest.Panel {
+			open: func(t *testing.T, _ *paneltest.HarnessFrames) *paneltest.Panel {
 				return paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), paneltest.Dormant("old"))
 			},
 			setup:       (*paneltest.Panel).AnswerResume,
@@ -138,10 +140,10 @@ func TestListingSettlesWrites(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			frames := &harnessFrameFake{isShowing: !tt.showsLate}
+			frames := &paneltest.HarnessFrames{IsShowing: !tt.showsLate}
 			open := tt.open
 			if open == nil {
-				open = func(t *testing.T, _ *harnessFrameFake) *paneltest.Panel { return openSettling(t) }
+				open = func(t *testing.T, _ *paneltest.HarnessFrames) *paneltest.Panel { return openSettling(t) }
 			}
 			harness := open(t, frames)
 			tt.setup(harness)
@@ -158,7 +160,7 @@ func TestListingSettlesWrites(t *testing.T) {
 				harness.Watch(event)
 			}
 			if tt.showsLate {
-				frames.isShowing = true
+				frames.IsShowing = true
 				harness.Advance(time.Second)
 			}
 
@@ -340,14 +342,6 @@ func TestListingUnreachable(t *testing.T) {
 
 const serverAddr = "127.0.0.1:8787"
 
-type harnessFrameFake struct {
-	isShowing bool
-}
-
-func (f *harnessFrameFake) DoesFrameShowHarness(string, string) bool {
-	return f.isShowing
-}
-
 func openSettling(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
@@ -357,7 +351,7 @@ func openSettling(t *testing.T) *paneltest.Panel {
 	return harness
 }
 
-func openSettlingTelescope(t *testing.T, frames *harnessFrameFake) *paneltest.Panel {
+func openSettlingTelescope(t *testing.T, frames *paneltest.HarnessFrames) *paneltest.Panel {
 	t.Helper()
 
 	harness := paneltest.Start(t, paneltest.Params{HarnessFrames: frames})
@@ -367,7 +361,7 @@ func openSettlingTelescope(t *testing.T, frames *harnessFrameFake) *paneltest.Pa
 	return harness
 }
 
-func openSettlingBackend(t *testing.T, frames *harnessFrameFake) *paneltest.Panel {
+func openSettlingBackend(t *testing.T, frames *paneltest.HarnessFrames) *paneltest.Panel {
 	t.Helper()
 
 	harness := paneltest.Start(t, paneltest.Params{HarnessFrames: frames})
@@ -377,7 +371,7 @@ func openSettlingBackend(t *testing.T, frames *harnessFrameFake) *paneltest.Pane
 	return harness
 }
 
-func openSettlingStaged(t *testing.T, _ *harnessFrameFake) *paneltest.Panel {
+func openSettlingStaged(t *testing.T, _ *paneltest.HarnessFrames) *paneltest.Panel {
 	t.Helper()
 
 	harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), newStagedOld("old"))
@@ -436,5 +430,11 @@ func answerOrchestratorStart(harness *paneltest.Panel) {
 			PaneId:  "%9",
 			Harness: "claude",
 		}}), nil
+	})
+}
+
+func answerWorkflowCreate(harness *paneltest.Panel) {
+	harness.Answer(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "w2"}}), nil
 	})
 }
