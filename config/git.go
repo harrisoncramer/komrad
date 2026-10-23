@@ -13,7 +13,7 @@ const defaultMaxCheckLogBytes = 2 << 20
 type Git struct {
 	// SSH hosts that stand in for a forge's web host, each written as "ssh_host=web_host", such
 	// as "ssh.gitlab.example.com=gitlab.example.com". A remote on the SSH host is then matched to
-	// the forge connected for the web host. Write host names only, with no port, scheme or
+	// the forge connected for the web host. Write host names only, without a port, scheme or
 	// user. Public aliases such as ssh.github.com and altssh.gitlab.com are already known.
 	SSHHosts []string `mapstructure:"ssh_hosts"`
 }

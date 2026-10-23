@@ -63,8 +63,8 @@ type OrchestratorUsage struct {
 	// before it gets there. Lower costs less per turn and forgets more. 0 leaves the agent CLI's
 	// own default, and a value the CLI will not take is moved to the nearest one it will.
 	AutoCompaction int `mapstructure:"auto_compaction"`
-	// The number of live tasks one orchestrator may have started at once. 0 sets no limit of its own,
-	// leaving max_agents as the cap.
+	// The number of live tasks one orchestrator may have started at once. 0 leaves max_agents as the only
+	// cap.
 	MaxTasks int `mapstructure:"max_tasks"`
 }
 
