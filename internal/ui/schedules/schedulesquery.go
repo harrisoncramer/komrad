@@ -12,12 +12,12 @@ import (
 
 var grammar = list.Grammar{Syntax: searchsyntax.Schedules, Check: checkClause}
 
-// QueryGrammar is the grammar the filter reads a query to the schedules in.
+// QueryGrammar is the qualifiers the filter reads over the schedules.
 func (w *Screen) QueryGrammar() (list.Grammar, bool) {
 	return grammar, true
 }
 
-// QueryGrammar is the grammar the filter reads a query to the archived schedules in.
+// QueryGrammar is the qualifiers the filter reads over the archived schedules.
 func (a Archive) QueryGrammar() (list.Grammar, bool) {
 	return grammar, true
 }
