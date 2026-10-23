@@ -79,7 +79,7 @@ func (m *model) screenListView(params list.Params) string {
 		Palette: paint.Panel,
 		Width:   pane,
 		Lines:   lines,
-		Mark:    m.rowMarker(zoneList, snapshot.Rows, pane),
+		Mark:    m.rowMarker(zone.List, snapshot.Rows, pane),
 	})
 
 	return headedBlockView(header, window, lines, below)

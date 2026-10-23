@@ -19,6 +19,12 @@ type Name string
 // Search names the search line over a list or a block.
 const Search Name = "search"
 
+// List names the list a screen draws, or the pane standing in for it.
+const List Name = "list"
+
+// Block names the block beside the list that the picker can land on.
+const Block Name = "block"
+
 // Diff names the rows of a diff pane, each keyed by the diff row it renders.
 const Diff Name = "diff"
 
@@ -76,6 +82,15 @@ func MarkBlock(name Name, block string, width int) string {
 // the rows sharing that key.
 func MarkKey(name Name, width, nth int, key string) string {
 	return mark(rowTag, string(name), strconv.Itoa(width), strconv.Itoa(nth), hex.EncodeToString([]byte(key)))
+}
+
+// MarkSpan opens a span with the mark naming its key, and leaves a span with no key bare.
+func MarkSpan(name Name, key, span string) string {
+	if key == "" {
+		return span
+	}
+
+	return MarkKey(name, lipgloss.Width(span), 0, key) + span
 }
 
 // StripKeys takes the row marks out of a frame.

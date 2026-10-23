@@ -12,10 +12,8 @@ import (
 )
 
 const (
-	zoneList       zone.Name = "list"
 	zoneColumn     zone.Name = "column"
 	zoneDetails    zone.Name = "details"
-	zoneBlock      zone.Name = "block"
 	zoneSide       zone.Name = "side"
 	zoneViews      zone.Name = "views"
 	zoneKinds      zone.Name = "kinds"
@@ -72,11 +70,11 @@ func (m *model) findSidebarBlocks() []sidebarBlock {
 		list.Width = column.Left - dividerCols
 	}
 
-	if marked, ok := zones[zoneList]; ok {
+	if marked, ok := zones[zone.List]; ok {
 		list = marked
 	}
 
-	block, hasBlock := zones[zoneBlock]
+	block, hasBlock := zones[zone.Block]
 	if !hasBlock {
 		block, hasBlock = column, hasColumn
 	}
@@ -140,16 +138,8 @@ func (m *model) spanMarker(name zone.Name, keys []string) func(int, string) stri
 	}
 
 	return func(index int, span string) string {
-		return markKeyedSpan(name, keys[index], span)
+		return zone.MarkSpan(name, keys[index], span)
 	}
-}
-
-func markKeyedSpan(name zone.Name, key, span string) string {
-	if key == "" {
-		return span
-	}
-
-	return zone.MarkKey(name, lipgloss.Width(span), 0, key) + span
 }
 
 func (m *model) markSpan(name zone.Name, key, span string) string {

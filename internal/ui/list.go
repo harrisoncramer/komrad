@@ -102,5 +102,5 @@ func (m *model) listClicker(l keys.KeyedList) clicker {
 func (m *model) isHoveredHit(hit zone.Hit) bool {
 	lister, ok := m.active().(activeLister)
 
-	return ok && hit.Zone == zoneList && hit.Key == lister.ActiveList().Hovered(m.inputs())
+	return ok && hit.Zone == zone.List && hit.Key == lister.ActiveList().Hovered(m.inputs())
 }

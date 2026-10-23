@@ -52,7 +52,7 @@ func (r reviewScreen) filesView(in screen.Inputs, lines int) string {
 
 	if in.Room.Marks {
 		for at, row := range rows {
-			rows[at] = markKeyedSpan(zoneFiles, keys[at], row)
+			rows[at] = zone.MarkSpan(zoneFiles, keys[at], row)
 		}
 	}
 

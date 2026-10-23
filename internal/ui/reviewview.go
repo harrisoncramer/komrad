@@ -58,7 +58,7 @@ func (r reviewScreen) View(in screen.Inputs, chrome screen.Chrome) string {
 	band := r.bandView(in)
 	diff := band + r.diffView(in, split)
 	if in.Room.Marks {
-		diff = zone.MarkBlock(zoneList, diff, split.Column)
+		diff = zone.MarkBlock(zone.List, diff, split.Column)
 	}
 
 	return r.overlayThread(in, chrome, chrome.Join(split, r.sidebarView(in, chrome), diff))
@@ -70,7 +70,7 @@ func (r reviewScreen) sidebarView(in screen.Inputs, chrome screen.Chrome) string
 	layout := r.layoutSidebar(in, chrome)
 	block := layout.block()
 	if in.Room.Marks {
-		block = zone.MarkBlock(zoneBlock, block, lineWidthOf(in.Room.Width))
+		block = zone.MarkBlock(zone.Block, block, lineWidthOf(in.Room.Width))
 	}
 
 	return strings.TrimRight(r.renderSidebar(layout, block), "\n")
