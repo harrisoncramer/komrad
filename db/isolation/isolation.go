@@ -1,5 +1,3 @@
-// Package isolation scopes every engine table to the engine writing it, deriving the policy,
-// trigger and grants from the schema rather than from each migration.
 package isolation
 
 import (

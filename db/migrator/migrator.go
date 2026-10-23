@@ -1,12 +1,3 @@
-// Package migrator applies the Atlas migrations and trigger units db embeds, so a deployment can
-// bring its own schema up to date by running the binary rather than by having
-// the atlas CLI on the box.
-//
-// It does this by acquiring an advisory lock (so that two migrations cannot run migrations at
-// the same time) and running them each, in sequential order, against the database.
-//
-// The triggers ride alongside them as one versioned file per table, which a pass
-// reapplies whenever the file's version moves past the one the database recorded.
 package migrator
 
 import (

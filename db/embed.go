@@ -1,5 +1,3 @@
-// Package db embeds the Atlas migrations and trigger units, and holds the helpers every pool
-// shares.
 package db
 
 import "embed"

@@ -1,7 +1,3 @@
-// Package config loads the user's customization from one or more TOML files via viper,
-// merged in order so a later file wins. It covers which CLI agents run and the flags it
-// takes, the tags an agent can be given, the panel keybindings, and which database, address
-// and tmux server this komrad is.
 package config
 
 import (
