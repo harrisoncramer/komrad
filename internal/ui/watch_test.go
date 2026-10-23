@@ -25,14 +25,14 @@ func TestWatch(t *testing.T) {
 		harness := paneltest.OpenAgents(t,
 			paneltest.Workflow("w1", "api"),
 			paneltest.Workflow("w2", "web"),
-			newAgentAt("older", "w1", 1),
+			paneltest.AgentAt("older", "w1", 1),
 		)
 		require.Equal(t, []string{"api", "└─ older", "web"}, paneltest.ListRows(harness.Frame()))
 
 		harness.Watch(paneltest.Snapshot(
 			paneltest.Workflow("w1", "api"),
-			newAgentAt("two", "w1", 3),
-			newAgentAt("older", "w1", 1),
+			paneltest.AgentAt("two", "w1", 3),
+			paneltest.AgentAt("older", "w1", 1),
 		))
 
 		assert.Equal(t, []string{"api", "├─ two", "└─ older"}, paneltest.ListRows(harness.Frame()))
@@ -65,16 +65,16 @@ func TestWatch(t *testing.T) {
 
 		harness := paneltest.OpenAgents(t,
 			paneltest.Workflow("w1", "api"),
-			newAgentAt("one", "w1", 1),
-			newAgentAt("two", "w1", 2),
+			paneltest.AgentAt("one", "w1", 1),
+			paneltest.AgentAt("two", "w1", 2),
 		)
 		harness.Press("j")
 		require.Equal(t, "└─ one", paneltest.HoveredRow(harness.Frame()))
 
-		renamed := newAgentAt("one", "w1", 1)
+		renamed := paneltest.AgentAt("one", "w1", 1)
 		renamed.Name = "renamed"
 		harness.Watch(
-			paneltest.Puts(renamed, newAgentAt("three", "w1", 3), paneltest.Workflow("w0", "aaa")),
+			paneltest.Puts(renamed, paneltest.AgentAt("three", "w1", 3), paneltest.Workflow("w0", "aaa")),
 			paneltest.Deleted(watchv1.Resource_RESOURCE_AGENT, "two"),
 		)
 
@@ -123,8 +123,8 @@ func TestWatch(t *testing.T) {
 		expired.ExpiresAt = timestamppb.New(time.Now().Add(-time.Hour).UTC())
 		harness := paneltest.OpenAgents(t,
 			paneltest.Workflow("w1", "api"),
-			newAgentAt("waiting", "w1", 2),
-			newAgentAt("expired", "w1", 1),
+			paneltest.AgentAt("waiting", "w1", 2),
+			paneltest.AgentAt("expired", "w1", 1),
 			newUnreadMail("waiting"),
 			expired,
 		)

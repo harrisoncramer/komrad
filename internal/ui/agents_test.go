@@ -34,7 +34,7 @@ import (
 
 // TestAgentsRows covers which rows the agents tree renders and where.
 func TestAgentsRows(t *testing.T) {
-	archivedWriter := newArchivedAgent("writer", "writer", "w1")
+	archivedWriter := paneltest.ArchivedAgent("writer", "writer", "w1")
 
 	tests := []struct {
 		name string
@@ -54,9 +54,9 @@ func TestAgentsRows(t *testing.T) {
 			name: "an archived agent and workflow are left to the archive",
 			rows: []proto.Message{
 				paneltest.Workflow("w1", "backend"),
-				newArchivedWorkflow("w2", "old"),
+				paneltest.ArchivedWorkflow("w2", "old"),
 				paneltest.Agent("a1", "auth", "w1"),
-				newArchivedAgent("a2", "done", "w1"),
+				paneltest.ArchivedAgent("a2", "done", "w1"),
 			},
 			want: []string{"backend", "└─ auth"},
 		},
@@ -84,7 +84,7 @@ func TestAgentsRows(t *testing.T) {
 			name: "a reviewer whose writer is archived stays under its task",
 			rows: []proto.Message{
 				paneltest.Workflow("w1", "komrad"),
-				newAgentAt("fix-gutter", "w1", 2),
+				paneltest.AgentAt("fix-gutter", "w1", 2),
 				archivedWriter,
 				paneltest.TaskOf(archivedWriter),
 				paneltest.Reviewer("a3", "reviewer", "writer"),
@@ -386,8 +386,8 @@ func TestAgentsResume(t *testing.T) {
 		t.Parallel()
 
 		other := paneltest.Agent("a2", "other", "w1")
-		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), newDormant("old"), other)
-		answerResume(harness)
+		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), paneltest.Dormant("old"), other)
+		harness.AnswerResume()
 		harness.Hold(agentv1connect.AgentServiceResumeAgentProcedure)
 
 		harness.Press("j", "j")
@@ -404,8 +404,8 @@ func TestAgentsResume(t *testing.T) {
 	t.Run("the open key again over an agent still resuming sends nothing", func(t *testing.T) {
 		t.Parallel()
 
-		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), newDormant("old"))
-		answerResume(harness)
+		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), paneltest.Dormant("old"))
+		harness.AnswerResume()
 		harness.Hold(agentv1connect.AgentServiceResumeAgentProcedure)
 
 		harness.Press("j", "enter", "enter")
@@ -417,40 +417,40 @@ func TestAgentsResume(t *testing.T) {
 	t.Run("a resume says the agent is back up only once its pane decides its state", func(t *testing.T) {
 		t.Parallel()
 
-		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), newDormant("old"))
-		answerResume(harness)
+		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), paneltest.Dormant("old"))
+		harness.AnswerResume()
 
 		harness.Press("j", "enter")
 		require.NotContains(t, harness.ReadMessages(), "old is back up", "the write landing says nothing yet")
 
-		settingUp := newRunning()
+		settingUp := paneltest.Running()
 		settingUp.State = agentv1.AgentState_AGENT_STATE_SETTING_UP
 		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "api"), settingUp))
 		require.NotContains(t, harness.ReadMessages(), "old is back up", "a CLI still starting is not back up")
 		require.Contains(t, harness.Frame(), "Its CLI is coming up in a new pane.")
 
-		settledBeforeAlive := newRunning()
+		settledBeforeAlive := paneltest.Running()
 		settledBeforeAlive.Alive = xptr.Ptr(false)
 		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "api"), settledBeforeAlive))
 		require.NotContains(t, harness.ReadMessages(), "old is back up", "an idle row not yet alive is not back up")
 
-		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "api"), newRunning()))
+		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "api"), paneltest.Running()))
 		assert.Contains(t, harness.ReadMessages(), "old is back up")
 	})
 
 	t.Run("a resume whose pane went before its CLI came up is never said to be back up", func(t *testing.T) {
 		t.Parallel()
 
-		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), newDormant("old"))
-		answerResume(harness)
+		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), paneltest.Dormant("old"))
+		harness.AnswerResume()
 
 		harness.Press("j", "enter")
 
-		settingUp := newRunning()
+		settingUp := paneltest.Running()
 		settingUp.State = agentv1.AgentState_AGENT_STATE_SETTING_UP
 		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "api"), settingUp))
-		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "api"), newDormant("old")))
-		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "api"), newRunning()))
+		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "api"), paneltest.Dormant("old")))
+		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "api"), paneltest.Running()))
 
 		assert.NotContains(t, harness.ReadMessages(), "old is back up")
 	})
@@ -458,13 +458,13 @@ func TestAgentsResume(t *testing.T) {
 	t.Run("a refused resume never says the agent is back up", func(t *testing.T) {
 		t.Parallel()
 
-		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), newDormant("old"))
+		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), paneltest.Dormant("old"))
 		harness.Answer(agentv1connect.AgentServiceResumeAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("held"))
 		})
 
 		harness.Press("j", "enter")
-		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "api"), newRunning()))
+		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "api"), paneltest.Running()))
 
 		assert.NotContains(t, harness.ReadMessages(), "old is back up")
 	})
@@ -490,8 +490,8 @@ func TestAgentsCursorAcrossListings(t *testing.T) {
 			press: []string{"j"},
 			next: []proto.Message{
 				paneltest.Workflow("w1", "backend"),
-				newAgentAt("api", "w1", 3),
-				newAgentAt("auth", "w1", 2),
+				paneltest.AgentAt("api", "w1", 3),
+				paneltest.AgentAt("auth", "w1", 2),
 			},
 			want: "├─ api",
 		},
@@ -499,7 +499,7 @@ func TestAgentsCursorAcrossListings(t *testing.T) {
 			name:  "an agent created elsewhere lands where the listing put it",
 			press: []string{"j"},
 			next: append(slices.Clone(rows),
-				newAgentAt("new", "w1", 9),
+				paneltest.AgentAt("new", "w1", 9),
 			),
 			want: "├─ api",
 		},
@@ -508,7 +508,7 @@ func TestAgentsCursorAcrossListings(t *testing.T) {
 			press: []string{"G", "k"},
 			next: []proto.Message{
 				paneltest.Workflow("w2", "frontend"),
-				newAgentAt("ui", "w2", 0),
+				paneltest.AgentAt("ui", "w2", 0),
 			},
 			want: "frontend",
 		},
@@ -517,7 +517,7 @@ func TestAgentsCursorAcrossListings(t *testing.T) {
 			press: []string{"G"},
 			next: append(slices.Clone(rows),
 				paneltest.Workflow("w0", "api"),
-				newAgentAt("spike", "w0", 4),
+				paneltest.AgentAt("spike", "w0", 4),
 			),
 			want: "└─ ui",
 		},
@@ -527,9 +527,9 @@ func TestAgentsCursorAcrossListings(t *testing.T) {
 			next: []proto.Message{
 				paneltest.Workflow("w1", "backend"),
 				paneltest.Workflow("w2", "frontend"),
-				newAgentAt("auth", "w1", 3),
-				newAgentAt("api", "w1", 2),
-				newAgentAt("ui", "w2", 0),
+				paneltest.AgentAt("auth", "w1", 3),
+				paneltest.AgentAt("api", "w1", 2),
+				paneltest.AgentAt("ui", "w2", 0),
 			},
 			want: "└─ ui",
 		},
@@ -883,7 +883,7 @@ func TestAgentsRecordHeight(t *testing.T) {
 
 // TestAgentsRecordFocusAndSize covers the record giving up the keys when the pane has no room to render it.
 func TestAgentsRecordFocusAndSize(t *testing.T) {
-	rows := append(buildRecorded(), newAgentAt("billing", "w1", 1))
+	rows := append(buildRecorded(), paneltest.AgentAt("billing", "w1", 1))
 
 	tests := []struct {
 		name   string
@@ -1438,7 +1438,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 // TestAgentsSearchAcrossSections covers one search standing over both the list and the record.
 func TestAgentsSearchAcrossSections(t *testing.T) {
 	t.Run("a filter typed on the list narrows the list alone", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, append(buildRecorded(), newAgentAt("billing", "w1", 1))...)
+		harness := paneltest.OpenAgents(t, append(buildRecorded(), paneltest.AgentAt("billing", "w1", 1))...)
 		harness.Press("j")
 		fields := len(paneltest.Record(harness.Frame()))
 
@@ -1606,14 +1606,14 @@ func TestAgentsLastScreen(t *testing.T) {
 	}{
 		{
 			name:          "a dormant agent renders its saved screen under how to resume it",
-			agent:         newDormant("login"),
+			agent:         paneltest.Dormant("login"),
 			want:          []string{"dormant · press enter to restore", "saved screen", "the migration is written"},
 			wantScreenFor: []string{"a1"},
 		},
 		{
 			name: "a failed agent renders its failure and no saved screen",
 			agent: func() *agentv1.Agent {
-				agent := newDormant("login")
+				agent := paneltest.Dormant("login")
 				agent.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
 
 				return agent
@@ -1653,16 +1653,16 @@ func TestAgentsLastScreen(t *testing.T) {
 		harness := paneltest.Start(t, paneltest.Params{})
 		harness.AnswerWorktreeReads()
 		harness.AnswerLastScreens(map[string]string{"a1": "⏺ the migration is written"})
-		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), newDormant("login")))
+		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), paneltest.Dormant("login")))
 		harness.Press("j")
 		harness.Advance(time.Second)
 		require.Contains(t, harness.Frame(), "the migration is written")
 
-		live := newDormant("login")
+		live := paneltest.Dormant("login")
 		live.Alive = xptr.Ptr(true)
 		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), live))
 		harness.AnswerLastScreens(map[string]string{"a1": "⏺ the tests pass"})
-		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), newDormant("login")))
+		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), paneltest.Dormant("login")))
 
 		assert.Contains(t, harness.Frame(), "the tests pass")
 	})
@@ -1673,7 +1673,7 @@ func TestAgentsLastScreen(t *testing.T) {
 		harness.AnswerLastScreens(map[string]string{
 			"a1": "❯ the first ask\n" + strings.Repeat("working through it\n", 60) + "⏺ the migration is written",
 		})
-		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), newDormant("login")))
+		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), paneltest.Dormant("login")))
 		harness.Press("j")
 		harness.Advance(time.Second)
 
@@ -1926,7 +1926,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 	})
 
 	t.Run("a flat list renders no row for the orchestrator it folded away", func(t *testing.T) {
-		telescope := newAgentAt("telescope", "w1", 1)
+		telescope := paneltest.AgentAt("telescope", "w1", 1)
 		harness := paneltest.OpenAgents(t,
 			paneltest.Workflow("w1", "backend"),
 			paneltest.Orchestrator(),
@@ -2230,7 +2230,7 @@ func TestAgentsSelection(t *testing.T) {
 		harness := paneltest.OpenAgents(t, withTasks(buildSelectable())...)
 		harness.Press("v", "G", "v")
 
-		ui := newAgentAt("ui", "w2", 1)
+		ui := paneltest.AgentAt("ui", "w2", 1)
 		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w2", "frontend"), ui, paneltest.TaskOf(ui)))
 		harness.Press("space", "a", "enter")
 
@@ -2264,16 +2264,16 @@ func buildCursorable() []proto.Message {
 	return []proto.Message{
 		paneltest.Workflow("w1", "backend"),
 		paneltest.Workflow("w2", "frontend"),
-		newAgentAt("auth", "w1", 3),
-		newAgentAt("api", "w1", 2),
-		newAgentAt("db", "w1", 1),
-		newAgentAt("ui", "w2", 0),
+		paneltest.AgentAt("auth", "w1", 3),
+		paneltest.AgentAt("api", "w1", 2),
+		paneltest.AgentAt("db", "w1", 1),
+		paneltest.AgentAt("ui", "w2", 0),
 	}
 }
 
 func buildReviewedTasks() []proto.Message {
-	fixGutter := newAgentAt("fix-gutter", "w1", 2)
-	writer := newAgentAt("writer", "w1", 1)
+	fixGutter := paneltest.AgentAt("fix-gutter", "w1", 2)
+	writer := paneltest.AgentAt("writer", "w1", 1)
 	reviewer := paneltest.Reviewer("a3", "reviewer", "writer")
 	secondReviewer := paneltest.Reviewer("a4", "second-reviewer", "writer")
 	secondReviewer.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 12, 9, 0, 0, time.UTC))
@@ -2292,7 +2292,7 @@ func buildReviewedTasks() []proto.Message {
 
 func buildSortable() []proto.Message {
 	newSortable := func(name, workflowID string, created, changed int) *agentv1.Agent {
-		agent := newAgentAt(name, workflowID, created)
+		agent := paneltest.AgentAt(name, workflowID, created)
 		agent.StateChangedAt = timestamppb.New(time.Date(2026, 9, 20, 12, changed, 0, 0, time.UTC))
 
 		return agent
@@ -2346,13 +2346,6 @@ func withTasks(rows []proto.Message) []proto.Message {
 	}
 
 	return placed
-}
-
-func newAgentAt(name, workflowID string, minute int) *agentv1.Agent {
-	agent := paneltest.Agent(name, name, workflowID)
-	agent.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 12, minute, 0, 0, time.UTC))
-
-	return agent
 }
 
 func newAgentOnHiddenTask(id, name string) []proto.Message {
@@ -2459,7 +2452,7 @@ func buildWorktreeReads(count int) []proto.Message {
 }
 
 func buildRecorded() []proto.Message {
-	agent := newAgentAt("auth", "w1", 0)
+	agent := paneltest.AgentAt("auth", "w1", 0)
 	agent.Id = "a1"
 	agent.Cwd = "/repo"
 	agent.SessionId = "abc"
@@ -2535,10 +2528,10 @@ func buildSelectable() []proto.Message {
 	return slices.Concat([]proto.Message{
 		paneltest.Workflow("w1", "backend"),
 		paneltest.Workflow("w2", "frontend"),
-		newAgentAt("auth", "w1", 5),
-		newAgentAt("api", "w1", 4),
-		newAgentAt("db", "w1", 3),
-		newAgentAt("ui", "w2", 1),
+		paneltest.AgentAt("auth", "w1", 5),
+		paneltest.AgentAt("api", "w1", 4),
+		paneltest.AgentAt("db", "w1", 3),
+		paneltest.AgentAt("ui", "w2", 1),
 	}, newAgentOnHiddenTask("sweep", "sweep"))
 }
 

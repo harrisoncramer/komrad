@@ -66,7 +66,7 @@ func TestTriageRows(t *testing.T) {
 			capacity: 3,
 			rows: append(withTasks([]proto.Message{
 				paneltest.Workflow("w1", "backend"),
-				newAgentAt("quiet", "w1", 1),
+				paneltest.AgentAt("quiet", "w1", 1),
 				newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
 			}),
 				paneltest.Reviewer("reviewer", "reviewer", "asker"),
@@ -156,7 +156,7 @@ func TestTriageJump(t *testing.T) {
 	}{
 		{
 			name:  "with nothing in triage the key says so and stays in the tree",
-			rows:  []proto.Message{paneltest.Workflow("w1", "backend"), newAgentAt("└─ quiet", "w1", 1)},
+			rows:  []proto.Message{paneltest.Workflow("w1", "backend"), paneltest.AgentAt("└─ quiet", "w1", 1)},
 			press: []string{"t"},
 			want:  "└─ └─ quiet",
 			note:  "nothing to triage",
@@ -208,7 +208,7 @@ func TestTriageSnooze(t *testing.T) {
 			capacity: 3,
 			rows:     buildTriageTask(),
 			press:    []string{"t", "space", "z"},
-			relisted: []proto.Message{paneltest.Workflow("w1", "backend"), newAgentAt("quiet", "w1", 1), buildTriageTask()[5]},
+			relisted: []proto.Message{paneltest.Workflow("w1", "backend"), paneltest.AgentAt("quiet", "w1", 1), buildTriageTask()[5]},
 			then:     buildTriageTask(),
 			want:     []string{"writer backend", "└ " + reviewerMark + "reviewer", "third", "backend", "├─ third", "├─ task-writer", "│ └─ " + reviewerMark + "reviewer", "└─ quiet"},
 		},
@@ -273,7 +273,7 @@ func TestTriageSnooze(t *testing.T) {
 			capacity: 3,
 			rows: []proto.Message{
 				paneltest.Workflow("w1", "backend"),
-				newAgentAt("quiet", "w1", 1),
+				paneltest.AgentAt("quiet", "w1", 1),
 				func() *agentv1.Agent {
 					orchestrator := paneltest.Orchestrator()
 					orchestrator.State = agentv1.AgentState_AGENT_STATE_WAITING
@@ -436,7 +436,7 @@ func TestTriageFreeze(t *testing.T) {
 			capacity: 3,
 			rows:     append(buildTriageTask()[:5], newTriageAgent("early", agentv1.AgentState_AGENT_STATE_WAITING, 1)),
 			press:    []string{"j"},
-			then:     []proto.Message{paneltest.Workflow("w1", "backend"), newAgentAt("quiet", "w1", 1), newTriageAgent("early", agentv1.AgentState_AGENT_STATE_WAITING, 1)},
+			then:     []proto.Message{paneltest.Workflow("w1", "backend"), paneltest.AgentAt("quiet", "w1", 1), newTriageAgent("early", agentv1.AgentState_AGENT_STATE_WAITING, 1)},
 			want:     []string{"early", "backend", "├─ quiet", "└─ early"},
 			hovered:  "early",
 		},
@@ -559,7 +559,7 @@ func TestTriageCopies(t *testing.T) {
 	t.Run("a zone row acts through its task's writer", func(t *testing.T) {
 		writer := newTriageAgent("writer", agentv1.AgentState_AGENT_STATE_WAITING, 3)
 		task := paneltest.TaskOf(writer)
-		sweeper := newAgentAt("sweeper", "w1", 9)
+		sweeper := paneltest.AgentAt("sweeper", "w1", 9)
 		sweeper.PaneId = "%5"
 		sweeper.Alive = xptr.Ptr(true)
 		sweeper.TaskId = writer.TaskId
@@ -587,7 +587,7 @@ func openTriage(t *testing.T, capacity int, rows ...proto.Message) *paneltest.Pa
 func buildTriage() []proto.Message {
 	return []proto.Message{
 		paneltest.Workflow("w1", "backend"),
-		newAgentAt("quiet", "w1", 1),
+		paneltest.AgentAt("quiet", "w1", 1),
 		newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
 		newTriageAgent("broken", agentv1.AgentState_AGENT_STATE_ERRORED, 2),
 		newTriageAgent("third", agentv1.AgentState_AGENT_STATE_WAITING, 4),
@@ -595,7 +595,7 @@ func buildTriage() []proto.Message {
 }
 
 func newTriageAgent(name string, state agentv1.AgentState, minute int) *agentv1.Agent {
-	agent := newAgentAt(name, "w1", minute)
+	agent := paneltest.AgentAt(name, "w1", minute)
 	agent.State = state
 	agent.Alive = xptr.Ptr(true)
 	agent.StateChangedAt = timestamppb.New(time.Date(2026, 9, 20, 13, minute, 0, 0, time.UTC))
@@ -616,7 +616,7 @@ func readTriageList(frame string) []string {
 func buildFinished() []proto.Message {
 	return []proto.Message{
 		paneltest.Workflow("w1", "backend"),
-		newAgentAt("quiet", "w1", 1),
+		paneltest.AgentAt("quiet", "w1", 1),
 		newTriageAgent("asker", agentv1.AgentState_AGENT_STATE_WAITING, 3),
 		newFinishedAgent("done", 5),
 		newFinishedAgent("later", 6),
@@ -642,7 +642,7 @@ func buildTriageTask() []proto.Message {
 
 	return []proto.Message{
 		paneltest.Workflow("w1", "backend"),
-		newAgentAt("quiet", "w1", 1),
+		paneltest.AgentAt("quiet", "w1", 1),
 		writer,
 		reviewer,
 		writerTask,

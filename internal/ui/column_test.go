@@ -25,7 +25,7 @@ func TestWheelScrollsTheHalfUnderTheMouse(t *testing.T) {
 			open: func(t *testing.T) *paneltest.Panel {
 				t.Helper()
 
-				harness := paneltest.OpenAgents(t, withLongContext(paneltest.Workflow("w1", "backend")), newAgentAt("auth", "w1", 0))
+				harness := paneltest.OpenAgents(t, withLongContext(paneltest.Workflow("w1", "backend")), paneltest.AgentAt("auth", "w1", 0))
 				harness.Press("k")
 
 				return harness
@@ -36,9 +36,9 @@ func TestWheelScrollsTheHalfUnderTheMouse(t *testing.T) {
 			open: func(t *testing.T) *paneltest.Panel {
 				t.Helper()
 
-				return openArchivedAgents(t,
-					withLongContext(newArchivedWorkflow("w1", "backend")), newArchivedAgent("a1", "auth", "w1"),
-					withLongContext(newArchivedWorkflow("w2", "billing")), newArchivedAgent("a2", "ledger", "w2"),
+				return paneltest.OpenArchivedAgents(t,
+					withLongContext(paneltest.ArchivedWorkflow("w1", "backend")), paneltest.ArchivedAgent("a1", "auth", "w1"),
+					withLongContext(paneltest.ArchivedWorkflow("w2", "billing")), paneltest.ArchivedAgent("a2", "ledger", "w2"),
 				)
 			},
 		},

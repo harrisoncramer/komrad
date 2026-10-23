@@ -238,13 +238,13 @@ func buildWorktreeRows() []proto.Message {
 	archived := paneltest.Agent("archived", "reviewer", "w1")
 	archived.Cwd = "/trees/archived"
 	archived.Role = agentv1.AgentRole_AGENT_ROLE_WRITER
-	archived.ArchivedAt = archivedAt
+	archived.ArchivedAt = paneltest.ArchivedAt
 	archived.TaskId = xptr.Ptr("archived")
 
 	admin := paneltest.Agent("admin", "cargo-fix", "w1")
 	admin.Cwd = "/trees/admin"
 	admin.Role = agentv1.AgentRole_AGENT_ROLE_WRITER
-	admin.ArchivedAt = archivedAt
+	admin.ArchivedAt = paneltest.ArchivedAt
 	admin.TaskId = xptr.Ptr("admin")
 
 	return []proto.Message{
@@ -254,8 +254,8 @@ func buildWorktreeRows() []proto.Message {
 		archived,
 		admin,
 		&taskv1.Task{Id: "live", WorkflowId: "w1", Slug: "treeview", Cwd: xptr.Ptr("/trees/live")},
-		&taskv1.Task{Id: "archived", WorkflowId: "w1", Slug: "reviewer", Cwd: xptr.Ptr("/trees/archived"), ArchivedAt: archivedAt},
-		&taskv1.Task{Id: "admin", WorkflowId: "w1", Slug: "cargo-fix", Cwd: xptr.Ptr("/trees/admin"), ArchivedAt: archivedAt},
+		&taskv1.Task{Id: "archived", WorkflowId: "w1", Slug: "reviewer", Cwd: xptr.Ptr("/trees/archived"), ArchivedAt: paneltest.ArchivedAt},
+		&taskv1.Task{Id: "admin", WorkflowId: "w1", Slug: "cargo-fix", Cwd: xptr.Ptr("/trees/admin"), ArchivedAt: paneltest.ArchivedAt},
 		&worktreev1.WatchedWorktree{Dir: "/trees/live", RepoDir: "/home/h/komrad", Branch: "task/live", Readable: true},
 		&worktreev1.WatchedWorktree{Dir: "/trees/archived", RepoDir: "/home/h/komrad", Branch: "task/archived", Readable: true},
 		&worktreev1.WatchedWorktree{Dir: "/trees/admin", RepoDir: "/home/h/gadgets/admin", Branch: "task/admin", Readable: true},

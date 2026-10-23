@@ -58,7 +58,7 @@ func TestScreensStage(t *testing.T) {
 
 		harness := paneltest.Start(t, paneltest.Params{Width: 200})
 		harness.AnswerWorktreeReads()
-		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), newDormant("auth")))
+		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), paneltest.Dormant("auth")))
 
 		harness.Press("j")
 		harness.Advance(time.Second)
@@ -90,7 +90,7 @@ func TestScreensStage(t *testing.T) {
 		assert.NotContains(t, frame, "always run the linter", "the frame is told what tmux did rather than assuming")
 		assert.Equal(t, 199, measureListRule(frame), "so the list is rendered in the whole of the pane")
 
-		harness.Watch(paneltest.Snapshot(newNotedWorkflow(), newRunning()))
+		harness.Watch(paneltest.Snapshot(newNotedWorkflow(), paneltest.Running()))
 
 		assert.False(t, harness.Tmux().IsZoomed(), "a listing does not zoom the panel over the pane the keys are on")
 
@@ -128,7 +128,7 @@ func TestScreensStage(t *testing.T) {
 
 		harness := paneltest.Start(t, paneltest.Params{Width: 200, Engine: engine.Remote{URL: "https://komrad.example.com"}})
 		harness.AnswerWorktreeReads()
-		harness.Watch(paneltest.Snapshot(newNotedWorkflow(), newRunning()))
+		harness.Watch(paneltest.Snapshot(newNotedWorkflow(), paneltest.Running()))
 		harness.Press("j")
 		harness.Advance(time.Second)
 
@@ -146,7 +146,7 @@ func TestScreensStage(t *testing.T) {
 			TerminalCommand: []string{"komrad", "terminal"},
 		})
 		harness.AnswerWorktreeReads()
-		harness.Watch(paneltest.Snapshot(newNotedWorkflow(), newRunning()))
+		harness.Watch(paneltest.Snapshot(newNotedWorkflow(), paneltest.Running()))
 		harness.Press("j")
 		harness.Advance(time.Second)
 
@@ -389,7 +389,7 @@ func openStaged(t *testing.T, press ...string) *paneltest.Panel {
 
 	harness := paneltest.Start(t, paneltest.Params{Width: 200})
 	harness.AnswerWorktreeReads()
-	harness.Watch(paneltest.Snapshot(newNotedWorkflow(), newRunning()))
+	harness.Watch(paneltest.Snapshot(newNotedWorkflow(), paneltest.Running()))
 	harness.Press(press...)
 	harness.Advance(time.Second)
 
@@ -442,7 +442,7 @@ func buildCrowdedSnapshot(long string) *watchv1.WatchEvent {
 
 		agent := paneltest.Agent("a"+name, name, "w1")
 		agent.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 12, crowdedCount-i, 0, 0, time.UTC))
-		archived := newArchivedAgent("r"+name, name, "w1")
+		archived := paneltest.ArchivedAgent("r"+name, name, "w1")
 		archived.ArchivedAt = timestamppb.New(time.Date(2026, 7, 30, 9, crowdedCount-i, 0, 0, time.UTC))
 		schedule := newNamedSchedule("s"+name, name)
 		schedule.Cron = ""

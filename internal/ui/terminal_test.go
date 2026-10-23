@@ -151,7 +151,7 @@ func TestTerminal(t *testing.T) {
 		agent := newShellAgent("a1", t.TempDir())
 		agent.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
 		task := paneltest.TaskOf(agent)
-		task.Cwd, task.ArchivedAt = xptr.Ptr(dir), archivedAt
+		task.Cwd, task.ArchivedAt = xptr.Ptr(dir), paneltest.ArchivedAt
 		harness := paneltest.Start(t, paneltest.Params{})
 		harness.AnswerWorktreeReads()
 		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), agent, task))
@@ -264,7 +264,7 @@ func newStagedShellAgent(dir string) *agentv1.Agent {
 }
 
 func newShellAgent(id, dir string) *agentv1.Agent {
-	agent := newAgentAt(id, "w1", 0)
+	agent := paneltest.AgentAt(id, "w1", 0)
 	agent.Cwd = dir
 
 	return agent

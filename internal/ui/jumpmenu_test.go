@@ -116,7 +116,7 @@ func TestDocumentsJump(t *testing.T) {
 		{
 			name: "the jump menu lands on a deleted task among the deleted agents",
 			open: func(t *testing.T) *paneltest.Panel {
-				author := newArchivedAgent("author", "author", "w1")
+				author := paneltest.ArchivedAgent("author", "author", "w1")
 				author.Documents = 2
 				author.DocumentsUpdatedAt = timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
 				harness := paneltest.Start(t, paneltest.Params{})

@@ -394,10 +394,10 @@ func TestFilterSays(t *testing.T) {
 			{
 				name: "on the archived agents",
 				open: func(t *testing.T) *paneltest.Panel {
-					return openArchivedAgents(t,
+					return paneltest.OpenArchivedAgents(t,
 						paneltest.Workflow("w1", "backend"),
-						newArchivedAgent("a1", "api-refactor", "w1"),
-						newArchivedAgent("a2", "db-migrate", "w1"),
+						paneltest.ArchivedAgent("a1", "api-refactor", "w1"),
+						paneltest.ArchivedAgent("a2", "db-migrate", "w1"),
 					)
 				},
 				found:       "a2",
@@ -482,7 +482,7 @@ func TestFilterSays(t *testing.T) {
 		}
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				live := newAgentAt("db", "w1", 3)
+				live := paneltest.AgentAt("db", "w1", 3)
 				live.PaneId = "%9"
 				live.Alive = xptr.Ptr(true)
 				harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "backend"), live)
@@ -537,7 +537,7 @@ func TestFilterSays(t *testing.T) {
 // TestFilterScreens covers every list screen answering the same search and filter keys.
 func TestFilterScreens(t *testing.T) {
 	t.Run("the archive walks its matches and clears back to where it opened", func(t *testing.T) {
-		harness := openArchivedAgents(t,
+		harness := paneltest.OpenArchivedAgents(t,
 			paneltest.Workflow("w1", "backend"),
 			newArchivedAgentAt("api-refactor", time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC)),
 			newArchivedAgentAt("auth-fix", time.Date(2026, 7, 30, 8, 0, 0, 0, time.UTC)),
@@ -632,14 +632,14 @@ func TestFilterScreens(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			archivedSchedule := newNamedSchedule("s2", "monthly-gone")
-			archivedSchedule.ArchivedAt = archivedAt
+			archivedSchedule.ArchivedAt = paneltest.ArchivedAt
 
 			harness := paneltest.Start(t, paneltest.Params{})
 			harness.AnswerWorktreeReads()
 			harness.Watch(paneltest.Snapshot(
 				paneltest.Workflow("w1", "backend"),
 				paneltest.Agent("a1", "auth", "w1"),
-				newArchivedAgent("a2", "old", "w1"),
+				paneltest.ArchivedAgent("a2", "old", "w1"),
 				newNamedSchedule("s1", "nightly"),
 				archivedSchedule,
 				&worktreev1.WatchedWorktree{
@@ -673,7 +673,7 @@ func TestFilterWorktreeHeader(t *testing.T) {
 			Readable:   true,
 			SizeBytes:  xptr.Ptr[int64](1 << 20),
 			ShareBytes: xptr.Ptr[int64](1 << 20),
-			MeasuredAt: archivedAt,
+			MeasuredAt: paneltest.ArchivedAt,
 		},
 		&worktreev1.WatchedWorktree{
 			Dir:        "/trees/other",
@@ -682,7 +682,7 @@ func TestFilterWorktreeHeader(t *testing.T) {
 			Readable:   true,
 			SizeBytes:  xptr.Ptr[int64](1 << 20),
 			ShareBytes: xptr.Ptr[int64](1 << 20),
-			MeasuredAt: archivedAt,
+			MeasuredAt: paneltest.ArchivedAt,
 		},
 	))
 	harness.Press("shift+tab", "esc", "f", "shift+tab", "j", "esc", "k")
@@ -702,15 +702,15 @@ var filterableRows = []string{"backend", "├─ task-auth", "│  └─ " + re
 func openFilterable(t *testing.T, from string) *paneltest.Panel {
 	t.Helper()
 
-	auth := newAgentAt("auth", "w1", 5)
+	auth := paneltest.AgentAt("auth", "w1", 5)
 	harness := paneltest.OpenAgents(t,
 		paneltest.Workflow("w1", "backend"),
 		paneltest.Workflow("w2", "frontend"),
 		auth,
 		paneltest.TaskOf(auth),
 		paneltest.Reviewer("api", "api", "auth"),
-		newAgentAt("db", "w1", 3),
-		newAgentAt("ui", "w2", 1),
+		paneltest.AgentAt("db", "w1", 3),
+		paneltest.AgentAt("ui", "w2", 1),
 	)
 
 	harness.Press("g", "g")

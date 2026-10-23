@@ -222,8 +222,8 @@ func TestSubpagesInArchive(t *testing.T) {
 	t.Run("an archived agent on a live task has no git, since the checkout is not its own", func(t *testing.T) {
 		t.Parallel()
 
-		author := newArchivedAgent("author", "author", "w1")
-		harness := openArchivedAgents(t, paneltest.Workflow("w1", "komrad"), author, paneltest.TaskOf(author))
+		author := paneltest.ArchivedAgent("author", "author", "w1")
+		harness := paneltest.OpenArchivedAgents(t, paneltest.Workflow("w1", "komrad"), author, paneltest.TaskOf(author))
 		harness.Press("j", "j", "space")
 		require.Contains(t, harness.Frame(), "  author")
 
@@ -351,13 +351,13 @@ func (r *reviewed) snapshot(rows ...proto.Message) *watchv1.WatchEvent {
 func openArchivedSubpages(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
-	author := newArchivedAgent("author", "author", "w1")
+	author := paneltest.ArchivedAgent("author", "author", "w1")
 	author.Documents = 2
 	author.DocumentsUpdatedAt = timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
 	task := paneltest.TaskOf(author)
-	task.ArchivedAt = archivedAt
+	task.ArchivedAt = paneltest.ArchivedAt
 
-	harness := openArchivedAgents(t, paneltest.Workflow("w1", "komrad"), author, task)
+	harness := paneltest.OpenArchivedAgents(t, paneltest.Workflow("w1", "komrad"), author, task)
 	answerDocuments(harness, buildAuthorDocuments())
 	harness.Press("j", "j", "space")
 	require.Contains(t, harness.Frame(), "  author")
