@@ -15,7 +15,7 @@ import (
 // ID names one thing a screen does with a key.
 type ID int
 
-// The actions every screen shares.
+// The actions more than one screen shares.
 const (
 	_ ID = iota
 	Move
@@ -32,6 +32,12 @@ const (
 	SelectToggle
 	selectRange
 	selectClear
+	DiffFile
+	diffMatch
+	diffPan
+	diffPanReset
+	diffWrap
+	diffExpand
 	// Own is where each package starts its own IDs, and two packages' IDs may match because no table mixes them.
 	Own
 )

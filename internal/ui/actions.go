@@ -16,12 +16,6 @@ const (
 	actionDocumentsBack
 	actionDocumentsOlder
 	actionDocumentsNewer
-	actionDiffFile
-	actionDiffMatch
-	actionDiffPan
-	actionDiffPanReset
-	actionDiffWrap
-	actionDiffExpand
 	actionReviewBack
 	actionReviewThread
 	actionReviewOpenThread

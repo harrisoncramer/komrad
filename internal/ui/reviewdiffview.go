@@ -23,6 +23,10 @@ const (
 // reviewNoFileWord is what the tree says when its search matches no file.
 const reviewNoFileWord = "no file matches"
 
+// diffFloor is the narrowest a diff is worth rendering at: the gutter and enough of a line beside
+// it to read.
+const diffFloor = diffview.GutterWidth + 20
+
 // Column is the diff rendered beside the review's own threads, whose row budget is what the
 // band over it leaves.
 func (r *reviewScreen) Column(in screen.Inputs) column.Spec {

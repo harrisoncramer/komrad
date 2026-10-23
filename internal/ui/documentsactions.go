@@ -126,8 +126,8 @@ func (d *documentsScreen) diffActions(in screen.Inputs) keys.Spec[*documentsScre
 	step := d.stepActions(in)
 
 	return keys.Spec[*documentsScreen]{
-		Table:  slices.Concat(step.Table, diffTable[*documentsScreen](diff, in), diffShapeTable[*documentsScreen](diff, in)),
-		Legend: slices.Concat(diffLegend[*documentsScreen](diff, in), step.Legend),
+		Table:  slices.Concat(step.Table, keys.DiffTable[*documentsScreen](diff, in), keys.DiffShapeTable[*documentsScreen](diff, in)),
+		Legend: slices.Concat(keys.DiffLegend[*documentsScreen](diff, in), step.Legend),
 	}
 }
 
@@ -179,18 +179,18 @@ func (d *documentsScreen) stepActions(in screen.Inputs) keys.Spec[*documentsScre
 }
 
 // diffKeys is the diff of the write stepped to under the keys every diff pane shares.
-func (d *documentsScreen) diffKeys() diffKeys {
+func (d *documentsScreen) diffKeys() keys.Diff {
 	h := d.history
 	if h == nil {
 		h = &documentHistory{}
 	}
 
-	return diffKeys{
-		keys:     d.deps.keys,
-		register: d.deps.register,
-		pane:     &h.pane,
-		filter:   &h.filter,
-		window:   d.diffWindow,
+	return keys.Diff{
+		Keys:     d.deps.keys,
+		Register: d.deps.register,
+		Pane:     &h.pane,
+		Filter:   &h.filter,
+		Window:   d.diffWindow,
 	}
 }
 

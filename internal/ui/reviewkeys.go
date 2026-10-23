@@ -35,7 +35,7 @@ func (r *reviewScreen) takeKey(in screen.Inputs, key tea.KeyPressMsg) (screen.Re
 	}
 
 	if r.diff.filter.Typing {
-		return r.diffKeys().updateFilter(in, key), true
+		return r.diffKeys().UpdateFilter(in, key), true
 	}
 
 	k := key.String()
@@ -59,7 +59,7 @@ func (r *reviewScreen) PressPopup(in screen.Inputs, chrome screen.Chrome, presse
 		return nil, false
 	}
 
-	if !keys.IsBound(pressed, slices.Concat(r.deps.keys.Column.ScrollDown, r.deps.keys.Column.ScrollUp)) || !r.scrollPopup(in, chrome, keys.DirectionOf(pressed, r.deps.keys.Column.ScrollUp)*diffWheelStep) {
+	if !keys.IsBound(pressed, slices.Concat(r.deps.keys.Column.ScrollDown, r.deps.keys.Column.ScrollUp)) || !r.scrollPopup(in, chrome, keys.DirectionOf(pressed, r.deps.keys.Column.ScrollUp)*keys.DiffWheelStep) {
 		return nil, false
 	}
 
@@ -70,19 +70,19 @@ func (r *reviewScreen) PressPopup(in screen.Inputs, chrome screen.Chrome, presse
 
 // diffKeys is the review's own diff under the keys every diff pane shares, with the cursor
 // landing on a conversation it has to answer for.
-func (r *reviewScreen) diffKeys() diffKeys {
-	return diffKeys{
-		keys:     r.deps.keys,
-		register: r.deps.register,
-		pane:     &r.diff.Pane,
-		filter:   &r.diff.filter,
-		window:   r.diffWindow,
-		moved: func() screen.Request {
+func (r *reviewScreen) diffKeys() keys.Diff {
+	return keys.Diff{
+		Keys:     r.deps.keys,
+		Register: r.deps.register,
+		Pane:     &r.diff.Pane,
+		Filter:   &r.diff.filter,
+		Window:   r.diffWindow,
+		Moved: func() screen.Request {
 			r.threads.scroll.reset()
 
 			return screen.Settle{}
 		},
-		refuseExpand: r.refuseExpand,
+		RefuseExpand: r.refuseExpand,
 	}
 }
 
@@ -171,7 +171,7 @@ func (d reviewDiff) threadByID(id string) (*agentv1.ReviewThread, bool) {
 }
 
 func (r *reviewScreen) moveCursor(in screen.Inputs, next int) screen.Request {
-	return r.diffKeys().moveTo(in, next)
+	return r.diffKeys().MoveTo(in, next)
 }
 
 func (r *reviewScreen) DoesScrollColumn(screen.Inputs) bool {
@@ -217,7 +217,7 @@ func (r *reviewScreen) ScrollPopupAt(in screen.Inputs, chrome screen.Chrome, at 
 	}
 
 	if !r.isWriting() {
-		r.scrollPopup(in, chrome, rows*diffWheelStep)
+		r.scrollPopup(in, chrome, rows*keys.DiffWheelStep)
 	}
 
 	return true
