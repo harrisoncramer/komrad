@@ -1,4 +1,4 @@
-package ui
+package documents
 
 import (
 	"komrad/internal/ui/form"
@@ -7,47 +7,48 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
-// documentTypeMenu is the actions on the document type under the list's cursor.
-func (d *documentsScreen) documentTypeMenu(t *agentv1.DocumentType) menu.Menu {
+// typeMenu is the actions on the document type under the list's cursor.
+func (d *Screen) typeMenu(t *agentv1.DocumentType) menu.Menu {
 	return menu.Menu{
 		Title: t.GetName(),
 		Entries: []menu.Entry{
 			{
 				Label: "edit",
-				Keys:  d.deps.keys.DocumentTypesMenu.Edit,
+				Keys:  d.deps.Keys.DocumentTypesMenu.Edit,
 				Form:  func() form.Form { return d.editTypeForm(t) },
 			},
 			{
 				Label: "delete",
-				Keys:  d.deps.keys.DocumentTypesMenu.Delete,
-				Form:  func() form.Form { return d.deleteTypeForm(documentTypeItem(t)) },
+				Keys:  d.deps.Keys.DocumentTypesMenu.Delete,
+				Form:  func() form.Form { return d.deleteTypeForm(typeDocument(t)) },
 			},
 		},
 	}
 }
 
-func (d *documentsScreen) BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
-	if d.kind == documentKindTypes {
-		t := d.hoveredDocumentType(in)
+// BuildItemMenu builds the band on the hovered document or type.
+func (d *Screen) BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
+	if d.kind == kindTypes {
+		t := d.hoveredType(in)
 
-		return d.documentTypeMenu(t), t != nil
+		return d.typeMenu(t), t != nil
 	}
 	if d.isDiffFocused(in) {
 		return menu.Menu{}, false
 	}
 
-	return d.documentMenu(in, nest)
+	return d.itemMenu(in, nest)
 }
 
 // BuildScreenMenu builds the documents screen's own band, for writing a new document or type.
-func (d *documentsScreen) BuildScreenMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
-	if d.kind == documentKindTypes {
+func (d *Screen) BuildScreenMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
+	if d.kind == kindTypes {
 		return menu.Menu{
 			Title: "document types",
 			Entries: []menu.Entry{
 				{
 					Label: "new type",
-					Keys:  d.deps.keys.DocumentTypesMenu.New,
+					Keys:  d.deps.Keys.DocumentTypesMenu.New,
 					Form:  d.newTypeForm,
 				},
 			},
@@ -64,7 +65,7 @@ func (d *documentsScreen) BuildScreenMenu(in screen.Inputs, _ menu.Nester) (menu
 		Entries: []menu.Entry{
 			{
 				Label: "new document",
-				Keys:  d.deps.keys.DocumentMenu.New,
+				Keys:  d.deps.Keys.DocumentMenu.New,
 				Off:   d.editing != nil || !named,
 				Pick:  d.pressNew,
 			},
@@ -72,9 +73,9 @@ func (d *documentsScreen) BuildScreenMenu(in screen.Inputs, _ menu.Nester) (menu
 	}, true
 }
 
-// documentMenu is the actions on the hovered document, or on the editor open over the list,
+// itemMenu is the actions on the hovered document, or on the editor open over the list,
 // false for neither.
-func (d *documentsScreen) documentMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
+func (d *Screen) itemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
 	item, hovered := d.hovered(in)
 	if !hovered && d.editing == nil {
 		return menu.Menu{}, false
@@ -90,12 +91,12 @@ func (d *documentsScreen) documentMenu(in screen.Inputs, nest menu.Nester) (menu
 		Entries: []menu.Entry{
 			{
 				Label: d.editLabel(),
-				Keys:  d.deps.keys.DocumentMenu.Edit,
+				Keys:  d.deps.Keys.DocumentMenu.Edit,
 				Pick:  d.pressEdit,
 			},
 			{
 				Label: "rename",
-				Keys:  d.deps.keys.DocumentMenu.Rename,
+				Keys:  d.deps.Keys.DocumentMenu.Rename,
 				Off:   !hovered || d.editing != nil,
 				Pick:  d.openRename,
 			},
@@ -105,5 +106,5 @@ func (d *documentsScreen) documentMenu(in screen.Inputs, nest menu.Nester) (menu
 		return band, true
 	}
 
-	return menu.WithNested(band, "jump", d.deps.keys.Menu.Jump, nest.Jump(screen.Documents, screen.Target{AgentID: item.agentID, TaskID: item.taskID})), true
+	return menu.WithNested(band, "jump", d.deps.Keys.Menu.Jump, nest.Jump(screen.Documents, screen.Target{AgentID: item.agentID, TaskID: item.taskID})), true
 }

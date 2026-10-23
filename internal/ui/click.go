@@ -110,7 +110,7 @@ func (m *model) clickerOf(name zone.Name) (clicker, bool) {
 		}
 		if m.screen == screen.Documents {
 			return m.stopClicker(stopBlock, clickFunc(func(m *model, key string, _ int) tea.Cmd {
-				return m.apply(m.documents.diffKeys().Click(m.inputs(), key))
+				return m.apply(m.documents.ClickDiff(m.inputs(), key))
 			})), true
 		}
 	case zoneMenu:

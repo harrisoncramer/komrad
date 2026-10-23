@@ -80,10 +80,6 @@ func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 	return tea.Batch(m.apply(m.active().StageResting(m.inputs())), m.wakeCwdSyncCmd())
 }
 
-func (d *documentsScreen) StageResting(in screen.Inputs) screen.Request {
-	return screen.Batch{d.Stage(), screen.Cmd(d.readDocumentsCmd(in))}
-}
-
 func (a *agentsScreen) StageResting(in screen.Inputs) screen.Request {
 	return screen.Batch{screen.Restage{}, screen.ReadLastScreen{}, inspectRecordTask(a, in, a.deps.clock.Now())}
 }

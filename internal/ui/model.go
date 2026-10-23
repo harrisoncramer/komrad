@@ -24,6 +24,7 @@ import (
 	"komrad/internal/panes"
 	"komrad/internal/ui/api"
 	"komrad/internal/ui/checks"
+	"komrad/internal/ui/documents"
 	"komrad/internal/ui/editor"
 	"komrad/internal/ui/filter"
 	"komrad/internal/ui/keys"
@@ -294,7 +295,7 @@ type model struct {
 	agents          agentsScreen
 	schedules       schedules.Screen
 	worktrees       worktrees.Screen
-	documents       documentsScreen
+	documents       documents.Screen
 	logs            logs.Screen
 	statusChecks    checks.Screen
 	// inspections is what the server answered for each worktree directory.
@@ -436,16 +437,6 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		top:            top,
 		editorSettings: editorSettings,
 	}
-	documents := documentsDeps{
-		keys:          deps.Keys,
-		register:      register,
-		clients:       clients,
-		panes:         deps.Tmux,
-		top:           top,
-		editorCommand: deps.Settings.Editor,
-		draftDir:      deps.Settings.DraftDir,
-		glyphs:        deps.Glyphs,
-	}
 
 	m := model{
 		term: terminalState{
@@ -503,7 +494,16 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 			Clients: clients,
 			Top:     top,
 		}),
-		documents: documentsScreen{deps: documents},
+		documents: documents.New(documents.Deps{
+			Keys:          deps.Keys,
+			Register:      register,
+			Clients:       clients,
+			Panes:         deps.Tmux,
+			Top:           top,
+			EditorCommand: deps.Settings.Editor,
+			DraftDir:      deps.Settings.DraftDir,
+			Glyphs:        deps.Glyphs,
+		}),
 		logs: logs.New(logs.Deps{
 			Keys:     deps.Keys,
 			Glyphs:   deps.Glyphs,

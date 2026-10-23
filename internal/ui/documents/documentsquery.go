@@ -1,4 +1,4 @@
-package ui
+package documents
 
 import (
 	"context"
@@ -16,20 +16,21 @@ import (
 	"connectrpc.com/connect"
 )
 
-func (d *documentsScreen) QueryGrammar() (list.Grammar, bool) {
-	agents := d.deps.clients.Agents
+// QueryGrammar is the qualifiers the filter reads over the documents, and false on the types.
+func (d *Screen) QueryGrammar() (list.Grammar, bool) {
+	agents := d.deps.Clients.Agents
 	grammar := list.Grammar{
 		Syntax: searchsyntax.Documents,
-		Check:  checkDocumentsClause,
+		Check:  checkClause,
 		Search: func(ctx context.Context, text string) (map[string][]list.SaidHit, error) {
-			return searchDocumentsSaid(ctx, agents, text)
+			return searchSaid(ctx, agents, text)
 		},
 	}
 
-	return grammar, d.kind == documentKindDocuments
+	return grammar, d.kind == kindDocuments
 }
 
-func checkDocumentsClause(clause searchsyntax.Clause, now time.Time) error {
+func checkClause(clause searchsyntax.Clause, now time.Time) error {
 	switch clause.Key {
 	case searchsyntax.KeySince:
 		_, err := searchsyntax.ParseStart(clause.Key, clause.Value, now)
@@ -44,10 +45,10 @@ func checkDocumentsClause(clause searchsyntax.Clause, now time.Time) error {
 	return nil
 }
 
-// documentRowFits matches a document against a qualifier, by the agent that wrote it for agent:
+// rowFits matches a document against a qualifier, by the agent that wrote it for agent:
 // and workflow:, by its task for task:, and by what the server found it saying for says:.
-func (d *documentsScreen) documentRowFits(in screen.Inputs) func(documentRow) list.Fits {
-	return func(r documentRow) list.Fits {
+func (d *Screen) rowFits(in screen.Inputs) func(row) list.Fits {
+	return func(r row) list.Fits {
 		return func(clause searchsyntax.Clause) bool {
 			item := r.item
 			switch clause.Key {
@@ -108,7 +109,7 @@ func quoteClause(key, value string) string {
 
 // namedAgentID is the one agent the filter's agent: qualifier names exactly, or the writer of the
 // task the documents were opened for.
-func (d *documentsScreen) namedAgentID(in screen.Inputs) (string, bool) {
+func (d *Screen) namedAgentID(in screen.Inputs) (string, bool) {
 	var names []string
 	for _, clause := range in.Room.Pattern.Clauses {
 		if clause.Key == searchsyntax.KeyAgent && !clause.Negated {
@@ -139,7 +140,7 @@ func (d *documentsScreen) namedAgentID(in screen.Inputs) (string, bool) {
 }
 
 // openedForAgent is the agent the documents were opened for, when the name given is its name.
-func (d *documentsScreen) openedForAgent(in screen.Inputs, name string) (string, bool) {
+func (d *Screen) openedForAgent(in screen.Inputs, name string) (string, bool) {
 	agentID := d.agentID
 	if agentID == "" || !strings.EqualFold(findAgentName(in.Listing, agentID), name) {
 		return "", false
@@ -150,7 +151,7 @@ func (d *documentsScreen) openedForAgent(in screen.Inputs, name string) (string,
 
 // openedTaskWriter is the writer of the task the documents were opened for, while the filter still
 // names that task.
-func (d *documentsScreen) openedTaskWriter(in screen.Inputs) (string, bool) {
+func (d *Screen) openedTaskWriter(in screen.Inputs) (string, bool) {
 	for _, clause := range in.Room.Pattern.Clauses {
 		if clause.Key != searchsyntax.KeyTask || clause.Negated {
 			continue
@@ -164,7 +165,7 @@ func (d *documentsScreen) openedTaskWriter(in screen.Inputs) (string, bool) {
 }
 
 // openedForTask is the task the documents were opened for, when the slug given is its slug.
-func (d *documentsScreen) openedForTask(in screen.Inputs, slug string) (string, bool) {
+func (d *Screen) openedForTask(in screen.Inputs, slug string) (string, bool) {
 	taskID := d.taskID
 	task, ok := in.Listing.Tasks[taskID]
 	if taskID == "" || !ok || !strings.EqualFold(task.Slug, slug) {
@@ -174,8 +175,8 @@ func (d *documentsScreen) openedForTask(in screen.Inputs, slug string) (string, 
 	return taskID, true
 }
 
-// searchDocumentsSaid asks the server which documents hold the text as they stand now, with the passages it was found in keyed by document id.
-func searchDocumentsSaid(ctx context.Context, client api.AgentReads, text string) (map[string][]list.SaidHit, error) {
+// searchSaid asks the server which documents hold the text as they stand now, with the passages it was found in keyed by document id.
+func searchSaid(ctx context.Context, client api.AgentReads, text string) (map[string][]list.SaidHit, error) {
 	resp, err := client.SearchDocuments(ctx, connect.NewRequest(&agentv1.SearchDocumentsRequest{
 		Query: list.Phrase(text),
 		Limit: list.SaysLimit,

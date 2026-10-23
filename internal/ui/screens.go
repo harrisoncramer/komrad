@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/ui/checks"
 	"komrad/internal/ui/column"
+	"komrad/internal/ui/documents"
 	"komrad/internal/ui/field"
 	"komrad/internal/ui/filter"
 	"komrad/internal/ui/form"
@@ -335,6 +336,20 @@ var (
 	_ hoveredNamer        = (*worktrees.Screen)(nil)
 	_ itemMenuBuilder     = (*worktrees.Screen)(nil)
 	_ savedScreenRenderer = (*worktrees.Screen)(nil)
+)
+
+var (
+	_ activeLister     = (*documents.Screen)(nil)
+	_ columnFocuser    = (*documents.Screen)(nil)
+	_ crumbRenderer    = (*documents.Screen)(nil)
+	_ screenLeaver     = (*documents.Screen)(nil)
+	_ rowStager        = (*documents.Screen)(nil)
+	_ itemMenuBuilder  = (*documents.Screen)(nil)
+	_ lineTyper        = (*documents.Screen)(nil)
+	_ renamer          = (*documents.Screen)(nil)
+	_ editorReconciler = (*documents.Screen)(nil)
+	_ kindSwitcher     = (*documents.Screen)(nil)
+	_ recordRenderer   = (*documents.Screen)(nil)
 )
 
 // stageEditor puts an editor on the stage with the keys in it, and answers the pane it was
