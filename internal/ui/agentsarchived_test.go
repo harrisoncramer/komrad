@@ -563,7 +563,13 @@ func TestArchivedAgentsRename(t *testing.T) {
 	archived := []proto.Message{
 		paneltest.ArchivedWorkflow("w1", "backend"),
 		paneltest.ArchivedAgent("a1", "api-refactor", "w1"),
-		&schedulev1.Schedule{Id: "s2", Name: "weekly-gone", WorkflowId: "w1", Cron: "0 9 * * *", ArchivedAt: paneltest.ArchivedAt},
+		&schedulev1.Schedule{
+			Id:         "s2",
+			Name:       "weekly-gone",
+			WorkflowId: "w1",
+			Cron:       "0 9 * * *",
+			ArchivedAt: paneltest.ArchivedAt,
+		},
 	}
 	live := []proto.Message{
 		paneltest.Workflow("w1", "backend"),
