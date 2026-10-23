@@ -152,12 +152,16 @@ func fieldSchema(field protoreflect.FieldDescriptor, enclosing map[protoreflect.
 	return list, nil
 }
 
-// addConstraints adds a value's constraints to its schema, with the messages of its CEL rules as the description.
+// addConstraints adds a value's constraints to its schema, describing those JSON Schema has no keyword for.
 func addConstraints(schema map[string]any, constraints rpcapi.Constraints) error {
-	if len(constraints.Rules) > 0 {
-		schema["description"] = strings.Join(constraints.Rules, "; ")
+	notes := constraints.Rules
+	if constraints.MaxBytes != nil {
+		notes = append([]string{fmt.Sprintf("at most %d bytes", *constraints.MaxBytes)}, notes...)
 	}
-	constraints.Rules = nil
+	if len(notes) > 0 {
+		schema["description"] = strings.Join(notes, "; ")
+	}
+	constraints.Rules, constraints.MaxBytes = nil, nil
 
 	keywords, err := json.Marshal(constraints)
 	if err != nil {

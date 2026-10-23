@@ -190,6 +190,11 @@ func TestDescribeField(t *testing.T) {
 		{message: createAgent, field: "workflow_id", want: "uuid, required"},
 		{message: createAgent, field: "task_slug", want: "string, not empty"},
 		{
+			message: (&agentv1.WriteDocumentRequest{}).ProtoReflect().Descriptor(),
+			field:   "body",
+			want:    "string, not empty, at most 1048576 bytes",
+		},
+		{
 			message: createAgent,
 			field:   "title",
 			want:    "string, at most 200 characters, must not contain control characters",

@@ -7,6 +7,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	annotationv1 "komrad/proto/gen/annotation/v1"
 	taskv1 "komrad/proto/gen/task/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -43,6 +44,7 @@ func TestIsRequired(t *testing.T) {
 		{message: (&agentv1.WriteDocumentRequest{}).ProtoReflect().Descriptor(), field: "body", want: false},
 		{message: (&agentv1.WriteDocumentRequest{}).ProtoReflect().Descriptor(), field: "path", want: false},
 		{message: (&agentv1.GetDocumentRequest{}).ProtoReflect().Descriptor(), field: "id", want: true},
+		{message: (&workflowv1.WorkflowEventPrompt{}).ProtoReflect().Descriptor(), field: "event", want: true},
 	}
 
 	for _, tt := range tests {

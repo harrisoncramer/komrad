@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	agentv1 "komrad/proto/gen/agent/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -39,6 +40,39 @@ func TestGetConstraints(t *testing.T) {
 			message: (&agentv1.ArchiveAgentsRequest{}).ProtoReflect().Descriptor(),
 			field:   "ids",
 			want:    `{"minItems":1,"uniqueItems":true,"items":{"format":"uuid"}}`,
+		},
+		{
+			message: (&agentv1.WriteDocumentRequest{}).ProtoReflect().Descriptor(),
+			field:   "body",
+			want:    `{"minLength":1,"maxBytes":1048576}`,
+		},
+		{
+			message: (&workflowv1.WorkflowEventPrompt{}).ProtoReflect().Descriptor(),
+			field:   "event",
+			want: `{"enum": [
+				"pull_request.checks_failing_running",
+				"pull_request.checks_failing",
+				"pull_request.checks_passing",
+				"pull_request.changes_requested",
+				"pull_request.approved",
+				"pull_request.conflicting",
+				"pull_request.behind",
+				"pull_request.merged",
+				"pull_request.closed",
+				"pull_request.auto_merge_on",
+				"worktree.rebased",
+				"worktree.landed",
+				"worktree.rebase_conflicted",
+				"document.written_by_person",
+				"review.approved",
+				"review.changes_requested",
+				"review.commented",
+				"review.commented_by_person",
+				"review.forge_commented",
+				"review.answered",
+				"review.forge_reply_requested",
+				"review.forge_reply_decided"
+			]}`,
 		},
 	}
 

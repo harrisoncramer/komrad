@@ -13,8 +13,10 @@ import (
 type Constraints struct {
 	MinLength        *uint64      `json:"minLength,omitempty"`
 	MaxLength        *uint64      `json:"maxLength,omitempty"`
+	MaxBytes         *uint64      `json:"maxBytes,omitempty"`
 	Pattern          string       `json:"pattern,omitempty"`
 	Format           string       `json:"format,omitempty"`
+	Enum             []string     `json:"enum,omitempty"`
 	Minimum          *int64       `json:"minimum,omitempty"`
 	ExclusiveMinimum *int64       `json:"exclusiveMinimum,omitempty"`
 	Maximum          *int64       `json:"maximum,omitempty"`
@@ -50,14 +52,17 @@ func GetConstraints(field protoreflect.FieldDescriptor) Constraints {
 
 func valueConstraints(rules *validate.FieldRules) Constraints {
 	text := rules.GetString()
-	constraints := Constraints{Pattern: text.GetPattern(), Rules: ruleMessages(rules)}
+	constraints := Constraints{Pattern: text.GetPattern(), Enum: text.GetIn(), Rules: ruleMessages(rules)}
 	if text.HasMinLen() {
 		constraints.MinLength = new(text.GetMinLen())
 	}
 	if text.HasMaxLen() {
 		constraints.MaxLength = new(text.GetMaxLen())
 	}
-	if rules.GetString().GetUuid() {
+	if text.HasMaxBytes() {
+		constraints.MaxBytes = new(text.GetMaxBytes())
+	}
+	if text.GetUuid() {
 		constraints.Format = "uuid"
 	}
 

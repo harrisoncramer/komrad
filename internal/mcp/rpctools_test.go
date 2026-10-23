@@ -227,6 +227,14 @@ func TestInputSchema(t *testing.T) {
 			wantRequired: []string{"ids"},
 		},
 		{
+			service: agentService,
+			method:  "WriteDocument",
+			wantFields: map[string]map[string]any{
+				"body": {"type": "string", "minLength": float64(1), "description": "at most 1048576 bytes"},
+			},
+			wantRequired: []string{"name", "type"},
+		},
+		{
 			service: taskv1.File_task_v1_task_proto.Services().Get(0),
 			method:  "SetTaskNotes",
 			wantFields: map[string]map[string]any{

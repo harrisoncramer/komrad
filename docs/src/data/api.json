@@ -7254,7 +7254,8 @@
           "oneof": "source",
           "required": false,
           "constraints": {
-            "minLength": 1
+            "minLength": 1,
+            "maxBytes": 1048576
           },
           "description": "The document's text, in markdown."
         },
@@ -7367,7 +7368,8 @@
           "oneof": "",
           "required": true,
           "constraints": {
-            "minLength": 1
+            "minLength": 1,
+            "maxBytes": 1048576
           },
           "description": "The markdown an agent reads before writing a document of this type."
         },
@@ -11769,8 +11771,33 @@
           "repeated": false,
           "map": false,
           "oneof": "",
-          "required": false,
-          "constraints": {},
+          "required": true,
+          "constraints": {
+            "enum": [
+              "pull_request.checks_failing_running",
+              "pull_request.checks_failing",
+              "pull_request.checks_passing",
+              "pull_request.changes_requested",
+              "pull_request.approved",
+              "pull_request.conflicting",
+              "pull_request.behind",
+              "pull_request.merged",
+              "pull_request.closed",
+              "pull_request.auto_merge_on",
+              "worktree.rebased",
+              "worktree.landed",
+              "worktree.rebase_conflicted",
+              "document.written_by_person",
+              "review.approved",
+              "review.changes_requested",
+              "review.commented",
+              "review.commented_by_person",
+              "review.forge_commented",
+              "review.answered",
+              "review.forge_reply_requested",
+              "review.forge_reply_decided"
+            ]
+          },
           "description": "The event, such as `pull_request.checks_failing` or `review.approved`."
         },
         {

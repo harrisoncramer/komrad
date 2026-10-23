@@ -13,8 +13,10 @@ export type Field = {
 export type Constraints = {
   minLength?: number;
   maxLength?: number;
+  maxBytes?: number;
   pattern?: string;
   format?: string;
+  enum?: string[];
   minimum?: number;
   exclusiveMinimum?: number;
   maximum?: number;

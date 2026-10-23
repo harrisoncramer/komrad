@@ -19,7 +19,9 @@ const bounds = ({ minimum, exclusiveMinimum, maximum, exclusiveMaximum }: Constr
 export const describeConstraints = (constraints: Constraints, required: boolean): string[] => [
   ...atLeast(constraints.minLength, "characters", required),
   ...(constraints.maxLength === undefined ? [] : [`at most ${String(constraints.maxLength)} characters`]),
+  ...(constraints.maxBytes === undefined ? [] : [`at most ${String(constraints.maxBytes)} bytes`]),
   ...(constraints.pattern ? [`matching ${constraints.pattern}`] : []),
+  ...(constraints.enum ? ["one of", ...constraints.enum] : []),
   ...bounds(constraints),
   ...atLeast(constraints.minItems, "items", required),
   ...(constraints.maxItems === undefined ? [] : [`at most ${String(constraints.maxItems)} items`]),

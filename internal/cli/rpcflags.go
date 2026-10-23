@@ -238,8 +238,14 @@ func describeConstraints(constraints rpcapi.Constraints, required bool) []string
 	if constraints.MaxLength != nil {
 		parts = append(parts, fmt.Sprintf("at most %d characters", *constraints.MaxLength))
 	}
+	if constraints.MaxBytes != nil {
+		parts = append(parts, fmt.Sprintf("at most %d bytes", *constraints.MaxBytes))
+	}
 	if constraints.Pattern != "" {
 		parts = append(parts, "matching "+constraints.Pattern)
+	}
+	if len(constraints.Enum) > 0 {
+		parts = append(parts, "one of "+strings.Join(constraints.Enum, ", "))
 	}
 
 	parts = append(parts, describeBounds(constraints)...)
