@@ -69,9 +69,10 @@ func newInputField(params newInputFieldParams) (inputField, tea.Cmd) {
 		vim:         field.NewVim(params.Register),
 	}
 
+	cmd := form.Init()
 	input.resize(params.Width)
 
-	return input, form.Init()
+	return input, cmd
 }
 
 // resize tells the field how much of the sidebar it has.
