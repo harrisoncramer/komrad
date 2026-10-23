@@ -3,7 +3,9 @@ package documents
 import (
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/menu"
+	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/screen"
+	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
@@ -26,7 +28,7 @@ func (d *Screen) typeMenu(t *agentv1.DocumentType) menu.Menu {
 	}
 }
 
-// BuildItemMenu builds the band on the hovered document or type.
+// BuildItemMenu builds the band on the hovered document or type, or on every chosen document while any are selected.
 func (d *Screen) BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
 	if d.kind == kindTypes {
 		t := d.hoveredType(in)
@@ -35,6 +37,10 @@ func (d *Screen) BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, b
 	}
 	if d.isDiffFocused(in) {
 		return menu.Menu{}, false
+	}
+
+	if d.list().IsSelecting() {
+		return d.chosenMenu(in)
 	}
 
 	return d.documentMenu(in, nest)
@@ -104,7 +110,7 @@ func (d *Screen) documentMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bo
 				Label: "delete",
 				Keys:  d.deps.Keys.DocumentMenu.Delete,
 				Off:   !hovered || d.editing != nil,
-				Form:  func() form.Form { return d.deleteForm(item) },
+				Form:  func() form.Form { return d.deleteForm([]document{item}) },
 			},
 		},
 	}
@@ -113,4 +119,31 @@ func (d *Screen) documentMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bo
 	}
 
 	return menu.WithNested(band, "jump", d.deps.Keys.Menu.Jump, nest.Jump(screen.Documents, screen.Target{AgentID: item.agentID, TaskID: item.taskID})), true
+}
+
+// chosenMenu is the actions on every chosen document, false for none.
+func (d *Screen) chosenMenu(in screen.Inputs) (menu.Menu, bool) {
+	chosen := d.chosen(in)
+	if len(chosen) == 0 {
+		return menu.Menu{}, false
+	}
+
+	return menu.Menu{
+		Title: label.Count(len(chosen), "document", "documents"),
+		Entries: []menu.Entry{
+			{
+				Label: "delete all",
+				Keys:  d.deps.Keys.DocumentMenu.Delete,
+				Off:   d.editing != nil,
+				Form:  func() form.Form { return d.deleteForm(chosen) },
+			},
+		},
+	}, true
+}
+
+// chosen is the selected documents the list shows.
+func (d *Screen) chosen(in screen.Inputs) []document {
+	rows := xslice.Filter(d.rows(in), func(r row) bool { return d.Selected.Has(r.Key()) })
+
+	return xslice.Map(rows, func(r row) document { return r.item })
 }

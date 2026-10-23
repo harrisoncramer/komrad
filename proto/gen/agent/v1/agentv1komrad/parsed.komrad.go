@@ -770,21 +770,26 @@ func ParseWriteDocumentTypeRequest(m *v1.WriteDocumentTypeRequest) (*WriteDocume
 	return parsed, nil
 }
 
-// DeleteDocumentRequest is v1.DeleteDocumentRequest with the values its rules describe converted.
-type DeleteDocumentRequest struct {
-	Id uuid.UUID
+// DeleteDocumentsRequest is v1.DeleteDocumentsRequest with the values its rules describe converted.
+type DeleteDocumentsRequest struct {
+	Ids []uuid.UUID
 }
 
-// ParseDeleteDocumentRequest converts a v1.DeleteDocumentRequest into its parsed form.
-func ParseDeleteDocumentRequest(m *v1.DeleteDocumentRequest) (*DeleteDocumentRequest, error) {
+// ParseDeleteDocumentsRequest converts a v1.DeleteDocumentsRequest into its parsed form.
+func ParseDeleteDocumentsRequest(m *v1.DeleteDocumentsRequest) (*DeleteDocumentsRequest, error) {
 	if m == nil {
 		return nil, protoconv.ErrMissing
 	}
 
 	var err error
-	parsed := &DeleteDocumentRequest{}
-	if parsed.Id, err = protoconv.ParseUUID(m.Id); err != nil {
-		return nil, protoconv.PrefixField("id", err)
+	parsed := &DeleteDocumentsRequest{}
+	if m.Ids != nil {
+		parsed.Ids = make([]uuid.UUID, len(m.Ids))
+		for index, item := range m.Ids {
+			if parsed.Ids[index], err = protoconv.ParseUUID(item); err != nil {
+				return nil, protoconv.PrefixField("ids", protoconv.PrefixIndex(index, err))
+			}
+		}
 	}
 
 	return parsed, nil

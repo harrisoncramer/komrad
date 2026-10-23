@@ -206,9 +206,9 @@ func (d *Screen) KindsFocused() *bool {
 	return &d.kindFocus
 }
 
-// KindsSwitch holds the view on its documents while the user edits one.
+// KindsSwitch holds the view on its documents while the user edits one or any are selected.
 func (d *Screen) KindsSwitch() bool {
-	return d.editing == nil
+	return d.editing == nil && !d.Selected.IsActive()
 }
 
 // StepKind moves the view between documents and their types.
@@ -226,6 +226,7 @@ func (d *Screen) list() keys.ScreenList[row] {
 		Rows:   d.rows,
 		Name:   rowName,
 		Fits:   d.rowFits,
+		Refs:   refs,
 		Placed: func(screen.Inputs) screen.Request { return screen.StageTerminal{} },
 		Moved: func(screen.Inputs) screen.Request {
 			d.history, d.focus = nil, false
@@ -287,6 +288,11 @@ func (d *Screen) typeRows(in screen.Inputs) []typeRow {
 
 func rowName(r row) string {
 	return r.item.name
+}
+
+// refs is the documents list as the selection sees it.
+func refs(rows []row) []list.Ref {
+	return xslice.Map(rows, func(r row) list.Ref { return list.Ref{Key: r.Key()} })
 }
 
 func typeRowName(r typeRow) string {

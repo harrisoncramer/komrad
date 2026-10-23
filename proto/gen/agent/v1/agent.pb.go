@@ -3772,7 +3772,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x19REPORT_EVENT_TOOL_STARTED\x10\x03\x12\x1e\n" +
 	"\x1aREPORT_EVENT_TOOL_FINISHED\x10\x04\x12 \n" +
 	"\x1cREPORT_EVENT_APPROVAL_WANTED\x10\x05\x12\x1a\n" +
-	"\x16REPORT_EVENT_COMPACTED\x10\x062\xf8\x81\x01\n" +
+	"\x16REPORT_EVENT_COMPACTED\x10\x062\xb3\x82\x01\n" +
 	"\fAgentService\x12\x82\x02\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\xb8\x01\x9a\xb5\x18\xb0\x01\b\x01\x10\x01\x1a\vlist_agents\"\x97\x01List the agents komrad tracks, most recently updated first, each with the opening of its prompt. Archived agents are left out unless `archived` is set.:\x03\x03\x01\x02\x90\x02\x01\x12\x9e\x01\n" +
@@ -3806,8 +3806,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x11ListDocumentTypes\x12\x16.google.protobuf.Empty\x1a#.agent.v1.ListDocumentTypesResponse\"u\x9a\xb5\x18n\b\x01\x10\x01\x1a\x13list_document_types\",List the document types with their contexts.:\x03\x03\x01\x02J Read this before write_document.\x90\x02\x01\x12\xac\x01\n" +
 	"\x0fGetDocumentType\x12 .agent.v1.GetDocumentTypeRequest\x1a!.agent.v1.GetDocumentTypeResponse\"T\x9a\xb5\x18M\b\x01\x10\x01\x1a\x11get_document_type\"/Read one document type and its context by name.:\x03\x03\x01\x02\x90\x02\x01\x12\xd4\x01\n" +
 	"\x18ListDocumentTypeVersions\x12).agent.v1.ListDocumentTypeVersionsRequest\x1a*.agent.v1.ListDocumentTypeVersionsResponse\"a\x9a\xb5\x18Z\b\x01\x10\x01\x1a\x1blist_document_type_versions\"2List every write of a document type, newest first.:\x03\x03\x01\x02\x90\x02\x01\x12\xbb\x02\n" +
-	"\x11WriteDocumentType\x12\".agent.v1.WriteDocumentTypeRequest\x1a#.agent.v1.WriteDocumentTypeResponse\"\xdc\x01\x9a\xb5\x18\xd7\x01\b\x01\x1a\x13write_document_type\"UCreate a document type, or rewrite the one `id` names, passing the version last read.BgA document type's context is instructions every agent follows, so only the person decides what it says.\x12\xfe\x01\n" +
-	"\x0eDeleteDocument\x12\x1f.agent.v1.DeleteDocumentRequest\x1a\x16.google.protobuf.Empty\"\xb2\x01\x9a\xb5\x18\xaa\x01\b\x01\x1a\x0fdelete_document\"2Delete a document and every earlier version of it.BaA document is what the person reads of an agent's work, so only the person decides to delete one.\x90\x02\x02\x12\xad\x02\n" +
+	"\x11WriteDocumentType\x12\".agent.v1.WriteDocumentTypeRequest\x1a#.agent.v1.WriteDocumentTypeResponse\"\xdc\x01\x9a\xb5\x18\xd7\x01\b\x01\x1a\x13write_document_type\"UCreate a document type, or rewrite the one `id` names, passing the version last read.BgA document type's context is instructions every agent follows, so only the person decides what it says.\x12\xb9\x02\n" +
+	"\x0fDeleteDocuments\x12 .agent.v1.DeleteDocumentsRequest\x1a\x16.google.protobuf.Empty\"\xeb\x01\x9a\xb5\x18\xe3\x01\b\x01\x1a\x10delete_documents\"jDelete documents and every earlier version of each. Any unknown id fails the call, and nothing is deleted.BaA document is what the person reads of an agent's work, so only the person decides to delete one.\x90\x02\x02\x12\xad\x02\n" +
 	"\x12DeleteDocumentType\x12#.agent.v1.DeleteDocumentTypeRequest\x1a\x16.google.protobuf.Empty\"\xd9\x01\x9a\xb5\x18\xd1\x01\b\x01\x1a\x14delete_document_type\"IDelete a document type. Komrad refuses while documents of the type exist.BlA document type's context is instructions every agent follows, so only the person decides which types exist.\x90\x02\x02\x12\xe9\x01\n" +
 	"\fRecordReport\x12\x1d.agent.v1.RecordReportRequest\x1a\x16.google.protobuf.Empty\"\xa1\x01\x9a\xb5\x18\x99\x01B\x96\x01Only komrad's CLI hook command calls this, to pass on what an agent's CLI did, and an agent calling it could claim its turn ended while still working.\x90\x02\x02\x12\x93\x01\n" +
 	"\fMarkRunsRead\x12\x1d.agent.v1.MarkRunsReadRequest\x1a\x16.google.protobuf.Empty\"L\x9a\xb5\x18EBCOnly the person can say they have seen an agent's failed hook runs.\x90\x02\x02\x12\xb1\x02\n" +
@@ -3925,7 +3925,7 @@ var file_agent_v1_agent_proto_goTypes = []any{
 	(*GetDocumentTypeRequest)(nil),           // 68: agent.v1.GetDocumentTypeRequest
 	(*ListDocumentTypeVersionsRequest)(nil),  // 69: agent.v1.ListDocumentTypeVersionsRequest
 	(*WriteDocumentTypeRequest)(nil),         // 70: agent.v1.WriteDocumentTypeRequest
-	(*DeleteDocumentRequest)(nil),            // 71: agent.v1.DeleteDocumentRequest
+	(*DeleteDocumentsRequest)(nil),           // 71: agent.v1.DeleteDocumentsRequest
 	(*DeleteDocumentTypeRequest)(nil),        // 72: agent.v1.DeleteDocumentTypeRequest
 	(*ListReviewThreadsRequest)(nil),         // 73: agent.v1.ListReviewThreadsRequest
 	(*CreateReviewThreadRequest)(nil),        // 74: agent.v1.CreateReviewThreadRequest
@@ -4044,7 +4044,7 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	68,  // 60: agent.v1.AgentService.GetDocumentType:input_type -> agent.v1.GetDocumentTypeRequest
 	69,  // 61: agent.v1.AgentService.ListDocumentTypeVersions:input_type -> agent.v1.ListDocumentTypeVersionsRequest
 	70,  // 62: agent.v1.AgentService.WriteDocumentType:input_type -> agent.v1.WriteDocumentTypeRequest
-	71,  // 63: agent.v1.AgentService.DeleteDocument:input_type -> agent.v1.DeleteDocumentRequest
+	71,  // 63: agent.v1.AgentService.DeleteDocuments:input_type -> agent.v1.DeleteDocumentsRequest
 	72,  // 64: agent.v1.AgentService.DeleteDocumentType:input_type -> agent.v1.DeleteDocumentTypeRequest
 	31,  // 65: agent.v1.AgentService.RecordReport:input_type -> agent.v1.RecordReportRequest
 	32,  // 66: agent.v1.AgentService.MarkRunsRead:input_type -> agent.v1.MarkRunsReadRequest
@@ -4103,7 +4103,7 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	105, // 119: agent.v1.AgentService.GetDocumentType:output_type -> agent.v1.GetDocumentTypeResponse
 	106, // 120: agent.v1.AgentService.ListDocumentTypeVersions:output_type -> agent.v1.ListDocumentTypeVersionsResponse
 	107, // 121: agent.v1.AgentService.WriteDocumentType:output_type -> agent.v1.WriteDocumentTypeResponse
-	67,  // 122: agent.v1.AgentService.DeleteDocument:output_type -> google.protobuf.Empty
+	67,  // 122: agent.v1.AgentService.DeleteDocuments:output_type -> google.protobuf.Empty
 	67,  // 123: agent.v1.AgentService.DeleteDocumentType:output_type -> google.protobuf.Empty
 	67,  // 124: agent.v1.AgentService.RecordReport:output_type -> google.protobuf.Empty
 	67,  // 125: agent.v1.AgentService.MarkRunsRead:output_type -> google.protobuf.Empty

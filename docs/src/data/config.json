@@ -957,7 +957,7 @@
         },
         {
           "path": "keybindings.selection",
-          "description": "Choosing several agents at once, shared by the two screens that draw a tree.",
+          "description": "Choosing several rows at once, shared by every list that takes a selection.",
           "settings": [
             {
               "key": "clear",
@@ -970,7 +970,7 @@
               "key": "range",
               "path": "keybindings.selection.range",
               "type": "array",
-              "description": "Take in every agent between the cursor and the nearest already-selected one.",
+              "description": "Take in every row between the cursor and the nearest already-selected one.",
               "default": "[\"V\"]"
             },
             {

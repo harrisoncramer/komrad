@@ -566,19 +566,19 @@
           "response": "agent.v1.WriteDocumentTypeResponse"
         },
         {
-          "slug": "delete-document",
-          "name": "DeleteDocument",
-          "path": "/agent.v1.AgentService/DeleteDocument",
-          "command": "komrad rpc delete-document",
-          "tool": "delete_document",
+          "slug": "delete-documents",
+          "name": "DeleteDocuments",
+          "path": "/agent.v1.AgentService/DeleteDocuments",
+          "command": "komrad rpc delete-documents",
+          "tool": "delete_documents",
           "mcp": false,
           "roles": [],
-          "summary": "Delete a document and every earlier version of it.",
-          "description": "Delete a document and every earlier version of it.",
+          "summary": "Delete documents and every earlier version of each.",
+          "description": "Delete documents and every earlier version of each. Any unknown id fails the call, and nothing is deleted.",
           "readOnly": false,
           "idempotent": true,
           "destructive": true,
-          "request": "agent.v1.DeleteDocumentRequest",
+          "request": "agent.v1.DeleteDocumentsRequest",
           "response": "google.protobuf.Empty"
         },
         {
@@ -2963,26 +2963,6 @@
       ],
       "oneofs": []
     },
-    "agent.v1.DeleteDocumentRequest": {
-      "name": "DeleteDocumentRequest",
-      "description": "",
-      "fields": [
-        {
-          "name": "id",
-          "type": "uuid",
-          "ref": "",
-          "repeated": false,
-          "map": false,
-          "oneof": "",
-          "required": true,
-          "constraints": {
-            "format": "uuid"
-          },
-          "description": "The document to delete, by id."
-        }
-      ],
-      "oneofs": []
-    },
     "agent.v1.DeleteDocumentTypeRequest": {
       "name": "DeleteDocumentTypeRequest",
       "description": "",
@@ -2999,6 +2979,30 @@
             "format": "uuid"
           },
           "description": "The document type to delete, by id."
+        }
+      ],
+      "oneofs": []
+    },
+    "agent.v1.DeleteDocumentsRequest": {
+      "name": "DeleteDocumentsRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "ids",
+          "type": "uuid",
+          "ref": "",
+          "repeated": true,
+          "map": false,
+          "oneof": "",
+          "required": true,
+          "constraints": {
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "format": "uuid"
+            }
+          },
+          "description": "The documents to delete, by id."
         }
       ],
       "oneofs": []

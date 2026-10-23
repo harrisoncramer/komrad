@@ -26,7 +26,7 @@ type documentReadWriter interface {
 	ListDocumentVersions(ctx context.Context, id uuid.UUID) (uuid.UUID, []documentstore.Version, error)
 	ListDocuments(ctx context.Context, params documents.ListDocumentsParams) ([]documentstore.Document, error)
 	SearchDocuments(ctx context.Context, params documentstore.SearchParams) (*documentstore.Results, error)
-	DeleteDocument(ctx context.Context, params documents.DeleteDocumentParams) error
+	DeleteDocuments(ctx context.Context, params documents.DeleteDocumentsParams) error
 }
 
 type documentTypeKeeper interface {
@@ -182,13 +182,13 @@ func (s *Handler) WriteDocumentType(ctx context.Context, req *agentv1komrad.Writ
 	return &agentv1.WriteDocumentTypeResponse{DocumentType: render.DocumentType(*written)}, nil
 }
 
-// DeleteDocument removes a document and every write of it.
-func (s *Handler) DeleteDocument(ctx context.Context, req *agentv1komrad.DeleteDocumentRequest) (*emptypb.Empty, *fail.Error) {
-	if err := s.documents.DeleteDocument(ctx, documents.DeleteDocumentParams{
-		ID:        req.Id,
+// DeleteDocuments removes documents and every write of each.
+func (s *Handler) DeleteDocuments(ctx context.Context, req *agentv1komrad.DeleteDocumentsRequest) (*emptypb.Empty, *fail.Error) {
+	if err := s.documents.DeleteDocuments(ctx, documents.DeleteDocumentsParams{
+		IDs:       req.Ids,
 		ByAgentID: caller.From(ctx).AgentID,
 	}); err != nil {
-		return nil, rpcerr.From(err, "failed to delete the document")
+		return nil, rpcerr.From(err, "failed to delete the documents")
 	}
 
 	return &emptypb.Empty{}, nil

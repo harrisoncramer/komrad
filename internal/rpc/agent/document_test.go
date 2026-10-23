@@ -46,7 +46,7 @@ type fakeDocuments struct {
 	typeVersions []documenttypestore.Version
 	readTypes    []*int32
 	writtenTypes []documents.WriteDocumentTypeParams
-	deleted      []documents.DeleteDocumentParams
+	deleted      []documents.DeleteDocumentsParams
 	deletedTypes []documents.DeleteDocumentTypeParams
 }
 
@@ -155,8 +155,8 @@ func (f *fakeDocuments) WriteDocumentType(_ context.Context, params documents.Wr
 	}, nil
 }
 
-// DeleteDocument records the delete unless err refuses it.
-func (f *fakeDocuments) DeleteDocument(_ context.Context, params documents.DeleteDocumentParams) error {
+// DeleteDocuments records the delete unless err refuses it.
+func (f *fakeDocuments) DeleteDocuments(_ context.Context, params documents.DeleteDocumentsParams) error {
 	f.deleted = append(f.deleted, params)
 
 	return f.err
@@ -214,8 +214,8 @@ func TestDocumentErrors(t *testing.T) {
 
 		return err
 	}
-	deleteDocument := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
-		_, err := svc.DeleteDocument(ctx, connect.NewRequest(&agentv1.DeleteDocumentRequest{Id: documentID.String()}))
+	deleteDocuments := func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
+		_, err := svc.DeleteDocuments(ctx, connect.NewRequest(&agentv1.DeleteDocumentsRequest{Ids: []string{documentID.String()}}))
 
 		return err
 	}
@@ -318,13 +318,13 @@ func TestDocumentErrors(t *testing.T) {
 		},
 		{
 			name:     "an agent deleting a document",
-			call:     deleteDocument,
+			call:     deleteDocuments,
 			err:      documents.ErrDeleteByAgent,
 			wantCode: connect.CodePermissionDenied,
 		},
 		{
 			name:     "deleting a document that does not exist",
-			call:     deleteDocument,
+			call:     deleteDocuments,
 			err:      store.ErrNotFound,
 			asNobody: true,
 			wantCode: connect.CodeNotFound,
@@ -815,16 +815,16 @@ func TestWriteDocumentType(t *testing.T) {
 	}
 }
 
-// TestDeleteDocument pins the delete naming the agent that asked.
-func TestDeleteDocument(t *testing.T) {
+// TestDeleteDocuments pins the delete naming the agent that asked.
+func TestDeleteDocuments(t *testing.T) {
 	docs := &fakeDocuments{}
 	svc := newDocumentHandler(docs)
 
 	ctx := caller.With(t.Context(), caller.Caller{AgentID: alphaID})
-	_, err := svc.DeleteDocument(ctx, connect.NewRequest(&agentv1.DeleteDocumentRequest{Id: documentID.String()}))
+	_, err := svc.DeleteDocuments(ctx, connect.NewRequest(&agentv1.DeleteDocumentsRequest{Ids: []string{documentID.String()}}))
 	require.NoError(t, err)
 
-	assert.Equal(t, []documents.DeleteDocumentParams{{ID: documentID, ByAgentID: alphaID}}, docs.deleted)
+	assert.Equal(t, []documents.DeleteDocumentsParams{{IDs: []uuid.UUID{documentID}, ByAgentID: alphaID}}, docs.deleted)
 }
 
 // TestDeleteDocumentType pins the delete naming the agent that asked.

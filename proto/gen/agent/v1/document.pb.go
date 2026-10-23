@@ -1257,28 +1257,28 @@ func (x *WriteDocumentTypeResponse) GetDocumentType() *DocumentType {
 	return nil
 }
 
-type DeleteDocumentRequest struct {
+type DeleteDocumentsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The document to delete, by id.
-	Id            string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// The documents to delete, by id.
+	Ids           []string `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *DeleteDocumentRequest) Reset() {
-	*x = DeleteDocumentRequest{}
+func (x *DeleteDocumentsRequest) Reset() {
+	*x = DeleteDocumentsRequest{}
 	mi := &file_agent_v1_document_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *DeleteDocumentRequest) String() string {
+func (x *DeleteDocumentsRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*DeleteDocumentRequest) ProtoMessage() {}
+func (*DeleteDocumentsRequest) ProtoMessage() {}
 
-func (x *DeleteDocumentRequest) ProtoReflect() protoreflect.Message {
+func (x *DeleteDocumentsRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_document_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1290,16 +1290,16 @@ func (x *DeleteDocumentRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use DeleteDocumentRequest.ProtoReflect.Descriptor instead.
-func (*DeleteDocumentRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use DeleteDocumentsRequest.ProtoReflect.Descriptor instead.
+func (*DeleteDocumentsRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_document_proto_rawDescGZIP(), []int{19}
 }
 
-func (x *DeleteDocumentRequest) GetId() string {
+func (x *DeleteDocumentsRequest) GetIds() []string {
 	if x != nil {
-		return x.Id
+		return x.Ids
 	}
-	return ""
+	return nil
 }
 
 type DeleteDocumentTypeRequest struct {
@@ -1651,9 +1651,9 @@ const file_agent_v1_document_proto_rawDesc = "" +
 	"\n" +
 	"\b_version\"X\n" +
 	"\x19WriteDocumentTypeResponse\x12;\n" +
-	"\rdocument_type\x18\x01 \x01(\v2\x16.agent.v1.DocumentTypeR\fdocumentType\"1\n" +
-	"\x15DeleteDocumentRequest\x12\x18\n" +
-	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"5\n" +
+	"\rdocument_type\x18\x01 \x01(\v2\x16.agent.v1.DocumentTypeR\fdocumentType\"=\n" +
+	"\x16DeleteDocumentsRequest\x12#\n" +
+	"\x03ids\x18\x01 \x03(\tB\x11\xbaH\x0e\x92\x01\v\b\x01\x18\x01\"\x05r\x03\xb0\x01\x01R\x03ids\"5\n" +
 	"\x19DeleteDocumentTypeRequest\x12\x18\n" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"\xc0\x01\n" +
 	"\x16SearchDocumentsRequest\x12 \n" +
@@ -1708,7 +1708,7 @@ var file_agent_v1_document_proto_goTypes = []any{
 	(*ListDocumentTypeVersionsResponse)(nil), // 16: agent.v1.ListDocumentTypeVersionsResponse
 	(*WriteDocumentTypeRequest)(nil),         // 17: agent.v1.WriteDocumentTypeRequest
 	(*WriteDocumentTypeResponse)(nil),        // 18: agent.v1.WriteDocumentTypeResponse
-	(*DeleteDocumentRequest)(nil),            // 19: agent.v1.DeleteDocumentRequest
+	(*DeleteDocumentsRequest)(nil),           // 19: agent.v1.DeleteDocumentsRequest
 	(*DeleteDocumentTypeRequest)(nil),        // 20: agent.v1.DeleteDocumentTypeRequest
 	(*SearchDocumentsRequest)(nil),           // 21: agent.v1.SearchDocumentsRequest
 	(*DocumentHit)(nil),                      // 22: agent.v1.DocumentHit
