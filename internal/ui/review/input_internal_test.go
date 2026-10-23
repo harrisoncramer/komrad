@@ -16,26 +16,18 @@ func TestNewInputField(t *testing.T) {
 		lines[i] = fmt.Sprintf("line %02d", i)
 	}
 
+	body := strings.Join(lines, "\n")
 	tests := []struct {
-		name      string
-		body      string
-		width     int
-		wantShown string
-		wantGone  string
+		name  string
+		width int
 	}{
 		{
-			name:      "a body taller than the field opens scrolled to its end in a narrow field",
-			body:      strings.Join(lines, "\n"),
-			width:     30,
-			wantShown: "line 19",
-			wantGone:  "line 00",
+			name:  "a body taller than the field opens scrolled to its end in a narrow field",
+			width: 30,
 		},
 		{
-			name:      "a body taller than the field opens scrolled to its end in a wide field",
-			body:      strings.Join(lines, "\n"),
-			width:     80,
-			wantShown: "line 19",
-			wantGone:  "line 00",
+			name:  "a body taller than the field opens scrolled to its end in a wide field",
+			width: 80,
 		},
 	}
 
@@ -43,13 +35,13 @@ func TestNewInputField(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			input, _ := newInputField(newInputFieldParams{
 				Title: "Reply",
-				Body:  tt.body,
+				Body:  body,
 				Width: tt.width,
 			})
 
 			view := ansi.Strip(input.form.View())
-			assert.Contains(t, view, tt.wantShown)
-			assert.NotContains(t, view, tt.wantGone)
+			assert.Contains(t, view, "line 19")
+			assert.NotContains(t, view, "line 00")
 		})
 	}
 }
