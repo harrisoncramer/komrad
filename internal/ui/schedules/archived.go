@@ -140,7 +140,7 @@ func (a Archive) list() keys.ScreenList[row] {
 		Keys:   a.deps.Keys,
 		Cursor: func() *list.Cursor { return &a.Cursor },
 		Rows:   a.listRows,
-		Name:   func(item row) string { return item.schedule.Name },
+		Name:   rowName,
 		Fits:   rowFits,
 		Placed: func(screen.Inputs) screen.Request { return a.Stage() },
 		Moved:  func(screen.Inputs) screen.Request { return screen.Batch{a.Stage(), screen.Settle{}} },
