@@ -10,39 +10,39 @@ import (
 
 // Jump is the menu landing on the rows related to an agent, or to the task it names in place
 // of the agent, less the screen it was opened from.
-func (m *model) Jump(fromScreen screen.ID, to screen.Target) menu.Menu {
-	agentID := to.AgentID
+func (m *model) Jump(fromScreen screen.ID, target screen.Target) menu.Menu {
+	agentID := target.AgentID
 	_, found := m.listing.AnyAgent(agentID)
-	target := screen.Target{AgentID: agentID}
+	agentTarget := screen.Target{AgentID: agentID}
 
 	var entries []menu.Entry
 	if fromScreen != screen.Agents {
-		if task, listed := m.listing.Tasks[to.TaskID]; listed {
+		if task, listed := m.listing.Tasks[target.TaskID]; listed {
 			entries = append(entries, taskJumpEntry(m, task))
 		} else {
 			agent := menu.Leaving("agent", m.keys.JumpMenu.Agent, func(in screen.Inputs) screen.Request {
 				if _, live := in.Listing.LiveAgent(agentID); live {
-					return m.enterLive(target)
+					return m.enterLive(agentTarget)
 				}
 
-				return m.enterArchived(target)
+				return m.enterArchived(agentTarget)
 			})
-			agent.Off = !found
+			agent.IsDimmed = !found
 			entries = append(entries, agent)
 		}
 	}
 	if fromScreen != screen.Worktrees {
 		worktree := menu.Leaving("worktree", m.keys.JumpMenu.Worktree, func(screen.Inputs) screen.Request {
-			return screen.Open{Screen: screen.Worktrees, Target: target}
+			return screen.Open{Screen: screen.Worktrees, Target: agentTarget}
 		})
-		worktree.Off = !slices.ContainsFunc(m.listing.Worktrees, func(w panel.Worktree) bool { return w.HoldsAgent(agentID) })
+		worktree.IsDimmed = !slices.ContainsFunc(m.listing.Worktrees, func(w panel.Worktree) bool { return w.HoldsAgent(agentID) })
 		entries = append(entries, worktree)
 	}
 	if fromScreen != screen.Documents {
 		documents := menu.Leaving("documents", m.keys.JumpMenu.Documents, func(screen.Inputs) screen.Request {
-			return screen.Open{Screen: screen.Documents, Target: target}
+			return screen.Open{Screen: screen.Documents, Target: agentTarget}
 		})
-		documents.Off = !found
+		documents.IsDimmed = !found
 		entries = append(entries, documents)
 	}
 
@@ -52,7 +52,7 @@ func (m *model) Jump(fromScreen screen.ID, to screen.Target) menu.Menu {
 	}
 }
 
-// taskJumpEntry lands on a task's row, off when its writer is not listed.
+// taskJumpEntry lands on a task's row, dimmed when its writer is not listed.
 func taskJumpEntry(m *model, task panel.Task) menu.Entry {
 	writer, found := m.listing.FindTaskWriter(task)
 	entry := menu.Leaving("task", m.keys.JumpMenu.Task, func(screen.Inputs) screen.Request {
@@ -63,7 +63,7 @@ func taskJumpEntry(m *model, task panel.Task) menu.Entry {
 
 		return m.enterLive(target)
 	})
-	entry.Off = !found
+	entry.IsDimmed = !found
 
 	return entry
 }

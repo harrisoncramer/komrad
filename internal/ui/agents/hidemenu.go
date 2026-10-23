@@ -27,9 +27,9 @@ func (a *Screen) hideMenu(tasks []panel.Task) menu.Menu {
 func (a *Screen) hideEntry(tasks []panel.Task) menu.Entry {
 	if len(tasks) == 0 {
 		return menu.Entry{
-			Label: "hide",
-			Keys:  a.deps.Keys.HideMenu.Hide,
-			Off:   true,
+			Label:    "hide",
+			Keys:     a.deps.Keys.HideMenu.Hide,
+			IsDimmed: true,
 		}
 	}
 

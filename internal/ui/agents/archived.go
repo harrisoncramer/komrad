@@ -75,7 +75,7 @@ func (a *Screen) StepKind(_ screen.Inputs, delta int) screen.Request {
 			staged = a.Stage()
 		}
 
-		return screen.Batch{screen.DropFilterLeaveCursor{}, screen.RestoreWindowLayout{}, staged, screen.Settle{}}
+		return screen.Batch{screen.DropFilterLeaveCursor{}, screen.RestoreWindowLayout{}, staged, screen.WaitForCursorRest{}}
 	}}
 }
 
@@ -164,7 +164,7 @@ func (a *archivedAgents) Enter(in screen.Inputs, target screen.Target) screen.Re
 		a.Row = idx
 	}
 
-	return screen.Batch{a.Stage(), screen.Settle{}}
+	return screen.Batch{a.Stage(), screen.WaitForCursorRest{}}
 }
 
 // Update sends a key to the rename being typed, or to the archive's table.
@@ -212,7 +212,7 @@ func (a *archivedAgents) list() keys.ScreenList[agentRow] {
 		Refs:   refsOf,
 		Header: "folder",
 		Placed: func(screen.Inputs) screen.Request { return a.Stage() },
-		Moved:  func(screen.Inputs) screen.Request { return screen.Batch{a.Stage(), screen.Settle{}} },
+		Moved:  func(screen.Inputs) screen.Request { return screen.Batch{a.Stage(), screen.WaitForCursorRest{}} },
 	}
 }
 
@@ -384,7 +384,7 @@ func (a *archivedAgents) IsLoading(in screen.Inputs) bool {
 	return slices.ContainsFunc(a.listRows(in), func(r agentRow) bool { return isRowLoading(in.Listing, r) })
 }
 
-func (a *archivedAgents) StageResting(screen.Inputs) screen.Request {
+func (a *archivedAgents) OnCursorRest(screen.Inputs) screen.Request {
 	return screen.Batch{a.Stage(), screen.ReadSavedScreen{}}
 }
 
@@ -491,7 +491,7 @@ func restoreAgents(clients api.Clients, agents []panel.Agent) screen.Request {
 	}
 
 	return clients.AwaitingWrite(api.AwaitingWriteParams{
-		Doing:          "restoring " + describeAgents(agents),
+		InFlightText:   "restoring " + describeAgents(agents),
 		FailureSummary: fmt.Sprintf("Could not restore %s", describeAgents(agents)),
 		WaitFor:        screen.WaitFor{RowsShown: screen.RowsIn(screen.ListAgents, panel.IDs(agents)...)},
 		Write:          func(a api.Clients) error { return a.RestoreAgents(panel.IDs(agents)) },
@@ -504,7 +504,7 @@ func confirmDeleteWorkflow(in screen.Inputs, clients api.Clients, workflow panel
 
 	return confirm.Open(in, func(form.Inputs) screen.Request {
 		return clients.AwaitingWrite(api.AwaitingWriteParams{
-			Doing:          "deleting " + workflow.Name,
+			InFlightText:   "deleting " + workflow.Name,
 			FailureSummary: fmt.Sprintf("Could not delete workflow %q", workflow.Name),
 			WaitFor:        waitForDeleted(confirm.Values.DeletesRecords(), screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)),
 			Write:          func(a api.Clients) error { return a.DeleteWorkflow(workflow.ID, confirm.Values.DeletesRecords()) },
@@ -514,7 +514,7 @@ func confirmDeleteWorkflow(in screen.Inputs, clients api.Clients, workflow panel
 
 // Stage keeps the info pane on the row the cursor is standing on.
 func (a *archivedAgents) Stage() screen.Request {
-	return screen.StageTerminal{}
+	return screen.ReshowOpenShell{}
 }
 
 // ListParams is the list of archived or deleted agents as the root renders it.

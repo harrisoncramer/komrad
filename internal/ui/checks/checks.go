@@ -136,7 +136,7 @@ func (c *Screen) list() keys.ScreenList[checkRow] {
 		Cursor: func() *list.Cursor { return &c.Cursor },
 		Rows:   c.rows,
 		Name:   checkRowName,
-		Moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
+		Moved:  func(screen.Inputs) screen.Request { return screen.WaitForCursorRest{} },
 	}
 }
 
@@ -228,7 +228,7 @@ func (c *Screen) StepKind(in screen.Inputs, delta int) screen.Request {
 	c.scope = scope(tabs.StepStop(int(c.shownScope()), delta, len(scopeLabels)))
 	c.scopeChosen = true
 
-	return screen.Batch{c.list().Place(in, hovered), screen.Settle{}}
+	return screen.Batch{c.list().Place(in, hovered), screen.WaitForCursorRest{}}
 }
 
 func (c *Screen) listActions(in screen.Inputs) keys.Spec[*Screen] {
@@ -255,24 +255,24 @@ func (c *Screen) listActions(in screen.Inputs) keys.Spec[*Screen] {
 				Desc:      keys.FilterDescOf[*Screen](in),
 			},
 			{
-				ActionIDs: []keys.ID{keys.FilterClear},
-				Desc:      keys.FilterClearDescOf[*Screen](in),
-				Strip:     true,
+				ActionIDs:     []keys.ID{keys.FilterClear},
+				Desc:          keys.FilterClearDescOf[*Screen](in),
+				IsInShortHelp: true,
 			},
 			{
-				ActionIDs: []keys.ID{keys.FilterMatch},
-				Desc:      func(*Screen) string { return "next/prev match" },
-				Strip:     true,
+				ActionIDs:     []keys.ID{keys.FilterMatch},
+				Desc:          func(*Screen) string { return "next/prev match" },
+				IsInShortHelp: true,
 			},
 			{
-				ActionIDs: []keys.ID{actionBack},
-				Desc:      func(*Screen) string { return "back" },
-				Strip:     true,
+				ActionIDs:     []keys.ID{actionBack},
+				Desc:          func(*Screen) string { return "back" },
+				IsInShortHelp: true,
 			},
 			{
-				ActionIDs: []keys.ID{actionLogs},
-				Desc:      func(*Screen) string { return "logs" },
-				Strip:     true,
+				ActionIDs:     []keys.ID{actionLogs},
+				Desc:          func(*Screen) string { return "logs" },
+				IsInShortHelp: true,
 			},
 		}),
 	}
@@ -315,8 +315,8 @@ func (c *Screen) Column(in screen.Inputs) column.Spec {
 	}
 }
 
-// StageResting stages nothing for the row the cursor rests on.
-func (c *Screen) StageResting(screen.Inputs) screen.Request {
+// OnCursorRest stages nothing for the row the cursor rests on.
+func (c *Screen) OnCursorRest(screen.Inputs) screen.Request {
 	return nil
 }
 

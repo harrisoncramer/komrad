@@ -201,14 +201,14 @@ func (m *model) detailsActions() keys.Spec[*model] {
 		}...),
 		Legend: []keys.LegendRow[*model]{
 			{
-				ActionIDs: []keys.ID{keys.DetailsCopy},
-				Desc:      func(*model) string { return "copy field" },
-				Strip:     true,
+				ActionIDs:     []keys.ID{keys.DetailsCopy},
+				Desc:          func(*model) string { return "copy field" },
+				IsInShortHelp: true,
 			},
 			{
-				ActionIDs: []keys.ID{keys.Details},
-				Desc:      func(*model) string { return "back to the list" },
-				Strip:     true,
+				ActionIDs:     []keys.ID{keys.Details},
+				Desc:          func(*model) string { return "back to the list" },
+				IsInShortHelp: true,
 			},
 			{
 				ActionIDs: []keys.ID{keys.FilterOpen},

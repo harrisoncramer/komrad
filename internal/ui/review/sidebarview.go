@@ -29,7 +29,7 @@ func (r Screen) sideView(in screen.Inputs, lines int) string {
 		return ""
 	}
 
-	width := layout.LineWidth(in.Room.Width)
+	width := layout.LineWidth(in.Room.DrawingWidth)
 	focused := r.IsBlockFocused(in)
 	rows := make([]string, 0, len(sideRows))
 	keys := make([]string, 0, len(sideRows))

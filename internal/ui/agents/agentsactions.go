@@ -130,10 +130,10 @@ func (a *Screen) legend(in screen.Inputs) []keys.LegendRow[*Screen] {
 func (a *Screen) browsingLegend(in screen.Inputs) []keys.LegendRow[*Screen] {
 	return slices.Concat([]keys.LegendRow[*Screen]{
 		{
-			ActionIDs: []keys.ID{actionAgentOpen},
-			Desc:      func(*Screen) string { return "open" },
-			Show:      (*Screen).isBrowsing,
-			Strip:     true,
+			ActionIDs:     []keys.ID{actionAgentOpen},
+			Desc:          func(*Screen) string { return "open" },
+			Show:          (*Screen).isBrowsing,
+			IsInShortHelp: true,
 		},
 		{
 			ActionIDs: []keys.ID{keys.SelectToggle},

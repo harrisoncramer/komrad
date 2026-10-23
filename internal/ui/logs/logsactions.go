@@ -51,19 +51,19 @@ func (l *Screen) legend(in screen.Inputs) []keys.LegendRow[*Screen] {
 			Desc:      keys.FilterDescOf[*Screen](in),
 		},
 		{
-			ActionIDs: []keys.ID{keys.FilterClear},
-			Desc:      keys.FilterClearDescOf[*Screen](in),
-			Strip:     true,
+			ActionIDs:     []keys.ID{keys.FilterClear},
+			Desc:          keys.FilterClearDescOf[*Screen](in),
+			IsInShortHelp: true,
 		},
 		{
-			ActionIDs: []keys.ID{keys.FilterMatch},
-			Desc:      func(*Screen) string { return "next/prev match" },
-			Strip:     true,
+			ActionIDs:     []keys.ID{keys.FilterMatch},
+			Desc:          func(*Screen) string { return "next/prev match" },
+			IsInShortHelp: true,
 		},
 		{
-			ActionIDs: []keys.ID{actionBack},
-			Desc:      func(*Screen) string { return "back" },
-			Strip:     true,
+			ActionIDs:     []keys.ID{actionBack},
+			Desc:          func(*Screen) string { return "back" },
+			IsInShortHelp: true,
 		},
 	})
 }
@@ -121,9 +121,9 @@ func (l *Screen) logActions(in screen.Inputs) keys.Spec[*Screen] {
 				Desc:      func(*Screen) string { return "filter" },
 			},
 			{
-				ActionIDs: []keys.ID{actionCopy},
-				Desc:      func(*Screen) string { return "copy line" },
-				Strip:     true,
+				ActionIDs:     []keys.ID{actionCopy},
+				Desc:          func(*Screen) string { return "copy line" },
+				IsInShortHelp: true,
 			},
 			{
 				ActionIDs: []keys.ID{actionBack},
@@ -134,7 +134,7 @@ func (l *Screen) logActions(in screen.Inputs) keys.Spec[*Screen] {
 
 					return "back to the list"
 				},
-				Strip: true,
+				IsInShortHelp: true,
 			},
 		},
 	}

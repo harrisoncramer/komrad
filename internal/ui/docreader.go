@@ -50,10 +50,10 @@ func (m *model) isDocReadable(in screen.Inputs) bool {
 // holds the keys.
 func (m *model) docReaderOf(in screen.Inputs) screen.DocReader {
 	return screen.DocReader{
-		CursorLine: m.reading.CursorLine,
-		TopLine:    m.reading.TopLine,
-		HoldsKeys:  m.reading.focused && m.isDocReadable(in) && in.Room.IsListFocused,
-		Held:       m.reading.focused,
+		CursorLine:      m.reading.CursorLine,
+		TopLine:         m.reading.TopLine,
+		HoldsKeys:       m.reading.focused && m.isDocReadable(in) && in.Room.IsListFocused,
+		IsReaderFocused: m.reading.focused,
 	}
 }
 
@@ -331,9 +331,9 @@ func (m *model) docActions() keys.Spec[*model] {
 			},
 			keys.JumpRow[*model](),
 			{
-				ActionIDs: []keys.ID{keys.ColumnBack},
-				Desc:      func(*model) string { return "back to the list" },
-				Strip:     true,
+				ActionIDs:     []keys.ID{keys.ColumnBack},
+				Desc:          func(*model) string { return "back to the list" },
+				IsInShortHelp: true,
 			},
 		},
 	}

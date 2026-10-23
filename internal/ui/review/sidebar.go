@@ -342,7 +342,7 @@ func (r Screen) descriptionRows(in screen.Inputs) []sideRow {
 		rows = append(rows, sideRow{sideCursor: sideCursor{kind: sideDescriptionLine, id: "author"}, text: "@" + pullRequest.Author})
 	}
 
-	width := layout.LineWidth(in.Room.Width) - len(sideMarkBlank) - len(descriptionIndent)
+	width := layout.LineWidth(in.Room.DrawingWidth) - len(sideMarkBlank) - len(descriptionIndent)
 	for at, line := range pullRequestBodyRows(pullRequest.Body, width) {
 		rows = append(rows, sideRow{sideCursor: sideCursor{kind: sideDescriptionLine, id: strconv.Itoa(at)}, text: line})
 	}

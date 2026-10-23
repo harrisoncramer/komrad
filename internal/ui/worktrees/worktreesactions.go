@@ -55,14 +55,14 @@ func (w *Screen) legend(in screen.Inputs) []keys.LegendRow[*Screen] {
 			Desc:      func(*Screen) string { return "back" },
 		},
 		{
-			ActionIDs: []keys.ID{keys.FilterClear},
-			Desc:      keys.FilterClearDescOf[*Screen](in),
-			Strip:     true,
+			ActionIDs:     []keys.ID{keys.FilterClear},
+			Desc:          keys.FilterClearDescOf[*Screen](in),
+			IsInShortHelp: true,
 		},
 		{
-			ActionIDs: []keys.ID{keys.FilterMatch},
-			Desc:      func(*Screen) string { return "next/prev match" },
-			Strip:     true,
+			ActionIDs:     []keys.ID{keys.FilterMatch},
+			Desc:          func(*Screen) string { return "next/prev match" },
+			IsInShortHelp: true,
 		},
 	})
 }
@@ -207,7 +207,7 @@ func (w *Screen) deleteWorktreesWrite(deletion deletion) screen.Write {
 	clients := w.deps.Clients
 
 	return screen.Write{
-		Doing:          "deleting " + subject,
+		InFlightText:   "deleting " + subject,
 		FailureSummary: "Could not delete " + subject,
 		Send: func() screen.WriteResult {
 			return screen.WriteResult{
@@ -271,7 +271,7 @@ func (w *Screen) BuildScreenMenu(in screen.Inputs, _ menu.NestedMenuBuilder) (me
 	clearAll := menu.Leaving("delete unused worktrees", w.deps.Keys.ArchiveMenu.Clear, func(in screen.Inputs) screen.Request {
 		return w.confirmDeleteWorktrees(in, clearable)
 	})
-	clearAll.Off = clearable.isEmpty()
+	clearAll.IsDimmed = clearable.isEmpty()
 
 	return menu.Menu{
 		Title:   "worktrees",

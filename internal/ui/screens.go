@@ -64,8 +64,8 @@ type screenModel interface {
 	// Column is the block the screen renders beside its own list.
 	Column(in screen.Inputs) column.Spec
 
-	// StageResting stages the row the cursor came to rest on and asks for what the screen reads of it.
-	StageResting(in screen.Inputs) screen.Request
+	// OnCursorRest asks for what the screen does once the cursor comes to rest on a row.
+	OnCursorRest(in screen.Inputs) screen.Request
 
 	// Dispatches is the tables the screen dispatches through, one at a time, walked behind the
 	// global keys.
@@ -475,11 +475,11 @@ func (m *model) apply(request screen.Request) tea.Cmd {
 		return m.route(request.Staged(m.stageEditor(request.Content)))
 	case screen.RunCmd:
 		return tea.Cmd(request)
-	case screen.Settle:
+	case screen.WaitForCursorRest:
 		return m.waitToStage()
-	case screen.Restage:
+	case screen.RefreshStage:
 		m.stageSelection()
-	case screen.StageTerminal:
+	case screen.ReshowOpenShell:
 		m.stageTerminal()
 	case screen.OpenTerminal:
 		return m.openTerminal(request.Dir)
@@ -502,9 +502,9 @@ func (m *model) apply(request screen.Request) tea.Cmd {
 		m.filter = filter.State{}
 	case screen.BeginFilter:
 		m.beginFilter()
-	case screen.StepMatch:
-		return m.stepFilterMatch(request.Delta)
-	case screen.ClearFilter:
+	case screen.MoveToMatch:
+		return m.stepFilterMatch(request.Direction)
+	case screen.ClearFilterRestoreCursor:
 		m.clearFilter()
 	case screen.ApplyFilter:
 		m.filterBy(request.Query)

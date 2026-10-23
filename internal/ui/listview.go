@@ -71,7 +71,7 @@ func (m *model) screenListView(params list.Params) string {
 	}
 
 	in := m.inputs()
-	pane := in.Room.Width
+	pane := in.Room.DrawingWidth
 	lines := m.Lines(header, below)
 	snapshot := params.Snapshot(list.Pane{Width: pane, Caret: in.Room.ListCaret})
 	window := view.Window(view.WindowParams{

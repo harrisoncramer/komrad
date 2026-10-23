@@ -13,7 +13,7 @@ import (
 // rowWrite is a write whose landing takes the panel to the row it made.
 func rowWrite(clients api.Clients, doing, summary string, write func(api.Clients) screen.WriteResult) screen.Write {
 	return screen.Write{
-		Doing:          doing,
+		InFlightText:   doing,
 		FailureSummary: summary,
 		Send:           func() screen.WriteResult { return write(clients) },
 	}
@@ -48,11 +48,11 @@ func createdAgent(agent *agentv1.Agent, focus bool) screen.WriteResult {
 	return screen.WriteResult{
 		WaitFor: screen.WaitFor{RowsShown: screen.RowsIn(screen.ListAgents, agent.GetId())},
 		CreatedRow: &screen.CreatedRow{
-			RowKey:  agentRowKey(agent.GetId()),
-			Agent:   agent.GetId(),
-			Pane:    agent.GetPaneId(),
-			Harness: agent.GetHarness(),
-			Focus:   focus,
+			RowKey:          agentRowKey(agent.GetId()),
+			Agent:           agent.GetId(),
+			Pane:            agent.GetPaneId(),
+			Harness:         agent.GetHarness(),
+			ShouldFocusPane: focus,
 		},
 	}
 }
@@ -63,11 +63,11 @@ func createdWorkflow(workflowID string, orchestrator *agentv1.Agent) screen.Writ
 	return screen.WriteResult{
 		WaitFor: screen.WaitFor{RowsShown: screen.RowsIn(screen.ListWorkflows, workflowID)},
 		CreatedRow: &screen.CreatedRow{
-			RowKey:  workflowRowKey(workflowID),
-			Agent:   orchestrator.GetId(),
-			Pane:    orchestrator.GetPaneId(),
-			Harness: orchestrator.GetHarness(),
-			Focus:   orchestrator != nil,
+			RowKey:          workflowRowKey(workflowID),
+			Agent:           orchestrator.GetId(),
+			Pane:            orchestrator.GetPaneId(),
+			Harness:         orchestrator.GetHarness(),
+			ShouldFocusPane: orchestrator != nil,
 		},
 	}
 }
@@ -99,7 +99,7 @@ func startingLabel(title string) string {
 
 func adoptWrite(clients api.Clients, params api.AdoptParams) screen.Write {
 	return screen.Write{
-		Doing:          "adopting " + params.Ref,
+		InFlightText:   "adopting " + params.Ref,
 		FailureSummary: "Could not adopt",
 		Send: func() screen.WriteResult {
 			adopted, err := clients.Adopt(params)
@@ -111,7 +111,7 @@ func adoptWrite(clients api.Clients, params api.AdoptParams) screen.Write {
 			landed := createdAgent(agent, false)
 			if adopted.GetExisting() {
 				if agent.ArchivedAt != nil {
-					landed.CreatedRow.Archived = true
+					landed.CreatedRow.IsArchived = true
 					landed.WaitFor.RowsShown = screen.RowsIn(screen.ListArchivedAgents, agent.GetId())
 				}
 				landed.SuccessNotice = &screen.Notice{

@@ -21,7 +21,7 @@ func (m *model) inputsFor(s screenModel) screen.Inputs {
 	return in
 }
 
-// measuredInputsFor is the inputs as far as the room's width and window split, which is all
+// measuredInputsFor is the inputs as far as the room's drawing width and window split, which is all
 // the root needs to lay its own chrome out.
 func (m *model) measuredInputsFor(s screenModel) screen.Inputs {
 	in := screen.Inputs{
@@ -43,7 +43,7 @@ func (m *model) measuredInputsFor(s screenModel) screen.Inputs {
 		},
 	}
 	in.Room.WindowSplit = m.windowSplitOf(in)
-	in.Room.Width = m.paneWidthAt(in.Room.WindowSplit)
+	in.Room.DrawingWidth = m.drawingWidthAt(in.Room.WindowSplit)
 
 	return in
 }

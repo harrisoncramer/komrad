@@ -10,8 +10,8 @@ import (
 
 // Room is the window the panel has this frame and who holds its keys.
 type Room struct {
-	// Width is the column the panel renders its own list, record and legend in.
-	Width int
+	// DrawingWidth is the column the panel renders its own list, record and legend in.
+	DrawingWidth int
 	// IsListHalfOfSplit is whether the screen is rendered as the list half of a split the root has
 	// already chosen.
 	IsListHalfOfSplit bool
@@ -52,7 +52,7 @@ type Room struct {
 type DocReader struct {
 	CursorLine, TopLine int
 	// HoldsKeys is whether the document holds the keys.
-	HoldsKeys   bool
-	Held        bool
-	VisibleRows int
+	HoldsKeys       bool
+	IsReaderFocused bool
+	VisibleRows     int
 }

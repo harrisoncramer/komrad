@@ -48,7 +48,7 @@ func (w *Screen) archiveMenu(schedule panel.Schedule) menu.Menu {
 		Entries: []menu.Entry{{
 			Label:     "archive",
 			Keys:      w.deps.Keys.ArchiveMenu.Archive,
-			AfterPick: menu.Hold,
+			AfterPick: menu.KeepOpenWhileWriting,
 			Pick:      func(screen.Inputs) screen.Request { return w.archiveSchedule(schedule) },
 		}},
 	}

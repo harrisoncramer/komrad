@@ -133,7 +133,7 @@ func (d *Screen) Enter(in screen.Inputs, target screen.Target) screen.Request {
 		}
 	}
 
-	return append(requests, screen.StageTerminal{}, screen.Settle{})
+	return append(requests, screen.ReshowOpenShell{}, screen.WaitForCursorRest{})
 }
 
 // Update sends a key to the rename or the diff's search while either is typed into, and to the screen's table otherwise.
@@ -215,7 +215,7 @@ func (d *Screen) StepKind(in screen.Inputs, delta int) screen.Request {
 	d.kind = kind(tabs.StepStop(int(d.kind), delta, len(d.Kinds().Labels)))
 	d.history, d.focus = nil, false
 
-	return screen.Batch{screen.DropFilterLeaveCursor{}, screen.StageTerminal{}, screen.Settle{}}
+	return screen.Batch{screen.DropFilterLeaveCursor{}, screen.ReshowOpenShell{}, screen.WaitForCursorRest{}}
 }
 
 func (d *Screen) list() keys.ScreenList[row] {
@@ -226,11 +226,11 @@ func (d *Screen) list() keys.ScreenList[row] {
 		Name:   rowName,
 		Fits:   d.rowFits,
 		Refs:   refs,
-		Placed: func(screen.Inputs) screen.Request { return screen.StageTerminal{} },
+		Placed: func(screen.Inputs) screen.Request { return screen.ReshowOpenShell{} },
 		Moved: func(screen.Inputs) screen.Request {
 			d.history, d.focus = nil, false
 
-			return screen.Settle{}
+			return screen.WaitForCursorRest{}
 		},
 	}
 }
@@ -241,8 +241,8 @@ func (d *Screen) typeList() keys.ScreenList[typeRow] {
 		Cursor: func() *list.Cursor { return &d.types },
 		Rows:   d.typeRows,
 		Name:   typeRowName,
-		Placed: func(screen.Inputs) screen.Request { return screen.StageTerminal{} },
-		Moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
+		Placed: func(screen.Inputs) screen.Request { return screen.ReshowOpenShell{} },
+		Moved:  func(screen.Inputs) screen.Request { return screen.WaitForCursorRest{} },
 	}
 }
 
@@ -534,11 +534,11 @@ func (d *Screen) applyRead(msg readMsg) {
 
 // Stage puts the terminal on the stage beside the list.
 func (d *Screen) Stage() screen.Request {
-	return screen.StageTerminal{}
+	return screen.ReshowOpenShell{}
 }
 
-// StageResting stages the terminal and reads the document the cursor came to rest on.
-func (d *Screen) StageResting(in screen.Inputs) screen.Request {
+// OnCursorRest stages the terminal and reads the document the cursor came to rest on.
+func (d *Screen) OnCursorRest(in screen.Inputs) screen.Request {
 	return screen.Batch{d.Stage(), screen.RunCmd(d.readDocumentsCmd(in))}
 }
 

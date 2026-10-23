@@ -66,7 +66,7 @@ func rowName(item row) string {
 func (w *Screen) Enter(in screen.Inputs, _ screen.Target) screen.Request {
 	w.Row = cursor.Clamp(w.Row, len(w.listRows(in)))
 
-	return screen.Settle{}
+	return screen.WaitForCursorRest{}
 }
 
 // Update sends a key to the rename being typed, or to the screen's table.
@@ -109,7 +109,7 @@ func (w *Screen) list() keys.ScreenList[row] {
 		Rows:   w.listRows,
 		Name:   rowName,
 		Fits:   rowFits,
-		Moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
+		Moved:  func(screen.Inputs) screen.Request { return screen.WaitForCursorRest{} },
 	}
 }
 
@@ -251,7 +251,7 @@ func prefill(schedule panel.Schedule) panel.ScheduleConfig {
 
 func (w *Screen) archiveSchedule(schedule panel.Schedule) screen.Request {
 	return w.deps.Clients.AwaitingWrite(api.AwaitingWriteParams{
-		Doing:          "archiving " + schedule.Name,
+		InFlightText:   "archiving " + schedule.Name,
 		FailureSummary: fmt.Sprintf("Could not archive schedule %q", schedule.Name),
 		WaitFor:        screen.WaitFor{RowsGone: screen.RowsIn(screen.ListSchedules, schedule.ID)},
 		Write:          func(a api.Clients) error { return a.ArchiveSchedule(schedule.ID) },
@@ -303,9 +303,9 @@ func (w *Screen) Column(in screen.Inputs) column.Spec {
 	}
 }
 
-// StageResting restages the pane for the schedule the cursor rests on.
-func (w *Screen) StageResting(screen.Inputs) screen.Request {
-	return screen.Restage{}
+// OnCursorRest restages the pane for the schedule the cursor rests on.
+func (w *Screen) OnCursorRest(screen.Inputs) screen.Request {
+	return screen.RefreshStage{}
 }
 
 // Dispatches is the screen's table and its archive's.

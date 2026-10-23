@@ -49,7 +49,7 @@ func (g Menus) autoMergeWrite(task panel.Task, params api.MergeParams, on bool) 
 	}
 
 	return screen.Write{
-		Doing:          doing,
+		InFlightText:   doing,
 		FailureSummary: "Could not change auto-merge on " + ref + " of " + task.Slug,
 		Send: func() screen.WriteResult {
 			return screen.WriteResult{

@@ -86,9 +86,9 @@ func (p subpage) entry(l panel.Listing, bindings config.Keybindings, item panel.
 	switch p {
 	case subpageReview:
 		return menu.Entry{
-			Label: "review",
-			Keys:  bindings.Menu.Review,
-			Off:   reviewRefusal(l, item.Agent) != nil,
+			Label:    "review",
+			Keys:     bindings.Menu.Review,
+			IsDimmed: reviewRefusal(l, item.Agent) != nil,
 		}
 	case subpageLogs:
 		return menu.Entry{Label: "logs", Keys: bindings.Menu.Logs}
@@ -96,9 +96,9 @@ func (p subpage) entry(l panel.Listing, bindings config.Keybindings, item panel.
 		return menu.Entry{Label: "status checks", Keys: bindings.Menu.StatusChecks}
 	case subpageTerminal:
 		return menu.Entry{
-			Label: "terminal",
-			Keys:  bindings.Menu.Terminal,
-			Off:   terminalRefusal(item.Agent) != nil,
+			Label:    "terminal",
+			Keys:     bindings.Menu.Terminal,
+			IsDimmed: terminalRefusal(item.Agent) != nil,
 		}
 	}
 

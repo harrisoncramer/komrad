@@ -24,12 +24,12 @@ func TestFirstOn(t *testing.T) {
 		},
 		{
 			name:    "every entry off",
-			entries: []menu.Entry{{Off: true}, {Off: true}},
+			entries: []menu.Entry{{IsDimmed: true}, {IsDimmed: true}},
 			want:    menu.Cancel,
 		},
 		{
 			name:    "skips entries that are off",
-			entries: []menu.Entry{{Off: true}, {Label: "on"}},
+			entries: []menu.Entry{{IsDimmed: true}, {Label: "on"}},
 			want:    1,
 		},
 	}
@@ -43,7 +43,7 @@ func TestFirstOn(t *testing.T) {
 	}
 }
 
-// TestNested checks a nested entry is off only when nothing inside it would do anything.
+// TestNested checks a nested entry is dimmed only when nothing inside it would do anything.
 func TestNested(t *testing.T) {
 	t.Parallel()
 
@@ -58,7 +58,7 @@ func TestNested(t *testing.T) {
 		},
 		{
 			name:    "a menu with every entry off",
-			menu:    menu.Menu{Entries: []menu.Entry{{Off: true}}},
+			menu:    menu.Menu{Entries: []menu.Entry{{IsDimmed: true}}},
 			wantOff: true,
 		},
 		{
@@ -73,7 +73,7 @@ func TestNested(t *testing.T) {
 
 			entry := menu.Nested("git", nil, tt.menu)
 
-			assert.Equal(t, tt.wantOff, entry.Off)
+			assert.Equal(t, tt.wantOff, entry.IsDimmed)
 			assert.NotNil(t, entry.Submenu)
 		})
 	}
@@ -109,7 +109,7 @@ func TestJoin(t *testing.T) {
 	assert.Equal(t, "agent", joined.Title)
 	require.Len(t, joined.Entries, 3)
 	assert.True(t, joined.Entries[1].IsDivider)
-	assert.True(t, joined.Entries[1].Off)
+	assert.True(t, joined.Entries[1].IsDimmed)
 	assert.Equal(t, "archive", joined.Entries[2].Label)
 }
 
@@ -120,5 +120,5 @@ func TestDrawnOff(t *testing.T) {
 	entry := menu.Entry{Label: "push"}
 
 	assert.Equal(t, entry, menu.DrawnOff(entry, ""))
-	assert.Equal(t, menu.Entry{Label: "push", Off: true, OffSaid: "nothing to push"}, menu.DrawnOff(entry, "nothing to push"))
+	assert.Equal(t, menu.Entry{Label: "push", IsDimmed: true, RefusalReason: "nothing to push"}, menu.DrawnOff(entry, "nothing to push"))
 }

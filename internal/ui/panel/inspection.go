@@ -12,7 +12,7 @@ import (
 type WorktreeEntry struct {
 	Path  string
 	Bytes int64
-	Dir   bool
+	IsDir bool
 }
 
 // WorktreeCommit is one of a branch's commits since its base.

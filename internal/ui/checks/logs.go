@@ -223,7 +223,7 @@ func (c Logs) anchor(in screen.Inputs) screen.Request {
 // reanchor keeps the hovered row's header in view as the document changes above it, unless the reader has moved or scrolled off it.
 func (c Logs) reanchor(in screen.Inputs) screen.Request {
 	doc := in.Room.DocumentReader
-	if !in.IsActive || doc.Held || doc.CursorLine != c.placed || doc.TopLine != c.placedTop {
+	if !in.IsActive || doc.IsReaderFocused || doc.CursorLine != c.placed || doc.TopLine != c.placedTop {
 		return nil
 	}
 
@@ -282,19 +282,19 @@ func (c Logs) listActions(in screen.Inputs) keys.Spec[Logs] {
 				Desc:      keys.FilterDescOf[Logs](in),
 			},
 			{
-				ActionIDs: []keys.ID{keys.FilterClear},
-				Desc:      keys.FilterClearDescOf[Logs](in),
-				Strip:     true,
+				ActionIDs:     []keys.ID{keys.FilterClear},
+				Desc:          keys.FilterClearDescOf[Logs](in),
+				IsInShortHelp: true,
 			},
 			{
-				ActionIDs: []keys.ID{keys.FilterMatch},
-				Desc:      func(Logs) string { return "next/prev match" },
-				Strip:     true,
+				ActionIDs:     []keys.ID{keys.FilterMatch},
+				Desc:          func(Logs) string { return "next/prev match" },
+				IsInShortHelp: true,
 			},
 			{
-				ActionIDs: []keys.ID{actionLogsBack},
-				Desc:      func(Logs) string { return "back" },
-				Strip:     true,
+				ActionIDs:     []keys.ID{actionLogsBack},
+				Desc:          func(Logs) string { return "back" },
+				IsInShortHelp: true,
 			},
 		}),
 	}
@@ -342,8 +342,8 @@ func (c Logs) Column(screen.Inputs) column.Spec {
 	}
 }
 
-// StageResting stages nothing for the row the cursor rests on.
-func (c Logs) StageResting(screen.Inputs) screen.Request {
+// OnCursorRest stages nothing for the row the cursor rests on.
+func (c Logs) OnCursorRest(screen.Inputs) screen.Request {
 	return nil
 }
 

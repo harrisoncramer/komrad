@@ -152,7 +152,7 @@ func (d *Screen) confirmDeleteForm(params confirmDeleteFormParams) form.Form {
 				params.delete,
 			)
 		},
-		Narrow:          true,
-		ClosesOnRefusal: true,
+		CanUseNarrowestWidth: true,
+		ClosesOnRefusal:      true,
 	}
 }

@@ -68,11 +68,11 @@ func Directly[S any](reason string, run func(S, string) screen.Request) *direct[
 
 // LegendRow is one row of a screen's legend.
 type LegendRow[S any] struct {
-	ActionIDs []ID
-	Desc      func(S) string
-	Show      func(S) bool
-	Label     func(config.Keybindings) string
-	Strip     bool
+	ActionIDs     []ID
+	Desc          func(S) string
+	Show          func(S) bool
+	Label         func(config.Keybindings) string
+	IsInShortHelp bool
 }
 
 // Spec is a screen's keys, ordered twice: the table in precedence order, the dispatch order, and
@@ -127,7 +127,7 @@ func (s Spec[S]) Help(state S, bindings config.Keybindings) legend.Help {
 		binding := s.rowBinding(state, bindings, row)
 		help.Full = append(help.Full, binding)
 
-		if row.Strip {
+		if row.IsInShortHelp {
 			help.Short = append(help.Short, binding)
 		}
 	}

@@ -106,6 +106,8 @@ type writeResult struct {
 	write int
 	// unstaged is the agents whose panes came off the stage before the write was sent.
 	unstaged []panel.Agent
+	// killed says the write took down the agents it unstaged.
+	killed bool
 	// awaits is what the panel shows once the write is answered, and the write is held until it does.
 	awaits screen.WaitFor
 	// keyMoved says a key moved the cursor while the write was parked.
@@ -120,8 +122,8 @@ type focusGuestMsg struct {
 // send runs a write off the panel's loop, counted in flight under what it is doing.
 func (m *model) send(write screen.Write) tea.Cmd {
 	id := 0
-	if write.Doing != "" {
-		id = m.beginWrite(write.Doing)
+	if write.InFlightText != "" {
+		id = m.beginWrite(write.InFlightText)
 	}
 
 	if len(write.UnstageFirst) > 0 {
@@ -130,13 +132,15 @@ func (m *model) send(write screen.Write) tea.Cmd {
 
 	return func() tea.Msg {
 		landed := write.Send()
+		killed := write.DoesKillUnstagedAgents && landed.Err == nil
 
 		return writeResult{
 			summary:  write.FailureSummary,
 			landed:   landed,
 			write:    id,
 			unstaged: write.UnstageFirst,
-			awaits:   awaitsOf(landed, write.UnstageFirst),
+			killed:   killed,
+			awaits:   awaitsOf(landed, write.UnstageFirst, killed),
 		}
 	}
 }
@@ -187,7 +191,7 @@ func (m *model) finishWrite(result writeResult) tea.Cmd {
 	}
 
 	if len(result.unstaged) > 0 {
-		m.settleUnstaged(result.unstaged, landed.Killed)
+		m.settleUnstaged(result.unstaged, result.killed)
 	}
 
 	if landed.SuccessNotice != nil && landed.Err == nil {
@@ -237,9 +241,9 @@ func (m *model) finishWrite(result writeResult) tea.Cmd {
 // landOnMade takes the panel to the row a write made, showing its pane.
 func (m *model) landOnMade(made screen.CreatedRow, keyMoved bool) tea.Cmd {
 	switch {
-	case made.Archived && keyMoved:
+	case made.IsArchived && keyMoved:
 		return m.apply(m.enterArchived(screen.Target{}))
-	case made.Archived:
+	case made.IsArchived:
 		return m.apply(m.enterArchived(screen.Target{AgentID: made.Agent}))
 	}
 
@@ -258,7 +262,7 @@ func (m *model) landOnMade(made screen.CreatedRow, keyMoved bool) tea.Cmd {
 	m.frame.ShowGuest(layout.Guest{Agent: made.Agent, Pane: pane})
 	delete(m.warm.since, pane)
 
-	if made.Focus {
+	if made.ShouldFocusPane {
 		cmds = append(cmds, func() tea.Msg { return focusGuestMsg{pane: pane} })
 	}
 

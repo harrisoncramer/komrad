@@ -48,7 +48,7 @@ func (a *Screen) restartEntries(in screen.Inputs, task panel.Task) []menu.Entry 
 
 		return a.openRestart(restartTarget{agent: *writer, on: task.Slug, briefing: "the task's notes"})
 	})
-	entry.Off = refusal != nil
+	entry.IsDimmed = refusal != nil
 
 	return []menu.Entry{entry}
 }
@@ -99,7 +99,7 @@ func (a *Screen) restartWrite(l panel.Listing, agent panel.Agent, values restart
 	clients := a.deps.Clients
 
 	return screen.Write{
-		Doing:          "restarting " + l.AgentName(agent),
+		InFlightText:   "restarting " + l.AgentName(agent),
 		FailureSummary: fmt.Sprintf("Could not restart agent %q", l.AgentName(agent)),
 		UnstageFirst:   []panel.Agent{agent},
 		Send: func() screen.WriteResult {

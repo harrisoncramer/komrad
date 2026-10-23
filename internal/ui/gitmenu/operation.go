@@ -47,7 +47,7 @@ func (g Menus) planOperation(op operation) screen.Request {
 	clients := g.deps.Clients
 
 	return screen.Write{
-		Doing: op.planning,
+		InFlightText: op.planning,
 		Send: func() screen.WriteResult {
 			confirm, err := op.plan(clients)
 
@@ -64,7 +64,7 @@ func (g Menus) operationWrite(op operation) screen.Write {
 	clients := g.deps.Clients
 
 	return screen.Write{
-		Doing: op.running,
+		InFlightText: op.running,
 		Send: func() screen.WriteResult {
 			return screen.WriteResult{FollowUp: doneMsg{report: op.run(clients)}}
 		},
@@ -107,7 +107,7 @@ func (g Menus) openConfirm(op operation, buildForm confirmForm) screen.Request {
 
 			return g.operationWrite(op)
 		},
-		Narrow:          true,
-		ClosesOnRefusal: true,
+		CanUseNarrowestWidth: true,
+		ClosesOnRefusal:      true,
 	}}
 }

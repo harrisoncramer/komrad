@@ -27,7 +27,7 @@ func (w *Screen) Enter(in screen.Inputs, target screen.Target) screen.Request {
 	}
 	w.apply(in, w.list().Hovered(in))
 
-	return screen.Batch{w.Stage(), screen.Settle{}}
+	return screen.Batch{w.Stage(), screen.WaitForCursorRest{}}
 }
 
 // Update sends a key to the screen's table.
@@ -61,7 +61,7 @@ func (w *Screen) list() keys.ScreenList[row] {
 		Refs:   refs,
 		Header: "repository",
 		Placed: func(screen.Inputs) screen.Request { return w.Stage() },
-		Moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
+		Moved:  func(screen.Inputs) screen.Request { return screen.WaitForCursorRest{} },
 	}
 }
 
@@ -76,11 +76,11 @@ func (w *Screen) hovered(in screen.Inputs) (row, bool) {
 
 // Stage puts the terminal on the stage beside the list.
 func (w *Screen) Stage() screen.Request {
-	return screen.StageTerminal{}
+	return screen.ReshowOpenShell{}
 }
 
-// StageResting stages the row the cursor came to rest on, with its standing and its agent's saved screen.
-func (w *Screen) StageResting(in screen.Inputs) screen.Request {
+// OnCursorRest stages the row the cursor came to rest on, with its standing and its agent's saved screen.
+func (w *Screen) OnCursorRest(in screen.Inputs) screen.Request {
 	return screen.Batch{w.Stage(), w.inspect(in), screen.ReadSavedScreen{}}
 }
 
@@ -171,7 +171,7 @@ func (w *Screen) StepKind(in screen.Inputs, delta int) screen.Request {
 	w.scope = scope(tabs.StepStop(int(w.scope), delta, len(scopeLabels)))
 	w.place(in, hovered)
 
-	return screen.Batch{w.Stage(), screen.Settle{}}
+	return screen.Batch{w.Stage(), screen.WaitForCursorRest{}}
 }
 
 // tally is how many directories the scope lists, what the measured ones take, and whether they

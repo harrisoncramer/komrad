@@ -79,8 +79,8 @@ func archiveMenu(in screen.Inputs, bindings config.Keybindings, clients api.Clie
 			{
 				Label:     "restore and open",
 				Keys:      bindings.ArchiveMenu.RestoreOpen,
-				Off:       err != nil,
-				AfterPick: menu.Hold,
+				IsDimmed:  err != nil,
+				AfterPick: menu.KeepOpenWhileWriting,
 				Pick:      func(in screen.Inputs) screen.Request { return restoreAndOpen(in.Listing, clients, target) },
 			},
 			menu.DrawnOff(menu.Leaving(remove, bindings.ArchiveMenu.Delete, func(in screen.Inputs) screen.Request {
@@ -122,7 +122,7 @@ func restoreArchived(clients api.Clients, target archived) screen.Request {
 		workflow := *target.workflow
 
 		return clients.AwaitingWrite(api.AwaitingWriteParams{
-			Doing:          "restoring " + workflow.Name,
+			InFlightText:   "restoring " + workflow.Name,
 			FailureSummary: fmt.Sprintf("Could not restore workflow %q", workflow.Name),
 			WaitFor:        screen.WaitFor{RowsGone: screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)},
 			Write:          func(c api.Clients) error { return c.RestoreWorkflow(workflow.ID) },
@@ -153,7 +153,7 @@ func (a *Screen) agentArchiveMenu(agent panel.Agent) menu.Menu {
 	return liveArchiveMenu(menu.Entry{
 		Label:     "archive this agent",
 		Keys:      a.deps.Keys.ArchiveMenu.Archive,
-		AfterPick: menu.Hold,
+		AfterPick: menu.KeepOpenWhileWriting,
 		Pick:      func(screen.Inputs) screen.Request { return a.archiveAgents([]panel.Agent{agent}) },
 	})
 }
@@ -162,7 +162,7 @@ func (a *Screen) workflowArchiveMenu(workflow panel.Workflow) menu.Menu {
 	return liveArchiveMenu(menu.Entry{
 		Label:     "archive with its agents",
 		Keys:      a.deps.Keys.ArchiveMenu.Archive,
-		AfterPick: menu.Hold,
+		AfterPick: menu.KeepOpenWhileWriting,
 		Pick:      func(in screen.Inputs) screen.Request { return a.archiveWorkflow(in, workflow) },
 	})
 }
@@ -175,7 +175,7 @@ func (a *Screen) taskArchiveMenu(task panel.Task) menu.Menu {
 		menu.Entry{
 			Label:     "archive with its agents",
 			Keys:      a.deps.Keys.ArchiveMenu.Archive,
-			AfterPick: menu.Hold,
+			AfterPick: menu.KeepOpenWhileWriting,
 			Pick: func(in screen.Inputs) screen.Request {
 				return a.deps.Clients.ArchiveTasksWrite(tasks, in.Listing.AgentsOnTasks(tasks))
 			},
@@ -193,7 +193,7 @@ func (a *Screen) chosenArchiveMenu(work chosenWork) menu.Menu {
 		menu.Entry{
 			Label:     "archive all",
 			Keys:      a.deps.Keys.ArchiveMenu.Archive,
-			AfterPick: menu.Hold,
+			AfterPick: menu.KeepOpenWhileWriting,
 			Pick:      func(in screen.Inputs) screen.Request { return a.archiveChosenAgents(in, work) },
 		},
 		menu.DrawnOff(menu.Leaving("archive and delete all for good", a.deps.Keys.ArchiveMenu.Delete, func(in screen.Inputs) screen.Request {
@@ -208,7 +208,7 @@ func (a *Screen) archiveChosenAgents(in screen.Inputs, work chosenWork) screen.R
 	subject := describeAgents(work.chosen)
 
 	return a.deps.Clients.ArchivingWrite(api.ArchivingWriteParams{
-		Doing:          "archiving " + subject,
+		InFlightText:   "archiving " + subject,
 		FailureSummary: "Could not archive " + subject,
 		Agents:         work.affected(in.Listing),
 		Write: func(clients api.Clients) error {
@@ -232,7 +232,7 @@ func deleteChosenWrite(l panel.Listing, clients api.Clients, work chosenWork, re
 	subject := describeAgents(work.chosen)
 
 	return clients.ArchivingWrite(api.ArchivingWriteParams{
-		Doing:          "deleting " + subject,
+		InFlightText:   "deleting " + subject,
 		FailureSummary: "Could not delete " + subject,
 		Agents:         work.affected(l),
 		WaitFor:        waitForDeleted(records, screen.RowsIn(screen.ListArchivedAgents, panel.IDs(work.chosen)...)),

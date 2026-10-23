@@ -97,11 +97,11 @@ func submenuLabel(entry menu.Entry, labelCols, keyCols int) string {
 	key := keys.HeadLabel(entry.Keys)
 	pad := strings.Repeat(" ", max(width-ansi.StringWidth(text)-ansi.StringWidth(key), 1))
 
-	if entry.Off && entry.OffSaid != "" {
-		return muted.Render(text+pad+key) + "\n" + muted.Italic(true).Render("  "+entry.OffSaid)
+	if entry.IsDimmed && entry.RefusalReason != "" {
+		return muted.Render(text+pad+key) + "\n" + muted.Italic(true).Render("  "+entry.RefusalReason)
 	}
 
-	if entry.Off {
+	if entry.IsDimmed {
 		return muted.Render(text + pad + key)
 	}
 
@@ -138,7 +138,7 @@ func submenuOptions(open menu.Menu, nested bool) []huh.Option[int] {
 	options := make([]huh.Option[int], 0, len(open.Entries)+1)
 	for i, entry := range open.Entries {
 		label := submenuLabel(entry, labelCols, keyCols)
-		if !entry.Off {
+		if !entry.IsDimmed {
 			label = markEntry(label, i)
 		}
 

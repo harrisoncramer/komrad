@@ -11,14 +11,17 @@ import (
 // Write sends a change to the server off the panel's loop, and hands what it answered back to
 // the screen that asked.
 type Write struct {
-	// Doing is what the panel says the write is doing while it is in flight, empty for a write
-	// it neither counts nor holds a form up for.
-	Doing string
+	// InFlightText is what the panel says the write is doing while it is in flight, and an empty
+	// value means the write isn't counted.
+	InFlightText string
 	// FailureSummary is what a failure is reported under, empty when the screen reports its own.
 	FailureSummary string
 	// UnstageFirst is the agents whose panes come off the stage before the write is sent.
 	UnstageFirst []panel.Agent
-	Send         func() WriteResult
+	// DoesKillUnstagedAgents says the write takes down the agents it unstages once it lands without
+	// an error.
+	DoesKillUnstagedAgents bool
+	Send                   func() WriteResult
 }
 
 // WriteResult is what a write answered with.
@@ -30,8 +33,6 @@ type WriteResult struct {
 	CreatedRow *CreatedRow
 	// SuccessNotice is what to say once the write has landed.
 	SuccessNotice *Notice
-	// Killed says the write took down the agents it unstaged.
-	Killed bool
 	// FollowUpReplacesForm says FollowUp opens the form that takes the held one's place.
 	FollowUpReplacesForm bool
 	// FollowUp is the asking screen's own message, routed once the write finishes.
@@ -44,10 +45,10 @@ type CreatedRow struct {
 	Agent   string
 	Pane    string
 	Harness string
-	// Focus says the pane is handed the keyboard once it is shown.
-	Focus bool
-	// Archived says the row is in the archive rather than the agents list.
-	Archived bool
+	// ShouldFocusPane says the pane is handed the keyboard once it is shown.
+	ShouldFocusPane bool
+	// IsArchived says the row is in the archive rather than the agents list.
+	IsArchived bool
 }
 
 // Notice is what the panel says once a write has landed.

@@ -21,13 +21,13 @@ type parkedWrite struct {
 
 // awaitsOf is everything a landed write waits on: the rows it named, the live pane it made with
 // its harness warm, and the rows of the agents it killed gone.
-func awaitsOf(landed screen.WriteResult, unstaged []panel.Agent) screen.WaitFor {
+func awaitsOf(landed screen.WriteResult, unstaged []panel.Agent, killed bool) screen.WaitFor {
 	awaits := landed.WaitFor
-	if made := landed.CreatedRow; made != nil && !made.Archived {
+	if made := landed.CreatedRow; made != nil && !made.IsArchived {
 		awaits.Pane, awaits.Harness = made.Pane, made.Harness
 	}
 
-	if landed.Killed {
+	if killed {
 		awaits.RowsGone = append(awaits.RowsGone, screen.RowsIn(screen.ListAgents, panel.IDs(unstaged)...)...)
 	}
 

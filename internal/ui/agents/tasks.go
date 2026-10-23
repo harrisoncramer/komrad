@@ -85,7 +85,7 @@ func (a *Screen) notesEntry(row agentRow) menu.Entry {
 	return menu.Leaving("notes", a.deps.Keys.Menu.Notes, func(screen.Inputs) screen.Request {
 		a.notes = row.task.ID
 
-		return screen.Restage{}
+		return screen.RefreshStage{}
 	})
 }
 
@@ -93,7 +93,7 @@ func (a *Screen) notesEntry(row agentRow) menu.Entry {
 func (a *Screen) closeNotes() screen.Request {
 	a.notes = ""
 
-	return screen.Restage{}
+	return screen.RefreshStage{}
 }
 
 // isLiveWriter reports whether the agent is a writer still working on its task.

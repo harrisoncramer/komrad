@@ -286,9 +286,9 @@ func workflowSubforms(values *workflowFormValues, editing bool, hooks func() []s
 			},
 		},
 		{
-			Key:   workflowSubformWorktree,
-			Title: "worktree",
-			Off:   func() bool { return values.Provisioner != provisionerWorktree },
+			Key:       workflowSubformWorktree,
+			Title:     "worktree",
+			IsRefused: func() bool { return values.Provisioner != provisionerWorktree },
 			Fields: func(form.Inputs) []huh.Field {
 				return worktreeDetailFields(values, editing)
 			},

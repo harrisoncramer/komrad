@@ -76,7 +76,7 @@ func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 		return nil
 	}
 
-	return tea.Batch(m.apply(m.active().StageResting(m.inputs())), m.apply(m.inspectTaskWorktree(m.clock.Now())), m.wakeCwdSyncCmd())
+	return tea.Batch(m.apply(m.active().OnCursorRest(m.inputs())), m.apply(m.inspectTaskWorktree(m.clock.Now())), m.wakeCwdSyncCmd())
 }
 
 // paneStatusRows is the rows the blank status line tmux renders over every pane takes from its window.

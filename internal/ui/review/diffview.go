@@ -74,7 +74,7 @@ func (r Screen) measureBandWidth(in screen.Inputs) int {
 		return split.ColumnWidth
 	}
 
-	return layout.LineWidth(in.Room.Width)
+	return layout.LineWidth(in.Room.DrawingWidth)
 }
 
 // diffNotice is what stands in the diff's own column before a patch does.

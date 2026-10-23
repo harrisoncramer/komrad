@@ -677,7 +677,7 @@ func (a *Screen) jumpToTriage(in screen.Inputs) screen.Request {
 
 	a.Row = 0
 
-	return screen.Restage{}
+	return screen.RefreshStage{}
 }
 
 // triageSnapshot is the zone as the agents list renders it.

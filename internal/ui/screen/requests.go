@@ -5,14 +5,14 @@ import tea "charm.land/bubbletea/v2"
 // RunCmd is a command the root runs as it is, for a screen's own reads and timers.
 type RunCmd tea.Cmd
 
-// Settle stages what the cursor comes to rest on once it stops moving.
-type Settle struct{}
+// WaitForCursorRest runs the screen's OnCursorRest once the cursor stops moving.
+type WaitForCursorRest struct{}
 
-// Restage puts the hovered agent's pane on the stage at once.
-type Restage struct{}
+// RefreshStage puts the hovered agent's pane on the stage at once.
+type RefreshStage struct{}
 
-// StageTerminal puts the screen's shell on the stage, or takes it down where the screen has none.
-type StageTerminal struct{}
+// ReshowOpenShell puts the panel's open shell back on the stage, where one is open.
+type ReshowOpenShell struct{}
 
 // OpenTerminal opens a shell beside the panel in a directory.
 type OpenTerminal struct {
@@ -44,13 +44,14 @@ type DropFilterLeaveCursor struct{}
 // BeginFilter opens the filter line on the list holding the keys.
 type BeginFilter struct{}
 
-// StepMatch walks the cursor Delta matches along the filtered list.
-type StepMatch struct {
-	Delta int
+// MoveToMatch walks the cursor to the next match in Direction along the filtered list.
+type MoveToMatch struct {
+	Direction int
 }
 
-// ClearFilter drops the filter and puts the cursor back where the filter found it.
-type ClearFilter struct{}
+// ClearFilterRestoreCursor drops the filter, and puts the cursor back only when the filter was
+// opened in the section that holds the keys now.
+type ClearFilterRestoreCursor struct{}
 
 // ApplyFilter narrows the list up by a query, as if it were typed and applied.
 type ApplyFilter struct {
@@ -118,14 +119,14 @@ type RemoveMessage struct {
 // Request marks RunCmd as a request.
 func (RunCmd) Request() {}
 
-// Request marks Settle as a request.
-func (Settle) Request() {}
+// Request marks WaitForCursorRest as a request.
+func (WaitForCursorRest) Request() {}
 
-// Request marks Restage as a request.
-func (Restage) Request() {}
+// Request marks RefreshStage as a request.
+func (RefreshStage) Request() {}
 
-// Request marks StageTerminal as a request.
-func (StageTerminal) Request() {}
+// Request marks ReshowOpenShell as a request.
+func (ReshowOpenShell) Request() {}
 
 // Request marks OpenTerminal as a request.
 func (OpenTerminal) Request() {}
@@ -151,11 +152,11 @@ func (DropFilterLeaveCursor) Request() {}
 // Request marks BeginFilter as a request.
 func (BeginFilter) Request() {}
 
-// Request marks StepMatch as a request.
-func (StepMatch) Request() {}
+// Request marks MoveToMatch as a request.
+func (MoveToMatch) Request() {}
 
-// Request marks ClearFilter as a request.
-func (ClearFilter) Request() {}
+// Request marks ClearFilterRestoreCursor as a request.
+func (ClearFilterRestoreCursor) Request() {}
 
 // Request marks ApplyFilter as a request.
 func (ApplyFilter) Request() {}

@@ -115,19 +115,19 @@ func (d *Screen) legend(in screen.Inputs) []keys.LegendRow[*Screen] {
 			Show:      onDocument,
 		},
 		{
-			ActionIDs: []keys.ID{keys.FilterClear},
-			Desc:      keys.FilterClearDescOf[*Screen](in),
-			Strip:     true,
+			ActionIDs:     []keys.ID{keys.FilterClear},
+			Desc:          keys.FilterClearDescOf[*Screen](in),
+			IsInShortHelp: true,
 		},
 		{
-			ActionIDs: []keys.ID{keys.FilterMatch},
-			Desc:      func(*Screen) string { return "next/prev match" },
-			Strip:     true,
+			ActionIDs:     []keys.ID{keys.FilterMatch},
+			Desc:          func(*Screen) string { return "next/prev match" },
+			IsInShortHelp: true,
 		},
 		{
-			ActionIDs: []keys.ID{actionBack},
-			Desc:      func(*Screen) string { return "back" },
-			Strip:     true,
+			ActionIDs:     []keys.ID{actionBack},
+			Desc:          func(*Screen) string { return "back" },
+			IsInShortHelp: true,
 		},
 	})
 }
@@ -183,9 +183,9 @@ func (d *Screen) stepActions(in screen.Inputs) keys.Spec[*Screen] {
 				Desc:      func(*Screen) string { return "a later version" },
 			},
 			{
-				ActionIDs: []keys.ID{actionBack},
-				Desc:      func(*Screen) string { return "back to the list" },
-				Strip:     true,
+				ActionIDs:     []keys.ID{actionBack},
+				Desc:          func(*Screen) string { return "back to the list" },
+				IsInShortHelp: true,
 			},
 		},
 	}

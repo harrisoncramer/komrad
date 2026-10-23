@@ -39,14 +39,14 @@ func (a Archive) legend(in screen.Inputs) []keys.LegendRow[Archive] {
 			Desc:      func(Archive) string { return "back" },
 		},
 		{
-			ActionIDs: []keys.ID{keys.FilterClear},
-			Desc:      keys.FilterClearDescOf[Archive](in),
-			Strip:     true,
+			ActionIDs:     []keys.ID{keys.FilterClear},
+			Desc:          keys.FilterClearDescOf[Archive](in),
+			IsInShortHelp: true,
 		},
 		{
-			ActionIDs: []keys.ID{keys.FilterMatch},
-			Desc:      func(Archive) string { return "next/prev match" },
-			Strip:     true,
+			ActionIDs:     []keys.ID{keys.FilterMatch},
+			Desc:          func(Archive) string { return "next/prev match" },
+			IsInShortHelp: true,
 		},
 	})
 }
