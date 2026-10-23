@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"komrad/config"
+	"komrad/lib/xslice"
 )
 
 // IsBound reports whether the press is one of the keys.
@@ -57,6 +58,11 @@ func HeadLabel(keys []string) string {
 	}
 
 	return Label(keys[:1])
+}
+
+// MenuChordLabel is the presses that reach an entry through the menu, spaced apart.
+func MenuChordLabel(k config.Keybindings, entries ...[]string) string {
+	return strings.Join(xslice.Map(slices.Concat([][]string{k.Menu.Open}, entries), Label), " ")
 }
 
 // doubledLabel is each of the keys spelled twice, as a key pressed twice in a row is named.

@@ -126,7 +126,7 @@ func (a *archivedAgents) ScreenNotice(in screen.Inputs) string {
 		}
 	}
 
-	return "archived" + separated + "press " + menuChordLabel(a.deps.keys, a.deps.keys.Menu.Archive, restore) + " to restore"
+	return "archived" + separated + "press " + keys.MenuChordLabel(a.deps.keys, a.deps.keys.Menu.Archive, restore) + " to restore"
 }
 
 func (a *agentsScreen) ScreenNotice(in screen.Inputs) string {

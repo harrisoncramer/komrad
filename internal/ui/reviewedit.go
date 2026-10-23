@@ -3,6 +3,7 @@ package ui
 import (
 	"slices"
 
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 
@@ -128,7 +129,7 @@ func (r *reviewScreen) applyEditorStaged(staged reviewEditorStaged) screen.Reque
 	return screen.Note{
 		Kind:    screen.Info,
 		Summary: "editing " + path,
-		Detail:  menuChordLabel(r.deps.keys, r.deps.keys.Review.EditFile) + " to come back",
+		Detail:  keys.MenuChordLabel(r.deps.keys, r.deps.keys.Review.EditFile) + " to come back",
 	}
 }
 
