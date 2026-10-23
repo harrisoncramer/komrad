@@ -227,20 +227,9 @@ func describeField(field protoreflect.FieldDescriptor) string {
 
 // describeConstraints spells out what the server refuses of a value, leaving out the emptiness a required field already rules out.
 func describeConstraints(constraints rpcapi.Constraints, required bool) []string {
-	var parts []string
-	switch {
-	case constraints.MinLength == nil:
-	case *constraints.MinLength > 1:
-		parts = append(parts, fmt.Sprintf("at least %d characters", *constraints.MinLength))
-	case *constraints.MinLength == 1 && !required:
-		parts = append(parts, "not empty")
-	}
-	if constraints.MaxLength != nil {
-		parts = append(parts, fmt.Sprintf("at most %d characters", *constraints.MaxLength))
-	}
-	if constraints.MaxBytes != nil {
-		parts = append(parts, fmt.Sprintf("at most %d bytes", *constraints.MaxBytes))
-	}
+	parts := describeAtLeast(constraints.MinLength, "characters", required)
+	parts = append(parts, describeAtMost(constraints.MaxLength, "characters")...)
+	parts = append(parts, describeAtMost(constraints.MaxBytes, "bytes")...)
 	if constraints.Pattern != "" {
 		parts = append(parts, "matching "+constraints.Pattern)
 	}
@@ -250,16 +239,8 @@ func describeConstraints(constraints rpcapi.Constraints, required bool) []string
 
 	parts = append(parts, describeBounds(constraints)...)
 
-	switch {
-	case constraints.MinItems == nil:
-	case *constraints.MinItems > 1:
-		parts = append(parts, fmt.Sprintf("at least %d items", *constraints.MinItems))
-	case *constraints.MinItems == 1 && !required:
-		parts = append(parts, "not empty")
-	}
-	if constraints.MaxItems != nil {
-		parts = append(parts, fmt.Sprintf("at most %d items", *constraints.MaxItems))
-	}
+	parts = append(parts, describeAtLeast(constraints.MinItems, "items", required)...)
+	parts = append(parts, describeAtMost(constraints.MaxItems, "items")...)
 	if constraints.UniqueItems {
 		parts = append(parts, "no repeats")
 	}
@@ -270,6 +251,27 @@ func describeConstraints(constraints rpcapi.Constraints, required bool) []string
 	}
 
 	return append(parts, constraints.Rules...)
+}
+
+func describeAtLeast(count *uint64, unit string, required bool) []string {
+	switch {
+	case count == nil:
+		return nil
+	case *count > 1:
+		return []string{fmt.Sprintf("at least %d %s", *count, unit)}
+	case *count == 1 && !required:
+		return []string{"not empty"}
+	default:
+		return nil
+	}
+}
+
+func describeAtMost(count *uint64, unit string) []string {
+	if count == nil {
+		return nil
+	}
+
+	return []string{fmt.Sprintf("at most %d %s", *count, unit)}
 }
 
 func describeBounds(constraints rpcapi.Constraints) []string {
