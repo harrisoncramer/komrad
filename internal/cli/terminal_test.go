@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -28,6 +29,7 @@ type attachStep struct {
 	exit       bool
 	reset      bool
 	disconnect bool
+	cut        bool
 	listen     bool
 }
 
@@ -37,10 +39,13 @@ type fakeAttachService struct {
 	steps            []attachStep
 	opened           []*terminalv1.OpenAttach
 	heard            chan *terminalv1.AttachRequest
+	drawn            <-chan struct{}
 	closeConnections func()
 }
 
-func (f *fakeAttachService) Attach(_ context.Context, stream *connect.BidiStream[terminalv1.AttachRequest, terminalv1.AttachResponse]) error {
+type connKey struct{}
+
+func (f *fakeAttachService) Attach(ctx context.Context, stream *connect.BidiStream[terminalv1.AttachRequest, terminalv1.AttachResponse]) error {
 	open, err := stream.Receive()
 	if err != nil {
 		return err
@@ -70,7 +75,24 @@ func (f *fakeAttachService) Attach(_ context.Context, stream *connect.BidiStream
 		panic(http.ErrAbortHandler)
 	}
 
-	if step.disconnect {
+	if step.disconnect || step.cut {
+		select {
+		case <-f.drawn:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+
+		if step.cut {
+			conn, ok := ctx.Value(connKey{}).(*net.TCPConn)
+			if !ok {
+				return errors.New("the attach was not served over tcp")
+			}
+
+			if err := conn.SetLinger(0); err != nil {
+				return err
+			}
+		}
+
 		f.closeConnections()
 
 		return nil
@@ -112,6 +134,9 @@ func serveAttach(t *testing.T, service *fakeAttachService) terminalv1connect.Ter
 	mux.Handle(terminalv1connect.NewTerminalServiceHandler(service))
 	server := httptest.NewUnstartedServer(mux)
 	server.Config.Protocols = xhttp.NewServerProtocols()
+	server.Config.ConnContext = func(ctx context.Context, conn net.Conn) context.Context {
+		return context.WithValue(ctx, connKey{}, conn)
+	}
 	server.Start()
 	service.closeConnections = server.CloseClientConnections
 	t.Cleanup(server.Close)
@@ -289,6 +314,12 @@ func TestRunTerminal(t *testing.T) {
 			wantOpened: 2,
 		},
 		{
+			name:       "an attach whose connection is cut is dialled again and resumes",
+			steps:      []attachStep{{output: "before ", cut: true}, {output: "after", exit: true}},
+			wantOut:    "before after",
+			wantOpened: 2,
+		},
+		{
 			name:       "a dropped attach is dialled again and resumes",
 			steps:      []attachStep{{output: "before "}, {output: "after", exit: true}},
 			wantOut:    "before after",
@@ -311,7 +342,11 @@ func TestRunTerminal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := &fakeAttachService{steps: tt.steps}
+			out := &drawnBuffer{drawn: make(chan struct{}, 1)}
+			service := &fakeAttachService{
+				steps: tt.steps,
+				drawn: out.drawn,
+			}
 			client := serveAttach(t, service)
 
 			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
@@ -325,7 +360,6 @@ func TestRunTerminal(t *testing.T) {
 					_ = typing.Close()
 				}()
 			}
-			var out syncBuffer
 
 			dial := dialAttach(client, "agent-1", "xterm-256color")
 			if tt.conns != nil {
@@ -357,7 +391,7 @@ func TestRunTerminal(t *testing.T) {
 				Token:  token,
 				Redial: time.Minute,
 				In:     typed,
-				Out:    &out,
+				Out:    out,
 				Size: func() *terminalv1.Size {
 					return &terminalv1.Size{Rows: 24, Cols: 80}
 				},
@@ -450,3 +484,20 @@ func (c *heardConn) receive() (received, error) {
 }
 
 func (c *heardConn) close() {}
+
+// drawnBuffer is a terminal's output that says on drawn once it has been drawn to.
+type drawnBuffer struct {
+	syncBuffer
+	drawn chan struct{}
+}
+
+func (b *drawnBuffer) Write(p []byte) (int, error) {
+	n, err := b.syncBuffer.Write(p)
+
+	select {
+	case b.drawn <- struct{}{}:
+	default:
+	}
+
+	return n, err
+}
