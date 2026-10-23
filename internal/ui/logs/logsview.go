@@ -71,12 +71,12 @@ func sourceLabel(source *logv1.LogSource) string {
 // block is the log rendered at the width and height of the block beside the sidebar, its lines
 // pinned to the prompt at its foot.
 func (l *Screen) block(in screen.Inputs, width int) []string {
-	split := in.Room.Split
-	if !split.On {
+	split := in.Room.OwnBlockSplit
+	if !split.IsDivided {
 		return nil
 	}
 
-	height := max(split.Rows-1, 1)
+	height := max(split.RowCount-1, 1)
 	rows := l.logRows(in, width, height)
 	if l.read && l.viewer.Len() > 0 {
 		rows = append(make([]string, max(height-len(rows), 0)), rows...)
@@ -86,7 +86,7 @@ func (l *Screen) block(in screen.Inputs, width int) []string {
 	}
 
 	search := paint.FitRow(list.Blank+l.logFilterLine(l.deps.Glyphs), width)
-	if in.Room.Marks {
+	if in.Room.ShouldMarkZones {
 		search = zone.MarkKey(zone.Search, width, 0, zone.SearchBlock) + search
 	}
 
@@ -123,7 +123,7 @@ func (l *Screen) logRows(in screen.Inputs, width, height int) []string {
 
 	rows, cursor := l.viewer.Rows(width-len(list.Blank), height)
 	var lines []int
-	if in.Room.Marks {
+	if in.Room.ShouldMarkZones {
 		lines = l.viewer.Lines(width-len(list.Blank), height)
 	}
 	focused := l.IsBlockFocused(in)

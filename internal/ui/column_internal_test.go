@@ -58,13 +58,13 @@ func TestSplitOfRendersTheWidthItIsHanded(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			split := splitOf(tt.width, 20, tt.sidebar, column.Narrowest)
 
-			require.Equal(t, tt.wantOK, split.On)
-			if !split.On {
+			require.Equal(t, tt.wantOK, split.IsDivided)
+			if !split.IsDivided {
 				return
 			}
 
-			assert.Equal(t, tt.wantSidebar, split.Sidebar)
-			assert.Equal(t, tt.width-tt.wantSidebar, split.Column)
+			assert.Equal(t, tt.wantSidebar, split.SidebarWidth)
+			assert.Equal(t, tt.width-tt.wantSidebar, split.ColumnWidth)
 		})
 	}
 }

@@ -79,10 +79,10 @@ func (m *model) renderMessagesWindow(width, rows int) reader.Page {
 		}
 	}
 
-	doc := reader.Page{Rows: rendered, Markers: true}
+	doc := reader.Page{Rows: rendered, HasMarkers: true}
 	shape := doc.Shape()
-	shape.Top = shape.Reveal(max(end-1, 0), rows)
-	doc.Top = shape.Reveal(start, rows)
+	shape.TopLine = shape.Reveal(max(end-1, 0), rows)
+	doc.TopLine = shape.Reveal(start, rows)
 
 	return doc
 }

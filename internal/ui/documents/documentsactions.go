@@ -209,16 +209,16 @@ func (d *Screen) diffKeys() keys.Diff {
 
 // isDiffRendered reports whether the panel renders a write's change as a diff beside the list.
 func (d *Screen) isDiffRendered(in screen.Inputs) bool {
-	if !in.Room.Split.On {
+	if !in.Room.OwnBlockSplit.IsDivided {
 		return false
 	}
 
-	return d.isSteppingHovered(in) && d.history.isRendered(in.Room.Dark)
+	return d.isSteppingHovered(in) && d.history.isRendered(in.Room.IsDarkBackground)
 }
 
 // isDiffFocused reports whether the diff of the write stepped to holds the keys.
 func (d *Screen) isDiffFocused(in screen.Inputs) bool {
-	return d.focus && d.history != nil && in.Room.ListFocused
+	return d.focus && d.history != nil && in.Room.IsListFocused
 }
 
 // IsBlockFocused reports whether the diff of one of its writes holds the keys.

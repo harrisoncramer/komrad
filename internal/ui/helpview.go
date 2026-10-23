@@ -23,7 +23,7 @@ func (m *model) Help(help legend.Help, above ...string) string {
 	if m.isDetailsFocused(in) {
 		help = m.detailsHelp()
 	}
-	if in.Room.Doc.Focused {
+	if in.Room.DocumentReader.HoldsKeys {
 		help = m.docHelp()
 	}
 	if m.isTabsFocused() {
@@ -32,7 +32,7 @@ func (m *model) Help(help legend.Help, above ...string) string {
 	if m.isKindsFocused() {
 		help = m.kindsHelp()
 	}
-	if in.Room.MessagesFocused {
+	if in.Room.AreMessagesFocused {
 		help = m.messagesHelp()
 	}
 	if m.filter.IsTyping {

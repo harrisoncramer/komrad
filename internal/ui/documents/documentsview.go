@@ -156,7 +156,7 @@ func (d *Screen) docRows(in screen.Inputs, width int) []string {
 		return head
 	}
 
-	if !h.isRendered(in.Room.Dark) {
+	if !h.isRendered(in.Room.IsDarkBackground) {
 		return append(head, h.changeRows(width)...)
 	}
 
@@ -169,7 +169,7 @@ func (d *Screen) docRows(in screen.Inputs, width int) []string {
 	window.Width = width
 
 	lines := h.pane.Render(window, held)
-	if in.Room.Marks {
+	if in.Room.ShouldMarkZones {
 		lines = h.pane.Mark(window, lines)
 	}
 
@@ -193,7 +193,7 @@ func (h *history) head(in screen.Inputs, glyphs glyph.Set, item document, width 
 
 	count := strings.TrimRight(h.pane.RenderMatchCount(h.filter.IsStanding()), "\n")
 
-	return append(rows, h.filter.Head(filter.HeadParams{Glyphs: glyphs, ShouldMarkZones: in.Room.Marks, MatchCount: count, Width: width})...)
+	return append(rows, h.filter.Head(filter.HeadParams{Glyphs: glyphs, ShouldMarkZones: in.Room.ShouldMarkZones, MatchCount: count, Width: width})...)
 }
 
 // notice names the write stepped to, who made it and how long ago.

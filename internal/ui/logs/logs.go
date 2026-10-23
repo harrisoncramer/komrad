@@ -485,12 +485,12 @@ func (l *Screen) ListParams(in screen.Inputs) list.Params {
 
 // BuildFrame fits the log's cursor and view to the block it is rendered in.
 func (l *Screen) BuildFrame(in screen.Inputs) {
-	split := in.Room.Split
-	if !split.On || !l.read || l.viewer.Len() == 0 {
+	split := in.Room.OwnBlockSplit
+	if !split.IsDivided || !l.read || l.viewer.Len() == 0 {
 		return
 	}
 
-	l.viewer.Fit(split.Column-len(list.Blank), max(split.Rows-1, 1))
+	l.viewer.Fit(split.ColumnWidth-len(list.Blank), max(split.RowCount-1, 1))
 }
 
 // Parent is the screen the logs were opened from.
@@ -539,7 +539,7 @@ func (l *Screen) Column(in screen.Inputs) column.Spec {
 
 // IsBlockRendered reports whether the block beside the list holds lines of the log.
 func (l *Screen) IsBlockRendered(in screen.Inputs) bool {
-	if !in.Room.Split.On {
+	if !in.Room.OwnBlockSplit.IsDivided {
 		return false
 	}
 
@@ -548,11 +548,11 @@ func (l *Screen) IsBlockRendered(in screen.Inputs) bool {
 
 // IsBlockFocused reports whether the log holds the keys.
 func (l *Screen) IsBlockFocused(in screen.Inputs) bool {
-	if !l.logFocus || !in.Room.ListFocused {
+	if !l.logFocus || !in.Room.IsListFocused {
 		return false
 	}
 
-	if in.Room.Split.On && l.logFilter.IsStanding() {
+	if in.Room.OwnBlockSplit.IsDivided && l.logFilter.IsStanding() {
 		return true
 	}
 

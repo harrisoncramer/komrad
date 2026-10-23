@@ -11,39 +11,39 @@ func (m *model) inputs() screen.Inputs {
 // built from the stages before it.
 func (m *model) inputsFor(s screenModel) screen.Inputs {
 	in := m.measuredInputsFor(s)
-	in.Room.ListFocused = m.isListFocused(in)
-	in.Room.Column = m.columnSplit(in)
-	in.Room.Split = m.screenColumnSplit(in)
-	in.Room.Doc = m.docReaderOf(in)
-	in.Room.Doc.Window = m.docWindowOf(in)
-	in.Room.Caret = m.listCaret(in)
+	in.Room.IsListFocused = m.isListFocused(in)
+	in.Room.BlockAreaSplit = m.columnSplit(in)
+	in.Room.OwnBlockSplit = m.screenColumnSplit(in)
+	in.Room.DocumentReader = m.docReaderOf(in)
+	in.Room.DocumentReader.VisibleRows = m.docWindowOf(in)
+	in.Room.ListCaret = m.listCaret(in)
 
 	return in
 }
 
-// measuredInputsFor is the inputs as far as the room's width and geometry, which is all the root
-// needs to lay its own chrome out.
+// measuredInputsFor is the inputs as far as the room's width and window split, which is all
+// the root needs to lay its own chrome out.
 func (m *model) measuredInputsFor(s screenModel) screen.Inputs {
 	in := screen.Inputs{
 		Listing:     m.listing,
 		Inspections: m.inspections,
 		Up:          s == m.active(),
 		Room: screen.Room{
-			Height:          m.term.height,
-			MessagesFocused: m.isMessagesFocused(),
-			PopupForm:       m.isPopupForm() && m.form.isActive(),
-			Dark:            m.term.isDark,
-			Wrap:            m.diffWrap,
-			HelpExpanded:    m.helpExpanded,
-			Spinner:         m.loading.frame(),
-			Now:             m.clock.Now(),
-			Marks:           m.term.markingZones,
-			Halved:          m.term.paneMeasure > 0,
-			Pattern:         m.filter.Pattern(),
+			PaneHeight:         m.term.height,
+			AreMessagesFocused: m.isMessagesFocused(),
+			IsFormInPopup:      m.isPopupForm() && m.form.isActive(),
+			IsDarkBackground:   m.term.isDark,
+			IsDiffWrapped:      m.diffWrap,
+			IsHelpExpanded:     m.helpExpanded,
+			SpinnerFrame:       m.loading.frame(),
+			Now:                m.clock.Now(),
+			ShouldMarkZones:    m.term.markingZones,
+			IsListHalfOfSplit:  m.term.paneMeasure > 0,
+			Pattern:            m.filter.Pattern(),
 		},
 	}
-	in.Room.Geometry = m.columnGeometry(in)
-	in.Room.Width = m.paneWidthAt(in.Room.Geometry)
+	in.Room.WindowSplit = m.columnGeometry(in)
+	in.Room.Width = m.paneWidthAt(in.Room.WindowSplit)
 
 	return in
 }

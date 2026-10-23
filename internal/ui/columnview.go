@@ -14,8 +14,8 @@ import (
 // Join lays the sidebar left of the column, having squared each off at its share first.
 func (m *model) Join(split column.Split, sidebar, block string) string {
 	// Trimmed so the two halves are the same height.
-	sidebar = fitColumn(strings.TrimRight(sidebar, "\n"), split.Sidebar)
-	block = m.markZone(zoneColumn, fitColumn(block, split.Column), split.Column)
+	sidebar = fitColumn(strings.TrimRight(sidebar, "\n"), split.SidebarWidth)
+	block = m.markZone(zoneColumn, fitColumn(block, split.ColumnWidth), split.ColumnWidth)
 
 	sidebarLines, columnLines := strings.Split(sidebar, "\n"), strings.Split(block, "\n")
 	rows := max(len(sidebarLines), len(columnLines))
@@ -73,7 +73,7 @@ func renderDividerRow(fromLeft, fromRight bool) string {
 // docColumnView is the first screenful of the block beside the list, with a marker under it
 // counting what is past it.
 func (m *model) docColumnView(split column.Split) string {
-	return m.columnDoc(m.inputs(), split).View(split.Rows)
+	return m.columnDoc(m.inputs(), split).View(split.RowCount)
 }
 
 // fitColumn squares a block off at a width.

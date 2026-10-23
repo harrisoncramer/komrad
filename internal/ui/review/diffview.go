@@ -40,7 +40,7 @@ func (r *Screen) Column(in screen.Inputs) column.Spec {
 		Rows: func(split column.Split) int {
 			// The band stands on the diff's own rows rather than the window's, so what is left is
 			// what the patch is rendered in and what the cursor is scrolled against.
-			return split.Rows - strings.Count(r.bandView(in), "\n")
+			return split.RowCount - strings.Count(r.bandView(in), "\n")
 		},
 	}
 }
@@ -48,7 +48,7 @@ func (r *Screen) Column(in screen.Inputs) column.Spec {
 // bandView is what stands over the diff: the range it runs over and the pattern it is searched for.
 func (r Screen) bandView(in screen.Inputs) string {
 	search := r.diff.filter.View(r.deps.Glyphs)
-	if in.Room.Marks {
+	if in.Room.ShouldMarkZones {
 		search = zone.MarkKey(zone.Search, r.measureBandWidth(in), 0, zone.SearchList) + search
 	}
 
@@ -70,8 +70,8 @@ func (r Screen) rangeView(in screen.Inputs) string {
 }
 
 func (r Screen) measureBandWidth(in screen.Inputs) int {
-	if split := in.Room.Geometry; split.On {
-		return split.Column
+	if split := in.Room.WindowSplit; split.IsDivided {
+		return split.ColumnWidth
 	}
 
 	return layout.LineWidth(in.Room.Width)
@@ -80,7 +80,7 @@ func (r Screen) measureBandWidth(in screen.Inputs) int {
 // diffNotice is what stands in the diff's own column before a patch does.
 func (r Screen) diffNotice(in screen.Inputs) string {
 	if r.loading {
-		return in.Room.Spinner + " _" + loadingWord + "_"
+		return in.Room.SpinnerFrame + " _" + loadingWord + "_"
 	}
 
 	return "_" + emptyWord + "_"
@@ -94,7 +94,7 @@ func (r Screen) diffView(in screen.Inputs, split column.Split) string {
 		// This is the larger half of the window, so it says what is being waited on rather than
 		// standing empty under a band, and stands rather than collapsing so the frame does not
 		// shift under the reader when the patch lands.
-		return reader.Page{Rows: paint.DocStyledRows(r.diffNotice(in), split.Column, paint.Panel.Stage())}.View(split.Rows)
+		return reader.Page{Rows: paint.DocStyledRows(r.diffNotice(in), split.ColumnWidth, paint.Panel.Stage())}.View(split.RowCount)
 	}
 
 	held := diffview.LiveCursor
@@ -105,7 +105,7 @@ func (r Screen) diffView(in screen.Inputs, split column.Split) string {
 	window := r.diffWindow(in)
 
 	lines := r.diff.Render(window, held)
-	if in.Room.Marks {
+	if in.Room.ShouldMarkZones {
 		lines = r.diff.Mark(window, lines)
 	}
 

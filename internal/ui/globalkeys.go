@@ -110,7 +110,7 @@ func globalTable() []globalArm {
 		{
 			describe: "the document",
 			every:    true,
-			when:     func(m *model) bool { return m.inputs().Room.Doc.Focused },
+			when:     func(m *model) bool { return m.inputs().Room.DocumentReader.HoldsKeys },
 			run:      (*model).updateDoc,
 		},
 	}

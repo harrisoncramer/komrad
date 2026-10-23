@@ -21,8 +21,8 @@ func (m *model) findModeEnd() int {
 		return gutter + m.term.width
 	}
 
-	if split := m.inputs().Room.Geometry; split.On {
-		return gutter + split.Sidebar
+	if split := m.inputs().Room.WindowSplit; split.IsDivided {
+		return gutter + split.SidebarWidth
 	}
 
 	return gutter + m.term.width

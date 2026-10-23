@@ -45,7 +45,7 @@ func (m *model) caretOf(in screen.Inputs, section list.Section) view.Caret {
 // listCaret is how the list's arrow stands, which is rendered while the document beside it holds
 // the keys.
 func (m *model) listCaret(in screen.Inputs) view.Caret {
-	if in.Room.Doc.Focused {
+	if in.Room.DocumentReader.HoldsKeys {
 		return view.CaretRendered
 	}
 

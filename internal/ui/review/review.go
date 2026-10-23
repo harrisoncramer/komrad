@@ -136,7 +136,7 @@ func (r Screen) IsAtEditor() bool {
 
 // IsDiffFocused is whether the patch holds the keys.
 func (r Screen) IsDiffFocused(in screen.Inputs) bool {
-	return in.Room.ListFocused && !r.IsWriting() && !r.IsBlockFocused(in)
+	return in.Room.IsListFocused && !r.IsWriting() && !r.IsBlockFocused(in)
 }
 
 // Update sends a key to the review's keys and follows the world the key left behind.

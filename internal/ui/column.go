@@ -23,10 +23,10 @@ func splitOf(width, rows, sidebar, floor int) column.Split {
 	sidebar = min(max(sidebar, 1), width-1)
 
 	return column.Split{
-		Column:  width - sidebar,
-		Sidebar: sidebar,
-		Rows:    rows,
-		On:      true,
+		ColumnWidth:  width - sidebar,
+		SidebarWidth: sidebar,
+		RowCount:     rows,
+		IsDivided:    true,
 	}
 }
 
@@ -74,17 +74,17 @@ func (m *model) columnGeometry(in screen.Inputs) column.Split {
 	return splitOf(m.term.width-column.DividerCols, m.term.height, sidebar, spec.Floor)
 }
 
-// columnSplit is the window the block is actually rendered in, being the geometry with whatever
-// stands over the block taken off its rows.
+// columnSplit is the window the block is actually rendered in, being the window split with
+// whatever stands over the block taken off its rows.
 func (m *model) columnSplit(in screen.Inputs) column.Split {
-	split := in.Room.Geometry
-	if !split.On {
+	split := in.Room.WindowSplit
+	if !split.IsDivided {
 		return split
 	}
 
 	// Only ever asked of a block rendered in the other column.
 	if spec := m.columnOf(in); spec.Rows != nil {
-		split.Rows = max(spec.Rows(split), 1)
+		split.RowCount = max(spec.Rows(split), 1)
 	}
 
 	return split
@@ -93,17 +93,17 @@ func (m *model) columnSplit(in screen.Inputs) column.Split {
 // screenColumnSplit is the split a screen's own block is rendered across, refused while a form is
 // up.
 func (m *model) screenColumnSplit(in screen.Inputs) column.Split {
-	if (m.form.isOpening() && !m.isPopupForm()) || in.Room.MessagesFocused {
+	if (m.form.isOpening() && !m.isPopupForm()) || in.Room.AreMessagesFocused {
 		return column.Split{}
 	}
 
-	return in.Room.Column
+	return in.Room.BlockAreaSplit
 }
 
 // columnOf is the block the panel renders beside its list, which is the form's while one is up and
 // the screen's otherwise.
 func (m *model) columnOf(in screen.Inputs) column.Spec {
-	if in.Room.MessagesFocused {
+	if in.Room.AreMessagesFocused {
 		return buildMessagesColumn()
 	}
 
@@ -212,12 +212,12 @@ func (m *model) syncKeys() {
 
 // isOverColumn reports whether a column of the window falls in the block beside the list.
 func (m *model) isOverColumn(x int) bool {
-	split := m.inputs().Room.Split
-	if !split.On {
+	split := m.inputs().Room.OwnBlockSplit
+	if !split.IsDivided {
 		return false
 	}
 
-	return x-gutter >= split.Sidebar+column.DividerCols
+	return x-gutter >= split.SidebarWidth+column.DividerCols
 }
 
 // paneWidth is the column the panel renders its own list, record and legend in, which is the whole
@@ -234,8 +234,8 @@ func (m *model) paneWidthAt(geometry column.Split) int {
 		return m.term.paneMeasure
 	}
 
-	if geometry.On {
-		return geometry.Sidebar
+	if geometry.IsDivided {
+		return geometry.SidebarWidth
 	}
 
 	return m.term.width
@@ -252,7 +252,7 @@ func (m *model) docShown(in screen.Inputs) string {
 		hovered = n.DocName()
 	}
 
-	return fmt.Sprintf("%d/%s/%t", m.screen, hovered, in.Room.MessagesFocused)
+	return fmt.Sprintf("%d/%s/%t", m.screen, hovered, in.Room.AreMessagesFocused)
 }
 
 // docNamer is a screen whose every row reads the one document, named so the reader keeps its place
@@ -263,8 +263,8 @@ type docNamer interface {
 
 // columnDoc is the document the block is rendered from, read where the reader left it.
 func (m *model) columnDoc(in screen.Inputs, split column.Split) reader.Page {
-	if in.Room.MessagesFocused {
-		return m.renderMessagesWindow(split.Column, split.Rows)
+	if in.Room.AreMessagesFocused {
+		return m.renderMessagesWindow(split.ColumnWidth, split.RowCount)
 	}
 
 	if m.isDocReadable(in) {
@@ -272,8 +272,8 @@ func (m *model) columnDoc(in screen.Inputs, split column.Split) reader.Page {
 	}
 
 	return reader.Page{
-		Rows:    m.columnRows(in, split),
-		Markers: true,
+		Rows:       m.columnRows(in, split),
+		HasMarkers: true,
 	}
 }
 
@@ -281,7 +281,7 @@ func (m *model) columnDoc(in screen.Inputs, split column.Split) reader.Page {
 // document.
 func (m *model) columnRows(in screen.Inputs, split column.Split) []string {
 	if spec := m.columnOf(in); spec.DocRows != nil {
-		return spec.DocRows(split.Column)
+		return spec.DocRows(split.ColumnWidth)
 	}
 
 	return nil

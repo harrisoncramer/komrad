@@ -175,8 +175,8 @@ func (m *model) formArea() (width, height int) {
 		return p.MeasurePopup(in, m)
 	}
 
-	if split := in.Room.Geometry; split.On {
-		return split.Column, split.Rows
+	if split := in.Room.WindowSplit; split.IsDivided {
+		return split.ColumnWidth, split.RowCount
 	}
 
 	return m.term.width, m.term.height

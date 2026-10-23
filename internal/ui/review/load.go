@@ -369,7 +369,7 @@ func (r *Screen) applyLoaded(in screen.Inputs, msg loadedMsg) screen.Request {
 
 	r.root = msg.patch.Root
 	r.snapshot = msg.snapshot
-	r.diff.load(msg, in.Room.Dark, r.deps.Glyphs)
+	r.diff.load(msg, in.Room.IsDarkBackground, r.deps.Glyphs)
 	r.threads.set(msg.threads)
 
 	loaded := r.underBand(in)
@@ -380,9 +380,9 @@ func (r *Screen) applyLoaded(in screen.Inputs, msg loadedMsg) screen.Request {
 
 // underBand is the inputs with the diff's rows measured again under the band as it now stands.
 func (r *Screen) underBand(in screen.Inputs) screen.Inputs {
-	if in.Room.Split.On {
-		in.Room.Split.Rows = max(r.Column(in).Rows(in.Room.Geometry), 1)
-		in.Room.Column = in.Room.Split
+	if in.Room.OwnBlockSplit.IsDivided {
+		in.Room.OwnBlockSplit.RowCount = max(r.Column(in).Rows(in.Room.WindowSplit), 1)
+		in.Room.BlockAreaSplit = in.Room.OwnBlockSplit
 	}
 
 	return in

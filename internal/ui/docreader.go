@@ -34,7 +34,7 @@ type docReader struct {
 
 // isDocReadable reports whether the block beside the list is a document the panel walks itself.
 func (m *model) isDocReadable(in screen.Inputs) bool {
-	if in.Room.MessagesFocused {
+	if in.Room.AreMessagesFocused {
 		return false
 	}
 
@@ -43,17 +43,17 @@ func (m *model) isDocReadable(in screen.Inputs) bool {
 		return false
 	}
 
-	return in.Room.Split.On
+	return in.Room.OwnBlockSplit.IsDivided
 }
 
 // docReaderOf is where the reader stands in the document beside the list, and whether the document
 // holds the keys.
 func (m *model) docReaderOf(in screen.Inputs) screen.DocReader {
 	return screen.DocReader{
-		Line:    m.reading.Line,
-		Top:     m.reading.Top,
-		Focused: m.reading.focused && m.isDocReadable(in) && in.Room.ListFocused,
-		Held:    m.reading.focused,
+		CursorLine: m.reading.CursorLine,
+		TopLine:    m.reading.TopLine,
+		HoldsKeys:  m.reading.focused && m.isDocReadable(in) && in.Room.IsListFocused,
+		Held:       m.reading.focused,
 	}
 }
 
@@ -61,22 +61,22 @@ func (m *model) docReaderOf(in screen.Inputs) screen.DocReader {
 // under the search.
 func (m *model) docLayout() ([]string, int, bool) {
 	in := m.inputs()
-	if in.Room.Doc.Window == 0 {
+	if in.Room.DocumentReader.VisibleRows == 0 {
 		return nil, 0, false
 	}
 
-	return m.columnRows(in, in.Room.Split), in.Room.Doc.Window, true
+	return m.columnRows(in, in.Room.OwnBlockSplit), in.Room.DocumentReader.VisibleRows, true
 }
 
 // docWindowOf is the rows of the window under the search over the document, and zero while the
 // block beside the list is no document the panel walks.
 func (m *model) docWindowOf(in screen.Inputs) int {
-	split := in.Room.Split
-	if !split.On || !m.isDocReadable(in) {
+	split := in.Room.OwnBlockSplit
+	if !split.IsDivided || !m.isDocReadable(in) {
 		return 0
 	}
 
-	return max(split.Rows-len(m.docHead(in, nil, split.Column)), 1)
+	return max(split.RowCount-len(m.docHead(in, nil, split.ColumnWidth)), 1)
 }
 
 // moveDocTo puts the cursor on a row of the document and brings the window round to it.
@@ -103,7 +103,7 @@ func (m *model) settleTail() {
 func (m *model) placeDoc(line, top int) {
 	m.reading.tail = false
 	if _, _, ok := m.docLayout(); ok {
-		m.reading.Line, m.reading.Top = line, top
+		m.reading.CursorLine, m.reading.TopLine = line, top
 	}
 }
 
@@ -124,8 +124,8 @@ func (m *model) focusDoc() {
 func (m *model) scrollDoc(delta int) {
 	m.settleTail()
 
-	if m.inputs().Room.Doc.Focused {
-		m.moveDocTo(m.reading.Line + delta)
+	if m.inputs().Room.DocumentReader.HoldsKeys {
+		m.moveDocTo(m.reading.CursorLine + delta)
 
 		return
 	}
@@ -205,13 +205,13 @@ func (m *model) jumpDocMatch(pressed string) {
 		return
 	}
 
-	line, found := reader.Jump(reader.Matches(r.filter.Matcher, rows), r.Line, keys.DirectionOf(pressed, m.keys.Filter.PrevMatch))
+	line, found := reader.Jump(reader.Matches(r.filter.Matcher, rows), r.CursorLine, keys.DirectionOf(pressed, m.keys.Filter.PrevMatch))
 	if !found {
 		r.said = "nothing to search for yet"
 		if r.filter.IsSearched() {
 			r.said = "no matches"
 		}
-		m.moveDocTo(r.Line)
+		m.moveDocTo(r.CursorLine)
 
 		return
 	}
@@ -258,7 +258,7 @@ func (m *model) docActions() keys.Spec[*model] {
 				ID:   keys.Move,
 				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.Up, k.Nav.Down) },
 				Nav: func(_ *model, pressed string) screen.Request {
-					m.moveDocTo(m.reading.Line + keys.DirectionOf(pressed, m.keys.Nav.Up))
+					m.moveDocTo(m.reading.CursorLine + keys.DirectionOf(pressed, m.keys.Nav.Up))
 
 					return nil
 				},
@@ -267,7 +267,7 @@ func (m *model) docActions() keys.Spec[*model] {
 				ID:   keys.NavPage,
 				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Nav.PageUp, k.Nav.PageDown) },
 				Nav: func(_ *model, pressed string) screen.Request {
-					m.moveDocTo(m.reading.Line + keys.DirectionOf(pressed, m.keys.Nav.PageUp)*keys.NavPageStep)
+					m.moveDocTo(m.reading.CursorLine + keys.DirectionOf(pressed, m.keys.Nav.PageUp)*keys.NavPageStep)
 
 					return nil
 				},
@@ -300,7 +300,7 @@ func (m *model) docActions() keys.Spec[*model] {
 				Nav: func(*model, string) screen.Request {
 					m.settleTail()
 					m.reading.filter.Open(m.docSearchOptions()...)
-					m.reading.origin = m.reading.Line
+					m.reading.origin = m.reading.CursorLine
 
 					return nil
 				},

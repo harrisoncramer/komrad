@@ -170,7 +170,7 @@ func (r Screen) countFilesFloor(spare int) int {
 
 // IsBlockRendered reports whether the file tree is rendered beside the diff.
 func (r *Screen) IsBlockRendered(in screen.Inputs) bool {
-	if !in.Room.Split.On {
+	if !in.Room.OwnBlockSplit.IsDivided {
 		return false
 	}
 
@@ -179,7 +179,7 @@ func (r *Screen) IsBlockRendered(in screen.Inputs) bool {
 
 // IsBlockFocused reports whether the file tree holds the keys.
 func (r *Screen) IsBlockFocused(in screen.Inputs) bool {
-	return r.focus == focusFiles && in.Room.ListFocused && !r.IsWriting() && r.IsBlockRendered(in)
+	return r.focus == focusFiles && in.Room.IsListFocused && !r.IsWriting() && r.IsBlockRendered(in)
 }
 
 // FocusBlock hands the keys to the file tree.

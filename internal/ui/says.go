@@ -99,7 +99,7 @@ func (m *model) openSaid() {
 		return
 	}
 
-	m.reading.Top = max(m.said.line-1-saidLeadIn, 0)
+	m.reading.TopLine = max(m.said.line-1-saidLeadIn, 0)
 	m.reading.tail = false
 	m.said.opened = true
 }
@@ -111,21 +111,21 @@ func (m *model) layoutSaid() bool {
 		return false
 	}
 
-	split := m.inputs().Room.Column
-	if !split.On {
+	split := m.inputs().Room.BlockAreaSplit
+	if !split.IsDivided {
 		return false
 	}
 
-	if m.said.rows != nil && m.said.width == split.Column {
+	if m.said.rows != nil && m.said.width == split.ColumnWidth {
 		return true
 	}
 
 	m.said.rows, m.said.line = saidRows(saidRowsParams{
 		said:  m.said,
 		hits:  m.filter.Pattern().SaidHits(agentID),
-		width: split.Column,
+		width: split.ColumnWidth,
 	})
-	m.said.width = split.Column
+	m.said.width = split.ColumnWidth
 
 	return true
 }

@@ -96,7 +96,7 @@ func (m *model) atStop() stop {
 	switch {
 	case m.isDetailsFocused(in):
 		return stopRecord
-	case in.Room.Doc.Focused:
+	case in.Room.DocumentReader.HoldsKeys:
 		return stopBlock
 	}
 

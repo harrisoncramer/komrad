@@ -51,7 +51,7 @@ func taskDetails(in screen.Inputs, now time.Time, glyphs glyph.Set, r agentRow) 
 
 	return record.Details{
 		ID:      r.task.ID,
-		Notices: agentNotices(glyphs, in.Room.Spinner, in.Listing.Tasks, r),
+		Notices: agentNotices(glyphs, in.Room.SpinnerFrame, in.Listing.Tasks, r),
 		Fields:  taskFields(buildCheckoutParams(in.Inspections, now, *r.task), writerFields),
 		Tags:    tags,
 	}
@@ -78,7 +78,7 @@ func agentDetails(in screen.Inputs, now time.Time, glyphs glyph.Set, r agentRow)
 
 	return record.Details{
 		ID:      r.item.Agent.ID,
-		Notices: agentNotices(glyphs, in.Room.Spinner, in.Listing.Tasks, r),
+		Notices: agentNotices(glyphs, in.Room.SpinnerFrame, in.Listing.Tasks, r),
 		Fields:  agentFields(params),
 		Tags:    tags,
 	}
@@ -99,9 +99,9 @@ func (a *Screen) doc(in screen.Inputs) string {
 	case r.header && !held:
 		return workflowContextMarkdown(r.workflow)
 	case item.Agent.State == agentv1.AgentState_AGENT_STATE_SETTING_UP && item.Agent.Pane != "":
-		return startingPlaceholder(in.Room.Spinner)
+		return startingPlaceholder(in.Room.SpinnerFrame)
 	case item.Agent.State == agentv1.AgentState_AGENT_STATE_SETTING_UP:
-		return settingUpPlaceholder(in.Room.Spinner)
+		return settingUpPlaceholder(in.Room.SpinnerFrame)
 	case panel.IsFailed(item.Agent.State):
 		return failedPlaceholder(item.Agent)
 	}
@@ -160,7 +160,7 @@ func (a *Screen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
 		workflowDirs: in.Listing.WorkflowDirs(),
 		focused:      list.KeyAt(layout.cursorRows(), a.Row),
 		caret:        pane.Caret,
-		loaderFrame:  in.Room.Spinner,
+		loaderFrame:  in.Room.SpinnerFrame,
 		matcher:      in.Room.Pattern.Regexp,
 		picked:       list.Picked(in.Room.Pattern, layout.cursorRows(), agentRowFits(in)),
 		tasks:        in.Listing.Tasks,
