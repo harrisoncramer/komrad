@@ -744,8 +744,16 @@ func TestRecordParentPullRequest(t *testing.T) {
 		Slug:       "child",
 		Parent:     &taskstore.Parent{TaskID: parent.ID, ForkPoint: "abc"},
 	})
-	first := stores.SeedPullRequest(t, storetest.SeedPullRequestParams{RepositoryURL: "https://github.com/acme/api", Number: 1, HeadBranch: "task/parent"}).ID
-	second := stores.SeedPullRequest(t, storetest.SeedPullRequestParams{RepositoryURL: "https://github.com/acme/api", Number: 2, HeadBranch: "task/parent"}).ID
+	first := stores.SeedPullRequest(t, storetest.SeedPullRequestParams{
+		RepositoryURL: "https://github.com/acme/api",
+		Number:        1,
+		HeadBranch:    "task/parent",
+	}).ID
+	second := stores.SeedPullRequest(t, storetest.SeedPullRequestParams{
+		RepositoryURL: "https://github.com/acme/api",
+		Number:        2,
+		HeadBranch:    "task/parent",
+	}).ID
 
 	require.NoError(t, stores.Tasks.RecordParentPullRequest(ctx, task.ID, first))
 	require.NoError(t, stores.Tasks.RecordParentPullRequest(ctx, task.ID, second))

@@ -441,7 +441,11 @@ func (s *ReviewService) AddReviewMessage(
 			return nil, err
 		}
 		if params.Author.isHuman() {
-			return nil, s.mailComment(ctx, tx, mailCommentParams{Thread: *thread, Message: *message, Reply: true})
+			return nil, s.mailComment(ctx, tx, mailCommentParams{
+				Thread:  *thread,
+				Message: *message,
+				Reply:   true,
+			})
 		}
 		if !answering || thread.AuthorAgentID == nil {
 			return nil, nil

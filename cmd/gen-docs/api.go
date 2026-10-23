@@ -97,7 +97,11 @@ func buildAPI(notes comments) apiDoc {
 		Messages: map[string]messageDoc{},
 		Enums:    map[string]enumDoc{},
 		Events: xslice.Map(protoenum.Values[eventv1.Event](), func(event eventv1.Event) eventDoc {
-			return eventDoc{Name: protoenum.Name(event), Description: protoenum.Label(event).GetDescription(), DefaultPrompt: eventprompts.DefaultPrompt(event)}
+			return eventDoc{
+				Name:          protoenum.Name(event),
+				Description:   protoenum.Label(event).GetDescription(),
+				DefaultPrompt: eventprompts.DefaultPrompt(event),
+			}
 		}),
 	}
 	index := map[protoreflect.FullName]int{}

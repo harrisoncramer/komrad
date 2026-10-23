@@ -29,8 +29,7 @@ type recordedTmux struct {
 	sidebar      string
 	refuseSplits bool
 	// rendered is the frame the panel last rendered, which tmux shows in the panel's own pane.
-	rendered func() string
-
+	rendered     func() string
 	panelWidth   int
 	panelHeight  int
 	resizes      []string
@@ -789,7 +788,11 @@ func (t *recordedTmux) GetShownPanes(sidebar string) []panes.Rect {
 	defer t.mu.Unlock()
 
 	if t.shown == nil {
-		return []panes.Rect{{Pane: sidebar, Width: t.panelWidth, Height: t.panelHeight}}
+		return []panes.Rect{{
+			Pane:   sidebar,
+			Width:  t.panelWidth,
+			Height: t.panelHeight,
+		}}
 	}
 
 	return t.shown

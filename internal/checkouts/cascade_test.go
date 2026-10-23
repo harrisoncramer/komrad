@@ -301,7 +301,11 @@ func TestCascade(t *testing.T) {
 			},
 			mover: func(parentBranch string) *gittest.Mover {
 				mover := newChildGit(parentBranch, "newtip")
-				mover.Remote = git.RemoteStanding{Pushed: true, Unpushed: 2, Unpulled: 2}
+				mover.Remote = git.RemoteStanding{
+					Pushed:   true,
+					Unpushed: 2,
+					Unpulled: 2,
+				}
 				mover.PushErr = errors.New("stale info")
 
 				return mover
@@ -654,7 +658,11 @@ func (f *rebaseFixture) seedTaskOnParent(t *testing.T, writer agentstore.Agent) 
 	seeded := f.seedPushable(t, writer, "")
 	require.NoError(t, f.stores.Tasks.SetParent(t.Context(), *seeded.TaskID, &taskstore.Parent{TaskID: parent.ID, ForkPoint: "oldtip"}))
 
-	return taskOnParent{writer: seeded, task: *seeded.TaskID, parent: parent}
+	return taskOnParent{
+		writer: seeded,
+		task:   *seeded.TaskID,
+		parent: parent,
+	}
 }
 
 // findPullRequestID is the child's parent pull request, nil while it has none.

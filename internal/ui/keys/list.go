@@ -167,7 +167,13 @@ func ListActions[S any, T list.Keyed](l ScreenList[T], in screen.Inputs) []Actio
 		Keys: FixedQuit,
 		Nav:  func(S, string) screen.Request { return screen.Hide{} },
 	})
-	shared = append(shared, NavActions[S](NavActionsParams{Keys: l.Keys, Nav: l, In: in, Page: NavPageStep, Scroll: 1})...)
+	shared = append(shared, NavActions[S](NavActionsParams{
+		Keys:   l.Keys,
+		Nav:    l,
+		In:     in,
+		Page:   NavPageStep,
+		Scroll: 1,
+	})...)
 	if l.Name != nil {
 		shared = append(shared, filterActions[S](l, in)...)
 	}

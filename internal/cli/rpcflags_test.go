@@ -185,10 +185,26 @@ func TestDescribeField(t *testing.T) {
 		field   string
 		want    string
 	}{
-		{message: createAgent, field: "prompt", want: "string, required, at most 50000 characters"},
-		{message: createAgent, field: "harness", want: "string, at most 40 characters, matching ^[a-z0-9-]*$"},
-		{message: createAgent, field: "workflow_id", want: "uuid, required"},
-		{message: createAgent, field: "task_slug", want: "string, not empty"},
+		{
+			message: createAgent,
+			field:   "prompt",
+			want:    "string, required, at most 50000 characters",
+		},
+		{
+			message: createAgent,
+			field:   "harness",
+			want:    "string, at most 40 characters, matching ^[a-z0-9-]*$",
+		},
+		{
+			message: createAgent,
+			field:   "workflow_id",
+			want:    "uuid, required",
+		},
+		{
+			message: createAgent,
+			field:   "task_slug",
+			want:    "string, not empty",
+		},
 		{
 			message: (&agentv1.WriteDocumentRequest{}).ProtoReflect().Descriptor(),
 			field:   "body",
@@ -199,8 +215,16 @@ func TestDescribeField(t *testing.T) {
 			field:   "title",
 			want:    "string, at most 200 characters, must not contain control characters",
 		},
-		{message: (&agentv1.GetLastTurnsRequest{}).ProtoReflect().Descriptor(), field: "turns", want: "int32, between 1 and 20"},
-		{message: (&agentv1.GetDocumentRequest{}).ProtoReflect().Descriptor(), field: "version", want: "int32, more than 0"},
+		{
+			message: (&agentv1.GetLastTurnsRequest{}).ProtoReflect().Descriptor(),
+			field:   "turns",
+			want:    "int32, between 1 and 20",
+		},
+		{
+			message: (&agentv1.GetDocumentRequest{}).ProtoReflect().Descriptor(),
+			field:   "version",
+			want:    "int32, more than 0",
+		},
 		{
 			message: (&agentv1.ArchiveAgentsRequest{}).ProtoReflect().Descriptor(),
 			field:   "ids",

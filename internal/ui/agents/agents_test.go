@@ -595,14 +595,22 @@ func TestAgentsRecord(t *testing.T) {
 			name: "an agent whose schedule has since gone names nothing",
 			rows: append(buildRecordedWith(func(agent *agentv1.Agent) {
 				agent.ScheduleId = xptr.Ptr("gone")
-			}), &schedulev1.Schedule{Id: "s1", Name: "morning-ci", WorkflowId: "w1"}),
+			}), &schedulev1.Schedule{
+				Id:         "s1",
+				Name:       "morning-ci",
+				WorkflowId: "w1",
+			}),
 			wantAbsent: []string{"launched by"},
 		},
 		{
 			name: "an agent a schedule launched names it in its own record",
 			rows: append(buildRecordedWith(func(agent *agentv1.Agent) {
 				agent.ScheduleId = xptr.Ptr("s1")
-			}), &schedulev1.Schedule{Id: "s1", Name: "morning-ci", WorkflowId: "w1"}),
+			}), &schedulev1.Schedule{
+				Id:         "s1",
+				Name:       "morning-ci",
+				WorkflowId: "w1",
+			}),
 			want: map[string]string{"launched by": "morning-ci"},
 		},
 	}

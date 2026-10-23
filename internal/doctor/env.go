@@ -70,7 +70,11 @@ func DescribeHarnesses(registry *harness.Registry) ([]harnessInfo, error) {
 			return nil, err
 		}
 
-		harnesses = append(harnesses, harnessInfo{ID: found.ID(), Binary: found.Binary(), MinVersion: found.MinVersion()})
+		harnesses = append(harnesses, harnessInfo{
+			ID:         found.ID(),
+			Binary:     found.Binary(),
+			MinVersion: found.MinVersion(),
+		})
 	}
 
 	return harnesses, nil

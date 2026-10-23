@@ -59,7 +59,13 @@ func (w *Screen) actions(in screen.Inputs) keys.Spec[*Screen] {
 				Keys:   func(k config.Keybindings) []string { return k.Schedules.Rename },
 				Direct: keys.Directly(keys.NotInMenu, func(*Screen, string) screen.Request { return w.openRename(in) }),
 			},
-		}, keys.NavActions[*Screen](keys.NavActionsParams{Keys: w.deps.Keys, Nav: list, In: in, Page: keys.NavPageStep, Scroll: 1})...),
+		}, keys.NavActions[*Screen](keys.NavActionsParams{
+			Keys:   w.deps.Keys,
+			Nav:    list,
+			In:     in,
+			Page:   keys.NavPageStep,
+			Scroll: 1,
+		})...),
 		Legend: []keys.LegendRow[*Screen]{
 			{
 				ActionIDs: []keys.ID{actionRename},

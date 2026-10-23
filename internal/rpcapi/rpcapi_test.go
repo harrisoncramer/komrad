@@ -39,12 +39,36 @@ func TestIsRequired(t *testing.T) {
 		field   string
 		want    bool
 	}{
-		{message: (&agentv1.WriteDocumentRequest{}).ProtoReflect().Descriptor(), field: "name", want: true},
-		{message: (&agentv1.WriteDocumentRequest{}).ProtoReflect().Descriptor(), field: "id", want: false},
-		{message: (&agentv1.WriteDocumentRequest{}).ProtoReflect().Descriptor(), field: "body", want: false},
-		{message: (&agentv1.WriteDocumentRequest{}).ProtoReflect().Descriptor(), field: "path", want: false},
-		{message: (&agentv1.GetDocumentRequest{}).ProtoReflect().Descriptor(), field: "id", want: true},
-		{message: (&workflowv1.WorkflowEventPrompt{}).ProtoReflect().Descriptor(), field: "event", want: true},
+		{
+			message: (&agentv1.WriteDocumentRequest{}).ProtoReflect().Descriptor(),
+			field:   "name",
+			want:    true,
+		},
+		{
+			message: (&agentv1.WriteDocumentRequest{}).ProtoReflect().Descriptor(),
+			field:   "id",
+			want:    false,
+		},
+		{
+			message: (&agentv1.WriteDocumentRequest{}).ProtoReflect().Descriptor(),
+			field:   "body",
+			want:    false,
+		},
+		{
+			message: (&agentv1.WriteDocumentRequest{}).ProtoReflect().Descriptor(),
+			field:   "path",
+			want:    false,
+		},
+		{
+			message: (&agentv1.GetDocumentRequest{}).ProtoReflect().Descriptor(),
+			field:   "id",
+			want:    true,
+		},
+		{
+			message: (&workflowv1.WorkflowEventPrompt{}).ProtoReflect().Descriptor(),
+			field:   "event",
+			want:    true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -63,11 +87,31 @@ func TestIsUUID(t *testing.T) {
 		field   string
 		want    bool
 	}{
-		{message: (&agentv1.SendMailRequest{}).ProtoReflect().Descriptor(), field: "to_agent_id", want: true},
-		{message: (&agentv1.SendMailRequest{}).ProtoReflect().Descriptor(), field: "reply_to", want: true},
-		{message: (&agentv1.SendMailRequest{}).ProtoReflect().Descriptor(), field: "to_agent_name", want: false},
-		{message: (&agentv1.ArchiveAgentsRequest{}).ProtoReflect().Descriptor(), field: "ids", want: true},
-		{message: (&agentv1.Agent{}).ProtoReflect().Descriptor(), field: "id", want: false},
+		{
+			message: (&agentv1.SendMailRequest{}).ProtoReflect().Descriptor(),
+			field:   "to_agent_id",
+			want:    true,
+		},
+		{
+			message: (&agentv1.SendMailRequest{}).ProtoReflect().Descriptor(),
+			field:   "reply_to",
+			want:    true,
+		},
+		{
+			message: (&agentv1.SendMailRequest{}).ProtoReflect().Descriptor(),
+			field:   "to_agent_name",
+			want:    false,
+		},
+		{
+			message: (&agentv1.ArchiveAgentsRequest{}).ProtoReflect().Descriptor(),
+			field:   "ids",
+			want:    true,
+		},
+		{
+			message: (&agentv1.Agent{}).ProtoReflect().Descriptor(),
+			field:   "id",
+			want:    false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -86,8 +130,16 @@ func TestIsOneofRequired(t *testing.T) {
 		oneof   string
 		want    bool
 	}{
-		{message: (&agentv1.SendMailRequest{}).ProtoReflect().Descriptor(), oneof: "to", want: true},
-		{message: (&agentv1.CreateAgentRequest{}).ProtoReflect().Descriptor(), oneof: "task", want: false},
+		{
+			message: (&agentv1.SendMailRequest{}).ProtoReflect().Descriptor(),
+			oneof:   "to",
+			want:    true,
+		},
+		{
+			message: (&agentv1.CreateAgentRequest{}).ProtoReflect().Descriptor(),
+			oneof:   "task",
+			want:    false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -106,9 +158,21 @@ func TestIsTimestamp(t *testing.T) {
 		field   string
 		want    bool
 	}{
-		{message: (&agentv1.ListAgentsRequest{}).ProtoReflect().Descriptor(), field: "pagination", want: false},
-		{message: (&taskv1.SetTaskNotesRequest{}).ProtoReflect().Descriptor(), field: "notes", want: false},
-		{message: (&taskv1.SetTaskNotesRequest{}).ProtoReflect().Descriptor(), field: "notes_updated_at", want: true},
+		{
+			message: (&agentv1.ListAgentsRequest{}).ProtoReflect().Descriptor(),
+			field:   "pagination",
+			want:    false,
+		},
+		{
+			message: (&taskv1.SetTaskNotesRequest{}).ProtoReflect().Descriptor(),
+			field:   "notes",
+			want:    false,
+		},
+		{
+			message: (&taskv1.SetTaskNotesRequest{}).ProtoReflect().Descriptor(),
+			field:   "notes_updated_at",
+			want:    true,
+		},
 	}
 
 	for _, tt := range tests {

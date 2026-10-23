@@ -151,7 +151,11 @@ func globalArms(s screen.ID, bindings config.Keybindings) []keys.Arm {
 			continue
 		}
 
-		arms = append(arms, keys.Arm{Describe: arm.describe, Keys: arm.keys(bindings), IsGuarded: arm.guarded})
+		arms = append(arms, keys.Arm{
+			Describe:  arm.describe,
+			Keys:      arm.keys(bindings),
+			IsGuarded: arm.guarded,
+		})
 	}
 
 	return arms

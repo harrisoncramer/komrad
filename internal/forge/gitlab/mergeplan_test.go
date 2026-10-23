@@ -58,8 +58,16 @@ func TestPlanMerge(t *testing.T) {
 			},
 			want: &forge.MergePlan{
 				Options: []forge.MergeOption{
-					{Method: forgev1.MergeMethod_MERGE_METHOD_MERGE, Allowed: true, Message: mergeMessage},
-					{Method: forgev1.MergeMethod_MERGE_METHOD_SQUASH, Allowed: true, Message: squashMessage},
+					{
+						Method:  forgev1.MergeMethod_MERGE_METHOD_MERGE,
+						Allowed: true,
+						Message: mergeMessage,
+					},
+					{
+						Method:  forgev1.MergeMethod_MERGE_METHOD_SQUASH,
+						Allowed: true,
+						Message: squashMessage,
+					},
 				},
 				DefaultMethod: forgev1.MergeMethod_MERGE_METHOD_MERGE,
 				HeadSHA:       "abc123",
@@ -74,7 +82,11 @@ func TestPlanMerge(t *testing.T) {
 			want: &forge.MergePlan{
 				Options: []forge.MergeOption{
 					{Method: forgev1.MergeMethod_MERGE_METHOD_MERGE, Message: mergeMessage},
-					{Method: forgev1.MergeMethod_MERGE_METHOD_SQUASH, Allowed: true, Message: squashMessage},
+					{
+						Method:  forgev1.MergeMethod_MERGE_METHOD_SQUASH,
+						Allowed: true,
+						Message: squashMessage,
+					},
 				},
 				DefaultMethod: forgev1.MergeMethod_MERGE_METHOD_SQUASH,
 				HeadSHA:       "abc123",

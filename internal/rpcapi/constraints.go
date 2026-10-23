@@ -53,7 +53,11 @@ func GetConstraints(field protoreflect.FieldDescriptor) Constraints {
 
 func valueConstraints(field protoreflect.FieldDescriptor, rules *validate.FieldRules) Constraints {
 	text := rules.GetString()
-	constraints := Constraints{Pattern: text.GetPattern(), Enum: text.GetIn(), Rules: ruleMessages(rules)}
+	constraints := Constraints{
+		Pattern: text.GetPattern(),
+		Enum:    text.GetIn(),
+		Rules:   ruleMessages(rules),
+	}
 	if field.Kind() == protoreflect.EnumKind {
 		constraints.Enum = narrowedEnum(field)
 	}

@@ -87,7 +87,11 @@ func TestPlanParent(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, &taskstore.Parent{TaskID: parent.ID, ForkPoint: "newest", PullRequestID: pullRequestID}, planned)
+			assert.Equal(t, &taskstore.Parent{
+				TaskID:        parent.ID,
+				ForkPoint:     "newest",
+				PullRequestID: pullRequestID,
+			}, planned)
 		})
 	}
 }

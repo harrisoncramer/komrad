@@ -46,7 +46,11 @@ func (a *Screen) restartEntries(in screen.Inputs, task panel.Task) []menu.Entry 
 			return screen.Report{Summary: "Could not restart the writer of task " + task.Slug, Err: refusal}
 		}
 
-		return a.openRestart(restartTarget{agent: *writer, on: task.Slug, briefing: "the task's notes"})
+		return a.openRestart(restartTarget{
+			agent:    *writer,
+			on:       task.Slug,
+			briefing: "the task's notes",
+		})
 	})
 	entry.IsDimmed = refusal != nil
 
@@ -74,7 +78,11 @@ func (a *Screen) orchestratorRestartEntries(workflow panel.Workflow, orchestrato
 	}
 
 	return []menu.Entry{menu.Leaving("restart orchestrator", a.deps.Keys.Menu.Restart, func(screen.Inputs) screen.Request {
-		return a.openRestart(restartTarget{agent: *orchestrator, on: workflow.Name, briefing: "its briefing"})
+		return a.openRestart(restartTarget{
+			agent:    *orchestrator,
+			on:       workflow.Name,
+			briefing: "its briefing",
+		})
 	})}
 }
 

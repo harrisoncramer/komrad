@@ -95,9 +95,8 @@ func TestChannelSend(t *testing.T) {
 // appServer answers the calls the channel makes the way Codex's app server does, saying something
 // unasked before each answer as the real one does.
 type appServer struct {
-	status string
-	refuse []string
-
+	status  string
+	refuse  []string
 	mu      sync.Mutex
 	methods []string
 }

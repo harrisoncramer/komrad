@@ -21,11 +21,31 @@ func TestGetConstraints(t *testing.T) {
 		field   string
 		want    string
 	}{
-		{message: createAgent, field: "prompt", want: `{"minLength":1,"maxLength":50000}`},
-		{message: createAgent, field: "harness", want: `{"maxLength":40,"pattern":"^[a-z0-9-]*$"}`},
-		{message: createAgent, field: "workflow_id", want: `{"format":"uuid"}`},
-		{message: createAgent, field: "title", want: `{"maxLength":200,"rules":["must not contain control characters"]}`},
-		{message: createAgent, field: "provision_enabled", want: `{}`},
+		{
+			message: createAgent,
+			field:   "prompt",
+			want:    `{"minLength":1,"maxLength":50000}`,
+		},
+		{
+			message: createAgent,
+			field:   "harness",
+			want:    `{"maxLength":40,"pattern":"^[a-z0-9-]*$"}`,
+		},
+		{
+			message: createAgent,
+			field:   "workflow_id",
+			want:    `{"format":"uuid"}`,
+		},
+		{
+			message: createAgent,
+			field:   "title",
+			want:    `{"maxLength":200,"rules":["must not contain control characters"]}`,
+		},
+		{
+			message: createAgent,
+			field:   "provision_enabled",
+			want:    `{}`,
+		},
 		{
 			message: (&agentv1.GetLastTurnsRequest{}).ProtoReflect().Descriptor(),
 			field:   "turns",

@@ -71,7 +71,13 @@ func (l *Screen) legend(in screen.Inputs) []keys.LegendRow[*Screen] {
 // logActions is the keys on the log once the picker has handed them to it.
 func (l *Screen) logActions(in screen.Inputs) keys.Spec[*Screen] {
 	return keys.Spec[*Screen]{
-		Table: append(keys.NavActions[*Screen](keys.NavActionsParams{Keys: l.deps.Keys, Nav: l, In: in, Page: keys.NavPageStep, Scroll: keys.ColumnWheelStep}), []keys.Action[*Screen]{
+		Table: append(keys.NavActions[*Screen](keys.NavActionsParams{
+			Keys:   l.deps.Keys,
+			Nav:    l,
+			In:     in,
+			Page:   keys.NavPageStep,
+			Scroll: keys.ColumnWheelStep,
+		}), []keys.Action[*Screen]{
 			{
 				ID:   actionCopy,
 				Keys: func(k config.Keybindings) []string { return k.Logs.Copy },

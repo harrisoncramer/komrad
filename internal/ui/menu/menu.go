@@ -130,10 +130,19 @@ func DrawnOff(entry Entry, said string) Entry {
 
 // Leaving is an entry that takes the menu down before pick runs.
 func Leaving(label string, keys []string, pick func(screen.Inputs) screen.Request) Entry {
-	return Entry{Label: label, Keys: keys, Pick: pick}
+	return Entry{
+		Label: label,
+		Keys:  keys,
+		Pick:  pick,
+	}
 }
 
 // Holding is an entry that keeps the menu up while a write pick began is in flight.
 func Holding(label string, keys []string, pick func(screen.Inputs) screen.Request) Entry {
-	return Entry{Label: label, Keys: keys, Pick: pick, AfterPick: KeepOpenWhileWriting}
+	return Entry{
+		Label:     label,
+		Keys:      keys,
+		Pick:      pick,
+		AfterPick: KeepOpenWhileWriting,
+	}
 }

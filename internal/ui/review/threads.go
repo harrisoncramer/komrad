@@ -14,8 +14,7 @@ import (
 
 // conversation is the threads on the review and the message the reader is writing into one.
 type conversation struct {
-	list []*agentv1.ReviewThread
-
+	list      []*agentv1.ReviewThread
 	composing bool
 	editor    inputField
 	// editing is the thread a composed message is going into, empty when it will open a new

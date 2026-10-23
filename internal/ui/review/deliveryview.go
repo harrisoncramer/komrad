@@ -9,7 +9,11 @@ import (
 // deliveryBadge is where one comment stands with the writer, rendered under the comment
 // itself and not at all for what an agent wrote.
 func (r Screen) deliveryBadge(thread *agentv1.ReviewThread, message *agentv1.ReviewMessage) string {
-	rendered := deliveryOf(deliveryParams{thread: thread, message: message, writerID: r.agentID})
+	rendered := deliveryOf(deliveryParams{
+		thread:   thread,
+		message:  message,
+		writerID: r.agentID,
+	})
 	if rendered.word == "" {
 		return ""
 	}
