@@ -53,9 +53,11 @@ func (s *WorkflowStore) hooksFor(ctx context.Context, workflowID uuid.UUID) ([]H
 
 	hooks := make([]Hook, 0, len(rows))
 	for _, row := range rows {
-		if hook, ok := hookFromRow(row.Event, row.Script); ok {
-			hooks = append(hooks, hook)
+		hook, err := hookFromRow(row.Event, row.Script)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read a hook of workflow %q: %w", workflowID, err)
 		}
+		hooks = append(hooks, *hook)
 	}
 
 	return hooks, nil
@@ -74,20 +76,25 @@ func (s *WorkflowStore) hooksForWorkflows(ctx context.Context, ids []uuid.UUID) 
 
 	hooks := make(map[uuid.UUID][]Hook)
 	for _, row := range rows {
-		if hook, ok := hookFromRow(row.Event, row.Script); ok {
-			hooks[row.WorkflowID] = append(hooks[row.WorkflowID], hook)
+		hook, err := hookFromRow(row.Event, row.Script)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read a hook of workflow %q: %w", row.WorkflowID, err)
 		}
+		hooks[row.WorkflowID] = append(hooks[row.WorkflowID], *hook)
 	}
 
 	return hooks, nil
 }
 
-// hookFromRow reads a stored hook, false for a moment komrad runs no hook at.
-func hookFromRow(event, script string) (Hook, bool) {
-	moment, ok := protoenum.Parse[eventv1.Moment](event)
-	if !ok || !slices.Contains(config.HookMoments(), moment) {
-		return Hook{}, false
+// hookFromRow reads a stored hook, failing on a moment komrad runs no hook at.
+func hookFromRow(event, script string) (*Hook, error) {
+	moment, err := protoenum.Parse[eventv1.Moment](event)
+	if err != nil {
+		return nil, err
+	}
+	if !slices.Contains(config.HookMoments(), moment) {
+		return nil, fmt.Errorf("komrad runs no hook at %s", event)
 	}
 
-	return Hook{Event: moment, Script: script}, true
+	return &Hook{Event: moment, Script: script}, nil
 }

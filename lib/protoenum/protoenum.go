@@ -2,6 +2,7 @@
 package protoenum
 
 import (
+	"fmt"
 	"slices"
 	"strconv"
 
@@ -40,17 +41,16 @@ func NameOf(value protoreflect.EnumValueDescriptor) string {
 	return string(value.Name())
 }
 
-// Parse is the value of T whose JSON name is name, and false when T defines none.
-func Parse[T enum](name string) (T, bool) {
+// Parse is the value of T whose JSON name is name, failing when T defines none.
+func Parse[T enum](name string) (T, error) {
+	var zero T
 	for _, value := range Values[T]() {
 		if Name(value) == name {
-			return value, true
+			return value, nil
 		}
 	}
 
-	var zero T
-
-	return zero, false
+	return zero, fmt.Errorf("%s defines no value named %q", zero.Descriptor().FullName(), name)
 }
 
 // Values is every value of T except its zero, in the order the enum declares them.
@@ -105,16 +105,18 @@ func Names[T enum](values []T) []string {
 	return names
 }
 
-// ParseKnown is the value of each name T defines, skipping the names it does not.
-func ParseKnown[T enum](names []string) []T {
-	values := make([]T, 0, len(names))
-	for _, name := range names {
-		if value, ok := Parse[T](name); ok {
-			values = append(values, value)
+// ParseAll is the value of each name, failing on the first name T does not define.
+func ParseAll[T enum](names []string) ([]T, error) {
+	values := make([]T, len(names))
+	for i, name := range names {
+		value, err := Parse[T](name)
+		if err != nil {
+			return nil, err
 		}
+		values[i] = value
 	}
 
-	return values
+	return values, nil
 }
 
 // Accepted is each declared value of T but its zero that the field's validation rules accept.

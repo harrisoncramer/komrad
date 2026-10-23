@@ -120,7 +120,7 @@ func (s *RunStore) MarkTaskRead(ctx context.Context, taskID uuid.UUID) error {
 	return nil
 }
 
-// ListByTask returns every run on a task, newest first, leaving out any run at a moment komrad does not define.
+// ListByTask returns every run on a task, newest first.
 func (s *RunStore) ListByTask(ctx context.Context, taskID uuid.UUID) ([]Run, error) {
 	rows, err := s.queries.ListTaskRuns(ctx, taskID)
 	if err != nil {
@@ -129,9 +129,9 @@ func (s *RunStore) ListByTask(ctx context.Context, taskID uuid.UUID) ([]Run, err
 
 	runs := make([]Run, 0, len(rows))
 	for _, row := range rows {
-		trigger, ok := protoenum.Parse[eventv1.Moment](row.Trigger)
-		if !ok {
-			continue
+		trigger, err := protoenum.Parse[eventv1.Moment](row.Trigger)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read run %q of task %q: %w", row.ID, taskID, err)
 		}
 
 		runs = append(runs, Run{

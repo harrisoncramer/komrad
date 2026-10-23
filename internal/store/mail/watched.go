@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"komrad/internal/watch"
-	"komrad/lib/xslice"
 	watchv1 "komrad/proto/gen/watch/v1"
 
 	"github.com/google/uuid"
@@ -25,5 +24,5 @@ func (s *MailStore) ListWatched(ctx context.Context, keys []uuid.UUID) ([]Mail, 
 		return nil, fmt.Errorf("failed to list the watched mail: %w", err)
 	}
 
-	return xslice.Map(rows, fromRow), nil
+	return fromRows(rows)
 }

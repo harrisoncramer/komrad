@@ -46,9 +46,11 @@ func (s *WorkflowStore) eventPromptsFor(ctx context.Context, workflowID uuid.UUI
 
 	prompts := make([]EventPrompt, 0, len(rows))
 	for _, row := range rows {
-		if prompt, ok := eventPromptFromRow(row.Event, row.Prompt, row.Muted); ok {
-			prompts = append(prompts, prompt)
+		prompt, err := eventPromptFromRow(row.Event, row.Prompt, row.Muted)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read a prompt of workflow %q: %w", workflowID, err)
 		}
+		prompts = append(prompts, *prompt)
 	}
 
 	return prompts, nil
@@ -66,20 +68,22 @@ func (s *WorkflowStore) eventPromptsForWorkflows(ctx context.Context, ids []uuid
 
 	prompts := make(map[uuid.UUID][]EventPrompt)
 	for _, row := range rows {
-		if prompt, ok := eventPromptFromRow(row.Event, row.Prompt, row.Muted); ok {
-			prompts[row.WorkflowID] = append(prompts[row.WorkflowID], prompt)
+		prompt, err := eventPromptFromRow(row.Event, row.Prompt, row.Muted)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read a prompt of workflow %q: %w", row.WorkflowID, err)
 		}
+		prompts[row.WorkflowID] = append(prompts[row.WorkflowID], *prompt)
 	}
 
 	return prompts, nil
 }
 
-// eventPromptFromRow reads a stored prompt, false for an event komrad does not define.
-func eventPromptFromRow(event, prompt string, muted bool) (EventPrompt, bool) {
-	parsed, ok := protoenum.Parse[eventv1.Event](event)
-	if !ok {
-		return EventPrompt{}, false
+// eventPromptFromRow reads a stored prompt.
+func eventPromptFromRow(event, prompt string, muted bool) (*EventPrompt, error) {
+	parsed, err := protoenum.Parse[eventv1.Event](event)
+	if err != nil {
+		return nil, err
 	}
 
-	return EventPrompt{Event: parsed, Prompt: prompt, Muted: muted}, true
+	return &EventPrompt{Event: parsed, Prompt: prompt, Muted: muted}, nil
 }

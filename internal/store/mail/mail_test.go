@@ -861,7 +861,7 @@ func TestExistsReadAboutCountsOnlyReadMail(t *testing.T) {
 	assert.False(t, read, "mail about another subject is not about this")
 }
 
-// TestUpsertFromKomradRewritesTheEvents pins that a rewrite replaces the events mail names, and that a read skips any komrad does not define.
+// TestUpsertFromKomradRewritesTheEvents pins that a rewrite replaces the events mail names.
 func TestUpsertFromKomradRewritesTheEvents(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -895,12 +895,6 @@ func TestUpsertFromKomradRewritesTheEvents(t *testing.T) {
 	found, err = st.GetUnreadAbout(ctx, recipient, KindPullRequestChanged, subject)
 	require.NoError(t, err)
 	assert.Equal(t, []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_BEHIND}, found.Events, "a rewrite replaces the events rather than adding to them")
-
-	_, err = st.pool.Exec(ctx, "UPDATE mail SET events = '{review.forge_reply_requested,pull_request.behind}' WHERE id = $1", found.ID)
-	require.NoError(t, err)
-	found, err = st.GetUnreadAbout(ctx, recipient, KindPullRequestChanged, subject)
-	require.NoError(t, err)
-	assert.Equal(t, []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_BEHIND}, found.Events, "an event komrad does not define is left out")
 }
 
 // TestClaimNudge pins when an agent may be told about its mail: while it holds unread mail it has

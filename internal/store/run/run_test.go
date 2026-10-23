@@ -3,7 +3,6 @@ package run
 import (
 	"testing"
 
-	"komrad/db/models"
 	"komrad/internal/dbtest"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
@@ -365,7 +364,7 @@ func TestTaskRunsKeepTaskEventsOffTheAgent(t *testing.T) {
 }
 
 // TestListByTask pins a task's runs holding every agent's on it, of both kinds, newest first, and
-// no other task's nor any at a moment komrad does not define.
+// no other task's.
 func TestListByTask(t *testing.T) {
 	f := open(t)
 	taskID, err := tasktest.Seed(t.Context(), f.db, f.workflow)
@@ -395,14 +394,6 @@ func TestListByTask(t *testing.T) {
 		trigger: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH,
 		number:  1,
 	})
-	_, err = models.New(f.db).InsertAgentRun(t.Context(), models.InsertAgentRunParams{
-		AgentID: writer,
-		TaskID:  taskID,
-		Trigger: "agent.open-pr",
-		Script:  "open-pr",
-	})
-	require.NoError(t, err)
-
 	runs, err := f.ListByTask(t.Context(), *taskID)
 	require.NoError(t, err)
 
