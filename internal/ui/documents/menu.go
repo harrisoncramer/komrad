@@ -37,7 +37,7 @@ func (d *Screen) BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, b
 		return menu.Menu{}, false
 	}
 
-	return d.itemMenu(in, nest)
+	return d.documentMenu(in, nest)
 }
 
 // BuildScreenMenu builds the documents screen's own band, for writing a new document or type.
@@ -73,9 +73,9 @@ func (d *Screen) BuildScreenMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bo
 	}, true
 }
 
-// itemMenu is the actions on the hovered document, or on the editor open over the list,
+// documentMenu is the actions on the hovered document, or on the editor open over the list,
 // false for neither.
-func (d *Screen) itemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
+func (d *Screen) documentMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
 	item, hovered := d.hovered(in)
 	if !hovered && d.editing == nil {
 		return menu.Menu{}, false
