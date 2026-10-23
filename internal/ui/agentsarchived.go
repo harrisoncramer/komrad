@@ -491,12 +491,12 @@ func restoreAgents(clients api.Clients, agents []panel.Agent) screen.Request {
 func confirmDeleteWorkflow(in screen.Inputs, clients api.Clients, workflow panel.Workflow) screen.Request {
 	confirm := deleteWorkflowConfirm(workflow, workflow.Worktree.Enabled && !isWorkflowOnDeletedList(in.Listing, workflow.ID))
 
-	return confirm.open(in, func(form.Inputs) screen.Request {
+	return confirm.Open(in, func(form.Inputs) screen.Request {
 		return clients.AwaitingWrite(api.AwaitingWriteParams{
 			Doing:   "deleting " + workflow.Name,
 			Summary: fmt.Sprintf("Could not delete workflow %q", workflow.Name),
-			Awaits:  awaitDeleted(confirm.values.deletesRecords(), screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)),
-			Write:   func(a api.Clients) error { return a.DeleteWorkflow(workflow.ID, confirm.values.deletesRecords()) },
+			Awaits:  awaitDeleted(confirm.Values.DeletesRecords(), screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)),
+			Write:   func(a api.Clients) error { return a.DeleteWorkflow(workflow.ID, confirm.Values.DeletesRecords()) },
 		})
 	})
 }

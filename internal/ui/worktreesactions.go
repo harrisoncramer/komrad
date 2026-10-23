@@ -98,7 +98,7 @@ func (w *worktreesScreen) deleteWorktree(in screen.Inputs, item panel.Worktree) 
 
 		return w.deps.clients.ArchiveTasksWrite(tasks, in.Listing.AgentsOnTasks(tasks))
 	case panel.FateArchived:
-		return confirmDeleteTasks(in, w.deps.clients, []panel.Task{*item.Task})
+		return w.deps.clients.ConfirmDeleteTasks(in, []panel.Task{*item.Task})
 	case panel.FateUnowned:
 		return w.confirmDeleteWorktrees(in, worktreeDeletion{unowned: []panel.Worktree{item}})
 	case panel.FateDeleting:
@@ -170,7 +170,7 @@ func (w *worktreesScreen) confirmDeleteChosen(in screen.Inputs, deletion worktre
 	case len(deletion.tasks) == 0:
 		return w.confirmDeleteWorktrees(in, deletion)
 	case deletion.isEmpty():
-		return confirmDeleteTasks(in, w.deps.clients, deletion.tasks)
+		return w.deps.clients.ConfirmDeleteTasks(in, deletion.tasks)
 	default:
 		return w.confirmDeleteMixed(in, deletion)
 	}
@@ -181,8 +181,8 @@ func (w *worktreesScreen) confirmDeleteChosen(in screen.Inputs, deletion worktre
 func (w *worktreesScreen) confirmDeleteMixed(in screen.Inputs, deletion worktreeDeletion) screen.Request {
 	confirm := deleteMixedConfirm(deletion, len(in.Listing.AgentsOnTasks(deletion.tasks)))
 
-	return confirm.open(in, func(submitted form.Inputs) screen.Request {
-		return screen.Batch{w.deps.clients.DeleteTasksWrite(deletion.tasks, submitted.Listing.AgentsOnTasks(deletion.tasks), confirm.values.deletesRecords()), w.deleteWorktreesWrite(deletion)}
+	return confirm.Open(in, func(submitted form.Inputs) screen.Request {
+		return screen.Batch{w.deps.clients.DeleteTasksWrite(deletion.tasks, submitted.Listing.AgentsOnTasks(deletion.tasks), confirm.Values.DeletesRecords()), w.deleteWorktreesWrite(deletion)}
 	})
 }
 
@@ -192,7 +192,7 @@ func (w *worktreesScreen) confirmDeleteWorktrees(in screen.Inputs, deletion work
 		return nil
 	}
 
-	return deleteWorktreesConfirm(deletion).open(in, func(form.Inputs) screen.Request {
+	return deleteWorktreesConfirm(deletion).Open(in, func(form.Inputs) screen.Request {
 		return w.deleteWorktreesWrite(deletion)
 	})
 }

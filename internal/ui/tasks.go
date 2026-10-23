@@ -100,20 +100,6 @@ func isLiveWriter(agent panel.Agent) bool {
 		agent.State != panel.StateFailedToCreate
 }
 
-// taskDirs is the directories of the tasks that have one still on disk.
-func taskDirs(tasks []panel.Task) []string {
-	return xslice.Map(xslice.Filter(tasks, func(task panel.Task) bool { return task.Cwd != "" && !task.IsWorktreeRemoved() }), func(task panel.Task) string { return task.Cwd })
-}
-
-// confirmDeleteTasks asks what goes before the tasks are deleted.
-func confirmDeleteTasks(in screen.Inputs, clients api.Clients, tasks []panel.Task) screen.Request {
-	confirm := deleteTasksConfirm(tasks, len(in.Listing.AgentsOnTasks(tasks)), in.Listing.HasAnyWorktreeToDelete(tasks))
-
-	return confirm.open(in, func(submitted form.Inputs) screen.Request {
-		return clients.DeleteTasksWrite(tasks, submitted.Listing.AgentsOnTasks(tasks), confirm.values.deletesRecords())
-	})
-}
-
 // isEveryTaskHidden reports whether there are tasks and every one of them is hidden.
 func isEveryTaskHidden(tasks []panel.Task) bool {
 	return len(tasks) > 0 && !slices.ContainsFunc(tasks, func(task panel.Task) bool { return !task.Hidden })

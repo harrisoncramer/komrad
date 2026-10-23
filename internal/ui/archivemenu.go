@@ -181,7 +181,7 @@ func (a *agentsScreen) taskArchiveMenu(task panel.Task) menu.Menu {
 			},
 		},
 		menu.Leaving("archive and delete for good", a.deps.keys.ArchiveMenu.Delete, func(in screen.Inputs) screen.Request {
-			return confirmDeleteTasks(in, a.deps.clients, tasks)
+			return a.deps.clients.ConfirmDeleteTasks(in, tasks)
 		}),
 	)
 }
@@ -246,7 +246,7 @@ func deleteChosenWrite(l panel.Listing, clients api.Clients, work chosenWork, re
 func confirmDeleteChosenAgents(in screen.Inputs, clients api.Clients, work chosenWork) screen.Request {
 	confirm := deleteChosenConfirm(work, in.Listing.HasAnyWorktreeToDelete(work.wholeTasks))
 
-	return confirm.open(in, func(submitted form.Inputs) screen.Request {
-		return deleteChosenWrite(submitted.Listing, clients, work, confirm.values.deletesRecords())
+	return confirm.Open(in, func(submitted form.Inputs) screen.Request {
+		return deleteChosenWrite(submitted.Listing, clients, work, confirm.Values.DeletesRecords())
 	})
 }
