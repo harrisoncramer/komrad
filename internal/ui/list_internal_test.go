@@ -107,7 +107,7 @@ func armsOf(t *testing.T, s screen.ID) []specArm {
 			arms = append(arms, specArms(spec)...)
 		case keys.Spec[*agentsScreen]:
 			arms = append(arms, specArms(spec)...)
-		case keys.Spec[*archivedAgents]:
+		case keys.Spec[archivedAgentsScreen]:
 			arms = append(arms, specArms(spec)...)
 		case keys.Spec[*schedules.Screen]:
 			arms = append(arms, specArms(spec)...)

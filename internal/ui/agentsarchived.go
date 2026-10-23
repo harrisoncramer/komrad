@@ -131,16 +131,16 @@ func (a *agentsScreen) archiveScreen(archive *archivedAgents) archivedAgentsScre
 	return archivedAgentsScreen{archivedAgents: archive, agents: a}
 }
 
-func (s archivedAgentsScreen) Kinds() tabs.Stops {
-	return s.agents.Kinds()
+func (a archivedAgentsScreen) Kinds() tabs.Stops {
+	return a.agents.Kinds()
 }
 
-func (s archivedAgentsScreen) KindsFocused() *bool {
-	return s.agents.KindsFocused()
+func (a archivedAgentsScreen) KindsFocused() *bool {
+	return a.agents.KindsFocused()
 }
 
-func (s archivedAgentsScreen) StepKind(in screen.Inputs, delta int) screen.Request {
-	return s.agents.StepKind(in, delta)
+func (a archivedAgentsScreen) StepKind(in screen.Inputs, delta int) screen.Request {
+	return a.agents.StepKind(in, delta)
 }
 
 var _ kindSwitcher = archivedAgentsScreen{}
@@ -158,7 +158,7 @@ func (a *archivedAgents) Enter(in screen.Inputs, target screen.Target) screen.Re
 	return screen.Batch{a.Stage(), screen.Settle{}}
 }
 
-func (a *archivedAgents) Update(in screen.Inputs, msg tea.Msg) screen.Request {
+func (a archivedAgentsScreen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 	if _, ok := msg.(tea.PasteMsg); ok && a.IsRenaming() {
 		return a.updateRename(a.deps.register, a.deps.clients, msg)
 	}
@@ -507,7 +507,7 @@ func (a *archivedAgents) Stage() screen.Request {
 	return screen.StageTerminal{}
 }
 
-func (a *archivedAgents) ListParams(in screen.Inputs) list.Params {
+func (a archivedAgentsScreen) ListParams(in screen.Inputs) list.Params {
 	return list.Params{
 		Help:     a.help(in),
 		Empty:    a.emptySaid(),
@@ -516,7 +516,7 @@ func (a *archivedAgents) ListParams(in screen.Inputs) list.Params {
 	}
 }
 
-func (a *archivedAgents) help(in screen.Inputs) legend.Help {
+func (a archivedAgentsScreen) help(in screen.Inputs) legend.Help {
 	return a.actions(in).Help(a, a.deps.keys)
 }
 
@@ -617,6 +617,6 @@ func (a *archivedAgents) settleRename(in screen.Inputs, row string, err error) {
 	}
 }
 
-func (a *archivedAgents) Dispatches() []keys.Table {
+func (a archivedAgentsScreen) Dispatches() []keys.Table {
 	return []keys.Table{a.actions(screen.Inputs{})}
 }

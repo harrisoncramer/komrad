@@ -407,5 +407,5 @@ func (a *agentsScreen) settleRename(in screen.Inputs, row string, err error) {
 }
 
 func (a *agentsScreen) Dispatches() []keys.Table {
-	return []keys.Table{a.actions(screen.Inputs{}), a.archived.actions(screen.Inputs{})}
+	return []keys.Table{a.actions(screen.Inputs{}), a.archiveScreen(&a.archived).actions(screen.Inputs{})}
 }
