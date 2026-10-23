@@ -147,6 +147,36 @@ func (s *Handler) RequestForgePullRequestRereview(ctx context.Context, req *forg
 	return &emptypb.Empty{}, nil
 }
 
+// ReadForgePullRequestText reads a pull request's title and description through the connection
+// for its host, refusing one the credential may not change.
+func (s *Handler) ReadForgePullRequestText(ctx context.Context, req *forgev1.ReadForgePullRequestTextRequest) (*forgev1.PullRequestText, *fail.Error) {
+	text, err := s.writer.ReadPullRequestText(ctx, req.GetUrl())
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to read the pull request's title and description")
+	}
+
+	return &forgev1.PullRequestText{Title: text.Title, Body: text.Body}, nil
+}
+
+// EditForgePullRequest changes a pull request's title, description or both through the connection
+// for its host.
+func (s *Handler) EditForgePullRequest(ctx context.Context, req *forgev1.EditForgePullRequestRequest) (*emptypb.Empty, *fail.Error) {
+	err := s.writer.EditPullRequest(ctx, forge.EditParams{
+		URL: req.GetUrl(),
+		EditedFrom: forge.Text{
+			Title: req.GetEditedFrom().GetTitle(),
+			Body:  req.GetEditedFrom().GetBody(),
+		},
+		Title: req.Title,
+		Body:  req.Body,
+	})
+	if err != nil {
+		return nil, rpcerr.From(err, "failed to edit the pull request")
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
 func renderForgePullRequest(pullRequest forge.PullRequest) *forgev1.ForgePullRequest {
 	head := ""
 	if !pullRequest.Head.IsZero() {

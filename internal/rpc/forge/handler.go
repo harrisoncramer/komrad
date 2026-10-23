@@ -31,6 +31,8 @@ type pullRequestWriter interface {
 	SetPullRequestDraft(ctx context.Context, address string, draft bool) error
 	SetPullRequestAutoMerge(ctx context.Context, params forge.SetAutoMergeParams) error
 	RequestPullRequestRereview(ctx context.Context, address string) error
+	ReadPullRequestText(ctx context.Context, address string) (*forge.Text, error)
+	EditPullRequest(ctx context.Context, params forge.EditParams) error
 }
 
 type Handler struct {

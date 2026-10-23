@@ -219,6 +219,9 @@ type ForgeKeys struct {
 	OpenPullRequest []string `mapstructure:"open_pull_request" default:"o"`
 	// Copy the address of the hovered task's current pull request to your clipboard.
 	CopyPullRequestURL []string `mapstructure:"copy_pull_request_url" default:"c"`
+	// Change the title and description of the hovered task's pull request, in a form that opens
+	// on what the forge holds now.
+	Edit []string `mapstructure:"edit" default:"e"`
 	// Mark the hovered task's pull request a draft, or ready for review when it is one.
 	ToggleDraft []string `mapstructure:"toggle_draft" default:"d"`
 	// Ask everyone who requested changes on the hovered task's pull request to review it again.

@@ -80,6 +80,10 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 				m.leaveForm()
 			case menu.KeepOpenWhileWriting:
 				return holdSubmit(func(m *model) tea.Cmd { return m.apply(entry.Pick(m.inputs())) })(m)
+			case menu.StayOpenAfterWrite:
+				m.form.returnTo = stack
+
+				return holdSubmit(func(m *model) tea.Cmd { return m.apply(entry.Pick(m.inputs())) })(m)
 			}
 
 			return m.apply(entry.Pick(m.inputs()))
@@ -134,6 +138,32 @@ func (m *model) backSubmenu(parents []submenuLevel) tea.Cmd {
 	last := len(parents) - 1
 
 	return m.pushSubmenu(parents[:last], parents[last])
+}
+
+// reopenMenus builds each menu of a stack again from the listing, its cursor where it was, and hands
+// the keys to the top one, closing them all when what they act on has left the listing.
+func (m *model) reopenMenus(stack []submenuLevel) tea.Cmd {
+	rebuilt := make([]submenuLevel, 0, len(stack))
+	for _, level := range stack {
+		if level.menu.Rebuild == nil {
+			rebuilt = append(rebuilt, level)
+
+			continue
+		}
+
+		again, ok := level.menu.Rebuild(m.listing)
+		if !ok {
+			return m.closeForm()
+		}
+
+		choice := *level.choice
+		if choice >= len(again.Entries) {
+			choice = again.FirstOn()
+		}
+		rebuilt = append(rebuilt, submenuLevel{menu: again, choice: &choice})
+	}
+
+	return m.backSubmenu(rebuilt)
 }
 
 func submenuForm(level submenuLevel, nested bool, keys config.FixedKeys) *huh.Form {

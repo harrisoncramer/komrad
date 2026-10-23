@@ -54,6 +54,7 @@ func (g Menus) autoMergeWrite(task panel.Task, params api.MergeParams, on bool) 
 		Send: func() screen.WriteResult {
 			return screen.WriteResult{
 				Err:           clients.SetPullRequestAutoMerge(params, on),
+				WaitFor:       screen.WaitFor{Shows: showsTask(task.ID, func(task panel.Task) bool { return task.PullRequest.MergeReadiness.AutoMerge == on })},
 				SuccessNotice: &screen.Notice{Summary: task.Slug + ": " + ref + said, Detail: task.PullRequest.Title},
 			}
 		},

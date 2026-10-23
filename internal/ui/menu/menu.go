@@ -29,6 +29,9 @@ type Menu struct {
 	// FormReplacesMenu says a form an entry opens takes the menu's place rather than opening
 	// beside it.
 	FormReplacesMenu bool
+	// Rebuild builds the menu again from the listing once a write it stayed open for lands, false
+	// when what it acts on has left the listing.
+	Rebuild func(panel.Listing) (Menu, bool)
 }
 
 // after is what becomes of the menu once an entry is picked.
@@ -39,6 +42,9 @@ const (
 	CloseBeforePick after = iota
 	// KeepOpenWhileWriting keeps the menu up while a write the pick began is in flight.
 	KeepOpenWhileWriting
+	// StayOpenAfterWrite keeps the menu up while a write the pick began is in flight, and builds it
+	// again from the listing once the write lands.
+	StayOpenAfterWrite
 )
 
 // Entry is one row of a menu.

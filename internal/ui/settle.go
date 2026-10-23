@@ -44,6 +44,10 @@ func (m *model) isSettled(a screen.WaitFor) bool {
 		return false
 	}
 
+	if a.Shows != nil && !a.Shows(m.listing) {
+		return false
+	}
+
 	return a.Pane == "" || m.isPaneWarm(a.Pane, a.Harness)
 }
 

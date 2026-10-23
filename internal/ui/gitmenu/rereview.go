@@ -39,6 +39,7 @@ func (g Menus) requestRereview(task panel.Task) screen.Request {
 		Send: func() screen.WriteResult {
 			return screen.WriteResult{
 				Err:           clients.RequestPullRequestRereview(standing.URL),
+				WaitFor:       screen.WaitFor{Shows: showsState(task.ID, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED)},
 				SuccessNotice: &screen.Notice{Summary: task.Slug + ": " + standing.Ref() + " is waiting on another review", Detail: standing.Title},
 			}
 		},

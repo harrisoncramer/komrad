@@ -127,6 +127,34 @@ func (w *Writer) SetPullRequestAutoMerge(ctx context.Context, params forge.SetAu
 	return nil
 }
 
+// ReadPullRequestText is the title and description of the pull request at the address, refused when
+// komrad may not change them.
+func (w *Writer) ReadPullRequestText(ctx context.Context, address string) (*forge.Text, error) {
+	_, f, err := w.forges.ForAddress(ctx, address)
+	if err != nil {
+		return nil, err
+	}
+
+	return f.ReadText(ctx, address)
+}
+
+// EditPullRequest changes the title or description of the pull request and has the pull request
+// sync read its host often.
+func (w *Writer) EditPullRequest(ctx context.Context, params forge.EditParams) error {
+	host, f, err := w.forges.ForAddress(ctx, params.URL)
+	if err != nil {
+		return err
+	}
+
+	if err := f.Edit(ctx, params); err != nil {
+		return err
+	}
+
+	w.sync.ReadOften(host)
+
+	return nil
+}
+
 // RequestPullRequestRereview asks everyone who requested changes on the pull request at the
 // address to review it again and has the pull request sync read its host often.
 func (w *Writer) RequestPullRequestRereview(ctx context.Context, address string) error {

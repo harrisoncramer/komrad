@@ -123,6 +123,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 	if err := validateSubmenuKeys("forge menu", []submenuKeys{
 		{name: "open_pull_request", keys: keys.Forge.OpenPullRequest},
 		{name: "copy_pull_request_url", keys: keys.Forge.CopyPullRequestURL},
+		{name: "edit", keys: keys.Forge.Edit},
 		{name: "toggle_draft", keys: keys.Forge.ToggleDraft},
 		{name: "request_rereview", keys: keys.Forge.RequestRereview},
 		{name: "merge", keys: keys.Forge.Merge},

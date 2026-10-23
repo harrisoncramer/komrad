@@ -1,0 +1,5 @@
+mutation UpdateMergeRequest($path: ID!, $iid: String!, $title: String, $description: String) {
+  mergeRequestUpdate(input: {projectPath: $path, iid: $iid, title: $title, description: $description}) {
+    errors
+  }
+}

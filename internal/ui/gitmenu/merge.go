@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	forgev1 "komrad/proto/gen/forge/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"charm.land/huh/v2"
 )
@@ -50,7 +51,7 @@ func (g Menus) mergeEntries(l panel.Listing, task panel.Task) []menu.Entry {
 			Label:     "merge",
 			Keys:      g.deps.Keys.Forge.Merge,
 			IsDimmed:  refused,
-			AfterPick: menu.KeepOpenWhileWriting,
+			AfterPick: menu.StayOpenAfterWrite,
 			Pick:      run(mergeChoiceMerge),
 		},
 		{
@@ -64,14 +65,14 @@ func (g Menus) mergeEntries(l panel.Listing, task panel.Task) []menu.Entry {
 			Label:     autoMergeLabel(task),
 			Keys:      g.deps.Keys.Forge.AutoMerge,
 			IsDimmed:  autoMergeRefusal(task) != nil,
-			AfterPick: menu.KeepOpenWhileWriting,
+			AfterPick: menu.StayOpenAfterWrite,
 			Pick:      run(mergeChoiceAutoMerge),
 		},
 		{
 			Label:     "merge then rebase",
 			Keys:      g.deps.Keys.Forge.MergeRebase,
 			IsDimmed:  mergeRebaseRefusal(l, task) != nil,
-			AfterPick: menu.KeepOpenWhileWriting,
+			AfterPick: menu.StayOpenAfterWrite,
 			Pick:      run(mergeChoiceMergeRebase),
 		},
 	}
@@ -191,24 +192,36 @@ func (g Menus) mergeWrite(task panel.Task, choice mergeChoice, params api.MergeP
 	case mergeChoiceAutoMerge:
 		return g.autoMergeWrite(task, params, true)
 	case mergeChoiceMergeRebase:
-		return g.operationWrite(g.mergeRebaseOp(task, params))
+		return g.mergeRebaseWrite(task, params)
 	case mergeChoiceMerge, mergeChoiceMergeArchive:
 	}
 
-	return g.operationWrite(g.mergeOp(task, choice == mergeChoiceMergeArchive, params))
+	return g.mergeOnlyWrite(task, choice == mergeChoiceMergeArchive, params)
 }
 
-func (g Menus) mergeOp(task panel.Task, archive bool, params api.MergeParams) operation {
-	return operation{
-		running: "merging " + task.PullRequest.Ref(),
-		run: func(clients api.Clients) report {
-			err := clients.MergePullRequest(params)
+// mergeOnlyWrite merges the pull request and reports it, then archives the task when asked to.
+func (g Menus) mergeOnlyWrite(task panel.Task, archive bool, params api.MergeParams) screen.Write {
+	clients := g.deps.Clients
 
-			return func(in screen.Inputs) screen.Request {
+	return screen.Write{
+		InFlightText: "merging " + task.PullRequest.Ref(),
+		Send: func() screen.WriteResult {
+			err := clients.MergePullRequest(params)
+			result := screen.WriteResult{FollowUp: doneMsg{report: func(in screen.Inputs) screen.Request {
 				return g.reportMerged(in, task, archive, err)
+			}}}
+			if err == nil && !archive {
+				result.WaitFor = mergedWait(task.ID)
 			}
+
+			return result
 		},
 	}
+}
+
+// mergedWait waits for the listing to show the task's pull request merged.
+func mergedWait(taskID string) screen.WaitFor {
+	return screen.WaitFor{Shows: showsState(taskID, pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED)}
 }
 
 func (g Menus) reportMerged(in screen.Inputs, task panel.Task, archive bool, err error) screen.Request {
@@ -231,22 +244,28 @@ func (g Menus) reportMerged(in screen.Inputs, task panel.Task, archive bool, err
 	return screen.Batch{merged, g.deps.Clients.ArchiveTasksWrite(tasks, in.Listing.AgentsOnTasks(tasks))}
 }
 
-func (g Menus) mergeRebaseOp(task panel.Task, params api.MergeParams) operation {
+// mergeRebaseWrite merges the pull request, then rebases the task's worktree onto the base that now
+// holds its work.
+func (g Menus) mergeRebaseWrite(task panel.Task, params api.MergeParams) screen.Write {
+	clients := g.deps.Clients
 	taskID, name := task.ID, task.Slug
 
-	return operation{
-		running: "merging " + task.PullRequest.Ref() + " and rebasing " + name,
-		run: func(clients api.Clients) report {
+	return screen.Write{
+		InFlightText: "merging " + task.PullRequest.Ref() + " and rebasing " + name,
+		Send: func() screen.WriteResult {
 			if err := clients.MergePullRequest(params); err != nil {
-				return func(in screen.Inputs) screen.Request {
+				return screen.WriteResult{FollowUp: doneMsg{report: func(in screen.Inputs) screen.Request {
 					return g.reportMerged(in, task, false, err)
-				}
+				}}}
 			}
 
 			result, err := clients.RebaseWorktree(taskID, false)
 
-			return func(in screen.Inputs) screen.Request {
-				return screen.Batch{g.reportMerged(in, task, false, nil), reportRebased(name, result, err)}
+			return screen.WriteResult{
+				WaitFor: mergedWait(taskID),
+				FollowUp: doneMsg{report: func(in screen.Inputs) screen.Request {
+					return screen.Batch{g.reportMerged(in, task, false, nil), reportRebased(name, result, err)}
+				}},
 			}
 		},
 	}

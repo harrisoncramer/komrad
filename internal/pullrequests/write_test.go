@@ -23,7 +23,7 @@ import (
 
 const taskRepository = "https://github.com/harrisoncramer/komrad"
 
-// writingForge records each merge, draft change, auto-merge change and re-review and answers err.
+// writingForge records each merge, draft change, auto-merge change, re-review and edit and answers err.
 type writingForge struct {
 	forge.Forge
 	err        error
@@ -31,6 +31,7 @@ type writingForge struct {
 	drafted    []drafted
 	autoMerged []forge.SetAutoMergeParams
 	rereviewed []string
+	edited     []forge.EditParams
 }
 
 type drafted struct {
@@ -58,6 +59,12 @@ func (f *writingForge) SetAutoMerge(_ context.Context, params forge.SetAutoMerge
 
 func (f *writingForge) RequestRereview(_ context.Context, address string) error {
 	f.rereviewed = append(f.rereviewed, address)
+
+	return f.err
+}
+
+func (f *writingForge) Edit(_ context.Context, params forge.EditParams) error {
+	f.edited = append(f.edited, params)
 
 	return f.err
 }
@@ -297,6 +304,64 @@ func TestRequestPullRequestRereview(t *testing.T) {
 				require.NoError(t, err)
 			}
 			assert.Equal(t, tt.wantRereviewed, writing.rereviewed)
+			assert.Equal(t, tt.wantReadOften, sync.HostsReadOften)
+		})
+	}
+}
+
+// TestEditPullRequest covers the pull request sync reading the host often only once the forge has
+// changed the text.
+func TestEditPullRequest(t *testing.T) {
+	const address = "https://github.com/harrisoncramer/komrad/pull/1"
+
+	edit := forge.EditParams{
+		URL:        address,
+		EditedFrom: forge.Text{Title: "fix the sync"},
+		Title:      xptr.Ptr("fix(sync): read once"),
+	}
+
+	tests := []struct {
+		name          string
+		params        forge.EditParams
+		editErr       error
+		wantErr       error
+		wantEdited    []forge.EditParams
+		wantReadOften []string
+	}{
+		{
+			name:    "an address with no host",
+			params:  forge.EditParams{URL: "harrisoncramer/komrad#1"},
+			wantErr: forge.ErrNotPullRequest,
+		},
+		{
+			name:       "text that changed on the forge since it was read",
+			params:     edit,
+			editErr:    forge.ErrTextMoved,
+			wantErr:    forge.ErrTextMoved,
+			wantEdited: []forge.EditParams{edit},
+		},
+		{
+			name:          "a pull request the forge edits",
+			params:        edit,
+			wantEdited:    []forge.EditParams{edit},
+			wantReadOften: []string{"github.com"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			writing := &writingForge{err: tt.editErr}
+			sync := &waketest.Counter{}
+			writer := newTestWriter(t, storetest.Open(t), writing, sync, &recordingCascade{})
+
+			err := writer.EditPullRequest(t.Context(), tt.params)
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tt.wantEdited, writing.edited)
 			assert.Equal(t, tt.wantReadOften, sync.HostsReadOften)
 		})
 	}

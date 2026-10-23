@@ -38,6 +38,9 @@ type formState struct {
 	// back is what the back key does, nil for closing the form.
 	back func(*model) tea.Cmd
 
+	// returnTo is the menus the form goes back to once it is answered, nil for closing it.
+	returnTo []submenuLevel
+
 	// update is the form's own message handler, so the panel need not ask which form is up before
 	// handing it a message.
 	update func(*model, tea.Msg) tea.Cmd
@@ -206,14 +209,19 @@ func (m *model) formLeading() ([]string, int) {
 	return views, used
 }
 
-// holdSubmit answers a form by running what it asked for, holding it up while a write it began is in flight.
+// holdSubmit answers a form by running what it asked for, holding it up while a write it began is
+// in flight and otherwise going back to the menus it returns to.
 func holdSubmit(write func(*model) tea.Cmd) func(*model) tea.Cmd {
 	return func(m *model) tea.Cmd {
 		began := m.writes.count
+		returnTo := m.form.returnTo
 		cmd := write(m)
 
 		if m.writes.count != began && m.form.isActive() {
 			return tea.Batch(cmd, m.holdForm())
+		}
+		if returnTo != nil {
+			return tea.Batch(cmd, m.reopenMenus(returnTo))
 		}
 
 		return tea.Batch(cmd, m.closeForm())

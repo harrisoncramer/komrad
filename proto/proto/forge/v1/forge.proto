@@ -231,6 +231,40 @@ message SetForgePullRequestAutoMergeRequest {
   optional string body = 6 [(buf.validate.field).string.max_len = 65536];
 }
 
+// PullRequestText is a pull request's title and description.
+message PullRequestText {
+  // The pull request's title.
+  string title = 1 [(buf.validate.field).string.max_len = 1024];
+  // The pull request's description, empty when it has none.
+  string body = 2 [(buf.validate.field).string.max_len = 65536];
+}
+
+message ReadForgePullRequestTextRequest {
+  // The pull request to read, by web address. The address's host picks the forge connection.
+  string url = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+}
+
+message EditForgePullRequestRequest {
+  // The pull request to change, by web address. The address's host picks the forge connection.
+  string url = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 2048
+  }];
+  // The title and description the caller read. The call refuses to change a field that has moved
+  // since, unless the field already holds the new value.
+  PullRequestText edited_from = 2 [(buf.validate.field).required = true];
+  // The new title. Unset leaves the title as it is.
+  optional string title = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 1024
+  }];
+  // The new description. Unset leaves the description as it is, and empty clears it.
+  optional string body = 4 [(buf.validate.field).string.max_len = 65536];
+}
+
 message ListForgePullRequestsResponse {
   // One page of pull requests, in the forge's order.
   repeated ForgePullRequest pull_requests = 1;
@@ -323,6 +357,26 @@ service ForgeService {
       name: "request_forge_pull_request_rereview"
       description: "Ask every reviewer who requested changes on a pull request to review it again."
       reason: "Only the person decides when to ask colleagues for another review."
+    };
+  }
+  rpc ReadForgePullRequestText(ReadForgePullRequestTextRequest) returns (PullRequestText) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: false
+      name: "read_forge_pull_request_text"
+      description: "Read a pull request's title and description from its forge. Refuses when the forge will not let the credential change them."
+      reason: "Only the person edits a pull request's title and description, so only the person needs to read them first."
+    };
+  }
+  rpc EditForgePullRequest(EditForgePullRequestRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.surfaces) = {
+      cli: true
+      mcp: false
+      name: "edit_forge_pull_request"
+      description: "Change a pull request's title, description or both on its forge."
+      reason: "Only the person decides how a pull request presents itself to reviewers."
     };
   }
   rpc DisconnectForge(DisconnectForgeRequest) returns (google.protobuf.Empty) {

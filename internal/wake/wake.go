@@ -5,7 +5,7 @@ type Waker interface {
 	Wake()
 }
 
-// HostReader is a background loop that reads a host often for a while when asked.
+// HostReader is a background loop that reads a host at once, and often for a while, when asked.
 type HostReader interface {
 	ReadOften(host string)
 }

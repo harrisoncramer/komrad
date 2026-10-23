@@ -61,6 +61,8 @@ type Notice struct {
 type WaitFor struct {
 	RowsShown []Row
 	RowsGone  []Row
+	// Shows is a condition on the listing the write waits for, nil when there is none.
+	Shows func(panel.Listing) bool
 	// Pane is the pane whose harness is to have rendered itself, empty when there is none to wait on.
 	Pane    string
 	Harness string
