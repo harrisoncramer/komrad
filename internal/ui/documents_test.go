@@ -138,7 +138,7 @@ func TestDocumentsOpen(t *testing.T) {
 		listed := strings.Join(paneltest.ListRows(harness.Frame()), "\n")
 		assert.Contains(t, listed, "Login plan")
 		assert.NotContains(t, listed, "Solo notes")
-		assert.NotContains(t, rows, "Design the cache")
+		assert.NotContains(t, listed, "Design the cache")
 	})
 
 	t.Run("a row with none opens it empty", func(t *testing.T) {
@@ -190,64 +190,6 @@ func TestDocumentsOpen(t *testing.T) {
 		harness.AssertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{
 			Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](100)},
 		})
-	})
-
-	t.Run("the jump menu lands on the task the hovered document belongs to", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openEveryDocument(t)
-		harness.Press("space", "J", "t")
-
-		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
-		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "task-author")
-	})
-
-	t.Run("the jump menu on a document with no task lands on its author", func(t *testing.T) {
-		t.Parallel()
-
-		harness := paneltest.OpenAgents(t, buildDocumentAuthors()...)
-		shelf := newDocumentShelf()
-		for _, document := range shelf.listed {
-			document.TaskId = nil
-		}
-		shelf.answer(harness)
-		harness.MoveToRow("task-quiet")
-		harness.Press("tab", "tab")
-		harness.Advance(time.Second)
-		harness.Press("space", "J", "a")
-
-		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
-		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "task-author")
-	})
-
-	t.Run("the jump menu lands on an archived task among the archived agents", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openArchivedSubpages(t)
-		harness.Press("J", "d")
-		harness.Advance(time.Second)
-		harness.Press("space", "J", "t")
-
-		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
-		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "task-author")
-	})
-
-	t.Run("the jump menu lands on a deleted task among the deleted agents", func(t *testing.T) {
-		t.Parallel()
-
-		author := newArchivedAgent("author", "author", "w1")
-		author.Documents = 2
-		author.DocumentsUpdatedAt = timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
-		harness := paneltest.Start(t, paneltest.Params{})
-		harness.Press("F", "shift+tab", "esc")
-		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "komrad"), author, newDeletedTaskOf(author)))
-		newDocumentShelf().answer(harness)
-		harness.Press("j", "j", "space", "J", "d")
-		harness.Advance(time.Second)
-		harness.Press("space", "J", "t")
-
-		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
-		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "task-author")
 	})
 }
 

@@ -254,17 +254,67 @@ func openArchivedSubpages(t *testing.T) *paneltest.Panel {
 	task.ArchivedAt = archivedAt
 
 	harness := openArchivedAgents(t, paneltest.Workflow("w1", "komrad"), author, task)
-	newDocumentShelf().answer(harness)
+	answerDocuments(harness, buildAuthorDocuments())
 	harness.Press("j", "j", "space")
 	require.Contains(t, harness.Frame(), "  author")
 
 	return harness
 }
 
+// buildSubpagesAgents is a workflow whose orchestrator and one agent have written, beside an agent
+// that has not and a reviewer of the one that has.
 func buildSubpagesAgents() []proto.Message {
-	rows := buildDocumentAuthors()
-	author, _ := rows[2].(*agentv1.Agent)
-	author.Cwd = "/trees/author"
+	written := timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
+	orchestrator := paneltest.Orchestrator()
+	orchestrator.Documents = 2
+	orchestrator.DocumentsUpdatedAt = written
 
-	return append(rows, paneltest.Reviewer("reviewer", "reviewer", "author"))
+	author := paneltest.Agent("author", "author", "w1")
+	author.Documents = 2
+	author.DocumentsUpdatedAt = written
+	author.Cwd = "/trees/author"
+	quiet := paneltest.Agent("quiet", "quiet", "w1")
+
+	return []proto.Message{
+		paneltest.Workflow("w1", "komrad"),
+		orchestrator,
+		author,
+		paneltest.TaskOf(author),
+		quiet,
+		paneltest.TaskOf(quiet),
+		paneltest.Reviewer("reviewer", "reviewer", "author"),
+	}
+}
+
+// buildAuthorDocuments is the two documents the author wrote on its task, newest first.
+func buildAuthorDocuments() []*agentv1.Document {
+	return []*agentv1.Document{
+		{
+			Id:        "d1",
+			AgentId:   "author",
+			TaskId:    xptr.Ptr("task-author"),
+			Name:      "Design the cache",
+			Type:      "RFC",
+			Version:   3,
+			UpdatedAt: timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)),
+		},
+		{
+			Id:        "d2",
+			AgentId:   "author",
+			TaskId:    xptr.Ptr("task-author"),
+			Name:      "Rollout report",
+			Type:      "report",
+			Version:   5,
+			UpdatedAt: timestamppb.New(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC)),
+		},
+	}
+}
+
+// answerDocuments lists the documents and reads the first of them whichever one is asked for.
+func answerDocuments(harness *paneltest.Panel, documents []*agentv1.Document) {
+	read := proto.CloneOf(documents[0])
+	read.Body = "# Design the cache\n\nKeep the cache warm."
+
+	harness.Answer(agentv1connect.AgentServiceListDocumentsProcedure, paneltest.AnswerWith(&agentv1.ListDocumentsResponse{Documents: documents}))
+	harness.Answer(agentv1connect.AgentServiceGetDocumentProcedure, paneltest.AnswerWith(&agentv1.GetDocumentResponse{Document: read}))
 }
