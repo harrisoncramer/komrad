@@ -591,7 +591,6 @@ linters:
               - komrad/internal/ui.model.updateSubmenu
             inputs:
               - komrad/internal/ui.model.updateForm
-              - komrad/internal/ui.model.updateWorkflowForm
               - komrad/internal/ui.model.updateMessages
               - komrad/internal/ui.model.updateSignIn
               - komrad/internal/ui/field.NameEdit.Take
