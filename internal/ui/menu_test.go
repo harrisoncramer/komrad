@@ -19,8 +19,8 @@ func TestMenu(t *testing.T) {
 	t.Run("a screen with no hovered row opens its own band alone", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openSchedules(t, paneltest.Workflow("w1", "api"))
-		harness.Press("space")
+		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"))
+		harness.Press("tab", "space")
 
 		frame := harness.Frame()
 		assert.Contains(t, frame, "› new schedule")
@@ -79,7 +79,8 @@ func TestMenu(t *testing.T) {
 			{
 				name: "off an agent",
 				open: func(t *testing.T) *paneltest.Panel {
-					harness := openSchedules(t, buildSchedules()...)
+					harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), newNamedSchedule("s1", "morning-ci"))
+					harness.Press("tab")
 					harness.Press(paneltest.WidenListPresses...)
 
 					return harness

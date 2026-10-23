@@ -17,6 +17,7 @@ import (
 	loopv1 "komrad/proto/gen/loop/v1"
 	"komrad/proto/gen/loop/v1/loopv1connect"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	schedulev1 "komrad/proto/gen/schedule/v1"
 	taskv1 "komrad/proto/gen/task/v1"
 	"komrad/proto/gen/task/v1/taskv1connect"
 	workflowv1 "komrad/proto/gen/workflow/v1"
@@ -591,6 +592,20 @@ func TestAgentsRecord(t *testing.T) {
 			rows:       buildRecorded(),
 			want:       map[string]string{"hooks": "—"},
 			wantAbsent: []string{"tool"},
+		},
+		{
+			name: "an agent whose schedule has since gone names nothing",
+			rows: append(buildRecordedWith(func(agent *agentv1.Agent) {
+				agent.ScheduleId = xptr.Ptr("gone")
+			}), &schedulev1.Schedule{Id: "s1", Name: "morning-ci", WorkflowId: "w1"}),
+			wantAbsent: []string{"launched by"},
+		},
+		{
+			name: "an agent a schedule launched names it in its own record",
+			rows: append(buildRecordedWith(func(agent *agentv1.Agent) {
+				agent.ScheduleId = xptr.Ptr("s1")
+			}), &schedulev1.Schedule{Id: "s1", Name: "morning-ci", WorkflowId: "w1"}),
+			want: map[string]string{"launched by": "morning-ci"},
 		},
 	}
 

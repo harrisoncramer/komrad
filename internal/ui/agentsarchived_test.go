@@ -559,10 +559,13 @@ func TestArchivedAgentsMenuEntries(t *testing.T) {
 
 // TestArchivedAgentsRename covers a name typed over an archived agents row going out as its rename.
 func TestArchivedAgentsRename(t *testing.T) {
+	archivedSchedule := newNamedSchedule("s2", "weekly-gone")
+	archivedSchedule.ArchivedAt = archivedAt
+
 	archived := []proto.Message{
 		newArchivedWorkflow("w1", "backend"),
 		newArchivedAgent("a1", "api-refactor", "w1"),
-		newArchivedSchedule("weekly-gone"),
+		archivedSchedule,
 	}
 	live := []proto.Message{
 		paneltest.Workflow("w1", "backend"),

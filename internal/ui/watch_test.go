@@ -106,12 +106,13 @@ func TestWatch(t *testing.T) {
 	t.Run("a schedule's tombstone takes it off the schedules screen", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openSchedules(t, buildSchedules()...)
-		require.Len(t, readScheduleRows(harness.Frame()), 1)
+		harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), newNamedSchedule("s1", "morning-ci"))
+		harness.Press("tab")
+		require.Len(t, paneltest.ListRows(harness.Frame()), 1)
 
 		harness.Watch(paneltest.Deleted(watchv1.Resource_RESOURCE_SCHEDULE, "s1"))
 
-		assert.Empty(t, readScheduleRows(harness.Frame()))
+		assert.Empty(t, paneltest.ListRows(harness.Frame()))
 	})
 
 	t.Run("unclaimed mail is marked until it expires by the panel's clock or is claimed", func(t *testing.T) {
