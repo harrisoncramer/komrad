@@ -322,8 +322,12 @@ func TestSetPullRequestAutoMerge(t *testing.T) {
 			wantErr: forge.ErrNotPullRequest,
 		},
 		{
-			name:    "a pull request from a child",
-			params:  forge.SetAutoMergeParams{URL: address, HeadSHA: "abc", On: true},
+			name: "a pull request from a child",
+			params: forge.SetAutoMergeParams{
+				URL:     address,
+				HeadSHA: "abc",
+				On:      true,
+			},
 			child:   childTask{hasParent: true, parentState: "OPEN"},
 			wantErr: errMergeHasParent,
 		},

@@ -32,17 +32,35 @@ func TestScan(t *testing.T) {
 		{
 			name:  "a block on one line",
 			frame: "ab" + zone.MarkBlock("list", "cd", 4) + "ef",
-			want:  map[zone.Name]panes.Rect{"list": {Pane: "list", Left: 2, Top: 0, Width: 4, Height: 1}},
+			want: map[zone.Name]panes.Rect{"list": {
+				Pane:   "list",
+				Left:   2,
+				Top:    0,
+				Width:  4,
+				Height: 1,
+			}},
 		},
 		{
 			name:  "a block over several lines",
 			frame: "top\n" + zone.MarkBlock("column", "one\ntwo\nthree", 5) + "\nbottom",
-			want:  map[zone.Name]panes.Rect{"column": {Pane: "column", Left: 0, Top: 1, Width: 5, Height: 3}},
+			want: map[zone.Name]panes.Rect{"column": {
+				Pane:   "column",
+				Left:   0,
+				Top:    1,
+				Width:  5,
+				Height: 3,
+			}},
 		},
 		{
 			name:  "a block ending on a line of its own leaves that line out",
 			frame: zone.MarkBlock("details", "one\ntwo\n", 3),
-			want:  map[zone.Name]panes.Rect{"details": {Pane: "details", Left: 0, Top: 0, Width: 3, Height: 2}},
+			want: map[zone.Name]panes.Rect{"details": {
+				Pane:   "details",
+				Left:   0,
+				Top:    0,
+				Width:  3,
+				Height: 2,
+			}},
 		},
 	}
 
@@ -80,9 +98,13 @@ func TestHitAt(t *testing.T) {
 			wantOK: true,
 		},
 		{
-			name:   "a column under both marks takes the inner one",
-			x:      3,
-			want:   zone.Hit{Zone: "menu", Key: "row:7", Occurrence: 2},
+			name: "a column under both marks takes the inner one",
+			x:    3,
+			want: zone.Hit{
+				Zone:       "menu",
+				Key:        "row:7",
+				Occurrence: 2,
+			},
 			wantOK: true,
 		},
 	}

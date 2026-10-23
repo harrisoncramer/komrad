@@ -198,10 +198,26 @@ func TestRemoveUnownedWorktrees(t *testing.T) {
 	fake := &fakeWorktrees{removal: worktrees.Removal{
 		Removed: []string{"/trees/orphan"},
 		Refused: []worktrees.Refusal{
-			{Dir: "/trees/aaaa", Reason: worktrees.RefusedTaskHolds, TaskSlug: "first-task"},
-			{Dir: "/trees/bbbb", Reason: worktrees.RefusedAgentInside, AgentName: "reviewer"},
-			{Dir: "/trees/cccc", Reason: worktrees.RefusedNestsWorktree, NestedDir: "/trees/cccc/inner"},
-			{Dir: "/trees/dddd", Reason: worktrees.RefusedUnlockFailed, Err: errors.New("git is not on the path")},
+			{
+				Dir:      "/trees/aaaa",
+				Reason:   worktrees.RefusedTaskHolds,
+				TaskSlug: "first-task",
+			},
+			{
+				Dir:       "/trees/bbbb",
+				Reason:    worktrees.RefusedAgentInside,
+				AgentName: "reviewer",
+			},
+			{
+				Dir:       "/trees/cccc",
+				Reason:    worktrees.RefusedNestsWorktree,
+				NestedDir: "/trees/cccc/inner",
+			},
+			{
+				Dir:    "/trees/dddd",
+				Reason: worktrees.RefusedUnlockFailed,
+				Err:    errors.New("git is not on the path"),
+			},
 		},
 	}}
 
@@ -212,10 +228,26 @@ func TestRemoveUnownedWorktrees(t *testing.T) {
 
 	assert.Equal(t, []string{"/trees/orphan"}, resp.Msg.GetRemoved())
 	want := []*worktreev1.Refusal{
-		{Dir: "/trees/aaaa", Reason: worktreev1.RefusalReason_REFUSAL_REASON_TASK_HOLDS, TaskSlug: "first-task"},
-		{Dir: "/trees/bbbb", Reason: worktreev1.RefusalReason_REFUSAL_REASON_AGENT_INSIDE, AgentName: "reviewer"},
-		{Dir: "/trees/cccc", Reason: worktreev1.RefusalReason_REFUSAL_REASON_NESTS_WORKTREE, NestedDir: "/trees/cccc/inner"},
-		{Dir: "/trees/dddd", Reason: worktreev1.RefusalReason_REFUSAL_REASON_UNLOCK_FAILED, Error: "git is not on the path"},
+		{
+			Dir:      "/trees/aaaa",
+			Reason:   worktreev1.RefusalReason_REFUSAL_REASON_TASK_HOLDS,
+			TaskSlug: "first-task",
+		},
+		{
+			Dir:       "/trees/bbbb",
+			Reason:    worktreev1.RefusalReason_REFUSAL_REASON_AGENT_INSIDE,
+			AgentName: "reviewer",
+		},
+		{
+			Dir:       "/trees/cccc",
+			Reason:    worktreev1.RefusalReason_REFUSAL_REASON_NESTS_WORKTREE,
+			NestedDir: "/trees/cccc/inner",
+		},
+		{
+			Dir:    "/trees/dddd",
+			Reason: worktreev1.RefusalReason_REFUSAL_REASON_UNLOCK_FAILED,
+			Error:  "git is not on the path",
+		},
 	}
 	assert.Empty(t, cmp.Diff(want, resp.Msg.GetRefused(), protocmp.Transform()))
 }

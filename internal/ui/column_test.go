@@ -89,7 +89,11 @@ func TestWheelScrollsTheHalfUnderTheMouse(t *testing.T) {
 
 				harness := tt.open(t)
 				for range 5 {
-					harness.Send(tea.MouseWheelMsg{X: paneltest.DefaultWidth - 1, Y: 5, Button: tea.MouseWheelDown})
+					harness.Send(tea.MouseWheelMsg{
+						X:      paneltest.DefaultWidth - 1,
+						Y:      5,
+						Button: tea.MouseWheelDown,
+					})
 				}
 				harness.Advance(paneltest.WheelFrame)
 

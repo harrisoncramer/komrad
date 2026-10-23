@@ -126,8 +126,18 @@ func TestDocumentsOpen(t *testing.T) {
 			Version:   1,
 			UpdatedAt: timestamppb.New(time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)),
 		})
-		fixLogin := &taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login", Title: "Fix login"}
-		solo := &taskv1.Task{Id: "t2", WorkflowId: "w1", Slug: "fix-login-2", Title: "Solo"}
+		fixLogin := &taskv1.Task{
+			Id:         "t1",
+			WorkflowId: "w1",
+			Slug:       "fix-login",
+			Title:      "Fix login",
+		}
+		solo := &taskv1.Task{
+			Id:         "t2",
+			WorkflowId: "w1",
+			Slug:       "fix-login-2",
+			Title:      "Solo",
+		}
 		agentOn := func(id, name string, task *taskv1.Task, role agentv1.AgentRole, minute int) *agentv1.Agent {
 			agent := paneltest.Agent(id, name, "w1")
 			agent.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 12, minute, 0, 0, time.UTC))

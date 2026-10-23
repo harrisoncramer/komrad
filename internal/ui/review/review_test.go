@@ -86,7 +86,11 @@ func TestReviewOpen(t *testing.T) {
 
 	t.Run("a running agent stays on the stage beside the diff", func(t *testing.T) {
 		server := newReviewServer(t)
-		harness := paneltest.Start(t, paneltest.Params{Width: reviewWidth, Height: reviewHeight, Git: server.repo})
+		harness := paneltest.Start(t, paneltest.Params{
+			Width:  reviewWidth,
+			Height: reviewHeight,
+			Git:    server.repo,
+		})
 		server.serve(harness)
 		harness.Watch(server.buildSnapshot())
 		harness.Press("space")

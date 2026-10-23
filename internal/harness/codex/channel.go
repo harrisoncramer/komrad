@@ -184,7 +184,11 @@ func (r *rpcConn) deliver(ctx context.Context, threadID, text string) (bool, err
 func (r *rpcConn) call(ctx context.Context, method string, params, result any) error {
 	r.lastID++
 	id := r.lastID
-	if err := r.write(ctx, rpcRequest{ID: &id, Method: method, Params: params}); err != nil {
+	if err := r.write(ctx, rpcRequest{
+		ID:     &id,
+		Method: method,
+		Params: params,
+	}); err != nil {
 		return err
 	}
 

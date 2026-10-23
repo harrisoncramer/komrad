@@ -108,7 +108,11 @@ type PostMessage struct {
 
 // NewPostMessage is a message that needs no more said than its summary.
 func NewPostMessage(kind Kind, summary string) PostMessage {
-	return PostMessage{MessageKind: kind, Summary: summary, Detail: summary}
+	return PostMessage{
+		MessageKind: kind,
+		Summary:     summary,
+		Detail:      summary,
+	}
 }
 
 // RemoveMessage takes down the message a PostMessage was keyed by.

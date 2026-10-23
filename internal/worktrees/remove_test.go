@@ -239,8 +239,16 @@ func TestRemoveRefusesADirectoryHoldingAnotherWorktree(t *testing.T) {
 	assert.Empty(t, removal.Removed)
 	require.Len(t, removal.Refused, 2)
 	assert.Equal(t, []Refusal{
-		{Dir: listed, Reason: RefusedNestsWorktree, NestedDir: inner},
-		{Dir: registered, Reason: RefusedNestsWorktree, NestedDir: byHand},
+		{
+			Dir:       listed,
+			Reason:    RefusedNestsWorktree,
+			NestedDir: inner,
+		},
+		{
+			Dir:       registered,
+			Reason:    RefusedNestsWorktree,
+			NestedDir: byHand,
+		},
 	}, removal.Refused)
 	assert.DirExists(t, inner)
 	assert.DirExists(t, byHand)

@@ -387,7 +387,11 @@ func (s *ReviewStore) listTallies(ctx context.Context) ([]tally, error) {
 		if err != nil {
 			return tally{}, err
 		}
-		tally := tally{TaskID: row.TaskID, Snapshots: row.Snapshots, Verdict: verdict}
+		tally := tally{
+			TaskID:    row.TaskID,
+			Snapshots: row.Snapshots,
+			Verdict:   verdict,
+		}
 		if row.SnapshotSha != nil {
 			tally.SnapshotSHA = *row.SnapshotSha
 		}

@@ -124,7 +124,12 @@ func (g Menus) planMerge(task panel.Task, choice mergeChoice) screen.Request {
 
 			return screen.WriteResult{
 				FollowUpReplacesForm: err == nil,
-				FollowUp:             mergePlannedMsg{task: task, choice: choice, plan: plan, err: err},
+				FollowUp: mergePlannedMsg{
+					task:   task,
+					choice: choice,
+					plan:   plan,
+					err:    err,
+				},
 			}
 		},
 	}

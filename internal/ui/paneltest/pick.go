@@ -112,7 +112,11 @@ func findLetters(frozen, before [][]string) []drawnLetter {
 		for y := range frozen {
 			for x := range frozen[y] {
 				if matchesGlyph(frozen, glyph, x, y) {
-					found = append(found, drawnLetter{letter: letter, x: x + len([]rune(glyph[0]))/2, y: y + len(glyph)/2})
+					found = append(found, drawnLetter{
+						letter: letter,
+						x:      x + len([]rune(glyph[0]))/2,
+						y:      y + len(glyph)/2,
+					})
 				}
 			}
 		}
@@ -130,7 +134,11 @@ func findLetters(frozen, before [][]string) []drawnLetter {
 				continue
 			}
 
-			found = append(found, drawnLetter{letter: cell, x: x, y: y})
+			found = append(found, drawnLetter{
+				letter: cell,
+				x:      x,
+				y:      y,
+			})
 		}
 	}
 

@@ -39,7 +39,13 @@ type Diff struct {
 func DiffTable[S any](k Diff, in screen.Inputs) []Action[S] {
 	panning := func(S) bool { return !in.Room.IsDiffWrapped }
 
-	return append(NavActions[S](NavActionsParams{Keys: k.Keys, Nav: k, In: in, Page: NavPageStep, Scroll: DiffWheelStep}), []Action[S]{
+	return append(NavActions[S](NavActionsParams{
+		Keys:   k.Keys,
+		Nav:    k,
+		In:     in,
+		Page:   NavPageStep,
+		Scroll: DiffWheelStep,
+	}), []Action[S]{
 		{
 			ID:   DiffFile,
 			Keys: func(b config.Keybindings) []string { return slices.Concat(b.Diff.NextFile, b.Diff.PrevFile) },

@@ -84,5 +84,9 @@ func eventPromptFromRow(event, prompt string, muted bool) (*EventPrompt, error) 
 		return nil, err
 	}
 
-	return &EventPrompt{Event: parsed, Prompt: prompt, Muted: muted}, nil
+	return &EventPrompt{
+		Event:  parsed,
+		Prompt: prompt,
+		Muted:  muted,
+	}, nil
 }

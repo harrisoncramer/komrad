@@ -98,7 +98,11 @@ func (w *DeleteWorktreesWorker) Work(ctx context.Context, job *river.Job[DeleteW
 		case worktrees.FateDeleting:
 			tearing = append(tearing, dir)
 		case worktrees.FateLive:
-			refused = append(refused, worktrees.Refusal{Dir: dir, Reason: worktrees.RefusedTaskLive, TaskSlug: worktree.Task.Slug})
+			refused = append(refused, worktrees.Refusal{
+				Dir:      dir,
+				Reason:   worktrees.RefusedTaskLive,
+				TaskSlug: worktree.Task.Slug,
+			})
 		case worktrees.FateArchived:
 			refused = append(refused, worktree.RefuseForTask())
 		}

@@ -474,7 +474,11 @@ func TestOpenReviewHistoryPassesTheSpan(t *testing.T) {
 func TestOpenReviewHistoryRendersTheHistory(t *testing.T) {
 	released := time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC)
 	reviewer := &fakeReviewer{
-		snapshot: reviewstore.Snapshot{ID: secondSnapshotID, TaskID: betaTaskID, Ordinal: 2},
+		snapshot: reviewstore.Snapshot{
+			ID:      secondSnapshotID,
+			TaskID:  betaTaskID,
+			Ordinal: 2,
+		},
 		record: history.Record{
 			Span: history.ResolvedSpan{
 				BaseSHA:   "base",

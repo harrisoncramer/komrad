@@ -53,7 +53,11 @@ func (g Menus) planOperation(op operation) screen.Request {
 
 			return screen.WriteResult{
 				FollowUpReplacesForm: err == nil,
-				FollowUp:             plannedMsg{op: op, form: confirm, err: err},
+				FollowUp: plannedMsg{
+					op:   op,
+					form: confirm,
+					err:  err,
+				},
 			}
 		},
 	}

@@ -240,7 +240,11 @@ func (s *Service) fetchBaseOnto(ctx context.Context, task taskstore.Task) (*casc
 		return nil, err
 	}
 
-	return &cascadeOnto{Branch: flow.Worktree.BaseBranch, SHA: sha, Merged: true}, nil
+	return &cascadeOnto{
+		Branch: flow.Worktree.BaseBranch,
+		SHA:    sha,
+		Merged: true,
+	}, nil
 }
 
 // tellParentClosed blocks the child's cascade on its closed parent pull request and tells its writer, once.
@@ -325,7 +329,12 @@ func (s *Service) moveOnto(ctx context.Context, task, parent taskstore.Task, ont
 
 	err = s.git.RebaseOnto(ctx, dir, onto.SHA, plan.Cutoff)
 	if errors.Is(err, git.ErrRebaseConflicted) {
-		return s.backOutCascade(ctx, backOutCascadeParams{Task: task, Parent: parent, Onto: onto, Plan: *plan})
+		return s.backOutCascade(ctx, backOutCascadeParams{
+			Task:   task,
+			Parent: parent,
+			Onto:   onto,
+			Plan:   *plan,
+		})
 	}
 	if err != nil {
 		return err
@@ -467,7 +476,11 @@ func (s *Service) retarget(ctx context.Context, task taskstore.Task, from string
 
 	host, err := s.setBase(ctx, own.URL, base)
 	if err != nil {
-		return s.tellRetargetRefused(ctx, task.ID, *own, eventprompts.RetargetRefused{URL: own.URL, Onto: base, Reason: err.Error()})
+		return s.tellRetargetRefused(ctx, task.ID, *own, eventprompts.RetargetRefused{
+			URL:    own.URL,
+			Onto:   base,
+			Reason: err.Error(),
+		})
 	}
 	s.pullRequestSync.ReadOften(host)
 
@@ -589,7 +602,11 @@ func (s *Service) findNewerForkPoint(ctx context.Context, task taskstore.Task, o
 		return "", err
 	}
 
-	landed, err := s.git.IsAncestor(ctx, git.IsAncestorParams{Dir: dir, MaybeAncestor: shared, Of: base.SHA})
+	landed, err := s.git.IsAncestor(ctx, git.IsAncestorParams{
+		Dir:           dir,
+		MaybeAncestor: shared,
+		Of:            base.SHA,
+	})
 	if err != nil {
 		return "", err
 	}
@@ -675,7 +692,11 @@ func (s *Service) planCascade(ctx context.Context, dir, forkPoint, onto string) 
 		return nil, err
 	}
 
-	return &cascadePlan{Cutoff: cutoff, Commits: commits, ConflictPaths: prediction.ConflictPaths}, nil
+	return &cascadePlan{
+		Cutoff:        cutoff,
+		Commits:       commits,
+		ConflictPaths: prediction.ConflictPaths,
+	}, nil
 }
 
 // readForkPointCutoff is the commit a child's rebase starts after: the predicted cutoff when it is one
@@ -685,7 +706,11 @@ func (s *Service) readForkPointCutoff(ctx context.Context, dir, forkPoint, predi
 		return forkPoint, nil
 	}
 
-	newer, err := s.git.IsAncestor(ctx, git.IsAncestorParams{Dir: dir, MaybeAncestor: forkPoint, Of: predicted})
+	newer, err := s.git.IsAncestor(ctx, git.IsAncestorParams{
+		Dir:           dir,
+		MaybeAncestor: forkPoint,
+		Of:            predicted,
+	})
 	if err != nil {
 		return "", err
 	}
@@ -746,7 +771,11 @@ func (s *Service) pushCascade(ctx context.Context, task taskstore.Task) bool {
 	ctx = context.WithoutCancel(ctx)
 	defer s.readOften(task)
 
-	if _, err := s.git.Push(ctx, git.PushParams{Dir: task.Checkout.Cwd, Branch: branch, Force: true}); err != nil {
+	if _, err := s.git.Push(ctx, git.PushParams{
+		Dir:    task.Checkout.Cwd,
+		Branch: branch,
+		Force:  true,
+	}); err != nil {
 		logPushCascadeFailed(ctx, task, err)
 
 		return false

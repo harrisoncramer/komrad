@@ -188,7 +188,12 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 		return nil, err
 	}
 
-	return s.launchAgent(ctx, launchAgentParams{request: params, spawner: spawner, joined: joined, parent: parent})
+	return s.launchAgent(ctx, launchAgentParams{
+		request: params,
+		spawner: spawner,
+		joined:  joined,
+		parent:  parent,
+	})
 }
 
 // releaseFailedLaunch frees an idempotency key held by a create that failed, so the next

@@ -105,7 +105,11 @@ func NewRemover(params NewRemoverParams) *Remover {
 
 // RefuseForTask is the refusal of a directory its task answers for.
 func (w Worktree) RefuseForTask() Refusal {
-	return Refusal{Dir: w.Dir, Reason: RefusedTaskHolds, TaskSlug: w.Task.Slug}
+	return Refusal{
+		Dir:      w.Dir,
+		Reason:   RefusedTaskHolds,
+		TaskSlug: w.Task.Slug,
+	}
 }
 
 // Remove takes away each directory nothing answers for, refusing the rest by name.
@@ -191,17 +195,33 @@ func refuse(listing *Listing, rows []agentstore.AgentDir, dir string) (Refusal, 
 	case FateLive, FateArchived:
 		return worktree.RefuseForTask(), true
 	case FateDeleting:
-		return Refusal{Dir: dir, Reason: RefusedTaskDeleting, TaskSlug: worktree.Task.Slug}, true
+		return Refusal{
+			Dir:      dir,
+			Reason:   RefusedTaskDeleting,
+			TaskSlug: worktree.Task.Slug,
+		}, true
 	case FateUnowned:
 	}
 	if len(worktree.Occupants) > 0 {
-		return Refusal{Dir: dir, Reason: RefusedAgentInside, AgentName: worktree.Occupants[0].Name}, true
+		return Refusal{
+			Dir:       dir,
+			Reason:    RefusedAgentInside,
+			AgentName: worktree.Occupants[0].Name,
+		}, true
 	}
 	if under := slices.IndexFunc(rows, func(row agentstore.AgentDir) bool { return isBeneath(dir, row.Cwd) }); under >= 0 {
-		return Refusal{Dir: dir, Reason: RefusedAgentBeneath, AgentName: rows[under].Name}, true
+		return Refusal{
+			Dir:       dir,
+			Reason:    RefusedAgentBeneath,
+			AgentName: rows[under].Name,
+		}, true
 	}
 	if nested := slices.IndexFunc(listing.Worktrees, func(w Worktree) bool { return isBeneath(dir, w.Dir) }); nested >= 0 {
-		return Refusal{Dir: dir, Reason: RefusedNestsWorktree, NestedDir: listing.Worktrees[nested].Dir}, true
+		return Refusal{
+			Dir:       dir,
+			Reason:    RefusedNestsWorktree,
+			NestedDir: listing.Worktrees[nested].Dir,
+		}, true
 	}
 
 	return Refusal{}, false

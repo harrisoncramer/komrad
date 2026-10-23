@@ -525,7 +525,11 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 	}
 
 	if deps.SignIn != nil {
-		m.access = accessState{signIn: deps.SignIn, deps: deps, stage: accessChecking}
+		m.access = accessState{
+			signIn: deps.SignIn,
+			deps:   deps,
+			stage:  accessChecking,
+		}
 
 		return m
 	}

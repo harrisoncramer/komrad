@@ -51,7 +51,12 @@ func (d *Screen) pressEdit(in screen.Inputs) screen.Request {
 	return screen.Stage{
 		Content: editor.Content(d.deps.EditorCommand, filepath.Dir(path), path, 1),
 		Staged: func(pane string) tea.Msg {
-			return editorStaged{item: item, read: read, path: path, pane: pane}
+			return editorStaged{
+				item: item,
+				read: read,
+				path: path,
+				pane: pane,
+			}
 		},
 	}
 }

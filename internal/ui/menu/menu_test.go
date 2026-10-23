@@ -120,5 +120,9 @@ func TestDrawnOff(t *testing.T) {
 	entry := menu.Entry{Label: "push"}
 
 	assert.Equal(t, entry, menu.DrawnOff(entry, ""))
-	assert.Equal(t, menu.Entry{Label: "push", IsDimmed: true, RefusalReason: "nothing to push"}, menu.DrawnOff(entry, "nothing to push"))
+	assert.Equal(t, menu.Entry{
+		Label:         "push",
+		IsDimmed:      true,
+		RefusalReason: "nothing to push",
+	}, menu.DrawnOff(entry, "nothing to push"))
 }

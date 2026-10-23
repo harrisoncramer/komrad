@@ -786,7 +786,11 @@ func TestIntegrationBuiltinWorktreeCleanupRemovesATreeWhoseLockIsGone(t *testing
 	tree := strings.TrimSpace(string(setup.Stdout))
 	runGit(t, repo, "worktree", "unlock", tree)
 
-	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-lock-gone", repo: repo, agentCwd: tree})
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{
+		taskID:   "task-lock-gone",
+		repo:     repo,
+		agentCwd: tree,
+	})
 	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
 
 	assert.NoDirExists(t, tree)
@@ -806,7 +810,11 @@ func TestIntegrationBuiltinWorktreeCleanupDropsTheRegistrationOfATreeRemovedByHa
 	tree := strings.TrimSpace(string(setup.Stdout))
 	require.NoError(t, os.RemoveAll(tree))
 
-	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{taskID: "task-by-hand", repo: repo, agentCwd: tree})
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{
+		taskID:   "task-by-hand",
+		repo:     repo,
+		agentCwd: tree,
+	})
 	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
 
 	listed, err := exec.Command("git", "-C", repo, "worktree", "list", "--porcelain").Output()

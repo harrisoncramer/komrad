@@ -586,8 +586,12 @@ func TestParseExplicit(t *testing.T) {
 			wantErr:  protoconv.ErrMissing,
 		},
 		{
-			name:     "an id set to a bad id is refused",
-			input:    &testpb.Explicit{Must: pointer(first), ImplicitId: first, Id: pointer("bad")},
+			name: "an id set to a bad id is refused",
+			input: &testpb.Explicit{
+				Must:       pointer(first),
+				ImplicitId: first,
+				Id:         pointer("bad"),
+			},
 			wantPath: "id",
 		},
 		{

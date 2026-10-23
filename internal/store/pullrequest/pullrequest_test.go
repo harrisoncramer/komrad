@@ -488,9 +488,13 @@ func TestSetMergeReadinessRemembersWhatEveryReadLeaves(t *testing.T) {
 			name: "a blank first read",
 			reads: []mergeReadinessRead{
 				{
-					readiness:  blank,
-					head:       "abc",
-					wantChecks: forge.RememberedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_NONE, HeadSHA: "abc", WasLatestReadBlank: true},
+					readiness: blank,
+					head:      "abc",
+					wantChecks: forge.RememberedAnswer[pullrequestv1.Checks]{
+						Value:              pullrequestv1.Checks_CHECKS_NONE,
+						HeadSHA:            "abc",
+						WasLatestReadBlank: true,
+					},
 				},
 				{
 					readiness:  failing,
@@ -543,9 +547,13 @@ func TestSetMergeReadinessRemembersWhatEveryReadLeaves(t *testing.T) {
 					wantChecks: failingOnABC,
 				},
 				{
-					readiness:  blank,
-					head:       "def",
-					wantChecks: forge.RememberedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_NONE, HeadSHA: "def", WasLatestReadBlank: true},
+					readiness: blank,
+					head:      "def",
+					wantChecks: forge.RememberedAnswer[pullrequestv1.Checks]{
+						Value:              pullrequestv1.Checks_CHECKS_NONE,
+						HeadSHA:            "def",
+						WasLatestReadBlank: true,
+					},
 				},
 			},
 		},
@@ -1080,6 +1088,10 @@ func TestLiveBranchesFollowTheParentPullRequest(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []LiveBranch{
 		{RepositoryURL: komrad, Branch: "task/child"},
-		{RepositoryURL: komrad, Branch: "task/parent", HeadSHA: "abc"},
+		{
+			RepositoryURL: komrad,
+			Branch:        "task/parent",
+			HeadSHA:       "abc",
+		},
 	}, liveBranches)
 }

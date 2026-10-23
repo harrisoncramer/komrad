@@ -187,8 +187,12 @@ func TestHarnessBinaryCheck(t *testing.T) {
 			wantDetail: "/usr/local/bin/claude, 2.1.0 (Claude Code)",
 		},
 		{
-			name:       "the default one is older than komrad launches",
-			agent:      harnessInfo{ID: "codex", Binary: "codex", MinVersion: "0.149.0"},
+			name: "the default one is older than komrad launches",
+			agent: harnessInfo{
+				ID:         "codex",
+				Binary:     "codex",
+				MinVersion: "0.149.0",
+			},
 			configured: "codex",
 			installed:  []string{"codex"},
 			reported:   "codex-cli 0.144.4\n",
@@ -197,8 +201,12 @@ func TestHarnessBinaryCheck(t *testing.T) {
 			wantDetail: "/usr/local/bin/codex, codex-cli 0.144.4",
 		},
 		{
-			name:       "a harness nobody is defaulting to is older than komrad launches",
-			agent:      harnessInfo{ID: "codex", Binary: "codex", MinVersion: "0.149.0"},
+			name: "a harness nobody is defaulting to is older than komrad launches",
+			agent: harnessInfo{
+				ID:         "codex",
+				Binary:     "codex",
+				MinVersion: "0.149.0",
+			},
 			configured: "claude",
 			installed:  []string{"codex"},
 			reported:   "codex-cli 0.144.4\n",
@@ -207,8 +215,12 @@ func TestHarnessBinaryCheck(t *testing.T) {
 			wantDetail: "/usr/local/bin/codex, codex-cli 0.144.4",
 		},
 		{
-			name:       "new enough",
-			agent:      harnessInfo{ID: "codex", Binary: "codex", MinVersion: "0.149.0"},
+			name: "new enough",
+			agent: harnessInfo{
+				ID:         "codex",
+				Binary:     "codex",
+				MinVersion: "0.149.0",
+			},
 			configured: "codex",
 			installed:  []string{"codex"},
 			reported:   "codex-cli 0.163.0\n",

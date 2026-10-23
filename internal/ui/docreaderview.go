@@ -24,7 +24,13 @@ func (m *model) docHead(in screen.Inputs, rows []string, width int) []string {
 		count = paint.Panel.Style(paint.ToneMuted).Render("  " + reader.Count(reader.Matches(r.filter.Matcher, rows), r.CursorLine))
 	}
 
-	return r.filter.Head(filter.HeadParams{Glyphs: m.glyphs, ShouldMarkZones: in.Room.ShouldMarkZones, MatchCount: count, SaidText: r.said, Width: width})
+	return r.filter.Head(filter.HeadParams{
+		Glyphs:          m.glyphs,
+		ShouldMarkZones: in.Room.ShouldMarkZones,
+		MatchCount:      count,
+		SaidText:        r.said,
+		Width:           width,
+	})
 }
 
 // docBlock is the document at the width of the block beside the list, under the search over it,
