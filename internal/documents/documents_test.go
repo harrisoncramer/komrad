@@ -609,9 +609,6 @@ func TestDeleteDocuments(t *testing.T) {
 		wantKept bool
 	}{
 		{
-			name: "a person deletes every document named",
-		},
-		{
 			name:     "an unknown id deletes none of them",
 			unknown:  true,
 			wantErr:  store.ErrNotFound,
@@ -622,6 +619,9 @@ func TestDeleteDocuments(t *testing.T) {
 			byAgent:  true,
 			wantErr:  documents.ErrDeleteByAgent,
 			wantKept: true,
+		},
+		{
+			name: "a person deletes every document named",
 		},
 	}
 
