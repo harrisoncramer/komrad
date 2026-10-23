@@ -30,23 +30,23 @@ func (a Archive) table(in screen.Inputs) []keys.Action[Archive] {
 func (a Archive) legend(in screen.Inputs) []keys.LegendRow[Archive] {
 	return slices.Concat([]keys.LegendRow[Archive]{
 		{
-			Of:   []keys.ID{keys.FilterOpen},
-			Desc: keys.FilterDescOf[Archive](in),
+			ActionIDs: []keys.ID{keys.FilterOpen},
+			Desc:      keys.FilterDescOf[Archive](in),
 		},
 	}, keys.NavLegend[Archive](), []keys.LegendRow[Archive]{
 		{
-			Of:   []keys.ID{actionArchiveBack},
-			Desc: func(Archive) string { return "back" },
+			ActionIDs: []keys.ID{actionArchiveBack},
+			Desc:      func(Archive) string { return "back" },
 		},
 		{
-			Of:    []keys.ID{keys.FilterClear},
-			Desc:  keys.FilterClearDescOf[Archive](in),
-			Strip: true,
+			ActionIDs: []keys.ID{keys.FilterClear},
+			Desc:      keys.FilterClearDescOf[Archive](in),
+			Strip:     true,
 		},
 		{
-			Of:    []keys.ID{keys.FilterMatch},
-			Desc:  func(Archive) string { return "next/prev match" },
-			Strip: true,
+			ActionIDs: []keys.ID{keys.FilterMatch},
+			Desc:      func(Archive) string { return "next/prev match" },
+			Strip:     true,
 		},
 	})
 }

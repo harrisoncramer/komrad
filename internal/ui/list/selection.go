@@ -8,17 +8,17 @@ import (
 
 // Ref is what the selection knows of a row.
 type Ref struct {
-	Key    string
-	Header bool
-	Group  string
-	// Task is the key of the task the row is a header of or sits under, empty off a task.
-	Task string
-	// Writer is the key of the writer a task's row stands for, empty on every other row.
-	Writer string
+	Key      string
+	IsHeader bool
+	Group    string
+	// TaskKey is the key of the task the row is a header of or sits under, empty off a task.
+	TaskKey string
+	// WriterKey is the key of the writer a task's row stands for, empty on every other row.
+	WriterKey string
 }
 
 func (r Ref) isTask() bool {
-	return r.Header && r.Task != ""
+	return r.IsHeader && r.TaskKey != ""
 }
 
 // Selection is the keys of the rows selected in a list.
@@ -43,7 +43,7 @@ func (s Selection) Toggle(refs []Ref, row int) Selection {
 		return s
 	}
 
-	if !ref.Header {
+	if !ref.IsHeader {
 		if s.Has(ref.Key) {
 			return s.without(ref.Key)
 		}
@@ -65,7 +65,7 @@ func (s Selection) Toggle(refs []Ref, row int) Selection {
 
 // Extend is the selection grown from the nearest selected row to the row at index row.
 func (s Selection) Extend(refs []Ref, row int) Selection {
-	if ref, ok := At(refs, row); !ok || (ref.Header && !ref.isTask()) {
+	if ref, ok := At(refs, row); !ok || (ref.IsHeader && !ref.isTask()) {
 		return s
 	}
 
@@ -77,7 +77,7 @@ func (s Selection) Extend(refs []Ref, row int) Selection {
 	var keys []string
 	for _, r := range refs[first : last+1] {
 		switch {
-		case !r.Header:
+		case !r.IsHeader:
 			keys = append(keys, r.Key)
 		case r.isTask():
 			keys = append(keys, groupKeys(refs, r)...)
@@ -95,11 +95,11 @@ func (s Selection) Pruned(refs []Ref) Selection {
 
 	onScreen := make(map[string]bool, len(refs))
 	for _, r := range refs {
-		if !r.Header {
+		if !r.IsHeader {
 			onScreen[r.Key] = true
 		}
-		if r.Writer != "" {
-			onScreen[r.Writer] = true
+		if r.WriterKey != "" {
+			onScreen[r.WriterKey] = true
 		}
 	}
 
@@ -124,8 +124,8 @@ func (s Selection) nearest(refs []Ref, row int) int {
 
 // holds reports whether the row is selected: an agent's row by its own key and a task's by its writer's.
 func (s Selection) holds(r Ref) bool {
-	if r.Header {
-		return r.Writer != "" && s.Has(r.Writer)
+	if r.IsHeader {
+		return r.WriterKey != "" && s.Has(r.WriterKey)
 	}
 
 	return s.Has(r.Key)
@@ -165,13 +165,13 @@ func (s Selection) without(keys ...string) Selection {
 func groupKeys(refs []Ref, header Ref) []string {
 	var keys []string
 	for _, r := range refs {
-		underTask := header.Task != "" && r.Task == header.Task
-		underWorkflow := header.Task == "" && r.Group == header.Group
-		if !r.Header && (underTask || underWorkflow) {
+		underTask := header.TaskKey != "" && r.TaskKey == header.TaskKey
+		underWorkflow := header.TaskKey == "" && r.Group == header.Group
+		if !r.IsHeader && (underTask || underWorkflow) {
 			keys = append(keys, r.Key)
 		}
-		if r.Writer != "" && (underTask || underWorkflow) {
-			keys = append(keys, r.Writer)
+		if r.WriterKey != "" && (underTask || underWorkflow) {
+			keys = append(keys, r.WriterKey)
 		}
 	}
 

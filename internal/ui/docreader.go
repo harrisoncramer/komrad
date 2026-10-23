@@ -319,21 +319,21 @@ func (m *model) docActions() keys.Spec[*model] {
 			keys.MoveRow[*model](),
 			keys.NavPageRow[*model](),
 			{
-				Of:   []keys.ID{keys.FilterOpen},
-				Desc: func(*model) string { return "search" },
+				ActionIDs: []keys.ID{keys.FilterOpen},
+				Desc:      func(*model) string { return "search" },
 			},
 			{
-				Of:   []keys.ID{keys.FilterMatch},
-				Desc: func(*model) string { return "next/previous match" },
+				ActionIDs: []keys.ID{keys.FilterMatch},
+				Desc:      func(*model) string { return "next/previous match" },
 				Label: func(k config.Keybindings) string {
 					return keys.HeadLabel(k.Filter.NextMatch) + "/" + keys.HeadLabel(k.Filter.PrevMatch)
 				},
 			},
 			keys.JumpRow[*model](),
 			{
-				Of:    []keys.ID{keys.ColumnBack},
-				Desc:  func(*model) string { return "back to the list" },
-				Strip: true,
+				ActionIDs: []keys.ID{keys.ColumnBack},
+				Desc:      func(*model) string { return "back to the list" },
+				Strip:     true,
 			},
 		},
 	}

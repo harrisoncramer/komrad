@@ -148,7 +148,7 @@ func (d *Screen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 		return nil
 	}
 
-	if d.kind != kindTypes && d.history != nil && d.history.filter.Typing {
+	if d.kind != kindTypes && d.history != nil && d.history.filter.IsTyping {
 		return d.diffKeys().UpdateFilter(in, key)
 	}
 
@@ -194,9 +194,9 @@ func (d *Screen) onTypes() bool {
 // Kinds is the documents view's row of kinds, documents and types.
 func (d *Screen) Kinds() tabs.Stops {
 	return tabs.Stops{
-		Labels: []string{"documents", "types"},
-		Focus:  tabs.NoStop,
-		Lit:    int(d.kind),
+		Labels:      []string{"documents", "types"},
+		FocusedStop: tabs.NoStop,
+		ChosenStop:  int(d.kind),
 	}
 }
 
@@ -554,7 +554,7 @@ func (d *Screen) TakesEveryKey() bool {
 
 // IsSearchTyping reports whether the diff's search is typed into.
 func (d *Screen) IsSearchTyping() bool {
-	return d.history != nil && d.history.filter.Typing
+	return d.history != nil && d.history.filter.IsTyping
 }
 
 // Column is the document or type rendered in the block beside the list.

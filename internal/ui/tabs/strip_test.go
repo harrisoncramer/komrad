@@ -26,7 +26,7 @@ func TestTabStripView(t *testing.T) {
 	}{
 		{
 			name:  "a choice the strip does not hold falls back",
-			state: tabs.State{Chosen: "gone"},
+			state: tabs.State{ChosenColumn: "gone"},
 			want:  title + muted.Render("↓ size") + "  " + muted.Render("age") + "  " + muted.Render("name") + dot + muted.Render("repo"),
 		},
 		{
@@ -36,31 +36,31 @@ func TestTabStripView(t *testing.T) {
 		},
 		{
 			name:  "a chosen tab keeps its arrow when the list holds the keys",
-			state: tabs.State{Chosen: "age", Direction: tabs.Up},
+			state: tabs.State{ChosenColumn: "age", Direction: tabs.Up},
 			want:  title + muted.Render("size") + "  " + muted.Render("↑ age") + "  " + muted.Render("name") + dot + muted.Render("repo"),
 		},
 		{
 			name:  "the strip holding the keys renders the chosen tab in the accent",
-			state: tabs.State{Chosen: "age", Focused: true},
+			state: tabs.State{ChosenColumn: "age", IsFocused: true},
 			want:  title + muted.Render("size") + "  " + accent.Render("↓ age") + "  " + muted.Render("name") + dot + muted.Render("repo"),
 		},
 		{
 			name: "a focus moved off the chosen tab lights the tab it stands on and leaves the arrow",
 			state: tabs.State{
-				Chosen:  "age",
-				Focused: true,
-				Focus:   "name",
+				ChosenColumn:  "age",
+				IsFocused:     true,
+				FocusedColumn: "name",
 			},
 			want: title + muted.Render("size") + "  " + muted.Render("↓ age") + "  " + accent.Render("name") + dot + muted.Render("repo"),
 		},
 		{
 			name:  "a flat list names itself on the stop",
-			state: tabs.State{Flat: true},
+			state: tabs.State{AreHeadingsOff: true},
 			want:  title + muted.Render("↓ size") + "  " + muted.Render("age") + "  " + muted.Render("name") + dot + muted.Render("flat"),
 		},
 		{
 			name:  "the focus on the stop lights it and not the column",
-			state: tabs.State{Focused: true, OnGroup: true},
+			state: tabs.State{IsFocused: true, IsOnGroupStop: true},
 			want:  title + muted.Render("↓ size") + "  " + muted.Render("age") + "  " + muted.Render("name") + dot + accent.Render("repo"),
 		},
 	}
@@ -89,54 +89,54 @@ func TestTabStripStep(t *testing.T) {
 	}{
 		{
 			name:  "back from the first column wraps to the stop",
-			from:  tabs.State{Chosen: "size"},
+			from:  tabs.State{ChosenColumn: "size"},
 			delta: -1,
-			want:  tabs.State{Chosen: "size", OnGroup: true},
+			want:  tabs.State{ChosenColumn: "size", IsOnGroupStop: true},
 		},
 		{
 			name: "forward from the stop wraps to the first column",
 			from: tabs.State{
-				Chosen:    "name",
-				Direction: tabs.Up,
-				OnGroup:   true,
-				Flat:      true,
+				ChosenColumn:   "name",
+				Direction:      tabs.Up,
+				IsOnGroupStop:  true,
+				AreHeadingsOff: true,
 			},
 			delta: 1,
 			want: tabs.State{
-				Chosen:    "name",
-				Direction: tabs.Up,
-				Focus:     "size",
-				Flat:      true,
+				ChosenColumn:   "name",
+				Direction:      tabs.Up,
+				FocusedColumn:  "size",
+				AreHeadingsOff: true,
 			},
 		},
 		{
 			name: "back from the stop lands on the last column",
 			from: tabs.State{
-				Chosen:    "age",
-				Direction: tabs.Up,
-				OnGroup:   true,
+				ChosenColumn:  "age",
+				Direction:     tabs.Up,
+				IsOnGroupStop: true,
 			},
 			delta: -1,
 			want: tabs.State{
-				Chosen:    "age",
-				Direction: tabs.Up,
-				Focus:     "name",
+				ChosenColumn:  "age",
+				Direction:     tabs.Up,
+				FocusedColumn: "name",
 			},
 		},
 		{
 			name:  "forward from the last column lands on the stop",
-			from:  tabs.State{Chosen: "size", Focus: "name"},
+			from:  tabs.State{ChosenColumn: "size", FocusedColumn: "name"},
 			delta: 1,
-			want:  tabs.State{Chosen: "size", OnGroup: true},
+			want:  tabs.State{ChosenColumn: "size", IsOnGroupStop: true},
 		},
 		{
 			name:  "forward steps to the next column",
-			from:  tabs.State{Chosen: "size", Direction: tabs.Up},
+			from:  tabs.State{ChosenColumn: "size", Direction: tabs.Up},
 			delta: 1,
 			want: tabs.State{
-				Chosen:    "size",
-				Direction: tabs.Up,
-				Focus:     "age",
+				ChosenColumn:  "size",
+				Direction:     tabs.Up,
+				FocusedColumn: "age",
 			},
 		},
 	}
@@ -161,7 +161,7 @@ func buildGroupedStrip() tabs.Strip {
 			{ID: "age", Label: "age"},
 			{ID: "name", Label: "name"},
 		},
-		Fallback: "size",
-		Grouped:  "repo",
+		Fallback:     "size",
+		GroupedLabel: "repo",
 	}
 }

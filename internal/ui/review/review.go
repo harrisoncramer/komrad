@@ -111,7 +111,7 @@ func (r Screen) TakesEveryKey() bool {
 
 // IsSearchTyping reports whether the diff's or the file tree's search is typed into.
 func (r Screen) IsSearchTyping() bool {
-	return r.diff.filter.Typing || r.filesFilter.Typing
+	return r.diff.filter.IsTyping || r.filesFilter.IsTyping
 }
 
 // IsWriting reports whether the reader is composing a message.
@@ -218,11 +218,11 @@ func (r *Screen) DoesRenderFromListing() bool {
 
 // TypedLine is the file tree's search or the diff's, whichever is typed into.
 func (r Screen) TypedLine() (field.Line, bool) {
-	if r.filesFilter.Typing {
+	if r.filesFilter.IsTyping {
 		return r.filesFilter.Input, true
 	}
 
-	return r.diff.filter.Input, r.diff.filter.Typing
+	return r.diff.filter.Input, r.diff.filter.IsTyping
 }
 
 // Dispatches is the diff's table, the file tree's and the table of the rows over it.

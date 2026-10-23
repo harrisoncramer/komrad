@@ -42,9 +42,9 @@ type archive struct {
 // Kinds is the schedules view's row of kinds, live and archived.
 func (w *Screen) Kinds() tabs.Stops {
 	return tabs.Stops{
-		Labels: []string{"live", "archived"},
-		Focus:  tabs.NoStop,
-		Lit:    int(w.kind),
+		Labels:      []string{"live", "archived"},
+		FocusedStop: tabs.NoStop,
+		ChosenStop:  int(w.kind),
 	}
 }
 

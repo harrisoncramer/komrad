@@ -71,7 +71,7 @@ func (m Mode) ClearDesc() string {
 
 // PatternMode is the mode a pattern was compiled under, read while the search is not being typed.
 func PatternMode(p list.Pattern) Mode {
-	if p.Filtering {
+	if p.IsFiltering {
 		return ModeFilter
 	}
 
@@ -80,17 +80,17 @@ func PatternMode(p list.Pattern) Mode {
 
 // State is a screen's search line, what was typed into it and the pattern compiled from it.
 type State struct {
-	Typing  bool
-	Input   field.Line
-	Matcher *regexp.Regexp
-	Broken  bool
-	Mode    Mode
+	IsTyping        bool
+	Input           field.Line
+	Matcher         *regexp.Regexp
+	IsPatternBroken bool
+	Mode            Mode
 	// OpenedIn is the section the keys were in when the search opened.
 	OpenedIn list.Section
-	// Origin is the row the cursor sat on when the search opened, which abandoning it returns to.
-	Origin string
-	// AppliedAt is the row the cursor sat on when the search was last applied.
-	AppliedAt     string
+	// OriginRow is the row the cursor sat on when the search opened, which abandoning it returns to.
+	OriginRow string
+	// AppliedAtRow is the row the cursor sat on when the search was last applied.
+	AppliedAtRow  string
 	debounce      time.Duration
 	minLength     int
 	compiledQuery string
@@ -154,18 +154,18 @@ func (f State) IsStanding() bool {
 // Pattern is the compiled pattern a screen narrows its rows by.
 func (f State) Pattern() list.Pattern {
 	return list.Pattern{
-		Typed:      f.Query(),
-		Query:      f.compiledQuery,
-		Regexp:     f.Matcher,
-		Broken:     f.Broken,
-		Clauses:    f.qualifiers.clauses,
-		CompiledAt: f.qualifiers.compiledAt,
-		Filtering:  f.Mode == ModeFilter && !f.Typing,
-		OpenedIn:   f.OpenedIn,
+		Prompt:      f.Query(),
+		Compiled:    f.compiledQuery,
+		Regexp:      f.Matcher,
+		IsBroken:    f.IsPatternBroken,
+		Clauses:     f.qualifiers.clauses,
+		CompiledAt:  f.qualifiers.compiledAt,
+		IsFiltering: f.Mode == ModeFilter && !f.IsTyping,
+		OpenedIn:    f.OpenedIn,
 		Said: list.Said{
-			Text:    f.qualifiers.said.text,
-			Hits:    f.qualifiers.said.hits,
-			Waiting: f.qualifiers.said.waiting,
+			Text:      f.qualifiers.said.text,
+			Hits:      f.qualifiers.said.hits,
+			IsWaiting: f.qualifiers.said.waiting,
 		},
 	}
 }
@@ -188,7 +188,7 @@ func (f *State) SetQuery(query string) {
 
 // Open starts typing at the search with the options given.
 func (f *State) Open(opts ...Option) {
-	f.Typing = true
+	f.IsTyping = true
 	query := f.Query()
 	if query == "" {
 		f.Mode = ModeSearch
@@ -202,7 +202,7 @@ func (f *State) Open(opts ...Option) {
 
 // IsSearched reports whether the search has a pattern or a broken one.
 func (f State) IsSearched() bool {
-	return f.Pattern().HasQuery() || f.Broken
+	return f.Pattern().HasQuery() || f.IsPatternBroken
 }
 
 // IsSettled reports whether the pattern compiled is what the user typed.
@@ -233,7 +233,7 @@ func (f *State) Settle(query string) bool {
 // Compile reads the pattern out of what the user typed.
 func (f *State) Compile() {
 	query := f.Query()
-	f.Matcher, f.Broken, f.compiledQuery = nil, false, query
+	f.Matcher, f.IsPatternBroken, f.compiledQuery = nil, false, query
 	f.problem, f.qualifiers.clauses = "", nil
 	defer f.askSaid()
 
@@ -263,7 +263,7 @@ func (f *State) Compile() {
 
 	pattern, err := regexp.Compile(expr)
 	if err != nil {
-		f.Broken = true
+		f.IsPatternBroken = true
 
 		return
 	}
@@ -278,7 +278,7 @@ func (f *State) TakeKey(key tea.KeyPressMsg, register *vim.Register) bool {
 	case field.LineLeft:
 		f.Abandon()
 	case field.LineEntered:
-		f.Typing = false
+		f.IsTyping = false
 		f.Compile()
 	case field.LineChanged:
 		if f.debounce == 0 || f.isTooShort() {
@@ -294,7 +294,7 @@ func (f *State) TakeKey(key tea.KeyPressMsg, register *vim.Register) bool {
 
 // Abandon drops the search and the row it was going to leave you on.
 func (f *State) Abandon() {
-	f.Typing = false
+	f.IsTyping = false
 	f.Mode = ModeSearch
 	f.SetQuery("")
 }
@@ -339,7 +339,7 @@ func (f State) Grammar() (list.Grammar, bool) {
 
 // fail marks the search broken for the reason given.
 func (f *State) fail(reason string) {
-	f.Broken, f.problem = true, reason
+	f.IsPatternBroken, f.problem = true, reason
 }
 
 func (f State) isTooShort() bool {

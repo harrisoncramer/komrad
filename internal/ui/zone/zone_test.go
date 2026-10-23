@@ -82,7 +82,7 @@ func TestHitAt(t *testing.T) {
 		{
 			name:   "a column under both marks takes the inner one",
 			x:      3,
-			want:   zone.Hit{Zone: "menu", Key: "row:7", Nth: 2},
+			want:   zone.Hit{Zone: "menu", Key: "row:7", Occurrence: 2},
 			wantOK: true,
 		},
 	}

@@ -72,15 +72,15 @@ func (m *model) switcherLines(trail screen.Crumbs) []string {
 func (m *model) viewsRow() string {
 	labels := xslice.Map(viewEntries(), func(entry viewEntry) string { return entry.label })
 	row := tabs.Stops{
-		Labels: labels,
-		Focus:  tabs.NoStop,
-		Lit:    tabs.NoStop,
-		Mark:   m.spanMarker(zoneViews, labels),
+		Labels:      labels,
+		FocusedStop: tabs.NoStop,
+		ChosenStop:  tabs.NoStop,
+		MarkStop:    m.spanMarker(zoneViews, labels),
 	}
 	if m.isViewsOpen() {
-		row.Focus = m.viewIndex()
+		row.FocusedStop = m.viewIndex()
 	} else {
-		row.Lit = m.viewIndex()
+		row.ChosenStop = m.viewIndex()
 	}
 
 	return row.View()

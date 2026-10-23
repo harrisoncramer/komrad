@@ -74,7 +74,7 @@ func (m *model) isTabsRendered() bool {
 func (m *model) isTabsFocused() bool {
 	t, ok := m.activeTabs()
 
-	return ok && t.TabsState().Focused && m.tabsFit()
+	return ok && t.TabsState().IsFocused && m.tabsFit()
 }
 
 func (m *model) tabsFit() bool {
@@ -95,7 +95,7 @@ func (m *model) listFitsTabs() (list.Params, bool) {
 
 	probe.details.focused, probe.helpExpanded = false, false
 	if tabbed {
-		t.TabsState().Focused = false
+		t.TabsState().IsFocused = false
 	}
 	if kinded {
 		*k.KindsFocused() = false
@@ -136,7 +136,7 @@ func (m *model) focusTabs() {
 	}
 
 	m.blurKinds()
-	t.TabsState().Focused = true
+	t.TabsState().IsFocused = true
 	m.details.focused = false
 }
 
@@ -152,15 +152,15 @@ func (m *model) updateTabs(key tea.KeyPressMsg) tea.Cmd {
 			return nil
 		},
 		pick: func() {
-			if !state.OnGroup {
+			if !state.IsOnGroupStop {
 				strip.Choose(state, state.Direction)
 			}
 		},
 		close: state.Leave,
 		other: func(pressed string) tea.Cmd {
 			switch {
-			case state.OnGroup && keys.IsBound(pressed, slices.Concat(m.keys.Nav.Down, m.keys.Nav.Up)):
-				state.Flat = !state.Flat
+			case state.IsOnGroupStop && keys.IsBound(pressed, slices.Concat(m.keys.Nav.Down, m.keys.Nav.Up)):
+				state.AreHeadingsOff = !state.AreHeadingsOff
 			case keys.IsBound(pressed, m.keys.Nav.Down):
 				strip.Choose(state, tabs.Down)
 			case keys.IsBound(pressed, m.keys.Nav.Up):
@@ -195,16 +195,16 @@ func (m *model) clickTab(key string) tea.Cmd {
 	m.focusTabs()
 	hovered := m.hoveredFilterKey()
 
-	state.OnGroup = at == len(strip.Options)
-	if state.OnGroup {
-		state.Focus = ""
-		state.Flat = !state.Flat
+	state.IsOnGroupStop = at == len(strip.Options)
+	if state.IsOnGroupStop {
+		state.FocusedColumn = ""
+		state.AreHeadingsOff = !state.AreHeadingsOff
 	} else {
 		direction := state.Direction
 		if at == strip.IndexOf(*state) {
 			direction = direction.Flip()
 		}
-		state.Focus = strip.Options[at].ID
+		state.FocusedColumn = strip.Options[at].ID
 		strip.Choose(state, direction)
 	}
 

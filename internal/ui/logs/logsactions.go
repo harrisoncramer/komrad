@@ -47,23 +47,23 @@ func (l *Screen) table(in screen.Inputs) []keys.Action[*Screen] {
 func (l *Screen) legend(in screen.Inputs) []keys.LegendRow[*Screen] {
 	return slices.Concat(keys.NavLegend[*Screen](), []keys.LegendRow[*Screen]{
 		{
-			Of:   []keys.ID{keys.FilterOpen},
-			Desc: keys.FilterDescOf[*Screen](in),
+			ActionIDs: []keys.ID{keys.FilterOpen},
+			Desc:      keys.FilterDescOf[*Screen](in),
 		},
 		{
-			Of:    []keys.ID{keys.FilterClear},
-			Desc:  keys.FilterClearDescOf[*Screen](in),
-			Strip: true,
+			ActionIDs: []keys.ID{keys.FilterClear},
+			Desc:      keys.FilterClearDescOf[*Screen](in),
+			Strip:     true,
 		},
 		{
-			Of:    []keys.ID{keys.FilterMatch},
-			Desc:  func(*Screen) string { return "next/prev match" },
-			Strip: true,
+			ActionIDs: []keys.ID{keys.FilterMatch},
+			Desc:      func(*Screen) string { return "next/prev match" },
+			Strip:     true,
 		},
 		{
-			Of:    []keys.ID{actionBack},
-			Desc:  func(*Screen) string { return "back" },
-			Strip: true,
+			ActionIDs: []keys.ID{actionBack},
+			Desc:      func(*Screen) string { return "back" },
+			Strip:     true,
 		},
 	})
 }
@@ -117,16 +117,16 @@ func (l *Screen) logActions(in screen.Inputs) keys.Spec[*Screen] {
 			keys.NavPageRow[*Screen](),
 			keys.JumpRow[*Screen](),
 			{
-				Of:   []keys.ID{keys.FilterOpen},
-				Desc: func(*Screen) string { return "filter" },
+				ActionIDs: []keys.ID{keys.FilterOpen},
+				Desc:      func(*Screen) string { return "filter" },
 			},
 			{
-				Of:    []keys.ID{actionCopy},
-				Desc:  func(*Screen) string { return "copy line" },
-				Strip: true,
+				ActionIDs: []keys.ID{actionCopy},
+				Desc:      func(*Screen) string { return "copy line" },
+				Strip:     true,
 			},
 			{
-				Of: []keys.ID{actionBack},
+				ActionIDs: []keys.ID{actionBack},
 				Desc: func(*Screen) string {
 					if l.logFilter.IsStanding() {
 						return "clear filter"

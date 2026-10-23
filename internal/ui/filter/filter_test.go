@@ -65,7 +65,7 @@ func TestFilterQuery(t *testing.T) {
 			state.SetQuery(tt.query)
 
 			assert.Equal(t, tt.wantMatch, state.Pattern().DoesMatch(tt.row))
-			assert.Equal(t, tt.wantBroken, state.Broken)
+			assert.Equal(t, tt.wantBroken, state.IsPatternBroken)
 		})
 	}
 }
@@ -89,7 +89,7 @@ func TestFilterLine(t *testing.T) {
 		},
 		{
 			name:   "an open input takes the accent",
-			filter: filter.State{Typing: true},
+			filter: filter.State{IsTyping: true},
 			want:   paint.Panel.Cursor().Render("/"),
 		},
 		{
@@ -100,8 +100,8 @@ func TestFilterLine(t *testing.T) {
 		{
 			name: "the funnel takes the cursor's colour like the slash",
 			filter: filter.State{
-				Typing: true,
-				Mode:   filter.ModeFilter,
+				IsTyping: true,
+				Mode:     filter.ModeFilter,
 			},
 			want:       paint.Panel.Cursor().Render("▽"),
 			wantAbsent: paint.Panel.Match().Render("▽"),
@@ -122,7 +122,7 @@ func TestFilterLine(t *testing.T) {
 
 // TestReviewSearchIgnoresTab covers the review search having no mode for tab to flip.
 func TestReviewSearchIgnoresTab(t *testing.T) {
-	state := filter.State{Typing: true}
+	state := filter.State{IsTyping: true}
 
 	assert.False(t, state.TakeKey(keys.Press("tab"), nil))
 	assert.Equal(t, filter.ModeSearch, state.Mode)

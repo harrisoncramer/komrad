@@ -77,7 +77,7 @@ func (a *archivedAgents) snapshot(in screen.Inputs, pane list.Pane) view.Snapsho
 		tasks:        in.Listing.Tasks,
 		renaming:     a.renamingField(),
 		showHidden:   true,
-		flat:         a.sort.Flat,
+		flat:         a.sort.AreHeadingsOff,
 		pane:         pane.Width,
 	})
 }

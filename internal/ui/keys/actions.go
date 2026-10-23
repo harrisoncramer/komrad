@@ -68,11 +68,11 @@ func Directly[S any](reason string, run func(S, string) screen.Request) *direct[
 
 // LegendRow is one row of a screen's legend.
 type LegendRow[S any] struct {
-	Of    []ID
-	Desc  func(S) string
-	Show  func(S) bool
-	Label func(config.Keybindings) string
-	Strip bool
+	ActionIDs []ID
+	Desc      func(S) string
+	Show      func(S) bool
+	Label     func(config.Keybindings) string
+	Strip     bool
 }
 
 // Spec is a screen's keys, ordered twice: the table in precedence order, the dispatch order, and
@@ -85,9 +85,9 @@ type Spec[S any] struct {
 // Arm is one arm of the order a press is offered to, described for the error it would be named
 // in and guarded where it answers only some of the presses that reach it.
 type Arm struct {
-	Describe string
-	Keys     []string
-	Guarded  bool
+	Describe  string
+	Keys      []string
+	IsGuarded bool
 }
 
 // Table is a screen's table as the keybinding check walks it.
@@ -141,7 +141,7 @@ func (s Spec[S]) isRowShown(state S, row LegendRow[S]) bool {
 	}
 
 	return slices.ContainsFunc(s.Table, func(a Action[S]) bool {
-		return slices.Contains(row.Of, a.ID) && (a.When == nil || a.When(state))
+		return slices.Contains(row.ActionIDs, a.ID) && (a.When == nil || a.When(state))
 	})
 }
 
@@ -150,7 +150,7 @@ func (s Spec[S]) isRowShown(state S, row LegendRow[S]) bool {
 func (s Spec[S]) rowBinding(state S, bindings config.Keybindings, row LegendRow[S]) key.Binding {
 	var keys, heads []string
 
-	for _, id := range row.Of {
+	for _, id := range row.ActionIDs {
 		a, ok := s.answeringActionOf(state, id)
 		if !ok {
 			continue
@@ -162,7 +162,7 @@ func (s Spec[S]) rowBinding(state S, bindings config.Keybindings, row LegendRow[
 	}
 
 	label := strings.Join(heads, "/")
-	if len(row.Of) == 1 {
+	if len(row.ActionIDs) == 1 {
 		label = Label(keys)
 	}
 
@@ -198,9 +198,9 @@ func (s Spec[S]) actionOf(id ID) (Action[S], bool) {
 func (s Spec[S]) Arms(bindings config.Keybindings) []Arm {
 	return xslice.Map(s.Table, func(a Action[S]) Arm {
 		return Arm{
-			Describe: "an action of the screen's own",
-			Keys:     a.Keys(bindings),
-			Guarded:  a.When != nil,
+			Describe:  "an action of the screen's own",
+			Keys:      a.Keys(bindings),
+			IsGuarded: a.When != nil,
 		}
 	})
 }

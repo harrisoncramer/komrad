@@ -15,7 +15,7 @@ import (
 // the last key said.
 func (m *model) docHead(in screen.Inputs, rows []string, width int) []string {
 	r := m.reading
-	if !in.Room.Doc.Focused && !r.filter.Typing && !r.filter.IsStanding() {
+	if !in.Room.Doc.Focused && !r.filter.IsTyping && !r.filter.IsStanding() {
 		return nil
 	}
 
@@ -24,7 +24,7 @@ func (m *model) docHead(in screen.Inputs, rows []string, width int) []string {
 		count = paint.Panel.Style(paint.ToneMuted).Render("  " + reader.Count(reader.Matches(r.filter.Matcher, rows), r.Line))
 	}
 
-	return r.filter.Head(filter.HeadParams{Glyphs: m.glyphs, Marks: in.Room.Marks, Count: count, Said: r.said, Width: width})
+	return r.filter.Head(filter.HeadParams{Glyphs: m.glyphs, ShouldMarkZones: in.Room.Marks, MatchCount: count, SaidText: r.said, Width: width})
 }
 
 // docBlock is the document at the width of the block beside the list, under the search over it,

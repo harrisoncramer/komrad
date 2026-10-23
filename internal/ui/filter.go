@@ -49,7 +49,7 @@ func (m *model) beginFilter() {
 	search := &m.filter
 	search.Open(opts...)
 	search.OpenedIn = m.keyholder(m.inputs())
-	search.Origin = origin
+	search.OriginRow = origin
 	m.placeFilteredCursor(origin)
 }
 
@@ -94,9 +94,9 @@ func (m *model) leaveScreen() tea.Cmd {
 // the keys have since moved to the other section.
 func (m *model) clearFilter() {
 	search := &m.filter
-	origin, openedIn := search.Origin, search.OpenedIn
+	origin, openedIn := search.OriginRow, search.OpenedIn
 	search.Abandon()
-	search.Origin = ""
+	search.OriginRow = ""
 	if openedIn == m.keyholder(m.inputs()) {
 		m.placeFilteredCursor(origin)
 	}
@@ -131,7 +131,7 @@ func (m *model) updateFilterInput(key tea.KeyPressMsg) tea.Cmd {
 func (m *model) applyFilter() {
 	hovered := m.hoveredFilterKey()
 	found, ok := m.matchAt(0)
-	m.filter.Typing = false
+	m.filter.IsTyping = false
 	if !ok {
 		found = ""
 	}
@@ -140,7 +140,7 @@ func (m *model) applyFilter() {
 	}
 
 	m.placeFilteredCursor(found)
-	m.filter.AppliedAt = m.hoveredFilterKey()
+	m.filter.AppliedAtRow = m.hoveredFilterKey()
 }
 
 // isFilterRowShown reports whether the pane holding the keys still renders a row.

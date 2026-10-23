@@ -73,7 +73,7 @@ type Screen struct {
 func New(deps Deps) Screen {
 	return Screen{
 		deps: deps,
-		sort: tabs.State{Flat: true},
+		sort: tabs.State{AreHeadingsOff: true},
 	}
 }
 

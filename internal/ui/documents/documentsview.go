@@ -193,7 +193,7 @@ func (h *history) head(in screen.Inputs, glyphs glyph.Set, item document, width 
 
 	count := strings.TrimRight(h.pane.RenderMatchCount(h.filter.IsStanding()), "\n")
 
-	return append(rows, h.filter.Head(filter.HeadParams{Glyphs: glyphs, Marks: in.Room.Marks, Count: count, Width: width})...)
+	return append(rows, h.filter.Head(filter.HeadParams{Glyphs: glyphs, ShouldMarkZones: in.Room.Marks, MatchCount: count, Width: width})...)
 }
 
 // notice names the write stepped to, who made it and how long ago.

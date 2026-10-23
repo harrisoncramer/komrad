@@ -41,28 +41,28 @@ func (w *Screen) legend(in screen.Inputs) []keys.LegendRow[*Screen] {
 
 	return slices.Concat(keys.SelectionLegend[*Screen](list, in), []keys.LegendRow[*Screen]{
 		{
-			Of:   []keys.ID{keys.SelectToggle},
-			Desc: func(*Screen) string { return list.ToggleDesc(in) },
-			Show: func(*Screen) bool { return w.holdsARow(in) },
+			ActionIDs: []keys.ID{keys.SelectToggle},
+			Desc:      func(*Screen) string { return list.ToggleDesc(in) },
+			Show:      func(*Screen) bool { return w.holdsARow(in) },
 		},
 		{
-			Of:   []keys.ID{keys.FilterOpen},
-			Desc: keys.FilterDescOf[*Screen](in),
+			ActionIDs: []keys.ID{keys.FilterOpen},
+			Desc:      keys.FilterDescOf[*Screen](in),
 		},
 	}, keys.NavLegend[*Screen](), []keys.LegendRow[*Screen]{
 		{
-			Of:   []keys.ID{actionBack},
-			Desc: func(*Screen) string { return "back" },
+			ActionIDs: []keys.ID{actionBack},
+			Desc:      func(*Screen) string { return "back" },
 		},
 		{
-			Of:    []keys.ID{keys.FilterClear},
-			Desc:  keys.FilterClearDescOf[*Screen](in),
-			Strip: true,
+			ActionIDs: []keys.ID{keys.FilterClear},
+			Desc:      keys.FilterClearDescOf[*Screen](in),
+			Strip:     true,
 		},
 		{
-			Of:    []keys.ID{keys.FilterMatch},
-			Desc:  func(*Screen) string { return "next/prev match" },
-			Strip: true,
+			ActionIDs: []keys.ID{keys.FilterMatch},
+			Desc:      func(*Screen) string { return "next/prev match" },
+			Strip:     true,
 		},
 	})
 }

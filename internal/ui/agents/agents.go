@@ -283,11 +283,11 @@ func hasPane(item panel.AgentRow) bool {
 
 func agentsTabs() tabs.Strip {
 	return tabs.Strip{
-		Title:    "f",
-		Legend:   "sort",
-		Options:  tabs.OptionsOf(agentSorts),
-		Fallback: "created",
-		Grouped:  "workflow",
+		Title:        "f",
+		Legend:       "sort",
+		Options:      tabs.OptionsOf(agentSorts),
+		Fallback:     "created",
+		GroupedLabel: "workflow",
 	}
 }
 

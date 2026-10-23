@@ -30,7 +30,7 @@ func (m *model) shownScreen() shownScreen {
 
 	return shownScreen{
 		screen:            m.screen,
-		agents:            m.agents.Kinds().Lit,
+		agents:            m.agents.Kinds().ChosenStop,
 		schedulesArchived: archived,
 	}
 }

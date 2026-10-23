@@ -46,7 +46,7 @@ func (m *model) listStops() []stop {
 
 func (m *model) enterStop(to stop) tea.Cmd {
 	if to != stopList {
-		m.filter.Typing = false
+		m.filter.IsTyping = false
 	}
 
 	switch to {

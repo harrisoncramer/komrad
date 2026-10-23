@@ -104,8 +104,8 @@ func (r *Screen) legend(in screen.Inputs) []keys.LegendRow[*Screen] {
 		keys.NavPageRow[*Screen](),
 		keys.DiffFileRow[*Screen](),
 		{
-			Of:   []keys.ID{actionThread, actionOpenThread},
-			Desc: func(*Screen) string { return r.diff.threadStepDesc() },
+			ActionIDs: []keys.ID{actionThread, actionOpenThread},
+			Desc:      func(*Screen) string { return r.diff.threadStepDesc() },
 			Label: func(k config.Keybindings) string {
 				return keys.HeadLabel(k.Review.NextThread) + "/" + keys.HeadLabel(k.Review.PrevThread) +
 					"/" + keys.HeadLabel(k.Review.NextOpenThread) + "/" + keys.HeadLabel(k.Review.PrevOpenThread)
@@ -116,18 +116,18 @@ func (r *Screen) legend(in screen.Inputs) []keys.LegendRow[*Screen] {
 		keys.DiffPanRow[*Screen](),
 		keys.JumpRow[*Screen](),
 		{
-			Of:   []keys.ID{actionBase},
-			Desc: func(*Screen) string { return "an earlier review" },
-			Show: fitsBase,
+			ActionIDs: []keys.ID{actionBase},
+			Desc:      func(*Screen) string { return "an earlier review" },
+			Show:      fitsBase,
 		},
 		{
-			Of:   []keys.ID{actionBaseForward},
-			Desc: func(*Screen) string { return "a later review" },
-			Show: fitsBase,
+			ActionIDs: []keys.ID{actionBaseForward},
+			Desc:      func(*Screen) string { return "a later review" },
+			Show:      fitsBase,
 		},
 		{
-			Of:   []keys.ID{actionBack},
-			Desc: func(*Screen) string { return r.diffBackDesc(in) },
+			ActionIDs: []keys.ID{actionBack},
+			Desc:      func(*Screen) string { return r.diffBackDesc(in) },
 		},
 	}
 }
@@ -217,8 +217,8 @@ func (r *Screen) filesActions(in screen.Inputs) keys.Spec[*Screen] {
 			keys.JumpRow[*Screen](),
 			keys.DiffFileRow[*Screen](),
 			{
-				Of:   []keys.ID{actionFolder},
-				Desc: func(*Screen) string { return r.folderDesc() },
+				ActionIDs: []keys.ID{actionFolder},
+				Desc:      func(*Screen) string { return r.folderDesc() },
 				Show: func(*Screen) bool {
 					_, ok := r.readCurrentFolder()
 
@@ -226,22 +226,22 @@ func (r *Screen) filesActions(in screen.Inputs) keys.Spec[*Screen] {
 				},
 			},
 			{
-				Of:   []keys.ID{keys.FilterOpen},
-				Desc: func(*Screen) string { return r.filesFilter.OpenDesc() },
+				ActionIDs: []keys.ID{keys.FilterOpen},
+				Desc:      func(*Screen) string { return r.filesFilter.OpenDesc() },
 			},
 			{
-				Of:   []keys.ID{keys.FilterMatch},
-				Desc: func(*Screen) string { return "next/prev match" },
+				ActionIDs: []keys.ID{keys.FilterMatch},
+				Desc:      func(*Screen) string { return "next/prev match" },
 			},
 			{
-				Of:   []keys.ID{keys.FilterClear},
-				Desc: func(*Screen) string { return r.filesFilter.ClearDesc() },
+				ActionIDs: []keys.ID{keys.FilterClear},
+				Desc:      func(*Screen) string { return r.filesFilter.ClearDesc() },
 			},
 			{
-				Of:    []keys.ID{actionBack},
-				Desc:  func(*Screen) string { return r.backDesc() },
-				Show:  func(*Screen) bool { return !r.filesFilter.IsStanding() },
-				Strip: true,
+				ActionIDs: []keys.ID{actionBack},
+				Desc:      func(*Screen) string { return r.backDesc() },
+				Show:      func(*Screen) bool { return !r.filesFilter.IsStanding() },
+				Strip:     true,
 			},
 		},
 	}
@@ -274,14 +274,14 @@ func (r *Screen) sideActions(in screen.Inputs) keys.Spec[*Screen] {
 			keys.NavPageRow[*Screen](),
 			keys.JumpRow[*Screen](),
 			{
-				Of:   []keys.ID{actionSide},
-				Desc: func(*Screen) string { return r.chooseDesc(in) },
-				Show: func(*Screen) bool { return r.chooseDesc(in) != "" },
+				ActionIDs: []keys.ID{actionSide},
+				Desc:      func(*Screen) string { return r.chooseDesc(in) },
+				Show:      func(*Screen) bool { return r.chooseDesc(in) != "" },
 			},
 			{
-				Of:    []keys.ID{actionBack},
-				Desc:  func(*Screen) string { return r.backDesc() },
-				Strip: true,
+				ActionIDs: []keys.ID{actionBack},
+				Desc:      func(*Screen) string { return r.backDesc() },
+				Strip:     true,
 			},
 		},
 	}

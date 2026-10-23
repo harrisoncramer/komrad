@@ -355,7 +355,7 @@ func (r *Screen) updateFilesFilter(in screen.Inputs, key tea.KeyPressMsg) screen
 
 		return nil
 	case "enter":
-		search.Typing = false
+		search.IsTyping = false
 
 		return r.settleFilesFilter(in)
 	}

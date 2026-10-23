@@ -95,7 +95,7 @@ func (l *Screen) block(in screen.Inputs, width int) []string {
 
 // logFilterLine is the prompt at the foot of the log, gray while it does not hold the keys.
 func (l *Screen) logFilterLine(glyphs glyph.Set) string {
-	if l.logFilter.Typing {
+	if l.logFilter.IsTyping {
 		return l.logFilter.Line(glyphs)
 	}
 

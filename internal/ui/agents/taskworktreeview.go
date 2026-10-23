@@ -19,7 +19,7 @@ func taskDetailsTags(inspections map[string]panel.WorktreeInspection, task panel
 
 // buildWorktreeStateTags is what is uncommitted, unpushed and unpulled in the directory.
 func buildWorktreeStateTags(read panel.WorktreeInspection) []string {
-	if !read.IsRead() || !read.Item.Readable {
+	if !read.IsRead() || !read.Worktree.Readable {
 		return nil
 	}
 
@@ -32,13 +32,13 @@ func buildWorktreeStateTags(read panel.WorktreeInspection) []string {
 		parts = append(parts, warning.Render(label.Count(n, "untracked", "untracked")))
 	}
 	switch {
-	case read.Item.Branch == "":
-	case !read.Pushed && (read.BaseRef == "" || read.Ahead > 0):
+	case read.Worktree.Branch == "":
+	case !read.IsPushed && (read.BaseRef == "" || read.Ahead > 0):
 		parts = append(parts, warning.Render("not pushed"))
-	case read.Pushed && read.Unpushed > 0 && (read.Ahead > 0 || !read.UnpulledLanded):
+	case read.IsPushed && read.Unpushed > 0 && (read.Ahead > 0 || !read.AreUnpulledLanded):
 		parts = append(parts, warning.Render(fmt.Sprintf("%s%d unpushed", glyph.Up, read.Unpushed)))
 	}
-	if read.Pushed && read.Unpulled > 0 && !read.UnpulledLanded {
+	if read.IsPushed && read.Unpulled > 0 && !read.AreUnpulledLanded {
 		parts = append(parts, warning.Render(fmt.Sprintf("%s%d unpulled", glyph.Down, read.Unpulled)))
 	}
 

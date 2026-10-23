@@ -43,34 +43,34 @@ func (a Archive) legend(in screen.Inputs) []keys.LegendRow[Archive] {
 
 	return slices.Concat(keys.SelectionLegend[Archive](list, in), []keys.LegendRow[Archive]{
 		{
-			Of:    []keys.ID{actionArchiveRename},
-			Desc:  func(Archive) string { return "rename" },
-			Show:  func(Archive) bool { return a.holdsARenameable(in) },
-			Strip: true,
+			ActionIDs: []keys.ID{actionArchiveRename},
+			Desc:      func(Archive) string { return "rename" },
+			Show:      func(Archive) bool { return a.holdsARenameable(in) },
+			Strip:     true,
 		},
 		{
-			Of:   []keys.ID{keys.SelectToggle},
-			Desc: func(Archive) string { return list.ToggleDesc(in) },
-			Show: func(Archive) bool { return a.holdsAChoosable(in) },
+			ActionIDs: []keys.ID{keys.SelectToggle},
+			Desc:      func(Archive) string { return list.ToggleDesc(in) },
+			Show:      func(Archive) bool { return a.holdsAChoosable(in) },
 		},
 		{
-			Of:   []keys.ID{keys.FilterOpen},
-			Desc: keys.FilterDescOf[Archive](in),
+			ActionIDs: []keys.ID{keys.FilterOpen},
+			Desc:      keys.FilterDescOf[Archive](in),
 		},
 	}, keys.NavLegend[Archive](), []keys.LegendRow[Archive]{
 		{
-			Of:   []keys.ID{actionArchiveBack},
-			Desc: func(Archive) string { return "back" },
+			ActionIDs: []keys.ID{actionArchiveBack},
+			Desc:      func(Archive) string { return "back" },
 		},
 		{
-			Of:    []keys.ID{keys.FilterClear},
-			Desc:  keys.FilterClearDescOf[Archive](in),
-			Strip: true,
+			ActionIDs: []keys.ID{keys.FilterClear},
+			Desc:      keys.FilterClearDescOf[Archive](in),
+			Strip:     true,
 		},
 		{
-			Of:    []keys.ID{keys.FilterMatch},
-			Desc:  func(Archive) string { return "next/prev match" },
-			Strip: true,
+			ActionIDs: []keys.ID{keys.FilterMatch},
+			Desc:      func(Archive) string { return "next/prev match" },
+			Strip:     true,
 		},
 	})
 }

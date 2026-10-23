@@ -188,7 +188,7 @@ func (m *model) route(msg tea.Msg) tea.Cmd {
 		return m.form.update(m, m.formSizeOf(msg))
 	}
 
-	if paste, ok := msg.(tea.PasteMsg); ok && m.filter.Typing {
+	if paste, ok := msg.(tea.PasteMsg); ok && m.filter.IsTyping {
 		m.filter.Input.Take(paste, m.register)
 		m.filter.Compile()
 
@@ -208,11 +208,11 @@ func (m *model) route(msg tea.Msg) tea.Cmd {
 		m.closeViews()
 	}
 
-	if m.filter.Typing {
+	if m.filter.IsTyping {
 		return m.updateFilterInput(key)
 	}
 
-	if m.reading.filter.Typing && m.isDocReadable(m.inputs()) {
+	if m.reading.filter.IsTyping && m.isDocReadable(m.inputs()) {
 		return m.updateDocFilter(key)
 	}
 
@@ -461,7 +461,7 @@ func (m *model) isTyping() bool {
 }
 
 func (m *model) isSearchTyping() bool {
-	if m.filter.Typing || (m.reading.filter.Typing && m.isDocReadable(m.inputs())) {
+	if m.filter.IsTyping || (m.reading.filter.IsTyping && m.isDocReadable(m.inputs())) {
 		return true
 	}
 

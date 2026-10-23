@@ -41,7 +41,7 @@ func (m *model) saysCmd() tea.Cmd {
 func (m *model) applySaysSettled(msg saysSettledMsg) tea.Cmd {
 	said := m.filter.Pattern().Said
 	grammar, reads := m.filter.Grammar()
-	if msg.text != said.Text || !said.Waiting || !reads {
+	if msg.text != said.Text || !said.IsWaiting || !reads {
 		return nil
 	}
 
@@ -67,12 +67,12 @@ func (m *model) applySaysFound(msg saysFoundMsg) {
 	}
 
 	m.reconcileSolo()
-	if search.Typing {
+	if search.IsTyping {
 		return
 	}
 
 	hovered := m.hoveredFilterKey()
-	if hovered != search.AppliedAt && (!search.Pattern().IsNarrowing() || m.isFilterRowShown(hovered)) {
+	if hovered != search.AppliedAtRow && (!search.Pattern().IsNarrowing() || m.isFilterRowShown(hovered)) {
 		return
 	}
 

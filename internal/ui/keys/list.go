@@ -147,7 +147,7 @@ func (l ScreenList[T]) ToggleDesc(in screen.Inputs) string {
 	hovered, _ := list.At(l.Refs(l.Rows(in)), c.Row)
 
 	switch {
-	case hovered.Header:
+	case hovered.IsHeader:
 		return "select " + l.Header
 	case c.Selected.Has(hovered.Key):
 		return "deselect"
@@ -181,28 +181,28 @@ func SelectionLegend[S any, T list.Keyed](l ScreenList[T], in screen.Inputs) []L
 
 	return []LegendRow[S]{
 		{
-			Of:    []ID{SelectToggle},
-			Desc:  func(S) string { return l.ToggleDesc(in) },
-			Show:  selecting,
-			Strip: true,
+			ActionIDs: []ID{SelectToggle},
+			Desc:      func(S) string { return l.ToggleDesc(in) },
+			Show:      selecting,
+			Strip:     true,
 		},
 		{
-			Of:   []ID{selectRange},
-			Desc: func(S) string { return "select to nearest" },
-			Show: selecting,
+			ActionIDs: []ID{selectRange},
+			Desc:      func(S) string { return "select to nearest" },
+			Show:      selecting,
 		},
 		{
-			Of:    []ID{selectClear},
-			Desc:  func(S) string { return l.clearDesc() },
-			Show:  selecting,
-			Strip: true,
+			ActionIDs: []ID{selectClear},
+			Desc:      func(S) string { return l.clearDesc() },
+			Show:      selecting,
+			Strip:     true,
 		},
 	}
 }
 
 // FilterDescOf names the filter key by the search standing in the list.
 func FilterDescOf[S any](in screen.Inputs) func(S) string {
-	return func(S) string { return filter.PatternMode(in.Room.Pattern).OpenDesc(in.Room.Pattern.Typed) }
+	return func(S) string { return filter.PatternMode(in.Room.Pattern).OpenDesc(in.Room.Pattern.Prompt) }
 }
 
 // FilterClearDescOf names the key that clears the search standing.

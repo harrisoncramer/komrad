@@ -262,7 +262,7 @@ func validateArms(s screen.ID, arms []keys.Arm) error {
 					s, key, taken.describe, arm.Describe, taken.describe)
 			}
 
-			if !arm.Guarded {
+			if !arm.IsGuarded {
 				answered[key] = shadow{describe: arm.Describe, at: at}
 			}
 		}
