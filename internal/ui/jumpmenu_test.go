@@ -68,7 +68,7 @@ func TestWorktreesJump(t *testing.T) {
 func TestDocumentsJump(t *testing.T) {
 	t.Parallel()
 
-	everyDocument := func(t *testing.T, documents []*agentv1.Document) *paneltest.Panel {
+	openEvery := func(t *testing.T, documents []*agentv1.Document) *paneltest.Panel {
 		t.Helper()
 
 		harness := paneltest.OpenAgents(t, buildSubpagesAgents()...)
@@ -87,7 +87,7 @@ func TestDocumentsJump(t *testing.T) {
 	}{
 		{
 			name: "the jump menu lands on the task the hovered document belongs to",
-			open: func(t *testing.T) *paneltest.Panel { return everyDocument(t, buildAuthorDocuments()) },
+			open: func(t *testing.T) *paneltest.Panel { return openEvery(t, buildAuthorDocuments()) },
 			jump: "t",
 		},
 		{
@@ -98,7 +98,7 @@ func TestDocumentsJump(t *testing.T) {
 					document.TaskId = nil
 				}
 
-				return everyDocument(t, documents)
+				return openEvery(t, documents)
 			},
 			jump: "a",
 		},
