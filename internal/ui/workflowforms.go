@@ -392,7 +392,6 @@ func hookFields(values *workflowFormValues, available []string) []huh.Field {
 	return fields
 }
 
-// hookKey is the form key of one moment's hook.
 func hookKey(moment eventv1.Moment) string {
 	return "hook." + protoenum.Name(moment)
 }

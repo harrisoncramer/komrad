@@ -78,7 +78,6 @@ func (s *WorkflowStore) eventPromptsForWorkflows(ctx context.Context, ids []uuid
 	return prompts, nil
 }
 
-// eventPromptFromRow reads a stored prompt.
 func eventPromptFromRow(event, prompt string, muted bool) (*EventPrompt, error) {
 	parsed, err := protoenum.Parse[eventv1.Event](event)
 	if err != nil {

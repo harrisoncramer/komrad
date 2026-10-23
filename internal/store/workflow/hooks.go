@@ -86,7 +86,6 @@ func (s *WorkflowStore) hooksForWorkflows(ctx context.Context, ids []uuid.UUID) 
 	return hooks, nil
 }
 
-// hookFromRow reads a stored hook, failing on a moment komrad runs no hook at.
 func hookFromRow(event, script string) (*Hook, error) {
 	moment, err := protoenum.Parse[eventv1.Moment](event)
 	if err != nil {
