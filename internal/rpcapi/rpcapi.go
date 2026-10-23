@@ -203,7 +203,7 @@ func ServesRole(surfaces *annotationv1.Surfaces, role annotationv1.Role) bool {
 // EnumNames returns the spellings of the enum values the field accepts where a caller has to name one, leaving
 // out the zero value the field already holds.
 func EnumNames(field protoreflect.FieldDescriptor) []string {
-	return xslice.Map(protoenum.AcceptedValues(field), protoenum.NameOf)
+	return xslice.Map(protoenum.AcceptedOf(field), protoenum.NameOf)
 }
 
 // IsTimestamp reports whether the field holds a google.protobuf.Timestamp.
@@ -228,8 +228,7 @@ func IsRequired(field protoreflect.FieldDescriptor) bool {
 		return true
 	}
 
-	enum := rules.GetEnum()
-	if slices.Contains(enum.GetNotIn(), 0) || len(enum.GetIn()) > 0 && !slices.Contains(enum.GetIn(), 0) {
+	if field.Kind() == protoreflect.EnumKind && !field.IsList() && !protoenum.IsAccepted(field, 0) {
 		return true
 	}
 

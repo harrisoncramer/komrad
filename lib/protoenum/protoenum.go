@@ -121,26 +121,21 @@ func ParseAll[T enum](names []string) ([]T, error) {
 
 // Accepted is each declared value of T but its zero that the field's validation rules accept.
 func Accepted[T enum](field protoreflect.FieldDescriptor) []T {
-	accepted := AcceptedValues(field)
-	values := make([]T, len(accepted))
-	for i, value := range accepted {
-		values[i] = T(value.Number())
-	}
-
-	return values
+	return xslice.Map(AcceptedOf(field), func(value protoreflect.EnumValueDescriptor) T {
+		return T(value.Number())
+	})
 }
 
-// AcceptedValues is each declared value of the field's enum but its zero that the field's validation rules accept.
-func AcceptedValues(field protoreflect.FieldDescriptor) []protoreflect.EnumValueDescriptor {
-	rules := enumRules(field)
-
+// AcceptedOf is each declared value of the field's enum but its zero that the field's validation rules accept.
+func AcceptedOf(field protoreflect.FieldDescriptor) []protoreflect.EnumValueDescriptor {
 	return slices.DeleteFunc(ValuesOf(field.Enum()), func(value protoreflect.EnumValueDescriptor) bool {
-		number := int32(value.Number())
-
-		return slices.Contains(rules.GetNotIn(), number) ||
-			len(rules.GetIn()) > 0 && !slices.Contains(rules.GetIn(), number) ||
-			rules.HasConst() && rules.GetConst() != number
+		return !IsAccepted(field, value.Number())
 	})
+}
+
+// IsAccepted reports whether the field's validation rules accept the enum number.
+func IsAccepted(field protoreflect.FieldDescriptor, number protoreflect.EnumNumber) bool {
+	return !slices.Contains(enumRules(field).GetNotIn(), int32(number))
 }
 
 func enumRules(field protoreflect.FieldDescriptor) *validate.EnumRules {
