@@ -12,8 +12,7 @@
 // Edition 2026 needs release candidates today. google.golang.org/protobuf v1.37.0-rc.1 is the
 // first Go release that reads the option, in protojson and in the generated code. protoc-gen-go
 // is pinned to the same release in mise.toml, and buf 1.75.0 is the first buf that compiles
-// Edition 2026. komrad adopted the release candidates rather than wait for the final releases,
-// because the alternative is the hand-kept lists this file replaced.
+// Edition 2026.
 //
 // protoc-gen-connect-go does not support Edition 2026 yet, so it runs from buf.gen.connect.yaml,
 // which leaves this file out. That template says how to fold it back once connect catches up.
