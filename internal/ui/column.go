@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/column"
+	"komrad/internal/ui/reader"
 	"komrad/internal/ui/screen"
 )
 
@@ -260,18 +261,18 @@ type docNamer interface {
 }
 
 // columnDoc is the document the block is rendered from, read where the reader left it.
-func (m *model) columnDoc(in screen.Inputs, split column.Split) docWindow {
+func (m *model) columnDoc(in screen.Inputs, split column.Split) reader.Page {
 	if in.Room.MessagesFocused {
 		return m.renderMessagesWindow(split.Column, split.Rows)
 	}
 
 	if m.isDocReadable(in) {
-		return docWindow{rows: m.docBlock(in, split)}
+		return reader.Page{Rows: m.docBlock(in, split)}
 	}
 
-	return docWindow{
-		rows:    m.columnRows(in, split),
-		markers: true,
+	return reader.Page{
+		Rows:    m.columnRows(in, split),
+		Markers: true,
 	}
 }
 

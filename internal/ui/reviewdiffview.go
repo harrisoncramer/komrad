@@ -8,6 +8,7 @@ import (
 	"komrad/internal/ui/layout"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/reader"
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/zone"
 
@@ -94,7 +95,7 @@ func (r reviewScreen) diffView(in screen.Inputs, split column.Split) string {
 		// This is the larger half of the window, so it says what is being waited on rather than
 		// standing empty under a band, and stands rather than collapsing so the frame does not
 		// shift under the reader when the patch lands.
-		return docWindow{rows: paint.DocStyledRows(r.diffNotice(in), split.Column, reviewColumnStyle())}.view(split.Rows)
+		return reader.Page{Rows: paint.DocStyledRows(r.diffNotice(in), split.Column, reviewColumnStyle())}.View(split.Rows)
 	}
 
 	held := diffview.LiveCursor

@@ -9,6 +9,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/reader"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 
@@ -49,7 +50,7 @@ func (m *model) renderMessagesTally() string {
 	return tally + "  " + paint.Panel.Style(paint.ToneMuted).Render(keys.HeadLabel(m.keys.Messages.Open))
 }
 
-func (m *model) renderMessagesWindow(width, rows int) docWindow {
+func (m *model) renderMessagesWindow(width, rows int) reader.Page {
 	body := max(width-messagesBodyIndent, 1)
 	count := len(m.messages.items)
 	at := m.messages.clampedCursor()
@@ -78,10 +79,10 @@ func (m *model) renderMessagesWindow(width, rows int) docWindow {
 		}
 	}
 
-	doc := docWindow{rows: rendered, markers: true}
-	shape := doc.shape()
+	doc := reader.Page{Rows: rendered, Markers: true}
+	shape := doc.Shape()
 	shape.Top = shape.Reveal(max(end-1, 0), rows)
-	doc.top = shape.Reveal(start, rows)
+	doc.Top = shape.Reveal(start, rows)
 
 	return doc
 }

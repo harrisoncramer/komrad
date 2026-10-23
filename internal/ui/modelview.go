@@ -119,7 +119,7 @@ func (m *model) screenView() string {
 
 	split := m.inputs().Room.Column
 	if !split.On && m.isMessagesFocused() {
-		return m.renderMessagesWindow(m.term.width, m.term.height).view(m.term.height)
+		return m.renderMessagesWindow(m.term.width, m.term.height).View(m.term.height)
 	}
 	if !split.On {
 		return m.Form()
