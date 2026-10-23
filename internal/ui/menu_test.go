@@ -312,7 +312,11 @@ func openForgeMenu(t *testing.T) *paneltest.Panel {
 	task.Branch = xptr.Ptr("agent/auth")
 	task.Cwd = xptr.Ptr("/trees/auth")
 	harness := paneltest.OpenAgents(t,
-		&workflowv1.Workflow{Id: "w1", Name: "backend", Worktree: &workflowv1.WorktreeConfig{Enabled: true}},
+		&workflowv1.Workflow{
+			Id:       "w1",
+			Name:     "backend",
+			Worktree: &workflowv1.WorktreeConfig{Enabled: true},
+		},
 		agent,
 		task,
 		&pullrequestv1.PullRequest{

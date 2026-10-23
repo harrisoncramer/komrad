@@ -42,11 +42,6 @@ func TestReadText(t *testing.T) {
 		wantErr  error
 	}{
 		{
-			name:     "a merge request the credential may change",
-			answers:  map[string]answer{"EditTarget": editTargetAnswer(true)},
-			wantText: &forge.Text{Title: "fix the sync", Body: "The sync read twice."},
-		},
-		{
 			name:    "a merge request the credential may not change",
 			answers: map[string]answer{"EditTarget": editTargetAnswer(false)},
 			wantErr: forge.ErrNotEditable,
@@ -61,6 +56,11 @@ func TestReadText(t *testing.T) {
 	}
 }`}},
 			wantErr: forge.ErrNotFound,
+		},
+		{
+			name:     "a merge request the credential may change",
+			answers:  map[string]answer{"EditTarget": editTargetAnswer(true)},
+			wantText: &forge.Text{Title: "fix the sync", Body: "The sync read twice."},
 		},
 	}
 
@@ -104,31 +104,22 @@ func TestEdit(t *testing.T) {
 		wantVariables map[string]any
 	}{
 		{
-			name:          "a new title alone",
-			params:        forge.EditParams{URL: editAddress, EditedFrom: read, Title: xptr.Ptr("fix(sync): read once")},
-			answers:       map[string]answer{"EditTarget": editTargetAnswer(true), "UpdateMergeRequest": updated},
-			wantVariables: map[string]any{"path": "harrisoncramer/komrad", "iid": "7", "title": "fix(sync): read once"},
-		},
-		{
-			name:          "a new description alone",
-			params:        forge.EditParams{URL: editAddress, EditedFrom: read, Body: xptr.Ptr("It reads once.")},
-			answers:       map[string]answer{"EditTarget": editTargetAnswer(true), "UpdateMergeRequest": updated},
-			wantVariables: map[string]any{"path": "harrisoncramer/komrad", "iid": "7", "description": "It reads once."},
-		},
-		{
-			name:    "the text gitlab already holds",
-			params:  forge.EditParams{URL: editAddress, EditedFrom: read, Body: xptr.Ptr(read.Body)},
-			answers: map[string]answer{"EditTarget": editTargetAnswer(true)},
-		},
-		{
-			name:    "a merge request the credential may not change",
-			params:  forge.EditParams{URL: editAddress, EditedFrom: read, Title: xptr.Ptr("fix(sync): read once")},
+			name: "a merge request the credential may not change",
+			params: forge.EditParams{
+				URL:        editAddress,
+				EditedFrom: read,
+				Title:      xptr.Ptr("fix(sync): read once"),
+			},
 			answers: map[string]answer{"EditTarget": editTargetAnswer(false)},
 			wantErr: forge.ErrNotEditable,
 		},
 		{
-			name:   "a title gitlab will not take",
-			params: forge.EditParams{URL: editAddress, EditedFrom: read, Title: xptr.Ptr("fix(sync): read once")},
+			name: "a title gitlab will not take",
+			params: forge.EditParams{
+				URL:        editAddress,
+				EditedFrom: read,
+				Title:      xptr.Ptr("fix(sync): read once"),
+			},
 			answers: map[string]answer{
 				"EditTarget": editTargetAnswer(true),
 				"UpdateMergeRequest": {body: `{
@@ -143,6 +134,35 @@ func TestEdit(t *testing.T) {
 			},
 			wantErr:       forge.ErrNotEditable,
 			wantVariables: map[string]any{"path": "harrisoncramer/komrad", "iid": "7", "title": "fix(sync): read once"},
+		},
+		{
+			name: "the text gitlab already holds",
+			params: forge.EditParams{
+				URL:        editAddress,
+				EditedFrom: read,
+				Body:       xptr.Ptr(read.Body),
+			},
+			answers: map[string]answer{"EditTarget": editTargetAnswer(true)},
+		},
+		{
+			name: "a new title alone",
+			params: forge.EditParams{
+				URL:        editAddress,
+				EditedFrom: read,
+				Title:      xptr.Ptr("fix(sync): read once"),
+			},
+			answers:       map[string]answer{"EditTarget": editTargetAnswer(true), "UpdateMergeRequest": updated},
+			wantVariables: map[string]any{"path": "harrisoncramer/komrad", "iid": "7", "title": "fix(sync): read once"},
+		},
+		{
+			name: "a new description alone",
+			params: forge.EditParams{
+				URL:        editAddress,
+				EditedFrom: read,
+				Body:       xptr.Ptr("It reads once."),
+			},
+			answers:       map[string]answer{"EditTarget": editTargetAnswer(true), "UpdateMergeRequest": updated},
+			wantVariables: map[string]any{"path": "harrisoncramer/komrad", "iid": "7", "description": "It reads once."},
 		},
 	}
 

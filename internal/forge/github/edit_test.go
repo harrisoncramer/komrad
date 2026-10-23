@@ -38,11 +38,6 @@ func TestReadText(t *testing.T) {
 		wantErr  error
 	}{
 		{
-			name:     "a pull request the credential may change, with the browser's line endings dropped",
-			answers:  map[string]answer{"EditTarget": editTargetAnswer(true)},
-			wantText: &forge.Text{Title: "fix the sync", Body: "The sync read twice.\nIt reads once."},
-		},
-		{
 			name:    "a pull request the credential may not change",
 			answers: map[string]answer{"EditTarget": editTargetAnswer(false)},
 			wantErr: forge.ErrNotEditable,
@@ -55,6 +50,11 @@ func TestReadText(t *testing.T) {
 	}
 }`)}},
 			wantErr: forge.ErrNotFound,
+		},
+		{
+			name:     "a pull request the credential may change, with the browser's line endings dropped",
+			answers:  map[string]answer{"EditTarget": editTargetAnswer(true)},
+			wantText: &forge.Text{Title: "fix the sync", Body: "The sync read twice.\nIt reads once."},
 		},
 	}
 
@@ -96,31 +96,22 @@ func TestEdit(t *testing.T) {
 		wantVariables map[string]any
 	}{
 		{
-			name:          "a new title alone",
-			params:        forge.EditParams{URL: editAddress, EditedFrom: read, Title: xptr.Ptr("fix(sync): read once")},
-			answers:       map[string]answer{"EditTarget": editTargetAnswer(true), "UpdatePullRequest": updated},
-			wantVariables: map[string]any{"id": "PR_742", "title": "fix(sync): read once"},
-		},
-		{
-			name:          "a new description alone",
-			params:        forge.EditParams{URL: editAddress, EditedFrom: read, Body: xptr.Ptr("It reads once.")},
-			answers:       map[string]answer{"EditTarget": editTargetAnswer(true), "UpdatePullRequest": updated},
-			wantVariables: map[string]any{"id": "PR_742", "body": "It reads once."},
-		},
-		{
-			name:    "the text github already holds",
-			params:  forge.EditParams{URL: editAddress, EditedFrom: read, Title: xptr.Ptr(read.Title)},
-			answers: map[string]answer{"EditTarget": editTargetAnswer(true)},
-		},
-		{
-			name:    "a pull request the credential may not change",
-			params:  forge.EditParams{URL: editAddress, EditedFrom: read, Title: xptr.Ptr("fix(sync): read once")},
+			name: "a pull request the credential may not change",
+			params: forge.EditParams{
+				URL:        editAddress,
+				EditedFrom: read,
+				Title:      xptr.Ptr("fix(sync): read once"),
+			},
 			answers: map[string]answer{"EditTarget": editTargetAnswer(false)},
 			wantErr: forge.ErrNotEditable,
 		},
 		{
-			name:   "a title github will not take",
-			params: forge.EditParams{URL: editAddress, EditedFrom: read, Title: xptr.Ptr("fix(sync): read once")},
+			name: "a title github will not take",
+			params: forge.EditParams{
+				URL:        editAddress,
+				EditedFrom: read,
+				Title:      xptr.Ptr("fix(sync): read once"),
+			},
 			answers: map[string]answer{
 				"EditTarget": editTargetAnswer(true),
 				"UpdatePullRequest": {body: `{
@@ -140,6 +131,35 @@ func TestEdit(t *testing.T) {
 			},
 			wantErr:       forge.ErrNotEditable,
 			wantVariables: map[string]any{"id": "PR_742", "title": "fix(sync): read once"},
+		},
+		{
+			name: "the text github already holds",
+			params: forge.EditParams{
+				URL:        editAddress,
+				EditedFrom: read,
+				Title:      xptr.Ptr(read.Title),
+			},
+			answers: map[string]answer{"EditTarget": editTargetAnswer(true)},
+		},
+		{
+			name: "a new title alone",
+			params: forge.EditParams{
+				URL:        editAddress,
+				EditedFrom: read,
+				Title:      xptr.Ptr("fix(sync): read once"),
+			},
+			answers:       map[string]answer{"EditTarget": editTargetAnswer(true), "UpdatePullRequest": updated},
+			wantVariables: map[string]any{"id": "PR_742", "title": "fix(sync): read once"},
+		},
+		{
+			name: "a new description alone",
+			params: forge.EditParams{
+				URL:        editAddress,
+				EditedFrom: read,
+				Body:       xptr.Ptr("It reads once."),
+			},
+			answers:       map[string]answer{"EditTarget": editTargetAnswer(true), "UpdatePullRequest": updated},
+			wantVariables: map[string]any{"id": "PR_742", "body": "It reads once."},
 		},
 	}
 

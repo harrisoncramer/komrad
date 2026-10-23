@@ -163,14 +163,14 @@ func TestReadForgePullRequestText(t *testing.T) {
 		wantText *forgev1.PullRequestText
 	}{
 		{
-			name:     "an editable pull request",
-			writer:   &fakeWriter{text: forge.Text{Title: "Land the fix", Body: "Merges stop failing."}},
-			wantText: &forgev1.PullRequestText{Title: "Land the fix", Body: "Merges stop failing."},
-		},
-		{
 			name:     "a pull request the credential may not change",
 			writer:   &fakeWriter{err: forge.ErrNotEditable},
 			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name:     "an editable pull request",
+			writer:   &fakeWriter{text: forge.Text{Title: "Land the fix", Body: "Merges stop failing."}},
+			wantText: &forgev1.PullRequestText{Title: "Land the fix", Body: "Merges stop failing."},
 		},
 	}
 
@@ -207,8 +207,27 @@ func TestEditForgePullRequest(t *testing.T) {
 		wantEdited []forge.EditParams
 	}{
 		{
+			name: "text that moved since it was read",
+			req: &forgev1.EditForgePullRequestRequest{
+				Url:        address,
+				EditedFrom: read,
+				Title:      xptr.Ptr("Land the merge fix"),
+			},
+			err:      forge.ErrTextMoved,
+			wantCode: connect.CodeFailedPrecondition,
+			wantEdited: []forge.EditParams{{
+				URL:        address,
+				EditedFrom: forge.Text{Title: "Land the fix", Body: "Merges stop failing."},
+				Title:      xptr.Ptr("Land the merge fix"),
+			}},
+		},
+		{
 			name: "a title alone",
-			req:  &forgev1.EditForgePullRequestRequest{Url: address, EditedFrom: read, Title: xptr.Ptr("Land the merge fix")},
+			req: &forgev1.EditForgePullRequestRequest{
+				Url:        address,
+				EditedFrom: read,
+				Title:      xptr.Ptr("Land the merge fix"),
+			},
 			wantEdited: []forge.EditParams{{
 				URL:        address,
 				EditedFrom: forge.Text{Title: "Land the fix", Body: "Merges stop failing."},
@@ -217,22 +236,15 @@ func TestEditForgePullRequest(t *testing.T) {
 		},
 		{
 			name: "a description cleared",
-			req:  &forgev1.EditForgePullRequestRequest{Url: address, EditedFrom: read, Body: xptr.Ptr("")},
+			req: &forgev1.EditForgePullRequestRequest{
+				Url:        address,
+				EditedFrom: read,
+				Body:       xptr.Ptr(""),
+			},
 			wantEdited: []forge.EditParams{{
 				URL:        address,
 				EditedFrom: forge.Text{Title: "Land the fix", Body: "Merges stop failing."},
 				Body:       xptr.Ptr(""),
-			}},
-		},
-		{
-			name:     "text that moved since it was read",
-			req:      &forgev1.EditForgePullRequestRequest{Url: address, EditedFrom: read, Title: xptr.Ptr("Land the merge fix")},
-			err:      forge.ErrTextMoved,
-			wantCode: connect.CodeFailedPrecondition,
-			wantEdited: []forge.EditParams{{
-				URL:        address,
-				EditedFrom: forge.Text{Title: "Land the fix", Body: "Merges stop failing."},
-				Title:      xptr.Ptr("Land the merge fix"),
 			}},
 		},
 	}

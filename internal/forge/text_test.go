@@ -16,7 +16,12 @@ func TestEditParamsChanges(t *testing.T) {
 	t.Parallel()
 
 	read := Text{Title: "fix the sync", Body: "The sync read twice."}
-	target := TextTarget{Forge: forgev1.Kind_KIND_GITHUB, Ref: "#7", Text: read, CanEdit: true}
+	target := TextTarget{
+		Forge:   forgev1.Kind_KIND_GITHUB,
+		Ref:     "#7",
+		Text:    read,
+		CanEdit: true,
+	}
 
 	tests := []struct {
 		name       string
@@ -25,6 +30,53 @@ func TestEditParamsChanges(t *testing.T) {
 		wantErr    error
 		wantChange bool
 	}{
+		{
+			name: "a credential the forge will not let change the text",
+			target: TextTarget{
+				Forge: forgev1.Kind_KIND_GITHUB,
+				Ref:   "#7",
+				Text:  read,
+			},
+			params:  EditParams{EditedFrom: read, Title: xptr.Ptr("fix(sync): read once")},
+			wantErr: ErrNotEditable,
+		},
+		{
+			name:   "a title that changed on the forge since it was read",
+			target: target,
+			params: EditParams{
+				EditedFrom: Text{Title: "wip", Body: read.Body},
+				Title:      xptr.Ptr("fix(sync): read once"),
+			},
+			wantErr: ErrTextMoved,
+		},
+		{
+			name:   "a description that changed on the forge since it was read",
+			target: target,
+			params: EditParams{
+				EditedFrom: Text{Title: read.Title},
+				Body:       xptr.Ptr("The sync reads once."),
+			},
+			wantErr: ErrTextMoved,
+		},
+		{
+			name:   "the text the forge already holds",
+			target: target,
+			params: EditParams{
+				EditedFrom: read,
+				Title:      xptr.Ptr(read.Title),
+				Body:       xptr.Ptr(read.Body),
+			},
+		},
+		{
+			name: "an edit the forge already holds, made again",
+			target: TextTarget{
+				Forge:   forgev1.Kind_KIND_GITHUB,
+				Ref:     "#7",
+				Text:    Text{Title: "fix(sync): read once", Body: read.Body},
+				CanEdit: true,
+			},
+			params: EditParams{EditedFrom: read, Title: xptr.Ptr("fix(sync): read once")},
+		},
 		{
 			name:       "a new title from the text on the forge",
 			target:     target,
@@ -38,37 +90,12 @@ func TestEditParamsChanges(t *testing.T) {
 			wantChange: true,
 		},
 		{
-			name:   "the text the forge already holds",
+			name:   "a description that changed on the forge, when only the title changes",
 			target: target,
-			params: EditParams{EditedFrom: read, Title: xptr.Ptr(read.Title), Body: xptr.Ptr(read.Body)},
-		},
-		{
-			name:   "an edit the forge already holds, made again",
-			target: TextTarget{Forge: forgev1.Kind_KIND_GITHUB, Ref: "#7", Text: Text{Title: "fix(sync): read once", Body: read.Body}, CanEdit: true},
-			params: EditParams{EditedFrom: read, Title: xptr.Ptr("fix(sync): read once")},
-		},
-		{
-			name:    "a credential the forge will not let change the text",
-			target:  TextTarget{Forge: forgev1.Kind_KIND_GITHUB, Ref: "#7", Text: read},
-			params:  EditParams{EditedFrom: read, Title: xptr.Ptr("fix(sync): read once")},
-			wantErr: ErrNotEditable,
-		},
-		{
-			name:    "a title that changed on the forge since it was read",
-			target:  target,
-			params:  EditParams{EditedFrom: Text{Title: "wip", Body: read.Body}, Title: xptr.Ptr("fix(sync): read once")},
-			wantErr: ErrTextMoved,
-		},
-		{
-			name:    "a description that changed on the forge since it was read",
-			target:  target,
-			params:  EditParams{EditedFrom: Text{Title: read.Title}, Body: xptr.Ptr("The sync reads once.")},
-			wantErr: ErrTextMoved,
-		},
-		{
-			name:       "a description that changed on the forge, when only the title changes",
-			target:     target,
-			params:     EditParams{EditedFrom: Text{Title: read.Title}, Title: xptr.Ptr("fix(sync): read once")},
+			params: EditParams{
+				EditedFrom: Text{Title: read.Title},
+				Title:      xptr.Ptr("fix(sync): read once"),
+			},
 			wantChange: true,
 		},
 	}

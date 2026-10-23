@@ -45,7 +45,11 @@ func (g Menus) readText(task panel.Task) screen.Request {
 
 			return screen.WriteResult{
 				FollowUpReplacesForm: err == nil,
-				FollowUp:             textReadMsg{task: task, text: text, err: err},
+				FollowUp: textReadMsg{
+					task: task,
+					text: text,
+					err:  err,
+				},
 			}
 		},
 	}
