@@ -201,8 +201,8 @@ func TestMerge(t *testing.T) {
 }
 
 // TestMergeabilityFolds covers the detailed merge statuses GitLab documents: one word each for
-// mergeable, checks in the way, behind and conflicting, unknown while GitLab is still working
-// it out or once the merge request has finished, and blocked for every other rule.
+// mergeable, behind and conflicting, unknown while GitLab is still working it out or once the
+// merge request has finished, and blocked for every other rule.
 func TestMergeabilityFolds(t *testing.T) {
 	t.Parallel()
 
@@ -212,8 +212,8 @@ func TestMergeabilityFolds(t *testing.T) {
 		want   pullrequestv1.Mergeability
 	}{
 		{status: "MERGEABLE", want: pullrequestv1.Mergeability_MERGEABILITY_CLEAN},
-		{status: "CI_MUST_PASS", want: pullrequestv1.Mergeability_MERGEABILITY_UNSTABLE},
-		{status: "CI_STILL_RUNNING", want: pullrequestv1.Mergeability_MERGEABILITY_UNSTABLE},
+		{status: "CI_MUST_PASS", want: pullrequestv1.Mergeability_MERGEABILITY_BLOCKED},
+		{status: "CI_STILL_RUNNING", want: pullrequestv1.Mergeability_MERGEABILITY_BLOCKED},
 		{status: "COMMITS_STATUS", want: pullrequestv1.Mergeability_MERGEABILITY_BLOCKED},
 		{status: "NEED_REBASE", want: pullrequestv1.Mergeability_MERGEABILITY_BEHIND},
 		{status: "CONFLICT", want: pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING},

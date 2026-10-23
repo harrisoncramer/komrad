@@ -107,8 +107,6 @@ func (n mergeRequestNode) mergeability() pullrequestv1.Mergeability {
 		return pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN
 	case "MERGEABLE":
 		return pullrequestv1.Mergeability_MERGEABILITY_CLEAN
-	case "CI_MUST_PASS", "CI_STILL_RUNNING":
-		return pullrequestv1.Mergeability_MERGEABILITY_UNSTABLE
 	case "NEED_REBASE":
 		return pullrequestv1.Mergeability_MERGEABILITY_BEHIND
 	case "CONFLICT":

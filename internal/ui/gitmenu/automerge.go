@@ -30,7 +30,7 @@ func autoMergeRefusal(task panel.Task) error {
 	case task.PullRequest.MergeReadiness.AutoMerge:
 		return nil
 	case isDraft(task):
-		return errors.New(task.PullRequest.Describe("is a draft, so mark it ready first"))
+		return draftRefusal(task)
 	case !task.PullRequest.MergeReadiness.AutoMergeable:
 		return errNoAutoMerge
 	}
