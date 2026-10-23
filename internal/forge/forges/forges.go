@@ -1,6 +1,7 @@
 package forges
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,8 +14,8 @@ import (
 	forgev1 "komrad/proto/gen/forge/v1"
 )
 
-// Builders makes the forge for each kind this build knows.
-var Builders = map[forgev1.Kind]forge.Builder{
+// builders makes the forge for each kind this build knows.
+var builders = map[forgev1.Kind]forge.Builder{
 	forgev1.Kind_KIND_GITHUB: github.Build,
 	forgev1.Kind_KIND_GITLAB: gitlab.Build,
 }
@@ -50,4 +51,25 @@ func AppFrom(cfg config.GitHubApp, cachePath string) (forge.App, error) {
 	}
 
 	return forge.App{Cache: githubapp.Cache{Path: cachePath, Identity: identity}}, nil
+}
+
+// ForEngine makes the forge for each kind, sending GitHub's hosts through the forge proxy when
+// the engine names one.
+func ForEngine(proxy config.ForgeProxy) (map[forgev1.Kind]forge.Builder, error) {
+	if !proxy.IsConfigured() {
+		return builders, nil
+	}
+
+	transport, err := github.NewForgeProxyTransport(github.NewForgeProxyTransportParams{
+		ProxyURL: proxy.URL,
+		CAFile:   proxy.CAFile,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	proxied := maps.Clone(builders)
+	proxied[forgev1.Kind_KIND_GITHUB] = github.BuildThrough(transport)
+
+	return proxied, nil
 }

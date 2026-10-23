@@ -129,6 +129,19 @@ func (s *ForgeStore) SetVerifiedAt(ctx context.Context, id uuid.UUID, at *time.T
 	return nil
 }
 
+// SetLogin records who the forge says the credential belongs to, as of at.
+func (s *ForgeStore) SetLogin(ctx context.Context, id uuid.UUID, login string, at time.Time) error {
+	updated, err := s.queries.SetForgeConnectionLogin(ctx, models.SetForgeConnectionLoginParams{ID: id, Login: login, VerifiedAt: &at})
+	if err != nil {
+		return fmt.Errorf("failed to set the login on connection %q: %w", id, err)
+	}
+	if updated == 0 {
+		return store.ErrNotFound.Saying("no connection with id %q", id)
+	}
+
+	return nil
+}
+
 // SetThrottledUntil records when the forge said the credential's rate limit resets, or clears it.
 func (s *ForgeStore) SetThrottledUntil(ctx context.Context, id uuid.UUID, until *time.Time) error {
 	updated, err := s.queries.SetForgeConnectionThrottledUntil(ctx, models.SetForgeConnectionThrottledUntilParams{ID: id, ThrottledUntil: until})

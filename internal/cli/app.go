@@ -26,6 +26,8 @@ type app struct {
 	trustDirs      map[string]bool
 	usage          config.Usage
 	signIn         config.SignIn
+	forgeProxy     config.ForgeProxy
+	controlPlane   config.ControlPlane
 	logLevel       string
 	layout         config.Layout
 	githubApp      config.GitHubApp

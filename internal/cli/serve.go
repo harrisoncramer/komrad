@@ -178,6 +178,7 @@ func serve(ctx context.Context, params serveParams) error {
 		TrustDirs:           state.trustDirs,
 		Usage:               state.usage,
 		SignIn:              state.signIn,
+		ForgeProxy:          state.forgeProxy,
 		ContextPath:         state.contextPath,
 		HookCommand:         getHookBinaryPath(ctx),
 		Doctor:              doctorSettings,

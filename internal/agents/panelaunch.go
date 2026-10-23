@@ -61,6 +61,7 @@ type NewLauncherParams struct {
 	BinPath         string
 	Usage           config.Usage
 	TrustLaunchDirs map[string]bool
+	ForgeProxy      config.ForgeProxy
 }
 
 type Launcher struct {
@@ -72,6 +73,7 @@ type Launcher struct {
 	binPath         string
 	usage           config.Usage
 	trustLaunchDirs map[string]bool
+	forgeProxy      config.ForgeProxy
 }
 
 // NewLauncher builds a launcher that points spawned agents at the given address.
@@ -89,6 +91,7 @@ func NewLauncher(params NewLauncherParams) *Launcher {
 		binPath:         params.BinPath,
 		usage:           params.Usage,
 		trustLaunchDirs: params.TrustLaunchDirs,
+		forgeProxy:      params.ForgeProxy,
 	}
 }
 
@@ -205,7 +208,11 @@ func (l *Launcher) globalContext(ctx context.Context) string {
 // toolsDir is where komrad's stand-ins for the tools an agent calls are written, empty when
 // they could not be.
 func (l *Launcher) toolsDir(ctx context.Context) string {
-	dir, err := harness.WriteToolShims(l.cacheDir, l.binPath)
+	dir, err := harness.WriteToolShims(harness.WriteToolShimsParams{
+		CacheDir:     l.cacheDir,
+		KomradBinary: l.binPath,
+		ForgeProxy:   l.forgeProxy,
+	})
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "gh and glab could not be given stand-ins, so this agent reaches its forge as the machine is logged in",
 			logging.Err(err)...)

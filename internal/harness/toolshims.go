@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
+	"komrad/config"
 	"komrad/lib/xfile"
 	"komrad/lib/xslice"
 )
@@ -49,6 +51,32 @@ if [ -n "$config" ]; then
 	exit
 fi`,
 	},
+}
+
+// signedRedirectHosts are the hosts GitHub sends gh's downloads to, which gh reaches directly.
+const signedRedirectHosts = ".blob.core.windows.net,.actions.githubusercontent.com,objects.githubusercontent.com,release-assets.githubusercontent.com,avatars.githubusercontent.com"
+
+// forgeProxyHandoff is gh's handoff on an engine whose GitHub requests go through the forge proxy.
+func forgeProxyHandoff(proxy config.ForgeProxy) string {
+	return fmt.Sprintf("export GH_TOKEN=%s HTTPS_PROXY=%s SSL_CERT_FILE=%s NO_PROXY=%s",
+		QuoteArg(config.ForgeProxyPlaceholder), QuoteArg(proxy.URL), QuoteArg(proxy.CAFile), QuoteArg(signedRedirectHosts))
+}
+
+// shimsFor are the stand-ins for a machine, gh's sending its requests through the forge proxy
+// when there is one.
+func shimsFor(proxy config.ForgeProxy) []toolShim {
+	if !proxy.IsConfigured() {
+		return toolShims
+	}
+
+	shims := slices.Clone(toolShims)
+	for i := range shims {
+		if shims[i].tool == "gh" {
+			shims[i].handoff = forgeProxyHandoff(proxy)
+		}
+	}
+
+	return shims
 }
 
 const shimTemplate = `#!/bin/sh
@@ -95,20 +123,27 @@ func (s toolShim) script(dir, komradBinary string) string {
 	).Replace(shimTemplate)
 }
 
+// WriteToolShimsParams is where the stand-ins go and what they hand their tools.
+type WriteToolShimsParams struct {
+	CacheDir     string
+	KomradBinary string
+	ForgeProxy   config.ForgeProxy
+}
+
 // WriteToolShims writes the gh and glab stand-ins under the cache dir, answering the directory
 // holding them and an empty one when there is no komrad binary to point them at.
-func WriteToolShims(cacheDir, komradBinary string) (string, error) {
-	if cacheDir == "" || komradBinary == "" {
+func WriteToolShims(params WriteToolShimsParams) (string, error) {
+	if params.CacheDir == "" || params.KomradBinary == "" {
 		return "", nil
 	}
 
-	dir := filepath.Join(cacheDir, ToolsDirName)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	dir := filepath.Join(params.CacheDir, ToolsDirName)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", fmt.Errorf("failed to create %q: %w", dir, err)
 	}
 
-	for _, shim := range toolShims {
-		if err := writeScript(filepath.Join(dir, shim.tool), shim.script(dir, komradBinary)); err != nil {
+	for _, shim := range shimsFor(params.ForgeProxy) {
+		if err := writeScript(filepath.Join(dir, shim.tool), shim.script(dir, params.KomradBinary)); err != nil {
 			return "", err
 		}
 	}
@@ -124,7 +159,7 @@ func writeScript(path, body string) error {
 	// in place would therefore hand a gh already running in another agent the second half of a
 	// script it did not start. Renaming a finished file over the target puts a new inode there.
 	// The running invocation keeps the old one until it exits.
-	if err := xfile.WriteAtomic(path, []byte(body), 0o755); err != nil {
+	if err := xfile.WriteAtomic(path, []byte(body), 0o700); err != nil {
 		return fmt.Errorf("failed to write %q: %w", path, err)
 	}
 

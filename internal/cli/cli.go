@@ -132,6 +132,8 @@ the server, or call an endpoint from a script.`,
 			app.autoSetup = cfg.AutoSetup
 			app.usage = cfg.Usage
 			app.signIn = cfg.SignIn
+			app.forgeProxy = cfg.ForgeProxy
+			app.controlPlane = cfg.ControlPlane
 
 			app.tmux = tmux.NewClient(env.TmuxSocket)
 
@@ -186,6 +188,7 @@ the server, or call an endpoint from a script.`,
 		versionCmd(app),
 		migrateCmd(app),
 		engineCmd(app),
+		controlPlaneCmd(app),
 		loginCmd(app),
 		logoutCmd(app),
 		tokenCmd(app),

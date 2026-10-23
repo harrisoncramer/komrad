@@ -58,6 +58,7 @@ const (
 	LoopWoken              = "komrad.loop.woken"
 	RepositoryURL          = "komrad.repository.url"
 	ForgeHost              = "komrad.forge.host"
+	EngineName             = "komrad.engine.name"
 	RowsInserted           = "komrad.rows.inserted"
 	RowsUpdated            = "komrad.rows.updated"
 	Observations           = "komrad.pull_request.observations"
@@ -98,9 +99,10 @@ const service = "komrad"
 const ProcessName = "process.name"
 
 const (
-	ProcessServe = "serve"
-	ProcessPanel = "panel"
-	ProcessOpen  = "open"
+	ProcessServe        = "serve"
+	ProcessPanel        = "panel"
+	ProcessOpen         = "open"
+	ProcessControlPlane = "control-plane"
 )
 
 var severityNumbers = map[slog.Level]int{
