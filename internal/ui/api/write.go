@@ -50,13 +50,12 @@ type ArchivingWriteParams struct {
 // ArchivingWrite sends the write the params name, taking the agents' panes off the stage first.
 func (a Clients) ArchivingWrite(params ArchivingWriteParams) screen.Write {
 	return screen.Write{
-		InFlightText:   params.InFlightText,
-		FailureSummary: params.FailureSummary,
-		UnstageFirst:   params.Agents,
+		InFlightText:           params.InFlightText,
+		FailureSummary:         params.FailureSummary,
+		UnstageFirst:           params.Agents,
+		DoesKillUnstagedAgents: true,
 		Send: func() screen.WriteResult {
-			err := params.Write(a)
-
-			return screen.WriteResult{Err: err, WaitFor: params.WaitFor, Killed: err == nil}
+			return screen.WriteResult{Err: params.Write(a), WaitFor: params.WaitFor}
 		},
 	}
 }

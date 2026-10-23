@@ -106,6 +106,8 @@ type writeResult struct {
 	write int
 	// unstaged is the agents whose panes came off the stage before the write was sent.
 	unstaged []panel.Agent
+	// killed says the write took down the agents it unstaged.
+	killed bool
 	// awaits is what the panel shows once the write is answered, and the write is held until it does.
 	awaits screen.WaitFor
 	// keyMoved says a key moved the cursor while the write was parked.
@@ -130,13 +132,15 @@ func (m *model) send(write screen.Write) tea.Cmd {
 
 	return func() tea.Msg {
 		landed := write.Send()
+		killed := write.DoesKillUnstagedAgents && landed.Err == nil
 
 		return writeResult{
 			summary:  write.FailureSummary,
 			landed:   landed,
 			write:    id,
 			unstaged: write.UnstageFirst,
-			awaits:   awaitsOf(landed, write.UnstageFirst),
+			killed:   killed,
+			awaits:   awaitsOf(landed, write.UnstageFirst, killed),
 		}
 	}
 }
@@ -187,7 +191,7 @@ func (m *model) finishWrite(result writeResult) tea.Cmd {
 	}
 
 	if len(result.unstaged) > 0 {
-		m.settleUnstaged(result.unstaged, landed.Killed)
+		m.settleUnstaged(result.unstaged, result.killed)
 	}
 
 	if landed.SuccessNotice != nil && landed.Err == nil {

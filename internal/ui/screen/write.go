@@ -18,7 +18,10 @@ type Write struct {
 	FailureSummary string
 	// UnstageFirst is the agents whose panes come off the stage before the write is sent.
 	UnstageFirst []panel.Agent
-	Send         func() WriteResult
+	// DoesKillUnstagedAgents says the write takes down the agents it unstages once it lands without
+	// an error.
+	DoesKillUnstagedAgents bool
+	Send                   func() WriteResult
 }
 
 // WriteResult is what a write answered with.
@@ -30,8 +33,6 @@ type WriteResult struct {
 	CreatedRow *CreatedRow
 	// SuccessNotice is what to say once the write has landed.
 	SuccessNotice *Notice
-	// Killed says the write took down the agents it unstaged.
-	Killed bool
 	// FollowUpReplacesForm says FollowUp opens the form that takes the held one's place.
 	FollowUpReplacesForm bool
 	// FollowUp is the asking screen's own message, routed once the write finishes.
