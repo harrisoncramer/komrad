@@ -571,31 +571,6 @@ func compareUrgency(a, b triageEntry) int {
 	return cmp.Or(cmp.Compare(a.rule.tier, b.rule.tier), a.since.Compare(b.since))
 }
 
-// settleTriage freezes the zone and holds the task the cursor is on while the agents list has the
-// cursor on the zone, whether the keys are in the panel or in that agent's pane, and thaws it the
-// moment the cursor leaves, putting the cursor back on the row it was on.
-func (m *model) settleTriage() {
-	var zone []agentRow
-	if m.screen == screen.Agents && len(m.agents.triage.entries) > 0 {
-		zone = m.agents.layout(m.inputsFor(&m.agents)).zone
-	}
-
-	reading := m.agents.Row < len(zone)
-	m.agents.triage.held = ""
-	if reading {
-		m.agents.triage.held = findZoneHead(zone, m.agents.Row).item.Agent.ID
-	}
-
-	switch {
-	case reading && m.agents.triage.frozen == nil:
-		m.agents.triage.frozen = xslice.Map(zoneHeads(zone), func(i int) string { return zone[i].item.Agent.ID })
-	case !reading && m.agents.triage.frozen != nil:
-		hovered := m.agents.list().Hovered(m.inputs())
-		m.agents.triage.frozen = nil
-		m.agents.apply(m.inputs(), hovered)
-	}
-}
-
 // findZoneHead is the head of the task the zone row at the index belongs to.
 func findZoneHead(zone []agentRow, idx int) agentRow {
 	for i := idx; i > 0; i-- {

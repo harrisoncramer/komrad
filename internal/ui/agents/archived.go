@@ -43,24 +43,6 @@ type archivedAgents struct {
 	renameSlot
 }
 
-// enterArchived lands the agents view on its archived kind, or its deleted kind when that lists the
-// target.
-func (m *model) enterArchived(target screen.Target) screen.Request {
-	m.agents.kind = agentsArchived
-	if isTargetOnDeletedList(m.listing, target) {
-		m.agents.kind = agentsDeleted
-	}
-
-	return screen.Open{Screen: screen.Agents, Target: target}
-}
-
-// enterLive lands the agents view on the live kind.
-func (m *model) enterLive(target screen.Target) screen.Request {
-	m.agents.kind = agentsLive
-
-	return screen.Open{Screen: screen.Agents, Target: target}
-}
-
 func (a *agentsScreen) Kinds() tabs.Stops {
 	return tabs.Stops{
 		Labels: []string{"live", "archived", "deleted"},
