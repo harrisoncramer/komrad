@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"komrad/internal/assemble"
 	"komrad/internal/errui"
 	"komrad/internal/ui/api"
 	"komrad/internal/ui/layout"
@@ -66,14 +67,14 @@ func (m *model) unreachableHint() string {
 }
 
 // withListing changes the listing the screens read from and tells each screen it changed.
-func (m *model) withListing(change func(*panel.Listing)) tea.Cmd {
+func (m *model) withListing(change func(*panel.Listing) assemble.Changed) tea.Cmd {
 	m.frame.Begin()
 	defer m.frame.Flush()
 
 	was := m.listing
-	change(&m.listing)
+	changed := change(&m.listing)
 	m.forgetUnlistedInspections()
-	relisted, _ := m.routeResult(screen.Relisted{Was: was})
+	relisted, _ := m.routeResult(screen.Relisted{Was: was, Changed: changed})
 	m.sizeAgentWindows()
 
 	// A form renders its options from the listing it was built over, so it is rendered again when

@@ -141,6 +141,12 @@ func (r *reviewScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, b
 		routed := r.route(in, msg)
 
 		return screen.Batch{routed, r.followWorld(in)}, true
+	case screen.Relisted:
+		if !in.Up || !doesMoveReview(msg.Changed, r.agentID) {
+			return nil, true
+		}
+
+		return r.followWorld(in), true
 	}
 
 	return nil, false

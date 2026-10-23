@@ -7,6 +7,7 @@ import (
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
+	watchv1 "komrad/proto/gen/watch/v1"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -36,6 +37,14 @@ func (r *reviewScreen) followWorld(in screen.Inputs) screen.Request {
 	r.followThreads(in)
 
 	return r.followNotices(in)
+}
+
+// doesMoveReview reports whether a batch touched anything the review of an agent renders.
+func doesMoveReview(changed assemble.Changed, agentID string) bool {
+	return changed.Replaced ||
+		len(changed.Keys[watchv1.Resource_RESOURCE_REVIEW_THREAD]) > 0 ||
+		len(changed.Keys[watchv1.Resource_RESOURCE_REVIEW]) > 0 ||
+		slices.Contains(changed.Keys[watchv1.Resource_RESOURCE_AGENT], agentID)
 }
 
 // followThreads renders the conversation the world holds on a live agent, once the reader has stopped
