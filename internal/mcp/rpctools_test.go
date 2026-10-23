@@ -188,7 +188,7 @@ func TestInputSchema(t *testing.T) {
 			service: agentService,
 			method:  "CreateAgent",
 			wantFields: map[string]map[string]any{
-				"prompt":      {"type": "string", "minLength": float64(1), "maxLength": float64(50000)},
+				"prompt":     {"type": "string", "minLength": float64(1), "maxLength": float64(50000)},
 				"workflowId": {"type": "string", "format": "uuid"},
 				"title": {
 					"type": "string", "maxLength": float64(200), "description": "must not contain control characters",
