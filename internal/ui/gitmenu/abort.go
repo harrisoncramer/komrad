@@ -1,4 +1,4 @@
-package ui
+package gitmenu
 
 import (
 	"fmt"
@@ -20,7 +20,7 @@ func abortOp(taskID, name string, sequence panel.Sequence) operation {
 		run: func(clients api.Clients) report {
 			result, err := clients.AbortSequence(taskID)
 
-			return func(*model) screen.Request { return reportAborted(name, sequence, result, err) }
+			return func(screen.Inputs) screen.Request { return reportAborted(name, sequence, result, err) }
 		},
 	}
 }

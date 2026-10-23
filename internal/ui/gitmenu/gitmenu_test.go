@@ -1,4 +1,4 @@
-package ui_test
+package gitmenu_test
 
 import (
 	"context"

@@ -1,4 +1,4 @@
-package ui
+package gitmenu
 
 import (
 	"errors"
@@ -28,7 +28,7 @@ func (s skippedError) Error() string {
 
 type confirmForm func(config.FixedKeys) (*huh.Form, *bool)
 
-type report func(*model) screen.Request
+type report func(screen.Inputs) screen.Request
 
 // plannedMsg is a plan come back, or the reason there is none.
 type plannedMsg struct {
@@ -43,8 +43,8 @@ type doneMsg struct {
 }
 
 // planOperation asks what the operation would do.
-func (m *model) planOperation(op operation) screen.Request {
-	clients := m.api
+func (g Menus) planOperation(op operation) screen.Request {
+	clients := g.deps.Clients
 
 	return screen.Write{
 		Doing: op.planning,
@@ -60,8 +60,8 @@ func (m *model) planOperation(op operation) screen.Request {
 }
 
 // operationWrite is the write that runs the operation and reports what it did.
-func (m *model) operationWrite(op operation) screen.Write {
-	clients := m.api
+func (g Menus) operationWrite(op operation) screen.Write {
+	clients := g.deps.Clients
 
 	return screen.Write{
 		Doing: op.running,
@@ -72,9 +72,9 @@ func (m *model) operationWrite(op operation) screen.Write {
 }
 
 // applyPlanned opens the confirmation, or says why there is nothing to confirm.
-func (m *model) applyPlanned(msg plannedMsg) screen.Request {
+func (g Menus) applyPlanned(msg plannedMsg) screen.Request {
 	if msg.err == nil {
-		return m.openConfirm(msg.op, msg.form)
+		return g.openConfirm(msg.op, msg.form)
 	}
 
 	var skipped skippedError
@@ -86,17 +86,17 @@ func (m *model) applyPlanned(msg plannedMsg) screen.Request {
 }
 
 // applyDone reports the outcome.
-func (m *model) applyDone(msg doneMsg) screen.Request {
-	return msg.report(m)
+func applyDone(in screen.Inputs, msg doneMsg) screen.Request {
+	return msg.report(in)
 }
 
-func (m *model) openConfirm(op operation, buildForm confirmForm) screen.Request {
-	built, confirmed := buildForm(fixedKeys())
+func (g Menus) openConfirm(op operation, buildForm confirmForm) screen.Request {
+	built, confirmed := buildForm(config.Fixed())
 
 	return form.Open{Form: form.Form{
 		Built: built,
 		Build: func(form.Inputs) (*huh.Form, []string) {
-			held, _ := buildForm(fixedKeys())
+			held, _ := buildForm(config.Fixed())
 
 			return held, nil
 		},
@@ -105,7 +105,7 @@ func (m *model) openConfirm(op operation, buildForm confirmForm) screen.Request 
 				return nil
 			}
 
-			return m.operationWrite(op)
+			return g.operationWrite(op)
 		},
 		Narrow:          true,
 		ClosesOnRefusal: true,

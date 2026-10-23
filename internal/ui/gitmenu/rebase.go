@@ -1,13 +1,18 @@
-package ui
+package gitmenu
 
 import (
 	"fmt"
+	"strings"
 
+	"komrad/config"
 	"komrad/internal/ui/api"
+	"komrad/internal/ui/form"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xsha"
 	agentv1 "komrad/proto/gen/agent/v1"
+
+	"charm.land/huh/v2"
 )
 
 // rebasePlan is what a rebase would do, carried from the server to the picker.
@@ -53,7 +58,7 @@ func rebaseOp(taskID, name string, ontoBase bool) operation {
 		run: func(clients api.Clients) report {
 			result, err := clients.RebaseWorktree(taskID, ontoBase)
 
-			return func(*model) screen.Request { return reportRebased(name, result, err) }
+			return func(screen.Inputs) screen.Request { return reportRebased(name, result, err) }
 		},
 	}
 }

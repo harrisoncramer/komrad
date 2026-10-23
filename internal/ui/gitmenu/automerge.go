@@ -1,4 +1,4 @@
-package ui
+package gitmenu
 
 import (
 	"errors"
@@ -40,8 +40,8 @@ func autoMergeRefusal(task panel.Task) error {
 
 // autoMergeWrite is the write that asks the forge to merge the task's pull request once its
 // checks and reviews pass, or to stop waiting to.
-func (m *model) autoMergeWrite(task panel.Task, params api.MergeParams, on bool) screen.Write {
-	clients := m.api
+func (g Menus) autoMergeWrite(task panel.Task, params api.MergeParams, on bool) screen.Write {
+	clients := g.deps.Clients
 	ref := task.PullRequest.Ref()
 	doing, said := "cancelling auto-merge on "+ref, " no longer merges on its own"
 	if on {

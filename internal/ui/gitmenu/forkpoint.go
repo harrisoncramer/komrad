@@ -1,4 +1,4 @@
-package ui
+package gitmenu
 
 import (
 	"errors"
@@ -33,19 +33,29 @@ func pickForkPointRefusal(l panel.Listing, task panel.Task) error {
 	return nil
 }
 
-// openPickForkPoint opens the form that picks an orphaned child's fork point.
-func (a *agentsScreen) openPickForkPoint(in screen.Inputs, task panel.Task) screen.Request {
+// openPickForkPoint leaves the menu for the form that picks an orphaned child's fork point, or says why the task is not orphaned.
+func (g Menus) openPickForkPoint(in screen.Inputs, taskID string) screen.Request {
+	task, ok := findTask(in.Listing, taskID)
+	if !ok {
+		return screen.Batch{screen.Report{Summary: "Could not act on the task", Err: errTaskGone}, form.Close{}}
+	}
+
+	if err := pickForkPointRefusal(in.Listing, task); err != nil {
+		return screen.Batch{screen.Report{Summary: "Could not pick the fork point of " + task.Slug, Err: err}, form.Close{}}
+	}
+
 	values := &pickForkPointValues{}
 	parent := in.Listing.Tasks[task.Parent.GetTaskId()].Slug
+	clients := g.deps.Clients
 
 	return form.Open{Form: form.Form{
 		Build: func(form.Inputs) (*huh.Form, []string) {
-			return pickForkPointForm(fixedKeys(), values, task.Slug, parent)
+			return pickForkPointForm(config.Fixed(), values, task.Slug, parent)
 		},
 		Submit: func(form.Inputs) screen.Request {
 			commit := strings.TrimSpace(values.Commit)
 
-			return a.deps.clients.Write(
+			return clients.Write(
 				"picking the fork point of "+task.Slug,
 				fmt.Sprintf("Could not pick the fork point of task %q on %s", task.Slug, parent),
 				func(clients api.Clients) error { return clients.PickForkPoint(task.ID, commit) },

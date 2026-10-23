@@ -1,4 +1,4 @@
-package ui
+package gitmenu
 
 import (
 	"errors"
@@ -25,12 +25,12 @@ func rereviewRefusal(task panel.Task) error {
 
 // requestRereview asks the forge to put the task's pull request back in front of everyone who
 // asked for changes on it, or says why it cannot.
-func (m *model) requestRereview(task panel.Task) screen.Request {
+func (g Menus) requestRereview(task panel.Task) screen.Request {
 	if err := rereviewRefusal(task); err != nil {
 		return screen.Report{Summary: "Could not ask for another review of the " + task.PullRequest.Noun() + " of " + task.Slug, Err: err}
 	}
 
-	clients := m.api
+	clients := g.deps.Clients
 	standing := task.PullRequest
 
 	return screen.Write{

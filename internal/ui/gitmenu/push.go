@@ -1,4 +1,4 @@
-package ui
+package gitmenu
 
 import (
 	"fmt"
@@ -58,7 +58,7 @@ func pushOp(task panel.Task) operation {
 		run: func(clients api.Clients) report {
 			result, err := clients.PushWorktree(taskID)
 
-			return func(*model) screen.Request { return reportPushed(name, result, err) }
+			return func(screen.Inputs) screen.Request { return reportPushed(name, result, err) }
 		},
 	}
 }
