@@ -196,13 +196,13 @@ func (r *reviewScreen) BlurBlock() {
 // direction.
 func (r *reviewScreen) stepFile(in screen.Inputs, direction int) screen.Request {
 	r.side = nil
-	keys := r.diffKeys()
+	diff := r.diffKeys()
 	if !r.filesFilter.Pattern().IsNarrowing() && len(r.closedFolders) == 0 {
-		if !keys.pane.JumpFile(direction, keys.window(in)) {
+		if !diff.Pane.JumpFile(direction, diff.Window(in)) {
 			return nil
 		}
 
-		return keys.land()
+		return diff.Land()
 	}
 
 	return r.walkFiles(in, direction)
@@ -307,12 +307,12 @@ func (r *reviewScreen) landOnRow(in screen.Inputs, row diffview.TreeRow) screen.
 func (r *reviewScreen) landOnFile(in screen.Inputs, row diffview.TreeRow) screen.Request {
 	r.folderCursor = folderCursor{}
 	r.side = nil
-	keys := r.diffKeys()
-	if !keys.pane.JumpToFile(row.Row, keys.window(in)) {
+	diff := r.diffKeys()
+	if !diff.Pane.JumpToFile(row.Row, diff.Window(in)) {
 		return nil
 	}
 
-	return keys.land()
+	return diff.Land()
 }
 
 // ClickFile lands on the file clicked in the tree, and opens or closes a folder.

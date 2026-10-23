@@ -1,12 +1,9 @@
 package ui_test
 
 import (
-	"regexp"
-	"strings"
 	"testing"
 	"time"
 
-	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paneltest"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xptr"
@@ -80,8 +77,8 @@ func TestSubpages(t *testing.T) {
 		harness := openSubpages(t, "task-quiet")
 
 		frame := harness.RawFrame()
-		assert.Regexp(t, readOffEntry("review", "r"), frame)
-		assert.NotRegexp(t, readOffEntry("logs", "l"), frame)
+		assert.Regexp(t, paneltest.OffEntry("review", "r"), frame)
+		assert.NotRegexp(t, paneltest.OffEntry("logs", "l"), frame)
 	})
 
 	t.Run("an orchestrator has no review", func(t *testing.T) {
@@ -118,7 +115,7 @@ func TestSubpages(t *testing.T) {
 		harness.Press("r")
 
 		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
-		assert.Contains(t, readOpenMessages(harness), "this agent has no checkout of its own to read")
+		assert.Contains(t, harness.ReadMessages(), "this agent has no checkout of its own to read")
 	})
 
 	t.Run("esc closes the menu and leaves the trail on the row", func(t *testing.T) {
@@ -157,12 +154,12 @@ func TestSubpagesInArchive(t *testing.T) {
 		assert.Contains(t, frame, "agents › author")
 		assert.Contains(t, frame, "› logs")
 		assert.NotContains(t, paneltest.StageText(frame), "review")
-		assert.Regexp(t, readOffEntry("terminal", "t"), harness.RawFrame())
+		assert.Regexp(t, paneltest.OffEntry("terminal", "t"), harness.RawFrame())
 
 		harness.Press("r")
 
 		assert.Contains(t, harness.Frame(), "› logs")
-		assert.NotContains(t, readOpenMessages(harness), "Could not open")
+		assert.NotContains(t, harness.ReadMessages(), "Could not open")
 	})
 
 	t.Run("git holds rebase gray, since an archived worktree is not touched", func(t *testing.T) {
@@ -171,11 +168,11 @@ func TestSubpagesInArchive(t *testing.T) {
 		harness := openArchivedSubpages(t)
 		harness.Press("g")
 
-		assert.Regexp(t, readOffEntry("rebase with base", "r"), harness.RawFrame())
+		assert.Regexp(t, paneltest.OffEntry("rebase with base", "r"), harness.RawFrame())
 
 		harness.Press("r")
 
-		assert.Contains(t, readOpenMessages(harness), "komrad leaves an archived task's worktree alone")
+		assert.Contains(t, harness.ReadMessages(), "komrad leaves an archived task's worktree alone")
 	})
 
 	t.Run("an archived agent on a live task has no git, since the checkout is not its own", func(t *testing.T) {
@@ -257,25 +254,67 @@ func openArchivedSubpages(t *testing.T) *paneltest.Panel {
 	task.ArchivedAt = archivedAt
 
 	harness := openArchivedAgents(t, paneltest.Workflow("w1", "komrad"), author, task)
-	newDocumentShelf().answer(harness)
+	answerDocuments(harness, buildAuthorDocuments())
 	harness.Press("j", "j", "space")
 	require.Contains(t, harness.Frame(), "  author")
 
 	return harness
 }
 
+// buildSubpagesAgents is a workflow whose orchestrator and one agent have written, beside an agent
+// that has not and a reviewer of the one that has.
 func buildSubpagesAgents() []proto.Message {
-	rows := buildDocumentAuthors()
-	author, _ := rows[2].(*agentv1.Agent)
-	author.Cwd = "/trees/author"
+	written := timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
+	orchestrator := paneltest.Orchestrator()
+	orchestrator.Documents = 2
+	orchestrator.DocumentsUpdatedAt = written
 
-	return append(rows, paneltest.Reviewer("reviewer", "reviewer", "author"))
+	author := paneltest.Agent("author", "author", "w1")
+	author.Documents = 2
+	author.DocumentsUpdatedAt = written
+	author.Cwd = "/trees/author"
+	quiet := paneltest.Agent("quiet", "quiet", "w1")
+
+	return []proto.Message{
+		paneltest.Workflow("w1", "komrad"),
+		orchestrator,
+		author,
+		paneltest.TaskOf(author),
+		quiet,
+		paneltest.TaskOf(quiet),
+		paneltest.Reviewer("reviewer", "reviewer", "author"),
+	}
 }
 
-// readOffEntry matches a submenu entry as it is rendered when there is nothing behind it, gray with
-// its key right-aligned.
-func readOffEntry(label, key string) *regexp.Regexp {
-	gray, _, _ := strings.Cut(paint.Panel.Style(paint.ToneMuted).Render("x"), "x")
+// buildAuthorDocuments is the two documents the author wrote on its task, newest first.
+func buildAuthorDocuments() []*agentv1.Document {
+	return []*agentv1.Document{
+		{
+			Id:        "d1",
+			AgentId:   "author",
+			TaskId:    xptr.Ptr("task-author"),
+			Name:      "Design the cache",
+			Type:      "RFC",
+			Version:   3,
+			UpdatedAt: timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)),
+		},
+		{
+			Id:        "d2",
+			AgentId:   "author",
+			TaskId:    xptr.Ptr("task-author"),
+			Name:      "Rollout report",
+			Type:      "report",
+			Version:   5,
+			UpdatedAt: timestamppb.New(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC)),
+		},
+	}
+}
 
-	return regexp.MustCompile(regexp.QuoteMeta(gray+label) + " +" + regexp.QuoteMeta(key))
+// answerDocuments lists the documents and reads the first of them whichever one is asked for.
+func answerDocuments(harness *paneltest.Panel, documents []*agentv1.Document) {
+	read := proto.CloneOf(documents[0])
+	read.Body = "# Design the cache\n\nKeep the cache warm."
+
+	harness.Answer(agentv1connect.AgentServiceListDocumentsProcedure, paneltest.AnswerWith(&agentv1.ListDocumentsResponse{Documents: documents}))
+	harness.Answer(agentv1connect.AgentServiceGetDocumentProcedure, paneltest.AnswerWith(&agentv1.GetDocumentResponse{Document: read}))
 }

@@ -322,7 +322,7 @@ func TestArchivedAgentsReportsRefusedWrites(t *testing.T) {
 			harness.Press(append(tt.press, paneltest.WidenListPresses...)...)
 
 			assert.Contains(t, readEngineLine(harness.Frame()), tt.wantSummary)
-			assert.Contains(t, readOpenMessages(harness), "no such agent")
+			assert.Contains(t, harness.ReadMessages(), "no such agent")
 		})
 	}
 }
@@ -437,7 +437,7 @@ func TestArchivedAgentsRows(t *testing.T) {
 func TestArchivedAgentsMenuEntries(t *testing.T) {
 	neverStarted := newArchivedAgent("a1", "api-refactor", "w1")
 	neverStarted.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
-	openOff := readOffEntry("restore and open", "o")
+	openOff := paneltest.OffEntry("restore and open", "o")
 	archiveEntry := regexp.MustCompile(`archive ›\s+a`)
 
 	tests := []struct {
@@ -582,14 +582,14 @@ func TestArchivedAgentsRename(t *testing.T) {
 		{
 			name:      "an archived agent",
 			rows:      archived,
-			press:     slices.Concat([]string{"j", "r"}, spellKeys("-2"), []string{"enter"}),
+			press:     slices.Concat([]string{"j", "r"}, strings.Split("-2", ""), []string{"enter"}),
 			procedure: agentv1connect.AgentServiceUpdateAgentProcedure,
 			want:      &agentv1.UpdateAgentRequest{Id: "a1", Name: "api-refactor-2"},
 		},
 		{
 			name:      "a live workflow's folder",
 			rows:      live,
-			press:     slices.Concat([]string{"r"}, spellKeys("-2"), []string{"enter"}),
+			press:     slices.Concat([]string{"r"}, strings.Split("-2", ""), []string{"enter"}),
 			procedure: workflowv1connect.WorkflowServiceUpdateWorkflowProcedure,
 			want: &workflowv1.UpdateWorkflowRequest{
 				Id:       "w1",

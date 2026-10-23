@@ -143,7 +143,7 @@ func (d *documentsScreen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 	}
 
 	if d.kind != documentKindTypes && d.history != nil && d.history.filter.Typing {
-		return d.diffKeys().updateFilter(in, key)
+		return d.diffKeys().UpdateFilter(in, key)
 	}
 
 	return d.actions(in).DispatchTop(d.deps.top, d, d.deps.keys, key.String())

@@ -53,7 +53,7 @@ func TestLoaderSpinsForATaskWithoutItsWriter(t *testing.T) {
 	rows = append(rows, other)
 	harness := openNoticed(t, paneltest.Params{Loader: loader.Arcs}, rows...)
 
-	harness.Press(slices.Concat([]string{"/", "tab"}, spellKeys("checker"), []string{"enter"})...)
+	harness.Press(slices.Concat([]string{"/", "tab"}, strings.Split("checker", ""), []string{"enter"})...)
 	require.Equal(t, []string{"  backend", "◜ └─ fix-login", "     └─ checker"}, paneltest.ListRows(harness.Frame()))
 
 	harness.Advance(loader.Interval)
@@ -170,7 +170,7 @@ func TestLoaderSpinsWhileAWriteIsInFlight(t *testing.T) {
 		return connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "w2"}}), nil
 	})
 	harness.Hold(create)
-	harness.Press(slices.Concat([]string{"space", "w"}, spellKeys("web"), []string{"enter"})...)
+	harness.Press(slices.Concat([]string{"space", "w"}, strings.Split("web", ""), []string{"enter"})...)
 
 	var rendered []string
 	for range 3 {

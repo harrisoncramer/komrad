@@ -8,6 +8,7 @@ import (
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/filter"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
@@ -50,7 +51,7 @@ func (d *documentsScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapsh
 				Key:     r.Key(),
 				Kind:    view.KindResult,
 				Name:    r.item.name,
-				Matches: pickedMatches(in.Room.Pattern.Regexp, picked, r.Key(), r.item.name),
+				Matches: list.PickedMatches(in.Room.Pattern.Regexp, picked, r.Key(), r.item.name),
 				Process: view.ProcessNone,
 				Cells:   []view.Cell{{Text: label.AgeAt(r.item.updatedAt, now), Tone: paint.ToneMuted}},
 			})
@@ -167,7 +168,7 @@ func (d *documentsScreen) docRows(in screen.Inputs, width int) []string {
 
 	lines := h.pane.Render(window, held)
 	if in.Room.Marks {
-		lines = markDiff(&h.pane, window, lines)
+		lines = h.pane.Mark(window, lines)
 	}
 
 	return append(head, lines...)
@@ -188,9 +189,9 @@ func (h *documentHistory) head(in screen.Inputs, glyphs glyph.Set, item document
 		return rows
 	}
 
-	count := strings.TrimRight(diffMatchCount(&h.pane, h.filter), "\n")
+	count := strings.TrimRight(h.pane.RenderMatchCount(h.filter.IsStanding()), "\n")
 
-	return append(rows, filterHead(h.filter, filterHeadParams{glyphs: glyphs, marks: in.Room.Marks, count: count, width: width})...)
+	return append(rows, h.filter.Head(filter.HeadParams{Glyphs: glyphs, Marks: in.Room.Marks, Count: count, Width: width})...)
 }
 
 // notice names the write stepped to, who made it and how long ago.

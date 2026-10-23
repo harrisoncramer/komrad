@@ -44,7 +44,7 @@ func TestReviewSidebar(t *testing.T) {
 		harness.Press("ctrl+space", "ctrl+space", "k", "o")
 
 		assert.Contains(t, harness.Frame(), "api › review")
-		assert.Contains(t, readOpenMessages(harness), "its worktree is gone")
+		assert.Contains(t, harness.ReadMessages(), "its worktree is gone")
 	})
 
 	t.Run("the forge lists its decision and who commented", func(t *testing.T) {

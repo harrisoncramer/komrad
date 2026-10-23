@@ -128,8 +128,8 @@ func (a *archivedAgents) QueryGrammar() (list.Grammar, bool) {
 // searchTranscriptsSaid asks the server which agents' transcripts hold the text, with the turns it was found in keyed by agent id.
 func searchTranscriptsSaid(ctx context.Context, client api.AgentReads, text string) (map[string][]list.SaidHit, error) {
 	resp, err := client.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
-		Query:      phrase(text),
-		Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](saysLimit)},
+		Query:      list.Phrase(text),
+		Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](list.SaysLimit)},
 	}))
 	if err != nil {
 		return nil, err

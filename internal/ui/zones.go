@@ -24,7 +24,6 @@ const (
 	zoneMessages   zone.Name = "messages"
 	zoneDoc        zone.Name = "doc"
 	zoneMessage    zone.Name = "message"
-	zoneDiff       zone.Name = "diff"
 	zoneMenu       zone.Name = "menu"
 	zoneParentMenu zone.Name = "parentmenu"
 )

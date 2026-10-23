@@ -265,3 +265,19 @@ func Matches(matcher *regexp.Regexp, name string) []view.Span {
 		return view.Span{Start: at[0], End: at[1]}
 	})
 }
+
+// PickedMatches is the stretches of a row's name the search lights, the whole of it when only
+// qualifiers picked the row.
+func PickedMatches(matcher *regexp.Regexp, picked map[string]bool, key, name string) []view.Span {
+	if picked == nil {
+		return Matches(matcher, name)
+	}
+	if !picked[key] {
+		return nil
+	}
+	if matcher == nil {
+		return []view.Span{{Start: 0, End: len(name)}}
+	}
+
+	return Matches(matcher, name)
+}

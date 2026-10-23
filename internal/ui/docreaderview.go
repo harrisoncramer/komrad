@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"komrad/internal/ui/column"
+	"komrad/internal/ui/filter"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/reader"
 	"komrad/internal/ui/screen"
@@ -23,7 +24,7 @@ func (m *model) docHead(in screen.Inputs, rows []string, width int) []string {
 		count = paint.Panel.Style(paint.ToneMuted).Render("  " + reader.Count(reader.Matches(r.filter.Matcher, rows), r.Line))
 	}
 
-	return filterHead(r.filter, filterHeadParams{glyphs: m.glyphs, marks: in.Room.Marks, count: count, said: r.said, width: width})
+	return r.filter.Head(filter.HeadParams{Glyphs: m.glyphs, Marks: in.Room.Marks, Count: count, Said: r.said, Width: width})
 }
 
 // docBlock is the document at the width of the block beside the list, under the search over it,

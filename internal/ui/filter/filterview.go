@@ -4,6 +4,7 @@ import (
 	"komrad/internal/glyph"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/zone"
 
 	"charm.land/lipgloss/v2"
 )
@@ -47,4 +48,29 @@ func (f State) Highlight(palette paint.Palette, name string, base lipgloss.Style
 	}
 
 	return palette.Highlight(name, list.Matches(f.Matcher, name), base)
+}
+
+// HeadParams is what the rows over a searched block show besides the search.
+type HeadParams struct {
+	Glyphs glyph.Set
+	Marks  bool
+	Count  string
+	Said   string
+	Width  int
+}
+
+// Head is the rows over a block the filter searches: the search, what the last key said, and a
+// blank row.
+func (f State) Head(params HeadParams) []string {
+	search := paint.FitRow(f.Line(params.Glyphs)+params.Count, params.Width)
+	if params.Marks {
+		search = zone.MarkKey(zone.Search, params.Width, 0, zone.SearchBlock) + search
+	}
+
+	head := []string{search}
+	if params.Said != "" {
+		head = append(head, paint.FitRow(paint.Panel.Style(paint.ToneMuted).Render(params.Said), params.Width))
+	}
+
+	return append(head, "")
 }

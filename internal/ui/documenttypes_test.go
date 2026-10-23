@@ -92,7 +92,7 @@ func TestDocumentTypesList(t *testing.T) {
 		raw := harness.RawFrame()
 		assert.NotContains(t, raw, "edit")
 		assert.NotContains(t, raw, "delete")
-		assert.NotRegexp(t, readOffEntry("new type", "c"), raw)
+		assert.NotRegexp(t, paneltest.OffEntry("new type", "c"), raw)
 		assert.Contains(t, raw, "new type")
 	})
 }

@@ -290,7 +290,7 @@ func TestListingUnreachable(t *testing.T) {
 		frame := harness.Frame()
 		assert.Contains(t, frame, "Cannot reach the")
 		assert.NotContains(t, frame, "The panel could not list your agents", "and no screen is taken over")
-		assert.Contains(t, readOpenMessages(harness), "messages 1 of 1", "a server still down says nothing more")
+		assert.Contains(t, harness.ReadMessages(), "messages 1 of 1", "a server still down says nothing more")
 	})
 
 	t.Run("a close the server chose leaves a lost server lost", func(t *testing.T) {
@@ -299,7 +299,7 @@ func TestListingUnreachable(t *testing.T) {
 		harness.LoseWatch(nil)
 		harness.LoseWatch(errors.New("connection refused"))
 
-		assert.Contains(t, readOpenMessages(harness), "messages 1 of 1")
+		assert.Contains(t, harness.ReadMessages(), "messages 1 of 1")
 	})
 
 	t.Run("a stream that came back and went again is said again", func(t *testing.T) {
@@ -308,7 +308,7 @@ func TestListingUnreachable(t *testing.T) {
 		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend")))
 		harness.LoseWatch(errors.New("connection refused"))
 
-		assert.Contains(t, readOpenMessages(harness), "messages 1 of 2")
+		assert.Contains(t, harness.ReadMessages(), "messages 1 of 2")
 	})
 
 	tests := []struct {
@@ -331,7 +331,7 @@ func TestListingUnreachable(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openUnreachable(t, tt.remote)
 
-			frame := readOpenMessages(harness)
+			frame := harness.ReadMessages()
 			assert.Contains(t, frame, serverAddr)
 			assert.Contains(t, frame, tt.want)
 		})

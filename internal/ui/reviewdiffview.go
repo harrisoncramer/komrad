@@ -23,6 +23,10 @@ const (
 // reviewNoFileWord is what the tree says when its search matches no file.
 const reviewNoFileWord = "no file matches"
 
+// diffFloor is the narrowest a diff is worth rendering at: the gutter and enough of a line beside
+// it to read.
+const diffFloor = diffview.GutterWidth + 20
+
 // Column is the diff rendered beside the review's own threads, whose row budget is what the
 // band over it leaves.
 func (r *reviewScreen) Column(in screen.Inputs) column.Spec {
@@ -47,7 +51,7 @@ func (r reviewScreen) bandView(in screen.Inputs) string {
 		search = zone.MarkKey(zone.Search, r.measureBandWidth(in), 0, zone.SearchList) + search
 	}
 
-	return r.rangeView(in) + search + diffMatchCount(&r.diff.Pane, r.diff.filter)
+	return r.rangeView(in) + search + r.diff.RenderMatchCount(r.diff.filter.IsStanding())
 }
 
 // rangeView names both ends of the range on screen and, past its end, the snapshot new comments go on.
@@ -101,7 +105,7 @@ func (r reviewScreen) diffView(in screen.Inputs, split column.Split) string {
 
 	lines := r.diff.Render(window, held)
 	if in.Room.Marks {
-		lines = markDiff(&r.diff.Pane, window, lines)
+		lines = r.diff.Mark(window, lines)
 	}
 
 	return strings.Join(lines, "\n")

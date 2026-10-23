@@ -33,7 +33,7 @@ func (r *reviewScreen) diffActions(in screen.Inputs) keys.Spec[*reviewScreen] {
 }
 
 func (r *reviewScreen) table(in screen.Inputs) []keys.Action[*reviewScreen] {
-	return slices.Concat(r.ownTable(in), diffTable[*reviewScreen](r.diffKeys(), in))
+	return slices.Concat(r.ownTable(in), keys.DiffTable[*reviewScreen](r.diffKeys(), in))
 }
 
 // ownTable is the review's keys past the ones every diff pane shares.
@@ -92,7 +92,7 @@ func (r *reviewScreen) legend(in screen.Inputs) []keys.LegendRow[*reviewScreen] 
 	return []keys.LegendRow[*reviewScreen]{
 		keys.MoveRow[*reviewScreen](),
 		keys.NavPageRow[*reviewScreen](),
-		diffFileRow[*reviewScreen](),
+		keys.DiffFileRow[*reviewScreen](),
 		{
 			Of:   []keys.ID{actionReviewThread, actionReviewOpenThread},
 			Desc: func(*reviewScreen) string { return r.diff.threadStepDesc() },
@@ -101,9 +101,9 @@ func (r *reviewScreen) legend(in screen.Inputs) []keys.LegendRow[*reviewScreen] 
 					"/" + keys.HeadLabel(k.Review.NextOpenThread) + "/" + keys.HeadLabel(k.Review.PrevOpenThread)
 			},
 		},
-		diffSearchRow[*reviewScreen](),
-		diffMatchRow[*reviewScreen](),
-		diffPanRow[*reviewScreen](),
+		keys.DiffSearchRow[*reviewScreen](),
+		keys.DiffMatchRow[*reviewScreen](),
+		keys.DiffPanRow[*reviewScreen](),
 		keys.JumpRow[*reviewScreen](),
 		{
 			Of:   []keys.ID{actionReviewBase},
@@ -146,7 +146,7 @@ func (r *reviewScreen) filesActions(in screen.Inputs) keys.Spec[*reviewScreen] {
 	return keys.Spec[*reviewScreen]{
 		Table: append(keys.NavActions[*reviewScreen](keys.NavActionsParams{Keys: r.deps.keys, Nav: filesNav{r}, In: in, Page: keys.NavPageStep, Scroll: 1}), []keys.Action[*reviewScreen]{
 			{
-				ID:   actionDiffFile,
+				ID:   keys.DiffFile,
 				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Diff.NextFile, k.Diff.PrevFile) },
 				Nav: func(_ *reviewScreen, pressed string) screen.Request {
 					return r.stepFile(in, keys.DirectionOf(pressed, r.deps.keys.Diff.PrevFile))
@@ -205,7 +205,7 @@ func (r *reviewScreen) filesActions(in screen.Inputs) keys.Spec[*reviewScreen] {
 			keys.MoveRow[*reviewScreen](),
 			keys.NavPageRow[*reviewScreen](),
 			keys.JumpRow[*reviewScreen](),
-			diffFileRow[*reviewScreen](),
+			keys.DiffFileRow[*reviewScreen](),
 			{
 				Of:   []keys.ID{actionReviewFolder},
 				Desc: func(*reviewScreen) string { return r.folderDesc() },
@@ -382,8 +382,8 @@ func (r *reviewScreen) diffMenu(in screen.Inputs, nest menu.Nester) menu.Menu {
 	diffFocused := r.isDiffFocused(in)
 
 	entries := append(r.fileEntries(in),
-		menu.Leaving(r.diffKeys().expandDesc(), r.deps.keys.Diff.Expand, func(in screen.Inputs) screen.Request { return r.diffKeys().toggleExpanded(in) }),
-		menu.Leaving(wrapDesc(in), r.deps.keys.Diff.Wrap, func(in screen.Inputs) screen.Request { return r.diffKeys().toggleWrap(in) }),
+		menu.Leaving(r.diffKeys().ExpandDesc(), r.deps.keys.Diff.Expand, func(in screen.Inputs) screen.Request { return r.diffKeys().ToggleExpanded(in) }),
+		menu.Leaving(keys.WrapDesc(in), r.deps.keys.Diff.Wrap, func(in screen.Inputs) screen.Request { return r.diffKeys().ToggleWrap(in) }),
 	)
 
 	if diffFocused && !onThread {

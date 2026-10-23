@@ -3,6 +3,7 @@ package ui_test
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 
 	"komrad/internal/ui/paneltest"
@@ -28,31 +29,31 @@ func TestRenameSends(t *testing.T) {
 	}{
 		{
 			name:      "an agent's name is typed onto the one it had",
-			press:     slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"enter"}),
+			press:     slices.Concat([]string{"j", "r"}, strings.Split("-v2", ""), []string{"enter"}),
 			procedure: agentv1connect.AgentServiceUpdateAgentProcedure,
 			want:      []proto.Message{&agentv1.UpdateAgentRequest{Id: "a1", Name: "author-v2"}},
 		},
 		{
 			name:      "keys bound elsewhere are typed into the name",
-			press:     slices.Concat([]string{"j", "r"}, spellKeys("jkq"), []string{"enter"}),
+			press:     slices.Concat([]string{"j", "r"}, strings.Split("jkq", ""), []string{"enter"}),
 			procedure: agentv1connect.AgentServiceUpdateAgentProcedure,
 			want:      []proto.Message{&agentv1.UpdateAgentRequest{Id: "a1", Name: "authorjkq"}},
 		},
 		{
 			name:      "backspace takes the name back a letter at a time",
-			press:     slices.Concat([]string{"j", "r"}, slices.Repeat([]string{"backspace"}, 6), spellKeys("writer"), []string{"enter"}),
+			press:     slices.Concat([]string{"j", "r"}, slices.Repeat([]string{"backspace"}, 6), strings.Split("writer", ""), []string{"enter"}),
 			procedure: agentv1connect.AgentServiceUpdateAgentProcedure,
 			want:      []proto.Message{&agentv1.UpdateAgentRequest{Id: "a1", Name: "writer"}},
 		},
 		{
 			name:      "home moves the cursor to the start of the name",
-			press:     slices.Concat([]string{"j", "r", "home"}, spellKeys("co-"), []string{"enter"}),
+			press:     slices.Concat([]string{"j", "r", "home"}, strings.Split("co-", ""), []string{"enter"}),
 			procedure: agentv1connect.AgentServiceUpdateAgentProcedure,
 			want:      []proto.Message{&agentv1.UpdateAgentRequest{Id: "a1", Name: "co-author"}},
 		},
 		{
 			name:      "a workflow renamed on its header carries the config it is not changing",
-			press:     slices.Concat([]string{"r"}, slices.Repeat([]string{"backspace"}, 3), spellKeys("backend"), []string{"enter"}),
+			press:     slices.Concat([]string{"r"}, slices.Repeat([]string{"backspace"}, 3), strings.Split("backend", ""), []string{"enter"}),
 			procedure: workflowv1connect.WorkflowServiceUpdateWorkflowProcedure,
 			want: []proto.Message{&workflowv1.UpdateWorkflowRequest{
 				Id:       "w1",
@@ -65,7 +66,7 @@ func TestRenameSends(t *testing.T) {
 		},
 		{
 			name:      "esc sends nothing",
-			press:     slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"esc"}),
+			press:     slices.Concat([]string{"j", "r"}, strings.Split("-v2", ""), []string{"esc"}),
 			procedure: agentv1connect.AgentServiceUpdateAgentProcedure,
 		},
 		{
@@ -119,7 +120,7 @@ func TestRenameField(t *testing.T) {
 	t.Run("esc puts the name back and the keys go back to the list", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.Press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"esc", "k"})...)
+		harness.Press(slices.Concat([]string{"j", "r"}, strings.Split("-v2", ""), []string{"esc", "k"})...)
 
 		assert.Equal(t, "api", paneltest.HoveredRow(harness.Frame()))
 		assert.Contains(t, paneltest.ListRows(harness.Frame()), "└─ author")
@@ -127,14 +128,14 @@ func TestRenameField(t *testing.T) {
 
 	t.Run("a row that leaves the list holds the keys until esc or enter and says it is gone", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
-		harness.Press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"))...)
+		harness.Press(slices.Concat([]string{"j", "r"}, strings.Split("-v2", ""))...)
 
 		harness.Watch(paneltest.Snapshot(newFormWorkflow()))
 		harness.Press("space", "c", "enter")
 
 		assert.NotContains(t, harness.Frame(), "enter submit", "no action ran on the row the cursor landed on")
 		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceUpdateAgentProcedure))
-		assert.Contains(t, readOpenMessages(harness), `"author" is gone`)
+		assert.Contains(t, harness.ReadMessages(), `"author" is gone`)
 
 		harness.Press("esc", "space", "c")
 		assert.Contains(t, harness.Frame(), "enter submit", "the keys are the list's again")
@@ -142,7 +143,7 @@ func TestRenameField(t *testing.T) {
 
 	t.Run("a listing landing under the field leaves it open", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
-		harness.Press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"))...)
+		harness.Press(slices.Concat([]string{"j", "r"}, strings.Split("-v2", ""))...)
 
 		harness.Watch(paneltest.Snapshot(newFormWorkflow(), newFormAuthor(), paneltest.Agent("a2", "another", "w1")))
 
@@ -153,7 +154,7 @@ func TestRenameField(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 		harness.Hold(agentv1connect.AgentServiceUpdateAgentProcedure)
 
-		harness.Press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"enter", "x", "k"})...)
+		harness.Press(slices.Concat([]string{"j", "r"}, strings.Split("-v2", ""), []string{"enter", "x", "k"})...)
 		assert.Equal(t, "└─ author-v2", paneltest.HoveredRow(harness.Frame()), "the typed name stands without a cursor")
 
 		harness.Release(agentv1connect.AgentServiceUpdateAgentProcedure)
@@ -164,7 +165,7 @@ func TestRenameField(t *testing.T) {
 	t.Run("a saved name stands until the listing shows it", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.Press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"enter"})...)
+		harness.Press(slices.Concat([]string{"j", "r"}, strings.Split("-v2", ""), []string{"enter"})...)
 		assert.Equal(t, "└─ author-v2", paneltest.HoveredRow(harness.Frame()), "not the old name before the watch catches up")
 
 		harness.Watch(paneltest.Snapshot(newFormWorkflow(), paneltest.Agent("a1", "author-v2", "w1")))
@@ -176,7 +177,7 @@ func TestRenameField(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 		harness.Refuse(agentv1connect.AgentServiceUpdateAgentProcedure, connect.NewError(connect.CodeAlreadyExists, errors.New("name taken")))
 
-		harness.Press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"enter"})...)
+		harness.Press(slices.Concat([]string{"j", "r"}, strings.Split("-v2", ""), []string{"enter"})...)
 
 		frame := harness.Frame()
 		assert.Contains(t, frame, "Could not rename agent")

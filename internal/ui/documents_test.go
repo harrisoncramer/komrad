@@ -138,7 +138,7 @@ func TestDocumentsOpen(t *testing.T) {
 		listed := strings.Join(paneltest.ListRows(harness.Frame()), "\n")
 		assert.Contains(t, listed, "Login plan")
 		assert.NotContains(t, listed, "Solo notes")
-		assert.NotContains(t, rows, "Design the cache")
+		assert.NotContains(t, listed, "Design the cache")
 	})
 
 	t.Run("a row with none opens it empty", func(t *testing.T) {
@@ -190,64 +190,6 @@ func TestDocumentsOpen(t *testing.T) {
 		harness.AssertSentTo(agentv1connect.AgentServiceListDocumentsProcedure, &agentv1.ListDocumentsRequest{
 			Pagination: &paginationv1.Pagination{Limit: xptr.Ptr[int32](100)},
 		})
-	})
-
-	t.Run("the jump menu lands on the task the hovered document belongs to", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openEveryDocument(t)
-		harness.Press("space", "J", "t")
-
-		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
-		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "task-author")
-	})
-
-	t.Run("the jump menu on a document with no task lands on its author", func(t *testing.T) {
-		t.Parallel()
-
-		harness := paneltest.OpenAgents(t, buildDocumentAuthors()...)
-		shelf := newDocumentShelf()
-		for _, document := range shelf.listed {
-			document.TaskId = nil
-		}
-		shelf.answer(harness)
-		harness.MoveToRow("task-quiet")
-		harness.Press("tab", "tab")
-		harness.Advance(time.Second)
-		harness.Press("space", "J", "a")
-
-		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
-		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "task-author")
-	})
-
-	t.Run("the jump menu lands on an archived task among the archived agents", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openArchivedSubpages(t)
-		harness.Press("J", "d")
-		harness.Advance(time.Second)
-		harness.Press("space", "J", "t")
-
-		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
-		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "task-author")
-	})
-
-	t.Run("the jump menu lands on a deleted task among the deleted agents", func(t *testing.T) {
-		t.Parallel()
-
-		author := newArchivedAgent("author", "author", "w1")
-		author.Documents = 2
-		author.DocumentsUpdatedAt = timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
-		harness := paneltest.Start(t, paneltest.Params{})
-		harness.Press("F", "shift+tab", "esc")
-		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "komrad"), author, newDeletedTaskOf(author)))
-		newDocumentShelf().answer(harness)
-		harness.Press("j", "j", "space", "J", "d")
-		harness.Advance(time.Second)
-		harness.Press("space", "J", "t")
-
-		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
-		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "task-author")
 	})
 }
 
@@ -329,7 +271,7 @@ func TestDocumentsFilter(t *testing.T) {
 			harness.Press("tab", "tab")
 			harness.Advance(time.Second)
 
-			harness.Press(slices.Concat([]string{"/", "tab"}, spellKeys(tt.query), []string{"enter"})...)
+			harness.Press(slices.Concat([]string{"/", "tab"}, strings.Split(tt.query, ""), []string{"enter"})...)
 
 			frame := harness.Frame()
 			rows := strings.Join(paneltest.ListRows(frame), "\n")
@@ -362,7 +304,7 @@ func TestDocumentsSays(t *testing.T) {
 	marked := regexp.MustCompile(`\x1b\[[0-9;]*mTuesday`)
 	picked := regexp.MustCompile(`38;5;208mRollout report`)
 
-	harness.Press(slices.Concat([]string{"esc", "/", "tab"}, spellKeys("says:tuesday"))...)
+	harness.Press(slices.Concat([]string{"esc", "/", "tab"}, strings.Split("says:tuesday", ""))...)
 	harness.Advance(time.Second)
 	harness.Press("enter")
 	harness.Advance(time.Second)
@@ -371,13 +313,13 @@ func TestDocumentsSays(t *testing.T) {
 	assert.Equal(t, []string{`"tuesday"`}, asked)
 	assert.Equal(t, []string{"Rollout report"}, paneltest.ListRows(frame))
 	assert.Equal(t, "▽ says:tuesday", paneltest.Search(frame))
-	assert.Regexp(t, marked, findRawLine(harness.RawFrame(), line), "the word found is lit in the document")
+	assert.Regexp(t, marked, paneltest.FindRawLine(harness.RawFrame(), line), "the word found is lit in the document")
 	assert.Regexp(t, picked, paneltest.RawListRow(harness.RawFrame(), "Rollout report"), "the document found is lit in the list")
 
 	harness.Press("/", "esc")
 	harness.Advance(time.Second)
 
-	assert.NotRegexp(t, marked, findRawLine(harness.RawFrame(), line), "the word is dark once the qualifier is gone")
+	assert.NotRegexp(t, marked, paneltest.FindRawLine(harness.RawFrame(), line), "the word is dark once the qualifier is gone")
 	assert.NotRegexp(t, picked, paneltest.RawListRow(harness.RawFrame(), "Rollout report"), "the document is dark once the qualifier is gone")
 }
 
@@ -710,14 +652,14 @@ func TestDocumentsMenu(t *testing.T) {
 			},
 			presses: []string{"space", "e", "space"},
 			wantOn:  []*regexp.Regexp{regexp.MustCompile(`close editor +e`)},
-			wantOff: []*regexp.Regexp{readOffEntry("rename", "r"), readOffEntry("new document", "c")},
+			wantOff: []*regexp.Regexp{paneltest.OffEntry("rename", "r"), paneltest.OffEntry("new document", "c")},
 		},
 		{
 			name:    "every agent's documents have no agent to write a new one for",
 			open:    openEveryDocument,
 			presses: []string{"space"},
 			wantOn:  []*regexp.Regexp{regexp.MustCompile(`edit +e`)},
-			wantOff: []*regexp.Regexp{readOffEntry("new document", "c")},
+			wantOff: []*regexp.Regexp{paneltest.OffEntry("new document", "c")},
 		},
 	}
 
@@ -902,7 +844,7 @@ func TestDocumentsHistory(t *testing.T) {
 				assert.NotContains(t, stage, wantNot)
 			}
 			if tt.note != "" {
-				assert.Contains(t, readOpenMessages(harness), tt.note)
+				assert.Contains(t, harness.ReadMessages(), tt.note)
 			}
 		})
 	}
@@ -1026,18 +968,18 @@ func TestDocumentsReadingCursor(t *testing.T) {
 	bar := paint.BackgroundSequence(paint.Panel.Background(paint.ShadeSelection))
 
 	assert.NotEqual(t, "/", strings.TrimSpace(paneltest.Stage(harness.Frame())[0]), "the search waits for the document to hold the keys")
-	unfocused := findRawLine(harness.RawFrame(), line)
+	unfocused := paneltest.FindRawLine(harness.RawFrame(), line)
 	require.NotEmpty(t, unfocused)
 	assert.NotContains(t, unfocused, bar)
 
 	harness.Press("pick:block", "G")
 	assert.Equal(t, "/", strings.TrimSpace(paneltest.Stage(harness.Frame())[0]), "the search stands over the focused document")
-	focused := findRawLine(harness.RawFrame(), line)
+	focused := paneltest.FindRawLine(harness.RawFrame(), line)
 	require.NotEmpty(t, focused)
 	assert.Contains(t, focused, bar, "the cursor is rendered as a bar on the line it moved to")
 
 	harness.Press("/", "w", "a", "r", "m", "enter")
-	found := findRawLine(harness.RawFrame(), line)
+	found := paneltest.FindRawLine(harness.RawFrame(), line)
 	require.NotEmpty(t, found)
 	assert.NotEqual(t, focused, found, "the hit is painted")
 	hit := strings.Index(found, "warm")
@@ -1094,16 +1036,16 @@ func TestDocumentsDiffCursor(t *testing.T) {
 
 	harness.Press("<")
 	harness.Advance(time.Second)
-	dim := findRawLine(harness.RawFrame(), heading)
+	dim := paneltest.FindRawLine(harness.RawFrame(), heading)
 	require.NotEmpty(t, dim)
 
 	harness.Press("pick:block")
-	live := findRawLine(harness.RawFrame(), heading)
+	live := paneltest.FindRawLine(harness.RawFrame(), heading)
 	require.NotEmpty(t, live)
 	assert.NotEqual(t, dim, live, "focusing the diff lights the cursor")
 
 	harness.Press("j")
-	plain := findRawLine(harness.RawFrame(), heading)
+	plain := paneltest.FindRawLine(harness.RawFrame(), heading)
 	require.NotEmpty(t, plain)
 	assert.NotEqual(t, live, plain, "the cursor leaves the line it stood on")
 	assert.NotEqual(t, dim, plain)

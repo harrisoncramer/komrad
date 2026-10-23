@@ -2,7 +2,6 @@ package ui
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"komrad/internal/ui/api"
@@ -13,14 +12,6 @@ import (
 
 // saysWait is how long typing rests before a says: qualifier goes to the server.
 const saysWait = 120 * time.Millisecond
-
-// saysLimit is the most hits a says: qualifier reads the rows from.
-const saysLimit = 100
-
-// phrase quotes text so a search reads it as one phrase.
-func phrase(text string) string {
-	return `"` + strings.ReplaceAll(text, `"`, "") + `"`
-}
 
 // queryGrammarer is a screen whose filter reads qualifiers, and says whether the list in view reads any.
 type queryGrammarer interface {

@@ -335,6 +335,13 @@ func (p *Panel) IsSpinning() bool {
 	return p.Frame() != before
 }
 
+// ReadMessages opens the messages popup and reads its prose.
+func (p *Panel) ReadMessages() string {
+	p.Press("ctrl+g")
+
+	return JoinProse(Stage(p.Frame()))
+}
+
 // WriteInEditor is the text the editor writes to its file when the panel next opens it.
 func (p *Panel) WriteInEditor(text string) {
 	p.editor.mu.Lock()

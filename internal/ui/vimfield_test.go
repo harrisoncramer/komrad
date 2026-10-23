@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"komrad/internal/gittest"
@@ -21,7 +22,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("with vim off one esc closes the form", func(t *testing.T) {
 		harness := openForms(t, newFormWorkflow(), newFormAuthor())
 
-		harness.Press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"esc"})...)
+		harness.Press(slices.Concat([]string{"space", "c"}, strings.Split("go", ""), []string{"esc"})...)
 
 		assert.NotContains(t, harness.Frame(), "Brief")
 	})
@@ -29,7 +30,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("with vim on the first esc goes to normal mode and the second closes the form", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.Press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"esc"})...)
+		harness.Press(slices.Concat([]string{"space", "c"}, strings.Split("go", ""), []string{"esc"})...)
 		assert.Contains(t, harness.Frame(), "Brief")
 
 		harness.Press("esc")
@@ -39,7 +40,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("with vim on the second esc in a subform goes back to the top form", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.Press(slices.Concat([]string{"space", "w"}, spellKeys("web"), openWorkflowSubformKeys(0), spellKeys("codex"), []string{"esc", "esc"})...)
+		harness.Press(slices.Concat([]string{"space", "w"}, strings.Split("web", ""), openWorkflowSubformKeys(0), strings.Split("codex", ""), []string{"esc", "esc"})...)
 
 		frame := harness.Frame()
 		assert.NotContains(t, frame, "Default Agent")
@@ -49,7 +50,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("ctrl+[ counts as esc in a form", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.Press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"ctrl+["})...)
+		harness.Press(slices.Concat([]string{"space", "c"}, strings.Split("go", ""), []string{"ctrl+["})...)
 		assert.Contains(t, harness.Frame(), "Brief")
 
 		harness.Press("ctrl+[")
@@ -71,7 +72,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("an edit made in normal mode is what the form sends", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.Press(slices.Concat([]string{"space", "c"}, spellKeys("check CI"), []string{"esc", "c", "i", "w"}, spellKeys("it"),
+		harness.Press(slices.Concat([]string{"space", "c"}, strings.Split("check CI", ""), []string{"esc", "c", "i", "w"}, strings.Split("it", ""),
 			[]string{"esc", "0", "~", "enter"})...)
 
 		sent := harness.Sent(agentv1connect.AgentServiceCreateAgentProcedure)
@@ -84,7 +85,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("the field's own editing keys do nothing in normal mode", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.Press(slices.Concat([]string{"space", "c"}, spellKeys("go far"), []string{"esc", "ctrl+w", "ctrl+u", "enter"})...)
+		harness.Press(slices.Concat([]string{"space", "c"}, strings.Split("go far", ""), []string{"esc", "ctrl+w", "ctrl+u", "enter"})...)
 
 		sent := harness.Sent(agentv1connect.AgentServiceCreateAgentProcedure)
 		require.Len(t, sent, 1)
@@ -96,7 +97,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("k on the first field stays on it", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.Press(slices.Concat([]string{"space", "c"}, spellKeys("go"), []string{"esc", "k", "x", "enter"})...)
+		harness.Press(slices.Concat([]string{"space", "c"}, strings.Split("go", ""), []string{"esc", "k", "x", "enter"})...)
 
 		sent := harness.Sent(agentv1connect.AgentServiceCreateAgentProcedure)
 		require.Len(t, sent, 1)
@@ -111,7 +112,7 @@ func TestVimEditing(t *testing.T) {
 		harness.Watch(paneltest.Snapshot(newConfiguredWorkflow(), newFormAuthor()))
 		harness.Press("g", "g")
 
-		harness.Press(slices.Concat([]string{"space", "c"}, spellKeys("go"), slices.Repeat([]string{"tab"}, 2), spellKeys("ab"), []string{"esc", "j"})...)
+		harness.Press(slices.Concat([]string{"space", "c"}, strings.Split("go", ""), slices.Repeat([]string{"tab"}, 2), strings.Split("ab", ""), []string{"esc", "j"})...)
 		require.Empty(t, harness.Sent(agentv1connect.AgentServiceCreateAgentProcedure))
 		assert.Contains(t, harness.Frame(), "Worktree")
 
@@ -178,7 +179,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("a normal-mode edit in a form is rendered at once", func(t *testing.T) {
 		harness := openVimForms(t)
 
-		harness.Press(slices.Concat([]string{"space", "c"}, spellKeys("still here"), []string{"esc", "b", "d", "w"})...)
+		harness.Press(slices.Concat([]string{"space", "c"}, strings.Split("still here", ""), []string{"esc", "b", "d", "w"})...)
 
 		frame := harness.Frame()
 		assert.Contains(t, frame, "still")
@@ -231,12 +232,12 @@ func TestVimLineEditing(t *testing.T) {
 		},
 		{
 			name:       "a word changed in normal mode is the filter's pattern",
-			press:      slices.Concat([]string{"/"}, spellKeys("db api"), []string{"ctrl+f", "c", "i", "w"}, spellKeys("ui")),
+			press:      slices.Concat([]string{"/"}, strings.Split("db api", ""), []string{"ctrl+f", "c", "i", "w"}, strings.Split("ui", "")),
 			wantSearch: "/ db ui▏",
 		},
 		{
 			name:       "esc after a change in normal mode goes back to normal mode",
-			press:      slices.Concat([]string{"/"}, spellKeys("db api"), []string{"ctrl+f", "c", "i", "w"}, spellKeys("ui"), []string{"esc"}),
+			press:      slices.Concat([]string{"/"}, strings.Split("db api", ""), []string{"ctrl+f", "c", "i", "w"}, strings.Split("ui", ""), []string{"esc"}),
 			wantSearch: "/ db u[i]",
 		},
 		{
@@ -251,7 +252,7 @@ func TestVimLineEditing(t *testing.T) {
 		},
 		{
 			name:       "a word deleted in normal mode leaves the search line",
-			press:      slices.Concat([]string{"tab", "/"}, spellKeys("foo bar"), []string{"ctrl+f", "0", "d", "w"}),
+			press:      slices.Concat([]string{"tab", "/"}, strings.Split("foo bar", ""), []string{"ctrl+f", "0", "d", "w"}),
 			wantSearch: "/ [b]ar",
 		},
 	}

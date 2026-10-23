@@ -100,7 +100,7 @@ func TestVisualMode(t *testing.T) {
 		harness.Press("ctrl+space", "v")
 		harness.Advance(time.Second)
 
-		opened := readOpenMessages(harness)
+		opened := harness.ReadMessages()
 		assert.Contains(t, opened, "Could not start visual mode")
 		assert.Contains(t, opened, "no space for a window")
 

@@ -45,7 +45,7 @@ func TestLeader(t *testing.T) {
 	})
 
 	t.Run("the leader twice with nowhere to go back to hands the keys to the next stop", func(t *testing.T) {
-		harness, _ := openDocuments(t)
+		harness := openTaskDocuments(t)
 
 		harness.Press("ctrl+space", "ctrl+space")
 
@@ -53,7 +53,7 @@ func TestLeader(t *testing.T) {
 	})
 
 	t.Run("the leader twice goes back to the stop the keys last left", func(t *testing.T) {
-		harness, _ := openDocuments(t)
+		harness := openTaskDocuments(t)
 
 		harness.Press("ctrl+space", "ctrl+space", "ctrl+space", "ctrl+space")
 		assert.NotEqual(t, "/", strings.TrimSpace(paneltest.Stage(harness.Frame())[0]), "the list holds the keys again")
@@ -241,4 +241,17 @@ func TestPanePicker(t *testing.T) {
 		assert.Len(t, infoRows, 5, "the info pane carries one letter five rows tall")
 		assert.Len(t, agentRows, 10, "the agent and the info pane carry one letter each")
 	})
+}
+
+// openTaskDocuments opens the documents of the author's task on the newest of them.
+func openTaskDocuments(t *testing.T) *paneltest.Panel {
+	t.Helper()
+
+	harness := paneltest.OpenAgents(t, buildSubpagesAgents()...)
+	answerDocuments(harness, buildAuthorDocuments())
+	harness.MoveToRow("task-author")
+	harness.Press("space", "J", "d")
+	harness.Advance(time.Second)
+
+	return harness
 }
