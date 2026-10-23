@@ -122,11 +122,6 @@ func (p Palette) HelpStyles() help.Styles {
 	}
 }
 
-// Stage is the markdown a block beside a list renders in.
-func (p Palette) Stage() ansi.StyleConfig {
-	return *p.stage
-}
-
 func (p Palette) spell(tone Tone) string {
 	switch tone {
 	case TonePrimary:

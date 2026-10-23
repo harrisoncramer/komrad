@@ -42,7 +42,7 @@ func expandTabs(text string) string {
 
 // Render renders markdown in the colours of its region.
 func (p Palette) Render(markdown string, wrap int) string {
-	return renderWith(markdown, wrap, p.Stage())
+	return renderWith(markdown, wrap, *p.stage)
 }
 
 // renderWith renders markdown in the style it is handed, hard-wrapped to the column so nothing a
