@@ -9,10 +9,13 @@ import (
 
 	"komrad/internal/ui/paneltest"
 	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1connect"
 	forgev1 "komrad/proto/gen/forge/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
+	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -104,6 +107,44 @@ func TestReviewPullRequest(t *testing.T) {
 		sidebar := paneltest.SidebarProse(harness.Frame())
 		assert.Contains(t, sidebar, "line 30")
 		assert.Contains(t, sidebar, "greet.go")
+	})
+}
+
+// TestGitMenuOnTheReview covers the git menu the review's own menu opens in its popup.
+func TestGitMenuOnTheReview(t *testing.T) {
+	t.Run("the menu holds the pull request's entries and none that rewrite the worktree", func(t *testing.T) {
+		harness := openReview(t, newPullRequestReviewServer(t))
+
+		harness.Press("space", "g")
+
+		popup := paneltest.PopupProse(harness.Frame())
+		assert.Contains(t, popup, "push")
+		assert.Contains(t, popup, "toggle draft on")
+		assert.Contains(t, popup, "re-request review")
+		assert.Contains(t, popup, "merge pr")
+		assert.NotContains(t, popup, "rebase")
+		assert.NotContains(t, popup, "pick fork point")
+		assert.NotContains(t, popup, "abort")
+	})
+
+	t.Run("a push asks in the popup, then pushes", func(t *testing.T) {
+		harness := openReview(t, newPullRequestReviewServer(t))
+		planned := &agentv1.PlanPushResponse{Branch: "agent/auth", Commits: 2}
+		harness.Answer(agentv1connect.AgentServicePlanPushProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return connect.NewResponse(planned), nil
+		})
+		harness.Answer(agentv1connect.AgentServicePushWorktreeProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+			return connect.NewResponse(&agentv1.PushWorktreeResponse{Branch: "agent/auth", Commits: 2, Sha: "abcdef1234567"}), nil
+		})
+
+		harness.Press("space", "g", "p")
+
+		require.Contains(t, paneltest.PopupProse(harness.Frame()), "Komrad pushes 2 commits")
+
+		harness.Press("y")
+
+		harness.AssertSentTo(agentv1connect.AgentServicePushWorktreeProcedure, &agentv1.PushWorktreeRequest{Task: &agentv1.PushWorktreeRequest_TaskId{TaskId: "t1"}})
+		assert.Contains(t, harness.ReadMessages(), "auth: pushed agent/auth")
 	})
 }
 
