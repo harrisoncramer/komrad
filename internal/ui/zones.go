@@ -66,9 +66,9 @@ func (m *model) findSidebarBlocks() []sidebarBlock {
 		Width:  m.term.width,
 		Height: height,
 	}
-	beside, hasColumn := zones[zoneColumn]
+	columnZone, hasColumn := zones[zoneColumn]
 	if hasColumn {
-		list.Width = beside.Left - column.DividerCols
+		list.Width = columnZone.Left - column.DividerCols
 	}
 
 	if marked, ok := zones[zone.List]; ok {
@@ -77,7 +77,7 @@ func (m *model) findSidebarBlocks() []sidebarBlock {
 
 	block, hasBlock := zones[zone.Block]
 	if !hasBlock {
-		block, hasBlock = beside, hasColumn
+		block, hasBlock = columnZone, hasColumn
 	}
 
 	if hasBlock && slices.Contains(stops, stopBlock) {
