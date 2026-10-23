@@ -91,20 +91,20 @@ func (a *agentsScreen) isHoveringWorkflow(in screen.Inputs) bool {
 }
 
 func (a *agentsScreen) isHoveringTask(in screen.Inputs) bool {
-	row, ok := a.HoveredRow(in)
+	row, ok := a.hoveredRow(in)
 
 	return a.isBrowsing() && ok && row.isTask()
 }
 
 // isHoveringNotes reports whether the cursor is on the task whose notes are shown.
 func (a *agentsScreen) isHoveringNotes(in screen.Inputs) bool {
-	row, ok := a.HoveredRow(in)
+	row, ok := a.hoveredRow(in)
 
 	return a.isBrowsing() && ok && a.isShowingNotes(row)
 }
 
 func (a *agentsScreen) isHoveringAgent(in screen.Inputs) bool {
-	row, ok := a.HoveredRow(in)
+	row, ok := a.hoveredRow(in)
 
 	return a.isBrowsing() && (!ok || !row.header)
 }

@@ -17,7 +17,7 @@ import (
 )
 
 func (a *agentsScreen) Details(in screen.Inputs) record.Details {
-	r, ok := a.HoveredRow(in)
+	r, ok := a.hoveredRow(in)
 	if !ok {
 		return record.Details{}
 	}
@@ -85,7 +85,7 @@ func agentDetails(in screen.Inputs, now time.Time, glyphs glyph.Set, r agentRow)
 
 // doc is the markdown rendered beside the list for a row with no pane of its own.
 func (a *agentsScreen) doc(in screen.Inputs) string {
-	r, ok := a.HoveredRow(in)
+	r, ok := a.hoveredRow(in)
 	item, held := r.paneItem()
 
 	switch {

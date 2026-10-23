@@ -392,7 +392,7 @@ func (a *agentsScreen) Column(in screen.Inputs) column.Spec {
 }
 
 func (a *agentsScreen) openRename(in screen.Inputs) screen.Request {
-	row, ok := a.HoveredRow(in)
+	row, ok := a.hoveredRow(in)
 	if !ok {
 		return nil
 	}

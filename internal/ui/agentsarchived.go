@@ -366,7 +366,7 @@ func (a *archivedAgents) hoveredWorkflow(in screen.Inputs) (panel.Workflow, bool
 	return workflow, true
 }
 
-func (a *archivedAgents) HoveredRow(in screen.Inputs) (agentRow, bool) {
+func (a *archivedAgents) hoveredRow(in screen.Inputs) (agentRow, bool) {
 	return list.At(a.listRows(in), a.Row)
 }
 
@@ -374,8 +374,8 @@ func (a *archivedAgents) IsLoading(in screen.Inputs) bool {
 	return slices.ContainsFunc(a.listRows(in), func(r agentRow) bool { return isRowLoading(in.Listing, r) })
 }
 
-func (a *archivedAgents) StageResting(in screen.Inputs) screen.Request {
-	return screen.Batch{a.Stage(), screen.ReadLastScreen{}, inspectRecordTask(a, in, a.deps.clock.Now())}
+func (a *archivedAgents) StageResting(screen.Inputs) screen.Request {
+	return screen.Batch{a.Stage(), screen.ReadLastScreen{}}
 }
 
 // menuTarget is what the archive menu would act on, and none on the folder of a live workflow
@@ -395,7 +395,7 @@ func (a *archivedAgents) menuTarget(in screen.Inputs) (archived, bool) {
 		return archived{workflow: &workflow}, true
 	}
 
-	row, ok := a.HoveredRow(in)
+	row, ok := a.hoveredRow(in)
 	if !ok {
 		return archived{}, false
 	}

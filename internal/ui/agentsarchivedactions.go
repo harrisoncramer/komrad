@@ -115,6 +115,26 @@ func (a *archivedAgents) HoveredAgentID(in screen.Inputs) string {
 	return agent.ID
 }
 
+// RecordAgent is the agent the record under the cursor is about, which for a task is its writer.
+func (a *archivedAgents) RecordAgent(in screen.Inputs) (panel.AgentRow, bool) {
+	row, ok := a.hoveredRow(in)
+	if !ok {
+		return panel.AgentRow{}, false
+	}
+
+	return row.recordAgent(in.Listing)
+}
+
+// RecordTask is the task whose checkout the record under the cursor shows.
+func (a *archivedAgents) RecordTask(in screen.Inputs) (panel.Task, bool) {
+	row, ok := a.hoveredRow(in)
+	if !ok {
+		return panel.Task{}, false
+	}
+
+	return row.recordTask(in.Listing)
+}
+
 // Resting is never an agent on the archive.
 func (a *archivedAgents) Resting(screen.Inputs) (panel.AgentRow, bool) {
 	return panel.AgentRow{}, false

@@ -39,7 +39,7 @@ func (m *model) screenedAgentID() (string, bool) {
 }
 
 func (a *archivedAgents) ScreenedAgentID(in screen.Inputs) (string, bool) {
-	row, ok := a.HoveredRow(in)
+	row, ok := a.hoveredRow(in)
 	if !ok {
 		return "", false
 	}
