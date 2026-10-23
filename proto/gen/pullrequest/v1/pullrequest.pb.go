@@ -1056,8 +1056,8 @@ type StatusCheck struct {
 	// The event that started the check's CI workflow, such as `pull_request` or `push`. Empty when
 	// the check didn't come from a CI workflow.
 	RunEvent string `protobuf:"bytes,12,opt,name=run_event,json=runEvent,proto3" json:"run_event,omitempty"`
-	// When the check's CI workflow run was created. Unset when no CI workflow ran the
-	// check.
+	// When the check's CI workflow run was created. Unset when the check didn't
+	// come from a CI workflow.
 	RunStartedAt *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=run_started_at,json=runStartedAt,proto3,oneof" json:"run_started_at,omitempty"`
 	// The check's log, as komrad keeps it.
 	Log *CheckLog `protobuf:"bytes,14,opt,name=log,proto3" json:"log,omitempty"`

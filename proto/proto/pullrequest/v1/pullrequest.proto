@@ -215,8 +215,8 @@ message StatusCheck {
   // The event that started the check's CI workflow, such as `pull_request` or `push`. Empty when
   // the check didn't come from a CI workflow.
   string run_event = 12;
-  // When the check's CI workflow run was created. Unset when no CI workflow ran the
-  // check.
+  // When the check's CI workflow run was created. Unset when the check didn't
+  // come from a CI workflow.
   optional google.protobuf.Timestamp run_started_at = 13;
   // The check's log, as komrad keeps it.
   CheckLog log = 14;
