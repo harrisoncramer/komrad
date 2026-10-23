@@ -10,6 +10,12 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
+// urlOpenedMsg reports that the panel asked the browser to open an address.
+type urlOpenedMsg struct {
+	target string
+	err    error
+}
+
 // openPullRequest hands the agent's current pull request to the browser, or says why there is
 // none to open.
 func (g Menus) openPullRequest(task panel.Task) screen.Request {
@@ -30,12 +36,6 @@ func copyPullRequestURL(task panel.Task) screen.Request {
 	}
 
 	return screen.Copy{Text: standing.URL}
-}
-
-// urlOpenedMsg reports that the panel asked the browser to open an address.
-type urlOpenedMsg struct {
-	target string
-	err    error
 }
 
 // openURLCmd hands an address to the browser off the update.
