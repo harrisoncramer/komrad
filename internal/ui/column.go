@@ -61,9 +61,9 @@ func (m *model) sidebarColumns(in screen.Inputs) (int, column.Spec, bool) {
 	return min(max(sidebar-sidebarChrome, 1), m.term.width-1-column.DividerCols), spec, true
 }
 
-// columnGeometry is how wide each half of the window is, and how many rows the block beside the
+// windowSplitOf is how wide each half of the window is, and how many rows the block beside the
 // list is rendered in.
-func (m *model) columnGeometry(in screen.Inputs) column.Split {
+func (m *model) windowSplitOf(in screen.Inputs) column.Split {
 	sidebar, spec, ok := m.sidebarColumns(in)
 	if !ok {
 		return column.Split{}
@@ -74,9 +74,9 @@ func (m *model) columnGeometry(in screen.Inputs) column.Split {
 	return splitOf(m.term.width-column.DividerCols, m.term.height, sidebar, spec.Floor)
 }
 
-// columnSplit is the window the block is actually rendered in, being the window split with
+// blockAreaSplitOf is the window the block is actually rendered in, being the window split with
 // whatever stands over the block taken off its rows.
-func (m *model) columnSplit(in screen.Inputs) column.Split {
+func (m *model) blockAreaSplitOf(in screen.Inputs) column.Split {
 	split := in.Room.WindowSplit
 	if !split.IsDivided {
 		return split
@@ -90,9 +90,9 @@ func (m *model) columnSplit(in screen.Inputs) column.Split {
 	return split
 }
 
-// screenColumnSplit is the split a screen's own block is rendered across, refused while a form is
+// ownBlockSplitOf is the split a screen's own block is rendered across, refused while a form is
 // up.
-func (m *model) screenColumnSplit(in screen.Inputs) column.Split {
+func (m *model) ownBlockSplitOf(in screen.Inputs) column.Split {
 	if (m.form.isOpening() && !m.isPopupForm()) || in.Room.AreMessagesFocused {
 		return column.Split{}
 	}
@@ -226,16 +226,16 @@ func (m *model) paneWidth() int {
 	return m.measuredInputsFor(m.active()).Room.Width
 }
 
-// paneWidthAt is the pane's width beside the geometry a window is divided by.
-func (m *model) paneWidthAt(geometry column.Split) int {
+// paneWidthAt is the pane's width beside the window's split.
+func (m *model) paneWidthAt(windowSplit column.Split) int {
 	// A half of a split is laid out at the column already chosen for it rather than asking for the
 	// split again.
 	if m.term.paneMeasure > 0 {
 		return m.term.paneMeasure
 	}
 
-	if geometry.IsDivided {
-		return geometry.SidebarWidth
+	if windowSplit.IsDivided {
+		return windowSplit.SidebarWidth
 	}
 
 	return m.term.width

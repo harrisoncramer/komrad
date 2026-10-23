@@ -12,10 +12,10 @@ func (m *model) inputs() screen.Inputs {
 func (m *model) inputsFor(s screenModel) screen.Inputs {
 	in := m.measuredInputsFor(s)
 	in.Room.IsListFocused = m.isListFocused(in)
-	in.Room.BlockAreaSplit = m.columnSplit(in)
-	in.Room.OwnBlockSplit = m.screenColumnSplit(in)
+	in.Room.BlockAreaSplit = m.blockAreaSplitOf(in)
+	in.Room.OwnBlockSplit = m.ownBlockSplitOf(in)
 	in.Room.DocumentReader = m.docReaderOf(in)
-	in.Room.DocumentReader.VisibleRows = m.docWindowOf(in)
+	in.Room.DocumentReader.VisibleRows = m.docVisibleRowsOf(in)
 	in.Room.ListCaret = m.listCaret(in)
 
 	return in
@@ -42,7 +42,7 @@ func (m *model) measuredInputsFor(s screenModel) screen.Inputs {
 			Pattern:            m.filter.Pattern(),
 		},
 	}
-	in.Room.WindowSplit = m.columnGeometry(in)
+	in.Room.WindowSplit = m.windowSplitOf(in)
 	in.Room.Width = m.paneWidthAt(in.Room.WindowSplit)
 
 	return in

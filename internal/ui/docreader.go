@@ -68,9 +68,9 @@ func (m *model) docLayout() ([]string, int, bool) {
 	return m.columnRows(in, in.Room.OwnBlockSplit), in.Room.DocumentReader.VisibleRows, true
 }
 
-// docWindowOf is the rows of the window under the search over the document, and zero while the
-// block beside the list is no document the panel walks.
-func (m *model) docWindowOf(in screen.Inputs) int {
+// docVisibleRowsOf is the rows of the window under the search over the document, and zero while
+// the block beside the list is no document the panel walks.
+func (m *model) docVisibleRowsOf(in screen.Inputs) int {
 	split := in.Room.OwnBlockSplit
 	if !split.IsDivided || !m.isDocReadable(in) {
 		return 0
