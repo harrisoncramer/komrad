@@ -3,6 +3,6 @@
 //
 // A menu may nest a menu that another part of the panel builds, such as the git menu or the jump
 // menu. The root hands a menu those nested menus when it asks for them, and keeps the stack of open
-// menus. The root, the git menu and the screen domains import menu. It imports only the shared
-// packages below it, and never the root or a domain.
+// menus. The root, the git menu and the agents, documents, review, schedules and worktrees screens
+// import menu. It imports only the shared packages below it, and never the root or a domain.
 package menu
