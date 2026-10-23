@@ -7,6 +7,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	annotationv1 "komrad/proto/gen/annotation/v1"
 	taskv1 "komrad/proto/gen/task/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -43,6 +44,7 @@ func TestIsRequired(t *testing.T) {
 		{message: (&agentv1.WriteDocumentRequest{}).ProtoReflect().Descriptor(), field: "body", want: false},
 		{message: (&agentv1.WriteDocumentRequest{}).ProtoReflect().Descriptor(), field: "path", want: false},
 		{message: (&agentv1.GetDocumentRequest{}).ProtoReflect().Descriptor(), field: "id", want: true},
+		{message: (&workflowv1.WorkflowEventPrompt{}).ProtoReflect().Descriptor(), field: "event", want: true},
 	}
 
 	for _, tt := range tests {
@@ -50,6 +52,49 @@ func TestIsRequired(t *testing.T) {
 			field := tt.message.Fields().ByName(protoreflect.Name(tt.field))
 			require.NotNil(t, field)
 			assert.Equal(t, tt.want, IsRequired(field))
+		})
+	}
+}
+
+// TestIsUUID checks a field reads as a UUID whether the rule sits on the field or on a list's items.
+func TestIsUUID(t *testing.T) {
+	tests := []struct {
+		message protoreflect.MessageDescriptor
+		field   string
+		want    bool
+	}{
+		{message: (&agentv1.SendMailRequest{}).ProtoReflect().Descriptor(), field: "to_agent_id", want: true},
+		{message: (&agentv1.SendMailRequest{}).ProtoReflect().Descriptor(), field: "reply_to", want: true},
+		{message: (&agentv1.SendMailRequest{}).ProtoReflect().Descriptor(), field: "to_agent_name", want: false},
+		{message: (&agentv1.ArchiveAgentsRequest{}).ProtoReflect().Descriptor(), field: "ids", want: true},
+		{message: (&agentv1.Agent{}).ProtoReflect().Descriptor(), field: "id", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.message.Name())+"."+tt.field, func(t *testing.T) {
+			field := tt.message.Fields().ByName(protoreflect.Name(tt.field))
+			require.NotNil(t, field)
+			assert.Equal(t, tt.want, IsUUID(field))
+		})
+	}
+}
+
+// TestIsOneofRequired checks only a oneof carrying the required rule must be set.
+func TestIsOneofRequired(t *testing.T) {
+	tests := []struct {
+		message protoreflect.MessageDescriptor
+		oneof   string
+		want    bool
+	}{
+		{message: (&agentv1.SendMailRequest{}).ProtoReflect().Descriptor(), oneof: "to", want: true},
+		{message: (&agentv1.CreateAgentRequest{}).ProtoReflect().Descriptor(), oneof: "task", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.message.Name())+"."+tt.oneof, func(t *testing.T) {
+			oneof := tt.message.Oneofs().ByName(protoreflect.Name(tt.oneof))
+			require.NotNil(t, oneof)
+			assert.Equal(t, tt.want, IsOneofRequired(oneof))
 		})
 	}
 }

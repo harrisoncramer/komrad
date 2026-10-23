@@ -46,6 +46,7 @@ export const API_SECTIONS = [
   { id: "responses", label: "Responses" },
   { id: "pagination", label: "Pagination" },
   { id: "errors", label: "Errors" },
+  { id: "events", label: "Events" },
 ] as const;
 
 export function apiSidebar(current: { service?: string; method?: string } = {}): SidebarGroup[] {

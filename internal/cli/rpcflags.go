@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"komrad/internal/rpcapi"
+	"komrad/lib/xslice"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -206,14 +207,93 @@ func declareListFlag(cmd *cobra.Command, field protoreflect.FieldDescriptor, fla
 
 func describeField(field protoreflect.FieldDescriptor) string {
 	parts := []string{field.Kind().String()}
-	if field.Kind() == protoreflect.EnumKind {
+	switch {
+	case field.Kind() == protoreflect.EnumKind:
 		parts = []string{strings.Join(rpcapi.EnumNames(field.Enum()), "|")}
+	case rpcapi.IsUUID(field):
+		parts = []string{"uuid"}
 	}
 	if rpcapi.IsTimestamp(field) {
 		parts = []string{"RFC 3339 timestamp"}
 	}
 
-	return strings.Join(append(parts, rpcapi.DescribeRules(field)...), ", ")
+	required := rpcapi.IsRequired(field)
+	if required {
+		parts = append(parts, "required")
+	}
+
+	return strings.Join(append(parts, describeConstraints(rpcapi.GetConstraints(field), required)...), ", ")
+}
+
+// describeConstraints spells out what the server refuses of a value, leaving out the emptiness a required field already rules out.
+func describeConstraints(constraints rpcapi.Constraints, required bool) []string {
+	parts := describeAtLeast(constraints.MinLength, "characters", required)
+	parts = append(parts, describeAtMost(constraints.MaxLength, "characters")...)
+	parts = append(parts, describeAtMost(constraints.MaxBytes, "bytes")...)
+	if constraints.Pattern != "" {
+		parts = append(parts, "matching "+constraints.Pattern)
+	}
+	if len(constraints.Enum) > 0 {
+		parts = append(parts, "one of "+strings.Join(constraints.Enum, ", "))
+	}
+
+	parts = append(parts, describeBounds(constraints)...)
+
+	parts = append(parts, describeAtLeast(constraints.MinItems, "items", required)...)
+	parts = append(parts, describeAtMost(constraints.MaxItems, "items")...)
+	if constraints.UniqueItems {
+		parts = append(parts, "no repeats")
+	}
+	if constraints.Items != nil {
+		parts = append(parts, xslice.Map(describeConstraints(*constraints.Items, false), func(part string) string {
+			return "each " + part
+		})...)
+	}
+
+	return append(parts, constraints.Rules...)
+}
+
+func describeAtLeast(count *uint64, unit string, required bool) []string {
+	switch {
+	case count == nil:
+		return nil
+	case *count > 1:
+		return []string{fmt.Sprintf("at least %d %s", *count, unit)}
+	case *count == 1 && !required:
+		return []string{"not empty"}
+	default:
+		return nil
+	}
+}
+
+func describeAtMost(count *uint64, unit string) []string {
+	if count == nil {
+		return nil
+	}
+
+	return []string{fmt.Sprintf("at most %d %s", *count, unit)}
+}
+
+func describeBounds(constraints rpcapi.Constraints) []string {
+	if constraints.Minimum != nil && constraints.Maximum != nil {
+		return []string{fmt.Sprintf("between %d and %d", *constraints.Minimum, *constraints.Maximum)}
+	}
+
+	var parts []string
+	if constraints.Minimum != nil {
+		parts = append(parts, fmt.Sprintf("at least %d", *constraints.Minimum))
+	}
+	if constraints.ExclusiveMinimum != nil {
+		parts = append(parts, fmt.Sprintf("more than %d", *constraints.ExclusiveMinimum))
+	}
+	if constraints.Maximum != nil {
+		parts = append(parts, fmt.Sprintf("at most %d", *constraints.Maximum))
+	}
+	if constraints.ExclusiveMaximum != nil {
+		parts = append(parts, fmt.Sprintf("less than %d", *constraints.ExclusiveMaximum))
+	}
+
+	return parts
 }
 
 func (f *requestFields) request(set *pflag.FlagSet, raw string) (map[string]any, error) {

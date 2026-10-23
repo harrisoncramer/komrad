@@ -1,6 +1,7 @@
 ---
 import Heading from "./Heading.astro";
 import { anchor, prose } from "../../reference";
+import { codeLink } from "../../reference/refs";
 import type { Enum } from "../../reference/types";
 
 type Props = {
@@ -10,13 +11,14 @@ type Props = {
 
 const { name, value } = Astro.props;
 const id = anchor(name);
+const inEnum = codeLink({ enum: name });
 ---
 
 <section class="type">
   <Heading id={id} level={3}>
     {value.name}
   </Heading>
-  {value.description && <div class="type-description" set:html={prose(value.description)} />}
+  {value.description && <div class="type-description" set:html={prose(value.description, inEnum)} />}
   <div class="table-scroll">
     <table>
       <thead>
@@ -33,7 +35,7 @@ const id = anchor(name);
                 <code>{entry.name}</code>
               </a>
             </td>
-            <td set:html={prose(entry.description)} />
+            <td set:html={prose(entry.description, inEnum)} />
           </tr>
         ))}
       </tbody>

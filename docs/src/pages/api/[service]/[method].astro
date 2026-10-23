@@ -7,6 +7,7 @@ import MessageTable from "../../../components/reference/MessageTable.astro";
 import Sidebar from "../../../components/Sidebar.astro";
 import ParentLink from "../../../components/reference/ParentLink.astro";
 import { anchor, api, kebab, messageOf, prose, referencedTypes } from "../../../reference";
+import { codeLink } from "../../../reference/refs";
 import type { Field } from "../../../reference/types";
 import { link } from "../../../site";
 import { apiSidebar } from "../../../sidebar";
@@ -23,13 +24,10 @@ export function getStaticPaths() {
 const { service, method } = Astro.props;
 const request = messageOf(method.request);
 const response = messageOf(method.response);
-const oneofs = new Set<string>();
+const unfilled = new Set(request.oneofs.filter((oneof) => oneof.required).map((oneof) => oneof.name));
 const required = request.fields.filter((field) => {
-  if (!field.rules.includes("required")) return false;
-  if (!field.oneof) return true;
-  if (oneofs.has(field.oneof)) return false;
-  oneofs.add(field.oneof);
-  return true;
+  if (!field.oneof) return field.required;
+  return unfilled.delete(field.oneof);
 });
 
 const placeholder = (field: Field) => {
@@ -51,7 +49,7 @@ const body = JSON.stringify(Object.fromEntries(required.map((field) => [field.na
 const connect = `curl -X POST http://127.0.0.1:8787${method.path} \\
   -H 'Content-Type: application/json' \\
   -d '${body}'`;
-const cli = [method.command, ...required.map((field) => `--${kebab(field.name)} <${field.type}>`)].join(" \\\n  ");
+const cli = [method.command, ...required.map((field) => `--${kebab(field.name)} '<${field.type}>'`)].join(" \\\n  ");
 
 const args = Object.fromEntries(required.map((field) => [field.name, placeholder(field)]));
 const mcp = JSON.stringify({ name: method.tool, arguments: args }, null, 2);
@@ -87,7 +85,7 @@ const traits = [
     <ParentLink href={link(`/api/${service.slug}`)}>{service.title}</ParentLink>
   </p>
 
-  {details && <div set:html={prose(details)} />}
+  {details && <div set:html={prose(details, codeLink({ messages: [method.request, method.response] }))} />}
 
   <Heading id="calling-it">Calling it</Heading>
   <CallTabs tabs={tabs} />

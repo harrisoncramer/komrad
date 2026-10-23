@@ -5,14 +5,40 @@ export type Field = {
   repeated: boolean;
   map: boolean;
   oneof: string;
-  rules: string[];
+  required: boolean;
+  constraints: Constraints;
   description: string;
+};
+
+export type Constraints = {
+  minLength?: number;
+  maxLength?: number;
+  maxBytes?: number;
+  pattern?: string;
+  format?: string;
+  enum?: string[];
+  minimum?: number;
+  exclusiveMinimum?: number;
+  maximum?: number;
+  exclusiveMaximum?: number;
+  minItems?: number;
+  maxItems?: number;
+  uniqueItems?: boolean;
+  items?: Constraints;
+  rules?: string[];
+};
+
+export type Oneof = {
+  name: string;
+  description: string;
+  required: boolean;
 };
 
 export type Message = {
   name: string;
   description: string;
   fields: Field[];
+  oneofs: Oneof[];
 };
 
 export type Enum = {
@@ -46,10 +72,17 @@ export type Service = {
   methods: Method[];
 };
 
+export type Event = {
+  name: string;
+  description: string;
+  defaultPrompt: string;
+};
+
 export type API = {
   services: Service[];
   messages: Record<string, Message>;
   enums: Record<string, Enum>;
+  events: Event[];
 };
 
 export type Flag = {

@@ -52,6 +52,10 @@
   --color-app-gray-light: #a8b5cb;
   --color-app-gray-dim: #7a879e;
   --color-app-yellow: #f5c26b;
+  --color-app-green: #8fd4a8;
+  --color-app-cyan: #7fd6e0;
+  --color-app-magenta: #c7a6ff;
+  --color-app-lime: #c8e07a;
   --color-app-red: #ff8a8a;
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -240,6 +244,48 @@
   font-size: 0.85em;
 }
 
+.doc-content .type-name[data-tone="string"] {
+  color: color-mix(in srgb, var(--color-app-green) 65%, var(--color-app-gray-dim));
+}
+
+.doc-content .type-name[data-tone="uuid"] {
+  color: color-mix(in srgb, var(--color-app-cyan) 65%, var(--color-app-gray-dim));
+}
+
+.doc-content .type-name[data-tone="bool"] {
+  color: color-mix(in srgb, var(--color-app-magenta) 65%, var(--color-app-gray-dim));
+}
+
+.doc-content .type-name[data-tone="number"] {
+  color: color-mix(in srgb, var(--color-app-yellow) 65%, var(--color-app-gray-dim));
+}
+
+.doc-content .type-name:is([data-tone="timestamp"], [data-tone="duration"]) {
+  color: color-mix(in srgb, var(--color-app-lime) 65%, var(--color-app-gray-dim));
+}
+
+.doc-content .required {
+  margin-left: 0.15rem;
+  color: color-mix(in srgb, var(--color-app-red) 70%, var(--color-app-gray-dim));
+}
+
+.doc-content tr.oneof td {
+  border-bottom-color: transparent;
+}
+
+.doc-content :is(tr.oneof, tr.oneof-member) td:first-child {
+  box-shadow: inset 2px 0 var(--color-app-background-medium);
+}
+
+.doc-content tr.oneof .oneof-name {
+  font-style: italic;
+  color: var(--color-app-gray-dim);
+}
+
+.doc-content tr.oneof-member td:first-child {
+  padding-left: 1.75rem;
+}
+
 .doc-content .type h3 {
   font-size: 1.3em;
   margin-bottom: 0.5rem;
@@ -334,31 +380,6 @@
   margin-top: 0;
 }
 
-.doc-content .jump-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.doc-content nav.jump-bar a {
-  border: 1px solid var(--color-app-background-medium);
-  border-radius: 999px;
-  padding: 0.2rem 0.8rem;
-  font-family: var(--font-sans);
-  font-size: 0.9rem;
-  color: var(--color-app-gray-light);
-  text-decoration: none;
-  transition:
-    color 150ms,
-    border-color 150ms;
-}
-
-.doc-content nav.jump-bar a:hover,
-.doc-content nav.jump-bar a:focus-visible {
-  border-color: rgba(158, 196, 255, 0.4);
-  color: var(--color-app-blue);
-}
-
 .doc-content section.convention {
   display: flex;
   flex-direction: column;
@@ -431,6 +452,16 @@
     margin-top: 0.4rem;
   }
 
+  .doc-content tr.oneof-member {
+    padding-left: 1rem;
+    box-shadow: inset 2px 0 var(--color-app-background-medium);
+  }
+
+  .doc-content tr.oneof-member td:first-child {
+    padding-left: 0;
+    box-shadow: none;
+  }
+
   .doc-content td[data-sep] {
     min-width: 0;
     font-family: var(--font-mono);
@@ -442,6 +473,11 @@
     content: attr(data-sep);
     margin-right: 0.5rem;
     color: var(--color-app-gray-dim);
+  }
+
+  .doc-content .type-cell p.rules {
+    display: inline;
+    margin: 0 0 0 0.75rem;
   }
 
   .doc-content td.default-cell {
@@ -555,4 +591,56 @@
   text-transform: uppercase;
   color: var(--color-app-blue);
   opacity: 0.7;
+}
+
+.ref {
+  position: relative;
+  text-decoration: none;
+}
+
+.ref-card {
+  display: none;
+}
+
+.ref-detail {
+  color: var(--color-app-gray);
+  font-size: 0.9em;
+}
+
+@media (hover: hover) {
+  .ref:hover .ref-card {
+    position: absolute;
+    bottom: calc(100% + 0.4rem);
+    left: 0;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    width: max-content;
+    max-width: 22rem;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid var(--color-app-background-medium);
+    border-radius: 6px;
+    background: var(--color-app-background-medium-dark);
+    color: var(--color-app-gray-light);
+    font-size: 0.85rem;
+    font-weight: normal;
+    line-height: 1.4;
+    white-space: normal;
+  }
+
+  @supports (anchor-name: --ref) {
+    .ref:hover {
+      anchor-name: --ref;
+    }
+
+    .ref:hover .ref-card {
+      position: fixed;
+      position-anchor: --ref;
+      position-area: block-start span-inline-end;
+      position-try-fallbacks: flip-block, flip-inline;
+      inset: auto;
+      margin-block: 0.4rem;
+    }
+  }
 }

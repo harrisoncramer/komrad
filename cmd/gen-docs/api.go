@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 
+	"komrad/internal/eventprompts"
 	"komrad/internal/rpcapi"
 	"komrad/lib/xslice"
 	annotationv1 "komrad/proto/gen/annotation/v1"
@@ -15,6 +16,7 @@ type apiDoc struct {
 	Services []serviceDoc          `json:"services"`
 	Messages map[string]messageDoc `json:"messages"`
 	Enums    map[string]enumDoc    `json:"enums"`
+	Events   []eventDoc            `json:"events"`
 }
 
 type serviceDoc struct {
@@ -46,17 +48,25 @@ type messageDoc struct {
 	Name        string     `json:"name"`
 	Description string     `json:"description"`
 	Fields      []fieldDoc `json:"fields"`
+	Oneofs      []oneofDoc `json:"oneofs"`
+}
+
+type oneofDoc struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Required    bool   `json:"required"`
 }
 
 type fieldDoc struct {
-	Name        string   `json:"name"`
-	Type        string   `json:"type"`
-	Ref         string   `json:"ref"`
-	Repeated    bool     `json:"repeated"`
-	Map         bool     `json:"map"`
-	Oneof       string   `json:"oneof"`
-	Rules       []string `json:"rules"`
-	Description string   `json:"description"`
+	Name        string             `json:"name"`
+	Type        string             `json:"type"`
+	Ref         string             `json:"ref"`
+	Repeated    bool               `json:"repeated"`
+	Map         bool               `json:"map"`
+	Oneof       string             `json:"oneof"`
+	Required    bool               `json:"required"`
+	Constraints rpcapi.Constraints `json:"constraints"`
+	Description string             `json:"description"`
 }
 
 type enumDoc struct {
@@ -70,6 +80,12 @@ type enumValueDoc struct {
 	Description string `json:"description"`
 }
 
+type eventDoc struct {
+	Name          string `json:"name"`
+	Description   string `json:"description"`
+	DefaultPrompt string `json:"defaultPrompt"`
+}
+
 var firstSentence = regexp.MustCompile(`^.*?[.!?](\s|$)`)
 
 func buildAPI(notes comments) apiDoc {
@@ -77,6 +93,9 @@ func buildAPI(notes comments) apiDoc {
 		Services: []serviceDoc{},
 		Messages: map[string]messageDoc{},
 		Enums:    map[string]enumDoc{},
+		Events: xslice.Map(eventprompts.All(), func(event eventprompts.Event) eventDoc {
+			return eventDoc{Name: event.Name, Description: event.Description, DefaultPrompt: event.DefaultPrompt}
+		}),
 	}
 	index := map[protoreflect.FullName]int{}
 
@@ -137,8 +156,22 @@ func addMessage(doc apiDoc, notes comments, message protoreflect.MessageDescript
 		Name:        string(message.Name()),
 		Description: notes.of(message),
 		Fields:      []fieldDoc{},
+		Oneofs:      []oneofDoc{},
 	}
 	doc.Messages[name] = entry
+
+	for i := range message.Oneofs().Len() {
+		oneof := message.Oneofs().Get(i)
+		if oneof.IsSynthetic() {
+			continue
+		}
+
+		entry.Oneofs = append(entry.Oneofs, oneofDoc{
+			Name:        string(oneof.Name()),
+			Description: notes.of(oneof),
+			Required:    rpcapi.IsOneofRequired(oneof),
+		})
+	}
 
 	for i := range message.Fields().Len() {
 		field := message.Fields().Get(i)
@@ -147,7 +180,8 @@ func addMessage(doc apiDoc, notes comments, message protoreflect.MessageDescript
 			Name:        string(field.Name()),
 			Repeated:    field.IsList(),
 			Map:         field.IsMap(),
-			Rules:       append([]string{}, rpcapi.DescribeRules(field)...),
+			Required:    rpcapi.IsRequired(field),
+			Constraints: rpcapi.GetConstraints(field),
 			Description: notes.of(field),
 		}
 
@@ -161,6 +195,9 @@ func addMessage(doc apiDoc, notes comments, message protoreflect.MessageDescript
 		}
 
 		described.Type, described.Ref = fieldType(value)
+		if rpcapi.IsUUID(field) {
+			described.Type = "uuid"
+		}
 
 		switch {
 		case value.Kind() == protoreflect.EnumKind:

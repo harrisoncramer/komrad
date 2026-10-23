@@ -3,6 +3,7 @@ import DocPage from "../layouts/DocPage.astro";
 import Heading from "../components/reference/Heading.astro";
 import Sidebar from "../components/Sidebar.astro";
 import { config, prose } from "../reference";
+import { codeLink } from "../reference/refs";
 import type { Section } from "../reference/types";
 import { configSidebar } from "../sidebar";
 
@@ -26,7 +27,7 @@ const tables = [...firstOf].map(([table, path]) => ({ id: path || "top-level", l
       <Heading id={section.path || "top-level"}>
         {section.path ? <code class="table-name">[{section.path}]</code> : "Top level"}
       </Heading>
-      {section.description && <div set:html={prose(section.description)} />}
+      {section.description && <div set:html={prose(section.description, codeLink({}))} />}
       {section.settings.length > 0 && (
         <div class="table-scroll">
           <table>
@@ -48,7 +49,7 @@ const tables = [...firstOf].map(([table, path]) => ({ id: path || "top-level", l
                   <td class="default-cell" data-sep="=">
                     <code class:list={{ long: setting.default.length > 24 }}>{setting.default}</code>
                   </td>
-                  <td set:html={prose(setting.description)} />
+                  <td set:html={prose(setting.description, codeLink({}))} />
                 </tr>
               ))}
             </tbody>

@@ -2,6 +2,7 @@
 import Layout from "./Layout.astro";
 import { REPO_URL, SITE_TITLE } from "../consts";
 import { breadcrumbs, canonical, link } from "../site";
+import { inline } from "../reference";
 
 type Neighbour = { title: string; href: string };
 
@@ -48,7 +49,7 @@ const structuredData = [
         <h1 class="title" data-pagefind-meta="title">
           {title}
         </h1>
-        {description && <p class="mt-2 mb-8 text-lg text-app-gray-light">{description}</p>}
+        {description && <p class="lead mt-2 mb-8 text-lg text-app-gray-light" set:html={inline(description)} />}
       </div>
       <div class="page-actions" data-pagefind-ignore>
         <button
@@ -179,6 +180,7 @@ const structuredData = [
     @apply ml-6 list-decimal;
   }
 
+  .lead :global(code),
   .doc-content :global(:not(pre) > code) {
     @apply rounded-xs bg-app-background-light px-1.5 py-0.5 text-app-gray;
     font-size: 0.85em;

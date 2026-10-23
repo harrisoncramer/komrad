@@ -9,7 +9,6 @@ package rpcapi
 
 import (
 	"context"
-	"fmt"
 	"iter"
 	"slices"
 	"time"
@@ -233,36 +232,38 @@ func IsRequired(field protoreflect.FieldDescriptor) bool {
 		return true
 	}
 
-	return rules.GetString().GetMinLen() > 0 || rules.GetString().GetUuid() || rules.GetRepeated().GetMinItems() > 0
+	text := rules.GetString()
+	if in := text.GetIn(); len(in) > 0 && !slices.Contains(in, "") {
+		return true
+	}
+
+	return text.GetMinLen() > 0 || text.GetUuid() || rules.GetRepeated().GetMinItems() > 0
 }
 
-// DescribeRules spells out what the server refuses of a field, in the order a reader weighs them.
-func DescribeRules(field protoreflect.FieldDescriptor) []string {
-	var parts []string
-	if IsRequired(field) {
-		parts = append(parts, "required")
-	}
-
+// IsUUID reports whether the server accepts only a UUID in the field, its list items or its map
+// values.
+func IsUUID(field protoreflect.FieldDescriptor) bool {
 	rules := getRules(field)
-	if text := rules.GetString(); text != nil {
-		if limit := text.GetMaxLen(); limit > 0 {
-			parts = append(parts, fmt.Sprintf("at most %d characters", limit))
-		}
-		if pattern := text.GetPattern(); pattern != "" {
-			parts = append(parts, "matching "+pattern)
-		}
-		if text.GetUuid() {
-			parts = append(parts, "a UUID")
-		}
+	switch {
+	case field.IsMap():
+		rules = rules.GetMap().GetValues()
+	case field.IsList():
+		rules = rules.GetRepeated().GetItems()
 	}
 
-	if number := rules.GetInt32(); number != nil {
-		if number.GetGte() > 0 || number.GetLte() > 0 {
-			parts = append(parts, fmt.Sprintf("between %d and %d", number.GetGte(), number.GetLte()))
-		}
+	return rules.GetString().GetUuid() || rules.GetString().GetTuuid() || rules.GetBytes().GetUuid()
+}
+
+// IsOneofRequired reports whether the server refuses a request setting none of the oneof's fields.
+func IsOneofRequired(oneof protoreflect.OneofDescriptor) bool {
+	opts, ok := oneof.Options().(*descriptorpb.OneofOptions)
+	if !ok || !proto.HasExtension(opts, validate.E_Oneof) {
+		return false
 	}
 
-	return parts
+	rules, ok := proto.GetExtension(opts, validate.E_Oneof).(*validate.OneofRules)
+
+	return ok && rules.GetRequired()
 }
 
 func getIdempotencyLevel(method protoreflect.MethodDescriptor) descriptorpb.MethodOptions_IdempotencyLevel {

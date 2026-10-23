@@ -2,13 +2,12 @@
 import DocPage from "../../layouts/DocPage.astro";
 import IndexList from "../../components/reference/IndexList.astro";
 import Heading from "../../components/reference/Heading.astro";
-import JumpBar from "../../components/reference/JumpBar.astro";
 import Sidebar from "../../components/Sidebar.astro";
 import { codeTheme } from "../../code-theme.mjs";
 import { Code } from "astro:components";
 import { api } from "../../reference";
 import { link } from "../../site";
-import { API_SECTIONS, apiSidebar } from "../../sidebar";
+import { apiSidebar } from "../../sidebar";
 
 const request = `POST /agent.v1.AgentService/GetAgent
 Content-Type: application/json
@@ -48,7 +47,6 @@ X-Request-Id: 019991a6-8b0e-7c3d-9e1f-2a3b4c5d6e7f
   description="Every endpoint the service answers, and how to reach it over Connect, from the CLI, and as an MCP tool."
 >
   <Sidebar slot="sidebar" label="API" groups={apiSidebar()} />
-  <JumpBar items={API_SECTIONS.map(({ id, label }) => ({ href: `#${id}`, label }))} />
 
   <section class="convention">
     <Heading id="requests">Requests</Heading>
@@ -67,6 +65,10 @@ X-Request-Id: 019991a6-8b0e-7c3d-9e1f-2a3b4c5d6e7f
       The CLI command and the MCP tool make exactly this request, which is why each method page shows the same call
       three ways. The service answers this machine only: a request carrying an <code>Origin</code> header from anywhere
       else is refused.
+    </p>
+    <p>
+      On a method page, an asterisk marks a field the request must set. A row reading "one of" groups the fields under
+      it as alternatives, and the request sets at most one of them, or exactly one when the row carries an asterisk.
     </p>
   </section>
 
@@ -177,6 +179,36 @@ X-Request-Id: 019991a6-8b0e-7c3d-9e1f-2a3b4c5d6e7f
       it as one request. If any id is unknown, or any one of them is refused, the call fails naming why and none of them
       change.
     </p>
+  </section>
+
+  <section class="convention">
+    <Heading id="events">Events</Heading>
+    <p>
+      Komrad mails an agent when something happens to its work. Each event has a name, and a workflow's event prompts
+      add text to that mail by naming the event. A workflow that sets no prompts adds the default prompt below.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Event</th>
+          <th>Sent when</th>
+          <th>Default prompt</th>
+        </tr>
+      </thead>
+      <tbody>
+        {api.events.map((event) => (
+          <tr id={`event-${event.name}`}>
+            <td>
+              <a class="row-anchor" href={`#event-${event.name}`}>
+                <code>{event.name}</code>
+              </a>
+            </td>
+            <td>{event.description}</td>
+            <td>{event.defaultPrompt}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   </section>
 
   <div class="lg:hidden">

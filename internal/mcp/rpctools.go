@@ -128,11 +128,47 @@ func fieldSchema(field protoreflect.FieldDescriptor, enclosing map[protoreflect.
 		return nil, err
 	}
 
-	if field.IsList() {
-		return map[string]any{"type": "array", "items": value}, nil
+	constraints := rpcapi.GetConstraints(field)
+	if !field.IsList() {
+		if err := addConstraints(value, constraints); err != nil {
+			return nil, err
+		}
+
+		return value, nil
 	}
 
-	return value, nil
+	if constraints.Items != nil {
+		if err := addConstraints(value, *constraints.Items); err != nil {
+			return nil, err
+		}
+	}
+
+	constraints.Items = nil
+	list := map[string]any{"type": "array", "items": value}
+	if err := addConstraints(list, constraints); err != nil {
+		return nil, err
+	}
+
+	return list, nil
+}
+
+// addConstraints adds a value's constraints to its schema, describing those JSON Schema has no keyword for.
+func addConstraints(schema map[string]any, constraints rpcapi.Constraints) error {
+	notes := constraints.Rules
+	if constraints.MaxBytes != nil {
+		notes = append([]string{fmt.Sprintf("at most %d bytes", *constraints.MaxBytes)}, notes...)
+	}
+	if len(notes) > 0 {
+		schema["description"] = strings.Join(notes, "; ")
+	}
+	constraints.Rules, constraints.MaxBytes = nil, nil
+
+	keywords, err := json.Marshal(constraints)
+	if err != nil {
+		return fmt.Errorf("failed to encode constraints: %w", err)
+	}
+
+	return json.Unmarshal(keywords, &schema)
 }
 
 // enumSchema describes an enum by the names of its values, which connect's JSON
