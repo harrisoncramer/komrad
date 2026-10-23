@@ -277,7 +277,7 @@
               "key": "clear",
               "path": "keybindings.archive_menu.clear",
               "type": "array",
-              "description": "Deletes every unused worktree. That covers every directory whose agent is archived, through\nthe agent delete and its hooks, and every directory agents don't answer for. A directory with a live\nagent in it is never deleted. The entry is only on the worktrees screen, and is gray when\nevery worktree is in use.",
+              "description": "Deletes every unused worktree. That covers every directory whose agent is archived, through\nthe agent delete and its hooks, and every directory agents don't answer for. A directory\nwith a live agent in it is never deleted. The entry is only on the worktrees screen, and is\ngray when every worktree is in use.",
               "default": "[\"c\"]"
             }
           ],
