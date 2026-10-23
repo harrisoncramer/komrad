@@ -956,23 +956,23 @@ func TestAgentsRecordWorktree(t *testing.T) {
 	}{
 		{
 			name:       "a directory komrad does not hold renders no worktree rows and no error",
-			answer:     refuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"),
+			answer:     paneltest.RefuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"),
 			wantAbsent: []string{"worktree", "size", "changes"},
 		},
 		{
 			name:   "a directory git refuses says why",
-			answer: refuseWith(connect.CodeInternal, "git exploded"),
+			answer: paneltest.RefuseWith(connect.CodeInternal, "git exploded"),
 			want:   map[string]string{"worktree": "could not read: git exploded"},
 		},
 		{
 			name:       "a registration git cannot read has a size and no standing",
-			answer:     answerWith(unreadable),
+			answer:     paneltest.AnswerWith(unreadable),
 			want:       map[string]string{"size": "1.2G, measured 5m ago"},
 			wantAbsent: []string{"changes", "commits"},
 		},
 		{
 			name:   "a readable worktree says what is uncommitted and leaves the base to the worktree screen",
-			answer: answerWith(buildWorktreeRead()),
+			answer: paneltest.AnswerWith(buildWorktreeRead()),
 			want: map[string]string{
 				"changes":  "2 modified, 1 untracked",
 				"landed":   "1 commit the base already holds",
@@ -1002,7 +1002,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 
 	t.Run("a flat list puts the task's checkout on the agent's record", func(t *testing.T) {
 		harness := paneltest.Start(t, paneltest.Params{})
-		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
+		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, paneltest.AnswerWith(buildWorktreeRead()))
 		harness.Watch(paneltest.Snapshot(buildRecordedTask()...))
 
 		harness.Press("f", "shift+tab", "j", "esc")
@@ -1122,9 +1122,9 @@ func TestAgentsRecordWorktree(t *testing.T) {
 				recorded = append(recorded, task)
 				harness := paneltest.Start(t, paneltest.Params{})
 				if tt.read == nil {
-					harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, refuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"))
+					harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, paneltest.RefuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"))
 				} else {
-					harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(tt.read))
+					harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, paneltest.AnswerWith(tt.read))
 				}
 				harness.Watch(paneltest.Snapshot(recorded...))
 
@@ -1176,7 +1176,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 
 	t.Run("a refused reread keeps the last answer beside the refusal", func(t *testing.T) {
 		harness := paneltest.Start(t, paneltest.Params{})
-		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
+		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, paneltest.AnswerWith(buildWorktreeRead()))
 		harness.Watch(paneltest.Snapshot(buildRecordedTask()...))
 		harness.Advance(time.Second)
 		harness.Refuse(worktreev1connect.WorktreeServiceGetWorktreeProcedure, connect.NewError(connect.CodeInternal, errors.New("context deadline exceeded")))
@@ -1221,7 +1221,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 
 	t.Run("a directory komrad does not hold is never asked about twice", func(t *testing.T) {
 		harness := paneltest.Start(t, paneltest.Params{})
-		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, refuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"))
+		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, paneltest.RefuseWith(connect.CodeNotFound, "/repo is not under the worktree directories"))
 		harness.Watch(paneltest.Snapshot(buildRecordedTask()...))
 
 		harness.Press("pick:record", "pick:list", "k", "j")
@@ -1232,7 +1232,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 
 	t.Run("a focused record grows to show every field and shrinks back", func(t *testing.T) {
 		harness := paneltest.Start(t, paneltest.Params{DetailsHeight: 5})
-		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
+		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, paneltest.AnswerWith(buildWorktreeRead()))
 		harness.Watch(paneltest.Snapshot(buildRecordedTask()...))
 		harness.Advance(time.Second)
 		share := len(paneltest.Record(harness.Frame()))
@@ -1252,7 +1252,7 @@ func TestAgentsRecordWorktree(t *testing.T) {
 
 	t.Run("a focused record taller than the pane grows only as far as the room", func(t *testing.T) {
 		harness := paneltest.Start(t, paneltest.Params{Height: 16})
-		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
+		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, paneltest.AnswerWith(buildWorktreeRead()))
 		harness.Watch(paneltest.Snapshot(buildRecordedTask()...))
 		harness.Press("k")
 		harness.Advance(time.Second)
@@ -1394,7 +1394,7 @@ func TestAgentsRecordSearch(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				harness := paneltest.Start(t, tt.params)
-				harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
+				harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, paneltest.AnswerWith(buildWorktreeRead()))
 				harness.Watch(paneltest.Snapshot(buildRecorded()...))
 				harness.Press(tt.press...)
 				if tt.wantLegend {
@@ -1633,7 +1633,7 @@ func TestAgentsLastScreen(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := paneltest.Start(t, paneltest.Params{})
 			harness.AnswerWorktreeReads()
-			answerLastScreens(harness, map[string]string{"a1": "⏺ the migration is written"})
+			harness.AnswerLastScreens(map[string]string{"a1": "⏺ the migration is written"})
 			harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), tt.agent))
 			harness.Press("j")
 			harness.Advance(time.Second)
@@ -1654,7 +1654,7 @@ func TestAgentsLastScreen(t *testing.T) {
 	t.Run("an agent that runs and stops again under the cursor renders its newer screen", func(t *testing.T) {
 		harness := paneltest.Start(t, paneltest.Params{})
 		harness.AnswerWorktreeReads()
-		answerLastScreens(harness, map[string]string{"a1": "⏺ the migration is written"})
+		harness.AnswerLastScreens(map[string]string{"a1": "⏺ the migration is written"})
 		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), newDormant("login")))
 		harness.Press("j")
 		harness.Advance(time.Second)
@@ -1663,7 +1663,7 @@ func TestAgentsLastScreen(t *testing.T) {
 		live := newDormant("login")
 		live.Alive = xptr.Ptr(true)
 		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), live))
-		answerLastScreens(harness, map[string]string{"a1": "⏺ the tests pass"})
+		harness.AnswerLastScreens(map[string]string{"a1": "⏺ the tests pass"})
 		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), newDormant("login")))
 
 		assert.Contains(t, harness.Frame(), "the tests pass")
@@ -1672,7 +1672,7 @@ func TestAgentsLastScreen(t *testing.T) {
 	t.Run("a saved screen taller than the window opens on its bottom", func(t *testing.T) {
 		harness := paneltest.Start(t, paneltest.Params{})
 		harness.AnswerWorktreeReads()
-		answerLastScreens(harness, map[string]string{
+		harness.AnswerLastScreens(map[string]string{
 			"a1": "❯ the first ask\n" + strings.Repeat("working through it\n", 60) + "⏺ the migration is written",
 		})
 		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), newDormant("login")))
@@ -2002,7 +2002,7 @@ func TestAgentsReviewers(t *testing.T) {
 
 			harness.Press(tt.press...)
 
-			assert.Contains(t, readFormProse(harness.Frame()), tt.want)
+			assert.Contains(t, paneltest.StageProse(harness.Frame()), tt.want)
 		})
 	}
 
@@ -2398,7 +2398,7 @@ func openWorktreeRecord(t *testing.T, params paneltest.Params) *paneltest.Panel 
 	t.Helper()
 
 	harness := paneltest.Start(t, params)
-	harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(buildWorktreeRead()))
+	harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, paneltest.AnswerWith(buildWorktreeRead()))
 	harness.Watch(paneltest.Snapshot(buildRecordedTask()...))
 	harness.Press("pick:record")
 
@@ -2464,18 +2464,6 @@ func readRecordTag(frame string) string {
 	}
 
 	return ""
-}
-
-func answerWith(read *worktreev1.GetWorktreeResponse) paneltest.AnswerFunc {
-	return func(connect.AnyRequest) (connect.AnyResponse, error) {
-		return connect.NewResponse(read), nil
-	}
-}
-
-func refuseWith(code connect.Code, reason string) paneltest.AnswerFunc {
-	return func(connect.AnyRequest) (connect.AnyResponse, error) {
-		return nil, connect.NewError(code, errors.New(reason))
-	}
 }
 
 func buildWorktreeReads(count int) []proto.Message {

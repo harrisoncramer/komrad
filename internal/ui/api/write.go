@@ -3,6 +3,8 @@ package api
 import (
 	"fmt"
 
+	"komrad/internal/ui/form"
+	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 )
@@ -87,6 +89,26 @@ func (a Clients) DeleteTasksWrite(tasks []panel.Task, agents []panel.Agent, reco
 		Write: func(clients Clients) error {
 			return clients.DeleteTasks(panel.TaskIDs(tasks), records)
 		},
+	})
+}
+
+// ConfirmDeleteTasks asks what goes before the tasks are deleted.
+func (a Clients) ConfirmDeleteTasks(in screen.Inputs, tasks []panel.Task) screen.Request {
+	warning := ""
+	if agentCount := len(in.Listing.AgentsOnTasks(tasks)); agentCount > 0 {
+		warning = fmt.Sprintf("Komrad archives %s first.", label.Count(agentCount, "live agent", "live agents"))
+	}
+
+	confirm := form.DeleteConfirm{
+		Title:           "Delete " + panel.DescribeTasks(tasks) + "?",
+		Warning:         warning,
+		Dirs:            panel.TaskDirs(tasks),
+		StartsConfirmed: true,
+		Values:          form.NewDeleteValues(in.Listing.HasAnyWorktreeToDelete(tasks)),
+	}
+
+	return confirm.Open(in, func(submitted form.Inputs) screen.Request {
+		return a.DeleteTasksWrite(tasks, submitted.Listing.AgentsOnTasks(tasks), confirm.Values.DeletesRecords())
 	})
 }
 

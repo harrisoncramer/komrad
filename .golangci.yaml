@@ -744,8 +744,8 @@ linters:
         linters:
           - forbidigo
         text: db.IsNoRows
-      # A test plays the server and answers with whatever code its case needs.
-      - path: (_test\.go$|^internal/rpcerr/)
+      # A test, or paneltest playing the server for the panel's stories, answers with whatever code its case needs.
+      - path: (_test\.go$|^internal/rpcerr/|^internal/ui/paneltest/)
         linters:
           - forbidigo
         text: answer through rpcerr

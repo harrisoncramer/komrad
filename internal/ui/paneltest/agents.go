@@ -1,17 +1,22 @@
 package paneltest
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
+	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1connect"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 	"komrad/proto/gen/worktree/v1/worktreev1connect"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // WidenListPresses drags the list's border out as far as it goes.
@@ -44,6 +49,28 @@ func (p *Panel) AnswerWorktreeReads() {
 		}
 
 		return connect.NewResponse(&worktreev1.GetWorktreeResponse{Worktree: &worktreev1.Worktree{Dir: read.GetDir()}}), nil
+	})
+}
+
+// AnswerLastScreens answers each agent's saved screen at 80x24, and not found for any other.
+func (p *Panel) AnswerLastScreens(screens map[string]string) {
+	p.Answer(agentv1connect.AgentServiceGetLastScreenProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
+		read, ok := req.Any().(*agentv1.GetLastScreenRequest)
+		if !ok {
+			return nil, fmt.Errorf("%s sent a %T", req.Spec().Procedure, req.Any())
+		}
+
+		frame, ok := screens[read.GetAgentId()]
+		if !ok {
+			return nil, connect.NewError(connect.CodeNotFound, errors.New("no saved screen"))
+		}
+
+		return connect.NewResponse(&agentv1.GetLastScreenResponse{
+			Frame:      frame,
+			Width:      80,
+			Height:     24,
+			CapturedAt: timestamppb.New(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)),
+		}), nil
 	})
 }
 

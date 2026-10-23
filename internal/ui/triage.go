@@ -74,14 +74,14 @@ var triageRules = []triageRule{
 		tier:  tierNeedsYou,
 		kind:  kindPerson,
 		clock: clockState,
-		is:    func(s triageSubject) bool { return displayState(s.item) == panel.StateWaiting },
+		is:    func(s triageSubject) bool { return s.item.DisplayState() == panel.StateWaiting },
 	},
 	{
 		name:  "errored",
 		tier:  tierBroken,
 		kind:  kindAgent,
 		clock: clockState,
-		is:    func(s triageSubject) bool { return displayState(s.item) == panel.StateErrored },
+		is:    func(s triageSubject) bool { return s.item.DisplayState() == panel.StateErrored },
 	},
 	{
 		name:  "launch failed",
@@ -186,7 +186,7 @@ func (z *triageZone) refresh(agents []panel.AgentRow, tasks panel.Tasks, now tim
 
 		was, wasQueued := z.entries[id]
 		// An agent komrad cannot read stays where it was.
-		if displayState(item) == panel.StateUncertain {
+		if item.DisplayState() == panel.StateUncertain {
 			if wasQueued {
 				entries[id] = was
 			}
@@ -425,7 +425,7 @@ func isAgentOnIt(item panel.AgentRow, task panel.Task) bool {
 	//
 	// TODO(@harrisoncramer): Mail the agent never reads keeps it out of triage for as long as it
 	// sits there unread.
-	if displayState(item) == panel.StateThinking {
+	if item.DisplayState() == panel.StateThinking {
 		return true
 	}
 
@@ -469,7 +469,7 @@ func isFinishedWriter(s triageSubject) bool {
 	agent := s.item.Agent
 
 	return s.item.Alive &&
-		displayState(s.item) == panel.StateIdle &&
+		s.item.DisplayState() == panel.StateIdle &&
 		agent.Role == panel.RoleWriter &&
 		!s.hasThinkingReviewer &&
 		s.task.PullRequest.State != pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED
@@ -479,7 +479,7 @@ func isFinishedWriter(s triageSubject) bool {
 func findThinkingWriters(agents []panel.AgentRow, writers map[string]panel.AgentRow) map[string]bool {
 	thinking := make(map[string]bool)
 	for _, item := range agents {
-		if writer, ok := panel.FindWriter(item, writers); ok && displayState(item) == panel.StateThinking {
+		if writer, ok := panel.FindWriter(item, writers); ok && item.DisplayState() == panel.StateThinking {
 			thinking[writer.Agent.ID] = true
 		}
 	}

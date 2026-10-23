@@ -84,7 +84,7 @@ func TestClickBlock(t *testing.T) {
 			newArchivedAgent("a1", "api-refactor", "w1"),
 			newArchivedAgent("a2", "billing", "w1"),
 		)
-		answerLastScreens(harness, map[string]string{"a1": strings.Join(lines, "\n"), "a2": strings.Join(lines, "\n")})
+		harness.AnswerLastScreens(map[string]string{"a1": strings.Join(lines, "\n"), "a2": strings.Join(lines, "\n")})
 		harness.Press("j")
 		harness.Advance(time.Second)
 

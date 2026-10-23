@@ -14,7 +14,6 @@ import (
 	"komrad/internal/ui/paneltest"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xptr"
-	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	taskv1 "komrad/proto/gen/task/v1"
 	"komrad/proto/gen/task/v1/taskv1connect"
@@ -29,51 +28,9 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// TestWorktreesOpen covers the screen opening on the directory of the agent the cursor was on.
+// TestWorktreesOpen covers the window and the title the screen opens with.
 func TestWorktreesOpen(t *testing.T) {
 	t.Parallel()
-
-	tests := []struct {
-		name        string
-		press       []string
-		wantHovered string
-	}{
-		{
-			name:        "from the agents list it lands on the hovered agent's directory",
-			press:       []string{"shift+tab", "esc"},
-			wantHovered: "treeview",
-		},
-		{
-			name:        "a task lands on its writer's directory",
-			press:       []string{"j", "shift+tab", "esc"},
-			wantHovered: "treeview",
-		},
-		{
-			name:        "an occupant lands on the directory it works in",
-			press:       []string{"j", "j", "shift+tab", "esc"},
-			wantHovered: "treeview",
-		},
-		{
-			name:        "from the archived agents it lands on the archived agent's directory",
-			press:       []string{"F", "tab", "esc", "j", "shift+tab", "esc"},
-			wantHovered: "reviewer",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			harness := paneltest.OpenAgents(t, buildWorktrees()...)
-			harness.AnswerWorktreeReads()
-
-			harness.Press(tt.press...)
-
-			frame := harness.Frame()
-			assert.Equal(t, screen.Worktrees, paneltest.Screen(harness.Frame()))
-			assert.Equal(t, tt.wantHovered, readHoveredWorktree(frame))
-		})
-	}
 
 	t.Run("the panel keeps the whole window, a live agent's pane included", func(t *testing.T) {
 		t.Parallel()
@@ -100,56 +57,6 @@ func TestWorktreesOpen(t *testing.T) {
 
 		assert.Contains(t, paneltest.BelowViews(harness.Frame())[0], "5 · 1.6G")
 	})
-}
-
-// TestWorktreesJump covers jumping from a directory to the task it belongs to.
-func TestWorktreesJump(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name        string
-		row         string
-		wantScreen  screen.ID
-		wantHovered string
-		wantTaskID  string
-	}{
-		{
-			name:        "a directory nothing answers for stays put",
-			row:         "task/orphan",
-			wantScreen:  screen.Worktrees,
-			wantHovered: "task/orphan",
-		},
-		{
-			name:        "a live task's directory lands on the agents list",
-			row:         "treeview",
-			wantScreen:  screen.Agents,
-			wantHovered: "treeview",
-			wantTaskID:  "live",
-		},
-		{
-			name:        "an archived task's directory lands in the archive",
-			row:         "reviewer",
-			wantScreen:  screen.Agents,
-			wantHovered: "reviewer",
-			wantTaskID:  "archived",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			harness := openWorktrees(t)
-			moveToWorktree(t, harness, tt.row)
-
-			harness.Press("space", "J", "t")
-
-			frame := harness.Frame()
-			assert.Equal(t, tt.wantScreen, paneltest.Screen(harness.Frame()))
-			assert.Contains(t, paneltest.HoveredRow(frame), tt.wantHovered)
-			assert.Equal(t, tt.wantTaskID, paneltest.RecordField(frame, "task_id"))
-		})
-	}
 }
 
 // TestWorktreesDelete covers what each delete entry opens on the row under the cursor.
@@ -211,7 +118,7 @@ func TestWorktreesDelete(t *testing.T) {
 			harness.Press(tt.press...)
 
 			frame := harness.Frame()
-			prose := readFormProse(frame) + " " + paneltest.SidebarProse(frame)
+			prose := paneltest.StageProse(frame) + " " + paneltest.SidebarProse(frame)
 			assert.Contains(t, prose, tt.wantRendered)
 			if tt.wantAbsent != "" {
 				assert.NotContains(t, prose, tt.wantAbsent)
@@ -243,7 +150,7 @@ func TestWorktreesDelete(t *testing.T) {
 
 		harness.Press("c", "y")
 
-		assert.NotContains(t, readFormProse(harness.Frame()), "Delete")
+		assert.NotContains(t, paneltest.StageProse(harness.Frame()), "Delete")
 		harness.AssertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure)
 	})
 
@@ -381,28 +288,28 @@ func TestWorktreesDeleteStanding(t *testing.T) {
 			name:         "a task's delete counts what is uncommitted and unpushed and names the files",
 			row:          "reviewer",
 			press:        []string{"space", "a", "d"},
-			answer:       answerWith(dirty),
+			answer:       paneltest.AnswerWith(dirty),
 			wantRendered: []string{"The worktree has 3 uncommitted files and 2 unpushed commits. Deleting the worktree loses the uncommitted files.", "a.go b.txt c.txt"},
 		},
 		{
 			name:         "a clean worktree is said to be clean",
 			row:          "reviewer",
 			press:        []string{"space", "a", "d"},
-			answer:       answerWith(clean),
+			answer:       paneltest.AnswerWith(clean),
 			wantRendered: []string{"The worktree has nothing uncommitted or unpushed."},
 		},
 		{
 			name:         "a branch never pushed with no base counts its files and not its commits",
 			row:          "task/orphan",
 			press:        []string{"space", "a", "d"},
-			answer:       answerWith(baseless),
+			answer:       paneltest.AnswerWith(baseless),
 			wantRendered: []string{"The worktree has 1 uncommitted file. Deleting the worktree loses the uncommitted files. Without a base, Komrad cannot count the unpushed commits of the worktree.", "notes.md"},
 		},
 		{
 			name:         "a branch never pushed counts its commits since the base and the files past ten are counted",
 			row:          "task/orphan",
 			press:        []string{"space", "a", "d"},
-			answer:       answerWith(crowded),
+			answer:       paneltest.AnswerWith(crowded),
 			wantRendered: []string{"The worktree has 12 uncommitted files and 3 unpushed commits.", "f9.go and 2 more"},
 			wantAbsent:   []string{"You lose any uncommitted changes"},
 		},
@@ -410,14 +317,14 @@ func TestWorktreesDeleteStanding(t *testing.T) {
 			name:         "a worktree git refuses says why it cannot be counted",
 			row:          "reviewer",
 			press:        []string{"space", "a", "d"},
-			answer:       refuseWith(connect.CodeInternal, "git exploded"),
+			answer:       paneltest.RefuseWith(connect.CodeInternal, "git exploded"),
 			wantRendered: []string{"Komrad could not read the worktree (git exploded), so it cannot say what is uncommitted or unpushed there."},
 		},
 		{
 			name:         "several worktrees are counted together without naming files",
 			row:          "task/orphan",
 			press:        []string{"v", "k", "v", "space", "a", "d"},
-			answer:       answerWith(dirty),
+			answer:       paneltest.AnswerWith(dirty),
 			wantRendered: []string{"The worktrees have 6 uncommitted files and 4 unpushed commits. Deleting the worktrees loses the uncommitted files."},
 			wantAbsent:   []string{"a.go"},
 		},
@@ -425,21 +332,21 @@ func TestWorktreesDeleteStanding(t *testing.T) {
 			name:         "a detached head counts its commits since the base",
 			row:          "task/orphan",
 			press:        []string{"space", "a", "d"},
-			answer:       answerWith(detached),
+			answer:       paneltest.AnswerWith(detached),
 			wantRendered: []string{"The worktree has 2 unpushed commits."},
 		},
 		{
 			name:         "several worktrees of which one is refused count only those read and name their files",
 			row:          "task/orphan",
 			press:        []string{"v", "k", "v", "space", "a", "d"},
-			answer:       answerForDir("/trees/orphan", answerWith(dirty), refuseWith(connect.CodeInternal, "git exploded")),
+			answer:       answerForDir("/trees/orphan", paneltest.AnswerWith(dirty), paneltest.RefuseWith(connect.CodeInternal, "git exploded")),
 			wantRendered: []string{"The 1 worktree Komrad read has 3 uncommitted files and 2 unpushed commits. Deleting the worktrees loses the uncommitted files. Komrad could not read 1 worktree, so it cannot say what is uncommitted or unpushed there.", "a.go b.txt c.txt"},
 		},
 		{
 			name:         "several worktrees of which one is gone are spoken of as one",
 			row:          "task/orphan",
 			press:        []string{"v", "k", "v", "space", "a", "d"},
-			answer:       answerForDir("/trees/orphan", answerWith(dirty), refuseWith(connect.CodeNotFound, "gone")),
+			answer:       answerForDir("/trees/orphan", paneltest.AnswerWith(dirty), paneltest.RefuseWith(connect.CodeNotFound, "gone")),
 			wantRendered: []string{"The worktree has 3 uncommitted files and 2 unpushed commits. Deleting the worktree loses the uncommitted files.", "a.go b.txt c.txt"},
 		},
 	}
@@ -454,7 +361,7 @@ func TestWorktreesDeleteStanding(t *testing.T) {
 
 			harness.Press(tt.press...)
 
-			prose := readFormProse(harness.Frame())
+			prose := paneltest.StageProse(harness.Frame())
 			for _, want := range tt.wantRendered {
 				assert.Contains(t, prose, want)
 			}
@@ -468,17 +375,17 @@ func TestWorktreesDeleteStanding(t *testing.T) {
 		t.Parallel()
 
 		harness := openGroupedWorktrees(t)
-		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(dirty))
+		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, paneltest.AnswerWith(dirty))
 		harness.Hold(worktreev1connect.WorktreeServiceGetWorktreeProcedure)
 		moveToWorktree(t, harness, "reviewer")
 
 		harness.Press("space", "a", "d")
 
-		assert.Contains(t, readFormProse(harness.Frame()), "Komrad is still reading the worktree, so it cannot yet say what is uncommitted or unpushed there.")
+		assert.Contains(t, paneltest.StageProse(harness.Frame()), "Komrad is still reading the worktree, so it cannot yet say what is uncommitted or unpushed there.")
 
 		harness.Release(worktreev1connect.WorktreeServiceGetWorktreeProcedure)
 
-		assert.Contains(t, readFormProse(harness.Frame()), "The worktree has 3 uncommitted files and 2 unpushed commits.")
+		assert.Contains(t, paneltest.StageProse(harness.Frame()), "The worktree has 3 uncommitted files and 2 unpushed commits.")
 	})
 }
 
@@ -911,7 +818,7 @@ func TestWorktreesDocument(t *testing.T) {
 		t.Parallel()
 
 		harness := openWorktrees(t)
-		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
+		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, paneltest.AnswerWith(&worktreev1.GetWorktreeResponse{
 			Worktree: &worktreev1.Worktree{Dir: "/trees/live"},
 			BaseRef:  "origin/main",
 		}))
@@ -948,7 +855,7 @@ func TestWorktreesDocument(t *testing.T) {
 		t.Parallel()
 
 		harness := openWorktrees(t)
-		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
+		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, paneltest.AnswerWith(&worktreev1.GetWorktreeResponse{
 			Worktree:  &worktreev1.Worktree{Dir: "/trees/live"},
 			Entries:   entries,
 			Modified:  []string{"a.go"},
@@ -985,7 +892,7 @@ func TestWorktreesLastScreen(t *testing.T) {
 		t.Parallel()
 
 		harness := openWorktrees(t)
-		answerLastScreens(harness, map[string]string{"archived": "⏺ the reviewer approved"})
+		harness.AnswerLastScreens(map[string]string{"archived": "⏺ the reviewer approved"})
 
 		moveToWorktree(t, harness, "reviewer")
 		harness.Advance(time.Second)
@@ -999,7 +906,7 @@ func TestWorktreesLastScreen(t *testing.T) {
 		t.Parallel()
 
 		harness := openWorktrees(t)
-		answerLastScreens(harness, nil)
+		harness.AnswerLastScreens(nil)
 
 		moveToWorktree(t, harness, "task/orphan")
 		harness.Advance(time.Second)
@@ -1053,7 +960,7 @@ func TestWorktreesInspection(t *testing.T) {
 		t.Parallel()
 
 		harness := openWorktrees(t)
-		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
+		harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, paneltest.AnswerWith(&worktreev1.GetWorktreeResponse{
 			Worktree: &worktreev1.Worktree{
 				Dir:      "/trees/archived",
 				Readable: true,
@@ -1295,7 +1202,7 @@ func openReadWorktree(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
 	harness := openWorktrees(t)
-	harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, answerWith(&worktreev1.GetWorktreeResponse{
+	harness.Answer(worktreev1connect.WorktreeServiceGetWorktreeProcedure, paneltest.AnswerWith(&worktreev1.GetWorktreeResponse{
 		Worktree:  &worktreev1.Worktree{Dir: "/trees/archived"},
 		BaseRef:   "origin/main",
 		Ahead:     2,
@@ -1474,12 +1381,6 @@ func readHoveredWorktree(frame string) string {
 
 func stampAgo(ago time.Duration) *timestamppb.Timestamp {
 	return timestamppb.New(time.Now().Add(-ago))
-}
-
-func readFormProse(frame string) string {
-	lines := xslice.Map(paneltest.Stage(frame), strings.TrimSpace)
-
-	return paneltest.JoinProse(lines)
 }
 
 // newWorktreeTask is the task an agent leads, its id the directory it works in and its slug

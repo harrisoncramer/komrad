@@ -32,7 +32,7 @@ func (d *documentsScreen) emptyLine() string {
 
 // documentColumns is the gutter of the documents list: how long ago each was last written.
 func documentColumns() view.Columns {
-	return view.Columns{{Kind: view.ColumnText, Width: ageColumns}}
+	return view.Columns{{Kind: view.ColumnText, Width: label.AgeWidth}}
 }
 
 func (d *documentsScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
@@ -52,7 +52,7 @@ func (d *documentsScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapsh
 				Name:    r.item.name,
 				Matches: pickedMatches(in.Room.Pattern.Regexp, picked, r.Key(), r.item.name),
 				Process: view.ProcessNone,
-				Cells:   []view.Cell{mutedCell(label.AgeAt(r.item.updatedAt, now))},
+				Cells:   []view.Cell{{Text: label.AgeAt(r.item.updatedAt, now), Tone: paint.ToneMuted}},
 			})
 		}),
 		Caret:   caret,
@@ -90,7 +90,7 @@ func (d *documentsScreen) documentTypeSnapshot(in screen.Inputs, pane list.Pane)
 				Name:    r.documentType.GetName(),
 				Matches: list.Matches(in.Room.Pattern.Regexp, r.documentType.GetName()),
 				Process: view.ProcessNone,
-				Cells:   []view.Cell{mutedCell(label.AgeAt(dates.Read(r.documentType.GetUpdatedAt()), now))},
+				Cells:   []view.Cell{{Text: label.AgeAt(dates.Read(r.documentType.GetUpdatedAt()), now), Tone: paint.ToneMuted}},
 			}
 		}),
 		Caret:   pane.Caret,

@@ -17,6 +17,9 @@ func Friendly(t time.Time) string {
 	return t.Local().Format(friendlyLayout)
 }
 
+// AgeWidth is how wide an age from AgeAt is rendered in a column.
+const AgeWidth = 4
+
 // AgeAt is how long before now a time was, in the one unit that fits it: 40s, 5m, 3h, 2d or 6w.
 func AgeAt(t, now time.Time) string {
 	if t.IsZero() {

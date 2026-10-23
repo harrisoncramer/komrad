@@ -491,6 +491,11 @@ func StageText(frame string) string {
 	return strings.Join(Stage(frame), "\n")
 }
 
+// StageProse is the words of the block beside the list joined on single spaces.
+func StageProse(frame string) string {
+	return JoinProse(Stage(frame))
+}
+
 // ReviewCursor is the review's line the cursor stands on, file and line first.
 func ReviewCursor(frame string) string {
 	for _, line := range Sidebar(frame) {

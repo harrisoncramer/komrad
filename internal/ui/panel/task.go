@@ -144,6 +144,11 @@ func TaskIDs(tasks []Task) []string {
 	return xslice.Map(tasks, func(task Task) string { return task.ID })
 }
 
+// TaskDirs is the directories of the tasks that have one still on disk.
+func TaskDirs(tasks []Task) []string {
+	return xslice.Map(xslice.Filter(tasks, func(task Task) bool { return task.Cwd != "" && !task.IsWorktreeRemoved() }), func(task Task) string { return task.Cwd })
+}
+
 // DescribeTasks names the tasks the way a message about them does.
 func DescribeTasks(tasks []Task) string {
 	if len(tasks) == 1 {

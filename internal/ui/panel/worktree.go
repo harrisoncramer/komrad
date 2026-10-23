@@ -1,11 +1,13 @@
 package panel
 
 import (
+	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
 	"time"
 
+	"komrad/internal/ui/paint/label"
 	"komrad/lib/dates"
 	"komrad/lib/xslice"
 	worktreev1 "komrad/proto/gen/worktree/v1"
@@ -73,6 +75,18 @@ const (
 // IsMeasured reports whether the directory carries a size.
 func (w Worktree) IsMeasured() bool {
 	return w.Size != nil && w.Size.Err == ""
+}
+
+// SizeAt is what the directory takes and how long before now that was measured, or why it could not be.
+func (w Worktree) SizeAt(now time.Time) string {
+	switch {
+	case w.Size == nil:
+		return label.Dash
+	case w.Size.Err != "":
+		return label.Dash + ", could not measure: " + w.Size.Err
+	}
+
+	return fmt.Sprintf("%s, measured %s ago", label.Bytes(w.Size.Bytes), label.AgeAt(w.Size.MeasuredAt, now))
 }
 
 // IsMerged reports whether the base holds everything the directory has, leaving nothing on disk.

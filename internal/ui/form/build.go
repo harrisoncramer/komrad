@@ -13,11 +13,11 @@ import (
 // Of renders a group of fields as one form, and lists the keys of the fields the cursor can
 // reach, in the order they are rendered.
 func Of(fixed config.FixedKeys, fields ...huh.Field) (*huh.Form, []string) {
-	return TitledOf(fixed, "", fields...)
+	return titledOf(fixed, "", fields...)
 }
 
-// TitledOf is Of under a title that heads every field.
-func TitledOf(fixed config.FixedKeys, title string, fields ...huh.Field) (*huh.Form, []string) {
+// titledOf is Of under a title that heads every field.
+func titledOf(fixed config.FixedKeys, title string, fields ...huh.Field) (*huh.Form, []string) {
 	form := huh.NewForm(huh.NewGroup(fields...).Title(title)).
 		WithShowHelp(true).
 		WithKeyMap(KeyMap(fixed)).
@@ -74,13 +74,13 @@ func KeyMap(fixed config.FixedKeys) *huh.KeyMap {
 // Confirm asks to go ahead or cancel, starting on going ahead, and hands back where it writes the answer.
 func Confirm(title, description, affirmative string, fixed config.FixedKeys) (*huh.Form, *bool) {
 	confirmed := true
-	form, _ := Of(fixed, ConfirmField(&confirmed, description, affirmative).Title(title))
+	form, _ := Of(fixed, confirmField(&confirmed, description, affirmative).Title(title))
 
 	return form, &confirmed
 }
 
-// ConfirmField asks to go ahead or cancel, writing the answer to answer.
-func ConfirmField(answer *bool, description, affirmative string) *huh.Confirm {
+// confirmField asks to go ahead or cancel, writing the answer to answer.
+func confirmField(answer *bool, description, affirmative string) *huh.Confirm {
 	return huh.NewConfirm().
 		Key("confirm").
 		Description(description).

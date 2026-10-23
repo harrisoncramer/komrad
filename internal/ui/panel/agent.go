@@ -4,6 +4,7 @@ package panel
 import (
 	"time"
 
+	"komrad/internal/view"
 	"komrad/lib/xslice"
 )
 
@@ -112,6 +113,58 @@ type AgentRow struct {
 	Documents int32
 	// DocumentsUpdatedAt is when the newest of them was last written, nil when there are none.
 	DocumentsUpdatedAt *time.Time
+}
+
+// DisplayState is the state a row wears, idle once the pane has gone even though the store
+// still holds whatever the agent stopped in.
+func (r AgentRow) DisplayState() State {
+	state := r.Agent.State
+	if !r.Alive && state.DoesPaneDecide() && state != StateErrored {
+		return StateIdle
+	}
+
+	return state
+}
+
+// Status is what an agent is doing this second, read off the state the row wears rather than
+// the one the store holds, so an agent whose pane has gone reads as idle.
+func (r AgentRow) Status() view.Status {
+	switch r.DisplayState() {
+	case StateThinking, StateSettingUp:
+		return view.StatusThinking
+	case StateWaiting, StateUncertain:
+		return view.StatusWaiting
+	case StateFailedToCreate, StateFailedToCleanup, StateErrored:
+		return view.StatusBroken
+	case StateIdle:
+		return view.StatusIdle
+	}
+
+	return view.StatusIdle
+}
+
+// Process reports whether anything is running behind a row, which the state it wears cannot
+// say since an agent whose pane has gone wears the same idle as one sitting quiet.
+func (r AgentRow) Process() view.Process {
+	if !r.Alive && r.Agent.State.DoesPaneDecide() {
+		return view.ProcessStopped
+	}
+
+	return view.ProcessAlive
+}
+
+// Facts fills in everything a list row says about the agent standing behind it.
+func (r AgentRow) Facts(row view.Row) view.Row {
+	row.Status = r.Status()
+	row.Process = r.Process()
+	row.Archived = r.Agent.ArchivedAt != nil
+	row.UnreadMail = r.UnreadMail
+	row.FailedRun = r.FailedRun
+	row.Documents = r.Documents > 0
+	row.Scheduled = r.Agent.ScheduleID != nil
+	row.Tool = r.Agent.Tool
+
+	return row
 }
 
 // IDs is the id of each agent, in the order the caller gave them.

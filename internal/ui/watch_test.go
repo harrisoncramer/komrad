@@ -141,10 +141,24 @@ func TestWatch(t *testing.T) {
 	t.Run("a worktree's tombstone takes it off the worktrees screen", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openWorktrees(t)
+		harness := paneltest.OpenAgents(t,
+			&worktreev1.WatchedWorktree{
+				Dir:      "/trees/live",
+				RepoDir:  "/home/h/komrad",
+				Branch:   "task/live",
+				Readable: true,
+			},
+			&worktreev1.WatchedWorktree{
+				Dir:      "/trees/orphan",
+				RepoDir:  "/home/h/komrad",
+				Branch:   "task/orphan",
+				Readable: true,
+			},
+		)
+		harness.Press("shift+tab", "esc")
 		require.Contains(t, harness.Frame(), "task/orphan")
 
-		harness.Watch(paneltest.Deleted(watchv1.Resource_RESOURCE_WORKTREE, findOrphanDir(t)))
+		harness.Watch(paneltest.Deleted(watchv1.Resource_RESOURCE_WORKTREE, "/trees/orphan"))
 
 		assert.NotContains(t, harness.Frame(), "task/orphan")
 	})
@@ -156,21 +170,6 @@ func buildDeletedWorktrees(dirs ...string) *watchv1.WatchEvent {
 	return &watchv1.WatchEvent{Event: &watchv1.WatchEvent_Changes{Changes: &watchv1.Changes{Deleted: xslice.Map(dirs, func(dir string) *watchv1.Deleted {
 		return &watchv1.Deleted{Resource: watchv1.Resource_RESOURCE_WORKTREE, Key: dir}
 	})}}}
-}
-
-func findOrphanDir(t *testing.T) string {
-	t.Helper()
-
-	for _, row := range buildWatchedWorktrees() {
-		worktree, isWorktree := row.(*worktreev1.WatchedWorktree)
-		if isWorktree && strings.HasSuffix(worktree.GetBranch(), "orphan") {
-			return worktree.GetDir()
-		}
-	}
-
-	require.FailNow(t, "no orphaned worktree to drop")
-
-	return ""
 }
 
 func findRow(rows []string, name string) string {

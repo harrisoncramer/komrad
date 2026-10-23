@@ -496,8 +496,8 @@ func worktreeFixture() []panel.Worktree {
 }
 
 // worktreesOrder is the order the strip names for a state.
-func worktreesOrder(state tabs.State) sortOrder {
-	return stripOrder(worktreesTabs(), state)
+func worktreesOrder(state tabs.State) tabs.Order {
+	return worktreesTabs().Order(state)
 }
 
 // measuredFixture is the fixture with the loop having been round: the live and archived

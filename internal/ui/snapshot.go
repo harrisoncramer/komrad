@@ -80,7 +80,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	if r.isTask() {
 		row.Process = view.ProcessNone
 		if writer, ok := r.writer(); ok {
-			row = agentFacts(row, writer)
+			row = writer.Facts(row)
 		}
 		row.Kind = view.KindTask
 		row.Name = r.task.Slug
@@ -112,13 +112,13 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 
 		// A workflow's bar is its orchestrator's, and one with no orchestrator running behind it
 		// renders no bar at all.
-		if r.orchestrator == nil || snapshotProcess(*r.orchestrator) == view.ProcessStopped {
+		if r.orchestrator == nil || r.orchestrator.Process() == view.ProcessStopped {
 			row.Process = view.ProcessNone
 
 			return row
 		}
 
-		row.Status = snapshotStatus(*r.orchestrator)
+		row.Status = r.orchestrator.Status()
 		row.Process = view.ProcessAlive
 		row.Tool = r.orchestrator.Agent.Tool
 		row.LoaderFrame = params.loaderFrame
@@ -128,7 +128,7 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 
 	item := r.item
 	task := params.tasks.FindForAgent(item.Agent)
-	row = agentFacts(row, item)
+	row = item.Facts(row)
 	row.Documents = row.Documents && !r.underTask
 	row.Kind = snapshotKind(r, params.flat)
 	row.Nested = r.underTask
@@ -144,20 +144,6 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.AutoMerge = task.PullRequest.MergeReadiness.AutoMerge
 	row.LoaderFrame = params.loaderFrame
 	row.Selected = params.selected.Has(toTreeRowKey(key))
-
-	return row
-}
-
-// agentFacts is everything a row says about the agent standing behind it.
-func agentFacts(row view.Row, item panel.AgentRow) view.Row {
-	row.Status = snapshotStatus(item)
-	row.Process = snapshotProcess(item)
-	row.Archived = item.Agent.ArchivedAt != nil
-	row.UnreadMail = item.UnreadMail
-	row.FailedRun = item.FailedRun
-	row.Documents = item.Documents > 0
-	row.Scheduled = item.Agent.ScheduleID != nil
-	row.Tool = item.Agent.Tool
 
 	return row
 }
@@ -230,33 +216,6 @@ func snapshotKind(r agentRow, flat bool) view.RowKind {
 	}
 
 	return view.KindAgent
-}
-
-// snapshotStatus is what an agent is doing this second, read off the state the row wears rather
-// than the one the store holds, so an agent whose pane has gone reads as idle.
-func snapshotStatus(item panel.AgentRow) view.Status {
-	switch displayState(item) {
-	case panel.StateThinking, panel.StateSettingUp:
-		return view.StatusThinking
-	case panel.StateWaiting, panel.StateUncertain:
-		return view.StatusWaiting
-	case panel.StateFailedToCreate, panel.StateFailedToCleanup, panel.StateErrored:
-		return view.StatusBroken
-	case panel.StateIdle:
-		return view.StatusIdle
-	}
-
-	return view.StatusIdle
-}
-
-// snapshotProcess reports whether anything is running behind a row, which the state it wears
-// cannot say since an agent whose pane has gone wears the same idle as one sitting quiet.
-func snapshotProcess(item panel.AgentRow) view.Process {
-	if !item.Alive && item.Agent.State.DoesPaneDecide() {
-		return view.ProcessStopped
-	}
-
-	return view.ProcessAlive
 }
 
 // snapshotRepo is where a task's checkout stands, a worktree no longer on disk beating a rebase

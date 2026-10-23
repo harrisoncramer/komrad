@@ -1,9 +1,11 @@
 package panel
 
 import (
+	"strings"
 	"time"
 
 	"komrad/internal/errui"
+	"komrad/internal/ui/paint/label"
 )
 
 // WorktreeEntry is one top-level entry of a directory.
@@ -54,6 +56,22 @@ type WorktreeInspection struct {
 // IsRead reports whether git has answered for the directory.
 func (r WorktreeInspection) IsRead() bool {
 	return r.Answered && (r.Err == nil || r.Item.Dir != "")
+}
+
+// Changes counts the files the directory has modified and left untracked, or says there are none.
+func (r WorktreeInspection) Changes() string {
+	var parts []string
+	if n := len(r.Modified); n > 0 {
+		parts = append(parts, label.Count(n, "modified", "modified"))
+	}
+	if n := len(r.Untracked); n > 0 {
+		parts = append(parts, label.Count(n, "untracked", "untracked"))
+	}
+	if len(parts) == 0 {
+		return "none"
+	}
+
+	return strings.Join(parts, ", ")
 }
 
 // UnpushedCommits is how many commits in the worktree no remote holds, and false where nothing

@@ -14,6 +14,7 @@ import (
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/tabs"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 )
@@ -32,16 +33,13 @@ type worktreeRow struct {
 func worktreeColumns() view.Columns {
 	return view.Columns{
 		{Kind: view.ColumnText, Width: sizeColumns},
-		{Kind: view.ColumnText, Width: ageColumns},
+		{Kind: view.ColumnText, Width: label.AgeWidth},
 		{Kind: view.ColumnText, Width: glyph.Columns},
 	}
 }
 
-// sizeColumns and ageColumns are how wide the two figures are rendered.
-const (
-	sizeColumns = 4
-	ageColumns  = 4
-)
+// sizeColumns is how wide a directory's size is rendered.
+const sizeColumns = 4
 
 // noRepository heads the directories whose .git file names nothing.
 const noRepository = "no repository"
@@ -77,22 +75,22 @@ func (r worktreeRow) name() string {
 }
 
 // worktreeSorts is every column the worktrees list can be ordered by.
-var worktreeSorts = []sortColumn[panel.Worktree]{
+var worktreeSorts = []tabs.Column[panel.Worktree]{
 	{
-		id:    "size",
-		label: "size",
-		has:   panel.Worktree.IsMeasured,
-		compare: func(a, b panel.Worktree) int {
+		ID:    "size",
+		Label: "size",
+		Has:   panel.Worktree.IsMeasured,
+		Compare: func(a, b panel.Worktree) int {
 			return cmp.Compare(a.Size.Bytes, b.Size.Bytes)
 		},
 	},
 	{
-		id:    "last-accessed",
-		label: "last-accessed",
-		has: func(item panel.Worktree) bool {
+		ID:    "last-accessed",
+		Label: "last-accessed",
+		Has: func(item panel.Worktree) bool {
 			return !item.LastActiveAt.IsZero()
 		},
-		compare: func(a, b panel.Worktree) int {
+		Compare: func(a, b panel.Worktree) int {
 			return a.LastActiveAt.Compare(b.LastActiveAt)
 		},
 	},
@@ -100,7 +98,7 @@ var worktreeSorts = []sortColumn[panel.Worktree]{
 
 type worktreeRowsParams struct {
 	items []panel.Worktree
-	order sortOrder
+	order tabs.Order
 	// flat orders the whole listing as one list.
 	flat bool
 }
@@ -144,12 +142,12 @@ func worktreeRows(params worktreeRowsParams) []worktreeRow {
 }
 
 // sortWorktreeItems orders the directories by the column, the path settling a tie.
-func sortWorktreeItems(items []panel.Worktree, order sortOrder) {
-	sortRows(sortRowsParams[panel.Worktree]{
-		rows:    items,
-		columns: worktreeSorts,
-		order:   order,
-		tiebreak: func(a, b panel.Worktree) int {
+func sortWorktreeItems(items []panel.Worktree, order tabs.Order) {
+	tabs.Sort(tabs.SortParams[panel.Worktree]{
+		Rows:    items,
+		Columns: worktreeSorts,
+		Order:   order,
+		Tiebreak: func(a, b panel.Worktree) int {
 			return strings.Compare(a.Dir, b.Dir)
 		},
 	})
@@ -158,13 +156,13 @@ func sortWorktreeItems(items []panel.Worktree, order sortOrder) {
 type worktreeRowsKey struct {
 	revision int
 	scope    worktreeScope
-	order    sortOrder
+	order    tabs.Order
 	flat     bool
 	filter   list.PatternKey
 }
 
 func (w *worktreesScreen) rows(in screen.Inputs) []worktreeRow {
-	order := stripOrder(worktreesTabs(), w.sort)
+	order := worktreesTabs().Order(w.sort)
 	key := worktreeRowsKey{
 		revision: w.revision,
 		scope:    w.scope,
@@ -310,7 +308,7 @@ func worktreeAgentFacts(row view.Row, agent panel.WorktreeAgent, live map[string
 		}}
 	}
 
-	return agentFacts(row, item)
+	return item.Facts(row)
 }
 
 // rowCells are a directory's size, its age, then where it stands.

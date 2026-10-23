@@ -76,7 +76,7 @@ func isAgentLoading(item panel.AgentRow) bool {
 // isThinking reports whether an agent is at work behind a pane still running, which turns the
 // loader after its name.
 func isThinking(item panel.AgentRow) bool {
-	return snapshotProcess(item) == view.ProcessAlive && snapshotStatus(item) == view.StatusThinking
+	return item.Process() == view.ProcessAlive && item.Status() == view.StatusThinking
 }
 
 func isChecksRunning(standing panel.PullRequestStanding) bool {
