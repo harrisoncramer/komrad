@@ -108,29 +108,12 @@ func typeForm(values *typeFormValues, title string, fixed config.FixedKeys) (*hu
 
 // deleteTypeForm asks before it deletes a document type.
 func (d *Screen) deleteTypeForm(item document) form.Form {
-	built, confirmed := form.Confirm(
-		fmt.Sprintf("Delete document type %q?", item.name),
-		"Agents can no longer write documents of this type. Komrad refuses the delete while any document still uses it.",
-		"Delete",
-		config.Fixed(),
-	)
-
-	return form.Form{
-		Built: built,
-		Submit: func(form.Inputs) screen.Request {
-			if !*confirmed {
-				return nil
-			}
-
-			return d.deps.Clients.Write(
-				"deleting "+item.name,
-				fmt.Sprintf("Could not delete document type %q", item.name),
-				func(a api.Clients) error { return a.DeleteDocumentType(item.id) },
-			)
-		},
-		Narrow:          true,
-		ClosesOnRefusal: true,
-	}
+	return d.confirmDeleteForm(confirmDeleteFormParams{
+		noun:    "document type",
+		name:    item.name,
+		warning: "Agents can no longer write documents of this type. Komrad refuses the delete while any document still uses it.",
+		delete:  func(a api.Clients) error { return a.DeleteDocumentType(item.id) },
+	})
 }
 
 func checkTypeName(name string) error {
