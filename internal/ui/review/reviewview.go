@@ -1,4 +1,4 @@
-package ui
+package review
 
 import (
 	"fmt"
@@ -23,26 +23,28 @@ import (
 
 // The tones the review wears, which the region rendering each one turns into a colour.
 const (
-	reviewQuoteTone     = paint.ToneMuted
-	reviewScopeOnTone   = paint.TonePrimary
-	reviewHumanTone     = paint.ToneUserMe
-	reviewAgentTone     = paint.ToneUserAgent
-	reviewerTone        = paint.ToneUserReviewer
-	reviewNoticeTone    = paint.ToneSuccess
-	reviewAddedTone     = paint.ToneSuccess
-	reviewRemovedTone   = paint.ToneDanger
-	reviewReleasedTone  = paint.ToneWarning
-	reviewHistoryTone   = paint.ToneWarning
-	reviewReadTone      = paint.ToneSuccess
-	reviewForgeHeldTone = paint.ToneDanger
+	quoteTone     = paint.ToneMuted
+	scopeOnTone   = paint.TonePrimary
+	humanTone     = paint.ToneUserMe
+	agentTone     = paint.ToneUserAgent
+	reviewerTone  = paint.ToneUserReviewer
+	noticeTone    = paint.ToneSuccess
+	addedTone     = paint.ToneSuccess
+	removedTone   = paint.ToneDanger
+	releasedTone  = paint.ToneWarning
+	historyTone   = paint.ToneWarning
+	readTone      = paint.ToneSuccess
+	forgeHeldTone = paint.ToneDanger
 )
 
-// reviewChangeFolds is how many ways the change block can be rendered, roomiest first.
-const reviewChangeFolds = 2
+// changeFolds is how many ways the change block can be rendered, roomiest first.
+const changeFolds = 2
+
+const locationWidth = 30
 
 // View renders the diff and, beside it, the file tree, with the thread the cursor is standing on
 // in a popup over them.
-func (r reviewScreen) View(in screen.Inputs, chrome screen.Chrome) string {
+func (r Screen) View(in screen.Inputs, chrome screen.Chrome) string {
 	split := in.Room.Split
 	if !split.On && in.Room.Halved {
 		return r.sidebarView(in, chrome)
@@ -67,7 +69,7 @@ func (r reviewScreen) View(in screen.Inputs, chrome screen.Chrome) string {
 
 // sidebarView is the sidebar rendered as one half of a split, trimmed so the two halves are the same
 // height.
-func (r reviewScreen) sidebarView(in screen.Inputs, chrome screen.Chrome) string {
+func (r Screen) sidebarView(in screen.Inputs, chrome screen.Chrome) string {
 	sidebar := r.layoutSidebar(in, chrome)
 	block := sidebar.block()
 	if in.Room.Marks {
@@ -79,7 +81,7 @@ func (r reviewScreen) sidebarView(in screen.Inputs, chrome screen.Chrome) string
 
 // overlayThread renders the popup over an area, and leaves the area alone where the popup has
 // nothing to hold or the frame is rendered to find its blocks.
-func (r reviewScreen) overlayThread(in screen.Inputs, chrome screen.Chrome, area string) string {
+func (r Screen) overlayThread(in screen.Inputs, chrome screen.Chrome, area string) string {
 	if in.Room.Marks {
 		return area
 	}
@@ -102,7 +104,7 @@ func (r reviewScreen) overlayThread(in screen.Inputs, chrome screen.Chrome, area
 // renderSidebar is the panel's own column: what the change is, the pull request open from the
 // branch, the block the cursor moves through, where the cursor is standing, and what the reader
 // was last told.
-func (r reviewScreen) renderSidebar(layout sidebarLayout, block string) string {
+func (r Screen) renderSidebar(layout sidebarLayout, block string) string {
 	column := paint.PadRows(layout.change+block+r.placeView()+layout.notes, layout.spare)
 
 	return layout.bar + column + layout.rule + layout.help
@@ -128,7 +130,7 @@ func (l sidebarLayout) block() string {
 
 // layoutSidebar gives the column to the file tree, the bar over it shrinking and then giving way
 // before the tree loses a row it needs.
-func (r reviewScreen) layoutSidebar(in screen.Inputs, chrome screen.Chrome, above ...string) sidebarLayout {
+func (r Screen) layoutSidebar(in screen.Inputs, chrome screen.Chrome, above ...string) sidebarLayout {
 	bare := r.layoutUnder(in, r.frameSidebar(in, chrome, "", above))
 	for _, bar := range chrome.Bars() {
 		if barred := r.layoutUnder(in, r.frameSidebar(in, chrome, bar, above)); r.doesFitUnderBar(barred, bare) {
@@ -140,7 +142,7 @@ func (r reviewScreen) layoutSidebar(in screen.Inputs, chrome screen.Chrome, abov
 }
 
 // doesFitUnderBar reports whether a bar costs the sidebar neither its legend nor its file tree's floor.
-func (r reviewScreen) doesFitUnderBar(barred, bare sidebarLayout) bool {
+func (r Screen) doesFitUnderBar(barred, bare sidebarLayout) bool {
 	if barred.help != bare.help {
 		return false
 	}
@@ -152,7 +154,7 @@ func (r reviewScreen) doesFitUnderBar(barred, bare sidebarLayout) bool {
 	return paint.CountLines(barred.files) >= min(paint.CountLines(bare.files), r.countFilesFloor(bare.spare))
 }
 
-func (r reviewScreen) frameSidebar(in screen.Inputs, chrome screen.Chrome, bar string, above []string) sidebarLayout {
+func (r Screen) frameSidebar(in screen.Inputs, chrome screen.Chrome, bar string, above []string) sidebarLayout {
 	help := chrome.Help(chrome.Legend(r.help(in)), slices.Concat(above, []string{r.placeView()})...)
 	rule := chrome.Record(slices.Concat(above, []string{bar, help})...)
 
@@ -165,7 +167,7 @@ func (r reviewScreen) frameSidebar(in screen.Inputs, chrome screen.Chrome, bar s
 }
 
 // layoutUnder measures the sidebar under its frame.
-func (r reviewScreen) layoutUnder(in screen.Inputs, layout sidebarLayout) sidebarLayout {
+func (r Screen) layoutUnder(in screen.Inputs, layout sidebarLayout) sidebarLayout {
 	layout.notes = r.notesView(in)
 	spare := layout.spare
 
@@ -192,11 +194,11 @@ func (r reviewScreen) layoutUnder(in screen.Inputs, layout sidebarLayout) sideba
 
 // foldChange is the change block in the most rows that leave the rows under it their room, else in
 // the fewest rows that fit.
-func (r reviewScreen) foldChange(in screen.Inputs, room int) string {
+func (r Screen) foldChange(in screen.Inputs, room int) string {
 	wanted := paint.CountLines(r.sideView(in, paint.Unbounded))
 
 	var shortest string
-	for fold := range reviewChangeFolds {
+	for fold := range changeFolds {
 		change := r.changeView(in, fold)
 		if paint.CountLines(change)+wanted <= room {
 			return change
@@ -222,12 +224,12 @@ func cutNotes(notes string, rows int) string {
 }
 
 // help keeps the strip to what the screen is for.
-func (r reviewScreen) help(in screen.Inputs) legend.Help {
-	return r.actions(in).Help(&r, r.deps.keys)
+func (r Screen) help(in screen.Inputs) legend.Help {
+	return r.actions(in).Help(&r, r.deps.Keys)
 }
 
 // placeView is the blank row under the file tree and the place the cursor is standing.
-func (r reviewScreen) placeView() string {
+func (r Screen) placeView() string {
 	if r.loading || r.diff.View() == nil || r.diff.View().Len() == 0 {
 		return ""
 	}
@@ -235,8 +237,8 @@ func (r reviewScreen) placeView() string {
 	return "\n" + r.diff.anchorView()
 }
 
-// reviewNote is a line of prose wrapped to the width given.
-func reviewNote(width int, style lipgloss.Style, text string) string {
+// proseLine is a line of prose wrapped to the width given.
+func proseLine(width int, style lipgloss.Style, text string) string {
 	var out strings.Builder
 	for _, row := range paint.WrapRows(text, width-2) {
 		out.WriteString(style.Render("  "+row) + "\n")
@@ -246,17 +248,17 @@ func reviewNote(width int, style lipgloss.Style, text string) string {
 }
 
 // notesView is what the reader was last told under the place the cursor is standing.
-func (r reviewScreen) notesView(in screen.Inputs) string {
+func (r Screen) notesView(in screen.Inputs) string {
 	if r.loading || r.diff.View() == nil || r.diff.View().Len() == 0 {
 		return ""
 	}
 
 	if notice := r.notice; notice != "" {
-		return "\n" + reviewNote(layout.LineWidth(in.Room.Width), paint.Panel.Style(reviewNoticeTone), notice)
+		return "\n" + proseLine(layout.LineWidth(in.Room.Width), paint.Panel.Style(noticeTone), notice)
 	}
 
 	if since := r.diff.since; since != "" && r.diff.spec.isWholeChange() {
-		return "\n" + reviewNote(layout.LineWidth(in.Room.Width), paint.Panel.Style(paint.ToneMuted), since)
+		return "\n" + proseLine(layout.LineWidth(in.Room.Width), paint.Panel.Style(paint.ToneMuted), since)
 	}
 
 	return ""
@@ -264,18 +266,18 @@ func (r reviewScreen) notesView(in screen.Inputs) string {
 
 // anchorView names the place the cursor is standing, so the sidebar says what a new thread
 // would be pinned to without repeating the line the diff already renders beside it.
-func (d reviewDiff) anchorView() string {
+func (d diffPane) anchorView() string {
 	anchor, ok := d.View().GetAnchor(d.Cursor())
 	if !ok {
 		if thread, ok := d.threadAtCursor(); ok {
-			return paint.Panel.Title(clipName(diffview.FormatThreadLocation(thread))) +
+			return paint.Panel.Title(paint.Clip(diffview.FormatThreadLocation(thread), locationWidth)) +
 				d.commentWhereView(thread) + "\n"
 		}
 
 		return paint.Panel.Style(paint.ToneMuted).Render("  move onto a line to start a thread on it") + "\n"
 	}
 
-	head := paint.Panel.Title(clipName(diffview.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart)))
+	head := paint.Panel.Title(paint.Clip(diffview.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart), locationWidth))
 	if thread, ok := d.threadAtCursor(); ok {
 		head += d.commentWhereView(thread)
 	}
@@ -284,7 +286,7 @@ func (d reviewDiff) anchorView() string {
 }
 
 // commentWhereView is which comment of how many the cursor is standing on.
-func (d reviewDiff) commentWhereView(thread *agentv1.ReviewThread) string {
+func (d diffPane) commentWhereView(thread *agentv1.ReviewThread) string {
 	at, total := d.View().CommentPosition(thread)
 	if at == 0 || total < 2 {
 		return ""
@@ -294,7 +296,7 @@ func (d reviewDiff) commentWhereView(thread *agentv1.ReviewThread) string {
 }
 
 // threadView is a thread's conversation wrapped to the width given, oldest message first.
-func (r reviewScreen) threadView(in screen.Inputs, thread *agentv1.ReviewThread, width int) string {
+func (r Screen) threadView(in screen.Inputs, thread *agentv1.ReviewThread, width int) string {
 	laterAt := r.diff.laterAt(thread)
 	answered := findAnswer(thread)
 	later := false
@@ -322,7 +324,7 @@ func (r reviewScreen) threadView(in screen.Inputs, thread *agentv1.ReviewThread,
 
 // originView is where a thread was written and the line it was written against, rendered only once
 // that code has moved.
-func (r reviewScreen) originView(thread *agentv1.ReviewThread, width int) string {
+func (r Screen) originView(thread *agentv1.ReviewThread, width int) string {
 	if diffview.IsWholeChangeThread(thread) || !r.diff.View().HasMoved(thread) {
 		return ""
 	}
@@ -334,7 +336,7 @@ func (r reviewScreen) originView(thread *agentv1.ReviewThread, width int) string
 
 	out := paint.Panel.Style(paint.ToneMuted).Render("  "+said) + "\n"
 	for _, quoted := range thread.GetQuotedLines() {
-		out += paint.Panel.Style(reviewQuoteTone).Italic(true).Render(reviewWrap(width, "  "+quoted)) + "\n"
+		out += paint.Panel.Style(quoteTone).Italic(true).Render(wrap(width, "  "+quoted)) + "\n"
 	}
 
 	return out + "\n"
@@ -342,7 +344,7 @@ func (r reviewScreen) originView(thread *agentv1.ReviewThread, width int) string
 
 // originSaid says why a comment is not on the line it was written against, in terms of what
 // happened rather than of the placement komrad settled on.
-func (d reviewDiff) originSaid(thread *agentv1.ReviewThread) string {
+func (d diffPane) originSaid(thread *agentv1.ReviewThread) string {
 	if _, rendered := d.View().GetFile(thread.GetFilePath()); !rendered {
 		if d.spec.base != "" {
 			return "still in the change, outside what is on screen"
@@ -366,7 +368,7 @@ type messageViewParams struct {
 
 // messageView is one message: who wrote it and when, what it says, and where it stands with the
 // writer.
-func (r reviewScreen) messageView(thread *agentv1.ReviewThread, message *agentv1.ReviewMessage, params messageViewParams) string {
+func (r Screen) messageView(thread *agentv1.ReviewThread, message *agentv1.ReviewMessage, params messageViewParams) string {
 	author, tone := r.authorOf(message)
 	head := renderCommentHead(tone, author, dates.Read(message.GetCreatedAt()))
 	if params.note != "" {
@@ -375,24 +377,24 @@ func (r reviewScreen) messageView(thread *agentv1.ReviewThread, message *agentv1
 
 	body := message.GetBody()
 	if message.GetForge() != nil {
-		head = forgeMark(r.deps.glyphs) + head
+		head = forgeMark(r.deps.Glyphs) + head
 		body = plainForgeText(body)
 	}
 
-	return head + "\n" + reviewWrap(params.width, body) + "\n" + r.reviewDeliveryBadge(thread, message) + "\n"
+	return head + "\n" + wrap(params.width, body) + "\n" + r.deliveryBadge(thread, message) + "\n"
 }
 
-func (r reviewScreen) authorOf(message *agentv1.ReviewMessage) (string, paint.Tone) {
+func (r Screen) authorOf(message *agentv1.ReviewMessage) (string, paint.Tone) {
 	if forge := message.GetForge(); forge != nil {
 		return describeForgeLogin(forge.GetLogin()), diffview.ForgeTone
 	}
 
 	if message.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT {
-		return "you", reviewHumanTone
+		return "you", humanTone
 	}
 
 	if message.GetAuthorAgentId() == r.agentID {
-		return "writer", reviewAgentTone
+		return "writer", agentTone
 	}
 
 	return "reviewer", reviewerTone
@@ -400,18 +402,18 @@ func (r reviewScreen) authorOf(message *agentv1.ReviewMessage) (string, paint.To
 
 func renderCommentHead(tone paint.Tone, author string, writtenAt time.Time) string {
 	head := paint.Panel.Style(tone).Bold(true).Render(author)
-	if when := reviewTimeOf(writtenAt); when != "" {
+	if when := timeOf(writtenAt); when != "" {
 		head += " " + paint.Panel.Style(paint.ToneMuted).Render(when)
 	}
 
 	return head
 }
 
-func reviewWrap(width int, body string) string {
+func wrap(width int, body string) string {
 	return lipgloss.NewStyle().Width(max(width, 1)).Render(body)
 }
 
-func reviewTimeOf(at time.Time) string {
+func timeOf(at time.Time) string {
 	if at.IsZero() {
 		return ""
 	}
@@ -420,7 +422,7 @@ func reviewTimeOf(at time.Time) string {
 }
 
 // composeDesc says what the compose key would do where the cursor is standing.
-func (r reviewScreen) composeDesc() string {
+func (r Screen) composeDesc() string {
 	if _, ok := r.diff.threadAtCursor(); ok {
 		return "reply in this thread"
 	}
@@ -429,7 +431,7 @@ func (r reviewScreen) composeDesc() string {
 }
 
 // backDesc says which of the two things the back key leaves.
-func (r reviewScreen) backDesc() string {
+func (r Screen) backDesc() string {
 	if r.edit.atEditor {
 		return "close the editor"
 	}
@@ -437,7 +439,7 @@ func (r reviewScreen) backDesc() string {
 	return "back to the agents"
 }
 
-func (r reviewScreen) diffBackDesc(in screen.Inputs) string {
+func (r Screen) diffBackDesc(in screen.Inputs) string {
 	if r.edit.atEditor || !r.IsBlockRendered(in) {
 		return r.backDesc()
 	}
@@ -446,7 +448,7 @@ func (r reviewScreen) diffBackDesc(in screen.Inputs) string {
 }
 
 // reloadDesc says what the reload key would do.
-func (r reviewScreen) reloadDesc(in screen.Inputs) string {
+func (r Screen) reloadDesc(in screen.Inputs) string {
 	if r.isWorktreeMoved(in) {
 		return "catch up"
 	}
@@ -455,7 +457,7 @@ func (r reviewScreen) reloadDesc(in screen.Inputs) string {
 }
 
 // agentThreadsDesc says which way the agent threads key would go.
-func (d reviewDiff) agentThreadsDesc() string {
+func (d diffPane) agentThreadsDesc() string {
 	if d.hidesAgentThreads {
 		return "show agents' conversations"
 	}
@@ -464,7 +466,7 @@ func (d reviewDiff) agentThreadsDesc() string {
 }
 
 // resolveDesc says which way the settle key would go where the cursor is standing.
-func (d reviewDiff) resolveDesc() string {
+func (d diffPane) resolveDesc() string {
 	if thread, ok := d.threadAtCursor(); ok && thread.GetResolvedAt() != nil {
 		return "reopen the thread"
 	}
@@ -473,7 +475,7 @@ func (d reviewDiff) resolveDesc() string {
 }
 
 // viewedDesc names what the viewed key does to the file the cursor is in.
-func (d reviewDiff) viewedDesc() string {
+func (d diffPane) viewedDesc() string {
 	if d.View() == nil {
 		return "mark the file viewed"
 	}
@@ -487,7 +489,7 @@ func (d reviewDiff) viewedDesc() string {
 
 // changeView is what the sidebar says about the change under review, which a higher fold joins
 // onto fewer rows before they wrap.
-func (r reviewScreen) changeView(in screen.Inputs, fold int) string {
+func (r Screen) changeView(in screen.Inputs, fold int) string {
 	stat := r.diff.statView()
 
 	var rows []string
@@ -525,7 +527,7 @@ func joinViews(parts ...string) string {
 }
 
 // statView is how big the change is, with the counts coloured the way the lines themselves are.
-func (d reviewDiff) statView() string {
+func (d diffPane) statView() string {
 	if d.View() == nil {
 		return ""
 	}
@@ -536,8 +538,8 @@ func (d reviewDiff) statView() string {
 	}
 
 	out := paint.Panel.Style(paint.ToneMuted).Render(label.Counted(stat.Files, "file")+", ") +
-		paint.Panel.Style(reviewAddedTone).Render(fmt.Sprintf("+%d", stat.Added)) + " " +
-		paint.Panel.Style(reviewRemovedTone).Render(fmt.Sprintf("-%d", stat.Removed))
+		paint.Panel.Style(addedTone).Render(fmt.Sprintf("+%d", stat.Added)) + " " +
+		paint.Panel.Style(removedTone).Render(fmt.Sprintf("-%d", stat.Removed))
 
 	if read, total := d.View().CountViewedFiles(); read > 0 {
 		out += paint.Panel.Style(paint.ToneMuted).Render(fmt.Sprintf("  %d/%d viewed", read, total))

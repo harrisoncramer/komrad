@@ -1,4 +1,4 @@
-package ui
+package review
 
 import (
 	"testing"
@@ -128,7 +128,7 @@ func TestReviewDeliveryOf(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := reviewDeliveryOf(reviewDeliveryParams{
+			got := deliveryOf(deliveryParams{
 				thread:   tt.thread,
 				message:  tt.message,
 				writerID: writer,

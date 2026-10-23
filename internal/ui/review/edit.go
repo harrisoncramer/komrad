@@ -1,4 +1,4 @@
-package ui
+package review
 
 import (
 	"slices"
@@ -10,8 +10,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// reviewEdit is the reader's editor over the agent's worktree, and the files it opened.
-type reviewEdit struct {
+// worktreeEdit is the reader's editor over the agent's worktree, and the files it opened.
+type worktreeEdit struct {
 	// touched are the files the reader opened an editor on, oldest first, which is what the agent
 	// is told about once the editor closes.
 	touched []string
@@ -25,16 +25,16 @@ type reviewEdit struct {
 }
 
 // end puts the editor down and says which files the reader opened in it.
-func (e *reviewEdit) end() []string {
+func (e *worktreeEdit) end() []string {
 	touched := e.touched
 
-	*e = reviewEdit{}
+	*e = worktreeEdit{}
 
 	return touched
 }
 
 // openEditor records the editor holding the stage on one file, in the pane the split gave it.
-func (e *reviewEdit) openEditor(path, pane string) {
+func (e *worktreeEdit) openEditor(path, pane string) {
 	e.atEditor = true
 	e.editingPath = path
 	e.editorPane = pane
@@ -44,7 +44,7 @@ func (e *reviewEdit) openEditor(path, pane string) {
 }
 
 // pressEdit is the edit key, which opens the editor and closes one already open.
-func (r *reviewScreen) pressEdit(in screen.Inputs) screen.Request {
+func (r *Screen) pressEdit(in screen.Inputs) screen.Request {
 	if r.isHistory() && !r.edit.atEditor {
 		return nil
 	}
@@ -61,7 +61,7 @@ func (r *reviewScreen) pressEdit(in screen.Inputs) screen.Request {
 }
 
 // isEditRefused returns why the edit key would open nothing.
-func (r reviewScreen) isEditRefused(in screen.Inputs) (string, bool) {
+func (r Screen) isEditRefused(in screen.Inputs) (string, bool) {
 	if r.isWorktreeRemoved(in) {
 		return worktreeRemovedSaid, true
 	}
@@ -74,7 +74,7 @@ func (r reviewScreen) isEditRefused(in screen.Inputs) (string, bool) {
 		return reason, true
 	}
 
-	if reason, refused := r.deps.editorSettings.IsRemoteEditRefused(); refused {
+	if reason, refused := r.deps.EditorSettings.IsRemoteEditRefused(); refused {
 		return reason, true
 	}
 
@@ -82,7 +82,7 @@ func (r reviewScreen) isEditRefused(in screen.Inputs) (string, bool) {
 }
 
 // isAgentUnreadable reports whether komrad cannot say what the agent is doing.
-func (r reviewScreen) isAgentUnreadable(in screen.Inputs) (string, bool) {
+func (r Screen) isAgentUnreadable(in screen.Inputs) (string, bool) {
 	item, ok := r.agentRow(in)
 	if !ok || !item.Alive || item.Agent.State != panel.StateUncertain {
 		return "", false
@@ -94,7 +94,7 @@ func (r reviewScreen) isAgentUnreadable(in screen.Inputs) (string, bool) {
 
 // editFile opens the file under the cursor in the agent's own worktree, in the stage beside the
 // sidebar.
-func (r *reviewScreen) editFile(in screen.Inputs) screen.Request {
+func (r *Screen) editFile(in screen.Inputs) screen.Request {
 	path, line, ok := r.diff.View().GetEditTarget(r.diff.Cursor())
 	if !ok {
 		return screen.NewNote(screen.Warning, "that file was deleted, so there is nothing to open")
@@ -105,20 +105,20 @@ func (r *reviewScreen) editFile(in screen.Inputs) screen.Request {
 	}
 
 	return screen.Stage{
-		Content: r.deps.editorSettings.FileContent(r.root, path, line),
-		Staged:  func(pane string) tea.Msg { return reviewEditorStaged{path: path, pane: pane} },
+		Content: r.deps.EditorSettings.FileContent(r.root, path, line),
+		Staged:  func(pane string) tea.Msg { return editorStaged{path: path, pane: pane} },
 	}
 }
 
-// reviewEditorStaged is the pane an editor over a file in the agent's worktree was given, empty
+// editorStaged is the pane an editor over a file in the agent's worktree was given, empty
 // where the split was refused.
-type reviewEditorStaged struct {
+type editorStaged struct {
 	path string
 	pane string
 }
 
 // applyEditorStaged keeps the editor's pane, or says there was no room for it.
-func (r *reviewScreen) applyEditorStaged(staged reviewEditorStaged) screen.Request {
+func (r *Screen) applyEditorStaged(staged editorStaged) screen.Request {
 	path, pane := staged.path, staged.pane
 	if pane == "" {
 		return screen.NewNote(screen.Warning, "there is no room beside the sidebar for an editor")
@@ -129,12 +129,12 @@ func (r *reviewScreen) applyEditorStaged(staged reviewEditorStaged) screen.Reque
 	return screen.Note{
 		Kind:    screen.Info,
 		Summary: "editing " + path,
-		Detail:  keys.MenuChordLabel(r.deps.keys, r.deps.keys.Review.EditFile) + " to come back",
+		Detail:  keys.MenuChordLabel(r.deps.Keys, r.deps.Keys.Review.EditFile) + " to come back",
 	}
 }
 
 // isAgentBusy reports whether the agent may be writing in the tree the editor would open.
-func (r reviewScreen) isAgentBusy(in screen.Inputs) (string, bool) {
+func (r Screen) isAgentBusy(in screen.Inputs) (string, bool) {
 	item, ok := r.agentRow(in)
 	if !ok || !item.Alive {
 		return "", false
@@ -156,18 +156,18 @@ func (r reviewScreen) isAgentBusy(in screen.Inputs) (string, bool) {
 }
 
 // agentRow hands back the listing's row for the agent whose diff is on screen.
-func (r reviewScreen) agentRow(in screen.Inputs) (panel.AgentRow, bool) {
+func (r Screen) agentRow(in screen.Inputs) (panel.AgentRow, bool) {
 	return in.Listing.LiveAgent(r.agentID)
 }
 
 // closeEdit gives the stage back to the diff, tells the agent which files the reader opened, and
 // reads the worktree again with the reader's own writing in it.
-func (r *reviewScreen) closeEdit(in screen.Inputs) screen.Request {
+func (r *Screen) closeEdit(in screen.Inputs) screen.Request {
 	return screen.Batch{screen.Unstage{}, r.mailEdited(in), screen.Restage{}, r.catchUp()}
 }
 
 // mailEdited puts the editor down and tells the agent which files the reader opened in it.
-func (r *reviewScreen) mailEdited(in screen.Inputs) screen.Request {
+func (r *Screen) mailEdited(in screen.Inputs) screen.Request {
 	touched := r.edit.end()
 	if len(touched) == 0 {
 		return nil
@@ -178,19 +178,19 @@ func (r *reviewScreen) mailEdited(in screen.Inputs) screen.Request {
 		return nil
 	}
 
-	return r.deps.clients.EditedWrite(item.Agent, touched)
+	return r.deps.Clients.EditedWrite(item.Agent, touched)
 }
 
 // ReconcileEditor catches the editor pane going away on its own and takes the window back for the
 // diff it was covering.
-func (r *reviewScreen) ReconcileEditor(in screen.Inputs) screen.Request {
+func (r *Screen) ReconcileEditor(in screen.Inputs) screen.Request {
 	if !r.edit.atEditor {
 		return nil
 	}
 
 	// A pane the split refused is not one that can go away, so nothing here reports it as the
 	// editor closing.
-	if r.edit.editorPane == "" || r.deps.panes.IsPaneAlive(r.edit.editorPane) {
+	if r.edit.editorPane == "" || r.deps.Panes.IsPaneAlive(r.edit.editorPane) {
 		return nil
 	}
 
@@ -198,7 +198,7 @@ func (r *reviewScreen) ReconcileEditor(in screen.Inputs) screen.Request {
 }
 
 // editorDesc says what the edit key would do.
-func (e reviewEdit) editorDesc() string {
+func (e worktreeEdit) editorDesc() string {
 	if e.atEditor {
 		return "close the editor"
 	}

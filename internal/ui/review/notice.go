@@ -1,4 +1,4 @@
-package ui
+package review
 
 import (
 	"slices"
@@ -7,8 +7,8 @@ import (
 	"komrad/internal/ui/screen"
 )
 
-// reviewNotices is what the review has raised on the messages stack.
-type reviewNotices struct {
+// notices is what the review has raised on the messages stack.
+type notices struct {
 	// raised is every key raised this visit and not since lowered, so a dismissed notice stays down.
 	raised []string
 	// moved is the key of the notice about the agent having written past the diff on screen.
@@ -16,7 +16,7 @@ type reviewNotices struct {
 }
 
 // raise pushes a notice once per visit.
-func (n *reviewNotices) raise(held screen.Note) screen.Request {
+func (n *notices) raise(held screen.Note) screen.Request {
 	if slices.Contains(n.raised, held.Key) {
 		return nil
 	}
@@ -27,14 +27,14 @@ func (n *reviewNotices) raise(held screen.Note) screen.Request {
 }
 
 // lower takes a notice down once it stops being true, so it can rise again.
-func (n *reviewNotices) lower(key string) screen.Request {
+func (n *notices) lower(key string) screen.Request {
 	n.raised = slices.DeleteFunc(n.raised, func(raised string) bool { return raised == key })
 
 	return screen.Unnote{Key: key}
 }
 
 // followNotices raises what the review has to say about the agent and lowers what is no longer true.
-func (r *reviewScreen) followNotices(in screen.Inputs) screen.Request {
+func (r *Screen) followNotices(in screen.Inputs) screen.Request {
 	if r.diff.View() == nil || r.diff.View().Len() == 0 || !in.Up {
 		return nil
 	}
@@ -67,7 +67,7 @@ func (r *reviewScreen) followNotices(in screen.Inputs) screen.Request {
 }
 
 // movedNotice is what the reader is told about the agent having written past the diff on screen.
-func (r reviewScreen) movedNotice(in screen.Inputs) screen.Note {
+func (r Screen) movedNotice(in screen.Inputs) screen.Note {
 	moved := r.findMovedSnapshot(in)
 	if moved == "" || r.edit.atEditor {
 		return screen.Note{}
@@ -77,6 +77,6 @@ func (r reviewScreen) movedNotice(in screen.Inputs) screen.Note {
 		Kind:    screen.Warning,
 		Key:     "moved:" + r.agentID + ":" + moved,
 		Summary: "the worktree has moved",
-		Detail:  keys.MenuChordLabel(r.deps.keys, r.deps.keys.Review.Reload) + " to catch up",
+		Detail:  keys.MenuChordLabel(r.deps.Keys, r.deps.Keys.Review.Reload) + " to catch up",
 	}
 }

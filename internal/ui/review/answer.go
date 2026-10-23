@@ -1,4 +1,4 @@
-package ui
+package review
 
 import (
 	"fmt"
@@ -8,9 +8,9 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
-// reviewAnswer is the answer to one comment on screen: the change the reply that addressed it
+// commentAnswer is the answer to one comment on screen: the change the reply that addressed it
 // carried.
-type reviewAnswer struct {
+type commentAnswer struct {
 	ThreadID     string
 	FromSnapshot string
 	ToSnapshot   string
@@ -21,7 +21,7 @@ type reviewAnswer struct {
 
 // toggleAnswer puts the answer to the comment under the cursor on screen, or goes back to the
 // range held before it.
-func (r *reviewScreen) toggleAnswer() screen.Request {
+func (r *Screen) toggleAnswer() screen.Request {
 	if r.diff.spec.origin != nil {
 		return r.leaveOrigin()
 	}
@@ -45,7 +45,7 @@ func (r *reviewScreen) toggleAnswer() screen.Request {
 		return nil
 	}
 
-	answer := &reviewAnswer{
+	answer := &commentAnswer{
 		ThreadID:     thread.GetId(),
 		FromSnapshot: thread.GetSnapshotId(),
 		ToSnapshot:   toSnapshot,
@@ -61,7 +61,7 @@ func (r *reviewScreen) toggleAnswer() screen.Request {
 }
 
 // doesOfferAnswer reports whether the answer key has anything to do where the cursor stands.
-func (r reviewScreen) doesOfferAnswer() bool {
+func (r Screen) doesOfferAnswer() bool {
 	if r.diff.spec.answer != nil {
 		return true
 	}
@@ -77,7 +77,7 @@ func (r reviewScreen) doesOfferAnswer() bool {
 }
 
 // answerDesc names what the answer key does from where the reader stands.
-func (d reviewDiff) answerDesc() string {
+func (d diffPane) answerDesc() string {
 	if d.spec.answer != nil {
 		return "back"
 	}
@@ -109,7 +109,7 @@ func findAnswer(thread *agentv1.ReviewThread) int {
 
 // addressedSaid names the snapshot an addressed reply carried, empty for a snapshot the review no
 // longer lists.
-func (d reviewDiff) addressedSaid(message *agentv1.ReviewMessage) string {
+func (d diffPane) addressedSaid(message *agentv1.ReviewMessage) string {
 	snapshot := findSnapshot(d.snapshots, message.GetSnapshotId())
 	if snapshot == nil {
 		return ""
@@ -128,7 +128,7 @@ func findSnapshot(snapshots []*agentv1.ReviewSnapshot, id string) *agentv1.Revie
 	return nil
 }
 
-func (d *reviewDiff) landPlace(view *diffview.View) (diffview.Place, bool) {
+func (d *diffPane) landPlace(view *diffview.View) (diffview.Place, bool) {
 	thread := d.landOn
 	d.landOn = ""
 	if thread == "" {

@@ -1,4 +1,4 @@
-package ui
+package review
 
 import (
 	"strings"
@@ -12,6 +12,9 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
+// ZoneSide names the rows over the file tree the cursor stops on, each keyed by its row.
+const ZoneSide zone.Name = "side"
+
 const (
 	// sideMarkBlank holds the cursor's mark's place at the start of each row over the file tree.
 	sideMarkBlank = "  "
@@ -20,7 +23,7 @@ const (
 )
 
 // sideView is the rows over the file tree cut to lines rows, windowed on the row the cursor is on.
-func (r reviewScreen) sideView(in screen.Inputs, lines int) string {
+func (r Screen) sideView(in screen.Inputs, lines int) string {
 	sideRows := r.sideRows(in)
 	if len(sideRows) == 0 || lines == 0 {
 		return ""
@@ -44,7 +47,7 @@ func (r reviewScreen) sideView(in screen.Inputs, lines int) string {
 	if in.Room.Marks {
 		for at, row := range rows {
 			if sideRows[at].kind.isStop() {
-				rows[at] = zone.MarkSpan(zoneSide, keys[at], row)
+				rows[at] = zone.MarkSpan(ZoneSide, keys[at], row)
 			}
 		}
 	}
@@ -57,7 +60,7 @@ func (r reviewScreen) sideView(in screen.Inputs, lines int) string {
 }
 
 // sideRowView is one row over the file tree, lit while the cursor is on it.
-func (r reviewScreen) sideRowView(row sideRow, lit bool) string {
+func (r Screen) sideRowView(row sideRow, lit bool) string {
 	text := row.text
 	switch row.kind {
 	case sideBlank:
@@ -69,7 +72,7 @@ func (r reviewScreen) sideRowView(row sideRow, lit bool) string {
 			text = strings.Repeat("  ", row.depth-1) + glyph.Child + " " + text
 		}
 		if row.kind == sideThisTask {
-			text = paint.Panel.Style(reviewScopeOnTone).Render(text)
+			text = paint.Panel.Style(scopeOnTone).Render(text)
 		}
 	case sideWaiting:
 		text = paint.Panel.Style(paint.ToneMuted).Italic(true).Render(text)
@@ -78,7 +81,7 @@ func (r reviewScreen) sideRowView(row sideRow, lit bool) string {
 		if r.openDescription {
 			mark = glyph.FolderOpen
 		}
-		text = r.deps.glyphs.Spell(mark) + " " + text
+		text = r.deps.Glyphs.Spell(mark) + " " + text
 	case sideDescriptionLine:
 		text = paint.Panel.Style(paint.ToneMuted).Render(descriptionIndent + text)
 	case sideForge, sideNeed:

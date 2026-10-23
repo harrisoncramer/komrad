@@ -1,10 +1,11 @@
-package ui
+package review
 
 import (
 	"context"
 	"errors"
 	"fmt"
 
+	"komrad/config"
 	"komrad/internal/forge"
 	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -13,9 +14,9 @@ import (
 	"connectrpc.com/connect"
 )
 
-// reviewForgeCompose is the composer open on a reply that goes to the forge rather than to the
+// forgeCompose is the composer open on a reply that goes to the forge rather than to the
 // agent.
-type reviewForgeCompose struct {
+type forgeCompose struct {
 	title string
 }
 
@@ -49,7 +50,7 @@ func mirroredCommentIDs(thread *agentv1.ReviewThread) map[string]bool {
 }
 
 // forgeThreadAtCursor is the thread under the cursor when it mirrors one on the forge.
-func (r *reviewScreen) forgeThreadAtCursor() (*agentv1.ReviewThread, bool) {
+func (r *Screen) forgeThreadAtCursor() (*agentv1.ReviewThread, bool) {
 	thread, ok := r.diff.threadAtCursor()
 	if !ok || !thread.GetMirrorsForge() {
 		return nil, false
@@ -59,7 +60,7 @@ func (r *reviewScreen) forgeThreadAtCursor() (*agentv1.ReviewThread, bool) {
 }
 
 // forgeName is the name of the forge that holds the pull request.
-func (r reviewScreen) forgeName(in screen.Inputs) string {
+func (r Screen) forgeName(in screen.Inputs) string {
 	pullRequest, ok := r.currentPullRequest(in)
 	if !ok {
 		return forge.Name(forgev1.Kind_KIND_UNSPECIFIED)
@@ -69,7 +70,7 @@ func (r reviewScreen) forgeName(in screen.Inputs) string {
 }
 
 // forgeRef names the pull request that receives a reply.
-func (r reviewScreen) forgeRef(in screen.Inputs) string {
+func (r Screen) forgeRef(in screen.Inputs) string {
 	pullRequest, ok := r.currentPullRequest(in)
 	if !ok {
 		return "the pull request"
@@ -78,14 +79,14 @@ func (r reviewScreen) forgeRef(in screen.Inputs) string {
 	return pullRequest.Ref()
 }
 
-func (r *reviewScreen) doesOfferForgeReply() bool {
+func (r *Screen) doesOfferForgeReply() bool {
 	_, ok := r.forgeThreadAtCursor()
 
 	return ok
 }
 
 // doesOfferForgeRetry says whether the thread under the cursor holds a reply the forge refused.
-func (r *reviewScreen) doesOfferForgeRetry() bool {
+func (r *Screen) doesOfferForgeRetry() bool {
 	thread, ok := r.forgeThreadAtCursor()
 	if !ok {
 		return false
@@ -97,7 +98,7 @@ func (r *reviewScreen) doesOfferForgeRetry() bool {
 }
 
 // retryForgeReply sends again the reply the forge refused in the thread under the cursor.
-func (r *reviewScreen) retryForgeReply(in screen.Inputs) screen.Request {
+func (r *Screen) retryForgeReply(in screen.Inputs) screen.Request {
 	thread, ok := r.forgeThreadAtCursor()
 	if !ok {
 		return nil
@@ -108,7 +109,7 @@ func (r *reviewScreen) retryForgeReply(in screen.Inputs) screen.Request {
 		return nil
 	}
 
-	agents, id := r.deps.clients.Agents, reply.GetId()
+	agents, id := r.deps.Clients.Agents, reply.GetId()
 
 	return r.writeMsg(in, "retrying the reply", nil, func(ctx context.Context) (string, error) {
 		res, err := agents.RetryForgeReply(ctx, connect.NewRequest(&agentv1.RetryForgeReplyRequest{
@@ -143,7 +144,7 @@ func forgeReplyNotice(reply *agentv1.ForgeReply) (string, error) {
 }
 
 // discardForgeReply throws away the reply the forge refused in the thread under the cursor.
-func (r *reviewScreen) discardForgeReply(in screen.Inputs) screen.Request {
+func (r *Screen) discardForgeReply(in screen.Inputs) screen.Request {
 	thread, ok := r.forgeThreadAtCursor()
 	if !ok {
 		return nil
@@ -154,7 +155,7 @@ func (r *reviewScreen) discardForgeReply(in screen.Inputs) screen.Request {
 		return nil
 	}
 
-	agents, id := r.deps.clients.Agents, reply.GetId()
+	agents, id := r.deps.Clients.Agents, reply.GetId()
 
 	return r.write(in, "discarding the reply", "reply discarded", func(ctx context.Context) error {
 		_, err := agents.DiscardForgeReply(ctx, connect.NewRequest(&agentv1.DiscardForgeReplyRequest{
@@ -166,13 +167,13 @@ func (r *reviewScreen) discardForgeReply(in screen.Inputs) screen.Request {
 }
 
 // composeForge opens the composer on a reply to the forge.
-func (r *reviewScreen) composeForge(in screen.Inputs) screen.Request {
+func (r *Screen) composeForge(in screen.Inputs) screen.Request {
 	thread, ok := r.forgeThreadAtCursor()
 	if !ok {
 		return nil
 	}
 
-	compose := &reviewForgeCompose{
+	compose := &forgeCompose{
 		title: "reply on " + r.forgeName(in) + separated + "public on " + r.forgeRef(in),
 	}
 
@@ -181,17 +182,17 @@ func (r *reviewScreen) composeForge(in screen.Inputs) screen.Request {
 	r.threads.retrying = nil
 	r.threads.forge = compose
 
-	return r.openInput(in, newReviewInputParams{
+	return r.openInput(in, newInputFieldParams{
 		Title:       compose.title,
-		Description: reviewInputHint(fixedKeys().Editor, fixedKeys().Submit, "post"),
+		Description: inputHint(config.Fixed().Editor, config.Fixed().Submit, "post"),
 		Placeholder: "what should " + r.forgeName(in) + " read?",
 	})
 }
 
 // saveForgeReply posts what the composer holds to the forge as the person's own reply.
-func (r *reviewScreen) saveForgeReply(in screen.Inputs, compose *reviewForgeCompose, body string) screen.Request {
-	agents, threadID := r.deps.clients.Agents, r.threads.editing
-	kept := reviewUnsent{
+func (r *Screen) saveForgeReply(in screen.Inputs, compose *forgeCompose, body string) screen.Request {
+	agents, threadID := r.deps.Clients.Agents, r.threads.editing
+	kept := unsentMessage{
 		editing: threadID,
 		body:    body,
 		forge:   compose,

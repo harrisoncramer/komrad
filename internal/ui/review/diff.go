@@ -1,4 +1,4 @@
-package ui
+package review
 
 import (
 	"komrad/internal/ui/diffview"
@@ -8,8 +8,8 @@ import (
 
 const answerLabel = "the answer to this comment"
 
-// reviewDiff is the patch on screen and where the reader is standing in it.
-type reviewDiff struct {
+// diffPane is the patch on screen and where the reader is standing in it.
+type diffPane struct {
 	diffview.Pane
 
 	// filter is the pattern being searched for in the diff.
@@ -45,8 +45,8 @@ type diffSpec struct {
 	// to is the snapshot the range ends on, empty for the newest snapshot.
 	to string
 	// answer is the answer to a comment on screen, nil while the diff is anything else.
-	answer *reviewAnswer
-	origin *reviewOrigin
+	answer *commentAnswer
+	origin *commentOrigin
 
 	// base and head are the commits the diff on screen was read between, once it has been read.
 	base string
@@ -61,11 +61,11 @@ func wholeChange() diffSpec {
 	return diffSpec{}
 }
 
-func answerSpec(answer *reviewAnswer) diffSpec {
+func answerSpec(answer *commentAnswer) diffSpec {
 	return diffSpec{answer: answer}
 }
 
-func originSpec(origin *reviewOrigin) diffSpec {
+func originSpec(origin *commentOrigin) diffSpec {
 	return diffSpec{origin: origin}
 }
 
@@ -91,7 +91,7 @@ func (d diffSpec) isSameRange(other diffSpec) bool {
 	return d.isRange() && other.isRange() && d.from == other.from && d.to == other.to
 }
 
-func (d *diffSpec) settle(msg reviewLoadedMsg) {
+func (d *diffSpec) settle(msg loadedMsg) {
 	d.base, d.head = msg.base, msg.head
 	d.replayed, d.conflicts = msg.replayed, msg.conflicts
 

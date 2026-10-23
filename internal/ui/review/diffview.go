@@ -1,4 +1,4 @@
-package ui
+package review
 
 import (
 	"strings"
@@ -12,18 +12,17 @@ import (
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/zone"
 
-	glamouransi "charm.land/glamour/v2/ansi"
 	"github.com/charmbracelet/x/ansi"
 )
 
 // The words the review shows while there is no patch to render, which the sidebar's head shows as well.
 const (
-	reviewLoadingWord = "loading the diff…"
-	reviewEmptyWord   = "nothing changed in this worktree"
+	loadingWord = "loading the diff…"
+	emptyWord   = "nothing changed in this worktree"
 )
 
-// reviewNoFileWord is what the tree says when its search matches no file.
-const reviewNoFileWord = "no file matches"
+// noFileWord is what the tree says when its search matches no file.
+const noFileWord = "no file matches"
 
 // diffFloor is the narrowest a diff is worth rendering at: the gutter and enough of a line beside
 // it to read.
@@ -31,7 +30,7 @@ const diffFloor = diffview.GutterWidth + 20
 
 // Column is the diff rendered beside the review's own threads, whose row budget is what the
 // band over it leaves.
-func (r *reviewScreen) Column(in screen.Inputs) column.Spec {
+func (r *Screen) Column(in screen.Inputs) column.Spec {
 	return column.Spec{
 		Floor: diffFloor,
 		// The editor is another process holding the stage, so the panel owns the window only while
@@ -47,8 +46,8 @@ func (r *reviewScreen) Column(in screen.Inputs) column.Spec {
 }
 
 // bandView is what stands over the diff: the range it runs over and the pattern it is searched for.
-func (r reviewScreen) bandView(in screen.Inputs) string {
-	search := r.diff.filter.View(r.deps.glyphs)
+func (r Screen) bandView(in screen.Inputs) string {
+	search := r.diff.filter.View(r.deps.Glyphs)
 	if in.Room.Marks {
 		search = zone.MarkKey(zone.Search, r.measureBandWidth(in), 0, zone.SearchList) + search
 	}
@@ -57,20 +56,20 @@ func (r reviewScreen) bandView(in screen.Inputs) string {
 }
 
 // rangeView names both ends of the range on screen and, past its end, the snapshot new comments go on.
-func (r reviewScreen) rangeView(in screen.Inputs) string {
+func (r Screen) rangeView(in screen.Inputs) string {
 	if r.diff.View() == nil {
 		return ""
 	}
 
-	said := paint.Panel.Style(reviewScopeOnTone).Bold(true).Render(r.diff.rangeSaid())
+	said := paint.Panel.Style(scopeOnTone).Bold(true).Render(r.diff.rangeSaid())
 	if newest := r.diff.newestSaid(); newest != "" {
-		said += "   " + paint.Panel.Style(reviewHistoryTone).Render(newest)
+		said += "   " + paint.Panel.Style(historyTone).Render(newest)
 	}
 
 	return ansi.Wrap(said, r.measureBandWidth(in), "") + "\n"
 }
 
-func (r reviewScreen) measureBandWidth(in screen.Inputs) int {
+func (r Screen) measureBandWidth(in screen.Inputs) int {
 	if split := in.Room.Geometry; split.On {
 		return split.Column
 	}
@@ -79,27 +78,27 @@ func (r reviewScreen) measureBandWidth(in screen.Inputs) int {
 }
 
 // diffNotice is what stands in the diff's own column before a patch does.
-func (r reviewScreen) diffNotice(in screen.Inputs) string {
+func (r Screen) diffNotice(in screen.Inputs) string {
 	if r.loading {
-		return in.Room.Spinner + " _" + reviewLoadingWord + "_"
+		return in.Room.Spinner + " _" + loadingWord + "_"
 	}
 
-	return "_" + reviewEmptyWord + "_"
+	return "_" + emptyWord + "_"
 }
 
 // diffView is the screenful of the patch beside the sidebar, starting at top, with the cursor's
 // own row dim while the keys are on the record rather than on the diff.
-func (r reviewScreen) diffView(in screen.Inputs, split column.Split) string {
+func (r Screen) diffView(in screen.Inputs, split column.Split) string {
 	view := r.diff.View()
 	if view == nil || view.Len() == 0 {
 		// This is the larger half of the window, so it says what is being waited on rather than
 		// standing empty under a band, and stands rather than collapsing so the frame does not
 		// shift under the reader when the patch lands.
-		return reader.Page{Rows: paint.DocStyledRows(r.diffNotice(in), split.Column, reviewColumnStyle())}.View(split.Rows)
+		return reader.Page{Rows: paint.DocStyledRows(r.diffNotice(in), split.Column, paint.Panel.Stage())}.View(split.Rows)
 	}
 
 	held := diffview.LiveCursor
-	if !r.isDiffFocused(in) {
+	if !r.IsDiffFocused(in) {
 		held = diffview.DimCursor
 	}
 
@@ -111,9 +110,4 @@ func (r reviewScreen) diffView(in screen.Inputs, split column.Split) string {
 	}
 
 	return strings.Join(lines, "\n")
-}
-
-// reviewColumnStyle is the markdown a notice standing in for the patch is rendered in.
-func reviewColumnStyle() glamouransi.StyleConfig {
-	return paint.Panel.Stage()
 }

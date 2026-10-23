@@ -1,4 +1,4 @@
-package ui
+package review
 
 import (
 	"cmp"
@@ -34,7 +34,7 @@ type folderCursor struct {
 
 // readFilesTree is the tree the filter leaves with each closed folder standing in for the rows
 // under it.
-func (r reviewScreen) readFilesTree() filesTree {
+func (r Screen) readFilesTree() filesTree {
 	open := r.readOpenFilesTree()
 	path := ""
 	if open.current >= 0 {
@@ -61,7 +61,7 @@ func (r reviewScreen) readFilesTree() filesTree {
 		tree.rows = append(tree.rows, row)
 	}
 
-	if r.focus != reviewFocusFiles || r.folderCursor.diffRow != r.diff.Cursor() {
+	if r.focus != focusFiles || r.folderCursor.diffRow != r.diff.Cursor() {
 		return tree
 	}
 
@@ -76,7 +76,7 @@ func (r reviewScreen) readFilesTree() filesTree {
 
 // readOpenFilesTree is the tree the filter leaves with every folder open and the file the cursor
 // is in found.
-func (r reviewScreen) readOpenFilesTree() filesTree {
+func (r Screen) readOpenFilesTree() filesTree {
 	tree := filesTree{current: -1}
 	view := r.diff.View()
 	if view == nil {
@@ -101,7 +101,7 @@ func (r reviewScreen) readOpenFilesTree() filesTree {
 }
 
 // openFoldersAbove opens every folder of the tree a file sits in.
-func (r *reviewScreen) openFoldersAbove(path string) {
+func (r *Screen) openFoldersAbove(path string) {
 	for folder := range r.closedFolders {
 		if strings.HasPrefix(path, folder+"/") {
 			delete(r.closedFolders, folder)
@@ -110,7 +110,7 @@ func (r *reviewScreen) openFoldersAbove(path string) {
 }
 
 // readCurrentFolder is the folder row the tree's cursor is on.
-func (r reviewScreen) readCurrentFolder() (diffview.TreeRow, bool) {
+func (r Screen) readCurrentFolder() (diffview.TreeRow, bool) {
 	tree := r.readFilesTree()
 	if tree.current < 0 || !tree.rows[tree.current].Folder {
 		return diffview.TreeRow{}, false
@@ -120,7 +120,7 @@ func (r reviewScreen) readCurrentFolder() (diffview.TreeRow, bool) {
 }
 
 // restOnFolder puts the tree's cursor on a folder for as long as the diff cursor stays where it is.
-func (r *reviewScreen) restOnFolder(path string) {
+func (r *Screen) restOnFolder(path string) {
 	r.side = nil
 	r.folderCursor = folderCursor{
 		path:    path,
@@ -129,7 +129,7 @@ func (r *reviewScreen) restOnFolder(path string) {
 }
 
 // toggleFolder opens the folder the tree's cursor is on, or closes it when it is open.
-func (r *reviewScreen) toggleFolder() {
+func (r *Screen) toggleFolder() {
 	folder, ok := r.readCurrentFolder()
 	if !ok {
 		return
@@ -150,7 +150,7 @@ func (r *reviewScreen) toggleFolder() {
 }
 
 // countFilesRows is how many rows the FILES block wants, its search line included.
-func (r reviewScreen) countFilesRows() int {
+func (r Screen) countFilesRows() int {
 	if r.diff.View() == nil || r.diff.View().Len() == 0 {
 		return 1
 	}
@@ -159,7 +159,7 @@ func (r reviewScreen) countFilesRows() int {
 }
 
 // countFilesFloor is the fewest rows the FILES block keeps in a column of spare rows.
-func (r reviewScreen) countFilesFloor(spare int) int {
+func (r Screen) countFilesFloor(spare int) int {
 	floor := filesWindowFloor
 	if spare < filesShortColumn {
 		floor = filesShortWindow
@@ -168,7 +168,7 @@ func (r reviewScreen) countFilesFloor(spare int) int {
 	return min(floor, r.countFilesRows())
 }
 
-func (r *reviewScreen) IsBlockRendered(in screen.Inputs) bool {
+func (r *Screen) IsBlockRendered(in screen.Inputs) bool {
 	if !in.Room.Split.On {
 		return false
 	}
@@ -176,25 +176,25 @@ func (r *reviewScreen) IsBlockRendered(in screen.Inputs) bool {
 	return !r.loading && r.diff.View() != nil && r.diff.View().Len() > 0
 }
 
-func (r *reviewScreen) IsBlockFocused(in screen.Inputs) bool {
-	return r.focus == reviewFocusFiles && in.Room.ListFocused && !r.isWriting() && r.IsBlockRendered(in)
+func (r *Screen) IsBlockFocused(in screen.Inputs) bool {
+	return r.focus == focusFiles && in.Room.ListFocused && !r.IsWriting() && r.IsBlockRendered(in)
 }
 
-func (r *reviewScreen) FocusBlock() {
-	r.focus = reviewFocusFiles
+func (r *Screen) FocusBlock() {
+	r.focus = focusFiles
 	r.folderCursor = folderCursor{}
 }
 
-func (r *reviewScreen) BlurBlock() {
+func (r *Screen) BlurBlock() {
 	r.folderCursor = folderCursor{}
-	if r.focus == reviewFocusFiles {
-		r.focus = reviewFocusDiff
+	if r.focus == focusFiles {
+		r.focus = focusDiff
 	}
 }
 
 // stepFile moves the diff to the next file the tree renders, or the previous one for a negative
 // direction.
-func (r *reviewScreen) stepFile(in screen.Inputs, direction int) screen.Request {
+func (r *Screen) stepFile(in screen.Inputs, direction int) screen.Request {
 	r.side = nil
 	diff := r.diffKeys()
 	if !r.filesFilter.Pattern().IsNarrowing() && len(r.closedFolders) == 0 {
@@ -210,7 +210,7 @@ func (r *reviewScreen) stepFile(in screen.Inputs, direction int) screen.Request 
 
 // walkFiles moves the diff down the tree by files, up it when files is negative, stopping at the
 // last file there is.
-func (r *reviewScreen) walkFiles(in screen.Inputs, files int) screen.Request {
+func (r *Screen) walkFiles(in screen.Inputs, files int) screen.Request {
 	direction := 1
 	if files < 0 {
 		direction = -1
@@ -239,10 +239,10 @@ func (r *reviewScreen) walkFiles(in screen.Inputs, files int) screen.Request {
 
 // filesNav is the movement keys walking the tree a row at a time while it holds the keys, the diff
 // following onto each file, and the wheel walking it a file at a time while it does not.
-type filesNav struct{ r *reviewScreen }
+type filesNav struct{ r *Screen }
 
 func (f filesNav) MoveBy(in screen.Inputs, rows int) screen.Request {
-	if f.r.focus != reviewFocusFiles {
+	if f.r.focus != focusFiles {
 		return f.r.walkFiles(in, rows)
 	}
 
@@ -293,7 +293,7 @@ func (f filesNav) MoveToEnd(in screen.Inputs, direction int) screen.Request {
 
 // landOnRow puts the tree's cursor on a row, moving the diff to the top of a file and leaving it
 // where it is for a folder.
-func (r *reviewScreen) landOnRow(in screen.Inputs, row diffview.TreeRow) screen.Request {
+func (r *Screen) landOnRow(in screen.Inputs, row diffview.TreeRow) screen.Request {
 	if !row.Folder {
 		return r.landOnFile(in, row)
 	}
@@ -304,7 +304,7 @@ func (r *reviewScreen) landOnRow(in screen.Inputs, row diffview.TreeRow) screen.
 }
 
 // landOnFile moves the diff to the top of a file in the tree.
-func (r *reviewScreen) landOnFile(in screen.Inputs, row diffview.TreeRow) screen.Request {
+func (r *Screen) landOnFile(in screen.Inputs, row diffview.TreeRow) screen.Request {
 	r.folderCursor = folderCursor{}
 	r.side = nil
 	diff := r.diffKeys()
@@ -316,7 +316,7 @@ func (r *reviewScreen) landOnFile(in screen.Inputs, row diffview.TreeRow) screen
 }
 
 // ClickFile lands on the file clicked in the tree, and opens or closes a folder.
-func (r *reviewScreen) ClickFile(in screen.Inputs, path string) screen.Request {
+func (r *Screen) ClickFile(in screen.Inputs, path string) screen.Request {
 	for _, row := range r.readFilesTree().rows {
 		if row.Path != path {
 			continue
@@ -334,14 +334,14 @@ func (r *reviewScreen) ClickFile(in screen.Inputs, path string) screen.Request {
 	return nil
 }
 
-func (r *reviewScreen) openFilesFilter() {
+func (r *Screen) openFilesFilter() {
 	search := &r.filesFilter
 	search.Open()
 	search.OpenedIn = list.SectionList
 }
 
 // updateFilesFilter is the tree's search prompt taking keys.
-func (r *reviewScreen) updateFilesFilter(in screen.Inputs, key tea.KeyPressMsg) screen.Request {
+func (r *Screen) updateFilesFilter(in screen.Inputs, key tea.KeyPressMsg) screen.Request {
 	search := &r.filesFilter
 	switch key.String() {
 	case "ctrl+c":
@@ -356,14 +356,14 @@ func (r *reviewScreen) updateFilesFilter(in screen.Inputs, key tea.KeyPressMsg) 
 		return r.settleFilesFilter(in)
 	}
 
-	search.TakeKey(key, r.deps.register)
+	search.TakeKey(key, r.deps.Register)
 
 	return nil
 }
 
 // settleFilesFilter lands a search on the nearest file it matches, and a filter on the first file
 // it left when it took the current one away.
-func (r *reviewScreen) settleFilesFilter(in screen.Inputs) screen.Request {
+func (r *Screen) settleFilesFilter(in screen.Inputs) screen.Request {
 	if !r.filesFilter.Pattern().IsNarrowing() {
 		return r.jumpFilesMatch(in, 0)
 	}
@@ -386,7 +386,7 @@ func (r *reviewScreen) settleFilesFilter(in screen.Inputs) screen.Request {
 
 // jumpFilesMatch walks to the next file whose name the pattern matches, the way direction says,
 // wrapping at either end and leaving the cursor where it is when that file is the current one.
-func (r *reviewScreen) jumpFilesMatch(in screen.Inputs, direction int) screen.Request {
+func (r *Screen) jumpFilesMatch(in screen.Inputs, direction int) screen.Request {
 	tree := r.readOpenFilesTree()
 	count := len(tree.rows)
 	if r.filesFilter.Matcher == nil || count == 0 {
@@ -418,5 +418,5 @@ func (r *reviewScreen) jumpFilesMatch(in screen.Inputs, direction int) screen.Re
 		return r.landOnFile(in, row)
 	}
 
-	return screen.NewNote(screen.Warning, reviewNoFileWord)
+	return screen.NewNote(screen.Warning, noFileWord)
 }

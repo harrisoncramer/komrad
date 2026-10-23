@@ -15,11 +15,9 @@ import (
 const (
 	zoneColumn     zone.Name = "column"
 	zoneDetails    zone.Name = "details"
-	zoneSide       zone.Name = "side"
 	zoneViews      zone.Name = "views"
 	zoneKinds      zone.Name = "kinds"
 	zoneTabs       zone.Name = "tabs"
-	zoneFiles      zone.Name = "files"
 	zoneMessages   zone.Name = "messages"
 	zoneDoc        zone.Name = "doc"
 	zoneMessage    zone.Name = "message"

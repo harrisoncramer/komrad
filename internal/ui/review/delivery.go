@@ -1,4 +1,4 @@
-package ui
+package review
 
 import (
 	"time"
@@ -9,64 +9,64 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
-// reviewDelivery is where one of the person's comments stands with the writer, as a badge under
+// delivery is where one of the person's comments stands with the writer, as a badge under
 // the comment says it: its word, the moment it names, its colour and the glyph it opens with,
 // which is an arrow while the comment is on its way.
-type reviewDelivery struct {
+type delivery struct {
 	word string
 	at   time.Time
 	tone paint.Tone
 	mark glyph.Glyph
 }
 
-// reviewDeliveryParams is a comment, the thread it sits in and the writer whose answer counts.
-type reviewDeliveryParams struct {
+// deliveryParams is a comment, the thread it sits in and the writer whose answer counts.
+type deliveryParams struct {
 	thread   *agentv1.ReviewThread
 	message  *agentv1.ReviewMessage
 	writerID string
 }
 
-// reviewDeliveryOf is where a comment stands: held for a forge comment the person has not
+// deliveryOf is where a comment stands: held for a forge comment the person has not
 // accepted, then released, read or answered for the person's own, and nothing for an agent's.
-func reviewDeliveryOf(params reviewDeliveryParams) reviewDelivery {
+func deliveryOf(params deliveryParams) delivery {
 	message := params.message
 	switch {
 	case isHeldForge(message):
-		return reviewDelivery{
+		return delivery{
 			word: "held",
-			tone: reviewForgeHeldTone,
+			tone: forgeHeldTone,
 			mark: glyph.MessageWarning,
 		}
 	case message.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN:
-		return reviewDelivery{}
+		return delivery{}
 	}
 
 	if answer := findReplyTo(params); answer != nil {
-		return reviewDelivery{
+		return delivery{
 			word: "answered",
 			at:   dates.Read(answer.GetCreatedAt()),
-			tone: reviewReadTone,
+			tone: readTone,
 			mark: glyph.Delivered,
 		}
 	}
 	if read := message.GetReadAt(); read != nil {
-		return reviewDelivery{
+		return delivery{
 			word: "read",
 			at:   dates.Read(read),
-			tone: reviewReadTone,
+			tone: readTone,
 			mark: glyph.Delivered,
 		}
 	}
 
-	return reviewDelivery{
+	return delivery{
 		word: "released",
 		at:   dates.Read(message.GetCreatedAt()),
-		tone: reviewReleasedTone,
+		tone: releasedTone,
 	}
 }
 
 // findReplyTo is the first thing the writer said in the thread after the person's comment.
-func findReplyTo(params reviewDeliveryParams) *agentv1.ReviewMessage {
+func findReplyTo(params deliveryParams) *agentv1.ReviewMessage {
 	seen := false
 	for _, said := range params.thread.GetMessages() {
 		if said.GetId() == params.message.GetId() {

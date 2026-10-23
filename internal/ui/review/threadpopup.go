@@ -1,4 +1,4 @@
-package ui
+package review
 
 import (
 	"strings"
@@ -11,7 +11,7 @@ import (
 
 // popupAnchor is the columns the popup takes beside the diff's code, which are the sidebar, the
 // divider and the gutter with a split and the whole pane without one.
-func (r reviewScreen) popupAnchor(in screen.Inputs) popupAnchor {
+func (r Screen) popupAnchor(in screen.Inputs) popupAnchor {
 	split := in.Room.Split
 	if !split.On {
 		return popupAnchor{right: in.Room.Width}
@@ -21,14 +21,19 @@ func (r reviewScreen) popupAnchor(in screen.Inputs) popupAnchor {
 }
 
 // measurePopupInner is the room inside the popup over the review.
-func (r reviewScreen) measurePopupInner(in screen.Inputs) int {
+func (r Screen) measurePopupInner(in screen.Inputs) int {
 	return r.popupAnchor(in).measureWidth() - popupChrome
+}
+
+// Relayout sizes the message being written to the popup the review has room for.
+func (r Screen) Relayout(in screen.Inputs) {
+	r.threads.editor.resize(inputWidth(r.measurePopupInner(in)))
 }
 
 // popupBody is what the popup holds where the cursor stands and how far it is scrolled back from
 // the end: the editor while the reader writes, under the conversation it replies in, the
 // conversation on the line otherwise, and nothing on a line with no thread.
-func (r reviewScreen) popupBody(in screen.Inputs, inner int) (string, int) {
+func (r Screen) popupBody(in screen.Inputs, inner int) (string, int) {
 	switch {
 	case r.loading || r.diff.View() == nil || r.diff.View().Len() == 0:
 		return "", 0
@@ -51,7 +56,7 @@ func (r reviewScreen) popupBody(in screen.Inputs, inner int) (string, int) {
 
 // conversationAtCursor is the conversation on the cursor's row, wrapped to inner, and none while the
 // sidebar has the keys.
-func (r reviewScreen) conversationAtCursor(in screen.Inputs, inner int) (string, string, bool) {
+func (r Screen) conversationAtCursor(in screen.Inputs, inner int) (string, string, bool) {
 	if r.IsBlockFocused(in) {
 		return "", "", false
 	}
@@ -64,19 +69,19 @@ func (r reviewScreen) conversationAtCursor(in screen.Inputs, inner int) (string,
 }
 
 // placeThread is where a popup holding a body stands beside the cursor's row of the review.
-func (r reviewScreen) placeThread(in screen.Inputs, chrome screen.Chrome, body string) popupSlot {
+func (r Screen) placeThread(in screen.Inputs, chrome screen.Chrome, body string) popupSlot {
 	return placePopup(r.popupAnchor(in), r.measurePopupStage(in, chrome), len(splitPopupRows(body))+2)
 }
 
 // MeasurePopup is the columns inside the popup over the review and the rows inside the tallest popup
 // it has room for beside the cursor.
-func (r reviewScreen) MeasurePopup(in screen.Inputs, chrome screen.Chrome) (width, height int) {
+func (r Screen) MeasurePopup(in screen.Inputs, chrome screen.Chrome) (width, height int) {
 	return r.measurePopupInner(in), placePopup(r.popupAnchor(in), r.measurePopupStage(in, chrome), popupHeight).room()
 }
 
 // measurePopupStage is the rows the popup stands over, the band and the diff beside the sidebar or
 // the band and the sidebar without a split, less the bar at the top that carries the messages.
-func (r reviewScreen) measurePopupStage(in screen.Inputs, chrome screen.Chrome) popupStage {
+func (r Screen) measurePopupStage(in screen.Inputs, chrome screen.Chrome) popupStage {
 	split := in.Room.Split
 	if !split.On {
 		band := r.bandView(in)

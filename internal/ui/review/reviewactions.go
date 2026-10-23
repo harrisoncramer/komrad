@@ -1,4 +1,4 @@
-package ui
+package review
 
 import (
 	"fmt"
@@ -11,8 +11,18 @@ import (
 	"komrad/internal/ui/screen"
 )
 
+const (
+	actionBack keys.ID = keys.Own + iota
+	actionThread
+	actionOpenThread
+	actionBase
+	actionBaseForward
+	actionFolder
+	actionSide
+)
+
 // actions is the keys of whichever of the diff, the file tree and the rows over it holds them.
-func (r *reviewScreen) actions(in screen.Inputs) keys.Spec[*reviewScreen] {
+func (r *Screen) actions(in screen.Inputs) keys.Spec[*Screen] {
 	switch {
 	case r.isSideFocused(in):
 		return r.sideActions(in)
@@ -25,60 +35,60 @@ func (r *reviewScreen) actions(in screen.Inputs) keys.Spec[*reviewScreen] {
 
 // diffActions is the review screen as one table, walked in precedence order by the dispatch and
 // named in reading order by a legend of the same ids.
-func (r *reviewScreen) diffActions(in screen.Inputs) keys.Spec[*reviewScreen] {
-	return keys.Spec[*reviewScreen]{
+func (r *Screen) diffActions(in screen.Inputs) keys.Spec[*Screen] {
+	return keys.Spec[*Screen]{
 		Table:  r.table(in),
 		Legend: r.legend(in),
 	}
 }
 
-func (r *reviewScreen) table(in screen.Inputs) []keys.Action[*reviewScreen] {
-	return slices.Concat(r.ownTable(in), keys.DiffTable[*reviewScreen](r.diffKeys(), in))
+func (r *Screen) table(in screen.Inputs) []keys.Action[*Screen] {
+	return slices.Concat(r.ownTable(in), keys.DiffTable[*Screen](r.diffKeys(), in))
 }
 
 // ownTable is the review's keys past the ones every diff pane shares.
-func (r *reviewScreen) ownTable(in screen.Inputs) []keys.Action[*reviewScreen] {
-	return []keys.Action[*reviewScreen]{
+func (r *Screen) ownTable(in screen.Inputs) []keys.Action[*Screen] {
+	return []keys.Action[*Screen]{
 		{
-			ID:     actionReviewBack,
+			ID:     actionBack,
 			Keys:   keys.FixedBack,
-			Direct: keys.Directly(editorRelease, func(*reviewScreen, string) screen.Request { return r.backFromDiff(in) }),
+			Direct: keys.Directly(editorRelease, func(*Screen, string) screen.Request { return r.backFromDiff(in) }),
 		},
 		{
 			ID:   keys.Quit,
 			Keys: keys.FixedQuit,
-			Nav:  func(*reviewScreen, string) screen.Request { return screen.Hide{} },
+			Nav:  func(*Screen, string) screen.Request { return screen.Hide{} },
 		},
 		{
-			ID:   actionReviewThread,
+			ID:   actionThread,
 			Keys: func(k config.Keybindings) []string { return slices.Concat(k.Review.NextThread, k.Review.PrevThread) },
-			Nav:  func(_ *reviewScreen, pressed string) screen.Request { return r.stepThread(in, pressed) },
+			Nav:  func(_ *Screen, pressed string) screen.Request { return r.stepThread(in, pressed) },
 		},
 		{
-			ID: actionReviewOpenThread,
+			ID: actionOpenThread,
 			Keys: func(k config.Keybindings) []string {
 				return slices.Concat(k.Review.NextOpenThread, k.Review.PrevOpenThread)
 			},
-			Nav: func(_ *reviewScreen, pressed string) screen.Request { return r.stepOpenThread(in, pressed) },
+			Nav: func(_ *Screen, pressed string) screen.Request { return r.stepOpenThread(in, pressed) },
 		},
 		{
-			ID:   actionReviewBase,
+			ID:   actionBase,
 			Keys: func(k config.Keybindings) []string { return k.Review.Base },
-			When: (*reviewScreen).doesWalk,
-			Nav:  func(*reviewScreen, string) screen.Request { return r.stepBase() },
+			When: (*Screen).doesWalk,
+			Nav:  func(*Screen, string) screen.Request { return r.stepBase() },
 		},
 		{
-			ID:   actionReviewBaseForward,
+			ID:   actionBaseForward,
 			Keys: func(k config.Keybindings) []string { return k.Review.BaseForward },
-			When: (*reviewScreen).doesWalk,
-			Nav:  func(*reviewScreen, string) screen.Request { return r.stepBaseForward() },
+			When: (*Screen).doesWalk,
+			Nav:  func(*Screen, string) screen.Request { return r.stepBaseForward() },
 		},
 	}
 }
 
 // orRefuseWrite runs fn, which puts something in front of the agent, or says why it did not, when
 // the agent it would reach is no longer there.
-func (r *reviewScreen) orRefuseWrite(in screen.Inputs, fn func(screen.Inputs) screen.Request) screen.Request {
+func (r *Screen) orRefuseWrite(in screen.Inputs, fn func(screen.Inputs) screen.Request) screen.Request {
 	if r.isArchived(in) {
 		return screen.NewNote(screen.Warning, archivedSaid)
 	}
@@ -86,53 +96,53 @@ func (r *reviewScreen) orRefuseWrite(in screen.Inputs, fn func(screen.Inputs) sc
 	return fn(in)
 }
 
-func (r *reviewScreen) legend(in screen.Inputs) []keys.LegendRow[*reviewScreen] {
-	fitsBase := func(*reviewScreen) bool { return r.doesFitBaseLegend(in) }
+func (r *Screen) legend(in screen.Inputs) []keys.LegendRow[*Screen] {
+	fitsBase := func(*Screen) bool { return r.doesFitBaseLegend(in) }
 
-	return []keys.LegendRow[*reviewScreen]{
-		keys.MoveRow[*reviewScreen](),
-		keys.NavPageRow[*reviewScreen](),
-		keys.DiffFileRow[*reviewScreen](),
+	return []keys.LegendRow[*Screen]{
+		keys.MoveRow[*Screen](),
+		keys.NavPageRow[*Screen](),
+		keys.DiffFileRow[*Screen](),
 		{
-			Of:   []keys.ID{actionReviewThread, actionReviewOpenThread},
-			Desc: func(*reviewScreen) string { return r.diff.threadStepDesc() },
+			Of:   []keys.ID{actionThread, actionOpenThread},
+			Desc: func(*Screen) string { return r.diff.threadStepDesc() },
 			Label: func(k config.Keybindings) string {
 				return keys.HeadLabel(k.Review.NextThread) + "/" + keys.HeadLabel(k.Review.PrevThread) +
 					"/" + keys.HeadLabel(k.Review.NextOpenThread) + "/" + keys.HeadLabel(k.Review.PrevOpenThread)
 			},
 		},
-		keys.DiffSearchRow[*reviewScreen](),
-		keys.DiffMatchRow[*reviewScreen](),
-		keys.DiffPanRow[*reviewScreen](),
-		keys.JumpRow[*reviewScreen](),
+		keys.DiffSearchRow[*Screen](),
+		keys.DiffMatchRow[*Screen](),
+		keys.DiffPanRow[*Screen](),
+		keys.JumpRow[*Screen](),
 		{
-			Of:   []keys.ID{actionReviewBase},
-			Desc: func(*reviewScreen) string { return "an earlier review" },
+			Of:   []keys.ID{actionBase},
+			Desc: func(*Screen) string { return "an earlier review" },
 			Show: fitsBase,
 		},
 		{
-			Of:   []keys.ID{actionReviewBaseForward},
-			Desc: func(*reviewScreen) string { return "a later review" },
+			Of:   []keys.ID{actionBaseForward},
+			Desc: func(*Screen) string { return "a later review" },
 			Show: fitsBase,
 		},
 		{
-			Of:   []keys.ID{actionReviewBack},
-			Desc: func(*reviewScreen) string { return r.diffBackDesc(in) },
+			Of:   []keys.ID{actionBack},
+			Desc: func(*Screen) string { return r.diffBackDesc(in) },
 		},
 	}
 }
 
 // stepOpenThread walks the comments nobody has settled.
-func (r *reviewScreen) stepOpenThread(in screen.Inputs, pressed string) screen.Request {
-	if keys.IsBound(pressed, r.deps.keys.Review.PrevOpenThread) {
+func (r *Screen) stepOpenThread(in screen.Inputs, pressed string) screen.Request {
+	if keys.IsBound(pressed, r.deps.Keys.Review.PrevOpenThread) {
 		return r.jumpOpenThread(in, -1)
 	}
 
 	return r.jumpOpenThread(in, 1)
 }
 
-func (r *reviewScreen) stepThread(in screen.Inputs, pressed string) screen.Request {
-	if keys.IsBound(pressed, r.deps.keys.Review.PrevThread) {
+func (r *Screen) stepThread(in screen.Inputs, pressed string) screen.Request {
+	if keys.IsBound(pressed, r.deps.Keys.Review.PrevThread) {
 		return r.moveCursor(in, r.diff.View().JumpThread(r.diff.Cursor(), -1))
 	}
 
@@ -140,24 +150,24 @@ func (r *reviewScreen) stepThread(in screen.Inputs, pressed string) screen.Reque
 }
 
 // filesActions is the keys on the file tree, which walk it a row at a time with the diff following.
-func (r *reviewScreen) filesActions(in screen.Inputs) keys.Spec[*reviewScreen] {
-	standing := func(*reviewScreen) bool { return r.filesFilter.IsStanding() }
+func (r *Screen) filesActions(in screen.Inputs) keys.Spec[*Screen] {
+	standing := func(*Screen) bool { return r.filesFilter.IsStanding() }
 
-	return keys.Spec[*reviewScreen]{
-		Table: append(keys.NavActions[*reviewScreen](keys.NavActionsParams{Keys: r.deps.keys, Nav: filesNav{r}, In: in, Page: keys.NavPageStep, Scroll: 1}), []keys.Action[*reviewScreen]{
+	return keys.Spec[*Screen]{
+		Table: append(keys.NavActions[*Screen](keys.NavActionsParams{Keys: r.deps.Keys, Nav: filesNav{r}, In: in, Page: keys.NavPageStep, Scroll: 1}), []keys.Action[*Screen]{
 			{
 				ID:   keys.DiffFile,
 				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Diff.NextFile, k.Diff.PrevFile) },
-				Nav: func(_ *reviewScreen, pressed string) screen.Request {
-					return r.stepFile(in, keys.DirectionOf(pressed, r.deps.keys.Diff.PrevFile))
+				Nav: func(_ *Screen, pressed string) screen.Request {
+					return r.stepFile(in, keys.DirectionOf(pressed, r.deps.Keys.Diff.PrevFile))
 				},
 			},
 			{
-				ID: actionReviewFolder,
+				ID: actionFolder,
 				Keys: func(k config.Keybindings) []string {
 					return slices.Concat(keys.FixedOpen(k), k.Review.ToggleFolder)
 				},
-				Nav: func(*reviewScreen, string) screen.Request {
+				Nav: func(*Screen, string) screen.Request {
 					r.toggleFolder()
 
 					return nil
@@ -166,7 +176,7 @@ func (r *reviewScreen) filesActions(in screen.Inputs) keys.Spec[*reviewScreen] {
 			{
 				ID:   keys.FilterOpen,
 				Keys: func(config.Keybindings) []string { return []string{filter.OpenKey} },
-				Nav: func(*reviewScreen, string) screen.Request {
+				Nav: func(*Screen, string) screen.Request {
 					r.openFilesFilter()
 
 					return nil
@@ -176,40 +186,40 @@ func (r *reviewScreen) filesActions(in screen.Inputs) keys.Spec[*reviewScreen] {
 				ID:   keys.FilterMatch,
 				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
 				When: standing,
-				Nav: func(_ *reviewScreen, pressed string) screen.Request {
-					return r.jumpFilesMatch(in, keys.DirectionOf(pressed, r.deps.keys.Filter.PrevMatch))
+				Nav: func(_ *Screen, pressed string) screen.Request {
+					return r.jumpFilesMatch(in, keys.DirectionOf(pressed, r.deps.Keys.Filter.PrevMatch))
 				},
 			},
 			{
 				ID:   keys.FilterClear,
 				Keys: keys.FixedBack,
 				When: standing,
-				Nav: func(*reviewScreen, string) screen.Request {
+				Nav: func(*Screen, string) screen.Request {
 					r.filesFilter.Abandon()
 
 					return nil
 				},
 			},
 			{
-				ID:     actionReviewBack,
+				ID:     actionBack,
 				Keys:   keys.FixedBack,
-				Direct: keys.Directly(editorRelease, func(*reviewScreen, string) screen.Request { return r.back(in) }),
+				Direct: keys.Directly(editorRelease, func(*Screen, string) screen.Request { return r.back(in) }),
 			},
 			{
 				ID:   keys.Quit,
 				Keys: keys.FixedQuit,
-				Nav:  func(*reviewScreen, string) screen.Request { return screen.Hide{} },
+				Nav:  func(*Screen, string) screen.Request { return screen.Hide{} },
 			},
 		}...),
-		Legend: []keys.LegendRow[*reviewScreen]{
-			keys.MoveRow[*reviewScreen](),
-			keys.NavPageRow[*reviewScreen](),
-			keys.JumpRow[*reviewScreen](),
-			keys.DiffFileRow[*reviewScreen](),
+		Legend: []keys.LegendRow[*Screen]{
+			keys.MoveRow[*Screen](),
+			keys.NavPageRow[*Screen](),
+			keys.JumpRow[*Screen](),
+			keys.DiffFileRow[*Screen](),
 			{
-				Of:   []keys.ID{actionReviewFolder},
-				Desc: func(*reviewScreen) string { return r.folderDesc() },
-				Show: func(*reviewScreen) bool {
+				Of:   []keys.ID{actionFolder},
+				Desc: func(*Screen) string { return r.folderDesc() },
+				Show: func(*Screen) bool {
 					_, ok := r.readCurrentFolder()
 
 					return ok
@@ -217,20 +227,20 @@ func (r *reviewScreen) filesActions(in screen.Inputs) keys.Spec[*reviewScreen] {
 			},
 			{
 				Of:   []keys.ID{keys.FilterOpen},
-				Desc: func(*reviewScreen) string { return r.filesFilter.OpenDesc() },
+				Desc: func(*Screen) string { return r.filesFilter.OpenDesc() },
 			},
 			{
 				Of:   []keys.ID{keys.FilterMatch},
-				Desc: func(*reviewScreen) string { return "next/prev match" },
+				Desc: func(*Screen) string { return "next/prev match" },
 			},
 			{
 				Of:   []keys.ID{keys.FilterClear},
-				Desc: func(*reviewScreen) string { return r.filesFilter.ClearDesc() },
+				Desc: func(*Screen) string { return r.filesFilter.ClearDesc() },
 			},
 			{
-				Of:    []keys.ID{actionReviewBack},
-				Desc:  func(*reviewScreen) string { return r.backDesc() },
-				Show:  func(*reviewScreen) bool { return !r.filesFilter.IsStanding() },
+				Of:    []keys.ID{actionBack},
+				Desc:  func(*Screen) string { return r.backDesc() },
+				Show:  func(*Screen) bool { return !r.filesFilter.IsStanding() },
 				Strip: true,
 			},
 		},
@@ -238,39 +248,39 @@ func (r *reviewScreen) filesActions(in screen.Inputs) keys.Spec[*reviewScreen] {
 }
 
 // sideActions is the keys on the rows over the file tree, which walk them and on down into the tree.
-func (r *reviewScreen) sideActions(in screen.Inputs) keys.Spec[*reviewScreen] {
-	return keys.Spec[*reviewScreen]{
-		Table: append(keys.NavActions[*reviewScreen](keys.NavActionsParams{Keys: r.deps.keys, Nav: filesNav{r}, In: in, Page: keys.NavPageStep, Scroll: 1}), []keys.Action[*reviewScreen]{
+func (r *Screen) sideActions(in screen.Inputs) keys.Spec[*Screen] {
+	return keys.Spec[*Screen]{
+		Table: append(keys.NavActions[*Screen](keys.NavActionsParams{Keys: r.deps.Keys, Nav: filesNav{r}, In: in, Page: keys.NavPageStep, Scroll: 1}), []keys.Action[*Screen]{
 			{
-				ID: actionReviewSide,
+				ID: actionSide,
 				Keys: func(k config.Keybindings) []string {
 					return slices.Concat(keys.FixedOpen(k), k.Review.ToggleFolder)
 				},
-				Nav: func(*reviewScreen, string) screen.Request { return r.chooseSide(in) },
+				Nav: func(*Screen, string) screen.Request { return r.chooseSide(in) },
 			},
 			{
-				ID:     actionReviewBack,
+				ID:     actionBack,
 				Keys:   keys.FixedBack,
-				Direct: keys.Directly(editorRelease, func(*reviewScreen, string) screen.Request { return r.back(in) }),
+				Direct: keys.Directly(editorRelease, func(*Screen, string) screen.Request { return r.back(in) }),
 			},
 			{
 				ID:   keys.Quit,
 				Keys: keys.FixedQuit,
-				Nav:  func(*reviewScreen, string) screen.Request { return screen.Hide{} },
+				Nav:  func(*Screen, string) screen.Request { return screen.Hide{} },
 			},
 		}...),
-		Legend: []keys.LegendRow[*reviewScreen]{
-			keys.MoveRow[*reviewScreen](),
-			keys.NavPageRow[*reviewScreen](),
-			keys.JumpRow[*reviewScreen](),
+		Legend: []keys.LegendRow[*Screen]{
+			keys.MoveRow[*Screen](),
+			keys.NavPageRow[*Screen](),
+			keys.JumpRow[*Screen](),
 			{
-				Of:   []keys.ID{actionReviewSide},
-				Desc: func(*reviewScreen) string { return r.chooseDesc(in) },
-				Show: func(*reviewScreen) bool { return r.chooseDesc(in) != "" },
+				Of:   []keys.ID{actionSide},
+				Desc: func(*Screen) string { return r.chooseDesc(in) },
+				Show: func(*Screen) bool { return r.chooseDesc(in) != "" },
 			},
 			{
-				Of:    []keys.ID{actionReviewBack},
-				Desc:  func(*reviewScreen) string { return r.backDesc() },
+				Of:    []keys.ID{actionBack},
+				Desc:  func(*Screen) string { return r.backDesc() },
 				Strip: true,
 			},
 		},
@@ -283,12 +293,12 @@ const (
 )
 
 // BuildItemMenu builds the band on the thread under the diff's cursor.
-func (r *reviewScreen) BuildItemMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
+func (r *Screen) BuildItemMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
 	if side, ok := r.findSide(in); ok && r.IsBlockFocused(in) {
 		return r.sideMenu(in, side)
 	}
 
-	if !r.isDiffFocused(in) {
+	if !r.IsDiffFocused(in) {
 		return menu.Menu{}, false
 	}
 
@@ -305,15 +315,15 @@ func (r *reviewScreen) BuildItemMenu(in screen.Inputs, _ menu.Nester) (menu.Menu
 	}
 
 	if reachable && r.doesOfferForgeReply() {
-		entries = append(entries, menu.Leaving("reply on "+r.forgeName(in), r.deps.keys.Review.ForgeReply, func(in screen.Inputs) screen.Request {
+		entries = append(entries, menu.Leaving("reply on "+r.forgeName(in), r.deps.Keys.Review.ForgeReply, func(in screen.Inputs) screen.Request {
 			return r.orRefuseWrite(in, r.composeForge)
 		}))
 	}
 
-	entries = append(entries, menu.Leaving(r.diff.resolveDesc(), r.deps.keys.Review.Resolve, func(in screen.Inputs) screen.Request { return r.resolveThread(in) }))
+	entries = append(entries, menu.Leaving(r.diff.resolveDesc(), r.deps.Keys.Review.Resolve, func(in screen.Inputs) screen.Request { return r.resolveThread(in) }))
 
 	if r.doesOfferAccept() {
-		accept := menu.Leaving("accept the forge comment", r.deps.keys.Review.Accept, func(in screen.Inputs) screen.Request {
+		accept := menu.Leaving("accept the forge comment", r.deps.Keys.Review.Accept, func(in screen.Inputs) screen.Request {
 			return r.orRefuseWrite(in, r.acceptForge)
 		})
 		entries = append(entries, menu.DrawnOff(accept, r.diff.newestSaid()))
@@ -321,10 +331,10 @@ func (r *reviewScreen) BuildItemMenu(in screen.Inputs, _ menu.Nester) (menu.Menu
 
 	if reachable && r.doesOfferForgeRetry() {
 		entries = append(entries,
-			menu.Leaving("retry the reply", r.deps.keys.Review.ForgePost, func(in screen.Inputs) screen.Request {
+			menu.Leaving("retry the reply", r.deps.Keys.Review.ForgePost, func(in screen.Inputs) screen.Request {
 				return r.orRefuseWrite(in, r.retryForgeReply)
 			}),
-			menu.Leaving("discard the reply", r.deps.keys.Review.ForgeDiscard, func(in screen.Inputs) screen.Request {
+			menu.Leaving("discard the reply", r.deps.Keys.Review.ForgeDiscard, func(in screen.Inputs) screen.Request {
 				return r.orRefuseWrite(in, r.discardForgeReply)
 			}),
 		)
@@ -344,7 +354,7 @@ func (r *reviewScreen) BuildItemMenu(in screen.Inputs, _ menu.Nester) (menu.Menu
 
 // BuildScreenMenu builds the band of whichever of the diff, the file tree and the rows over it holds
 // the keys.
-func (r *reviewScreen) BuildScreenMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
+func (r *Screen) BuildScreenMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
 	var band menu.Menu
 	switch {
 	case r.isSideFocused(in):
@@ -367,23 +377,23 @@ func pullRequestMenu() menu.Menu {
 }
 
 // fileEntries is the entries on the file under the cursor, for the editor and whether it is viewed.
-func (r *reviewScreen) fileEntries(in screen.Inputs) []menu.Entry {
-	edit := menu.Leaving(r.edit.editorDesc(), r.deps.keys.Review.EditFile, r.pressEdit)
-	viewed := menu.Leaving(r.diff.viewedDesc(), r.deps.keys.Review.ToggleViewed, r.toggleViewed)
+func (r *Screen) fileEntries(in screen.Inputs) []menu.Entry {
+	edit := menu.Leaving(r.edit.editorDesc(), r.deps.Keys.Review.EditFile, r.pressEdit)
+	viewed := menu.Leaving(r.diff.viewedDesc(), r.deps.Keys.Review.ToggleViewed, r.toggleViewed)
 
 	return []menu.Entry{menu.DrawnOff(edit, r.editOffSaid(in)), menu.DrawnOff(viewed, r.diff.viewedOffSaid())}
 }
 
 // diffMenu is the diff's band, for the file in the editor, how the diff is rendered and the review
 // waiting to be sent.
-func (r *reviewScreen) diffMenu(in screen.Inputs, nest menu.Nester) menu.Menu {
+func (r *Screen) diffMenu(in screen.Inputs, nest menu.Nester) menu.Menu {
 	reachable := !r.isArchived(in)
 	_, onThread := r.diff.threadAtCursor()
-	diffFocused := r.isDiffFocused(in)
+	diffFocused := r.IsDiffFocused(in)
 
 	entries := append(r.fileEntries(in),
-		menu.Leaving(r.diffKeys().ExpandDesc(), r.deps.keys.Diff.Expand, func(in screen.Inputs) screen.Request { return r.diffKeys().ToggleExpanded(in) }),
-		menu.Leaving(keys.WrapDesc(in), r.deps.keys.Diff.Wrap, func(in screen.Inputs) screen.Request { return r.diffKeys().ToggleWrap(in) }),
+		menu.Leaving(r.diffKeys().ExpandDesc(), r.deps.Keys.Diff.Expand, func(in screen.Inputs) screen.Request { return r.diffKeys().ToggleExpanded(in) }),
+		menu.Leaving(keys.WrapDesc(in), r.deps.Keys.Diff.Wrap, func(in screen.Inputs) screen.Request { return r.diffKeys().ToggleWrap(in) }),
 	)
 
 	if diffFocused && !onThread {
@@ -401,16 +411,16 @@ func (r *reviewScreen) diffMenu(in screen.Inputs, nest menu.Nester) menu.Menu {
 	}
 
 	if r.isHistory() {
-		entries = append(entries, menu.Leaving(fmt.Sprintf("end the range on snapshot %d", r.diff.newest.GetOrdinal()), r.deps.keys.Review.RangeEnd, func(screen.Inputs) screen.Request {
+		entries = append(entries, menu.Leaving(fmt.Sprintf("end the range on snapshot %d", r.diff.newest.GetOrdinal()), r.deps.Keys.Review.RangeEnd, func(screen.Inputs) screen.Request {
 			return r.endOnNewest()
 		}))
 	}
 
-	entries = append(entries, menu.Leaving(r.reloadDesc(in), r.deps.keys.Review.Reload, func(screen.Inputs) screen.Request { return r.catchUp() }))
-	entries = append(entries, menu.Leaving(r.diff.agentThreadsDesc(), r.deps.keys.Review.AgentThreads, r.toggleAgentThreads))
+	entries = append(entries, menu.Leaving(r.reloadDesc(in), r.deps.Keys.Review.Reload, func(screen.Inputs) screen.Request { return r.catchUp() }))
+	entries = append(entries, menu.Leaving(r.diff.agentThreadsDesc(), r.deps.Keys.Review.AgentThreads, r.toggleAgentThreads))
 
 	if task, ok := in.Listing.Tasks[r.taskID]; ok {
-		entries = append(entries, menu.Nested("git", r.deps.keys.Menu.Git, nest.PullRequestGit(task)))
+		entries = append(entries, menu.Nested("git", r.deps.Keys.Menu.Git, nest.PullRequestGit(task)))
 	}
 
 	return menu.Menu{
@@ -419,22 +429,22 @@ func (r *reviewScreen) diffMenu(in screen.Inputs, nest menu.Nester) menu.Menu {
 	}
 }
 
-func (r *reviewScreen) composeEntry(said string) menu.Entry {
-	return menu.DrawnOff(menu.Leaving(r.composeDesc(), r.deps.keys.Review.Compose, func(in screen.Inputs) screen.Request {
+func (r *Screen) composeEntry(said string) menu.Entry {
+	return menu.DrawnOff(menu.Leaving(r.composeDesc(), r.deps.Keys.Review.Compose, func(in screen.Inputs) screen.Request {
 		return r.orRefuseWrite(in, r.compose)
 	}), said)
 }
 
-func (r *reviewScreen) answerEntry() menu.Entry {
-	return menu.Leaving(r.diff.answerDesc(), r.deps.keys.Review.Answer, func(screen.Inputs) screen.Request { return r.toggleAnswer() })
+func (r *Screen) answerEntry() menu.Entry {
+	return menu.Leaving(r.diff.answerDesc(), r.deps.Keys.Review.Answer, func(screen.Inputs) screen.Request { return r.toggleAnswer() })
 }
 
-func (r *reviewScreen) jumpEntry() menu.Entry {
-	return menu.Leaving(r.diff.jumpDesc(), r.deps.keys.Review.Jump, func(screen.Inputs) screen.Request { return r.toggleJump() })
+func (r *Screen) jumpEntry() menu.Entry {
+	return menu.Leaving(r.diff.jumpDesc(), r.deps.Keys.Review.Jump, func(screen.Inputs) screen.Request { return r.toggleJump() })
 }
 
 // folderDesc says whether the folder key on the tree opens the folder or closes it.
-func (r *reviewScreen) folderDesc() string {
+func (r *Screen) folderDesc() string {
 	folder, _ := r.readCurrentFolder()
 	if r.closedFolders[folder.Path] {
 		return "open folder"

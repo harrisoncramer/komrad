@@ -1,4 +1,4 @@
-package ui
+package review
 
 import (
 	"komrad/internal/ui/panel"
@@ -8,7 +8,7 @@ import (
 
 // currentPullRequest is the pull request open from the branch under review, as the list holds it,
 // once its title has been read from the forge.
-func (r reviewScreen) currentPullRequest(in screen.Inputs) (panel.PullRequest, bool) {
+func (r Screen) currentPullRequest(in screen.Inputs) (panel.PullRequest, bool) {
 	item, ok := in.Listing.AnyAgent(r.agentID)
 	if !ok {
 		return panel.PullRequest{}, false

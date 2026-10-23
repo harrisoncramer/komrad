@@ -1,4 +1,4 @@
-package ui
+package review
 
 import (
 	"fmt"
@@ -19,22 +19,25 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
+// ZoneFiles names the rows of the file tree, each keyed by its path.
+const ZoneFiles zone.Name = "files"
+
 // filesView is the FILES block cut to lines rows, windowed on the row the cursor is in.
-func (r reviewScreen) filesView(in screen.Inputs, lines int) string {
+func (r Screen) filesView(in screen.Inputs, lines int) string {
 	switch {
 	case lines == 0:
 		return ""
 	case r.loading:
-		return in.Room.Spinner + " " + paint.Panel.Style(paint.ToneMuted).Render(reviewLoadingWord) + "\n"
+		return in.Room.Spinner + " " + paint.Panel.Style(paint.ToneMuted).Render(loadingWord) + "\n"
 	case r.diff.View() == nil || r.diff.View().Len() == 0:
-		return paint.Panel.Style(paint.ToneMuted).Render(reviewEmptyWord) + "\n"
+		return paint.Panel.Style(paint.ToneMuted).Render(emptyWord) + "\n"
 	}
 
 	width := layout.LineWidth(in.Room.Width)
 	tree := r.readFilesTree()
 	_, onSide := r.findSide(in)
 	focused := r.IsBlockFocused(in) && !onSide
-	columns := measureStatColumns(r.deps.glyphs, tree.rows)
+	columns := measureStatColumns(r.deps.Glyphs, tree.rows)
 	rows := make([]string, 0, len(tree.rows))
 	keys := make([]string, 0, len(tree.rows))
 	for at, row := range tree.rows {
@@ -53,15 +56,15 @@ func (r reviewScreen) filesView(in screen.Inputs, lines int) string {
 
 	if in.Room.Marks {
 		for at, row := range rows {
-			rows[at] = zone.MarkSpan(zoneFiles, keys[at], row)
+			rows[at] = zone.MarkSpan(ZoneFiles, keys[at], row)
 		}
 	}
 
 	if len(rows) == 0 {
-		rows = append(rows, paint.Panel.Style(paint.ToneMuted).Render(strings.Repeat(" ", filesGutter)+reviewNoFileWord))
+		rows = append(rows, paint.Panel.Style(paint.ToneMuted).Render(strings.Repeat(" ", filesGutter)+noFileWord))
 	}
 
-	header := ansi.Truncate(r.filesFilter.Line(r.deps.glyphs), max(width, 0), "…")
+	header := ansi.Truncate(r.filesFilter.Line(r.deps.Glyphs), max(width, 0), "…")
 	if in.Room.Marks {
 		header = zone.MarkKey(zone.Search, width, 0, zone.SearchBlock) + header
 	}
@@ -96,14 +99,14 @@ type renderTreeRowParams struct {
 
 // renderTreeRow renders one row of the tree: its mark, its place in the tree, its name, and what it
 // holds.
-func (r reviewScreen) renderTreeRow(params renderTreeRowParams) string {
+func (r Screen) renderTreeRow(params renderTreeRowParams) string {
 	row, width := params.Row, params.Width
 	style := lipgloss.NewStyle()
 	mark := " "
 
 	switch {
 	case params.Current:
-		mark = r.deps.glyphs.Spell(glyph.FileCurrent)
+		mark = r.deps.Glyphs.Spell(glyph.FileCurrent)
 		style = paint.Panel.Style(paint.TonePrimary).Bold(true)
 	case row.Viewed:
 		style = paint.Panel.Style(paint.ToneMuted)
@@ -123,11 +126,11 @@ func (r reviewScreen) renderTreeRow(params renderTreeRowParams) string {
 		if params.Closed {
 			folder = glyph.FolderClosed
 		}
-		fit.Left = style.Render(r.deps.glyphs.Spell(folder)) + " " + fit.Left
+		fit.Left = style.Render(r.deps.Glyphs.Spell(folder)) + " " + fit.Left
 	} else {
 		fit.Stat = formatStatColumns(row.Stat, params.Columns)
 	}
-	if badge := formatThreadMark(r.deps.glyphs, row.Counts); badge != "" || !row.Folder {
+	if badge := formatThreadMark(r.deps.Glyphs, row.Counts); badge != "" || !row.Folder {
 		fit.Badges = padLeft(badge, params.Columns.Badge)
 	}
 
@@ -167,14 +170,14 @@ func formatStatColumns(stat diff.Stat, columns statColumns) string {
 	if columns.Added > 0 {
 		added := ""
 		if stat.Added > 0 {
-			added = paint.Panel.Style(reviewAddedTone).Render(fmt.Sprintf("+%d", stat.Added))
+			added = paint.Panel.Style(addedTone).Render(fmt.Sprintf("+%d", stat.Added))
 		}
 		parts = append(parts, padLeft(added, columns.Added))
 	}
 	if columns.Removed > 0 {
 		removed := ""
 		if stat.Removed > 0 {
-			removed = paint.Panel.Style(reviewRemovedTone).Render(fmt.Sprintf("−%d", stat.Removed))
+			removed = paint.Panel.Style(removedTone).Render(fmt.Sprintf("−%d", stat.Removed))
 		}
 		parts = append(parts, padLeft(removed, columns.Removed))
 	}
@@ -192,9 +195,9 @@ func padLeft(text string, width int) string {
 func formatThreadMark(glyphs glyph.Set, counts diffview.ThreadCounts) string {
 	switch {
 	case counts.Unread > 0:
-		return paint.Panel.Style(reviewHumanTone).Render(glyphs.Spell(glyph.ThreadUnread))
+		return paint.Panel.Style(humanTone).Render(glyphs.Spell(glyph.ThreadUnread))
 	case counts.Open > 0:
-		return paint.Panel.Style(reviewHumanTone).Render(glyphs.Spell(glyph.ThreadRead))
+		return paint.Panel.Style(humanTone).Render(glyphs.Spell(glyph.ThreadRead))
 	}
 
 	return ""

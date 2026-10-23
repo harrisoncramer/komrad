@@ -1,4 +1,4 @@
-package ui
+package review
 
 import (
 	"context"
@@ -50,7 +50,7 @@ func heldForgeSaid(thread *agentv1.ReviewThread, message *agentv1.ReviewMessage)
 }
 
 // doesOfferAccept says whether the thread under the cursor holds a forge comment to accept.
-func (r *reviewScreen) doesOfferAccept() bool {
+func (r *Screen) doesOfferAccept() bool {
 	thread, ok := r.diff.threadAtCursor()
 	if !ok {
 		return false
@@ -63,7 +63,7 @@ func (r *reviewScreen) doesOfferAccept() bool {
 
 // acceptForge accepts the held forge comment under the cursor, which releases it to the writer as
 // the person's own comment.
-func (r *reviewScreen) acceptForge(in screen.Inputs) screen.Request {
+func (r *Screen) acceptForge(in screen.Inputs) screen.Request {
 	thread, ok := r.diff.threadAtCursor()
 	if !ok {
 		return nil
@@ -74,7 +74,7 @@ func (r *reviewScreen) acceptForge(in screen.Inputs) screen.Request {
 		return nil
 	}
 
-	agents, id := r.deps.clients.Agents, target.GetId()
+	agents, id := r.deps.Clients.Agents, target.GetId()
 
 	return r.write(in, "accepting the comment", "comment accepted", func(ctx context.Context) error {
 		_, err := agents.AcceptForgeMessage(ctx, connect.NewRequest(&agentv1.AcceptForgeMessageRequest{

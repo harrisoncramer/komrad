@@ -1,4 +1,4 @@
-package ui
+package review
 
 import (
 	"testing"
@@ -30,18 +30,18 @@ func TestIsReviewHistory(t *testing.T) {
 		},
 		{
 			name: "a comment's origin on an older snapshot",
-			spec: originSpec(&reviewOrigin{SnapshotID: "r2"}),
+			spec: originSpec(&commentOrigin{SnapshotID: "r2"}),
 			want: true,
 		},
 		{
 			name: "an answer reaching the newest snapshot",
-			spec: answerSpec(&reviewAnswer{ToSnapshot: "r3"}),
+			spec: answerSpec(&commentAnswer{ToSnapshot: "r3"}),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			diff := reviewDiff{
+			diff := diffPane{
 				spec:   tt.spec,
 				newest: &agentv1.ReviewSnapshot{Id: "r3", Ordinal: 3},
 			}

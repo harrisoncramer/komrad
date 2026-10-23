@@ -1,4 +1,4 @@
-package ui
+package review
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 
 var errCommentSnapshotGone = errors.New("the snapshot this comment was written on is gone")
 
-type reviewOrigin struct {
+type commentOrigin struct {
 	ThreadID   string
 	SnapshotID string
 	Ordinal    int32
@@ -27,7 +27,7 @@ type reviewOrigin struct {
 	place *diffview.Place
 }
 
-func (r *reviewScreen) toggleJump() screen.Request {
+func (r *Screen) toggleJump() screen.Request {
 	if r.diff.spec.origin != nil {
 		return r.leaveOrigin()
 	}
@@ -42,7 +42,7 @@ func (r *reviewScreen) toggleJump() screen.Request {
 		return screen.NewNote(screen.Warning, errCommentSnapshotGone.Error())
 	}
 
-	origin := &reviewOrigin{
+	origin := &commentOrigin{
 		ThreadID:   thread.GetId(),
 		SnapshotID: snapshot.GetId(),
 		Ordinal:    snapshot.GetOrdinal(),
@@ -58,7 +58,7 @@ func (r *reviewScreen) toggleJump() screen.Request {
 	return r.reload()
 }
 
-func (r *reviewScreen) leaveOrigin() screen.Request {
+func (r *Screen) leaveOrigin() screen.Request {
 	origin := r.diff.spec.origin
 	r.diff.spec = origin.held
 
@@ -68,7 +68,7 @@ func (r *reviewScreen) leaveOrigin() screen.Request {
 	return cmd
 }
 
-func originLabel(origin *reviewOrigin) string {
+func originLabel(origin *commentOrigin) string {
 	said := fmt.Sprintf("where the comment was read %s snapshot %d", glyph.Span, origin.Ordinal)
 	if origin.fellBack {
 		said += ", shown against the snapshot's base"
@@ -77,7 +77,7 @@ func originLabel(origin *reviewOrigin) string {
 	return said
 }
 
-func (d reviewDiff) jumpDesc() string {
+func (d diffPane) jumpDesc() string {
 	if d.spec.origin != nil {
 		return "back"
 	}
@@ -85,7 +85,7 @@ func (d reviewDiff) jumpDesc() string {
 	return "where it was written"
 }
 
-func (d *reviewDiff) originPlace(view *diffview.View) (diffview.Place, bool) {
+func (d *diffPane) originPlace(view *diffview.View) (diffview.Place, bool) {
 	if d.spec.origin == nil || d.spec.origin.landed {
 		return diffview.Place{}, false
 	}
@@ -100,7 +100,7 @@ func (d *reviewDiff) originPlace(view *diffview.View) (diffview.Place, bool) {
 	return view.GetPlace(y)
 }
 
-func (d reviewDiff) threadsOnScreen(threads []*agentv1.ReviewThread) []*agentv1.ReviewThread {
+func (d diffPane) threadsOnScreen(threads []*agentv1.ReviewThread) []*agentv1.ReviewThread {
 	if d.hidesAgentThreads {
 		threads = withoutAgentThreads(threads)
 	}
@@ -109,7 +109,7 @@ func (d reviewDiff) threadsOnScreen(threads []*agentv1.ReviewThread) []*agentv1.
 }
 
 // isThreadOnScreen reports whether the thread is one the diff shows in the range on screen.
-func (d reviewDiff) isThreadOnScreen(threads []*agentv1.ReviewThread, id string) bool {
+func (d diffPane) isThreadOnScreen(threads []*agentv1.ReviewThread, id string) bool {
 	return slices.ContainsFunc(d.threadsOnScreen(threads), func(thread *agentv1.ReviewThread) bool { return thread.GetId() == id })
 }
 

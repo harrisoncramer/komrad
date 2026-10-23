@@ -1,4 +1,4 @@
-package ui
+package review
 
 import (
 	"time"
@@ -19,24 +19,31 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-const reviewTimeout = 30 * time.Second
+const timeout = 30 * time.Second
 
-// reviewDeps is what the review screen is given at launch.
-type reviewDeps struct {
-	keys           config.Keybindings
-	glyphs         glyph.Set
-	register       *vim.Register
-	clients        api.Clients
-	patches        diff.Reader
-	panes          screen.Panes
-	top            *keys.Top
-	editor         editor.Editor
-	editorSettings editor.Settings
+const separated = " " + glyph.Separator + " "
+
+// Deps is what the review screen is given at launch.
+type Deps struct {
+	Keys           config.Keybindings
+	Glyphs         glyph.Set
+	Register       *vim.Register
+	Clients        api.Clients
+	Patches        diff.Reader
+	Panes          screen.Panes
+	Top            *keys.Top
+	Editor         editor.Editor
+	EditorSettings editor.Settings
 }
 
-// reviewScreen is the review of one agent's diff, while that screen is up.
-type reviewScreen struct {
-	deps      reviewDeps
+// New is the review screen built from what it is given at launch.
+func New(deps Deps) Screen {
+	return Screen{deps: deps}
+}
+
+// Screen is the review of one agent's diff, while that screen is up.
+type Screen struct {
+	deps      Deps
 	agentID   string
 	taskID    string
 	agentName string
@@ -51,14 +58,14 @@ type reviewScreen struct {
 	notice string
 
 	// diff is the patch on screen and where the reader is standing in it.
-	diff reviewDiff
+	diff diffPane
 
 	// threads is the conversation in the sidebar and what the reader is writing into it.
-	threads reviewThreads
+	threads conversation
 
 	// edit is the reader's own editor over the agent's worktree.
-	edit  reviewEdit
-	focus reviewFocus
+	edit  worktreeEdit
+	focus focus
 
 	// side is the row over the file tree the sidebar's cursor rests on, nil while it is on the tree.
 	side *sideCursor
@@ -75,52 +82,62 @@ type reviewScreen struct {
 	folderCursor folderCursor
 
 	// notices is what the review has raised on the messages stack about the agent.
-	notices reviewNotices
+	notices notices
 }
 
-// reviewFocus is which of the diff and the sidebar holds the review's keys.
-type reviewFocus int
+// focus is which of the diff and the sidebar holds the review's keys.
+type focus int
 
 const (
-	reviewFocusDiff reviewFocus = iota
-	reviewFocusFiles
+	focusDiff focus = iota
+	focusFiles
 )
 
-func (r reviewScreen) Parent() screen.ID {
+func (r Screen) Parent() screen.ID {
 	return screen.Agents
 }
 
 // Crumbs runs through the agent whose work is under review.
-func (r reviewScreen) Crumbs(screen.Inputs) screen.Crumbs {
+func (r Screen) Crumbs(screen.Inputs) screen.Crumbs {
 	return screen.Crumbs{Trail: []string{r.agentName, "review"}}
 }
 
 // TakesEveryKey reports whether the review is mid-input, in which case a key bound elsewhere
 // in the panel belongs here instead.
-func (r reviewScreen) TakesEveryKey() bool {
-	return r.isWriting() || r.IsSearchTyping()
+func (r Screen) TakesEveryKey() bool {
+	return r.IsWriting() || r.IsSearchTyping()
 }
 
-func (r reviewScreen) IsSearchTyping() bool {
+func (r Screen) IsSearchTyping() bool {
 	return r.diff.filter.Typing || r.filesFilter.Typing
 }
 
-// isWriting reports whether the reader is composing a message.
-func (r reviewScreen) isWriting() bool {
+// IsWriting reports whether the reader is composing a message.
+func (r Screen) IsWriting() bool {
 	return r.threads.composing
 }
 
-// isBusy reports whether the reader is part way through something a restart would lose.
-func (r reviewScreen) isBusy() bool {
-	return r.isWriting() || r.edit.atEditor
+// IsBusy reports whether the reader is part way through something a restart would lose.
+func (r Screen) IsBusy() bool {
+	return r.IsWriting() || r.edit.atEditor
 }
 
-// isDiffFocused is whether the patch holds the keys.
-func (r reviewScreen) isDiffFocused(in screen.Inputs) bool {
-	return in.Room.ListFocused && !r.isWriting() && !r.IsBlockFocused(in)
+// IsInserting reports whether the message being written takes typed text rather than vim commands.
+func (r Screen) IsInserting() bool {
+	return r.threads.editor.isInserting()
 }
 
-func (r *reviewScreen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
+// IsAtEditor reports whether the reader's own editor holds the stage.
+func (r Screen) IsAtEditor() bool {
+	return r.edit.atEditor
+}
+
+// IsDiffFocused is whether the patch holds the keys.
+func (r Screen) IsDiffFocused(in screen.Inputs) bool {
+	return in.Room.ListFocused && !r.IsWriting() && !r.IsBlockFocused(in)
+}
+
+func (r *Screen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 	var keyed screen.Request
 	if key, ok := msg.(tea.KeyPressMsg); ok {
 		keyed = r.updateKey(in, key)
@@ -129,11 +146,11 @@ func (r *reviewScreen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 	return screen.Batch{keyed, r.followWorld(in)}
 }
 
-func (r *reviewScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
+func (r *Screen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 	switch msg := msg.(type) {
-	case reviewEditorStaged:
+	case editorStaged:
 		return r.applyEditorStaged(msg), true
-	case reviewLoadedMsg, reviewWroteMsg, messageEditedMsg:
+	case loadedMsg, wroteMsg, messageEditedMsg:
 		if !in.Up {
 			return nil, true
 		}
@@ -152,11 +169,11 @@ func (r *reviewScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, b
 	return nil, false
 }
 
-func (r *reviewScreen) route(in screen.Inputs, msg tea.Msg) screen.Request {
+func (r *Screen) route(in screen.Inputs, msg tea.Msg) screen.Request {
 	switch msg := msg.(type) {
-	case reviewLoadedMsg:
+	case loadedMsg:
 		return r.applyLoaded(in, msg)
-	case reviewWroteMsg:
+	case wroteMsg:
 		return r.applyWrote(in, msg)
 	case messageEditedMsg:
 		return r.applyMessageEdited(in, msg)
@@ -166,25 +183,35 @@ func (r *reviewScreen) route(in screen.Inputs, msg tea.Msg) screen.Request {
 }
 
 // Enter leaves the review as it stands.
-func (r *reviewScreen) Enter(screen.Inputs, screen.Target) screen.Request {
+func (r *Screen) Enter(screen.Inputs, screen.Target) screen.Request {
 	return nil
 }
 
-var (
-	_ columnFocuser    = (*reviewScreen)(nil)
-	_ crumbRenderer    = (*reviewScreen)(nil)
-	_ loadingReporter  = (*reviewScreen)(nil)
-	_ lineTyper        = (*reviewScreen)(nil)
-	_ listScroller     = (*reviewScreen)(nil)
-	_ editorReconciler = (*reviewScreen)(nil)
-	_ popupHost        = (*reviewScreen)(nil)
-)
+// IsLoading reports whether the diff is loading or the agent's pull request is running its checks.
+func (r Screen) IsLoading(in screen.Inputs) bool {
+	if r.loading {
+		return true
+	}
 
-func (r *reviewScreen) DoesRenderFromListing() bool {
+	item, ok := in.Listing.LiveAgent(r.agentID)
+
+	return ok && in.Listing.Tasks.FindForAgent(item.Agent).PullRequest.IsChecksRunning()
+}
+
+// StageResting stages the terminal and marks the thread the cursor came to rest on read.
+func (r *Screen) StageResting(in screen.Inputs) screen.Request {
+	if r.edit.atEditor {
+		return r.markThreadRead(in)
+	}
+
+	return screen.Batch{screen.Restage{}, r.markThreadRead(in)}
+}
+
+func (r *Screen) DoesRenderFromListing() bool {
 	return false
 }
 
-func (r reviewScreen) TypedLine() (field.Line, bool) {
+func (r Screen) TypedLine() (field.Line, bool) {
 	if r.filesFilter.Typing {
 		return r.filesFilter.Input, true
 	}
@@ -192,13 +219,13 @@ func (r reviewScreen) TypedLine() (field.Line, bool) {
 	return r.diff.filter.Input, r.diff.filter.Typing
 }
 
-func (r *reviewScreen) Dispatches() []keys.Table {
+func (r *Screen) Dispatches() []keys.Table {
 	return []keys.Table{r.diffActions(screen.Inputs{}), r.filesActions(screen.Inputs{}), r.sideActions(screen.Inputs{})}
 }
 
 // writerPane is the agent whose work is under review, which the stage keeps beside the diff while
 // its pane is running, held for your editor or not.
-func (r reviewScreen) writerPane(in screen.Inputs) (panel.AgentRow, bool) {
+func (r Screen) writerPane(in screen.Inputs) (panel.AgentRow, bool) {
 	item, ok := r.agentRow(in)
 	if !ok || !item.Alive || item.Agent.Pane == "" || item.Agent.State == panel.StateSettingUp || item.Agent.State.IsFailed() {
 		return panel.AgentRow{}, false

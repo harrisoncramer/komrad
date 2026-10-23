@@ -1,4 +1,4 @@
-package ui
+package review
 
 import (
 	"komrad/internal/glyph"
@@ -17,7 +17,7 @@ func forgeMark(glyphs glyph.Set) string {
 }
 
 // forgeRepliesView is what the thread has said back to the forge.
-func (r reviewScreen) forgeRepliesView(in screen.Inputs, thread *agentv1.ReviewThread, width int) string {
+func (r Screen) forgeRepliesView(in screen.Inputs, thread *agentv1.ReviewThread, width int) string {
 	mirrored := mirroredCommentIDs(thread)
 
 	out := ""
@@ -31,14 +31,14 @@ func (r reviewScreen) forgeRepliesView(in screen.Inputs, thread *agentv1.ReviewT
 	return out
 }
 
-func (r reviewScreen) forgeReplyView(in screen.Inputs, reply *agentv1.ForgeReply, width int) string {
+func (r Screen) forgeReplyView(in screen.Inputs, reply *agentv1.ForgeReply, width int) string {
 	name := r.forgeName(in)
 
 	posting := ""
 	switch reply.GetState() {
 	case agentv1.ForgeReplyState_FORGE_REPLY_STATE_FAILED:
 		head := paint.Panel.Style(paint.ToneDanger).Bold(true).Render("your reply" + separated + "not posted")
-		refused := paint.Panel.Style(paint.ToneDanger).Render(r.deps.glyphs.Spell(glyph.MessageError) + " " + name + " said: " + reply.GetError())
+		refused := paint.Panel.Style(paint.ToneDanger).Render(r.deps.Glyphs.Spell(glyph.MessageError) + " " + name + " said: " + reply.GetError())
 
 		return renderForgeBox(width, head, reply.GetBody()+"\n"+refused)
 	case agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT:
@@ -48,8 +48,8 @@ func (r reviewScreen) forgeReplyView(in screen.Inputs, reply *agentv1.ForgeReply
 		posting = paint.Panel.Style(paint.ToneMuted).Render("  "+glyph.Right+" posting to "+name) + "\n"
 	}
 
-	return forgeMark(r.deps.glyphs) + renderCommentHead(reviewHumanTone, "you", dates.Read(reply.GetCreatedAt())) + "\n" +
-		reviewWrap(width, reply.GetBody()) + "\n" + posting + "\n"
+	return forgeMark(r.deps.Glyphs) + renderCommentHead(humanTone, "you", dates.Read(reply.GetCreatedAt())) + "\n" +
+		wrap(width, reply.GetBody()) + "\n" + posting + "\n"
 }
 
 // renderForgeBox is a refused reply set apart in a red frame of its own, its head over its body.

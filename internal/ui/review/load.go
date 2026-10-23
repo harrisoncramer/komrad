@@ -1,4 +1,4 @@
-package ui
+package review
 
 import (
 	"context"
@@ -19,9 +19,9 @@ import (
 	"connectrpc.com/connect"
 )
 
-const reviewEditorHeight = 4
+const editorHeight = 4
 
-type reviewLoadedMsg struct {
+type loadedMsg struct {
 	agentID string
 	// load is the read of the diff this message answers.
 	load     int
@@ -57,8 +57,8 @@ type reviewLoadedMsg struct {
 	err    error
 }
 
-// reviewWroteMsg is one write on the review.
-type reviewWroteMsg struct {
+// wroteMsg is one write on the review.
+type wroteMsg struct {
 	agentID string
 	notice  string
 	err     error
@@ -67,16 +67,16 @@ type reviewWroteMsg struct {
 	threads  []*agentv1.ReviewThread
 	readErr  error
 	// unsent is the message a refused write was carrying, nil for any other write.
-	unsent *reviewUnsent
+	unsent *unsentMessage
 }
 
-// open puts the review on an agent's diff and reads it.
-func (r *reviewScreen) open(listing panel.Listing, agent panel.Agent) screen.Request {
+// Open puts the review on an agent's diff and reads it.
+func (r *Screen) Open(listing panel.Listing, agent panel.Agent) screen.Request {
 	unnote := screen.Unnote{Key: r.notices.moved}
 
 	workflow := listing.WorkflowFor(agent)
 
-	*r = reviewScreen{
+	*r = Screen{
 		deps:      r.deps,
 		agentID:   agent.ID,
 		loads:     r.loads,
@@ -85,14 +85,14 @@ func (r *reviewScreen) open(listing panel.Listing, agent panel.Agent) screen.Req
 		dir:       listing.ReviewDir(agent),
 		exclude:   workflow.Worktree.DiffExclude,
 		loading:   true,
-		diff:      reviewDiff{spec: wholeChange()},
+		diff:      diffPane{spec: wholeChange()},
 	}
 
 	return screen.Batch{unnote, r.loadWhole()}
 }
 
 // refuse backs out to the listing, for a worktree that turned out to hold nothing.
-func (r *reviewScreen) refuse(in screen.Inputs, err error) screen.Request {
+func (r *Screen) refuse(in screen.Inputs, err error) screen.Request {
 	name := r.agentName
 
 	return screen.Batch{
@@ -106,7 +106,7 @@ func (r *reviewScreen) refuse(in screen.Inputs, err error) screen.Request {
 }
 
 // abandon backs out to the listing for a diff that could not be read at all.
-func (r *reviewScreen) abandon(in screen.Inputs, err error) screen.Request {
+func (r *Screen) abandon(in screen.Inputs, err error) screen.Request {
 	name := r.agentName
 
 	return screen.Batch{r.drop(in), screen.Report{Summary: "Could not read the diff of " + name, Err: err}}
@@ -114,7 +114,7 @@ func (r *reviewScreen) abandon(in screen.Inputs, err error) screen.Request {
 
 // drop puts the reader back on the row they opened the review from, closing the editor and telling
 // the agent which files the reader opened in it.
-func (r *reviewScreen) drop(in screen.Inputs) screen.Request {
+func (r *Screen) drop(in screen.Inputs) screen.Request {
 	var unstaged screen.Request
 	if r.edit.atEditor {
 		unstaged = screen.Unstage{}
@@ -122,7 +122,7 @@ func (r *reviewScreen) drop(in screen.Inputs) screen.Request {
 
 	told := r.mailEdited(in)
 
-	*r = reviewScreen{deps: r.deps, loads: r.loads}
+	*r = Screen{deps: r.deps, loads: r.loads}
 
 	return screen.Batch{unstaged, form.Close{}, screen.Open{Screen: screen.Agents}, told}
 }
@@ -138,7 +138,7 @@ func describeRefusedReview(name string, err error) string {
 }
 
 // loadWhole reads the whole change of the agent on screen.
-func (r *reviewScreen) loadWhole() screen.Request {
+func (r *Screen) loadWhole() screen.Request {
 	r.loads++
 
 	return screen.Cmd(r.loadReviewCmd(loadReviewCmdParams{
@@ -163,15 +163,15 @@ type loadReviewCmdParams struct {
 
 // loadReviewCmd takes a snapshot of the agent and reads that rather than the worktree, a tree that
 // has not moved giving back the snapshot already taken of it.
-func (r *reviewScreen) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
-	agents := r.deps.clients.Agents
+func (r *Screen) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
+	agents := r.deps.Clients.Agents
 	agentID := params.AgentID
-	patches := r.deps.patches
+	patches := r.deps.Patches
 
-	read := func(ctx context.Context) reviewLoadedMsg {
+	read := func(ctx context.Context) loadedMsg {
 		resp, err := agents.OpenReviewHistory(ctx, connect.NewRequest(historyRequestOf(params)))
 		if err != nil {
-			return reviewLoadedMsg{err: err}
+			return loadedMsg{err: err}
 		}
 
 		opened := resp.Msg
@@ -184,7 +184,7 @@ func (r *reviewScreen) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 			Resolved: resolved,
 		})
 		if err != nil {
-			return reviewLoadedMsg{
+			return loadedMsg{
 				snapshot: opened.GetSnapshot(),
 				widened:  opened.GetWidened(),
 				err:      err,
@@ -193,13 +193,13 @@ func (r *reviewScreen) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 
 		viewed, err := listReviewViewedFiles(ctx, agents, params.TaskID)
 
-		return reviewLoadedMsg{
+		return loadedMsg{
 			snapshot:       opened.GetSnapshot(),
 			patch:          loaded.patch,
 			threads:        opened.GetThreads(),
 			viewed:         viewed,
 			earlier:        findSnapshot(opened.GetSnapshots(), opened.GetEarlierSnapshotId()),
-			earlierAt:      reviewTimeOf(dates.Read(opened.GetEarlierReleasedAt())),
+			earlierAt:      timeOf(dates.Read(opened.GetEarlierReleasedAt())),
 			snapshots:      opened.GetSnapshots(),
 			base:           resolved.GetBaseSha(),
 			head:           resolved.GetHeadSha(),
@@ -219,7 +219,7 @@ func (r *reviewScreen) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 	}
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 
 		msg := read(ctx)
@@ -319,7 +319,7 @@ func loadSnapshotPatch(ctx context.Context, params loadSnapshotPatchParams) (*sn
 	return &snapshotPatch{patch: patch, origin: origin}, nil
 }
 
-func (r *reviewScreen) applyLoaded(in screen.Inputs, msg reviewLoadedMsg) screen.Request {
+func (r *Screen) applyLoaded(in screen.Inputs, msg loadedMsg) screen.Request {
 	if msg.agentID != r.agentID || msg.load != r.loads {
 		return nil
 	}
@@ -369,7 +369,7 @@ func (r *reviewScreen) applyLoaded(in screen.Inputs, msg reviewLoadedMsg) screen
 
 	r.root = msg.patch.Root
 	r.snapshot = msg.snapshot
-	r.diff.load(msg, in.Room.Dark, r.deps.glyphs)
+	r.diff.load(msg, in.Room.Dark, r.deps.Glyphs)
 	r.threads.set(msg.threads)
 
 	loaded := r.underBand(in)
@@ -379,7 +379,7 @@ func (r *reviewScreen) applyLoaded(in screen.Inputs, msg reviewLoadedMsg) screen
 }
 
 // underBand is the inputs with the diff's rows measured again under the band as it now stands.
-func (r *reviewScreen) underBand(in screen.Inputs) screen.Inputs {
+func (r *Screen) underBand(in screen.Inputs) screen.Inputs {
 	if in.Room.Split.On {
 		in.Room.Split.Rows = max(r.Column(in).Rows(in.Room.Geometry), 1)
 		in.Room.Column = in.Room.Split
@@ -390,7 +390,7 @@ func (r *reviewScreen) underBand(in screen.Inputs) screen.Inputs {
 
 // load renders a patch just read, over the one on screen, and puts the cursor back where the
 // reader was standing.
-func (d *reviewDiff) load(msg reviewLoadedMsg, isDark bool, glyphs glyph.Set) {
+func (d *diffPane) load(msg loadedMsg, isDark bool, glyphs glyph.Set) {
 	d.baseSnapshot = msg.earlier
 	d.baseAt = msg.earlierAt
 	d.since = msg.since
@@ -446,7 +446,7 @@ func indexViewedFiles(viewed []*agentv1.ReviewViewedFile, patch *diff.Patch) map
 	return held
 }
 
-func (r *reviewScreen) applyWrote(in screen.Inputs, msg reviewWroteMsg) screen.Request {
+func (r *Screen) applyWrote(in screen.Inputs, msg wroteMsg) screen.Request {
 	if msg.agentID != r.agentID || r.diff.View() == nil {
 		return nil
 	}
@@ -477,7 +477,7 @@ func (r *reviewScreen) applyWrote(in screen.Inputs, msg reviewWroteMsg) screen.R
 }
 
 // applyThreads renders the review as it now stands, keeping the reader where they were.
-func (r *reviewScreen) applyThreads(in screen.Inputs, threads []*agentv1.ReviewThread) {
+func (r *Screen) applyThreads(in screen.Inputs, threads []*agentv1.ReviewThread) {
 	r.threads.set(threads)
 
 	rendered := r.diff.threadsOnScreen(threads)
@@ -492,7 +492,7 @@ func (r *reviewScreen) applyThreads(in screen.Inputs, threads []*agentv1.ReviewT
 }
 
 // toggleAgentThreads shows or hides the conversations agents opened.
-func (r *reviewScreen) toggleAgentThreads(in screen.Inputs) screen.Request {
+func (r *Screen) toggleAgentThreads(in screen.Inputs) screen.Request {
 	r.diff.hidesAgentThreads = !r.diff.hidesAgentThreads
 
 	if r.diff.View() != nil {
@@ -503,7 +503,7 @@ func (r *reviewScreen) toggleAgentThreads(in screen.Inputs) screen.Request {
 }
 
 // catchUp takes a snapshot of the worktree as it stands and ends the range on it.
-func (r *reviewScreen) catchUp() screen.Request {
+func (r *Screen) catchUp() screen.Request {
 	if r.diff.spec.isRange() {
 		r.diff.spec.to = ""
 	}
@@ -513,7 +513,7 @@ func (r *reviewScreen) catchUp() screen.Request {
 
 // reload reads the diff again, holding the place the cursor is standing so the diff comes back
 // under it.
-func (r *reviewScreen) reload() screen.Request {
+func (r *Screen) reload() screen.Request {
 	if r.diff.View() == nil {
 		return nil
 	}
@@ -534,7 +534,7 @@ func (r *reviewScreen) reload() screen.Request {
 	}))
 }
 
-func (r *reviewScreen) back(in screen.Inputs) screen.Request {
+func (r *Screen) back(in screen.Inputs) screen.Request {
 	if r.edit.atEditor {
 		return r.closeEdit(in)
 	}
@@ -545,7 +545,7 @@ func (r *reviewScreen) back(in screen.Inputs) screen.Request {
 }
 
 // backFromDiff hands the keys to the file tree, or leaves the screen where no tree renders.
-func (r *reviewScreen) backFromDiff(in screen.Inputs) screen.Request {
+func (r *Screen) backFromDiff(in screen.Inputs) screen.Request {
 	if r.edit.atEditor || !r.IsBlockRendered(in) {
 		return r.back(in)
 	}
