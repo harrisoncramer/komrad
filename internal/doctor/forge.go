@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"komrad/internal/forge"
+	"komrad/lib/protoenum"
 	forgev1 "komrad/proto/gen/forge/v1"
 )
 
@@ -140,7 +141,7 @@ func reconnectFix(status ForgeStatus) string {
 
 	connect := "komrad forge connect " + status.Host
 	if _, err := forge.KindForHost(status.Host); err != nil {
-		connect += " --kind " + strings.ToLower(forge.Name(status.Kind))
+		connect += " --kind " + protoenum.Name(status.Kind)
 	}
 
 	if status.Method == forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP {

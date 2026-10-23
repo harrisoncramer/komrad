@@ -9,7 +9,7 @@ table "forge_connections" {
   column "kind" {
     null    = false
     type    = text
-    comment = "Which forge the host runs, as a forge.v1.Kind name such as KIND_GITHUB."
+    comment = "Which forge the host runs: github or gitlab."
   }
   column "host" {
     null    = false
@@ -25,7 +25,7 @@ table "forge_connections" {
   column "method" {
     null    = false
     type    = text
-    comment = "How the credential was obtained, as a forge.v1.CredentialMethod name such as CREDENTIAL_METHOD_TOKEN."
+    comment = "How the credential was obtained: token for one a person supplied, rotating-token for a GitLab token komrad rotates, github-app for one minted from the engine's App."
   }
   column "login" {
     null    = false
@@ -82,7 +82,7 @@ table "pull_requests" {
   column "forge" {
     null    = false
     type    = text
-    comment = "Which kind of forge the host runs, as a forge.v1.Kind name such as KIND_GITHUB."
+    comment = "Which kind of forge the host runs: github or gitlab."
   }
   column "provider_id" {
     null    = false

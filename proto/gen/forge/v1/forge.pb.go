@@ -26,173 +26,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Kind is the kind of forge a host runs.
-type Kind int32
-
-const (
-	// No kind.
-	Kind_KIND_UNSPECIFIED Kind = 0
-	// GitHub, or a GitHub Enterprise host.
-	Kind_KIND_GITHUB Kind = 1
-	// GitLab, or a self-managed GitLab host.
-	Kind_KIND_GITLAB Kind = 2
-)
-
-// Enum value maps for Kind.
-var (
-	Kind_name = map[int32]string{
-		0: "KIND_UNSPECIFIED",
-		1: "KIND_GITHUB",
-		2: "KIND_GITLAB",
-	}
-	Kind_value = map[string]int32{
-		"KIND_UNSPECIFIED": 0,
-		"KIND_GITHUB":      1,
-		"KIND_GITLAB":      2,
-	}
-)
-
-func (x Kind) Enum() *Kind {
-	p := new(Kind)
-	*p = x
-	return p
-}
-
-func (x Kind) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (Kind) Descriptor() protoreflect.EnumDescriptor {
-	return file_forge_v1_forge_proto_enumTypes[0].Descriptor()
-}
-
-func (Kind) Type() protoreflect.EnumType {
-	return &file_forge_v1_forge_proto_enumTypes[0]
-}
-
-func (x Kind) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use Kind.Descriptor instead.
-func (Kind) EnumDescriptor() ([]byte, []int) {
-	return file_forge_v1_forge_proto_rawDescGZIP(), []int{0}
-}
-
-// CredentialMethod is how a forge connection's credential is given.
-type CredentialMethod int32
-
-const (
-	// No method.
-	CredentialMethod_CREDENTIAL_METHOD_UNSPECIFIED CredentialMethod = 0
-	// A token the person supplied.
-	CredentialMethod_CREDENTIAL_METHOD_TOKEN CredentialMethod = 1
-	// A GitLab token that komrad rotates before it expires.
-	CredentialMethod_CREDENTIAL_METHOD_ROTATING_TOKEN CredentialMethod = 2
-	// A token minted from the GitHub App in the server's config.
-	CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP CredentialMethod = 3
-)
-
-// Enum value maps for CredentialMethod.
-var (
-	CredentialMethod_name = map[int32]string{
-		0: "CREDENTIAL_METHOD_UNSPECIFIED",
-		1: "CREDENTIAL_METHOD_TOKEN",
-		2: "CREDENTIAL_METHOD_ROTATING_TOKEN",
-		3: "CREDENTIAL_METHOD_GITHUB_APP",
-	}
-	CredentialMethod_value = map[string]int32{
-		"CREDENTIAL_METHOD_UNSPECIFIED":    0,
-		"CREDENTIAL_METHOD_TOKEN":          1,
-		"CREDENTIAL_METHOD_ROTATING_TOKEN": 2,
-		"CREDENTIAL_METHOD_GITHUB_APP":     3,
-	}
-)
-
-func (x CredentialMethod) Enum() *CredentialMethod {
-	p := new(CredentialMethod)
-	*p = x
-	return p
-}
-
-func (x CredentialMethod) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (CredentialMethod) Descriptor() protoreflect.EnumDescriptor {
-	return file_forge_v1_forge_proto_enumTypes[1].Descriptor()
-}
-
-func (CredentialMethod) Type() protoreflect.EnumType {
-	return &file_forge_v1_forge_proto_enumTypes[1]
-}
-
-func (x CredentialMethod) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use CredentialMethod.Descriptor instead.
-func (CredentialMethod) EnumDescriptor() ([]byte, []int) {
-	return file_forge_v1_forge_proto_rawDescGZIP(), []int{1}
-}
-
-// ProblemKind is the kind of problem a check found with a forge connection.
-type ProblemKind int32
-
-const (
-	// No problem.
-	ProblemKind_PROBLEM_KIND_UNSPECIFIED ProblemKind = 0
-	// The forge refused the credential.
-	ProblemKind_PROBLEM_KIND_REFUSED ProblemKind = 1
-	// This machine no longer has the credential.
-	ProblemKind_PROBLEM_KIND_NO_CREDENTIAL ProblemKind = 2
-	// The forge could not be reached.
-	ProblemKind_PROBLEM_KIND_UNREACHABLE ProblemKind = 3
-)
-
-// Enum value maps for ProblemKind.
-var (
-	ProblemKind_name = map[int32]string{
-		0: "PROBLEM_KIND_UNSPECIFIED",
-		1: "PROBLEM_KIND_REFUSED",
-		2: "PROBLEM_KIND_NO_CREDENTIAL",
-		3: "PROBLEM_KIND_UNREACHABLE",
-	}
-	ProblemKind_value = map[string]int32{
-		"PROBLEM_KIND_UNSPECIFIED":   0,
-		"PROBLEM_KIND_REFUSED":       1,
-		"PROBLEM_KIND_NO_CREDENTIAL": 2,
-		"PROBLEM_KIND_UNREACHABLE":   3,
-	}
-)
-
-func (x ProblemKind) Enum() *ProblemKind {
-	p := new(ProblemKind)
-	*p = x
-	return p
-}
-
-func (x ProblemKind) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (ProblemKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_forge_v1_forge_proto_enumTypes[2].Descriptor()
-}
-
-func (ProblemKind) Type() protoreflect.EnumType {
-	return &file_forge_v1_forge_proto_enumTypes[2]
-}
-
-func (x ProblemKind) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use ProblemKind.Descriptor instead.
-func (ProblemKind) EnumDescriptor() ([]byte, []int) {
-	return file_forge_v1_forge_proto_rawDescGZIP(), []int{2}
-}
-
 // MergeMethod is how a pull request's commits land on its base branch.
 type MergeMethod int32
 
@@ -238,11 +71,11 @@ func (x MergeMethod) String() string {
 }
 
 func (MergeMethod) Descriptor() protoreflect.EnumDescriptor {
-	return file_forge_v1_forge_proto_enumTypes[3].Descriptor()
+	return file_forge_v1_forge_proto_enumTypes[0].Descriptor()
 }
 
 func (MergeMethod) Type() protoreflect.EnumType {
-	return &file_forge_v1_forge_proto_enumTypes[3]
+	return &file_forge_v1_forge_proto_enumTypes[0]
 }
 
 func (x MergeMethod) Number() protoreflect.EnumNumber {
@@ -251,7 +84,7 @@ func (x MergeMethod) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use MergeMethod.Descriptor instead.
 func (MergeMethod) EnumDescriptor() ([]byte, []int) {
-	return file_forge_v1_forge_proto_rawDescGZIP(), []int{3}
+	return file_forge_v1_forge_proto_rawDescGZIP(), []int{0}
 }
 
 // Forge is komrad's connection to one forge host and the credential komrad uses there.
@@ -1517,7 +1350,7 @@ var File_forge_v1_forge_proto protoreflect.FileDescriptor
 
 const file_forge_v1_forge_proto_rawDesc = "" +
 	"\n" +
-	"\x14forge/v1/forge.proto\x12\bforge.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\"\xe6\x02\n" +
+	"\x14forge/v1/forge.proto\x12\bforge.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x19forge/v1/connection.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\"\xe6\x02\n" +
 	"\x05Forge\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\"\n" +
 	"\x04kind\x18\x02 \x01(\x0e2\x0e.forge.v1.KindR\x04kind\x12\x12\n" +
@@ -1634,21 +1467,7 @@ const file_forge_v1_forge_proto_rawDesc = "" +
 	"\x1dListForgePullRequestsResponse\x12?\n" +
 	"\rpull_requests\x18\x01 \x03(\v2\x1a.forge.v1.ForgePullRequestR\fpullRequests\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token*>\n" +
-	"\x04Kind\x12\x14\n" +
-	"\x10KIND_UNSPECIFIED\x10\x00\x12\x0f\n" +
-	"\vKIND_GITHUB\x10\x01\x12\x0f\n" +
-	"\vKIND_GITLAB\x10\x02*\x9a\x01\n" +
-	"\x10CredentialMethod\x12!\n" +
-	"\x1dCREDENTIAL_METHOD_UNSPECIFIED\x10\x00\x12\x1b\n" +
-	"\x17CREDENTIAL_METHOD_TOKEN\x10\x01\x12$\n" +
-	" CREDENTIAL_METHOD_ROTATING_TOKEN\x10\x02\x12 \n" +
-	"\x1cCREDENTIAL_METHOD_GITHUB_APP\x10\x03*\x83\x01\n" +
-	"\vProblemKind\x12\x1c\n" +
-	"\x18PROBLEM_KIND_UNSPECIFIED\x10\x00\x12\x18\n" +
-	"\x14PROBLEM_KIND_REFUSED\x10\x01\x12\x1e\n" +
-	"\x1aPROBLEM_KIND_NO_CREDENTIAL\x10\x02\x12\x1c\n" +
-	"\x18PROBLEM_KIND_UNREACHABLE\x10\x03*\x94\x01\n" +
+	"\x10_next_page_token*\x94\x01\n" +
 	"\vMergeMethod\x12\x1c\n" +
 	"\x18MERGE_METHOD_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12MERGE_METHOD_MERGE\x10\x01\x12\x17\n" +
@@ -1680,75 +1499,75 @@ func file_forge_v1_forge_proto_rawDescGZIP() []byte {
 	return file_forge_v1_forge_proto_rawDescData
 }
 
-var file_forge_v1_forge_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_forge_v1_forge_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_forge_v1_forge_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_forge_v1_forge_proto_goTypes = []any{
-	(Kind)(0),                                      // 0: forge.v1.Kind
-	(CredentialMethod)(0),                          // 1: forge.v1.CredentialMethod
-	(ProblemKind)(0),                               // 2: forge.v1.ProblemKind
-	(MergeMethod)(0),                               // 3: forge.v1.MergeMethod
-	(*Forge)(nil),                                  // 4: forge.v1.Forge
-	(*ConnectForgeRequest)(nil),                    // 5: forge.v1.ConnectForgeRequest
-	(*ConnectForgeResponse)(nil),                   // 6: forge.v1.ConnectForgeResponse
-	(*ListForgesResponse)(nil),                     // 7: forge.v1.ListForgesResponse
-	(*DisconnectForgeRequest)(nil),                 // 8: forge.v1.DisconnectForgeRequest
-	(*CheckForgesResponse)(nil),                    // 9: forge.v1.CheckForgesResponse
-	(*ForgeCheck)(nil),                             // 10: forge.v1.ForgeCheck
-	(*ListForgePullRequestsRequest)(nil),           // 11: forge.v1.ListForgePullRequestsRequest
-	(*ForgePullRequest)(nil),                       // 12: forge.v1.ForgePullRequest
-	(*CommitMessage)(nil),                          // 13: forge.v1.CommitMessage
-	(*MergeOption)(nil),                            // 14: forge.v1.MergeOption
-	(*PlanForgePullRequestMergeRequest)(nil),       // 15: forge.v1.PlanForgePullRequestMergeRequest
-	(*PlanForgePullRequestMergeResponse)(nil),      // 16: forge.v1.PlanForgePullRequestMergeResponse
-	(*MergeForgePullRequestRequest)(nil),           // 17: forge.v1.MergeForgePullRequestRequest
-	(*SetForgePullRequestDraftRequest)(nil),        // 18: forge.v1.SetForgePullRequestDraftRequest
-	(*RequestForgePullRequestRereviewRequest)(nil), // 19: forge.v1.RequestForgePullRequestRereviewRequest
-	(*SetForgePullRequestAutoMergeRequest)(nil),    // 20: forge.v1.SetForgePullRequestAutoMergeRequest
-	(*ListForgePullRequestsResponse)(nil),          // 21: forge.v1.ListForgePullRequestsResponse
-	(*timestamppb.Timestamp)(nil),                  // 22: google.protobuf.Timestamp
+	(MergeMethod)(0),                               // 0: forge.v1.MergeMethod
+	(*Forge)(nil),                                  // 1: forge.v1.Forge
+	(*ConnectForgeRequest)(nil),                    // 2: forge.v1.ConnectForgeRequest
+	(*ConnectForgeResponse)(nil),                   // 3: forge.v1.ConnectForgeResponse
+	(*ListForgesResponse)(nil),                     // 4: forge.v1.ListForgesResponse
+	(*DisconnectForgeRequest)(nil),                 // 5: forge.v1.DisconnectForgeRequest
+	(*CheckForgesResponse)(nil),                    // 6: forge.v1.CheckForgesResponse
+	(*ForgeCheck)(nil),                             // 7: forge.v1.ForgeCheck
+	(*ListForgePullRequestsRequest)(nil),           // 8: forge.v1.ListForgePullRequestsRequest
+	(*ForgePullRequest)(nil),                       // 9: forge.v1.ForgePullRequest
+	(*CommitMessage)(nil),                          // 10: forge.v1.CommitMessage
+	(*MergeOption)(nil),                            // 11: forge.v1.MergeOption
+	(*PlanForgePullRequestMergeRequest)(nil),       // 12: forge.v1.PlanForgePullRequestMergeRequest
+	(*PlanForgePullRequestMergeResponse)(nil),      // 13: forge.v1.PlanForgePullRequestMergeResponse
+	(*MergeForgePullRequestRequest)(nil),           // 14: forge.v1.MergeForgePullRequestRequest
+	(*SetForgePullRequestDraftRequest)(nil),        // 15: forge.v1.SetForgePullRequestDraftRequest
+	(*RequestForgePullRequestRereviewRequest)(nil), // 16: forge.v1.RequestForgePullRequestRereviewRequest
+	(*SetForgePullRequestAutoMergeRequest)(nil),    // 17: forge.v1.SetForgePullRequestAutoMergeRequest
+	(*ListForgePullRequestsResponse)(nil),          // 18: forge.v1.ListForgePullRequestsResponse
+	(Kind)(0),                                      // 19: forge.v1.Kind
+	(CredentialMethod)(0),                          // 20: forge.v1.CredentialMethod
+	(*timestamppb.Timestamp)(nil),                  // 21: google.protobuf.Timestamp
+	(ProblemKind)(0),                               // 22: forge.v1.ProblemKind
 	(*v1.Pagination)(nil),                          // 23: pagination.v1.Pagination
 	(*emptypb.Empty)(nil),                          // 24: google.protobuf.Empty
 }
 var file_forge_v1_forge_proto_depIdxs = []int32{
-	0,  // 0: forge.v1.Forge.kind:type_name -> forge.v1.Kind
-	1,  // 1: forge.v1.Forge.method:type_name -> forge.v1.CredentialMethod
-	22, // 2: forge.v1.Forge.verified_at:type_name -> google.protobuf.Timestamp
-	22, // 3: forge.v1.Forge.created_at:type_name -> google.protobuf.Timestamp
-	0,  // 4: forge.v1.ConnectForgeRequest.kind:type_name -> forge.v1.Kind
-	1,  // 5: forge.v1.ConnectForgeRequest.method:type_name -> forge.v1.CredentialMethod
-	4,  // 6: forge.v1.ConnectForgeResponse.forge:type_name -> forge.v1.Forge
-	4,  // 7: forge.v1.ListForgesResponse.forges:type_name -> forge.v1.Forge
-	10, // 8: forge.v1.CheckForgesResponse.checks:type_name -> forge.v1.ForgeCheck
-	4,  // 9: forge.v1.ForgeCheck.forge:type_name -> forge.v1.Forge
-	2,  // 10: forge.v1.ForgeCheck.problem_kind:type_name -> forge.v1.ProblemKind
+	19, // 0: forge.v1.Forge.kind:type_name -> forge.v1.Kind
+	20, // 1: forge.v1.Forge.method:type_name -> forge.v1.CredentialMethod
+	21, // 2: forge.v1.Forge.verified_at:type_name -> google.protobuf.Timestamp
+	21, // 3: forge.v1.Forge.created_at:type_name -> google.protobuf.Timestamp
+	19, // 4: forge.v1.ConnectForgeRequest.kind:type_name -> forge.v1.Kind
+	20, // 5: forge.v1.ConnectForgeRequest.method:type_name -> forge.v1.CredentialMethod
+	1,  // 6: forge.v1.ConnectForgeResponse.forge:type_name -> forge.v1.Forge
+	1,  // 7: forge.v1.ListForgesResponse.forges:type_name -> forge.v1.Forge
+	7,  // 8: forge.v1.CheckForgesResponse.checks:type_name -> forge.v1.ForgeCheck
+	1,  // 9: forge.v1.ForgeCheck.forge:type_name -> forge.v1.Forge
+	22, // 10: forge.v1.ForgeCheck.problem_kind:type_name -> forge.v1.ProblemKind
 	23, // 11: forge.v1.ListForgePullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
-	0,  // 12: forge.v1.ForgePullRequest.forge:type_name -> forge.v1.Kind
-	22, // 13: forge.v1.ForgePullRequest.created_at:type_name -> google.protobuf.Timestamp
-	22, // 14: forge.v1.ForgePullRequest.updated_at:type_name -> google.protobuf.Timestamp
-	22, // 15: forge.v1.ForgePullRequest.merged_at:type_name -> google.protobuf.Timestamp
-	22, // 16: forge.v1.ForgePullRequest.closed_at:type_name -> google.protobuf.Timestamp
-	3,  // 17: forge.v1.MergeOption.method:type_name -> forge.v1.MergeMethod
-	13, // 18: forge.v1.MergeOption.message:type_name -> forge.v1.CommitMessage
-	14, // 19: forge.v1.PlanForgePullRequestMergeResponse.options:type_name -> forge.v1.MergeOption
-	3,  // 20: forge.v1.PlanForgePullRequestMergeResponse.default_method:type_name -> forge.v1.MergeMethod
-	3,  // 21: forge.v1.MergeForgePullRequestRequest.method:type_name -> forge.v1.MergeMethod
-	3,  // 22: forge.v1.SetForgePullRequestAutoMergeRequest.method:type_name -> forge.v1.MergeMethod
-	12, // 23: forge.v1.ListForgePullRequestsResponse.pull_requests:type_name -> forge.v1.ForgePullRequest
-	5,  // 24: forge.v1.ForgeService.ConnectForge:input_type -> forge.v1.ConnectForgeRequest
+	19, // 12: forge.v1.ForgePullRequest.forge:type_name -> forge.v1.Kind
+	21, // 13: forge.v1.ForgePullRequest.created_at:type_name -> google.protobuf.Timestamp
+	21, // 14: forge.v1.ForgePullRequest.updated_at:type_name -> google.protobuf.Timestamp
+	21, // 15: forge.v1.ForgePullRequest.merged_at:type_name -> google.protobuf.Timestamp
+	21, // 16: forge.v1.ForgePullRequest.closed_at:type_name -> google.protobuf.Timestamp
+	0,  // 17: forge.v1.MergeOption.method:type_name -> forge.v1.MergeMethod
+	10, // 18: forge.v1.MergeOption.message:type_name -> forge.v1.CommitMessage
+	11, // 19: forge.v1.PlanForgePullRequestMergeResponse.options:type_name -> forge.v1.MergeOption
+	0,  // 20: forge.v1.PlanForgePullRequestMergeResponse.default_method:type_name -> forge.v1.MergeMethod
+	0,  // 21: forge.v1.MergeForgePullRequestRequest.method:type_name -> forge.v1.MergeMethod
+	0,  // 22: forge.v1.SetForgePullRequestAutoMergeRequest.method:type_name -> forge.v1.MergeMethod
+	9,  // 23: forge.v1.ListForgePullRequestsResponse.pull_requests:type_name -> forge.v1.ForgePullRequest
+	2,  // 24: forge.v1.ForgeService.ConnectForge:input_type -> forge.v1.ConnectForgeRequest
 	24, // 25: forge.v1.ForgeService.ListForges:input_type -> google.protobuf.Empty
 	24, // 26: forge.v1.ForgeService.CheckForges:input_type -> google.protobuf.Empty
-	11, // 27: forge.v1.ForgeService.ListForgePullRequests:input_type -> forge.v1.ListForgePullRequestsRequest
-	15, // 28: forge.v1.ForgeService.PlanForgePullRequestMerge:input_type -> forge.v1.PlanForgePullRequestMergeRequest
-	17, // 29: forge.v1.ForgeService.MergeForgePullRequest:input_type -> forge.v1.MergeForgePullRequestRequest
-	18, // 30: forge.v1.ForgeService.SetForgePullRequestDraft:input_type -> forge.v1.SetForgePullRequestDraftRequest
-	20, // 31: forge.v1.ForgeService.SetForgePullRequestAutoMerge:input_type -> forge.v1.SetForgePullRequestAutoMergeRequest
-	19, // 32: forge.v1.ForgeService.RequestForgePullRequestRereview:input_type -> forge.v1.RequestForgePullRequestRereviewRequest
-	8,  // 33: forge.v1.ForgeService.DisconnectForge:input_type -> forge.v1.DisconnectForgeRequest
-	6,  // 34: forge.v1.ForgeService.ConnectForge:output_type -> forge.v1.ConnectForgeResponse
-	7,  // 35: forge.v1.ForgeService.ListForges:output_type -> forge.v1.ListForgesResponse
-	9,  // 36: forge.v1.ForgeService.CheckForges:output_type -> forge.v1.CheckForgesResponse
-	21, // 37: forge.v1.ForgeService.ListForgePullRequests:output_type -> forge.v1.ListForgePullRequestsResponse
-	16, // 38: forge.v1.ForgeService.PlanForgePullRequestMerge:output_type -> forge.v1.PlanForgePullRequestMergeResponse
+	8,  // 27: forge.v1.ForgeService.ListForgePullRequests:input_type -> forge.v1.ListForgePullRequestsRequest
+	12, // 28: forge.v1.ForgeService.PlanForgePullRequestMerge:input_type -> forge.v1.PlanForgePullRequestMergeRequest
+	14, // 29: forge.v1.ForgeService.MergeForgePullRequest:input_type -> forge.v1.MergeForgePullRequestRequest
+	15, // 30: forge.v1.ForgeService.SetForgePullRequestDraft:input_type -> forge.v1.SetForgePullRequestDraftRequest
+	17, // 31: forge.v1.ForgeService.SetForgePullRequestAutoMerge:input_type -> forge.v1.SetForgePullRequestAutoMergeRequest
+	16, // 32: forge.v1.ForgeService.RequestForgePullRequestRereview:input_type -> forge.v1.RequestForgePullRequestRereviewRequest
+	5,  // 33: forge.v1.ForgeService.DisconnectForge:input_type -> forge.v1.DisconnectForgeRequest
+	3,  // 34: forge.v1.ForgeService.ConnectForge:output_type -> forge.v1.ConnectForgeResponse
+	4,  // 35: forge.v1.ForgeService.ListForges:output_type -> forge.v1.ListForgesResponse
+	6,  // 36: forge.v1.ForgeService.CheckForges:output_type -> forge.v1.CheckForgesResponse
+	18, // 37: forge.v1.ForgeService.ListForgePullRequests:output_type -> forge.v1.ListForgePullRequestsResponse
+	13, // 38: forge.v1.ForgeService.PlanForgePullRequestMerge:output_type -> forge.v1.PlanForgePullRequestMergeResponse
 	24, // 39: forge.v1.ForgeService.MergeForgePullRequest:output_type -> google.protobuf.Empty
 	24, // 40: forge.v1.ForgeService.SetForgePullRequestDraft:output_type -> google.protobuf.Empty
 	24, // 41: forge.v1.ForgeService.SetForgePullRequestAutoMerge:output_type -> google.protobuf.Empty
@@ -1766,6 +1585,7 @@ func file_forge_v1_forge_proto_init() {
 	if File_forge_v1_forge_proto != nil {
 		return
 	}
+	file_forge_v1_connection_proto_init()
 	file_forge_v1_forge_proto_msgTypes[0].OneofWrappers = []any{}
 	file_forge_v1_forge_proto_msgTypes[7].OneofWrappers = []any{}
 	file_forge_v1_forge_proto_msgTypes[8].OneofWrappers = []any{}
@@ -1778,7 +1598,7 @@ func file_forge_v1_forge_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_forge_v1_forge_proto_rawDesc), len(file_forge_v1_forge_proto_rawDesc)),
-			NumEnums:      4,
+			NumEnums:      1,
 			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,

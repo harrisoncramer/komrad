@@ -679,13 +679,13 @@ type EngineLogin struct {
 // A forge komrad has been connected to, one row per host, holding who the credential was verified as. The credential itself is a file under komrad's state directory rather than a column.
 type ForgeConnection struct {
 	ID pgtype.UUID
-	// Which forge the host runs, as a forge.v1.Kind name such as KIND_GITHUB.
+	// Which forge the host runs: github or gitlab.
 	Kind string
 	// The host agents' remotes name, such as github.com or ghe.example.com. It is unique because one machine acts as one identity on one forge.
 	Host string
 	// Where the forge answers API calls when it is not the public one, such as https://ghe.example.com/api/v3. Empty for github.com and gitlab.com.
 	ApiUrl string
-	// How the credential was obtained, as a forge.v1.CredentialMethod name such as CREDENTIAL_METHOD_TOKEN.
+	// How the credential was obtained: token for one a person supplied, rotating-token for a GitLab token komrad rotates, github-app for one minted from the engine's App.
 	Method string
 	// Who the forge said the credential belongs to when it was verified, a user login or an App slug.
 	Login string
@@ -784,7 +784,7 @@ type PullRequest struct {
 	ID pgtype.UUID
 	// The forge host the repository lives on, such as github.com, taken from the repository URL. Two installations of one forge hand out overlapping identifiers, so the host is part of the identity.
 	Host string
-	// Which kind of forge the host runs, as a forge.v1.Kind name such as KIND_GITHUB.
+	// Which kind of forge the host runs: github or gitlab.
 	Forge string
 	// The forge's own stable identifier: GitHub's node_id, GitLab's global id. A rename on the forge changes the URL and not this.
 	ProviderID string

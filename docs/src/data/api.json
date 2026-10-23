@@ -13111,15 +13111,15 @@
       "description": "CredentialMethod is how a forge connection's credential is given.",
       "values": [
         {
-          "name": "CREDENTIAL_METHOD_TOKEN",
+          "name": "token",
           "description": "A token the person supplied."
         },
         {
-          "name": "CREDENTIAL_METHOD_ROTATING_TOKEN",
+          "name": "rotating-token",
           "description": "A GitLab token that komrad rotates before it expires."
         },
         {
-          "name": "CREDENTIAL_METHOD_GITHUB_APP",
+          "name": "github-app",
           "description": "A token minted from the GitHub App in the server's config."
         }
       ]
@@ -13129,11 +13129,11 @@
       "description": "Kind is the kind of forge a host runs.",
       "values": [
         {
-          "name": "KIND_GITHUB",
+          "name": "github",
           "description": "GitHub, or a GitHub Enterprise host."
         },
         {
-          "name": "KIND_GITLAB",
+          "name": "gitlab",
           "description": "GitLab, or a self-managed GitLab host."
         }
       ]
@@ -13165,15 +13165,15 @@
       "description": "ProblemKind is the kind of problem a check found with a forge connection.",
       "values": [
         {
-          "name": "PROBLEM_KIND_REFUSED",
+          "name": "refused",
           "description": "The forge refused the credential."
         },
         {
-          "name": "PROBLEM_KIND_NO_CREDENTIAL",
+          "name": "no-credential",
           "description": "This machine no longer has the credential."
         },
         {
-          "name": "PROBLEM_KIND_UNREACHABLE",
+          "name": "unreachable",
           "description": "The forge could not be reached."
         }
       ]

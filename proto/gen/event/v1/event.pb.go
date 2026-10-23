@@ -1,5 +1,4 @@
-// This file is the one place komrad names its hook moments and its events. Every other proto file
-// is proto3, and this one is Edition 2026.
+// This file is the one place komrad names its hook moments and its events, in Edition 2026.
 //
 // Komrad spells each moment and event as a dotted name, such as agent.pre-launch or
 // pull_request.checks_failing. That spelling goes on the wire, into stored rows, into
@@ -21,8 +20,8 @@
 //   1. Bump google.golang.org/protobuf in go.mod and protoc-gen-go in mise.toml to the release.
 //   2. Run mise run proto:generate and mise run gen:docs. Only the version line in each
 //      generated file should change.
-//   3. If the release renamed the option or moved its import, change it here and in
-//      lib/protoenum, which is the one Go helper that reads it.
+//   3. If the release renamed the option or moved its import, change it here, in
+//      forge/v1/connection.proto and in lib/protoenum, which is the one Go helper that reads it.
 //   4. If Edition 2026 changed a default, such as top-level types being local unless marked
 //      export, change the declarations here to match.
 //

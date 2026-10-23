@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"komrad/internal/fail"
 	"komrad/internal/git"
+	"komrad/lib/protoenum"
 	"komrad/lib/xhttp"
 	forgev1 "komrad/proto/gen/forge/v1"
 )
@@ -303,9 +303,9 @@ type ShouldChangeParams struct {
 func ShouldChange(params ShouldChangeParams) (bool, error) {
 	switch {
 	case params.Merged:
-		return false, params.Sentinel.Saying("%s will not change %s: it has already merged", strings.ToLower(Name(params.Forge)), params.Ref)
+		return false, params.Sentinel.Saying("%s will not change %s: it has already merged", protoenum.Name(params.Forge), params.Ref)
 	case params.Closed:
-		return false, params.Sentinel.Saying("%s will not change %s: it was closed", strings.ToLower(Name(params.Forge)), params.Ref)
+		return false, params.Sentinel.Saying("%s will not change %s: it was closed", protoenum.Name(params.Forge), params.Ref)
 	}
 
 	return !params.IsSettled, nil

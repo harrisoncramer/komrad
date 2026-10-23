@@ -1991,7 +1991,7 @@ var File_pullrequest_v1_pullrequest_proto protoreflect.FileDescriptor
 
 const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
-	" pullrequest/v1/pullrequest.proto\x12\x0epullrequest.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x14forge/v1/forge.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\"\xc6\x01\n" +
+	" pullrequest/v1/pullrequest.proto\x12\x0epullrequest.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x19forge/v1/connection.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\"\xc6\x01\n" +
 	"\x17ListPullRequestsRequest\x121\n" +
 	"\x0erepository_url\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\rrepositoryUrl\x12)\n" +

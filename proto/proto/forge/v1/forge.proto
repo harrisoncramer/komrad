@@ -4,6 +4,7 @@ package forge.v1;
 
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
+import "forge/v1/connection.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "pagination/v1/pagination.proto";
@@ -129,40 +130,6 @@ message ForgePullRequest {
   // When the pull request closed, merged or not. Unset while the pull request is
   // open.
   optional google.protobuf.Timestamp closed_at = 17;
-}
-
-// Kind is the kind of forge a host runs.
-enum Kind {
-  // No kind.
-  KIND_UNSPECIFIED = 0;
-  // GitHub, or a GitHub Enterprise host.
-  KIND_GITHUB = 1;
-  // GitLab, or a self-managed GitLab host.
-  KIND_GITLAB = 2;
-}
-
-// CredentialMethod is how a forge connection's credential is given.
-enum CredentialMethod {
-  // No method.
-  CREDENTIAL_METHOD_UNSPECIFIED = 0;
-  // A token the person supplied.
-  CREDENTIAL_METHOD_TOKEN = 1;
-  // A GitLab token that komrad rotates before it expires.
-  CREDENTIAL_METHOD_ROTATING_TOKEN = 2;
-  // A token minted from the GitHub App in the server's config.
-  CREDENTIAL_METHOD_GITHUB_APP = 3;
-}
-
-// ProblemKind is the kind of problem a check found with a forge connection.
-enum ProblemKind {
-  // No problem.
-  PROBLEM_KIND_UNSPECIFIED = 0;
-  // The forge refused the credential.
-  PROBLEM_KIND_REFUSED = 1;
-  // This machine no longer has the credential.
-  PROBLEM_KIND_NO_CREDENTIAL = 2;
-  // The forge could not be reached.
-  PROBLEM_KIND_UNREACHABLE = 3;
 }
 
 // MergeMethod is how a pull request's commits land on its base branch.

@@ -2,10 +2,10 @@
 # yet. Every release of protoc-gen-connect-go, v2 included, tells buf that Edition 2024 is the
 # newest it supports, and buf will not hand it a file written in a newer edition.
 #
-# event/v1/event.proto is komrad's one Edition 2026 file. It holds the hook moment and event
-# enums, and it needs Edition 2026 for the option that makes each value's JSON name its dotted
-# name, such as agent.pre-launch. The file holds no service, so connect has nothing to generate
-# from it, and this template leaves it out.
+# event/v1/event.proto and forge/v1/connection.proto are komrad's Edition 2026 files. They hold
+# enums only, and they need Edition 2026 for the option that sets each value's JSON name, such as
+# agent.pre-launch or github. Neither file holds a service, so connect has nothing to generate
+# from them, and this template leaves them out.
 #
 # The plugin is built from komrad's own go.mod with go tool, not installed by mise. A build of
 # protoc-gen-connect-go against protobuf v1.36 refuses to read an Edition 2026 file even when the
@@ -24,6 +24,7 @@ inputs:
   - directory: .
     exclude_paths:
       - proto/event/v1/event.proto
+      - proto/forge/v1/connection.proto
 plugins:
   - local: ["go", "tool", "protoc-gen-connect-go"]
     out: gen

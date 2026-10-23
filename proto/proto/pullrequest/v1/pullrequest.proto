@@ -4,7 +4,7 @@ package pullrequest.v1;
 
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
-import "forge/v1/forge.proto";
+import "forge/v1/connection.proto";
 import "google/protobuf/timestamp.proto";
 import "pagination/v1/pagination.proto";
 
