@@ -72,7 +72,7 @@ type wroteMsg struct {
 
 // Open puts the review on an agent's diff and reads it.
 func (r *Screen) Open(listing panel.Listing, agent panel.Agent) screen.Request {
-	unnote := screen.RemoveMessage{MessageKey: r.notices.moved}
+	removeMoved := screen.RemoveMessage{MessageKey: r.notices.moved}
 
 	workflow := listing.WorkflowFor(agent)
 
@@ -88,7 +88,7 @@ func (r *Screen) Open(listing panel.Listing, agent panel.Agent) screen.Request {
 		diff:      diffPane{spec: wholeChange()},
 	}
 
-	return screen.Batch{unnote, r.loadWhole()}
+	return screen.Batch{removeMoved, r.loadWhole()}
 }
 
 // refuse backs out to the listing, for a worktree that turned out to hold nothing.
