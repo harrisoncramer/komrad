@@ -1,4 +1,3 @@
-// Package gitmenu holds the git menu, which rebases, pushes and merges a task from whichever band nests it.
 package gitmenu
 
 import (

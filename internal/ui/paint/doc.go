@@ -1,7 +1,11 @@
-// Package paint is the panel's rendering primitives: colours, styles, markdown rendering, the
-// arithmetic that fits a list into a pane, and the match markers a search hit carries.
+// Package paint holds the panel's rendering primitives. It holds the palette and its tones, the
+// styles, markdown rendering, the arithmetic that fits a list of rows into a pane, and the spans a
+// search hit marks.
 //
-// It holds no panel state and knows nothing about an agent, a workflow, or a schedule. Nothing
-// here takes a model and nothing here reads the store, so what a screen renders is the screen's
-// business and how it is rendered is this package's.
+// The package holds no panel state and knows nothing about an agent, a workflow or a schedule. No
+// function in it takes a model or reads the store. A screen decides what to render, and paint
+// decides how it looks.
+//
+// Every package under internal/ui may import paint, and so do a few packages outside the panel,
+// such as the cli and setup packages. Paint imports nothing under internal/ui.
 package paint

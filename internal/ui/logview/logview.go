@@ -1,4 +1,3 @@
-// Package logview holds log lines and renders the newest of them, or the ones around a cursor.
 package logview
 
 import (

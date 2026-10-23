@@ -1,5 +1,3 @@
-// Package field holds the panel's text fields: the one-row line, vim over a form's fields and a
-// row's name typed in place.
 package field
 
 import (

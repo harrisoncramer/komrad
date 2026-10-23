@@ -1,5 +1,3 @@
-// Package diffview flattens an agent's diff into a list of renderable rows, pins review threads
-// to the lines they were written against, and renders one row at a time.
 package diffview
 
 import (

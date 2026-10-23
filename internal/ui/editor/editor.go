@@ -1,5 +1,3 @@
-// Package editor is the person's editor: how the panel opens a file or a directory in it, here or
-// on the engine.
 package editor
 
 import (

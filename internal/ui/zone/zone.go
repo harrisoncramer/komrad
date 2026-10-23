@@ -1,4 +1,3 @@
-// Package zone marks where the panel renders a block or a row, and reads those marks back from a frame.
 package zone
 
 import (

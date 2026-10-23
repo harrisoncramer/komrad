@@ -1,4 +1,3 @@
-// Package list keeps a cursor over a list of rows, the rows selected in it, and the pane it is drawn in.
 package list
 
 import (

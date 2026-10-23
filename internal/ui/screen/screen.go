@@ -1,5 +1,3 @@
-// Package screen names the panel's screens, the row one opens on, and the requests a screen hands
-// the root.
 package screen
 
 // ID names one of the panel's screens.

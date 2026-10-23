@@ -1,4 +1,3 @@
-// Package schedules holds the screen that lists the schedules and the archived schedules beside it.
 package schedules
 
 import (

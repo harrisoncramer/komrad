@@ -1,4 +1,3 @@
-// Package form is the fields the panel asks a question with, rendered over whichever screen is up.
 package form
 
 import (

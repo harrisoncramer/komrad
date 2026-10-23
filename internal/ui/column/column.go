@@ -1,4 +1,3 @@
-// Package column holds how the panel divides its window while it renders a block beside its own list.
 package column
 
 // Narrowest is the narrowest a document is worth rendering beside a list at.

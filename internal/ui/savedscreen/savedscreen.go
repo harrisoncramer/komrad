@@ -1,4 +1,3 @@
-// Package savedscreen fits a captured pane screen to a terminal of another size.
 package savedscreen
 
 import (

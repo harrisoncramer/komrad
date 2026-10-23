@@ -1,4 +1,3 @@
-// Package worktrees holds the screen that lists the directories agents work in, grouped under their repositories.
 package worktrees
 
 import (

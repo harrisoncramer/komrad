@@ -1,4 +1,3 @@
-// Package record holds the record a list renders under itself for the hovered row.
 package record
 
 import (

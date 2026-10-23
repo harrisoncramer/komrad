@@ -1,4 +1,3 @@
-// Package submitting renders the writes the panel has sent and is waiting on.
 package submitting
 
 import (
