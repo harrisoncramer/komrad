@@ -7786,7 +7786,7 @@
           "oneof": "",
           "required": false,
           "constraints": {
-            "maxLength": 65536
+            "maxLength": 1048576
           },
           "description": "The new description. Unset leaves the description as it is, and empty clears it."
         }
@@ -8424,7 +8424,7 @@
           "oneof": "",
           "required": false,
           "constraints": {
-            "maxLength": 65536
+            "maxLength": 1048576
           },
           "description": "The pull request's description, empty when it has none."
         }

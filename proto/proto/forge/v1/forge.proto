@@ -236,7 +236,7 @@ message PullRequestText {
   // The pull request's title.
   string title = 1 [(buf.validate.field).string.max_len = 1024];
   // The pull request's description, empty when it has none.
-  string body = 2 [(buf.validate.field).string.max_len = 65536];
+  string body = 2 [(buf.validate.field).string.max_len = 1048576];
 }
 
 message ReadForgePullRequestTextRequest {
@@ -262,7 +262,7 @@ message EditForgePullRequestRequest {
     max_len: 1024
   }];
   // The new description. Unset leaves the description as it is, and empty clears it.
-  optional string body = 4 [(buf.validate.field).string.max_len = 65536];
+  optional string body = 4 [(buf.validate.field).string.max_len = 1048576];
 }
 
 message ListForgePullRequestsResponse {
