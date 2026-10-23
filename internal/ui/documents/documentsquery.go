@@ -22,8 +22,8 @@ func (d *Screen) QueryGrammar() (list.Grammar, bool) {
 	grammar := list.Grammar{
 		Syntax: searchsyntax.Documents,
 		Check:  checkClause,
-		Search: func(ctx context.Context, text string) (map[string][]list.SaidHit, error) {
-			return searchSaid(ctx, agents, text)
+		Search: func(ctx context.Context, said string) (map[string][]list.SaidHit, error) {
+			return searchSaid(ctx, agents, said)
 		},
 	}
 
@@ -176,9 +176,9 @@ func (d *Screen) openedForTask(in screen.Inputs, slug string) (string, bool) {
 }
 
 // searchSaid asks the server which documents hold the text as they stand now, with the passages it was found in keyed by document id.
-func searchSaid(ctx context.Context, client api.AgentReads, text string) (map[string][]list.SaidHit, error) {
+func searchSaid(ctx context.Context, client api.AgentReads, said string) (map[string][]list.SaidHit, error) {
 	resp, err := client.SearchDocuments(ctx, connect.NewRequest(&agentv1.SearchDocumentsRequest{
-		Query: list.Phrase(text),
+		Query: list.Phrase(said),
 		Limit: list.SaysLimit,
 	}))
 	if err != nil {
