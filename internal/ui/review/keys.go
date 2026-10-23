@@ -180,10 +180,12 @@ func (r *Screen) moveCursor(in screen.Inputs, next int) screen.Request {
 	return r.diffKeys().MoveTo(in, next)
 }
 
+// DoesScrollColumn reports that the diff always scrolls.
 func (r *Screen) DoesScrollColumn(screen.Inputs) bool {
 	return true
 }
 
+// ScrollColumn moves the diff's cursor by a number of rows.
 func (r *Screen) ScrollColumn(in screen.Inputs, rows int) screen.Request {
 	if r.IsWriting() || r.diff.View() == nil {
 		return nil

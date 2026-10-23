@@ -1,3 +1,4 @@
+// Package review holds the screen that reads one agent's diff beside its file tree and the threads written on it.
 package review
 
 import (
@@ -93,6 +94,7 @@ const (
 	focusFiles
 )
 
+// Parent is the agents view the review sits under.
 func (r Screen) Parent() screen.ID {
 	return screen.Agents
 }
@@ -108,6 +110,7 @@ func (r Screen) TakesEveryKey() bool {
 	return r.IsWriting() || r.IsSearchTyping()
 }
 
+// IsSearchTyping reports whether the diff's or the file tree's search is typed into.
 func (r Screen) IsSearchTyping() bool {
 	return r.diff.filter.Typing || r.filesFilter.Typing
 }
@@ -137,6 +140,7 @@ func (r Screen) IsDiffFocused(in screen.Inputs) bool {
 	return in.Room.ListFocused && !r.IsWriting() && !r.IsBlockFocused(in)
 }
 
+// Update sends a key to the review's keys and follows the world the key left behind.
 func (r *Screen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 	var keyed screen.Request
 	if key, ok := msg.(tea.KeyPressMsg); ok {
@@ -146,6 +150,7 @@ func (r *Screen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 	return screen.Batch{keyed, r.followWorld(in)}
 }
 
+// Receive takes the editor's pane, the diff and writes as they land, and the listing moving under the agent.
 func (r *Screen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 	switch msg := msg.(type) {
 	case editorStaged:
@@ -207,10 +212,12 @@ func (r *Screen) StageResting(in screen.Inputs) screen.Request {
 	return screen.Batch{screen.Restage{}, r.markThreadRead(in)}
 }
 
+// DoesRenderFromListing reports that the review renders from its own read of the diff.
 func (r *Screen) DoesRenderFromListing() bool {
 	return false
 }
 
+// TypedLine is the file tree's search or the diff's, whichever is typed into.
 func (r Screen) TypedLine() (field.Line, bool) {
 	if r.filesFilter.Typing {
 		return r.filesFilter.Input, true
@@ -219,6 +226,7 @@ func (r Screen) TypedLine() (field.Line, bool) {
 	return r.diff.filter.Input, r.diff.filter.Typing
 }
 
+// Dispatches is the diff's table, the file tree's and the table of the rows over it.
 func (r *Screen) Dispatches() []keys.Table {
 	return []keys.Table{r.diffActions(screen.Inputs{}), r.filesActions(screen.Inputs{}), r.sideActions(screen.Inputs{})}
 }
