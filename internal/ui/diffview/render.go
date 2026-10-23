@@ -3,11 +3,15 @@ package diffview
 import (
 	"fmt"
 	"image/color"
+	"slices"
+	"strconv"
 	"strings"
 
 	"komrad/internal/diff"
 	"komrad/internal/glyph"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/paint/label"
+	"komrad/internal/ui/zone"
 	"komrad/lib/xstr"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -19,6 +23,8 @@ import (
 const GutterWidth = 13
 
 const tabWidth = 4
+
+const separated = " " + glyph.Separator + " "
 
 // Cursor is how the row the reader is standing on renders, dim while the keys are somewhere
 // else.
@@ -77,6 +83,37 @@ func (p *Pane) Rows(window Window) []int {
 	}
 
 	return rows[:min(len(rows), max(window.Height, 0))]
+}
+
+// RenderMatchCount is where in the search the cursor is standing, rendered under the pattern.
+func (p *Pane) RenderMatchCount(standing bool) string {
+	view := p.View()
+	if view == nil || !standing {
+		return ""
+	}
+
+	where := label.Counted(view.MatchCount(), "match")
+	if at, ok := view.MatchNumber(p.Cursor()); ok {
+		where = label.OfCount(at, view.MatchCount())
+	}
+
+	// A match inside a file folded away is on no row, so stepping through the matches never
+	// reaches it, and it is counted apart rather than left to look like nothing was found.
+	if hidden := view.HiddenMatches(); hidden > 0 {
+		where += fmt.Sprintf(separated+"%d in viewed files", hidden)
+	}
+
+	return paint.Panel.Style(paint.ToneMuted).Render("  "+where) + "\n\n"
+}
+
+// Mark keys each rendered line by the diff row it shows.
+func (p *Pane) Mark(window Window, lines []string) []string {
+	marked := slices.Clone(lines)
+	for i, row := range p.Rows(window) {
+		marked[i] = zone.MarkKey(zone.Diff, window.Width, 0, strconv.Itoa(row)) + marked[i]
+	}
+
+	return marked
 }
 
 // coverWithHeader renders the header of the file the window starts inside over the window's first row.
