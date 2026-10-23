@@ -206,7 +206,7 @@ func (a *Screen) relist(in screen.Inputs, relisted screen.ListingChanged) screen
 }
 
 func (a *Screen) followAwaitingCLI(in screen.Inputs) screen.Request {
-	var notes screen.Batch
+	var messages screen.Batch
 	for id, paneSeen := range a.awaitingCLI {
 		item, ok := in.Listing.LiveAgent(id)
 
@@ -215,7 +215,7 @@ func (a *Screen) followAwaitingCLI(in screen.Inputs) screen.Request {
 			delete(a.awaitingCLI, id)
 		case item.Alive && panel.DoesPaneDecide(item.Agent.State):
 			delete(a.awaitingCLI, id)
-			notes = append(notes, screen.PostMessage{
+			messages = append(messages, screen.PostMessage{
 				MessageKind: screen.Info,
 				Summary:     item.Agent.Name + " is back up",
 				Detail:      "Press enter on it to open its pane.",
@@ -227,7 +227,7 @@ func (a *Screen) followAwaitingCLI(in screen.Inputs) screen.Request {
 		}
 	}
 
-	return notes
+	return messages
 }
 
 func (a *Screen) toggleHidden(in screen.Inputs) screen.Request {
