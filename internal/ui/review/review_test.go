@@ -12,7 +12,6 @@ import (
 	"komrad/config"
 	"komrad/internal/gittest"
 	"komrad/internal/reviews/history"
-	"komrad/internal/ui"
 	"komrad/internal/ui/paneltest"
 	"komrad/internal/ui/screen"
 	"komrad/lib/dates"
@@ -1938,7 +1937,7 @@ func TestReviewComposer(t *testing.T) {
 	})
 
 	t.Run("ctrl+[ counts as esc in the review box", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
+		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: paneltest.Settings{VimMode: true}})
 
 		harness.Press("space", "c")
 		harness.Type("gone")
@@ -1950,7 +1949,7 @@ func TestReviewComposer(t *testing.T) {
 	})
 
 	t.Run("a comment edited in normal mode is what the review posts", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
+		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: paneltest.Settings{VimMode: true}})
 
 		harness.Press("space", "c")
 		harness.Type("still here")
@@ -1971,7 +1970,7 @@ func TestReviewComposer(t *testing.T) {
 	})
 
 	t.Run("a normal-mode edit in the review box is rendered at once", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
+		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: paneltest.Settings{VimMode: true}})
 
 		harness.Press("space", "c")
 		harness.Type("still here")
@@ -1983,7 +1982,7 @@ func TestReviewComposer(t *testing.T) {
 	})
 
 	t.Run("a comment brought back from the editor still takes vim keys", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
+		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: paneltest.Settings{VimMode: true}})
 
 		harness.WriteInEditor("still here\n")
 		harness.Press("space", "c", "ctrl+e")
@@ -2004,7 +2003,7 @@ func TestReviewComposer(t *testing.T) {
 	})
 
 	t.Run("the review comment box is in edit mode", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
+		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: paneltest.Settings{VimMode: true}})
 
 		harness.Press("space", "c")
 		assert.Contains(t, harness.Frame(), "  EDIT  ")
@@ -2143,7 +2142,7 @@ func TestReviewEdit(t *testing.T) {
 	t.Run("the editor opens at the repository root the paths are named from", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.agent.Cwd = filepath.Join(server.repo.Root, "cmd", "greet")
-		harness := openReviewAt(t, server, paneltest.Params{Settings: ui.PanelSettings{Editor: "vi"}})
+		harness := openReviewAt(t, server, paneltest.Params{Settings: paneltest.Settings{Editor: "vi"}})
 
 		harness.Press("space", "e")
 
@@ -2276,6 +2275,8 @@ const (
 	replayedTree = "replayed-snapshot-one"
 	secondTree   = "tree-with-a-second-file"
 )
+
+const repositoryURL = "https://github.com/harrisoncramer/komrad"
 
 const patchOfGreetWrittenOverSince = `diff --git a/greet.go b/greet.go
 index 23cef252a97433f151c14725c88e0c2dafce63ef..5586caad9270132f074ee5374d4652b83d0acc98 100644

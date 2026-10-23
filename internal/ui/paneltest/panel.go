@@ -45,6 +45,9 @@ const Rest = "<rest>"
 // restWait is how long a cursor rests before the panel stages what it stands on.
 const restWait = 90 * time.Millisecond
 
+// Settings is what the panel under test is launched with.
+type Settings = ui.PanelSettings
+
 // Params is what a panel under test is built over.
 type Params struct {
 	Width         int
