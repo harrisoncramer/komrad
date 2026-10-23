@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"komrad/internal/forge"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,34 +22,34 @@ func TestListing(t *testing.T) {
 		status         string
 		sha            string
 		eventType      string
-		wantState      forge.StatusCheckState
+		wantState      pullrequestv1.StatusCheckState
 		wantConclusion string
 	}{
 		{
 			status:         pipelineSuccess,
-			wantState:      forge.StatusCheckStateCompleted,
+			wantState:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 			wantConclusion: "success",
 		},
 		{
 			status:         pipelineFailed,
-			wantState:      forge.StatusCheckStateCompleted,
+			wantState:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 			wantConclusion: "failed",
 		},
-		{status: pipelineCreated, wantState: forge.StatusCheckStateQueued},
-		{status: pipelineWaitingForResource, wantState: forge.StatusCheckStateQueued},
-		{status: pipelinePreparing, wantState: forge.StatusCheckStateQueued},
-		{status: pipelineWaitingForCallback, wantState: forge.StatusCheckStateRunning},
-		{status: pipelinePending, wantState: forge.StatusCheckStateQueued},
-		{status: pipelineRunning, wantState: forge.StatusCheckStateRunning},
-		{status: pipelineScheduled, wantState: forge.StatusCheckStateQueued},
+		{status: pipelineCreated, wantState: pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED},
+		{status: pipelineWaitingForResource, wantState: pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED},
+		{status: pipelinePreparing, wantState: pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED},
+		{status: pipelineWaitingForCallback, wantState: pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING},
+		{status: pipelinePending, wantState: pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED},
+		{status: pipelineRunning, wantState: pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING},
+		{status: pipelineScheduled, wantState: pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED},
 		{
 			status:         pipelineCanceled,
-			wantState:      forge.StatusCheckStateCompleted,
+			wantState:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 			wantConclusion: "canceled",
 		},
 		{
 			status:         pipelineCanceling,
-			wantState:      forge.StatusCheckStateCompleted,
+			wantState:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 			wantConclusion: "canceling",
 		},
 		{status: pipelineSkipped},
@@ -56,7 +57,7 @@ func TestListing(t *testing.T) {
 		{
 			status:         pipelineFailed,
 			eventType:      pipelineEventDetached,
-			wantState:      forge.StatusCheckStateCompleted,
+			wantState:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 			wantConclusion: "failed",
 		},
 		{
@@ -67,14 +68,14 @@ func TestListing(t *testing.T) {
 			status:         pipelineSuccess,
 			sha:            "def",
 			eventType:      pipelineEventMergedResult,
-			wantState:      forge.StatusCheckStateCompleted,
+			wantState:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 			wantConclusion: "success",
 		},
 		{
 			status:    pipelineRunning,
 			sha:       "def",
 			eventType: pipelineEventMergeTrain,
-			wantState: forge.StatusCheckStateRunning,
+			wantState: pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING,
 		},
 	}
 	for _, tt := range tests {
@@ -97,10 +98,10 @@ func TestListing(t *testing.T) {
 			require.NoError(t, json.Unmarshal([]byte(body), &node))
 
 			want := &forge.StatusCheckListing{}
-			if tt.wantState != "" {
+			if tt.wantState != pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_UNSPECIFIED {
 				want.StatusChecks = []forge.StatusCheck{{
 					ProviderID: "7",
-					Kind:       forge.StatusCheckKindPipeline,
+					Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_PIPELINE,
 					Name:       "pipeline",
 					State:      tt.wantState,
 					Conclusion: tt.wantConclusion,

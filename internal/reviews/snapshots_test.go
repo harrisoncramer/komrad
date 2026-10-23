@@ -12,10 +12,10 @@ import (
 	"komrad/internal/eventprompts"
 	"komrad/internal/jobs/internaljobs"
 	"komrad/internal/mail"
-	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
 	"komrad/lib/clock"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
@@ -112,7 +112,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 		{
 			name: "a reviewer approving with nothing written",
 			write: func(t *testing.T, fx *reviewFixture) *ReleaseReviewResult {
-				return fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictApproved)
+				return fx.releaseReview(t, newAgentAuthor(fx.reviewer), agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED)
 			},
 			wantSaid:    []string{"Approved", "snapshot 1", "reviewer"},
 			wantNotSaid: []string{"Changes requested"},
@@ -122,7 +122,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 			write: func(t *testing.T, fx *reviewFixture) *ReleaseReviewResult {
 				fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
 
-				return fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictChangesRequested)
+				return fx.releaseReview(t, newAgentAuthor(fx.reviewer), agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED)
 			},
 			wantSaid: []string{"Changes requested", "this needs a nil check", "greet.go:41", "reviewer"},
 		},
@@ -140,7 +140,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				return fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictChangesRequested)
+				return fx.releaseReview(t, newAgentAuthor(fx.reviewer), agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED)
 			},
 			wantSaid: []string{
 				">> 12  line 12 of greet.go",
@@ -155,7 +155,7 @@ func TestReleaseReviewWritesTheFile(t *testing.T) {
 			write: func(t *testing.T, fx *reviewFixture) *ReleaseReviewResult {
 				fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
 
-				return fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictChangesRequested)
+				return fx.releaseReview(t, newAgentAuthor(fx.reviewer), agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED)
 			},
 			wantSaid: []string{"+\tgreet(nil)", "this needs a nil check"},
 		},
@@ -188,12 +188,12 @@ func TestReleaseReviewRingsTheAgent(t *testing.T) {
 	fx.writeComment(t, reviewer, "and the caller above it")
 	fx.writeComment(t, reviewer, "and the test")
 
-	released := fx.releaseReview(t, reviewer, reviewstore.VerdictChangesRequested)
+	released := fx.releaseReview(t, reviewer, agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED)
 
 	assert.Equal(t, 3, released.Comments)
 	rung := fx.listMail(t, fx.writer.ID)
 	require.Len(t, rung, 1, "one mail per release however many comments it holds")
-	assert.Equal(t, mailstore.KindReviewActivity, rung[0].Kind)
+	assert.Equal(t, agentv1.MailKind_MAIL_KIND_REVIEW_ACTIVITY, rung[0].Kind)
 	assert.Contains(t, rung[0].Body, "get_review with review id "+released.Review.ID.String())
 	assert.Contains(t, rung[0].Body, "or read "+released.Path)
 	assert.Contains(t, rung[0].Body, "changes requested")
@@ -207,7 +207,7 @@ func TestReleaseReviewRingsNobodyOnceTheWriterIsArchived(t *testing.T) {
 	_, err := fx.stores.Agents.Archive(t.Context(), []uuid.UUID{fx.writer.ID})
 	require.NoError(t, err)
 
-	fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictApproved)
+	fx.releaseReview(t, newAgentAuthor(fx.reviewer), agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED)
 
 	assert.Empty(t, fx.listMail(t, fx.writer.ID))
 }
@@ -218,7 +218,7 @@ func TestReleaseReviewArchivesAnApprovingReviewer(t *testing.T) {
 		name    string
 		keep    bool
 		author  func(fx *reviewFixture) ReviewAuthor
-		verdict reviewstore.Verdict
+		verdict agentv1.ReviewVerdict
 		want    func(fx *reviewFixture) []river.JobArgs
 	}{
 		{
@@ -226,7 +226,7 @@ func TestReleaseReviewArchivesAnApprovingReviewer(t *testing.T) {
 			author: func(fx *reviewFixture) ReviewAuthor {
 				return newAgentAuthor(fx.reviewer)
 			},
-			verdict: reviewstore.VerdictApproved,
+			verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
 			want: func(fx *reviewFixture) []river.JobArgs {
 				return []river.JobArgs{internaljobs.ArchiveAgentArgs{AgentID: fx.reviewer.ID}}
 			},
@@ -237,14 +237,14 @@ func TestReleaseReviewArchivesAnApprovingReviewer(t *testing.T) {
 			author: func(fx *reviewFixture) ReviewAuthor {
 				return newAgentAuthor(fx.reviewer)
 			},
-			verdict: reviewstore.VerdictApproved,
+			verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
 		},
 		{
 			name: "a reviewer asking for changes",
 			author: func(fx *reviewFixture) ReviewAuthor {
 				return newAgentAuthor(fx.reviewer)
 			},
-			verdict: reviewstore.VerdictChangesRequested,
+			verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 		},
 	}
 
@@ -291,7 +291,7 @@ func TestReleaseReviewApprovalMail(t *testing.T) {
 
 			_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
 				Task:    taskByID(*fx.writer.TaskID),
-				Verdict: reviewstore.VerdictApproved,
+				Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
 				Body:    tt.body,
 				Author:  newAgentAuthor(fx.reviewer),
 			})
@@ -313,7 +313,7 @@ func TestReleaseReviewIntoAFullMailbox(t *testing.T) {
 
 	_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
 		Task:    taskByID(*fx.writer.TaskID),
-		Verdict: reviewstore.VerdictChangesRequested,
+		Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 		Author:  newAgentAuthor(fx.reviewer),
 	})
 	require.NoError(t, err)
@@ -354,7 +354,7 @@ func TestGetReview(t *testing.T) {
 
 	released, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
 		Task:    taskByID(*fx.writer.TaskID),
-		Verdict: reviewstore.VerdictChangesRequested,
+		Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 		Body:    "two things before it goes",
 		Author:  reviewer,
 	})
@@ -414,7 +414,7 @@ func TestAReviewStaysOnItsSnapshot(t *testing.T) {
 	_, err = commentOn(secondSnapshot)
 	require.ErrorIs(t, err, errReviewInFlight, "the review is pinned to the snapshot it opened on")
 
-	released := fx.releaseReview(t, reviewer, reviewstore.VerdictChangesRequested)
+	released := fx.releaseReview(t, reviewer, agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED)
 
 	whole, err := fx.service.GetReview(t.Context(), released.Review.ID, newAgentAuthor(fx.writer))
 	require.NoError(t, err)
@@ -514,7 +514,7 @@ func TestListReviews(t *testing.T) {
 			fx := newReviewFixture(t)
 			fx.releaseFirstComment(t)
 			fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
-			fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictChangesRequested)
+			fx.releaseReview(t, newAgentAuthor(fx.reviewer), agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED)
 			fx.advanceTree(t)
 			fx.writeComment(t, newAgentAuthor(fx.reviewer), "and the caller above it")
 

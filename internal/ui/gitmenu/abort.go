@@ -10,13 +10,14 @@ import (
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"charm.land/huh/v2"
 )
 
-func abortOp(taskID, name string, sequence panel.Sequence) operation {
+func abortOp(taskID, name string, sequence taskv1.Sequence) operation {
 	return operation{
-		running: "aborting the " + string(sequence) + " of " + name,
+		running: "aborting the " + panel.DescribeSequence(sequence) + " of " + name,
 		run: func(clients api.Clients) report {
 			result, err := clients.AbortSequence(taskID)
 
@@ -25,9 +26,9 @@ func abortOp(taskID, name string, sequence panel.Sequence) operation {
 	}
 }
 
-func reportAborted(name string, sequence panel.Sequence, result *agentv1.AbortSequenceResponse, err error) screen.Request {
+func reportAborted(name string, sequence taskv1.Sequence, result *agentv1.AbortSequenceResponse, err error) screen.Request {
 	if err != nil {
-		return screen.Report{Summary: fmt.Sprintf("Could not abort the %s of %s", sequence, name), Err: err}
+		return screen.Report{Summary: fmt.Sprintf("Could not abort the %s of %s", panel.DescribeSequence(sequence), name), Err: err}
 	}
 
 	where := "The checkout"
@@ -39,19 +40,19 @@ func reportAborted(name string, sequence panel.Sequence, result *agentv1.AbortSe
 
 	return screen.Note{
 		Kind:    screen.Info,
-		Summary: fmt.Sprintf("%s: aborted the %s", name, panel.SequenceFrom(result.GetSequence())),
+		Summary: fmt.Sprintf("%s: aborted the %s", name, panel.DescribeSequence(result.GetSequence())),
 		Detail:  strings.Join(lines, " "),
 	}
 }
 
-func abortForm(name string, sequence panel.Sequence) confirmForm {
+func abortForm(name string, sequence taskv1.Sequence) confirmForm {
 	return func(keys config.FixedKeys) (*huh.Form, *bool) {
 		return form.Confirm(
-			fmt.Sprintf("Abort the %s in the worktree of %s?", sequence, name),
+			fmt.Sprintf("Abort the %s in the worktree of %s?", panel.DescribeSequence(sequence), name),
 			fmt.Sprintf("Komrad puts the branch and its files back where they were before the %s began. "+
 				"It first saves a copy of the worktree as it is now, conflicts and all. "+
-				"If the agent is working, komrad stops it first, and it tells the agent either way.", sequence),
-			"Abort "+string(sequence),
+				"If the agent is working, komrad stops it first, and it tells the agent either way.", panel.DescribeSequence(sequence)),
+			"Abort "+panel.DescribeSequence(sequence),
 			keys,
 		)
 	}

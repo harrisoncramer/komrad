@@ -7,9 +7,9 @@ import (
 
 	"komrad/internal/scriptrun"
 	"komrad/internal/store"
-
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 )
@@ -90,7 +90,7 @@ func requireJoinable(ctx context.Context, agents *agentstore.AgentStore, agent a
 	if task.ArchivedAt != nil {
 		return ErrArchived.Saying("task %q is archived", task.Slug)
 	}
-	if agent.Role != agentstore.RoleWriter {
+	if agent.Role != agentv1.AgentRole_AGENT_ROLE_WRITER {
 		return nil
 	}
 
@@ -108,7 +108,7 @@ func requireJoinable(ctx context.Context, agents *agentstore.AgentStore, agent a
 // isOwnTaskNeeded reports whether the agent is given a task of its own as it is written, which one
 // joining a task and an orchestrator are not.
 func isOwnTaskNeeded(params OpenParams) bool {
-	return params.Joined == nil && params.Agent.Role != agentstore.RoleOrchestrator
+	return params.Joined == nil && params.Agent.Role != agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR
 }
 
 type ClaimCheckoutParams struct {

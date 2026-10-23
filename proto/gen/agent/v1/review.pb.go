@@ -23,247 +23,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// ReviewAuthorKind is who wrote a review or comment.
-type ReviewAuthorKind int32
-
-const (
-	// No author was recorded.
-	ReviewAuthorKind_REVIEW_AUTHOR_KIND_UNSPECIFIED ReviewAuthorKind = 0
-	// The person.
-	ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN ReviewAuthorKind = 1
-	// An agent, either the writer or a reviewer.
-	ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT ReviewAuthorKind = 2
-	// A forge user, whose comment komrad copied from the pull request.
-	ReviewAuthorKind_REVIEW_AUTHOR_KIND_FORGE ReviewAuthorKind = 3
-)
-
-// Enum value maps for ReviewAuthorKind.
-var (
-	ReviewAuthorKind_name = map[int32]string{
-		0: "REVIEW_AUTHOR_KIND_UNSPECIFIED",
-		1: "REVIEW_AUTHOR_KIND_HUMAN",
-		2: "REVIEW_AUTHOR_KIND_AGENT",
-		3: "REVIEW_AUTHOR_KIND_FORGE",
-	}
-	ReviewAuthorKind_value = map[string]int32{
-		"REVIEW_AUTHOR_KIND_UNSPECIFIED": 0,
-		"REVIEW_AUTHOR_KIND_HUMAN":       1,
-		"REVIEW_AUTHOR_KIND_AGENT":       2,
-		"REVIEW_AUTHOR_KIND_FORGE":       3,
-	}
-)
-
-func (x ReviewAuthorKind) Enum() *ReviewAuthorKind {
-	p := new(ReviewAuthorKind)
-	*p = x
-	return p
-}
-
-func (x ReviewAuthorKind) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (ReviewAuthorKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_agent_v1_review_proto_enumTypes[0].Descriptor()
-}
-
-func (ReviewAuthorKind) Type() protoreflect.EnumType {
-	return &file_agent_v1_review_proto_enumTypes[0]
-}
-
-func (x ReviewAuthorKind) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use ReviewAuthorKind.Descriptor instead.
-func (ReviewAuthorKind) EnumDescriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{0}
-}
-
-// ReviewVerdict is what a review concludes about a snapshot.
-type ReviewVerdict int32
-
-const (
-	// No verdict. An unreleased review has this value.
-	ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED ReviewVerdict = 0
-	// The snapshot is good as it stands.
-	ReviewVerdict_REVIEW_VERDICT_APPROVED ReviewVerdict = 1
-	// The writer has more to do.
-	ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED ReviewVerdict = 2
-	// Comments with no conclusion either way.
-	ReviewVerdict_REVIEW_VERDICT_COMMENTED ReviewVerdict = 3
-)
-
-// Enum value maps for ReviewVerdict.
-var (
-	ReviewVerdict_name = map[int32]string{
-		0: "REVIEW_VERDICT_UNSPECIFIED",
-		1: "REVIEW_VERDICT_APPROVED",
-		2: "REVIEW_VERDICT_CHANGES_REQUESTED",
-		3: "REVIEW_VERDICT_COMMENTED",
-	}
-	ReviewVerdict_value = map[string]int32{
-		"REVIEW_VERDICT_UNSPECIFIED":       0,
-		"REVIEW_VERDICT_APPROVED":          1,
-		"REVIEW_VERDICT_CHANGES_REQUESTED": 2,
-		"REVIEW_VERDICT_COMMENTED":         3,
-	}
-)
-
-func (x ReviewVerdict) Enum() *ReviewVerdict {
-	p := new(ReviewVerdict)
-	*p = x
-	return p
-}
-
-func (x ReviewVerdict) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (ReviewVerdict) Descriptor() protoreflect.EnumDescriptor {
-	return file_agent_v1_review_proto_enumTypes[1].Descriptor()
-}
-
-func (ReviewVerdict) Type() protoreflect.EnumType {
-	return &file_agent_v1_review_proto_enumTypes[1]
-}
-
-func (x ReviewVerdict) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use ReviewVerdict.Descriptor instead.
-func (ReviewVerdict) EnumDescriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{1}
-}
-
-// ReviewWidenedReason is why komrad diffed the whole change instead of the requested span.
-type ReviewWidenedReason int32
-
-const (
-	// No reason was recorded. No widening has this value.
-	ReviewWidenedReason_REVIEW_WIDENED_REASON_UNSPECIFIED ReviewWidenedReason = 0
-	// The snapshots the answer stands between are gone.
-	ReviewWidenedReason_REVIEW_WIDENED_REASON_ANSWER_GONE ReviewWidenedReason = 1
-	// The snapshot the comment was written on is gone.
-	ReviewWidenedReason_REVIEW_WIDENED_REASON_COMMENT_SNAPSHOT_GONE ReviewWidenedReason = 2
-	// A snapshot the range stands between is gone.
-	ReviewWidenedReason_REVIEW_WIDENED_REASON_RANGE_SNAPSHOT_GONE ReviewWidenedReason = 3
-	// The range starts on or after the snapshot it ends on.
-	ReviewWidenedReason_REVIEW_WIDENED_REASON_RANGE_BACKWARDS ReviewWidenedReason = 4
-	// The answer's older side could not be replayed across the rebase between its snapshots.
-	// `conflicts` names the paths that stopped it.
-	ReviewWidenedReason_REVIEW_WIDENED_REASON_ANSWER_ACROSS_REBASE ReviewWidenedReason = 5
-)
-
-// Enum value maps for ReviewWidenedReason.
-var (
-	ReviewWidenedReason_name = map[int32]string{
-		0: "REVIEW_WIDENED_REASON_UNSPECIFIED",
-		1: "REVIEW_WIDENED_REASON_ANSWER_GONE",
-		2: "REVIEW_WIDENED_REASON_COMMENT_SNAPSHOT_GONE",
-		3: "REVIEW_WIDENED_REASON_RANGE_SNAPSHOT_GONE",
-		4: "REVIEW_WIDENED_REASON_RANGE_BACKWARDS",
-		5: "REVIEW_WIDENED_REASON_ANSWER_ACROSS_REBASE",
-	}
-	ReviewWidenedReason_value = map[string]int32{
-		"REVIEW_WIDENED_REASON_UNSPECIFIED":           0,
-		"REVIEW_WIDENED_REASON_ANSWER_GONE":           1,
-		"REVIEW_WIDENED_REASON_COMMENT_SNAPSHOT_GONE": 2,
-		"REVIEW_WIDENED_REASON_RANGE_SNAPSHOT_GONE":   3,
-		"REVIEW_WIDENED_REASON_RANGE_BACKWARDS":       4,
-		"REVIEW_WIDENED_REASON_ANSWER_ACROSS_REBASE":  5,
-	}
-)
-
-func (x ReviewWidenedReason) Enum() *ReviewWidenedReason {
-	p := new(ReviewWidenedReason)
-	*p = x
-	return p
-}
-
-func (x ReviewWidenedReason) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (ReviewWidenedReason) Descriptor() protoreflect.EnumDescriptor {
-	return file_agent_v1_review_proto_enumTypes[2].Descriptor()
-}
-
-func (ReviewWidenedReason) Type() protoreflect.EnumType {
-	return &file_agent_v1_review_proto_enumTypes[2]
-}
-
-func (x ReviewWidenedReason) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use ReviewWidenedReason.Descriptor instead.
-func (ReviewWidenedReason) EnumDescriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{2}
-}
-
-// ForgeReplyState is how far a reply komrad posts to the forge has got.
-type ForgeReplyState int32
-
-const (
-	// No state was recorded.
-	ForgeReplyState_FORGE_REPLY_STATE_UNSPECIFIED ForgeReplyState = 0
-	// Approved and waiting to be posted.
-	ForgeReplyState_FORGE_REPLY_STATE_APPROVED ForgeReplyState = 1
-	// Being posted. The forge may already have it.
-	ForgeReplyState_FORGE_REPLY_STATE_SENDING ForgeReplyState = 2
-	// Accepted by the forge.
-	ForgeReplyState_FORGE_REPLY_STATE_SENT ForgeReplyState = 3
-	// Refused by the forge on the latest attempt, waiting for the person to retry or discard it.
-	ForgeReplyState_FORGE_REPLY_STATE_FAILED ForgeReplyState = 4
-)
-
-// Enum value maps for ForgeReplyState.
-var (
-	ForgeReplyState_name = map[int32]string{
-		0: "FORGE_REPLY_STATE_UNSPECIFIED",
-		1: "FORGE_REPLY_STATE_APPROVED",
-		2: "FORGE_REPLY_STATE_SENDING",
-		3: "FORGE_REPLY_STATE_SENT",
-		4: "FORGE_REPLY_STATE_FAILED",
-	}
-	ForgeReplyState_value = map[string]int32{
-		"FORGE_REPLY_STATE_UNSPECIFIED": 0,
-		"FORGE_REPLY_STATE_APPROVED":    1,
-		"FORGE_REPLY_STATE_SENDING":     2,
-		"FORGE_REPLY_STATE_SENT":        3,
-		"FORGE_REPLY_STATE_FAILED":      4,
-	}
-)
-
-func (x ForgeReplyState) Enum() *ForgeReplyState {
-	p := new(ForgeReplyState)
-	*p = x
-	return p
-}
-
-func (x ForgeReplyState) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (ForgeReplyState) Descriptor() protoreflect.EnumDescriptor {
-	return file_agent_v1_review_proto_enumTypes[3].Descriptor()
-}
-
-func (ForgeReplyState) Type() protoreflect.EnumType {
-	return &file_agent_v1_review_proto_enumTypes[3]
-}
-
-func (x ForgeReplyState) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use ForgeReplyState.Descriptor instead.
-func (ForgeReplyState) EnumDescriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{3}
-}
-
 // ReviewSnapshot is a snapshot of a task's worktree, saved as a commit, that a review is written
 // against. A snapshot never changes.
 type ReviewSnapshot struct {
@@ -2733,7 +2492,7 @@ type ReviewWidening struct {
 	// Why the span was widened.
 	Reason ReviewWidenedReason `protobuf:"varint,1,opt,name=reason,proto3,enum=agent.v1.ReviewWidenedReason" json:"reason,omitempty"`
 	// The paths that conflicted replaying the answer's older side. Empty unless the reason is
-	// `REVIEW_WIDENED_REASON_ANSWER_ACROSS_REBASE`.
+	// `answer_across_rebase`.
 	Conflicts     []string `protobuf:"bytes,2,rep,name=conflicts,proto3" json:"conflicts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -4170,7 +3929,7 @@ var File_agent_v1_review_proto protoreflect.FileDescriptor
 
 const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
-	"\x15agent/v1/review.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbb\x01\n" +
+	"\x15agent/v1/review.proto\x12\bagent.v1\x1a\x14agent/v1/enums.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbb\x01\n" +
 	"\x0eReviewSnapshot\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\atask_id\x18\x02 \x01(\tR\x06taskId\x12\x18\n" +
@@ -4484,30 +4243,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x17RetryForgeReplyResponse\x12*\n" +
 	"\x05reply\x18\x01 \x01(\v2\x14.agent.v1.ForgeReplyR\x05reply\"4\n" +
 	"\x18DiscardForgeReplyRequest\x12\x18\n" +
-	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id*\x90\x01\n" +
-	"\x10ReviewAuthorKind\x12\"\n" +
-	"\x1eREVIEW_AUTHOR_KIND_UNSPECIFIED\x10\x00\x12\x1c\n" +
-	"\x18REVIEW_AUTHOR_KIND_HUMAN\x10\x01\x12\x1c\n" +
-	"\x18REVIEW_AUTHOR_KIND_AGENT\x10\x02\x12\x1c\n" +
-	"\x18REVIEW_AUTHOR_KIND_FORGE\x10\x03*\x90\x01\n" +
-	"\rReviewVerdict\x12\x1e\n" +
-	"\x1aREVIEW_VERDICT_UNSPECIFIED\x10\x00\x12\x1b\n" +
-	"\x17REVIEW_VERDICT_APPROVED\x10\x01\x12$\n" +
-	" REVIEW_VERDICT_CHANGES_REQUESTED\x10\x02\x12\x1c\n" +
-	"\x18REVIEW_VERDICT_COMMENTED\x10\x03*\x9e\x02\n" +
-	"\x13ReviewWidenedReason\x12%\n" +
-	"!REVIEW_WIDENED_REASON_UNSPECIFIED\x10\x00\x12%\n" +
-	"!REVIEW_WIDENED_REASON_ANSWER_GONE\x10\x01\x12/\n" +
-	"+REVIEW_WIDENED_REASON_COMMENT_SNAPSHOT_GONE\x10\x02\x12-\n" +
-	")REVIEW_WIDENED_REASON_RANGE_SNAPSHOT_GONE\x10\x03\x12)\n" +
-	"%REVIEW_WIDENED_REASON_RANGE_BACKWARDS\x10\x04\x12.\n" +
-	"*REVIEW_WIDENED_REASON_ANSWER_ACROSS_REBASE\x10\x05*\xad\x01\n" +
-	"\x0fForgeReplyState\x12!\n" +
-	"\x1dFORGE_REPLY_STATE_UNSPECIFIED\x10\x00\x12\x1e\n" +
-	"\x1aFORGE_REPLY_STATE_APPROVED\x10\x01\x12\x1d\n" +
-	"\x19FORGE_REPLY_STATE_SENDING\x10\x02\x12\x1a\n" +
-	"\x16FORGE_REPLY_STATE_SENT\x10\x03\x12\x1c\n" +
-	"\x18FORGE_REPLY_STATE_FAILED\x10\x04B#Z!komrad/proto/gen/agent/v1;agentv1b\x06proto3"
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02idB#Z!komrad/proto/gen/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_agent_v1_review_proto_rawDescOnce sync.Once
@@ -4521,129 +4257,128 @@ func file_agent_v1_review_proto_rawDescGZIP() []byte {
 	return file_agent_v1_review_proto_rawDescData
 }
 
-var file_agent_v1_review_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
 var file_agent_v1_review_proto_msgTypes = make([]protoimpl.MessageInfo, 51)
 var file_agent_v1_review_proto_goTypes = []any{
-	(ReviewAuthorKind)(0),                   // 0: agent.v1.ReviewAuthorKind
-	(ReviewVerdict)(0),                      // 1: agent.v1.ReviewVerdict
-	(ReviewWidenedReason)(0),                // 2: agent.v1.ReviewWidenedReason
-	(ForgeReplyState)(0),                    // 3: agent.v1.ForgeReplyState
-	(*ReviewSnapshot)(nil),                  // 4: agent.v1.ReviewSnapshot
-	(*Review)(nil),                          // 5: agent.v1.Review
-	(*WatchedReview)(nil),                   // 6: agent.v1.WatchedReview
-	(*ReviewThread)(nil),                    // 7: agent.v1.ReviewThread
-	(*ReviewMessage)(nil),                   // 8: agent.v1.ReviewMessage
-	(*ForgeOrigin)(nil),                     // 9: agent.v1.ForgeOrigin
-	(*ListReviewThreadsRequest)(nil),        // 10: agent.v1.ListReviewThreadsRequest
-	(*ListReviewThreadsResponse)(nil),       // 11: agent.v1.ListReviewThreadsResponse
-	(*CreateReviewThreadRequest)(nil),       // 12: agent.v1.CreateReviewThreadRequest
-	(*CreateReviewThreadResponse)(nil),      // 13: agent.v1.CreateReviewThreadResponse
-	(*AddReviewMessageRequest)(nil),         // 14: agent.v1.AddReviewMessageRequest
-	(*AddReviewMessageResponse)(nil),        // 15: agent.v1.AddReviewMessageResponse
-	(*AcceptForgeMessageRequest)(nil),       // 16: agent.v1.AcceptForgeMessageRequest
-	(*AcceptForgeMessageResponse)(nil),      // 17: agent.v1.AcceptForgeMessageResponse
-	(*EditReviewMessageRequest)(nil),        // 18: agent.v1.EditReviewMessageRequest
-	(*EditReviewMessageResponse)(nil),       // 19: agent.v1.EditReviewMessageResponse
-	(*MarkReviewThreadReadRequest)(nil),     // 20: agent.v1.MarkReviewThreadReadRequest
-	(*MarkReviewThreadReadResponse)(nil),    // 21: agent.v1.MarkReviewThreadReadResponse
-	(*SetReviewThreadResolvedRequest)(nil),  // 22: agent.v1.SetReviewThreadResolvedRequest
-	(*SetReviewThreadResolvedResponse)(nil), // 23: agent.v1.SetReviewThreadResolvedResponse
-	(*TakeReviewSnapshotRequest)(nil),       // 24: agent.v1.TakeReviewSnapshotRequest
-	(*TakeReviewSnapshotResponse)(nil),      // 25: agent.v1.TakeReviewSnapshotResponse
-	(*ListReviewSnapshotsRequest)(nil),      // 26: agent.v1.ListReviewSnapshotsRequest
-	(*ListReviewSnapshotsResponse)(nil),     // 27: agent.v1.ListReviewSnapshotsResponse
-	(*OpenReviewHistoryRequest)(nil),        // 28: agent.v1.OpenReviewHistoryRequest
-	(*ReviewSnapshotSpan)(nil),              // 29: agent.v1.ReviewSnapshotSpan
-	(*ReviewAnswerSpan)(nil),                // 30: agent.v1.ReviewAnswerSpan
-	(*ReviewOriginSpan)(nil),                // 31: agent.v1.ReviewOriginSpan
-	(*OpenReviewHistoryResponse)(nil),       // 32: agent.v1.OpenReviewHistoryResponse
-	(*ReviewWidening)(nil),                  // 33: agent.v1.ReviewWidening
-	(*ReviewResolvedSpan)(nil),              // 34: agent.v1.ReviewResolvedSpan
-	(*ReviewTracedPlace)(nil),               // 35: agent.v1.ReviewTracedPlace
-	(*ReviewThreadInContext)(nil),           // 36: agent.v1.ReviewThreadInContext
-	(*GetReviewRequest)(nil),                // 37: agent.v1.GetReviewRequest
-	(*GetReviewResponse)(nil),               // 38: agent.v1.GetReviewResponse
-	(*ListReviewsRequest)(nil),              // 39: agent.v1.ListReviewsRequest
-	(*ListReviewsResponse)(nil),             // 40: agent.v1.ListReviewsResponse
-	(*ReleaseReviewRequest)(nil),            // 41: agent.v1.ReleaseReviewRequest
-	(*ReleaseReviewResponse)(nil),           // 42: agent.v1.ReleaseReviewResponse
-	(*ReviewViewedFile)(nil),                // 43: agent.v1.ReviewViewedFile
-	(*SetReviewFileViewedRequest)(nil),      // 44: agent.v1.SetReviewFileViewedRequest
-	(*SetReviewFileViewedResponse)(nil),     // 45: agent.v1.SetReviewFileViewedResponse
-	(*ListReviewViewedFilesRequest)(nil),    // 46: agent.v1.ListReviewViewedFilesRequest
-	(*ListReviewViewedFilesResponse)(nil),   // 47: agent.v1.ListReviewViewedFilesResponse
-	(*ForgeReply)(nil),                      // 48: agent.v1.ForgeReply
-	(*ReplyOnForgeRequest)(nil),             // 49: agent.v1.ReplyOnForgeRequest
-	(*ReplyOnForgeResponse)(nil),            // 50: agent.v1.ReplyOnForgeResponse
-	(*RetryForgeReplyRequest)(nil),          // 51: agent.v1.RetryForgeReplyRequest
-	(*RetryForgeReplyResponse)(nil),         // 52: agent.v1.RetryForgeReplyResponse
-	(*DiscardForgeReplyRequest)(nil),        // 53: agent.v1.DiscardForgeReplyRequest
-	nil,                                     // 54: agent.v1.OpenReviewHistoryResponse.TracedEntry
-	(*timestamppb.Timestamp)(nil),           // 55: google.protobuf.Timestamp
+	(*ReviewSnapshot)(nil),                  // 0: agent.v1.ReviewSnapshot
+	(*Review)(nil),                          // 1: agent.v1.Review
+	(*WatchedReview)(nil),                   // 2: agent.v1.WatchedReview
+	(*ReviewThread)(nil),                    // 3: agent.v1.ReviewThread
+	(*ReviewMessage)(nil),                   // 4: agent.v1.ReviewMessage
+	(*ForgeOrigin)(nil),                     // 5: agent.v1.ForgeOrigin
+	(*ListReviewThreadsRequest)(nil),        // 6: agent.v1.ListReviewThreadsRequest
+	(*ListReviewThreadsResponse)(nil),       // 7: agent.v1.ListReviewThreadsResponse
+	(*CreateReviewThreadRequest)(nil),       // 8: agent.v1.CreateReviewThreadRequest
+	(*CreateReviewThreadResponse)(nil),      // 9: agent.v1.CreateReviewThreadResponse
+	(*AddReviewMessageRequest)(nil),         // 10: agent.v1.AddReviewMessageRequest
+	(*AddReviewMessageResponse)(nil),        // 11: agent.v1.AddReviewMessageResponse
+	(*AcceptForgeMessageRequest)(nil),       // 12: agent.v1.AcceptForgeMessageRequest
+	(*AcceptForgeMessageResponse)(nil),      // 13: agent.v1.AcceptForgeMessageResponse
+	(*EditReviewMessageRequest)(nil),        // 14: agent.v1.EditReviewMessageRequest
+	(*EditReviewMessageResponse)(nil),       // 15: agent.v1.EditReviewMessageResponse
+	(*MarkReviewThreadReadRequest)(nil),     // 16: agent.v1.MarkReviewThreadReadRequest
+	(*MarkReviewThreadReadResponse)(nil),    // 17: agent.v1.MarkReviewThreadReadResponse
+	(*SetReviewThreadResolvedRequest)(nil),  // 18: agent.v1.SetReviewThreadResolvedRequest
+	(*SetReviewThreadResolvedResponse)(nil), // 19: agent.v1.SetReviewThreadResolvedResponse
+	(*TakeReviewSnapshotRequest)(nil),       // 20: agent.v1.TakeReviewSnapshotRequest
+	(*TakeReviewSnapshotResponse)(nil),      // 21: agent.v1.TakeReviewSnapshotResponse
+	(*ListReviewSnapshotsRequest)(nil),      // 22: agent.v1.ListReviewSnapshotsRequest
+	(*ListReviewSnapshotsResponse)(nil),     // 23: agent.v1.ListReviewSnapshotsResponse
+	(*OpenReviewHistoryRequest)(nil),        // 24: agent.v1.OpenReviewHistoryRequest
+	(*ReviewSnapshotSpan)(nil),              // 25: agent.v1.ReviewSnapshotSpan
+	(*ReviewAnswerSpan)(nil),                // 26: agent.v1.ReviewAnswerSpan
+	(*ReviewOriginSpan)(nil),                // 27: agent.v1.ReviewOriginSpan
+	(*OpenReviewHistoryResponse)(nil),       // 28: agent.v1.OpenReviewHistoryResponse
+	(*ReviewWidening)(nil),                  // 29: agent.v1.ReviewWidening
+	(*ReviewResolvedSpan)(nil),              // 30: agent.v1.ReviewResolvedSpan
+	(*ReviewTracedPlace)(nil),               // 31: agent.v1.ReviewTracedPlace
+	(*ReviewThreadInContext)(nil),           // 32: agent.v1.ReviewThreadInContext
+	(*GetReviewRequest)(nil),                // 33: agent.v1.GetReviewRequest
+	(*GetReviewResponse)(nil),               // 34: agent.v1.GetReviewResponse
+	(*ListReviewsRequest)(nil),              // 35: agent.v1.ListReviewsRequest
+	(*ListReviewsResponse)(nil),             // 36: agent.v1.ListReviewsResponse
+	(*ReleaseReviewRequest)(nil),            // 37: agent.v1.ReleaseReviewRequest
+	(*ReleaseReviewResponse)(nil),           // 38: agent.v1.ReleaseReviewResponse
+	(*ReviewViewedFile)(nil),                // 39: agent.v1.ReviewViewedFile
+	(*SetReviewFileViewedRequest)(nil),      // 40: agent.v1.SetReviewFileViewedRequest
+	(*SetReviewFileViewedResponse)(nil),     // 41: agent.v1.SetReviewFileViewedResponse
+	(*ListReviewViewedFilesRequest)(nil),    // 42: agent.v1.ListReviewViewedFilesRequest
+	(*ListReviewViewedFilesResponse)(nil),   // 43: agent.v1.ListReviewViewedFilesResponse
+	(*ForgeReply)(nil),                      // 44: agent.v1.ForgeReply
+	(*ReplyOnForgeRequest)(nil),             // 45: agent.v1.ReplyOnForgeRequest
+	(*ReplyOnForgeResponse)(nil),            // 46: agent.v1.ReplyOnForgeResponse
+	(*RetryForgeReplyRequest)(nil),          // 47: agent.v1.RetryForgeReplyRequest
+	(*RetryForgeReplyResponse)(nil),         // 48: agent.v1.RetryForgeReplyResponse
+	(*DiscardForgeReplyRequest)(nil),        // 49: agent.v1.DiscardForgeReplyRequest
+	nil,                                     // 50: agent.v1.OpenReviewHistoryResponse.TracedEntry
+	(*timestamppb.Timestamp)(nil),           // 51: google.protobuf.Timestamp
+	(ReviewAuthorKind)(0),                   // 52: agent.v1.ReviewAuthorKind
+	(ReviewVerdict)(0),                      // 53: agent.v1.ReviewVerdict
+	(ReviewWidenedReason)(0),                // 54: agent.v1.ReviewWidenedReason
+	(ForgeReplyState)(0),                    // 55: agent.v1.ForgeReplyState
 }
 var file_agent_v1_review_proto_depIdxs = []int32{
-	55, // 0: agent.v1.ReviewSnapshot.created_at:type_name -> google.protobuf.Timestamp
-	0,  // 1: agent.v1.Review.author_kind:type_name -> agent.v1.ReviewAuthorKind
-	1,  // 2: agent.v1.Review.verdict:type_name -> agent.v1.ReviewVerdict
-	55, // 3: agent.v1.Review.released_at:type_name -> google.protobuf.Timestamp
-	55, // 4: agent.v1.Review.created_at:type_name -> google.protobuf.Timestamp
-	55, // 5: agent.v1.Review.updated_at:type_name -> google.protobuf.Timestamp
-	0,  // 6: agent.v1.WatchedReview.author_kind:type_name -> agent.v1.ReviewAuthorKind
-	1,  // 7: agent.v1.WatchedReview.verdict:type_name -> agent.v1.ReviewVerdict
-	55, // 8: agent.v1.WatchedReview.released_at:type_name -> google.protobuf.Timestamp
-	55, // 9: agent.v1.WatchedReview.created_at:type_name -> google.protobuf.Timestamp
-	55, // 10: agent.v1.WatchedReview.updated_at:type_name -> google.protobuf.Timestamp
-	55, // 11: agent.v1.WatchedReview.snapshot_landed_at:type_name -> google.protobuf.Timestamp
-	55, // 12: agent.v1.ReviewThread.resolved_at:type_name -> google.protobuf.Timestamp
-	8,  // 13: agent.v1.ReviewThread.messages:type_name -> agent.v1.ReviewMessage
-	55, // 14: agent.v1.ReviewThread.created_at:type_name -> google.protobuf.Timestamp
-	55, // 15: agent.v1.ReviewThread.updated_at:type_name -> google.protobuf.Timestamp
-	48, // 16: agent.v1.ReviewThread.forge_replies:type_name -> agent.v1.ForgeReply
-	0,  // 17: agent.v1.ReviewThread.author_kind:type_name -> agent.v1.ReviewAuthorKind
-	0,  // 18: agent.v1.ReviewMessage.author_kind:type_name -> agent.v1.ReviewAuthorKind
-	55, // 19: agent.v1.ReviewMessage.created_at:type_name -> google.protobuf.Timestamp
-	55, // 20: agent.v1.ReviewMessage.updated_at:type_name -> google.protobuf.Timestamp
-	9,  // 21: agent.v1.ReviewMessage.forge:type_name -> agent.v1.ForgeOrigin
-	55, // 22: agent.v1.ReviewMessage.read_at:type_name -> google.protobuf.Timestamp
-	55, // 23: agent.v1.ForgeOrigin.edited_at:type_name -> google.protobuf.Timestamp
-	7,  // 24: agent.v1.ListReviewThreadsResponse.threads:type_name -> agent.v1.ReviewThread
-	7,  // 25: agent.v1.CreateReviewThreadResponse.thread:type_name -> agent.v1.ReviewThread
-	8,  // 26: agent.v1.AddReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
-	8,  // 27: agent.v1.AcceptForgeMessageResponse.message:type_name -> agent.v1.ReviewMessage
-	8,  // 28: agent.v1.EditReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
-	7,  // 29: agent.v1.MarkReviewThreadReadResponse.thread:type_name -> agent.v1.ReviewThread
-	7,  // 30: agent.v1.SetReviewThreadResolvedResponse.thread:type_name -> agent.v1.ReviewThread
-	4,  // 31: agent.v1.TakeReviewSnapshotResponse.snapshot:type_name -> agent.v1.ReviewSnapshot
-	4,  // 32: agent.v1.ListReviewSnapshotsResponse.snapshots:type_name -> agent.v1.ReviewSnapshot
-	29, // 33: agent.v1.OpenReviewHistoryRequest.snapshots:type_name -> agent.v1.ReviewSnapshotSpan
-	30, // 34: agent.v1.OpenReviewHistoryRequest.answer:type_name -> agent.v1.ReviewAnswerSpan
-	31, // 35: agent.v1.OpenReviewHistoryRequest.origin:type_name -> agent.v1.ReviewOriginSpan
-	4,  // 36: agent.v1.OpenReviewHistoryResponse.snapshot:type_name -> agent.v1.ReviewSnapshot
-	4,  // 37: agent.v1.OpenReviewHistoryResponse.snapshots:type_name -> agent.v1.ReviewSnapshot
-	7,  // 38: agent.v1.OpenReviewHistoryResponse.threads:type_name -> agent.v1.ReviewThread
-	34, // 39: agent.v1.OpenReviewHistoryResponse.resolved:type_name -> agent.v1.ReviewResolvedSpan
-	33, // 40: agent.v1.OpenReviewHistoryResponse.widened:type_name -> agent.v1.ReviewWidening
-	55, // 41: agent.v1.OpenReviewHistoryResponse.earlier_released_at:type_name -> google.protobuf.Timestamp
-	54, // 42: agent.v1.OpenReviewHistoryResponse.traced:type_name -> agent.v1.OpenReviewHistoryResponse.TracedEntry
-	2,  // 43: agent.v1.ReviewWidening.reason:type_name -> agent.v1.ReviewWidenedReason
-	7,  // 44: agent.v1.ReviewThreadInContext.thread:type_name -> agent.v1.ReviewThread
-	5,  // 45: agent.v1.GetReviewResponse.review:type_name -> agent.v1.Review
-	4,  // 46: agent.v1.GetReviewResponse.snapshot:type_name -> agent.v1.ReviewSnapshot
-	36, // 47: agent.v1.GetReviewResponse.threads:type_name -> agent.v1.ReviewThreadInContext
-	5,  // 48: agent.v1.ListReviewsResponse.reviews:type_name -> agent.v1.Review
-	1,  // 49: agent.v1.ReleaseReviewRequest.verdict:type_name -> agent.v1.ReviewVerdict
-	5,  // 50: agent.v1.ReleaseReviewResponse.review:type_name -> agent.v1.Review
-	55, // 51: agent.v1.ReviewViewedFile.viewed_at:type_name -> google.protobuf.Timestamp
-	43, // 52: agent.v1.SetReviewFileViewedResponse.viewed:type_name -> agent.v1.ReviewViewedFile
-	43, // 53: agent.v1.ListReviewViewedFilesResponse.viewed:type_name -> agent.v1.ReviewViewedFile
-	3,  // 54: agent.v1.ForgeReply.state:type_name -> agent.v1.ForgeReplyState
-	55, // 55: agent.v1.ForgeReply.approved_at:type_name -> google.protobuf.Timestamp
-	55, // 56: agent.v1.ForgeReply.sending_started_at:type_name -> google.protobuf.Timestamp
-	55, // 57: agent.v1.ForgeReply.sent_at:type_name -> google.protobuf.Timestamp
-	55, // 58: agent.v1.ForgeReply.created_at:type_name -> google.protobuf.Timestamp
-	48, // 59: agent.v1.ReplyOnForgeResponse.reply:type_name -> agent.v1.ForgeReply
-	48, // 60: agent.v1.RetryForgeReplyResponse.reply:type_name -> agent.v1.ForgeReply
-	35, // 61: agent.v1.OpenReviewHistoryResponse.TracedEntry.value:type_name -> agent.v1.ReviewTracedPlace
+	51, // 0: agent.v1.ReviewSnapshot.created_at:type_name -> google.protobuf.Timestamp
+	52, // 1: agent.v1.Review.author_kind:type_name -> agent.v1.ReviewAuthorKind
+	53, // 2: agent.v1.Review.verdict:type_name -> agent.v1.ReviewVerdict
+	51, // 3: agent.v1.Review.released_at:type_name -> google.protobuf.Timestamp
+	51, // 4: agent.v1.Review.created_at:type_name -> google.protobuf.Timestamp
+	51, // 5: agent.v1.Review.updated_at:type_name -> google.protobuf.Timestamp
+	52, // 6: agent.v1.WatchedReview.author_kind:type_name -> agent.v1.ReviewAuthorKind
+	53, // 7: agent.v1.WatchedReview.verdict:type_name -> agent.v1.ReviewVerdict
+	51, // 8: agent.v1.WatchedReview.released_at:type_name -> google.protobuf.Timestamp
+	51, // 9: agent.v1.WatchedReview.created_at:type_name -> google.protobuf.Timestamp
+	51, // 10: agent.v1.WatchedReview.updated_at:type_name -> google.protobuf.Timestamp
+	51, // 11: agent.v1.WatchedReview.snapshot_landed_at:type_name -> google.protobuf.Timestamp
+	51, // 12: agent.v1.ReviewThread.resolved_at:type_name -> google.protobuf.Timestamp
+	4,  // 13: agent.v1.ReviewThread.messages:type_name -> agent.v1.ReviewMessage
+	51, // 14: agent.v1.ReviewThread.created_at:type_name -> google.protobuf.Timestamp
+	51, // 15: agent.v1.ReviewThread.updated_at:type_name -> google.protobuf.Timestamp
+	44, // 16: agent.v1.ReviewThread.forge_replies:type_name -> agent.v1.ForgeReply
+	52, // 17: agent.v1.ReviewThread.author_kind:type_name -> agent.v1.ReviewAuthorKind
+	52, // 18: agent.v1.ReviewMessage.author_kind:type_name -> agent.v1.ReviewAuthorKind
+	51, // 19: agent.v1.ReviewMessage.created_at:type_name -> google.protobuf.Timestamp
+	51, // 20: agent.v1.ReviewMessage.updated_at:type_name -> google.protobuf.Timestamp
+	5,  // 21: agent.v1.ReviewMessage.forge:type_name -> agent.v1.ForgeOrigin
+	51, // 22: agent.v1.ReviewMessage.read_at:type_name -> google.protobuf.Timestamp
+	51, // 23: agent.v1.ForgeOrigin.edited_at:type_name -> google.protobuf.Timestamp
+	3,  // 24: agent.v1.ListReviewThreadsResponse.threads:type_name -> agent.v1.ReviewThread
+	3,  // 25: agent.v1.CreateReviewThreadResponse.thread:type_name -> agent.v1.ReviewThread
+	4,  // 26: agent.v1.AddReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
+	4,  // 27: agent.v1.AcceptForgeMessageResponse.message:type_name -> agent.v1.ReviewMessage
+	4,  // 28: agent.v1.EditReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
+	3,  // 29: agent.v1.MarkReviewThreadReadResponse.thread:type_name -> agent.v1.ReviewThread
+	3,  // 30: agent.v1.SetReviewThreadResolvedResponse.thread:type_name -> agent.v1.ReviewThread
+	0,  // 31: agent.v1.TakeReviewSnapshotResponse.snapshot:type_name -> agent.v1.ReviewSnapshot
+	0,  // 32: agent.v1.ListReviewSnapshotsResponse.snapshots:type_name -> agent.v1.ReviewSnapshot
+	25, // 33: agent.v1.OpenReviewHistoryRequest.snapshots:type_name -> agent.v1.ReviewSnapshotSpan
+	26, // 34: agent.v1.OpenReviewHistoryRequest.answer:type_name -> agent.v1.ReviewAnswerSpan
+	27, // 35: agent.v1.OpenReviewHistoryRequest.origin:type_name -> agent.v1.ReviewOriginSpan
+	0,  // 36: agent.v1.OpenReviewHistoryResponse.snapshot:type_name -> agent.v1.ReviewSnapshot
+	0,  // 37: agent.v1.OpenReviewHistoryResponse.snapshots:type_name -> agent.v1.ReviewSnapshot
+	3,  // 38: agent.v1.OpenReviewHistoryResponse.threads:type_name -> agent.v1.ReviewThread
+	30, // 39: agent.v1.OpenReviewHistoryResponse.resolved:type_name -> agent.v1.ReviewResolvedSpan
+	29, // 40: agent.v1.OpenReviewHistoryResponse.widened:type_name -> agent.v1.ReviewWidening
+	51, // 41: agent.v1.OpenReviewHistoryResponse.earlier_released_at:type_name -> google.protobuf.Timestamp
+	50, // 42: agent.v1.OpenReviewHistoryResponse.traced:type_name -> agent.v1.OpenReviewHistoryResponse.TracedEntry
+	54, // 43: agent.v1.ReviewWidening.reason:type_name -> agent.v1.ReviewWidenedReason
+	3,  // 44: agent.v1.ReviewThreadInContext.thread:type_name -> agent.v1.ReviewThread
+	1,  // 45: agent.v1.GetReviewResponse.review:type_name -> agent.v1.Review
+	0,  // 46: agent.v1.GetReviewResponse.snapshot:type_name -> agent.v1.ReviewSnapshot
+	32, // 47: agent.v1.GetReviewResponse.threads:type_name -> agent.v1.ReviewThreadInContext
+	1,  // 48: agent.v1.ListReviewsResponse.reviews:type_name -> agent.v1.Review
+	53, // 49: agent.v1.ReleaseReviewRequest.verdict:type_name -> agent.v1.ReviewVerdict
+	1,  // 50: agent.v1.ReleaseReviewResponse.review:type_name -> agent.v1.Review
+	51, // 51: agent.v1.ReviewViewedFile.viewed_at:type_name -> google.protobuf.Timestamp
+	39, // 52: agent.v1.SetReviewFileViewedResponse.viewed:type_name -> agent.v1.ReviewViewedFile
+	39, // 53: agent.v1.ListReviewViewedFilesResponse.viewed:type_name -> agent.v1.ReviewViewedFile
+	55, // 54: agent.v1.ForgeReply.state:type_name -> agent.v1.ForgeReplyState
+	51, // 55: agent.v1.ForgeReply.approved_at:type_name -> google.protobuf.Timestamp
+	51, // 56: agent.v1.ForgeReply.sending_started_at:type_name -> google.protobuf.Timestamp
+	51, // 57: agent.v1.ForgeReply.sent_at:type_name -> google.protobuf.Timestamp
+	51, // 58: agent.v1.ForgeReply.created_at:type_name -> google.protobuf.Timestamp
+	44, // 59: agent.v1.ReplyOnForgeResponse.reply:type_name -> agent.v1.ForgeReply
+	44, // 60: agent.v1.RetryForgeReplyResponse.reply:type_name -> agent.v1.ForgeReply
+	31, // 61: agent.v1.OpenReviewHistoryResponse.TracedEntry.value:type_name -> agent.v1.ReviewTracedPlace
 	62, // [62:62] is the sub-list for method output_type
 	62, // [62:62] is the sub-list for method input_type
 	62, // [62:62] is the sub-list for extension type_name
@@ -4656,6 +4391,7 @@ func file_agent_v1_review_proto_init() {
 	if File_agent_v1_review_proto != nil {
 		return
 	}
+	file_agent_v1_enums_proto_init()
 	file_agent_v1_review_proto_msgTypes[1].OneofWrappers = []any{}
 	file_agent_v1_review_proto_msgTypes[2].OneofWrappers = []any{}
 	file_agent_v1_review_proto_msgTypes[3].OneofWrappers = []any{}
@@ -4707,14 +4443,13 @@ func file_agent_v1_review_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_v1_review_proto_rawDesc), len(file_agent_v1_review_proto_rawDesc)),
-			NumEnums:      4,
+			NumEnums:      0,
 			NumMessages:   51,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_agent_v1_review_proto_goTypes,
 		DependencyIndexes: file_agent_v1_review_proto_depIdxs,
-		EnumInfos:         file_agent_v1_review_proto_enumTypes,
 		MessageInfos:      file_agent_v1_review_proto_msgTypes,
 	}.Build()
 	File_agent_v1_review_proto = out.File

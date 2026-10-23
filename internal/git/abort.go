@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"komrad/internal/fail"
+	taskv1 "komrad/proto/gen/task/v1"
 )
 
 // ErrIndexLocked says another git command holds the checkout's index.
@@ -16,10 +17,10 @@ var ErrIndexLocked = fail.Precondition("another git command is running in this w
 
 // AbortSequence undoes the sequence part-way through a checkout, putting the branch back where
 // it stood before the sequence began.
-func (c *Client) AbortSequence(ctx context.Context, dir string, sequence Sequence) error {
-	verb := sequence.GetCommand()
+func (c *Client) AbortSequence(ctx context.Context, dir string, sequence taskv1.Sequence) error {
+	verb := GetSequenceCommand(sequence)
 	if verb == "" {
-		return fmt.Errorf("there is no way to abort a sequence of kind %q", sequence)
+		return fmt.Errorf("there is no way to abort a sequence of kind %v", sequence)
 	}
 
 	gitDir, err := readGitDir(ctx, dir)
@@ -31,7 +32,7 @@ func (c *Client) AbortSequence(ctx context.Context, dir string, sequence Sequenc
 	}
 
 	if _, err := runReporting(ctx, dir, os.Environ(), verb, "--abort"); err != nil {
-		return fmt.Errorf("failed to abort the %s in %q: %w", sequence, dir, err)
+		return fmt.Errorf("failed to abort the %s in %q: %w", verb, dir, err)
 	}
 
 	return nil

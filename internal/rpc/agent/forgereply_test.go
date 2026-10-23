@@ -86,8 +86,8 @@ func TestForgeReplyRefusalsMapToCodes(t *testing.T) {
 
 // TestForgeReplyCallsNameTheCaller pins who each forge reply call acts as.
 func TestForgeReplyCallsNameTheCaller(t *testing.T) {
-	person := reviews.ReviewAuthor{Kind: reviewstore.AuthorHuman}
-	agent := reviews.ReviewAuthor{Kind: reviewstore.AuthorAgent, AgentID: xptr.Ptr(alphaID)}
+	person := reviews.ReviewAuthor{Kind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN}
+	agent := reviews.ReviewAuthor{Kind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT, AgentID: xptr.Ptr(alphaID)}
 
 	calls := map[string]func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error{
 		"replying": func(ctx context.Context, svc agentv1komrad.AgentServiceAdapter) error {
@@ -124,7 +124,7 @@ func TestForgeReplyDrawsWhatTheServiceHeld(t *testing.T) {
 	svc := newForgeReplyHandler(&fakeForgeReplier{reply: reviewstore.ForgeReply{
 		ID:                     replyID,
 		ThreadID:               threadID,
-		State:                  reviewstore.ForgeReplySent,
+		State:                  agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT,
 		Body:                   "added the guard, thanks",
 		ApprovedAt:             &reviewedAt,
 		SentAt:                 &reviewedAt,

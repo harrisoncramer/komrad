@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -17,10 +18,10 @@ func TestStateOf(t *testing.T) {
 	tests := []struct {
 		name        string
 		pullRequest pullrequeststore.PullRequest
-		checks      forge.Checks
+		checks      pullrequestv1.Checks
 		read        forge.MergeReadiness
 		readHead    string
-		want        State
+		want        pullrequestv1.PullRequestState
 	}{
 		{
 			name: "merged beats closed",
@@ -28,7 +29,7 @@ func TestStateOf(t *testing.T) {
 				MergedAt: &stamp,
 				ClosedAt: &stamp,
 			},
-			want: StateMerged,
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
 		},
 		{
 			name: "closed beats a draft",
@@ -36,140 +37,140 @@ func TestStateOf(t *testing.T) {
 				ClosedAt: &stamp,
 				Draft:    true,
 			},
-			want: StateClosed,
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CLOSED,
 		},
 		{
 			name:        "a draft beats failing checks",
 			pullRequest: pullrequeststore.PullRequest{Draft: true},
-			checks:      forge.ChecksFailing,
-			want:        StateDraft,
+			checks:      pullrequestv1.Checks_CHECKS_FAILING,
+			want:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT,
 		},
 		{
 			name:   "a failure with others still running is failing",
-			checks: forge.ChecksFailingRunning,
-			want:   StateFailing,
+			checks: pullrequestv1.Checks_CHECKS_FAILING_RUNNING,
+			want:   pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
 		},
 		{
 			name:   "failing checks beat a conflict",
-			checks: forge.ChecksFailing,
+			checks: pullrequestv1.Checks_CHECKS_FAILING,
 			read: forge.MergeReadiness{
-				Mergeability: forge.MergeabilityConflicting,
+				Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING,
 			},
-			want: StateFailing,
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
 		},
 		{
 			name: "a conflict beats a change request",
 			read: forge.MergeReadiness{
-				Decision:     forge.ReviewDecisionChangesRequested,
-				Mergeability: forge.MergeabilityConflicting,
+				Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED,
+				Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING,
 			},
-			want: StateConflicting,
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CONFLICTING,
 		},
 		{
 			name: "a change request stands over a clean branch",
 			read: forge.MergeReadiness{
-				Decision:     forge.ReviewDecisionChangesRequested,
-				Mergeability: forge.MergeabilityClean,
+				Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED,
+				Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 			},
-			want: StateChangesRequested,
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
 		},
 		{
 			name:   "a change request beats checks running",
-			checks: forge.ChecksPending,
+			checks: pullrequestv1.Checks_CHECKS_PENDING,
 			read: forge.MergeReadiness{
-				Decision: forge.ReviewDecisionChangesRequested,
+				Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED,
 			},
-			want: StateChangesRequested,
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED,
 		},
 		{
 			name:   "a re-review request beats checks running",
-			checks: forge.ChecksPending,
+			checks: pullrequestv1.Checks_CHECKS_PENDING,
 			read: forge.MergeReadiness{
-				Decision: forge.ReviewDecisionRereviewRequested,
+				Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_REREVIEW_REQUESTED,
 			},
-			want: StateRereviewRequested,
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED,
 		},
 		{
 			name:   "failing checks beat a re-review request",
-			checks: forge.ChecksFailing,
+			checks: pullrequestv1.Checks_CHECKS_FAILING,
 			read: forge.MergeReadiness{
-				Decision: forge.ReviewDecisionRereviewRequested,
+				Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_REREVIEW_REQUESTED,
 			},
-			want: StateFailing,
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_FAILING,
 		},
 		{
 			name:   "checks running beat an approval on a clean branch",
-			checks: forge.ChecksPending,
+			checks: pullrequestv1.Checks_CHECKS_PENDING,
 			read: forge.MergeReadiness{
-				Decision:     forge.ReviewDecisionApproved,
-				Mergeability: forge.MergeabilityClean,
+				Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED,
+				Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 			},
-			want: StateChecksRunning,
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING,
 		},
 		{
 			name:   "clean beats an approval that would otherwise wait",
-			checks: forge.ChecksPassing,
+			checks: pullrequestv1.Checks_CHECKS_PASSING,
 			read: forge.MergeReadiness{
-				Decision:     forge.ReviewDecisionApproved,
-				Mergeability: forge.MergeabilityClean,
+				Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED,
+				Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 			},
-			want: StateApproved,
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
 		},
 		{
 			name:   "clean with no decision is ready, since the forge's rules asked for no review",
-			checks: forge.ChecksPassing,
+			checks: pullrequestv1.Checks_CHECKS_PASSING,
 			read: forge.MergeReadiness{
-				Mergeability: forge.MergeabilityClean,
+				Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 			},
-			want: StateApproved,
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED,
 		},
 		{
 			name: "clean with no checks reported is open, since checks may not have started",
 			read: forge.MergeReadiness{
-				Mergeability: forge.MergeabilityClean,
+				Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 			},
-			want: StateOpen,
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
 		},
 		{
 			name: "approved and clean with no checks reported is waiting",
 			read: forge.MergeReadiness{
-				Decision:     forge.ReviewDecisionApproved,
-				Mergeability: forge.MergeabilityClean,
+				Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED,
+				Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 			},
-			want: StateApprovedWaiting,
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
 		},
 		{
 			name:   "approved and behind is waiting though its checks pass",
-			checks: forge.ChecksPassing,
+			checks: pullrequestv1.Checks_CHECKS_PASSING,
 			read: forge.MergeReadiness{
-				Decision:     forge.ReviewDecisionApproved,
-				Mergeability: forge.MergeabilityBehind,
+				Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED,
+				Mergeability: pullrequestv1.Mergeability_MERGEABILITY_BEHIND,
 			},
-			want: StateApprovedWaiting,
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING,
 		},
 		{
 			name:        "a conflict read for an older head is not a conflict",
 			pullRequest: pullrequeststore.PullRequest{HeadSHA: "bbb"},
-			read:        forge.MergeReadiness{Mergeability: forge.MergeabilityConflicting},
+			read:        forge.MergeReadiness{Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING},
 			readHead:    "aaa",
-			want:        StateOpen,
+			want:        pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
 		},
 		{
 			name: "a change request the forge no longer reports is open",
 			pullRequest: pullrequeststore.PullRequest{
 				MergeReadiness: forge.RememberedMergeReadiness{}.RememberRead(
-					forge.MergeReadiness{Decision: forge.ReviewDecisionChangesRequested},
+					forge.MergeReadiness{Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED},
 					"",
 					stamp,
 				),
 			},
-			read: forge.MergeReadiness{Decision: forge.ReviewDecisionNone},
-			want: StateOpen,
+			read: forge.MergeReadiness{Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_NONE},
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
 		},
 		{
 			name: "a pending review is open",
-			read: forge.MergeReadiness{Decision: forge.ReviewDecisionPending},
-			want: StateOpen,
+			read: forge.MergeReadiness{Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING},
+			want: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,
 		},
 	}
 
@@ -177,7 +178,7 @@ func TestStateOf(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			pullRequest := tt.pullRequest
 			pullRequest.MergeReadiness = pullRequest.MergeReadiness.RememberRead(tt.read, tt.readHead, stamp)
-			pullRequest.MergeReadiness.Checks = forge.RememberedAnswer[forge.Checks]{Value: tt.checks, HeadSHA: tt.readHead}
+			pullRequest.MergeReadiness.Checks = forge.RememberedAnswer[pullrequestv1.Checks]{Value: tt.checks, HeadSHA: tt.readHead}
 
 			assert.Equal(t, tt.want, StateOf(pullRequest))
 		})

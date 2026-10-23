@@ -7,13 +7,14 @@ import (
 
 	"komrad/internal/git"
 	"komrad/internal/gittest"
-	"komrad/internal/tmuxtest"
-
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/tmuxtest"
 	"komrad/lib/xpath"
 	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -163,7 +164,7 @@ func TestAdoptAnswersWithTheAgentInTheDirectory(t *testing.T) {
 			require.NoError(t, st.createAgent(t.Context(), agentstore.Agent{
 				Name:       "sitting",
 				Cwd:        sitting,
-				State:      agentstore.StateIdle,
+				State:      agentv1.AgentState_AGENT_STATE_IDLE,
 				WorkflowID: workflow,
 			}))
 			if tt.adoptedBranch != "" {
@@ -178,10 +179,10 @@ func TestAdoptAnswersWithTheAgentInTheDirectory(t *testing.T) {
 				require.NoError(t, st.createAgent(t.Context(), agentstore.Agent{
 					Name:       "reviewer",
 					Cwd:        sitting,
-					State:      agentstore.StateIdle,
+					State:      agentv1.AgentState_AGENT_STATE_IDLE,
 					WorkflowID: workflow,
 					TaskID:     parent.TaskID,
-					Role:       agentstore.RoleReviewer,
+					Role:       agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 				}))
 				require.NoError(t, st.SoftDelete(t.Context(), "reviewer"))
 			}
@@ -206,7 +207,7 @@ func TestAdoptTakesOverFromAnAgentWhoseWorktreeIsGone(t *testing.T) {
 
 	first, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
-	st.SeedTaskHead(t, first.Agent.ID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone})
+	st.SeedTaskHead(t, first.Agent.ID, taskstore.SetHeadParams{WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE})
 
 	second, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
@@ -232,7 +233,7 @@ func TestAdoptTakesOverAWorktreeRegistrationWithNoDirectory(t *testing.T) {
 	require.NoError(t, st.createAgent(t.Context(), agentstore.Agent{
 		Name:       "sitting",
 		Cwd:        sitting,
-		State:      agentstore.StateIdle,
+		State:      agentv1.AgentState_AGENT_STATE_IDLE,
 		WorkflowID: workflow,
 	}))
 	st.seedAdopted(t, "sitting", "someones/work")
@@ -325,7 +326,7 @@ func TestAdoptAfterASetupFailureIsNotRefusedByTheCorpse(t *testing.T) {
 
 	first, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
-	require.NoError(t, st.Agents.SetStateByID(t.Context(), first.Agent.ID, agentstore.StateFailedToCreate))
+	require.NoError(t, st.Agents.SetStateByID(t.Context(), first.Agent.ID, agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE))
 
 	second, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err, "the corpse does not hold the branch against a retry")

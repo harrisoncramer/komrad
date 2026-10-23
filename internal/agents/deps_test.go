@@ -37,6 +37,7 @@ import (
 	"komrad/lib/clock"
 	"komrad/lib/clock/clocktest"
 	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 	"komrad/proto/gen/oneofs"
 
@@ -96,7 +97,7 @@ func (s *testStore) createAgent(ctx context.Context, agent agentstore.Agent) err
 
 		agent.WorkflowID = created.ID
 	}
-	if agent.TaskID == nil && agent.Role != agentstore.RoleOrchestrator {
+	if agent.TaskID == nil && agent.Role != agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR {
 		taskID, err := s.TaskFor(ctx, agent)
 		if err != nil {
 			return err
@@ -526,13 +527,13 @@ func (d inlineDelete) DeleteAgents(ctx context.Context, ids []uuid.UUID) error {
 	return nil
 }
 
-func seed(t *testing.T, st *testStore, name, pane string, state agentstore.State) agentstore.Agent {
+func seed(t *testing.T, st *testStore, name, pane string, state agentv1.AgentState) agentstore.Agent {
 	t.Helper()
 
 	return seedInWorkflow(t, st, uuid.Nil, name, pane, state)
 }
 
-func seedInWorkflow(t *testing.T, st *testStore, workflowID uuid.UUID, name, pane string, state agentstore.State) agentstore.Agent {
+func seedInWorkflow(t *testing.T, st *testStore, workflowID uuid.UUID, name, pane string, state agentv1.AgentState) agentstore.Agent {
 	t.Helper()
 	ctx := t.Context()
 
@@ -554,7 +555,7 @@ func seedInWorkflow(t *testing.T, st *testStore, workflowID uuid.UUID, name, pan
 	return *got
 }
 
-func seedWithRole(t *testing.T, st *testStore, workflowID uuid.UUID, name string, role agentstore.Role) agentstore.Agent {
+func seedWithRole(t *testing.T, st *testStore, workflowID uuid.UUID, name string, role agentv1.AgentRole) agentstore.Agent {
 	t.Helper()
 	ctx := t.Context()
 
@@ -562,7 +563,7 @@ func seedWithRole(t *testing.T, st *testStore, workflowID uuid.UUID, name string
 		Name:       name,
 		Pane:       "%" + name,
 		Cwd:        t.TempDir(),
-		State:      agentstore.StateIdle,
+		State:      agentv1.AgentState_AGENT_STATE_IDLE,
 		WorkflowID: workflowID,
 		Role:       role,
 	}))
@@ -620,7 +621,7 @@ type paneStamper interface {
 	SetPaneOwner(pane string, agentID uuid.UUID) error
 }
 
-func seedRunning(t *testing.T, st *testStore, tmux paneStamper, name, pane string, state agentstore.State) agentstore.Agent {
+func seedRunning(t *testing.T, st *testStore, tmux paneStamper, name, pane string, state agentv1.AgentState) agentstore.Agent {
 	t.Helper()
 	agent := seed(t, st, name, pane, state)
 	require.NoError(t, tmux.SetPaneOwner(pane, agent.ID))
@@ -639,8 +640,8 @@ func seedReviewer(t *testing.T, st *testStore, tmux paneStamper, writer agentsto
 	require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 		Name:             name,
 		Pane:             "%" + name,
-		State:            agentstore.StateIdle,
-		Role:             agentstore.RoleReviewer,
+		State:            agentv1.AgentState_AGENT_STATE_IDLE,
+		Role:             agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 		Cwd:              writer.Cwd,
 		WorkflowID:       writer.WorkflowID,
 		TaskID:           writer.TaskID,
@@ -666,7 +667,7 @@ func backdateStateSeen(t *testing.T, st *testStore, id uuid.UUID, age time.Durat
 	}))
 }
 
-func stateOf(t *testing.T, st *testStore, name string) agentstore.State {
+func stateOf(t *testing.T, st *testStore, name string) agentv1.AgentState {
 	t.Helper()
 	got, err := st.Get(t.Context(), name)
 	require.NoError(t, err)

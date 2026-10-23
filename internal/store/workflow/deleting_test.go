@@ -9,6 +9,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	"komrad/internal/store/task/tasktest"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -168,7 +169,7 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 					TaskID:     taskID,
 					Name:       name,
 					WorkflowID: created.ID,
-					State:      agentstore.StateIdle,
+					State:      agentv1.AgentState_AGENT_STATE_IDLE,
 				}))
 				author, err := agents.GetInWorkflow(ctx, created.ID, name)
 				require.NoError(t, err)
@@ -176,7 +177,7 @@ func TestDeletingClaimHidesTheWorkflow(t *testing.T) {
 				_, err = agents.Archive(ctx, []uuid.UUID{author.ID})
 				require.NoError(t, err)
 				if tt.failed {
-					author.State = agentstore.StateFailedToCleanup
+					author.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP
 					require.NoError(t, agents.Update(ctx, *author))
 				}
 			}

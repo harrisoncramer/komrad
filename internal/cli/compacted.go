@@ -9,6 +9,7 @@ import (
 
 	"komrad/internal/caller"
 	"komrad/internal/harness/claude"
+	"komrad/lib/protoenum"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
@@ -17,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 const promptLimit = 2000
@@ -169,7 +171,7 @@ func renderCompactedRecord(row *agentv1.GetAgentResponse, threads []*agentv1.Rev
 		lines = append(lines, "Branch: "+branch)
 	}
 	if prs := row.GetPullRequests(); len(prs) > 0 {
-		lines = append(lines, fmt.Sprintf("Pull request: %s (%s)", prs[0].GetUrl(), enumWords(prs[0].GetState().String(), "PULL_REQUEST_STATE_")))
+		lines = append(lines, fmt.Sprintf("Pull request: %s (%s)", prs[0].GetUrl(), enumWords(prs[0].GetState())))
 	}
 
 	if len(threads) > 0 {
@@ -203,11 +205,11 @@ func threadsHeading(role agentv1.AgentRole, count int) string {
 }
 
 func roleName(role agentv1.AgentRole) string {
-	return enumWords(role.String(), "AGENT_ROLE_")
+	return enumWords(role)
 }
 
-func enumWords(name, prefix string) string {
-	return strings.ToLower(strings.ReplaceAll(strings.TrimPrefix(name, prefix), "_", " "))
+func enumWords(value protoreflect.Enum) string {
+	return strings.ReplaceAll(protoenum.Name(value), "_", " ")
 }
 
 func cutPrompt(prompt string) string {

@@ -16,6 +16,7 @@ import (
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 	"komrad/proto/gen/oneofs"
 
@@ -107,7 +108,7 @@ func TestNewAgentAbandonsACreateAPreLaunchHookRefused(t *testing.T) {
 	agents, listErr := st.Agents.List(t.Context())
 	require.NoError(t, listErr)
 	require.Len(t, agents, 1)
-	assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State)
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE, agents[0].State)
 }
 
 // TestNewReviewerRunsNoHooks pins a reviewer running no moment of its own.
@@ -326,7 +327,7 @@ func TestAProvisionerDisabledAgentRunsNoHooksOnTheWayBackIn(t *testing.T) {
 			require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 				Name:             "reviewer",
 				Pane:             "%0",
-				State:            agentstore.StateIdle,
+				State:            agentv1.AgentState_AGENT_STATE_IDLE,
 				Cwd:              t.TempDir(),
 				WorkflowID:       created.ID,
 				ProvisionEnabled: xptr.Ptr(false),
@@ -365,11 +366,11 @@ func TestRestoreFiresPostRestoreOnlyOnWhatWasArchived(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	archived := seedInWorkflow(t, st, created.ID, "auth", "%0", agentstore.StateIdle)
+	archived := seedInWorkflow(t, st, created.ID, "auth", "%0", agentv1.AgentState_AGENT_STATE_IDLE)
 	archived.Cwd = t.TempDir()
 	require.NoError(t, st.Agents.Update(ctx, archived))
 
-	live := seedInWorkflow(t, st, created.ID, "billing", "%1", agentstore.StateThinking)
+	live := seedInWorkflow(t, st, created.ID, "billing", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 	live.Cwd = t.TempDir()
 	require.NoError(t, st.Agents.Update(ctx, live))
 
@@ -407,7 +408,7 @@ func TestRestoreWorkflowFiresPostRestoreHooks(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	agent := seedInWorkflow(t, st, created.ID, "auth", "%0", agentstore.StateIdle)
+	agent := seedInWorkflow(t, st, created.ID, "auth", "%0", agentv1.AgentState_AGENT_STATE_IDLE)
 	agent.Cwd = t.TempDir()
 	require.NoError(t, st.Agents.Update(ctx, agent))
 
@@ -446,7 +447,7 @@ func TestAFailedPreResumeRefusesTheResume(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	agent := seedInWorkflow(t, st, created.ID, "auth", "%0", agentstore.StateIdle)
+	agent := seedInWorkflow(t, st, created.ID, "auth", "%0", agentv1.AgentState_AGENT_STATE_IDLE)
 	agent.Cwd = t.TempDir()
 	require.NoError(t, st.Agents.Update(ctx, agent))
 
@@ -467,7 +468,7 @@ func TestAFailedPreResumeRefusesTheResume(t *testing.T) {
 
 	after, err := st.Agents.GetByID(ctx, agent.ID)
 	require.NoError(t, err)
-	assert.Equal(t, agentstore.StateIdle, after.State, "the row goes back to the state it was in")
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, after.State, "the row goes back to the state it was in")
 }
 
 type archiveCall struct {
@@ -513,7 +514,7 @@ func seedHookedAgents(t *testing.T, st *testStore, hooks []workflowstore.Hook, n
 
 	agents := make([]agentstore.Agent, 0, len(names))
 	for i, name := range names {
-		agent := seedInWorkflow(t, st, created.ID, name, "%"+string(rune('0'+i)), agentstore.StateIdle)
+		agent := seedInWorkflow(t, st, created.ID, name, "%"+string(rune('0'+i)), agentv1.AgentState_AGENT_STATE_IDLE)
 		agent.Cwd = t.TempDir()
 		require.NoError(t, st.Agents.Update(ctx, agent))
 		agents = append(agents, agent)
@@ -718,7 +719,7 @@ func TestPreRestore(t *testing.T) {
 				require.NoError(t, os.Remove(agents[0].Cwd))
 			}
 			if tt.nameTaken {
-				seedInWorkflow(t, st, workflowID, "auth", "%9", agentstore.StateIdle)
+				seedInWorkflow(t, st, workflowID, "auth", "%9", agentv1.AgentState_AGENT_STATE_IDLE)
 			}
 
 			err := tt.restore(t, st, lifecycle, workflowID, agents[0])
@@ -776,7 +777,7 @@ func TestDeleteWaitsForTheHooksStillRunning(t *testing.T) {
 	created, err := st.Workflows.Create(ctx, config)
 	require.NoError(t, err)
 
-	agent := seedInWorkflow(t, st, created.ID, "auth", "%0", agentstore.StateIdle)
+	agent := seedInWorkflow(t, st, created.ID, "auth", "%0", agentv1.AgentState_AGENT_STATE_IDLE)
 	agent.Cwd = t.TempDir()
 	require.NoError(t, st.Agents.Update(ctx, agent))
 
@@ -924,7 +925,7 @@ func TestTaskPreOpen(t *testing.T) {
 				listed, listErr := fx.st.Agents.List(t.Context())
 				require.NoError(t, listErr)
 				require.Len(t, listed, 1)
-				assert.Equal(t, agentstore.StateFailedToCreate, listed[0].State)
+				assert.Equal(t, agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE, listed[0].State)
 				assert.Equal(t, []string{scriptrun.WorktreeDeprovisioner}, lifecycle.ranDeprovisions(), "what setup built is given back")
 			} else {
 				require.NoError(t, err)

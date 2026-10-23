@@ -10,6 +10,7 @@ import (
 	"komrad/internal/git"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -80,16 +81,16 @@ func TestReadBranches(t *testing.T) {
 	open, closed := reading.PullRequests[0], reading.PullRequests[1]
 	assert.Equal(t, 1, open.Number)
 	assert.Equal(t, &forge.MergeReadiness{
-		Decision:     forge.ReviewDecisionChangesRequested,
-		Mergeability: forge.MergeabilityUnstable,
+		Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED,
+		Mergeability: pullrequestv1.Mergeability_MERGEABILITY_UNSTABLE,
 		AutoMerge:    forge.AutoMerge{Allowed: true},
 		Listing: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{
 			{
 				ProviderID:   "CR_1",
-				Kind:         forge.StatusCheckKindRun,
+				Kind:         pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 				Source:       "CI",
 				Name:         "test",
-				State:        forge.StatusCheckStateCompleted,
+				State:        pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 				Conclusion:   "failure",
 				StartedAt:    xptr.Ptr(time.Date(2026, 9, 20, 11, 0, 0, 0, time.UTC)),
 				FinishedAt:   xptr.Ptr(time.Date(2026, 9, 20, 11, 5, 0, 0, time.UTC)),
@@ -102,17 +103,17 @@ func TestReadBranches(t *testing.T) {
 			},
 			{
 				ProviderID: "CR_2",
-				Kind:       forge.StatusCheckKindRun,
+				Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 				Source:     "Scanner",
 				Name:       "scan",
-				State:      forge.StatusCheckStateQueued,
+				State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED,
 				RunID:      "CS_2",
 			},
 			{
 				ProviderID: "SC_1",
-				Kind:       forge.StatusCheckKindStatus,
+				Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_STATUS,
 				Name:       "ci/legacy",
-				State:      forge.StatusCheckStateCompleted,
+				State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 				Conclusion: "error",
 				FinishedAt: xptr.Ptr(time.Date(2026, 9, 20, 11, 2, 0, 0, time.UTC)),
 				Required:   true,
@@ -122,8 +123,8 @@ func TestReadBranches(t *testing.T) {
 	}, open.MergeReadiness)
 	assert.Equal(t, 2, closed.Number)
 	assert.Equal(t, &forge.MergeReadiness{
-		Decision:     forge.ReviewDecisionApproved,
-		Mergeability: forge.MergeabilityClean,
+		Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED,
+		Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 		AutoMerge:    forge.AutoMerge{On: true},
 	}, closed.MergeReadiness)
 }

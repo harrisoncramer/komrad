@@ -24,6 +24,8 @@ import (
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
+	schedulev1 "komrad/proto/gen/schedule/v1"
 
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
@@ -51,7 +53,7 @@ func TestLaunchAgentWorker(t *testing.T) {
 		wantCancel   bool
 		wantErr      bool
 		wantReason   string
-		wantRuns     []schedulestore.RunState
+		wantRuns     []schedulev1.ScheduleRunState
 		wantLaunched bool
 		wantHidden   bool
 		wantSynced   bool
@@ -61,7 +63,7 @@ func TestLaunchAgentWorker(t *testing.T) {
 			deleted:    true,
 			wantCancel: true,
 			wantReason: "no longer exists",
-			wantRuns:   []schedulestore.RunState{},
+			wantRuns:   []schedulev1.ScheduleRunState{},
 			wantSynced: true,
 		},
 		{
@@ -69,35 +71,35 @@ func TestLaunchAgentWorker(t *testing.T) {
 			paused:     true,
 			wantCancel: true,
 			wantReason: "is paused",
-			wantRuns:   []schedulestore.RunState{schedulestore.RunStateCancelled},
+			wantRuns:   []schedulev1.ScheduleRunState{schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_CANCELLED},
 		},
 		{
 			name:       "a schedule whose last agent is still working skips this firing",
 			busy:       true,
 			wantCancel: true,
 			wantReason: "still has 1 agent(s) running",
-			wantRuns:   []schedulestore.RunState{schedulestore.RunStateCancelled},
+			wantRuns:   []schedulev1.ScheduleRunState{schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_CANCELLED},
 		},
 		{
 			name:       "a workflow directory that cannot be opened cancels",
 			missingCwd: true,
 			wantCancel: true,
 			wantReason: agents.ErrBadDirectory.Error(),
-			wantRuns:   []schedulestore.RunState{schedulestore.RunStateCancelled},
+			wantRuns:   []schedulev1.ScheduleRunState{schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_CANCELLED},
 		},
 		{
 			name:       "a panel with no room for another agent cancels",
 			crowded:    true,
 			wantCancel: true,
 			wantReason: agenterr.ErrTooManyAgents.Error(),
-			wantRuns:   []schedulestore.RunState{schedulestore.RunStateCancelled},
+			wantRuns:   []schedulev1.ScheduleRunState{schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_CANCELLED},
 		},
 		{
 			name:       "a failure that might pass is left for River to retry",
 			windowErr:  errors.New("no server running"),
 			wantErr:    true,
 			wantReason: "no server running",
-			wantRuns:   []schedulestore.RunState{schedulestore.RunStateRetryable},
+			wantRuns:   []schedulev1.ScheduleRunState{schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_RETRYABLE},
 		},
 		{
 			name:       "and on the last attempt is recorded as discarded",
@@ -105,18 +107,18 @@ func TestLaunchAgentWorker(t *testing.T) {
 			attempt:    5,
 			wantErr:    true,
 			wantReason: "no server running",
-			wantRuns:   []schedulestore.RunState{schedulestore.RunStateDiscarded},
+			wantRuns:   []schedulev1.ScheduleRunState{schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_DISCARDED},
 		},
 		{
 			name:         "a schedule hiding its runs launches onto a hidden task",
 			hideAgents:   true,
-			wantRuns:     []schedulestore.RunState{schedulestore.RunStateCompleted},
+			wantRuns:     []schedulev1.ScheduleRunState{schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED},
 			wantLaunched: true,
 			wantHidden:   true,
 		},
 		{
 			name:         "an armed schedule launches its agent",
-			wantRuns:     []schedulestore.RunState{schedulestore.RunStateCompleted},
+			wantRuns:     []schedulev1.ScheduleRunState{schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED},
 			wantLaunched: true,
 		},
 	}
@@ -149,7 +151,7 @@ func TestLaunchAgentWorker(t *testing.T) {
 			if tt.busy {
 				stores.SeedAgent(t, agentstore.Agent{
 					Name:       "morning-ci",
-					State:      agentstore.StateThinking,
+					State:      agentv1.AgentState_AGENT_STATE_THINKING,
 					WorkflowID: workflow.ID,
 					ScheduleID: xptr.Ptr(schedule.ID),
 				})
@@ -203,7 +205,7 @@ func TestLaunchAgentWorker(t *testing.T) {
 
 			runs, err := stores.Schedules.ListRuns(ctx, schedule.ID, 10)
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantRuns, xslice.Map(runs, func(run schedulestore.Run) schedulestore.RunState {
+			assert.Equal(t, tt.wantRuns, xslice.Map(runs, func(run schedulestore.Run) schedulev1.ScheduleRunState {
 				return run.State
 			}))
 			assert.Equal(t, tt.wantSynced, slices.Contains(registrations.synced, schedule.ID), "a firing of a deleted schedule resyncs its registration")
@@ -238,25 +240,25 @@ func TestLaunchAgentWorkerLaunchesOneAgentPerFiring(t *testing.T) {
 		name        string
 		occurrences []time.Time
 		wantAgents  int
-		wantRuns    []schedulestore.RunState
+		wantRuns    []schedulev1.ScheduleRunState
 	}{
 		{
 			name:        "working the same firing twice launches one agent",
 			occurrences: []time.Time{nine, nine},
 			wantAgents:  1,
-			wantRuns:    []schedulestore.RunState{schedulestore.RunStateCompleted},
+			wantRuns:    []schedulev1.ScheduleRunState{schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED},
 		},
 		{
 			name:        "the same firing written in another zone launches one agent",
 			occurrences: []time.Time{nine, nine.In(time.FixedZone("elsewhere", 5*60*60))},
 			wantAgents:  1,
-			wantRuns:    []schedulestore.RunState{schedulestore.RunStateCompleted},
+			wantRuns:    []schedulev1.ScheduleRunState{schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED},
 		},
 		{
 			name:        "a later firing launches once the last agent is no longer working",
 			occurrences: []time.Time{nine, nine.Add(24 * time.Hour)},
 			wantAgents:  2,
-			wantRuns:    []schedulestore.RunState{schedulestore.RunStateCompleted, schedulestore.RunStateCompleted},
+			wantRuns:    []schedulev1.ScheduleRunState{schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED, schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED},
 		},
 	}
 
@@ -304,7 +306,7 @@ func TestLaunchAgentWorkerLaunchesOneAgentPerFiring(t *testing.T) {
 
 			runs, err := stores.Schedules.ListRuns(t.Context(), schedule.ID, 10)
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantRuns, xslice.Map(runs, func(run schedulestore.Run) schedulestore.RunState {
+			assert.Equal(t, tt.wantRuns, xslice.Map(runs, func(run schedulestore.Run) schedulev1.ScheduleRunState {
 				return run.State
 			}))
 		})
@@ -320,31 +322,31 @@ func TestLaunchAgentWorkerMailsAnOrchestrator(t *testing.T) {
 		paused     bool
 		twice      bool
 		wantReason string
-		wantRuns   []schedulestore.RunState
+		wantRuns   []schedulev1.ScheduleRunState
 		wantMailed bool
 	}{
 		{
 			name:       "a live orchestrator is mailed the prompt",
-			wantRuns:   []schedulestore.RunState{schedulestore.RunStateCompleted},
+			wantRuns:   []schedulev1.ScheduleRunState{schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED},
 			wantMailed: true,
 		},
 		{
 			name:       "working the same firing twice mails once",
 			twice:      true,
-			wantRuns:   []schedulestore.RunState{schedulestore.RunStateCompleted},
+			wantRuns:   []schedulev1.ScheduleRunState{schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED},
 			wantMailed: true,
 		},
 		{
 			name:       "a paused schedule mails nothing",
 			paused:     true,
 			wantReason: "is paused",
-			wantRuns:   []schedulestore.RunState{schedulestore.RunStateCancelled},
+			wantRuns:   []schedulev1.ScheduleRunState{schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_CANCELLED},
 		},
 		{
 			name:       "an orchestrator archived since the schedule was written is skipped",
 			archived:   true,
 			wantReason: "orchestrator \"lead\" has been archived",
-			wantRuns:   []schedulestore.RunState{schedulestore.RunStateCancelled},
+			wantRuns:   []schedulev1.ScheduleRunState{schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_CANCELLED},
 		},
 	}
 
@@ -356,7 +358,7 @@ func TestLaunchAgentWorkerMailsAnOrchestrator(t *testing.T) {
 			workflow := stores.SeedWorkflow(t, workflowstore.Config{Name: "nightly", Cwd: t.TempDir()})
 			orchestrator := stores.SeedAgent(t, agentstore.Agent{
 				Name:       "lead",
-				Role:       agentstore.RoleOrchestrator,
+				Role:       agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 				WorkflowID: workflow.ID,
 			})
 			schedule := stores.SeedSchedule(t, schedulestore.Config{
@@ -365,7 +367,7 @@ func TestLaunchAgentWorkerMailsAnOrchestrator(t *testing.T) {
 				Prompt:              "check CI",
 				Enabled:             !tt.paused,
 				WorkflowID:          workflow.ID,
-				Kind:                schedulestore.KindOrchestrator,
+				Kind:                schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR,
 				OrchestratorAgentID: &orchestrator.ID,
 			})
 			if tt.archived {
@@ -409,7 +411,7 @@ func TestLaunchAgentWorkerMailsAnOrchestrator(t *testing.T) {
 
 			runs, err := stores.Schedules.ListRuns(ctx, schedule.ID, 10)
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantRuns, xslice.Map(runs, func(run schedulestore.Run) schedulestore.RunState {
+			assert.Equal(t, tt.wantRuns, xslice.Map(runs, func(run schedulestore.Run) schedulev1.ScheduleRunState {
 				return run.State
 			}))
 			if tt.wantReason != "" {

@@ -15,6 +15,7 @@ import (
 	reviewstore "komrad/internal/store/review"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -115,7 +116,7 @@ func (m *ForgeMirror) withoutBots(threads []pullrequeststore.ForgeThread) ([]pul
 type mirroredThread struct {
 	ThreadID       uuid.UUID
 	ResolvedAt     *time.Time
-	ResolvedByKind reviewstore.AuthorKind
+	ResolvedByKind agentv1.ReviewAuthorKind
 	ForgeResolved  bool
 	Comments       map[uuid.UUID]mirroredComment
 }
@@ -303,7 +304,7 @@ func createForgeThread(ctx context.Context, reviews *reviewstore.ReviewStore, pa
 		NewStart:      params.Place.NewStart,
 		NewEnd:        params.Place.NewStart,
 		Body:          first.Body,
-		AuthorKind:    reviewstore.AuthorForge,
+		AuthorKind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_FORGE,
 		External:      externalOf(first),
 		ForgeThreadID: &params.Thread.ID,
 		Held:          !first.Trusted,
@@ -355,7 +356,7 @@ func mirrorComments(ctx context.Context, reviews *reviewstore.ReviewStore, param
 		if _, err := reviews.CreateMessage(ctx, reviewstore.CreateMessageParams{
 			ThreadID:   params.Mirrored.ThreadID,
 			ReviewID:   &review.ID,
-			AuthorKind: reviewstore.AuthorForge,
+			AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_FORGE,
 			Body:       comment.Body,
 			External:   externalOf(comment),
 			Held:       !comment.Trusted,
@@ -380,7 +381,7 @@ func syncResolved(ctx context.Context, reviews *reviewstore.ReviewStore, mirrore
 
 	resolved := mirrored.ResolvedAt != nil
 	forgeResolves := thread.Resolved && !resolved
-	forgeReopens := !thread.Resolved && resolved && mirrored.ResolvedByKind == reviewstore.AuthorForge
+	forgeReopens := !thread.Resolved && resolved && mirrored.ResolvedByKind == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_FORGE
 	if !forgeResolves && !forgeReopens {
 		return nil
 	}
@@ -388,7 +389,7 @@ func syncResolved(ctx context.Context, reviews *reviewstore.ReviewStore, mirrore
 	_, err := reviews.SetThreadResolved(ctx, reviewstore.SetThreadResolvedParams{
 		ID:       mirrored.ThreadID,
 		Resolved: thread.Resolved,
-		ByKind:   reviewstore.AuthorForge,
+		ByKind:   agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_FORGE,
 	})
 
 	return err
@@ -427,7 +428,7 @@ func releasedForgeEvents(ctx context.Context, reviews *reviewstore.ReviewStore, 
 			ReviewID:   review.ID,
 			TaskID:     taskID,
 			Ordinal:    snapshot.Ordinal,
-			Verdict:    reviewstore.VerdictCommented,
+			Verdict:    agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED,
 			Comments:   tally.Comments,
 			Replies:    tally.Replies,
 			ForgeLogin: xptr.Deref(review.ExternalLogin),

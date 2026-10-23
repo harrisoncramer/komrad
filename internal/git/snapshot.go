@@ -110,7 +110,7 @@ func (c *Client) TakeSnapshot(ctx context.Context, params TakeSnapshotParams) (*
 	if err != nil {
 		return nil, err
 	}
-	if readSequence(gitDir).IsInProgress() {
+	if IsInProgress(readSequence(gitDir)) {
 		return nil, errSequenceInProgress
 	}
 

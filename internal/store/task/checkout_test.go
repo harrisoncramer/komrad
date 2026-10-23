@@ -5,16 +5,18 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/sync/errgroup"
-
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
+	taskv1 "komrad/proto/gen/task/v1"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 // TestClaimCheckout pins that a task's checkout is claimed once, whoever asks.
@@ -36,7 +38,7 @@ func TestClaimCheckout(t *testing.T) {
 		{
 			name: "a task whose checkout was taken away is not claimed again",
 			seed: func(t *testing.T, stores *storetest.Stores, taskID uuid.UUID) {
-				require.NoError(t, stores.Tasks.SetHead(t.Context(), taskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone}))
+				require.NoError(t, stores.Tasks.SetHead(t.Context(), taskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE}))
 			},
 			want: false,
 		},
@@ -136,7 +138,7 @@ func TestClaimCheckoutAgain(t *testing.T) {
 func TestListCheckouts(t *testing.T) {
 	tests := []struct {
 		name   string
-		reason taskstore.WorktreeRemovalReason
+		reason taskv1.WorktreeRemovalReason
 		want   bool
 	}{
 		{
@@ -145,12 +147,12 @@ func TestListCheckouts(t *testing.T) {
 		},
 		{
 			name:   "a worktree gone without a delete is listed",
-			reason: taskstore.WorktreeGone,
+			reason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE,
 			want:   true,
 		},
 		{
 			name:   "a worktree a delete removed is left out",
-			reason: taskstore.WorktreeDeleted,
+			reason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED,
 			want:   false,
 		},
 	}
@@ -159,7 +161,7 @@ func TestListCheckouts(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			stores := storetest.Open(t)
 			ctx := t.Context()
-			agent := stores.SeedAgent(t, agentstore.Agent{Name: "writer", Role: agentstore.RoleWriter})
+			agent := stores.SeedAgent(t, agentstore.Agent{Name: "writer", Role: agentv1.AgentRole_AGENT_ROLE_WRITER})
 			require.NoError(t, stores.Tasks.SetCheckoutDir(ctx, *agent.TaskID, "/tmp/worktrees/work"))
 			stores.SeedTaskHead(t, agent.ID, taskstore.SetHeadParams{WorktreeRemovalReason: tt.reason})
 
@@ -174,32 +176,32 @@ func TestListCheckouts(t *testing.T) {
 func TestSetHead(t *testing.T) {
 	tests := []struct {
 		name  string
-		from  taskstore.WorktreeRemovalReason
-		write taskstore.WorktreeRemovalReason
-		want  taskstore.WorktreeRemovalReason
+		from  taskv1.WorktreeRemovalReason
+		write taskv1.WorktreeRemovalReason
+		want  taskv1.WorktreeRemovalReason
 	}{
 		{
 			name:  "a worktree found missing is recorded gone",
-			write: taskstore.WorktreeGone,
-			want:  taskstore.WorktreeGone,
+			write: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE,
+			want:  taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE,
 		},
 		{
 			name:  "a gone worktree back on disk is cleared",
-			from:  taskstore.WorktreeGone,
-			write: taskstore.WorktreeOnDisk,
-			want:  taskstore.WorktreeOnDisk,
+			from:  taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE,
+			write: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_UNSPECIFIED,
+			want:  taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_UNSPECIFIED,
 		},
 		{
 			name:  "a deleted worktree found missing stays deleted",
-			from:  taskstore.WorktreeDeleted,
-			write: taskstore.WorktreeGone,
-			want:  taskstore.WorktreeDeleted,
+			from:  taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED,
+			write: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE,
+			want:  taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED,
 		},
 		{
 			name:  "a deleted worktree read as on disk stays deleted",
-			from:  taskstore.WorktreeDeleted,
-			write: taskstore.WorktreeOnDisk,
-			want:  taskstore.WorktreeDeleted,
+			from:  taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED,
+			write: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_UNSPECIFIED,
+			want:  taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED,
 		},
 	}
 

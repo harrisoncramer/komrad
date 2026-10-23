@@ -8,6 +8,7 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/position"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 )
@@ -15,25 +16,9 @@ import (
 // traceTimeout caps tracing every thread of one history together.
 const traceTimeout = 10 * time.Second
 
-// WidenedReason is why a history diffs the whole change instead of the span asked for.
-type WidenedReason int
-
-const (
-	// WidenedAnswerGone is an answer whose snapshots are gone.
-	WidenedAnswerGone WidenedReason = iota
-	// WidenedCommentSnapshotGone is a comment whose snapshot is gone.
-	WidenedCommentSnapshotGone
-	// WidenedRangeSnapshotGone is a range with a snapshot gone at either end.
-	WidenedRangeSnapshotGone
-	// WidenedRangeBackwards is a range starting on or after the snapshot it ends on.
-	WidenedRangeBackwards
-	// WidenedAnswerAcrossRebase is an answer whose older side would not replay across a rebase.
-	WidenedAnswerAcrossRebase
-)
-
 // Widening is why a history diffs the whole change, with the paths that stopped a replay.
 type Widening struct {
-	Reason    WidenedReason
+	Reason    agentv1.ReviewWidenedReason
 	Conflicts []string
 }
 
@@ -164,7 +149,7 @@ func resolveSpan(ctx context.Context, params BuildParams) (ResolvedSpan, *Wideni
 	if answer := asked.Answer; answer != nil {
 		from, to := findSnapshot(params.Snapshots, answer.FromSnapshotID), findSnapshot(params.Snapshots, answer.ToSnapshotID)
 		if from == nil || to == nil {
-			return ResolvedSpan{}, &Widening{Reason: WidenedAnswerGone}
+			return ResolvedSpan{}, &Widening{Reason: agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_ANSWER_GONE}
 		}
 
 		from = findAnswerBase(params.Snapshots, from, to)
@@ -177,7 +162,7 @@ func resolveSpan(ctx context.Context, params BuildParams) (ResolvedSpan, *Wideni
 	if origin := asked.Origin; origin != nil {
 		snapshot := findSnapshot(params.Snapshots, origin.SnapshotID)
 		if snapshot == nil {
-			return ResolvedSpan{}, &Widening{Reason: WidenedCommentSnapshotGone}
+			return ResolvedSpan{}, &Widening{Reason: agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_COMMENT_SNAPSHOT_GONE}
 		}
 
 		span.OriginBaseSHA, span.OriginHeadSHA, span.OriginSnapshotBaseSHA = origin.BaseSHA, snapshot.SHA, snapshot.BaseSHA
@@ -195,7 +180,7 @@ func resolveSpan(ctx context.Context, params BuildParams) (ResolvedSpan, *Wideni
 		ToBase:   toBase,
 	})
 	if !compared.Comparable {
-		return ResolvedSpan{}, &Widening{Reason: WidenedAnswerAcrossRebase, Conflicts: compared.Conflicts}
+		return ResolvedSpan{}, &Widening{Reason: agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_ANSWER_ACROSS_REBASE, Conflicts: compared.Conflicts}
 	}
 
 	span.BaseSHA, span.Replayed = compared.FromSHA, compared.Replayed
@@ -211,7 +196,7 @@ func resolveSnapshots(ctx context.Context, params BuildParams, snapshots Snapsho
 		to = findSnapshot(params.Snapshots, snapshots.ToSnapshotID)
 	}
 	if to == nil {
-		return ResolvedSpan{}, &Widening{Reason: WidenedRangeSnapshotGone}
+		return ResolvedSpan{}, &Widening{Reason: agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_RANGE_SNAPSHOT_GONE}
 	}
 
 	span := wholeSpan(*to)
@@ -222,9 +207,9 @@ func resolveSnapshots(ctx context.Context, params BuildParams, snapshots Snapsho
 	from := findSnapshot(params.Snapshots, snapshots.FromSnapshotID)
 	switch {
 	case from == nil:
-		return ResolvedSpan{}, &Widening{Reason: WidenedRangeSnapshotGone}
+		return ResolvedSpan{}, &Widening{Reason: agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_RANGE_SNAPSHOT_GONE}
 	case from.Ordinal >= to.Ordinal:
-		return ResolvedSpan{}, &Widening{Reason: WidenedRangeBackwards}
+		return ResolvedSpan{}, &Widening{Reason: agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_RANGE_BACKWARDS}
 	}
 
 	compared := compareSnapshots(ctx, compareSnapshotsParams{

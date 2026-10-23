@@ -3,74 +3,25 @@ syntax = "proto3";
 package agent.v1;
 
 import "agent/v1/document.proto";
+import "agent/v1/enums.proto";
 import "agent/v1/mail.proto";
 import "agent/v1/review.proto";
 import "agent/v1/screen.proto";
 import "agent/v1/transcript.proto";
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
-import "forge/v1/connection.proto";
+import "forge/v1/enums.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "pagination/v1/pagination.proto";
+import "pullrequest/v1/enums.proto";
 import "pullrequest/v1/pullrequest.proto";
 import "rules/v1/rules.proto";
+import "task/v1/enums.proto";
 import "task/v1/task.proto";
 import "view/v1/view.proto";
 
 option go_package = "komrad/proto/gen/agent/v1;agentv1";
-
-// AgentState is what komrad last read an agent to be doing, from the end of its pane.
-enum AgentState {
-  // No state was recorded. No agent has this state.
-  AGENT_STATE_UNSPECIFIED = 0;
-  // The CLI is at rest with nothing typed.
-  AGENT_STATE_IDLE = 1;
-  // The CLI is working on a turn.
-  AGENT_STATE_THINKING = 2;
-  // The CLI is waiting for the person to answer a selection.
-  AGENT_STATE_WAITING = 3;
-  // The agent is launching and has no pane to read yet.
-  AGENT_STATE_SETTING_UP = 4;
-  // The launch failed. `retry_agent` launches the agent again.
-  AGENT_STATE_FAILED_TO_CREATE = 5;
-  // A delete failed to clean up after the agent. `failure_reason` says why.
-  AGENT_STATE_FAILED_TO_CLEANUP = 6;
-  // The pane could be read, but its end showed no known state.
-  AGENT_STATE_UNCERTAIN = 7;
-  // The CLI is at rest after an API error ended the last turn. `turn_error` names the error.
-  AGENT_STATE_ERRORED = 8;
-}
-
-// AgentRole is what an agent was launched to do.
-enum AgentRole {
-  // No role was recorded. No agent has this role.
-  AGENT_ROLE_UNSPECIFIED = 0;
-  // An agent on a task that reads the writer's change and gives a review.
-  AGENT_ROLE_REVIEWER = 1;
-  // The one agent per workflow that hands work out across its tasks.
-  AGENT_ROLE_ORCHESTRATOR = 2;
-  // The one agent on a task that changes its checkout.
-  AGENT_ROLE_WRITER = 3;
-}
-
-// ReportEvent is what a CLI hook reported about an agent, whichever CLI ran it.
-enum ReportEvent {
-  // No event was reported. `RecordReport` refuses this value.
-  REPORT_EVENT_UNSPECIFIED = 0;
-  // A turn ended on its own.
-  REPORT_EVENT_TURN_ENDED = 1;
-  // An API error ended a turn.
-  REPORT_EVENT_TURN_FAILED = 2;
-  // A tool call is about to run.
-  REPORT_EVENT_TOOL_STARTED = 3;
-  // A tool call returned or failed.
-  REPORT_EVENT_TOOL_FINISHED = 4;
-  // A tool call is waiting for the person to allow it.
-  REPORT_EVENT_APPROVAL_WANTED = 5;
-  // The conversation was just compacted.
-  REPORT_EVENT_COMPACTED = 6;
-}
 
 // Agent is one CLI conversation that komrad runs in a pane and tracks.
 message Agent {
@@ -169,21 +120,21 @@ message CommentCounts {
 
 // PullRequestStanding is the current pull request from an agent's branch.
 message PullRequestStanding {
-  // The state of the current pull request. `UNREAD` means komrad has not read the repository yet,
-  // and `NONE` means the branch has no pull request, or the checkout has moved past a finished one.
+  // The state of the current pull request. `unread` means komrad has not read the repository yet,
+  // and `none` means the branch has no pull request, or the checkout has moved past a finished one.
   pullrequest.v1.PullRequestState state = 1;
-  // The current pull request's number. Unset for `UNREAD` and `NONE`.
+  // The current pull request's number. Unset for `unread` and `none`.
   optional int32 number = 2;
-  // The current pull request's web address. Unset for `UNREAD` and `NONE`.
+  // The current pull request's web address. Unset for `unread` and `none`.
   optional string url = 3;
-  // The current pull request's title. Unset for `UNREAD` and `NONE`.
+  // The current pull request's title. Unset for `unread` and `none`.
   optional string title = 4;
-  // Whether the forge would merge the current pull request. Unspecified for `UNREAD` and `NONE`.
+  // Whether the forge would merge the current pull request. Unspecified for `unread` and `none`.
   pullrequest.v1.MergeReadiness merge_readiness = 5;
-  // The commit at the head of the current pull request on the forge. Unset for `UNREAD` and
-  // `NONE`.
+  // The commit at the head of the current pull request on the forge. Unset for `unread` and
+  // `none`.
   optional string head_sha = 6;
-  // The kind of forge the current pull request is on. Unspecified for `UNREAD` and `NONE`.
+  // The kind of forge the current pull request is on. Unspecified for `unread` and `none`.
   forge.v1.Kind forge = 7;
 }
 
@@ -192,7 +143,7 @@ message ListAgentsRequest {
   optional pagination.v1.Pagination pagination = 1;
   // Whether to list only archived agents instead of live ones.
   bool archived = 2;
-  // How much of each agent to return. `VIEW_FULL` returns every prompt in full and can make a
+  // How much of each agent to return. `full` returns every prompt in full and can make a
   // very large response.
   view.v1.View view = 3 [(buf.validate.field).enum.defined_only = true];
 }

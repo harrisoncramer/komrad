@@ -14,7 +14,9 @@ import (
 	mailstore "komrad/internal/store/mail"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
@@ -65,7 +67,7 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 			return nil, err
 		}
 
-		held, err := mails.GetUnreadAbout(ctx, recipient, mailstore.KindPullRequestChanged, pullRequest.ID)
+		held, err := mails.GetUnreadAbout(ctx, recipient, agentv1.MailKind_MAIL_KIND_PULL_REQUEST_CHANGED, pullRequest.ID)
 		if err != nil && !errors.Is(err, store.ErrNotFound) {
 			return nil, err
 		}
@@ -154,7 +156,7 @@ func untold(failures []pullrequeststore.CheckFailure) []forge.StatusCheck {
 }
 
 func failedChecks(pullRequest pullrequeststore.PullRequest) []forge.StatusCheck {
-	if slices.Contains([]forge.Checks{forge.ChecksFailing, forge.ChecksFailingRunning}, pullRequest.MergeReadiness.DisplayForHead(pullRequest.HeadSHA).Checks.Value) {
+	if slices.Contains([]pullrequestv1.Checks{pullrequestv1.Checks_CHECKS_FAILING, pullrequestv1.Checks_CHECKS_FAILING_RUNNING}, pullRequest.MergeReadiness.DisplayForHead(pullRequest.HeadSHA).Checks.Value) {
 		return forge.FailedStatusChecks(pullRequest.HeadStatusChecks)
 	}
 
@@ -167,9 +169,9 @@ func fieldValues(pullRequest pullrequeststore.PullRequest) map[field]string {
 
 	return map[field]string{
 		fieldState:        pullRequest.State,
-		fieldDecision:     string(displayed.Decision.Value),
-		fieldChecks:       string(displayed.Checks.Value),
-		fieldMergeability: string(displayed.Mergeability.Value),
+		fieldDecision:     forge.DescribeDecision(displayed.Decision.Value),
+		fieldChecks:       forge.DescribeChecks(displayed.Checks.Value),
+		fieldMergeability: forge.DescribeMergeability(displayed.Mergeability.Value),
 		fieldAutoMerge:    forge.DescribeAutoMerge(pullRequest.MergeReadiness.AutoMerge),
 	}
 }

@@ -4,10 +4,9 @@ import (
 	"time"
 
 	"komrad/internal/schedules"
+	schedulestore "komrad/internal/store/schedule"
 	"komrad/lib/xslice"
 	"komrad/lib/xstr"
-
-	schedulestore "komrad/internal/store/schedule"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -36,7 +35,7 @@ func Schedule(s schedulestore.Schedule, now time.Time, options ScheduleOptions) 
 		Prompt:              prompt,
 		PromptTruncated:     promptTruncated,
 		WorkflowId:          s.WorkflowID.String(),
-		Kind:                scheduleKinds[s.Kind],
+		Kind:                s.Kind,
 		OrchestratorAgentId: formatOptionalID(s.OrchestratorAgentID),
 	}
 
@@ -55,25 +54,12 @@ func Schedule(s schedulestore.Schedule, now time.Time, options ScheduleOptions) 
 	return rendered
 }
 
-var scheduleKinds = map[schedulestore.Kind]schedulev1.ScheduleKind{
-	schedulestore.KindTask:         schedulev1.ScheduleKind_SCHEDULE_KIND_TASK,
-	schedulestore.KindOrchestrator: schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR,
-}
-
-var runStates = map[schedulestore.RunState]schedulev1.ScheduleRunState{
-	schedulestore.RunStateRunning:   schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_RUNNING,
-	schedulestore.RunStateRetryable: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_RETRYABLE,
-	schedulestore.RunStateCompleted: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED,
-	schedulestore.RunStateCancelled: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_CANCELLED,
-	schedulestore.RunStateDiscarded: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_DISCARDED,
-}
-
 // ScheduleRun draws one firing as the wire carries it.
 func ScheduleRun(run schedulestore.Run) *schedulev1.ScheduleRun {
 	rendered := &schedulev1.ScheduleRun{
 		Id:           run.ID,
 		ScheduledFor: timestamppb.New(run.ScheduledFor),
-		State:        runStates[run.State],
+		State:        run.State,
 		Attempt:      int32(run.Attempt),
 		MaxAttempts:  int32(run.MaxAttempts),
 		Message:      run.Message,

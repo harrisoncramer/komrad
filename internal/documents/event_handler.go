@@ -11,6 +11,7 @@ import (
 	"komrad/internal/store"
 	documentstore "komrad/internal/store/document"
 	mailstore "komrad/internal/store/mail"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
@@ -49,7 +50,7 @@ func handlePersonWrote(ctx context.Context, tx store.DBTX, mailer *mail.MailServ
 		return nil, err
 	}
 
-	told, err := mailstore.NewMailStore(tx).ExistsReadAbout(ctx, document.AgentID, mailstore.KindDocumentEdited, document.ID)
+	told, err := mailstore.NewMailStore(tx).ExistsReadAbout(ctx, document.AgentID, agentv1.MailKind_MAIL_KIND_DOCUMENT_EDITED, document.ID)
 	if err != nil {
 		return nil, err
 	}

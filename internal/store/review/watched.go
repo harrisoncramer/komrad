@@ -37,9 +37,9 @@ func (s *ReviewStore) ListWatched(ctx context.Context, keys []uuid.UUID) ([]Revi
 		return nil, fmt.Errorf("failed to list the watched reviews: %w", err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListWatchedReviewsRow) Review {
+	return xslice.TryMap(rows, func(row *models.ListWatchedReviewsRow) (Review, error) {
 		return watchedReviewFromRow(*row)
-	}), nil
+	})
 }
 
 // ListIDsOfTasks returns the ids of every review of the given tasks.
@@ -56,25 +56,30 @@ func (s *ReviewStore) ListIDsOfTasks(ctx context.Context, taskIDs []uuid.UUID) (
 	return ids, nil
 }
 
-func watchedReviewFromRow(row models.ListWatchedReviewsRow) Review {
-	review := Review{
+func watchedReviewFromRow(row models.ListWatchedReviewsRow) (Review, error) {
+	authorKind, err := fromDBToServiceReviewAuthorKind(row.AuthorKind)
+	if err != nil {
+		return Review{}, err
+	}
+	verdict, err := fromDBToServiceNullReviewVerdict(row.Verdict)
+	if err != nil {
+		return Review{}, err
+	}
+
+	return Review{
 		ID:               row.ID,
 		TaskID:           row.TaskID,
 		SnapshotID:       row.SnapshotID,
 		SnapshotOrdinal:  row.SnapshotOrdinal,
 		SnapshotSHA:      row.SnapshotSha,
 		SnapshotLandedAt: row.SnapshotLandedAt,
-		AuthorKind:       AuthorKind(row.AuthorKind),
+		AuthorKind:       authorKind,
 		AuthorAgentID:    row.AuthorAgentID,
 		ReleasedAt:       row.ReleasedAt,
 		CreatedAt:        row.CreatedAt,
 		UpdatedAt:        row.UpdatedAt,
-	}
-	if row.Verdict.Valid {
-		review.Verdict = xptr.Ptr(Verdict(row.Verdict.ReviewVerdict))
-	}
-
-	return review
+		Verdict:          verdict,
+	}, nil
 }
 
 // WatchedReviewThreads declares the threads on live agents to the watch.
@@ -137,7 +142,11 @@ func (s *ThreadStore) ListWatched(ctx context.Context, keys []uuid.UUID) ([]Thre
 
 	byThread := map[uuid.UUID][]Message{}
 	for _, row := range messages {
-		byThread[row.ReviewMessage.ThreadID] = append(byThread[row.ReviewMessage.ThreadID], messageOfThreadFromRow(*row))
+		message, err := messageOfThreadFromRow(*row)
+		if err != nil {
+			return nil, err
+		}
+		byThread[row.ReviewMessage.ThreadID] = append(byThread[row.ReviewMessage.ThreadID], *message)
 	}
 
 	replies, err := s.queries.ListForgeReplies(ctx, ids)
@@ -147,12 +156,15 @@ func (s *ThreadStore) ListWatched(ctx context.Context, keys []uuid.UUID) ([]Thre
 
 	repliesByThread := map[uuid.UUID][]ForgeReply{}
 	for _, row := range replies {
-		reply := listedForgeReplyFromRow(row)
+		reply, err := listedForgeReplyFromRow(row)
+		if err != nil {
+			return nil, err
+		}
 		repliesByThread[reply.ThreadID] = append(repliesByThread[reply.ThreadID], reply)
 	}
 
-	return xslice.Map(rows, func(row *models.ListWatchedReviewThreadsRow) ThreadWithMessages {
-		thread := threadFromRow(models.ReviewThread{
+	return xslice.TryMap(rows, func(row *models.ListWatchedReviewThreadsRow) (ThreadWithMessages, error) {
+		thread, err := threadFromRow(models.ReviewThread{
 			ID:                  row.ID,
 			TaskID:              row.TaskID,
 			ReviewID:            row.ReviewID,
@@ -175,15 +187,18 @@ func (s *ThreadStore) ListWatched(ctx context.Context, keys []uuid.UUID) ([]Thre
 			CreatedAt:           row.CreatedAt,
 			UpdatedAt:           row.UpdatedAt,
 		})
+		if err != nil {
+			return ThreadWithMessages{}, err
+		}
 		thread.SnapshotOrdinal = row.SnapshotOrdinal
 		thread.UnreadByHuman = xptr.Deref(row.UnreadByHuman)
 
 		return ThreadWithMessages{
-			Thread:       thread,
+			Thread:       *thread,
 			Messages:     byThread[row.ID],
 			ForgeReplies: repliesByThread[row.ID],
-		}
-	}), nil
+		}, nil
+	})
 }
 
 // ListIDsOfTasks returns the ids of every review thread on the given tasks.

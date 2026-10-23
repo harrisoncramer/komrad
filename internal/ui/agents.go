@@ -14,6 +14,7 @@ import (
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/tabs"
 	"komrad/internal/view"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -127,7 +128,7 @@ func (a *agentsScreen) openAgent(in screen.Inputs, item panel.AgentRow) screen.R
 		return nil
 	}
 
-	if !item.Alive && !item.Agent.State.DoesPaneDecide() {
+	if !item.Alive && !panel.DoesPaneDecide(item.Agent.State) {
 		return nil
 	}
 
@@ -210,7 +211,7 @@ func (a *agentsScreen) followAwaitingCLI(in screen.Inputs) screen.Request {
 		switch {
 		case !ok:
 			delete(a.awaitingCLI, id)
-		case item.Alive && item.Agent.State.DoesPaneDecide():
+		case item.Alive && panel.DoesPaneDecide(item.Agent.State):
 			delete(a.awaitingCLI, id)
 			notes = append(notes, screen.Note{
 				Kind:    screen.Info,
@@ -274,8 +275,8 @@ func (a *agentsScreen) toggleSnooze(in screen.Inputs, key string) screen.Request
 // hasPane reports whether an agent has a pane of its own worth putting in the window.
 func hasPane(item panel.AgentRow) bool {
 	return item.Alive &&
-		item.Agent.State != panel.StateSettingUp &&
-		!item.Agent.State.IsFailed()
+		item.Agent.State != agentv1.AgentState_AGENT_STATE_SETTING_UP &&
+		!panel.IsFailed(item.Agent.State)
 }
 
 func agentsTabs() tabs.Strip {

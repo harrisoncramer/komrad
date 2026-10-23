@@ -248,7 +248,7 @@ func (s *Handler) GetReview(ctx context.Context, req *agentv1komrad.GetReviewReq
 func (s *Handler) ReleaseReview(ctx context.Context, req *agentv1komrad.ReleaseReviewRequest) (*agentv1.ReleaseReviewResponse, *fail.Error) {
 	result, err := s.review.ReleaseReview(ctx, reviews.ReleaseReviewParams{
 		Task:    req.Task,
-		Verdict: fromReviewVerdict(req.Verdict),
+		Verdict: req.Verdict,
 		Body:    req.Body,
 		Author:  reviewAuthorFrom(ctx),
 	})
@@ -304,24 +304,10 @@ func (s *Handler) ListReviewViewedFiles(ctx context.Context, req *agentv1komrad.
 func reviewAuthorFrom(ctx context.Context) reviews.ReviewAuthor {
 	from := caller.From(ctx)
 	if from.AgentID == uuid.Nil {
-		return reviews.ReviewAuthor{Kind: reviewstore.AuthorHuman}
+		return reviews.ReviewAuthor{Kind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN}
 	}
 
 	agentID := from.AgentID
 
-	return reviews.ReviewAuthor{Kind: reviewstore.AuthorAgent, AgentID: &agentID}
-}
-
-func fromReviewVerdict(verdict agentv1.ReviewVerdict) reviewstore.Verdict {
-	switch verdict {
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
-		return reviewstore.VerdictApproved
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
-		return reviewstore.VerdictChangesRequested
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED:
-		return reviewstore.VerdictCommented
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
-	}
-
-	return ""
+	return reviews.ReviewAuthor{Kind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT, AgentID: &agentID}
 }

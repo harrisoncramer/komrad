@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	mailstore "komrad/internal/store/mail"
 	"komrad/lib/xsha"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 )
 
@@ -21,8 +21,8 @@ type Rebased struct {
 }
 
 // Kind is the kind the rebase mail is filed under.
-func (Rebased) Kind() mailstore.Kind {
-	return mailstore.KindWorktreeRebased
+func (Rebased) Kind() agentv1.MailKind {
+	return agentv1.MailKind_MAIL_KIND_WORKTREE_REBASED
 }
 
 // Events is the event the rebase starts, which turns on what became of the branch.
@@ -127,8 +127,8 @@ type Pushed struct {
 }
 
 // Kind is the kind the push mail is filed under.
-func (Pushed) Kind() mailstore.Kind {
-	return mailstore.KindWorktreePushed
+func (Pushed) Kind() agentv1.MailKind {
+	return agentv1.MailKind_MAIL_KIND_WORKTREE_PUSHED
 }
 
 // Events is empty, since a push from the panel starts no event.
@@ -153,8 +153,8 @@ type Aborted struct {
 }
 
 // Kind is the kind the abort mail is filed under.
-func (Aborted) Kind() mailstore.Kind {
-	return mailstore.KindWorktreeAborted
+func (Aborted) Kind() agentv1.MailKind {
+	return agentv1.MailKind_MAIL_KIND_WORKTREE_ABORTED
 }
 
 // Events is empty, since an abort starts no event.

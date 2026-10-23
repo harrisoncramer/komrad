@@ -14,6 +14,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	transcriptstore "komrad/internal/store/transcript"
 	workflowstore "komrad/internal/store/workflow"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 )
@@ -145,7 +146,7 @@ func (s *OrchestratorService) launchOrchestrator(ctx context.Context, workflowID
 		Dir:              dir,
 		Prompt:           prompt,
 		WorkflowID:       workflowID,
-		Role:             agentstore.RoleOrchestrator,
+		Role:             agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 		ProvisionEnabled: &provision,
 	})
 	if db.IsUniqueViolation(err) {

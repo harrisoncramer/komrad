@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/forge"
 	"komrad/lib/xptr"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -130,7 +131,7 @@ func TestSetAutoMerge(t *testing.T) {
 			params: forge.SetAutoMergeParams{
 				URL:      address,
 				On:       true,
-				Method:   forge.MergeMethodMerge,
+				Method:   forgev1.MergeMethod_MERGE_METHOD_MERGE,
 				Headline: xptr.Ptr("Land the fix"),
 			},
 			answers: map[string]answer{

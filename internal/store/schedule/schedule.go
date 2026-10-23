@@ -11,6 +11,7 @@ import (
 	"komrad/db/models"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
+	schedulev1 "komrad/proto/gen/schedule/v1"
 
 	"github.com/google/uuid"
 )
@@ -24,7 +25,7 @@ type Schedule struct {
 	HideAgents          bool
 	Prompt              string
 	WorkflowID          uuid.UUID
-	Kind                Kind
+	Kind                schedulev1.ScheduleKind
 	OrchestratorAgentID *uuid.UUID
 	UpdatedAt           time.Time
 	ArchivedAt          *time.Time
@@ -32,32 +33,11 @@ type Schedule struct {
 	RecentRuns          []Run
 }
 
-// Kind is what a firing does with the prompt.
-type Kind string
-
-const (
-	// KindTask starts a task in the workflow.
-	KindTask Kind = Kind(models.ScheduleKindTask)
-	// KindOrchestrator mails the prompt to an orchestrator.
-	KindOrchestrator Kind = Kind(models.ScheduleKindOrchestrator)
-)
-
-// RunState is where a firing stands.
-type RunState string
-
-const (
-	RunStateRunning   RunState = "running"
-	RunStateRetryable RunState = "retryable"
-	RunStateCompleted RunState = "completed"
-	RunStateCancelled RunState = "cancelled"
-	RunStateDiscarded RunState = "discarded"
-)
-
 // Run is one firing of a schedule as the launch job recorded it.
 type Run struct {
 	ID           int64
 	ScheduledFor time.Time
-	State        RunState
+	State        schedulev1.ScheduleRunState
 	Attempt      int
 	MaxAttempts  int
 	FinalizedAt  *time.Time
@@ -72,7 +52,7 @@ type Config struct {
 	HideAgents          bool
 	Prompt              string
 	WorkflowID          uuid.UUID
-	Kind                Kind
+	Kind                schedulev1.ScheduleKind
 	OrchestratorAgentID *uuid.UUID
 }
 
@@ -101,9 +81,17 @@ func (s *ScheduleStore) ListPage(ctx context.Context, limit int64, cursor *Curso
 		return nil, fmt.Errorf("failed to list a page of schedules: %w", err)
 	}
 
-	schedules := xslice.Map(rows, func(row *models.ListSchedulesPageRow) Schedule {
-		return scheduleFromRow(row.Schedule)
+	schedules, err := xslice.TryMap(rows, func(row *models.ListSchedulesPageRow) (Schedule, error) {
+		schedule, err := scheduleFromRow(row.Schedule)
+		if err != nil {
+			return Schedule{}, err
+		}
+
+		return *schedule, nil
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	return s.attachRuns(ctx, schedules, 1)
 }
@@ -118,7 +106,12 @@ func (s *ScheduleStore) Get(ctx context.Context, id uuid.UUID) (*Schedule, error
 		return nil, fmt.Errorf("failed to get schedule %q: %w", id, err)
 	}
 
-	attached, err := s.attachRuns(ctx, []Schedule{scheduleFromRow(row.Schedule)}, 1)
+	schedule, err := scheduleFromRow(row.Schedule)
+	if err != nil {
+		return nil, err
+	}
+
+	attached, err := s.attachRuns(ctx, []Schedule{*schedule}, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -136,13 +129,16 @@ func (s *ScheduleStore) GetIncludingArchived(ctx context.Context, id uuid.UUID) 
 		return nil, fmt.Errorf("failed to get schedule %q: %w", id, err)
 	}
 
-	schedule := scheduleFromRow(row.Schedule)
-
-	return &schedule, nil
+	return scheduleFromRow(row.Schedule)
 }
 
 // Create inserts a schedule and returns it.
 func (s *ScheduleStore) Create(ctx context.Context, cfg Config) (*Schedule, error) {
+	kind, err := fromServiceToDBScheduleKind(kindOrDefault(cfg.Kind))
+	if err != nil {
+		return nil, err
+	}
+
 	row, err := s.queries.InsertSchedule(ctx, models.InsertScheduleParams{
 		Name:                cfg.Name,
 		Cron:                cfg.Cron,
@@ -151,7 +147,7 @@ func (s *ScheduleStore) Create(ctx context.Context, cfg Config) (*Schedule, erro
 		HideAgents:          cfg.HideAgents,
 		Prompt:              cfg.Prompt,
 		WorkflowID:          cfg.WorkflowID,
-		Kind:                models.ScheduleKind(kindOrDefault(cfg.Kind)),
+		Kind:                kind,
 		OrchestratorAgentID: cfg.OrchestratorAgentID,
 	})
 	if db.IsUniqueViolation(err) {
@@ -161,14 +157,17 @@ func (s *ScheduleStore) Create(ctx context.Context, cfg Config) (*Schedule, erro
 		return nil, fmt.Errorf("failed to create schedule %q: %w", cfg.Name, err)
 	}
 
-	schedule := scheduleFromRow(*row)
-
-	return &schedule, nil
+	return scheduleFromRow(*row)
 }
 
 // Update replaces a schedule's editable fields, keyed by id.
 func (s *ScheduleStore) Update(ctx context.Context, id uuid.UUID, cfg Config) error {
-	err := s.queries.UpdateSchedule(ctx, models.UpdateScheduleParams{
+	kind, err := fromServiceToDBScheduleKind(kindOrDefault(cfg.Kind))
+	if err != nil {
+		return err
+	}
+
+	err = s.queries.UpdateSchedule(ctx, models.UpdateScheduleParams{
 		ID:                  id,
 		Name:                cfg.Name,
 		Cron:                cfg.Cron,
@@ -177,7 +176,7 @@ func (s *ScheduleStore) Update(ctx context.Context, id uuid.UUID, cfg Config) er
 		HideAgents:          cfg.HideAgents,
 		Prompt:              cfg.Prompt,
 		WorkflowID:          cfg.WorkflowID,
-		Kind:                models.ScheduleKind(kindOrDefault(cfg.Kind)),
+		Kind:                kind,
 		OrchestratorAgentID: cfg.OrchestratorAgentID,
 	})
 	if db.IsUniqueViolation(err) {
@@ -229,11 +228,14 @@ func (s *ScheduleStore) ListInWorkflow(ctx context.Context, workflowID uuid.UUID
 		return nil, fmt.Errorf("failed to list the schedules of workflow %q: %w", workflowID, err)
 	}
 
-	schedules := xslice.Map(rows, func(row *models.ListWorkflowSchedulesRow) Schedule {
-		return scheduleFromRow(row.Schedule)
-	})
+	return xslice.TryMap(rows, func(row *models.ListWorkflowSchedulesRow) (Schedule, error) {
+		schedule, err := scheduleFromRow(row.Schedule)
+		if err != nil {
+			return Schedule{}, err
+		}
 
-	return schedules, nil
+		return *schedule, nil
+	})
 }
 
 // Delete permanently removes a schedule, and the database clears it off the agents it launched.
@@ -255,8 +257,13 @@ func (s *ScheduleStore) CountLive(ctx context.Context, workflowID uuid.UUID) (in
 	return count, nil
 }
 
-func scheduleFromRow(s models.Schedule) Schedule {
-	return Schedule{
+func scheduleFromRow(s models.Schedule) (*Schedule, error) {
+	kind, err := fromDBToServiceScheduleKind(s.Kind)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Schedule{
 		ID:                  s.ID,
 		Name:                s.Name,
 		Cron:                s.Cron,
@@ -265,16 +272,16 @@ func scheduleFromRow(s models.Schedule) Schedule {
 		HideAgents:          s.HideAgents,
 		Prompt:              s.Prompt,
 		WorkflowID:          s.WorkflowID,
-		Kind:                Kind(s.Kind),
+		Kind:                kind,
 		OrchestratorAgentID: s.OrchestratorAgentID,
 		UpdatedAt:           s.UpdatedAt,
 		ArchivedAt:          s.ArchivedAt,
-	}
+	}, nil
 }
 
-func kindOrDefault(kind Kind) Kind {
-	if kind == "" {
-		return KindTask
+func kindOrDefault(kind schedulev1.ScheduleKind) schedulev1.ScheduleKind {
+	if kind == schedulev1.ScheduleKind_SCHEDULE_KIND_UNSPECIFIED {
+		return schedulev1.ScheduleKind_SCHEDULE_KIND_TASK
 	}
 
 	return kind

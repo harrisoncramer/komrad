@@ -147,12 +147,12 @@ func TestMergePullRequest(t *testing.T) {
 			address:    address,
 			mergeErr:   forge.ErrNotMergeable,
 			wantErr:    forge.ErrNotMergeable,
-			wantMerged: []forge.MergeParams{{URL: address, Method: forge.MergeMethodSquash}},
+			wantMerged: []forge.MergeParams{{URL: address, Method: forgev1.MergeMethod_MERGE_METHOD_SQUASH}},
 		},
 		{
 			name:          "a pull request the forge merges",
 			address:       address,
-			wantMerged:    []forge.MergeParams{{URL: address, Method: forge.MergeMethodSquash}},
+			wantMerged:    []forge.MergeParams{{URL: address, Method: forgev1.MergeMethod_MERGE_METHOD_SQUASH}},
 			wantReadOften: []string{"github.com"},
 			wantCascaded:  []string{address},
 		},
@@ -160,7 +160,7 @@ func TestMergePullRequest(t *testing.T) {
 			name:          "a merged pull request whose children komrad could not move",
 			address:       address,
 			cascadeErr:    errors.New("rebase failed"),
-			wantMerged:    []forge.MergeParams{{URL: address, Method: forge.MergeMethodSquash}},
+			wantMerged:    []forge.MergeParams{{URL: address, Method: forgev1.MergeMethod_MERGE_METHOD_SQUASH}},
 			wantReadOften: []string{"github.com"},
 			wantCascaded:  []string{address},
 		},
@@ -175,7 +175,7 @@ func TestMergePullRequest(t *testing.T) {
 			cascade := &recordingCascade{err: tt.cascadeErr}
 			writer := newTestWriter(t, stores, writing, sync, cascade)
 
-			err := writer.MergePullRequest(t.Context(), forge.MergeParams{URL: tt.address, Method: forge.MergeMethodSquash})
+			err := writer.MergePullRequest(t.Context(), forge.MergeParams{URL: tt.address, Method: forgev1.MergeMethod_MERGE_METHOD_SQUASH})
 
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)

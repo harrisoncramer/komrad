@@ -10,6 +10,7 @@ import (
 	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/oneofs"
 
 	"github.com/google/uuid"
@@ -188,7 +189,7 @@ func historyCommentsOf(threads []ReviewThreadWithMessages, snapshots []reviewsto
 		}
 
 		for _, message := range thread.Messages {
-			if message.AuthorKind != reviewstore.AuthorHuman {
+			if message.AuthorKind != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN {
 				continue
 			}
 

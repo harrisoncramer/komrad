@@ -9,6 +9,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/clock"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -56,7 +57,7 @@ func TestArchiveAndReuse(t *testing.T) {
 			require.NoError(t, st.Create(ctx, Agent{
 				Name:  "agent",
 				Pane:  "%1",
-				State: StateThinking,
+				State: agentv1.AgentState_AGENT_STATE_THINKING,
 			}))
 			first, err := st.Get(ctx, "agent")
 			require.NoError(t, err)
@@ -69,7 +70,7 @@ func TestArchiveAndReuse(t *testing.T) {
 				require.NoError(t, st.Create(ctx, Agent{
 					Name:  "agent",
 					Pane:  "%2",
-					State: StateIdle,
+					State: agentv1.AgentState_AGENT_STATE_IDLE,
 				}))
 			}
 
@@ -94,21 +95,21 @@ func TestArchiveAndReuse(t *testing.T) {
 			}
 
 			assert.NotEqual(t, first.ID, got.ID, "a reused name must not resurrect the archived row")
-			assert.Equal(t, StateIdle, got.State)
+			assert.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, got.State)
 			assert.Equal(t, "%2", got.Pane)
 
-			require.NoError(t, st.SetStateByID(ctx, got.ID, StateWaiting))
+			require.NoError(t, st.SetStateByID(ctx, got.ID, agentv1.AgentState_AGENT_STATE_WAITING))
 
 			live, err = st.List(ctx)
 			require.NoError(t, err)
 			require.Len(t, live, 1)
-			assert.Equal(t, StateWaiting, live[0].State, "the live row takes the new state")
+			assert.Equal(t, agentv1.AgentState_AGENT_STATE_WAITING, live[0].State, "the live row takes the new state")
 
 			all, err = st.ListAll(ctx)
 			require.NoError(t, err)
 			for _, agent := range all {
 				if agent.ID == first.ID {
-					assert.Equal(t, StateIdle, agent.State, "the archived row is settled, not written to")
+					assert.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, agent.State, "the archived row is settled, not written to")
 				}
 			}
 		})
@@ -134,50 +135,50 @@ func TestArchiveSettlesTheState(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		state           State
-		wantState       State
+		state           agentv1.AgentState
+		wantState       agentv1.AgentState
 		wantInterrupted bool
 		wantReason      string
 	}{
 		{
 			name:            "thinking is a turn cut part-way",
-			state:           StateThinking,
-			wantState:       StateIdle,
+			state:           agentv1.AgentState_AGENT_STATE_THINKING,
+			wantState:       agentv1.AgentState_AGENT_STATE_IDLE,
 			wantInterrupted: true,
 			wantReason:      "",
 		},
 		{
 			name:            "waiting is a turn cut part-way",
-			state:           StateWaiting,
-			wantState:       StateIdle,
+			state:           agentv1.AgentState_AGENT_STATE_WAITING,
+			wantState:       agentv1.AgentState_AGENT_STATE_IDLE,
 			wantInterrupted: true,
 			wantReason:      "",
 		},
 		{
 			name:            "uncertain settles with no turn to ask for again",
-			state:           StateUncertain,
-			wantState:       StateIdle,
+			state:           agentv1.AgentState_AGENT_STATE_UNCERTAIN,
+			wantState:       agentv1.AgentState_AGENT_STATE_IDLE,
 			wantInterrupted: false,
 			wantReason:      "",
 		},
 		{
 			name:            "setting up settles with no turn to ask for again",
-			state:           StateSettingUp,
-			wantState:       StateIdle,
+			state:           agentv1.AgentState_AGENT_STATE_SETTING_UP,
+			wantState:       agentv1.AgentState_AGENT_STATE_IDLE,
 			wantInterrupted: false,
 			wantReason:      "",
 		},
 		{
 			name:            "idle stays as it was",
-			state:           StateIdle,
-			wantState:       StateIdle,
+			state:           agentv1.AgentState_AGENT_STATE_IDLE,
+			wantState:       agentv1.AgentState_AGENT_STATE_IDLE,
 			wantInterrupted: false,
 			wantReason:      "reading",
 		},
 		{
 			name:            "a failed create keeps its failure",
-			state:           StateFailedToCreate,
-			wantState:       StateFailedToCreate,
+			state:           agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
+			wantState:       agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
 			wantInterrupted: false,
 			wantReason:      "reading",
 		},
@@ -251,7 +252,7 @@ func TestRestore(t *testing.T) {
 
 			agent := Agent{
 				Name:      "beta",
-				State:     StateThinking,
+				State:     agentv1.AgentState_AGENT_STATE_THINKING,
 				SessionID: "sess-1",
 			}
 			scope := st.defaultWorkflow
@@ -271,7 +272,7 @@ func TestRestore(t *testing.T) {
 
 			require.NoError(t, st.Restore(ctx, []uuid.UUID{original.ID}))
 			restored := *original
-			restored.State = StateIdle
+			restored.State = agentv1.AgentState_AGENT_STATE_IDLE
 			restored.Pane = "%9"
 			require.NoError(t, st.Update(ctx, restored), "an update on restore must not collide")
 
@@ -279,7 +280,7 @@ func TestRestore(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, got)
 			assert.Equal(t, original.ID, got.ID, "a restored row keeps its id")
-			assert.Equal(t, StateIdle, got.State)
+			assert.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, got.State)
 			assert.Equal(t, "sess-1", got.SessionID, "restore preserves the conversation")
 			assert.Nil(t, got.ArchivedAt, "and carries no deletion time")
 
@@ -303,7 +304,7 @@ func TestArchiveAndDeleteReturnThePaneTheRowHeld(t *testing.T) {
 		require.NoError(t, st.Create(ctx, Agent{
 			Name:  name,
 			Pane:  pane,
-			State: StateIdle,
+			State: agentv1.AgentState_AGENT_STATE_IDLE,
 		}))
 
 		created, err := st.GetInWorkflow(ctx, st.defaultWorkflow, name)
@@ -332,7 +333,7 @@ func TestArchiveReturnsThePaneAWriteItWaitedOnLeftBehind(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, st.Create(ctx, Agent{Name: "dormant", State: StateIdle}))
+	require.NoError(t, st.Create(ctx, Agent{Name: "dormant", State: agentv1.AgentState_AGENT_STATE_IDLE}))
 
 	created, err := st.GetInWorkflow(ctx, st.defaultWorkflow, "dormant")
 	require.NoError(t, err)
@@ -405,7 +406,7 @@ func TestArchiveAndRestoreInBatches(t *testing.T) {
 		require.NoError(t, st.Create(ctx, Agent{
 			Name:       name,
 			Pane:       "%1",
-			State:      StateIdle,
+			State:      agentv1.AgentState_AGENT_STATE_IDLE,
 			WorkflowID: workflowID,
 		}))
 
@@ -497,7 +498,7 @@ func TestListForTranscriptSync(t *testing.T) {
 
 			require.NoError(t, f.Create(ctx, Agent{
 				Name:      "subject",
-				State:     StateIdle,
+				State:     agentv1.AgentState_AGENT_STATE_IDLE,
 				SessionID: tt.sessionID,
 			}))
 			subject, err := f.Get(ctx, "subject")

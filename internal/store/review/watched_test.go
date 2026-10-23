@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +21,7 @@ func TestListWatched(t *testing.T) {
 	other := st.seedAgent(t, "other")
 
 	released := st.openReviewBy(t, st.takeSnapshot(t, worker, "one"), reviewer)
-	st.releaseReview(t, released, VerdictApproved)
+	st.releaseReview(t, released, agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED)
 	pending := st.openReviewBy(t, st.takeSnapshot(t, worker, "two"), reviewer)
 	elsewhere := st.openReviewBy(t, st.takeSnapshot(t, other, "three"), st.seedReviewer(t, other))
 
@@ -72,13 +73,13 @@ func TestListWatchedThreads(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, snapshot, 2, "the archived agent's thread is not watched")
 	byID := xslice.KeyBy(snapshot, func(thread ThreadWithMessages) uuid.UUID { return thread.ID })
-	assert.Equal(t, AuthorHuman, byID[thread.ID].AuthorKind)
+	assert.Equal(t, agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN, byID[thread.ID].AuthorKind)
 	assert.Nil(t, byID[thread.ID].AuthorAgentID)
 	assert.Equal(t, int32(1), byID[thread.ID].SnapshotOrdinal)
 	assert.True(t, byID[thread.ID].UnreadByHuman, "the agent answered since the person looked")
 	require.Len(t, byID[thread.ID].Messages, 2)
 	assert.Equal(t, "wrong greeting", byID[thread.ID].Messages[0].Body)
-	assert.Equal(t, AuthorAgent, byID[opened.ID].AuthorKind)
+	assert.Equal(t, agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT, byID[opened.ID].AuthorKind)
 	assert.Equal(t, &reviewer, byID[opened.ID].AuthorAgentID)
 
 	listed, err := threads.ListWatched(ctx, []uuid.UUID{gone.ID})
@@ -99,7 +100,7 @@ func TestListWatchedThreads(t *testing.T) {
 func TestListWatchedThreadsCarriesForgeReplies(t *testing.T) {
 	st := openFixture(t)
 	seeded := st.seedReplyThreads(t)
-	reply := st.writeIn(t, seeded, ForgeReplyApproved)
+	reply := st.writeIn(t, seeded, agentv1.ForgeReplyState_FORGE_REPLY_STATE_APPROVED)
 
 	snapshot, err := NewThreadStore(st.pool).ListWatched(t.Context(), nil)
 	require.NoError(t, err)

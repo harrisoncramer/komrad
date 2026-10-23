@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	mailstore "komrad/internal/store/mail"
-	reviewstore "komrad/internal/store/review"
+	"komrad/lib/protoenum"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
@@ -15,7 +15,7 @@ import (
 type ReviewReleased struct {
 	ReviewID uuid.UUID
 	Ordinal  int32
-	Verdict  reviewstore.Verdict
+	Verdict  agentv1.ReviewVerdict
 	Comments int
 	Replies  int
 	Path     string
@@ -26,8 +26,8 @@ type ReviewReleased struct {
 }
 
 // Kind is the kind review mail is filed under.
-func (ReviewReleased) Kind() mailstore.Kind {
-	return mailstore.KindReviewActivity
+func (ReviewReleased) Kind() agentv1.MailKind {
+	return agentv1.MailKind_MAIL_KIND_REVIEW_ACTIVITY
 }
 
 // Events is the event the release starts.
@@ -35,9 +35,9 @@ func (m ReviewReleased) Events() []eventv1.Event {
 	switch {
 	case m.ForgeLogin != "":
 		return []eventv1.Event{eventv1.Event_EVENT_REVIEW_FORGE_COMMENTED}
-	case m.Verdict == reviewstore.VerdictApproved:
+	case m.Verdict == agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
 		return []eventv1.Event{eventv1.Event_EVENT_REVIEW_APPROVED}
-	case m.Verdict == reviewstore.VerdictChangesRequested:
+	case m.Verdict == agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
 		return []eventv1.Event{eventv1.Event_EVENT_REVIEW_CHANGES_REQUESTED}
 	default:
 		return []eventv1.Event{eventv1.Event_EVENT_REVIEW_COMMENTED}
@@ -58,9 +58,9 @@ func (m ReviewReleased) Body() string {
 			said, m.ForgeLogin, m.Ordinal, m.ReviewID)
 	}
 
-	said = strings.ReplaceAll(string(m.Verdict), "_", " ") + ", " + said
+	said = strings.ReplaceAll(protoenum.Name(m.Verdict), "_", " ") + ", " + said
 
-	if m.Verdict == reviewstore.VerdictApproved && m.Comments == 0 && m.Replies == 0 && !m.HasBody {
+	if m.Verdict == agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED && m.Comments == 0 && m.Replies == 0 && !m.HasBody {
 		return fmt.Sprintf("komrad: review of snapshot %d released: %s. There is nothing to read or answer.", m.Ordinal, said)
 	}
 
@@ -91,8 +91,8 @@ type ReviewComment struct {
 }
 
 // Kind is the kind a person's comment is filed under.
-func (ReviewComment) Kind() mailstore.Kind {
-	return mailstore.KindReviewComment
+func (ReviewComment) Kind() agentv1.MailKind {
+	return agentv1.MailKind_MAIL_KIND_REVIEW_COMMENT
 }
 
 // Events is the event a person's comment starts.
@@ -170,8 +170,8 @@ type ThreadAnswered struct {
 }
 
 // Kind is the kind review mail is filed under.
-func (ThreadAnswered) Kind() mailstore.Kind {
-	return mailstore.KindReviewActivity
+func (ThreadAnswered) Kind() agentv1.MailKind {
+	return agentv1.MailKind_MAIL_KIND_REVIEW_ACTIVITY
 }
 
 // Events is the event an answer starts.

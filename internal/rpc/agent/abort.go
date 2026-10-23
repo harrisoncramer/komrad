@@ -5,7 +5,6 @@ import (
 
 	"komrad/internal/checkouts"
 	"komrad/internal/fail"
-	"komrad/internal/rpc/render"
 	"komrad/internal/rpcerr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1komrad"
@@ -25,7 +24,7 @@ func (s *Handler) AbortSequence(ctx context.Context, req *agentv1komrad.AbortSeq
 	}
 
 	return &agentv1.AbortSequenceResponse{
-		Sequence:  render.SequenceOf(result.Sequence),
+		Sequence:  result.Sequence,
 		Branch:    result.Branch,
 		ParkedRef: result.ParkedRef,
 	}, nil

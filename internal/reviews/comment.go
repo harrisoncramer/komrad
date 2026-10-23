@@ -15,6 +15,7 @@ import (
 	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -99,7 +100,7 @@ func (s *ReviewService) ReadMail(ctx context.Context, agentID uuid.UUID) ([]mail
 
 // isReviewComment says whether mail carries a person's comment on the recipient's work.
 func isReviewComment(m mailstore.Mail) bool {
-	return m.Kind == mailstore.KindReviewComment
+	return m.Kind == agentv1.MailKind_MAIL_KIND_REVIEW_COMMENT
 }
 
 // takeReadSnapshot freezes an agent's task as it reads a person's comment, which an addressed reply is

@@ -48,10 +48,10 @@ func TestListForgePullRequestsPages(t *testing.T) {
 func TestPlanForgePullRequestMerge(t *testing.T) {
 	writer := &fakeWriter{plan: forge.MergePlan{
 		Options: []forge.MergeOption{
-			{Method: forge.MergeMethodMerge, Message: &forge.CommitMessage{Headline: "Merge pull request #1", Body: "Land the fix"}},
-			{Method: forge.MergeMethodRebase, Allowed: true},
+			{Method: forgev1.MergeMethod_MERGE_METHOD_MERGE, Message: &forge.CommitMessage{Headline: "Merge pull request #1", Body: "Land the fix"}},
+			{Method: forgev1.MergeMethod_MERGE_METHOD_REBASE, Allowed: true},
 		},
-		DefaultMethod: forge.MergeMethodRebase,
+		DefaultMethod: forgev1.MergeMethod_MERGE_METHOD_REBASE,
 		HeadSHA:       "abc123",
 	}}
 	service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(&fakeConnector{}, writer)}
@@ -99,7 +99,7 @@ func TestMergeForgePullRequest(t *testing.T) {
 			},
 			wantMerged: []forge.MergeParams{{
 				URL:      address,
-				Method:   forge.MergeMethodSquash,
+				Method:   forgev1.MergeMethod_MERGE_METHOD_SQUASH,
 				Headline: xptr.Ptr("Land the fix"),
 				Body:     xptr.Ptr("Merges stop failing."),
 				HeadSHA:  "abc123",
@@ -148,7 +148,7 @@ func TestSetForgePullRequestAutoMerge(t *testing.T) {
 	assert.Equal(t, []forge.SetAutoMergeParams{{
 		URL:      address,
 		On:       true,
-		Method:   forge.MergeMethodFastForward,
+		Method:   forgev1.MergeMethod_MERGE_METHOD_FAST_FORWARD,
 		Headline: xptr.Ptr("Land the fix"),
 	}}, writer.autoMerged)
 }

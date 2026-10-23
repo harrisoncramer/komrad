@@ -13,6 +13,7 @@ import (
 	"komrad/internal/ui/record"
 	"komrad/internal/ui/screen"
 	"komrad/internal/view"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 func (a *agentsScreen) Details(in screen.Inputs) record.Details {
@@ -96,11 +97,11 @@ func (a *agentsScreen) doc(in screen.Inputs) string {
 		return taskMarkdown(*r.task)
 	case r.header && !held:
 		return workflowContextMarkdown(r.workflow)
-	case item.Agent.State == panel.StateSettingUp && item.Agent.Pane != "":
+	case item.Agent.State == agentv1.AgentState_AGENT_STATE_SETTING_UP && item.Agent.Pane != "":
 		return startingPlaceholder(in.Room.Spinner)
-	case item.Agent.State == panel.StateSettingUp:
+	case item.Agent.State == agentv1.AgentState_AGENT_STATE_SETTING_UP:
 		return settingUpPlaceholder(in.Room.Spinner)
-	case item.Agent.State.IsFailed():
+	case panel.IsFailed(item.Agent.State):
 		return failedPlaceholder(item.Agent)
 	}
 
@@ -129,7 +130,7 @@ func startingPlaceholder(frame string) string {
 
 func failedPlaceholder(agent panel.Agent) string {
 	label := "setup"
-	if agent.State == panel.StateFailedToCleanup {
+	if agent.State == agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP {
 		label = "teardown"
 	}
 

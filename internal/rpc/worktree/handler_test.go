@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"komrad/internal/git"
-	agentstore "komrad/internal/store/agent"
 	worktreestore "komrad/internal/store/worktree"
 	"komrad/internal/worktrees"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -261,13 +260,13 @@ func buildListedWorktree() worktrees.Worktree {
 			{
 				ID:         uuid.New(),
 				Name:       "first",
-				State:      agentstore.StateIdle,
+				State:      agentv1.AgentState_AGENT_STATE_IDLE,
 				ArchivedAt: &archived,
 			},
 			{
 				ID:    uuid.New(),
 				Name:  "first-reviewer",
-				State: agentstore.StateThinking,
+				State: agentv1.AgentState_AGENT_STATE_THINKING,
 			},
 		},
 		Size: &worktreestore.Size{

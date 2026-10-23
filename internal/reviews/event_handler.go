@@ -12,6 +12,7 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
@@ -28,12 +29,12 @@ type Released struct {
 	TaskID   uuid.UUID `json:"task_id"`
 	Ordinal  int32     `json:"ordinal"`
 	// ReviewerID is the agent that wrote the review, blank for a forge reviewer.
-	ReviewerID uuid.UUID           `json:"reviewer_id"`
-	Verdict    reviewstore.Verdict `json:"verdict"`
-	Comments   int                 `json:"comments"`
-	Replies    int                 `json:"replies"`
-	Path       string              `json:"path"`
-	HasBody    bool                `json:"has_body"`
+	ReviewerID uuid.UUID             `json:"reviewer_id"`
+	Verdict    agentv1.ReviewVerdict `json:"verdict"`
+	Comments   int                   `json:"comments"`
+	Replies    int                   `json:"replies"`
+	Path       string                `json:"path"`
+	HasBody    bool                  `json:"has_body"`
 	// ForgeLogin is the forge reviewer whose mirrored comments were released, blank for a review
 	// written in komrad.
 	ForgeLogin string `json:"forge_login"`
@@ -69,11 +70,12 @@ func NewReleasedHandler(params NewReleasedHandlerParams) events.HandlerFor[Relea
 			return nil, err
 		}
 
-		if !params.ArchiveOnApproval || released.Verdict != reviewstore.VerdictApproved || released.ReviewerID == uuid.Nil {
-			return nil, nil
+		var jobs []river.JobArgs
+		if params.ArchiveOnApproval && released.Verdict == agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED && released.ReviewerID != uuid.Nil {
+			jobs = append(jobs, internaljobs.ArchiveAgentArgs{AgentID: released.ReviewerID})
 		}
 
-		return []river.JobArgs{internaljobs.ArchiveAgentArgs{AgentID: released.ReviewerID}}, nil
+		return jobs, nil
 	}
 }
 

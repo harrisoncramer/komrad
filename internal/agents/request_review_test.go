@@ -13,6 +13,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -42,7 +43,7 @@ func TestRequestReviewSpawnsTheReviewer(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, reviewer)
 
-	assert.Equal(t, agentstore.RoleReviewer, reviewer.Role, "so it is briefed to read rather than to write")
+	assert.Equal(t, agentv1.AgentRole_AGENT_ROLE_REVIEWER, reviewer.Role, "so it is briefed to read rather than to write")
 	assert.Equal(t, "author-reviewer", reviewer.Name, "named after the work it reads")
 	require.NotNil(t, reviewer.TaskID)
 	assert.Equal(t, agentByID(t, st, author.ID).TaskID, reviewer.TaskID, "a reviewer reads its writer's task")
@@ -375,7 +376,7 @@ func TestWorktreeAgentIsToldToGetItsWorkRead(t *testing.T) {
 		WorkflowID: workflow.ID,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, agentstore.RoleWriter, author.Role, "an agent that names no role writes rather than reads")
+	assert.Equal(t, agentv1.AgentRole_AGENT_ROLE_WRITER, author.Role, "an agent that names no role writes rather than reads")
 
 	require.Len(t, fakeHarness.Launches, 1)
 	briefing := fakeHarness.Launches[0].Context
@@ -463,7 +464,7 @@ func TestRequestReviewLandsTheReviewerOnTheHarnessAsked(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.want, reviewer.Harness)
-			assert.Equal(t, agentstore.RoleReviewer, reviewer.Role, "a different CLI is still a reviewer")
+			assert.Equal(t, agentv1.AgentRole_AGENT_ROLE_REVIEWER, reviewer.Role, "a different CLI is still a reviewer")
 			assert.Equal(t, agentByID(t, st, author.ID).TaskID, reviewer.TaskID, "and still on the asker's task")
 			assert.Equal(t, author.Cwd, reviewer.Cwd, "reading the asker's checkout")
 

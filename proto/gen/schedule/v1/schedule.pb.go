@@ -28,136 +28,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// ScheduleRunState is the state of one schedule run.
-type ScheduleRunState int32
-
-const (
-	// No state was recorded. No run has this value.
-	ScheduleRunState_SCHEDULE_RUN_STATE_UNSPECIFIED ScheduleRunState = 0
-	// Waiting to start.
-	ScheduleRunState_SCHEDULE_RUN_STATE_AVAILABLE ScheduleRunState = 1
-	// Held back until something releases the run.
-	ScheduleRunState_SCHEDULE_RUN_STATE_PENDING ScheduleRunState = 2
-	// Waiting for a later time to start.
-	ScheduleRunState_SCHEDULE_RUN_STATE_SCHEDULED ScheduleRunState = 3
-	// Running now.
-	ScheduleRunState_SCHEDULE_RUN_STATE_RUNNING ScheduleRunState = 4
-	// Failed an attempt and waiting to try again.
-	ScheduleRunState_SCHEDULE_RUN_STATE_RETRYABLE ScheduleRunState = 5
-	// Launched the run's agent or sent the run's mail.
-	ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED ScheduleRunState = 6
-	// Skipped, with the reason in the run's message.
-	ScheduleRunState_SCHEDULE_RUN_STATE_CANCELLED ScheduleRunState = 7
-	// Out of attempts, with the last error in the run's message.
-	ScheduleRunState_SCHEDULE_RUN_STATE_DISCARDED ScheduleRunState = 8
-)
-
-// Enum value maps for ScheduleRunState.
-var (
-	ScheduleRunState_name = map[int32]string{
-		0: "SCHEDULE_RUN_STATE_UNSPECIFIED",
-		1: "SCHEDULE_RUN_STATE_AVAILABLE",
-		2: "SCHEDULE_RUN_STATE_PENDING",
-		3: "SCHEDULE_RUN_STATE_SCHEDULED",
-		4: "SCHEDULE_RUN_STATE_RUNNING",
-		5: "SCHEDULE_RUN_STATE_RETRYABLE",
-		6: "SCHEDULE_RUN_STATE_COMPLETED",
-		7: "SCHEDULE_RUN_STATE_CANCELLED",
-		8: "SCHEDULE_RUN_STATE_DISCARDED",
-	}
-	ScheduleRunState_value = map[string]int32{
-		"SCHEDULE_RUN_STATE_UNSPECIFIED": 0,
-		"SCHEDULE_RUN_STATE_AVAILABLE":   1,
-		"SCHEDULE_RUN_STATE_PENDING":     2,
-		"SCHEDULE_RUN_STATE_SCHEDULED":   3,
-		"SCHEDULE_RUN_STATE_RUNNING":     4,
-		"SCHEDULE_RUN_STATE_RETRYABLE":   5,
-		"SCHEDULE_RUN_STATE_COMPLETED":   6,
-		"SCHEDULE_RUN_STATE_CANCELLED":   7,
-		"SCHEDULE_RUN_STATE_DISCARDED":   8,
-	}
-)
-
-func (x ScheduleRunState) Enum() *ScheduleRunState {
-	p := new(ScheduleRunState)
-	*p = x
-	return p
-}
-
-func (x ScheduleRunState) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (ScheduleRunState) Descriptor() protoreflect.EnumDescriptor {
-	return file_schedule_v1_schedule_proto_enumTypes[0].Descriptor()
-}
-
-func (ScheduleRunState) Type() protoreflect.EnumType {
-	return &file_schedule_v1_schedule_proto_enumTypes[0]
-}
-
-func (x ScheduleRunState) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use ScheduleRunState.Descriptor instead.
-func (ScheduleRunState) EnumDescriptor() ([]byte, []int) {
-	return file_schedule_v1_schedule_proto_rawDescGZIP(), []int{0}
-}
-
-// ScheduleKind is what a schedule does each time its cron expression matches.
-type ScheduleKind int32
-
-const (
-	// No kind was recorded. No schedule has this value.
-	ScheduleKind_SCHEDULE_KIND_UNSPECIFIED ScheduleKind = 0
-	// Mails the prompt to a running orchestrator.
-	ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR ScheduleKind = 1
-	// Creates a task in the workflow and launches its writer with the prompt.
-	ScheduleKind_SCHEDULE_KIND_TASK ScheduleKind = 2
-)
-
-// Enum value maps for ScheduleKind.
-var (
-	ScheduleKind_name = map[int32]string{
-		0: "SCHEDULE_KIND_UNSPECIFIED",
-		1: "SCHEDULE_KIND_ORCHESTRATOR",
-		2: "SCHEDULE_KIND_TASK",
-	}
-	ScheduleKind_value = map[string]int32{
-		"SCHEDULE_KIND_UNSPECIFIED":  0,
-		"SCHEDULE_KIND_ORCHESTRATOR": 1,
-		"SCHEDULE_KIND_TASK":         2,
-	}
-)
-
-func (x ScheduleKind) Enum() *ScheduleKind {
-	p := new(ScheduleKind)
-	*p = x
-	return p
-}
-
-func (x ScheduleKind) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (ScheduleKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_schedule_v1_schedule_proto_enumTypes[1].Descriptor()
-}
-
-func (ScheduleKind) Type() protoreflect.EnumType {
-	return &file_schedule_v1_schedule_proto_enumTypes[1]
-}
-
-func (x ScheduleKind) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use ScheduleKind.Descriptor instead.
-func (ScheduleKind) EnumDescriptor() ([]byte, []int) {
-	return file_schedule_v1_schedule_proto_rawDescGZIP(), []int{1}
-}
-
 // ScheduleRun is one time a schedule's cron expression matched, with its state.
 type ScheduleRun struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1268,7 +1138,7 @@ var File_schedule_v1_schedule_proto protoreflect.FileDescriptor
 
 const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\n" +
-	"\x1aschedule/v1/schedule.proto\x12\vschedule.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xbf\x02\n" +
+	"\x1aschedule/v1/schedule.proto\x12\vschedule.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\x1a\x17schedule/v1/enums.proto\x1a\x12view/v1/view.proto\"\xbf\x02\n" +
 	"\vScheduleRun\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12?\n" +
 	"\rscheduled_for\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\fscheduledFor\x123\n" +
@@ -1360,21 +1230,7 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\x16RestoreScheduleRequest\x12\x18\n" +
 	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id\"1\n" +
 	"\x15DeleteScheduleRequest\x12\x18\n" +
-	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id*\xc2\x02\n" +
-	"\x10ScheduleRunState\x12\"\n" +
-	"\x1eSCHEDULE_RUN_STATE_UNSPECIFIED\x10\x00\x12 \n" +
-	"\x1cSCHEDULE_RUN_STATE_AVAILABLE\x10\x01\x12\x1e\n" +
-	"\x1aSCHEDULE_RUN_STATE_PENDING\x10\x02\x12 \n" +
-	"\x1cSCHEDULE_RUN_STATE_SCHEDULED\x10\x03\x12\x1e\n" +
-	"\x1aSCHEDULE_RUN_STATE_RUNNING\x10\x04\x12 \n" +
-	"\x1cSCHEDULE_RUN_STATE_RETRYABLE\x10\x05\x12 \n" +
-	"\x1cSCHEDULE_RUN_STATE_COMPLETED\x10\x06\x12 \n" +
-	"\x1cSCHEDULE_RUN_STATE_CANCELLED\x10\a\x12 \n" +
-	"\x1cSCHEDULE_RUN_STATE_DISCARDED\x10\b*e\n" +
-	"\fScheduleKind\x12\x1d\n" +
-	"\x19SCHEDULE_KIND_UNSPECIFIED\x10\x00\x12\x1e\n" +
-	"\x1aSCHEDULE_KIND_ORCHESTRATOR\x10\x01\x12\x16\n" +
-	"\x12SCHEDULE_KIND_TASK\x10\x022\x90\x0f\n" +
+	"\x02id\x18\x01 \x01(\tB\b\xbaH\x05r\x03\xb0\x01\x01R\x02id2\x90\x0f\n" +
 	"\x0fScheduleService\x12\xfb\x01\n" +
 	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\xa2\x01\x9a\xb5\x18\x9a\x01\b\x01\x10\x01\x1a\x0elist_schedules\"\x80\x01List schedules, most recently updated first, each with its latest run. Archived schedules are left out unless `archived` is set.:\x01\x02\x90\x02\x01\x12\xa0\x01\n" +
 	"\vGetSchedule\x12\x1f.schedule.v1.GetScheduleRequest\x1a .schedule.v1.GetScheduleResponse\"N\x9a\xb5\x18G\b\x01\x10\x01\x1a\fget_schedule\"0Get one schedule by id, with its prompt in full.:\x01\x02\x90\x02\x01\x12\xe8\x01\n" +
@@ -1398,59 +1254,58 @@ func file_schedule_v1_schedule_proto_rawDescGZIP() []byte {
 	return file_schedule_v1_schedule_proto_rawDescData
 }
 
-var file_schedule_v1_schedule_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_schedule_v1_schedule_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_schedule_v1_schedule_proto_goTypes = []any{
-	(ScheduleRunState)(0),             // 0: schedule.v1.ScheduleRunState
-	(ScheduleKind)(0),                 // 1: schedule.v1.ScheduleKind
-	(*ScheduleRun)(nil),               // 2: schedule.v1.ScheduleRun
-	(*Schedule)(nil),                  // 3: schedule.v1.Schedule
-	(*ListSchedulesRequest)(nil),      // 4: schedule.v1.ListSchedulesRequest
-	(*ListSchedulesResponse)(nil),     // 5: schedule.v1.ListSchedulesResponse
-	(*GetScheduleRequest)(nil),        // 6: schedule.v1.GetScheduleRequest
-	(*GetScheduleResponse)(nil),       // 7: schedule.v1.GetScheduleResponse
-	(*ListScheduleRunsRequest)(nil),   // 8: schedule.v1.ListScheduleRunsRequest
-	(*ListScheduleRunsResponse)(nil),  // 9: schedule.v1.ListScheduleRunsResponse
-	(*CreateScheduleRequest)(nil),     // 10: schedule.v1.CreateScheduleRequest
-	(*CreateScheduleResponse)(nil),    // 11: schedule.v1.CreateScheduleResponse
-	(*UpdateScheduleRequest)(nil),     // 12: schedule.v1.UpdateScheduleRequest
-	(*SetScheduleEnabledRequest)(nil), // 13: schedule.v1.SetScheduleEnabledRequest
-	(*ArchiveScheduleRequest)(nil),    // 14: schedule.v1.ArchiveScheduleRequest
-	(*RestoreScheduleRequest)(nil),    // 15: schedule.v1.RestoreScheduleRequest
-	(*DeleteScheduleRequest)(nil),     // 16: schedule.v1.DeleteScheduleRequest
-	(*timestamppb.Timestamp)(nil),     // 17: google.protobuf.Timestamp
+	(*ScheduleRun)(nil),               // 0: schedule.v1.ScheduleRun
+	(*Schedule)(nil),                  // 1: schedule.v1.Schedule
+	(*ListSchedulesRequest)(nil),      // 2: schedule.v1.ListSchedulesRequest
+	(*ListSchedulesResponse)(nil),     // 3: schedule.v1.ListSchedulesResponse
+	(*GetScheduleRequest)(nil),        // 4: schedule.v1.GetScheduleRequest
+	(*GetScheduleResponse)(nil),       // 5: schedule.v1.GetScheduleResponse
+	(*ListScheduleRunsRequest)(nil),   // 6: schedule.v1.ListScheduleRunsRequest
+	(*ListScheduleRunsResponse)(nil),  // 7: schedule.v1.ListScheduleRunsResponse
+	(*CreateScheduleRequest)(nil),     // 8: schedule.v1.CreateScheduleRequest
+	(*CreateScheduleResponse)(nil),    // 9: schedule.v1.CreateScheduleResponse
+	(*UpdateScheduleRequest)(nil),     // 10: schedule.v1.UpdateScheduleRequest
+	(*SetScheduleEnabledRequest)(nil), // 11: schedule.v1.SetScheduleEnabledRequest
+	(*ArchiveScheduleRequest)(nil),    // 12: schedule.v1.ArchiveScheduleRequest
+	(*RestoreScheduleRequest)(nil),    // 13: schedule.v1.RestoreScheduleRequest
+	(*DeleteScheduleRequest)(nil),     // 14: schedule.v1.DeleteScheduleRequest
+	(*timestamppb.Timestamp)(nil),     // 15: google.protobuf.Timestamp
+	(ScheduleRunState)(0),             // 16: schedule.v1.ScheduleRunState
+	(ScheduleKind)(0),                 // 17: schedule.v1.ScheduleKind
 	(*v1.Pagination)(nil),             // 18: pagination.v1.Pagination
 	(v11.View)(0),                     // 19: view.v1.View
 	(*emptypb.Empty)(nil),             // 20: google.protobuf.Empty
 }
 var file_schedule_v1_schedule_proto_depIdxs = []int32{
-	17, // 0: schedule.v1.ScheduleRun.scheduled_for:type_name -> google.protobuf.Timestamp
-	0,  // 1: schedule.v1.ScheduleRun.state:type_name -> schedule.v1.ScheduleRunState
-	17, // 2: schedule.v1.ScheduleRun.finalized_at:type_name -> google.protobuf.Timestamp
-	1,  // 3: schedule.v1.Schedule.kind:type_name -> schedule.v1.ScheduleKind
-	17, // 4: schedule.v1.Schedule.next_run_at:type_name -> google.protobuf.Timestamp
-	2,  // 5: schedule.v1.Schedule.latest_run:type_name -> schedule.v1.ScheduleRun
-	2,  // 6: schedule.v1.Schedule.recent_runs:type_name -> schedule.v1.ScheduleRun
-	17, // 7: schedule.v1.Schedule.archived_at:type_name -> google.protobuf.Timestamp
+	15, // 0: schedule.v1.ScheduleRun.scheduled_for:type_name -> google.protobuf.Timestamp
+	16, // 1: schedule.v1.ScheduleRun.state:type_name -> schedule.v1.ScheduleRunState
+	15, // 2: schedule.v1.ScheduleRun.finalized_at:type_name -> google.protobuf.Timestamp
+	17, // 3: schedule.v1.Schedule.kind:type_name -> schedule.v1.ScheduleKind
+	15, // 4: schedule.v1.Schedule.next_run_at:type_name -> google.protobuf.Timestamp
+	0,  // 5: schedule.v1.Schedule.latest_run:type_name -> schedule.v1.ScheduleRun
+	0,  // 6: schedule.v1.Schedule.recent_runs:type_name -> schedule.v1.ScheduleRun
+	15, // 7: schedule.v1.Schedule.archived_at:type_name -> google.protobuf.Timestamp
 	18, // 8: schedule.v1.ListSchedulesRequest.pagination:type_name -> pagination.v1.Pagination
 	19, // 9: schedule.v1.ListSchedulesRequest.view:type_name -> view.v1.View
-	3,  // 10: schedule.v1.ListSchedulesResponse.schedules:type_name -> schedule.v1.Schedule
-	3,  // 11: schedule.v1.GetScheduleResponse.schedule:type_name -> schedule.v1.Schedule
-	2,  // 12: schedule.v1.ListScheduleRunsResponse.runs:type_name -> schedule.v1.ScheduleRun
-	3,  // 13: schedule.v1.CreateScheduleResponse.schedule:type_name -> schedule.v1.Schedule
-	4,  // 14: schedule.v1.ScheduleService.ListSchedules:input_type -> schedule.v1.ListSchedulesRequest
-	6,  // 15: schedule.v1.ScheduleService.GetSchedule:input_type -> schedule.v1.GetScheduleRequest
-	8,  // 16: schedule.v1.ScheduleService.ListScheduleRuns:input_type -> schedule.v1.ListScheduleRunsRequest
-	10, // 17: schedule.v1.ScheduleService.CreateSchedule:input_type -> schedule.v1.CreateScheduleRequest
-	12, // 18: schedule.v1.ScheduleService.UpdateSchedule:input_type -> schedule.v1.UpdateScheduleRequest
-	13, // 19: schedule.v1.ScheduleService.SetScheduleEnabled:input_type -> schedule.v1.SetScheduleEnabledRequest
-	14, // 20: schedule.v1.ScheduleService.ArchiveSchedule:input_type -> schedule.v1.ArchiveScheduleRequest
-	15, // 21: schedule.v1.ScheduleService.RestoreSchedule:input_type -> schedule.v1.RestoreScheduleRequest
-	16, // 22: schedule.v1.ScheduleService.DeleteSchedule:input_type -> schedule.v1.DeleteScheduleRequest
-	5,  // 23: schedule.v1.ScheduleService.ListSchedules:output_type -> schedule.v1.ListSchedulesResponse
-	7,  // 24: schedule.v1.ScheduleService.GetSchedule:output_type -> schedule.v1.GetScheduleResponse
-	9,  // 25: schedule.v1.ScheduleService.ListScheduleRuns:output_type -> schedule.v1.ListScheduleRunsResponse
-	11, // 26: schedule.v1.ScheduleService.CreateSchedule:output_type -> schedule.v1.CreateScheduleResponse
+	1,  // 10: schedule.v1.ListSchedulesResponse.schedules:type_name -> schedule.v1.Schedule
+	1,  // 11: schedule.v1.GetScheduleResponse.schedule:type_name -> schedule.v1.Schedule
+	0,  // 12: schedule.v1.ListScheduleRunsResponse.runs:type_name -> schedule.v1.ScheduleRun
+	1,  // 13: schedule.v1.CreateScheduleResponse.schedule:type_name -> schedule.v1.Schedule
+	2,  // 14: schedule.v1.ScheduleService.ListSchedules:input_type -> schedule.v1.ListSchedulesRequest
+	4,  // 15: schedule.v1.ScheduleService.GetSchedule:input_type -> schedule.v1.GetScheduleRequest
+	6,  // 16: schedule.v1.ScheduleService.ListScheduleRuns:input_type -> schedule.v1.ListScheduleRunsRequest
+	8,  // 17: schedule.v1.ScheduleService.CreateSchedule:input_type -> schedule.v1.CreateScheduleRequest
+	10, // 18: schedule.v1.ScheduleService.UpdateSchedule:input_type -> schedule.v1.UpdateScheduleRequest
+	11, // 19: schedule.v1.ScheduleService.SetScheduleEnabled:input_type -> schedule.v1.SetScheduleEnabledRequest
+	12, // 20: schedule.v1.ScheduleService.ArchiveSchedule:input_type -> schedule.v1.ArchiveScheduleRequest
+	13, // 21: schedule.v1.ScheduleService.RestoreSchedule:input_type -> schedule.v1.RestoreScheduleRequest
+	14, // 22: schedule.v1.ScheduleService.DeleteSchedule:input_type -> schedule.v1.DeleteScheduleRequest
+	3,  // 23: schedule.v1.ScheduleService.ListSchedules:output_type -> schedule.v1.ListSchedulesResponse
+	5,  // 24: schedule.v1.ScheduleService.GetSchedule:output_type -> schedule.v1.GetScheduleResponse
+	7,  // 25: schedule.v1.ScheduleService.ListScheduleRuns:output_type -> schedule.v1.ListScheduleRunsResponse
+	9,  // 26: schedule.v1.ScheduleService.CreateSchedule:output_type -> schedule.v1.CreateScheduleResponse
 	20, // 27: schedule.v1.ScheduleService.UpdateSchedule:output_type -> google.protobuf.Empty
 	20, // 28: schedule.v1.ScheduleService.SetScheduleEnabled:output_type -> google.protobuf.Empty
 	20, // 29: schedule.v1.ScheduleService.ArchiveSchedule:output_type -> google.protobuf.Empty
@@ -1468,6 +1323,7 @@ func file_schedule_v1_schedule_proto_init() {
 	if File_schedule_v1_schedule_proto != nil {
 		return
 	}
+	file_schedule_v1_enums_proto_init()
 	file_schedule_v1_schedule_proto_msgTypes[0].OneofWrappers = []any{}
 	file_schedule_v1_schedule_proto_msgTypes[1].OneofWrappers = []any{}
 	file_schedule_v1_schedule_proto_msgTypes[2].OneofWrappers = []any{}
@@ -1485,14 +1341,13 @@ func file_schedule_v1_schedule_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_schedule_v1_schedule_proto_rawDesc), len(file_schedule_v1_schedule_proto_rawDesc)),
-			NumEnums:      2,
+			NumEnums:      0,
 			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_schedule_v1_schedule_proto_goTypes,
 		DependencyIndexes: file_schedule_v1_schedule_proto_depIdxs,
-		EnumInfos:         file_schedule_v1_schedule_proto_enumTypes,
 		MessageInfos:      file_schedule_v1_schedule_proto_msgTypes,
 	}.Build()
 	File_schedule_v1_schedule_proto = out.File

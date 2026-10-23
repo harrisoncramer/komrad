@@ -17,7 +17,9 @@ import (
 	taskstore "komrad/internal/store/task"
 	"komrad/lib/xptr"
 	"komrad/lib/xsha"
+	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/oneofs"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/google/uuid"
 )
@@ -243,11 +245,11 @@ func (s *Service) fetchBaseOnto(ctx context.Context, task taskstore.Task) (*casc
 
 // tellParentClosed blocks the child's cascade on its closed parent pull request and tells its writer, once.
 func (s *Service) tellParentClosed(ctx context.Context, task, parent taskstore.Task, pr pullrequeststore.PullRequest) error {
-	if task.Parent.Blocked == taskstore.CascadeParentClosed {
+	if task.Parent.Blocked == taskv1.CascadeBlock_CASCADE_BLOCK_PARENT_CLOSED {
 		return nil
 	}
 
-	if err := s.tasks.SetCascadeBlocked(ctx, task.ID, taskstore.CascadeParentClosed); err != nil {
+	if err := s.tasks.SetCascadeBlocked(ctx, task.ID, taskv1.CascadeBlock_CASCADE_BLOCK_PARENT_CLOSED); err != nil {
 		return err
 	}
 
@@ -288,7 +290,7 @@ func (s *Service) moveOnto(ctx context.Context, task, parent taskstore.Task, ont
 		return s.recordOnto(ctx, task, onto)
 	}
 
-	if task.Parent.Blocked == taskstore.CascadeConflicted || task.Checkout.AdoptedBranch != "" {
+	if task.Parent.Blocked == taskv1.CascadeBlock_CASCADE_BLOCK_CONFLICTED || task.Checkout.AdoptedBranch != "" {
 		return nil
 	}
 
@@ -601,11 +603,11 @@ func (s *Service) findNewerForkPoint(ctx context.Context, task taskstore.Task, o
 // tellOrphaned marks a child whose branch holds neither its fork point nor any of its parent's own
 // commits as orphaned and tells its writer, once.
 func (s *Service) tellOrphaned(ctx context.Context, task, parent taskstore.Task) error {
-	if task.Parent.Blocked == taskstore.CascadeOrphaned {
+	if task.Parent.Blocked == taskv1.CascadeBlock_CASCADE_BLOCK_ORPHANED {
 		return nil
 	}
 
-	if err := s.tasks.SetCascadeBlocked(ctx, task.ID, taskstore.CascadeOrphaned); err != nil {
+	if err := s.tasks.SetCascadeBlocked(ctx, task.ID, taskv1.CascadeBlock_CASCADE_BLOCK_ORPHANED); err != nil {
 		return err
 	}
 
@@ -637,14 +639,14 @@ func (s *Service) isReadyToCascade(ctx context.Context, task taskstore.Task) (bo
 
 // isAtRest reports whether an agent is between turns.
 func isAtRest(agent agentstore.Agent) bool {
-	if agent.State == agentstore.StateSettingUp {
+	if agent.State == agentv1.AgentState_AGENT_STATE_SETTING_UP {
 		return false
 	}
 	if !agent.Alive {
 		return true
 	}
 
-	return agent.State == agentstore.StateIdle && !agent.IsStateUnconfirmed()
+	return agent.State == agentv1.AgentState_AGENT_STATE_IDLE && !agent.IsStateUnconfirmed()
 }
 
 // cascadePlan is what a rebase of a child's own commits would do.
@@ -704,11 +706,11 @@ type backOutCascadeParams struct {
 
 // backOutCascade aborts a conflicted rebase back to where the branch was and tells the writer the exact rebase to run.
 func (s *Service) backOutCascade(ctx context.Context, params backOutCascadeParams) error {
-	if err := s.git.AbortSequence(ctx, params.Task.Checkout.Cwd, git.SequenceRebase); err != nil {
+	if err := s.git.AbortSequence(ctx, params.Task.Checkout.Cwd, taskv1.Sequence_SEQUENCE_REBASE); err != nil {
 		return err
 	}
 
-	if err := s.tasks.SetCascadeBlocked(ctx, params.Task.ID, taskstore.CascadeConflicted); err != nil {
+	if err := s.tasks.SetCascadeBlocked(ctx, params.Task.ID, taskv1.CascadeBlock_CASCADE_BLOCK_CONFLICTED); err != nil {
 		return err
 	}
 

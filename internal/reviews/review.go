@@ -15,6 +15,7 @@ import (
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/oneofs"
 
 	"github.com/google/uuid"
@@ -52,13 +53,13 @@ type taskFinder interface {
 // ReviewAuthor is who a call is, taken from the calling identity: the panel names no agent and
 // acts as the person, and an agent names itself.
 type ReviewAuthor struct {
-	Kind    reviewstore.AuthorKind
+	Kind    agentv1.ReviewAuthorKind
 	AgentID *uuid.UUID
 }
 
 // isHuman reports whether the call came from the person reviewing rather than from an agent.
 func (a ReviewAuthor) isHuman() bool {
-	return a.Kind == reviewstore.AuthorHuman
+	return a.Kind == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN
 }
 
 // ReviewThreadWithMessages is a thread and everything said in it.
@@ -647,14 +648,14 @@ func (s *ReviewService) getOwnMessage(ctx context.Context, id uuid.UUID, author 
 	}
 
 	if author.isHuman() {
-		if message.AuthorKind != reviewstore.AuthorHuman {
+		if message.AuthorKind != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN {
 			return nil, fmt.Errorf("%w: %q was written by an agent", ErrReviewNotYours, id)
 		}
 
 		return message, nil
 	}
 
-	if message.AuthorKind != reviewstore.AuthorAgent ||
+	if message.AuthorKind != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT ||
 		message.AuthorAgentID == nil ||
 		!doesOwnAgent(author, *message.AuthorAgentID) {
 		return nil, fmt.Errorf("%w: %q", ErrReviewNotYours, id)

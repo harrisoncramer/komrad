@@ -9,6 +9,7 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/store"
 	"komrad/lib/xptr"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -27,7 +28,7 @@ func openCheckLogs(t *testing.T, checks ...forge.StatusCheck) *checkLogHarness {
 	t.Helper()
 
 	if len(checks) == 0 {
-		checks = []forge.StatusCheck{inJob(statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "failure"), 42)}
+		checks = []forge.StatusCheck{inJob(statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure"), 42)}
 	}
 
 	h := open(t)
@@ -84,7 +85,7 @@ func (h *checkLogHarness) count(t *testing.T) (int, int) {
 
 func fetchedLog() CheckLog {
 	return CheckLog{
-		Outcome:    CheckLogFetched,
+		Outcome:    pullrequestv1.CheckLogState_CHECK_LOG_STATE_FETCHED,
 		Text:       "preamble\ncheckout\ngo test\n##[error]FAIL\nexit 1\n",
 		LineCount:  5,
 		ErrorCount: 1,
@@ -114,7 +115,7 @@ func TestCheckLogIsReplacedWhole(t *testing.T) {
 	h := openCheckLogs(t)
 	h.record(t, fetchedLog())
 	h.record(t, CheckLog{
-		Outcome:   CheckLogFetched,
+		Outcome:   pullrequestv1.CheckLogState_CHECK_LOG_STATE_FETCHED,
 		Text:      "whole\nlog\n",
 		LineCount: 2,
 		Steps: []checklog.StepRange{{
@@ -147,11 +148,11 @@ func TestCheckLogsListWithoutText(t *testing.T) {
 	want.Text = ""
 	assert.Equal(t, []CheckLog{want}, h.list(t))
 
-	h.record(t, CheckLog{Outcome: CheckLogTooLarge})
+	h.record(t, CheckLog{Outcome: pullrequestv1.CheckLogState_CHECK_LOG_STATE_TOO_LARGE})
 	assert.Equal(t, []CheckLog{{
 		CheckID:   h.checkID,
 		FetchedAt: statusCheckReadAt,
-		Outcome:   CheckLogTooLarge,
+		Outcome:   pullrequestv1.CheckLogState_CHECK_LOG_STATE_TOO_LARGE,
 	}}, h.list(t))
 }
 
@@ -216,7 +217,7 @@ func TestGetCheckLogLinesOfNoText(t *testing.T) {
 	_, err := h.checks.GetCheckLogLines(t.Context(), h.checkID, 1, 10)
 	require.ErrorIs(t, err, store.ErrNotFound)
 
-	h.record(t, CheckLog{Outcome: CheckLogTooLarge})
+	h.record(t, CheckLog{Outcome: pullrequestv1.CheckLogState_CHECK_LOG_STATE_TOO_LARGE})
 	_, err = h.checks.GetCheckLogLines(t.Context(), h.checkID, 1, 10)
 	require.ErrorIs(t, err, store.ErrNotFound)
 }
@@ -296,7 +297,7 @@ func TestListCheckLogHitsLimits(t *testing.T) {
 	h := openCheckLogs(t)
 	long := strings.Repeat("é", maxHitRunes+1)
 	h.record(t, CheckLog{
-		Outcome:   CheckLogFetched,
+		Outcome:   pullrequestv1.CheckLogState_CHECK_LOG_STATE_FETCHED,
 		Text:      long + "\n" + strings.Repeat("hit\n", maxSearchHits),
 		LineCount: maxSearchHits + 1,
 	})
@@ -328,9 +329,9 @@ func TestListCheckLogHitsRefusesABadPattern(t *testing.T) {
 // check is not found.
 func TestGetCheckForLogFetch(t *testing.T) {
 	h := openCheckLogs(t, withSteps(
-		inJob(statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "failure"), 42),
-		statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success"),
-		statusCheckStep(2, "Run go test", forge.StatusCheckStateCompleted, "failure"),
+		inJob(statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure"), 42),
+		statusCheckStep(1, "Set up job", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success"),
+		statusCheckStep(2, "Run go test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure"),
 	))
 
 	check, err := h.checks.GetCheckForLogFetch(t.Context(), h.checkID)
@@ -340,7 +341,7 @@ func TestGetCheckForLogFetch(t *testing.T) {
 	}
 	assert.Equal(t, &checkForLogFetch{
 		ID:            h.checkID,
-		State:         string(forge.StatusCheckStateCompleted),
+		State:         pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 		JobID:         xptr.Ptr(int64(42)),
 		Host:          "github.com",
 		RepositoryURL: komrad,
@@ -368,16 +369,16 @@ func TestGetCheckForLogFetch(t *testing.T) {
 // wants one.
 func TestListHeadChecksWantingLogs(t *testing.T) {
 	h := openCheckLogs(t,
-		inJob(statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "failure"), 42),
-		inJob(statusCheckRun("2", "lint", forge.StatusCheckStateRunning, ""), 43),
-		statusCheckRun("3", "app", forge.StatusCheckStateCompleted, "success"),
+		inJob(statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure"), 42),
+		inJob(statusCheckRun("2", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""), 43),
+		statusCheckRun("3", "app", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success"),
 	)
 
 	wanting, err := h.checks.ListHeadChecksWantingLogs(t.Context(), h.pullRequestID)
 	require.NoError(t, err)
 	assert.Equal(t, []uuid.UUID{h.checkID}, wanting)
 
-	h.record(t, CheckLog{Outcome: CheckLogExpired})
+	h.record(t, CheckLog{Outcome: pullrequestv1.CheckLogState_CHECK_LOG_STATE_EXPIRED})
 	wanting, err = h.checks.ListHeadChecksWantingLogs(t.Context(), h.pullRequestID)
 	require.NoError(t, err)
 	assert.Empty(t, wanting)
@@ -418,10 +419,10 @@ func TestCheckLogIDsNamingNoCheck(t *testing.T) {
 // carry the logs kept for them.
 func TestReadingsOfAPullRequestCarryTheirLogs(t *testing.T) {
 	h := openCheckLogs(t,
-		inJob(statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "failure"), 42),
-		inJob(statusCheckRun("2", "lint", forge.StatusCheckStateCompleted, "success"), 43),
+		inJob(statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure"), 42),
+		inJob(statusCheckRun("2", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success"), 43),
 	)
-	h.record(t, CheckLog{Outcome: CheckLogExpired})
+	h.record(t, CheckLog{Outcome: pullrequestv1.CheckLogState_CHECK_LOG_STATE_EXPIRED})
 
 	readings, err := h.checks.ListOfPullRequest(t.Context(), h.pullRequestID)
 	require.NoError(t, err)
@@ -429,16 +430,16 @@ func TestReadingsOfAPullRequestCarryTheirLogs(t *testing.T) {
 	require.Len(t, readings[0].CheckIDs, 2)
 	assert.Equal(t, h.checkID, readings[0].CheckIDs["1"])
 	require.Contains(t, readings[0].Logs, h.checkID)
-	assert.Equal(t, CheckLogExpired, readings[0].Logs[h.checkID].Outcome)
+	assert.Equal(t, pullrequestv1.CheckLogState_CHECK_LOG_STATE_EXPIRED, readings[0].Logs[h.checkID].Outcome)
 	assert.Len(t, readings[0].Logs, 1)
 }
 
 // TestLogOf covers where fetching a check's log stands for each check and log kept.
 func TestLogOf(t *testing.T) {
 	checkID := uuid.New()
-	finished := inJob(statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "failure"), 42)
-	running := inJob(statusCheckRun("1", "test", forge.StatusCheckStateRunning, ""), 42)
-	kept := func(outcome CheckLogOutcome) StatusCheckReading {
+	finished := inJob(statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure"), 42)
+	running := inJob(statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""), 42)
+	kept := func(outcome pullrequestv1.CheckLogState) StatusCheckReading {
 		return StatusCheckReading{
 			CheckIDs: map[string]uuid.UUID{"1": checkID},
 			Logs:     map[uuid.UUID]CheckLog{checkID: {CheckID: checkID, Outcome: outcome}},
@@ -449,60 +450,60 @@ func TestLogOf(t *testing.T) {
 		name    string
 		reading StatusCheckReading
 		check   forge.StatusCheck
-		want    CheckLogOutcome
+		want    pullrequestv1.CheckLogState
 		wantLog bool
 	}{
 		{
 			name:    "a check in no job has none",
-			reading: kept(CheckLogFetched),
-			check:   statusCheckRun("1", "app", forge.StatusCheckStateCompleted, "success"),
-			want:    CheckLogNone,
+			reading: kept(pullrequestv1.CheckLogState_CHECK_LOG_STATE_FETCHED),
+			check:   statusCheckRun("1", "app", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success"),
+			want:    pullrequestv1.CheckLogState_CHECK_LOG_STATE_NONE,
 		},
 		{
 			name:    "a check still running is pending",
-			reading: kept(CheckLogFetched),
+			reading: kept(pullrequestv1.CheckLogState_CHECK_LOG_STATE_FETCHED),
 			check:   running,
-			want:    CheckLogPending,
+			want:    pullrequestv1.CheckLogState_CHECK_LOG_STATE_PENDING,
 		},
 		{
 			name:    "a finished check with no log kept is pending",
 			reading: StatusCheckReading{CheckIDs: map[string]uuid.UUID{"1": checkID}},
 			check:   finished,
-			want:    CheckLogPending,
+			want:    pullrequestv1.CheckLogState_CHECK_LOG_STATE_PENDING,
 		},
 		{
 			name:    "a fetched log",
-			reading: kept(CheckLogFetched),
+			reading: kept(pullrequestv1.CheckLogState_CHECK_LOG_STATE_FETCHED),
 			check:   finished,
-			want:    CheckLogFetched,
+			want:    pullrequestv1.CheckLogState_CHECK_LOG_STATE_FETCHED,
 			wantLog: true,
 		},
 		{
 			name:    "a log too large to keep",
-			reading: kept(CheckLogTooLarge),
+			reading: kept(pullrequestv1.CheckLogState_CHECK_LOG_STATE_TOO_LARGE),
 			check:   finished,
-			want:    CheckLogTooLarge,
+			want:    pullrequestv1.CheckLogState_CHECK_LOG_STATE_TOO_LARGE,
 			wantLog: true,
 		},
 		{
 			name:    "a log the forge never had",
-			reading: kept(CheckLogMissing),
+			reading: kept(pullrequestv1.CheckLogState_CHECK_LOG_STATE_MISSING),
 			check:   finished,
-			want:    CheckLogMissing,
+			want:    pullrequestv1.CheckLogState_CHECK_LOG_STATE_MISSING,
 			wantLog: true,
 		},
 		{
 			name:    "a log the forge no longer keeps",
-			reading: kept(CheckLogExpired),
+			reading: kept(pullrequestv1.CheckLogState_CHECK_LOG_STATE_EXPIRED),
 			check:   finished,
-			want:    CheckLogExpired,
+			want:    pullrequestv1.CheckLogState_CHECK_LOG_STATE_EXPIRED,
 			wantLog: true,
 		},
 		{
 			name:    "a log komrad gave up on",
-			reading: kept(CheckLogFailed),
+			reading: kept(pullrequestv1.CheckLogState_CHECK_LOG_STATE_FAILED),
 			check:   finished,
-			want:    CheckLogFailed,
+			want:    pullrequestv1.CheckLogState_CHECK_LOG_STATE_FAILED,
 			wantLog: true,
 		},
 	}

@@ -14,6 +14,7 @@ import (
 	"komrad/internal/logging"
 	taskstore "komrad/internal/store/task"
 	"komrad/proto/gen/oneofs"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -287,7 +288,7 @@ func (s *Service) moveRebase(ctx context.Context, dir string, result *RebaseResu
 
 // recordRebaseStopped puts the stopped rebase on the task.
 func (s *Service) recordRebaseStopped(ctx context.Context, task taskstore.Task) {
-	if err := s.tasks.SetSequence(ctx, task.ID, taskstore.SequenceRebase); err != nil {
+	if err := s.tasks.SetSequence(ctx, task.ID, taskv1.Sequence_SEQUENCE_REBASE); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record that a task's rebase stopped part-way",
 			append([]slog.Attr{slog.String(logging.TaskID, task.ID.String())}, logging.Err(err)...)...)
 	}

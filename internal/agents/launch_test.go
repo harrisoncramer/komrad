@@ -25,6 +25,8 @@ import (
 	"komrad/internal/tmuxtest"
 	"komrad/lib/clock"
 	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -147,7 +149,7 @@ func TestNewAgent(t *testing.T) {
 
 				if tt.wantsFailedRow {
 					require.Len(t, agents, 1, "a launch that had already claimed a slot leaves a row to look at")
-					assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State)
+					assert.Equal(t, agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE, agents[0].State)
 					assert.Contains(t, agents[0].FailureReason, tt.wantErr, "and why, for the row that is left")
 					assert.Empty(t, agents[0].Hooks, "and no hooks, since its launch installed none")
 				} else {
@@ -173,7 +175,7 @@ func TestNewAgent(t *testing.T) {
 			assert.Equal(t, params.Dir, stored.Cwd)
 			assert.Equal(t, "--default-flag --extra", stored.Flags, "the configured flags come first")
 			assert.Equal(t, "do the thing", stored.Prompt)
-			assert.Equal(t, agentstore.StateIdle, stored.State)
+			assert.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, stored.State)
 			assert.Equal(t, []string{"PreToolUse", "Stop"}, stored.Hooks, "the hooks its launch installed")
 			assert.NotEmpty(t, stored.SessionID, "a conversation id is pinned at launch")
 			assert.NotEmpty(t, tmux.LastRespawn("%My-Agent").Argv, "the agent is launched into the new pane")
@@ -238,9 +240,9 @@ func TestNewAgentIdempotency(t *testing.T) {
 
 			callerIDs := map[string]uuid.UUID{}
 			if tt.firstCaller != "" {
-				seedWithRole(t, st, workflowID, "orchestrator", agentstore.RoleOrchestrator)
+				seedWithRole(t, st, workflowID, "orchestrator", agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR)
 				for _, name := range []string{"writer", "other writer"} {
-					seeded := seedWithRole(t, st, workflowID, name, agentstore.RoleWriter)
+					seeded := seedWithRole(t, st, workflowID, name, agentv1.AgentRole_AGENT_ROLE_WRITER)
 					callerIDs[name] = seeded.ID
 				}
 			}
@@ -291,25 +293,25 @@ func TestNewAgentRetriesUnderTheSameKey(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		state        agentstore.State
+		state        agentv1.AgentState
 		wantRelaunch bool
 	}{
 		{
 			name:         "a create that failed is launched again",
-			state:        agentstore.StateFailedToCreate,
+			state:        agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
 			wantRelaunch: true,
 		},
 		{
 			name:  "a cleanup that failed belongs to an agent that ran, so the key stands",
-			state: agentstore.StateFailedToCleanup,
+			state: agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP,
 		},
 		{
 			name:  "an agent still coming up is left alone",
-			state: agentstore.StateSettingUp,
+			state: agentv1.AgentState_AGENT_STATE_SETTING_UP,
 		},
 		{
 			name:  "a working agent is left alone",
-			state: agentstore.StateThinking,
+			state: agentv1.AgentState_AGENT_STATE_THINKING,
 		},
 	}
 
@@ -372,7 +374,7 @@ const (
 func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 	tests := []struct {
 		name             string
-		spawnerRole      agentstore.Role
+		spawnerRole      agentv1.AgentRole
 		orchestrator     orchestratorState
 		reviewer         bool
 		unknownSpawner   bool
@@ -389,28 +391,28 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 		},
 		{
 			name:        "a writer in a workflow with no orchestrator answers for what it spawns",
-			spawnerRole: agentstore.RoleWriter,
+			spawnerRole: agentv1.AgentRole_AGENT_ROLE_WRITER,
 		},
 		{
 			name:             "a writer's standalone agent answers to the workflow's orchestrator",
-			spawnerRole:      agentstore.RoleWriter,
+			spawnerRole:      agentv1.AgentRole_AGENT_ROLE_WRITER,
 			orchestrator:     liveOrchestrator,
 			wantOrchestrator: true,
 		},
 		{
 			name:         "a writer whose orchestrator is archived answers for what it spawns",
-			spawnerRole:  agentstore.RoleWriter,
+			spawnerRole:  agentv1.AgentRole_AGENT_ROLE_WRITER,
 			orchestrator: archivedOrchestrator,
 		},
 		{
 			name:         "a writer's reviewer answers to the writer",
-			spawnerRole:  agentstore.RoleWriter,
+			spawnerRole:  agentv1.AgentRole_AGENT_ROLE_WRITER,
 			orchestrator: liveOrchestrator,
 			reviewer:     true,
 		},
 		{
 			name:         "a reviewer's standalone agent answers to the reviewer",
-			spawnerRole:  agentstore.RoleReviewer,
+			spawnerRole:  agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 			orchestrator: liveOrchestrator,
 		},
 	}
@@ -432,7 +434,7 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 
 			var orchestrator agentstore.Agent
 			if tt.orchestrator != noOrchestrator {
-				orchestrator = seedWithRole(t, st, workflowID, "orchestrator", agentstore.RoleOrchestrator)
+				orchestrator = seedWithRole(t, st, workflowID, "orchestrator", agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR)
 			}
 			if tt.orchestrator == archivedOrchestrator {
 				_, err := st.Agents.Archive(ctx, []uuid.UUID{orchestrator.ID})
@@ -443,7 +445,7 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 			switch {
 			case tt.unknownSpawner:
 				ctx = caller.With(ctx, caller.Caller{AgentID: uuid.New()})
-			case tt.spawnerRole != "":
+			case tt.spawnerRole != agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED:
 				seeded := seedWithRole(t, st, workflowID, "spawner", tt.spawnerRole)
 				spawner = &seeded
 				ctx = caller.With(ctx, caller.Caller{AgentID: seeded.ID})
@@ -694,7 +696,7 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 				stored, getErr := st.Get(t.Context(), "agent")
 				require.NoError(t, getErr)
 				require.NotNil(t, stored, "a refused setup leaves a row to look at rather than none")
-				assert.Equal(t, agentstore.StateFailedToCreate, stored.State)
+				assert.Equal(t, agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE, stored.State)
 				assert.NotEmpty(t, stored.FailureReason, "and why")
 				assert.Empty(t, fakeHarness.Launches, "and launches nothing")
 
@@ -799,7 +801,7 @@ func TestNewAgentCeiling(t *testing.T) {
 
 			for i := range tt.existing {
 				name := fmt.Sprintf("existing-%d", i)
-				seed(t, st, name, fmt.Sprintf("%%%d", i), agentstore.StateThinking)
+				seed(t, st, name, fmt.Sprintf("%%%d", i), agentv1.AgentState_AGENT_STATE_THINKING)
 
 				if tt.archiveExisting {
 					require.NoError(t, st.SoftDelete(t.Context(), name))
@@ -924,7 +926,7 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 			agents, listErr := st.Agents.List(t.Context())
 			require.NoError(t, listErr)
 			require.Len(t, agents, 1, "the row stays, marked failed, rather than vanishing")
-			assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State)
+			assert.Equal(t, agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE, agents[0].State)
 			assert.NotEmpty(t, agents[0].FailureReason)
 			assert.Empty(t, agents[0].Pane, "a failed create holds no pane")
 		})
@@ -998,7 +1000,7 @@ func TestNewAgentClosesOutACreateTheCallerAbandoned(t *testing.T) {
 	agents, listErr := st.Agents.List(t.Context())
 	require.NoError(t, listErr)
 	require.Len(t, agents, 1)
-	assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State, "an abandoned create is not left setting up forever")
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE, agents[0].State, "an abandoned create is not left setting up forever")
 	assert.NotEmpty(t, agents[0].FailureReason, "the row says why it failed")
 
 	assert.Equal(t, []string{scriptrun.WorktreeDeprovisioner}, lifecycle.deprovision, "what setup built is taken back")
@@ -1049,7 +1051,7 @@ func TestNewAgentArchivedDuringSetupIsNotLaunched(t *testing.T) {
 	require.NotNil(t, agents[0].ArchivedAt)
 	assert.Empty(t, agents[0].Pane, "an archived agent holds no pane")
 	assert.False(t, agents[0].Alive, "an archived agent is not alive")
-	assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State)
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE, agents[0].State)
 	assert.NotEmpty(t, agents[0].FailureReason)
 	assert.Empty(t, tmux.Respawned, "no CLI is started for an archived agent")
 	require.Equal(t, 1, tmux.WindowsOpened())
@@ -1154,10 +1156,10 @@ func TestUniqueAgentName(t *testing.T) {
 			st := newStore(t)
 			workflowID := seedWorkflow(t, st)
 			for _, name := range tt.taken {
-				seedInWorkflow(t, st, workflowID, name, "%1", agentstore.StateIdle)
+				seedInWorkflow(t, st, workflowID, name, "%1", agentv1.AgentState_AGENT_STATE_IDLE)
 			}
 			for _, name := range tt.takenElsewhere {
-				seed(t, st, name, "%2", agentstore.StateIdle)
+				seed(t, st, name, "%2", agentv1.AgentState_AGENT_STATE_IDLE)
 			}
 
 			manager := newManager(tmuxtest.NewFake(), st)
@@ -1197,7 +1199,7 @@ func TestNameTaken(t *testing.T) {
 	st := newStore(t)
 	workflowID := seedWorkflow(t, st)
 	other := seedWorkflow(t, st)
-	seedInWorkflow(t, st, workflowID, "taken", "%1", agentstore.StateIdle)
+	seedInWorkflow(t, st, workflowID, "taken", "%1", agentv1.AgentState_AGENT_STATE_IDLE)
 	manager := newManager(tmuxtest.NewFake(), st)
 
 	for _, tt := range tests {
@@ -1296,7 +1298,7 @@ func TestConcurrentLaunchesGiveATaskOneWriter(t *testing.T) {
 	require.NoError(t, err)
 	writers := 0
 	for _, agent := range onTask {
-		if agent.Role == agentstore.RoleWriter {
+		if agent.Role == agentv1.AgentRole_AGENT_ROLE_WRITER {
 			writers++
 		}
 	}
@@ -1324,7 +1326,7 @@ func TestNewReviewerTakesItsLaunchFromItsTask(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, reviewer)
 
-	assert.Equal(t, agentstore.RoleReviewer, reviewer.Role)
+	assert.Equal(t, agentv1.AgentRole_AGENT_ROLE_REVIEWER, reviewer.Role)
 	assert.Equal(t, dir, reviewer.Cwd, "a reviewer runs where its task's writer runs")
 	assert.Equal(t, writer.TaskID, reviewer.TaskID)
 	assert.Equal(t, writer.WorkflowID, reviewer.WorkflowID)
@@ -1429,7 +1431,7 @@ func TestNewReviewerRefusals(t *testing.T) {
 			name: "a task whose worktree was removed",
 			prepareWriter: func(t *testing.T, st *testStore, writer agentstore.Agent) agentstore.Agent {
 				t.Helper()
-				require.NoError(t, st.Tasks.SetHead(t.Context(), *writer.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone}))
+				require.NoError(t, st.Tasks.SetHead(t.Context(), *writer.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE}))
 
 				return writer
 			},
@@ -1453,7 +1455,7 @@ func TestNewReviewerRefusals(t *testing.T) {
 			st := newStore(t)
 			manager := newManager(tmux, st)
 
-			writer := withCwd(seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle), t.TempDir())
+			writer := withCwd(seedRunning(t, st, tmux, "author", "%author", agentv1.AgentState_AGENT_STATE_IDLE), t.TempDir())
 			require.NoError(t, st.Agents.Update(t.Context(), writer))
 			if tt.prepareWriter != nil {
 				writer = tt.prepareWriter(t, st, writer)
@@ -1568,7 +1570,7 @@ func TestNewAgentWorksOnATask(t *testing.T) {
 					Title:      "lead",
 					Prompt:     "go",
 					WorkflowID: workflowID,
-					Role:       agentstore.RoleOrchestrator,
+					Role:       agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 				}
 			},
 		},
@@ -1747,7 +1749,7 @@ func TestNewReviewerUnderTheReviewerCeiling(t *testing.T) {
 	})
 	ctx := t.Context()
 
-	writer := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
+	writer := seedRunning(t, st, tmux, "author", "%author", agentv1.AgentState_AGENT_STATE_IDLE)
 	require.NoError(t, st.Agents.Update(ctx, withCwd(writer, t.TempDir())))
 
 	join := func(title string) error {
@@ -1893,9 +1895,9 @@ func seedOrchestrator(t *testing.T, st *testStore, tmux paneStamper) agentstore.
 	require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 		Name:       name,
 		Pane:       "%" + name,
-		State:      agentstore.StateIdle,
+		State:      agentv1.AgentState_AGENT_STATE_IDLE,
 		WorkflowID: workflowID,
-		Role:       agentstore.RoleOrchestrator,
+		Role:       agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 	}))
 
 	got, err := st.Agents.GetInWorkflow(ctx, workflowID, name)
@@ -2023,7 +2025,7 @@ func TestWorkflowFlagsFollowItsHarness(t *testing.T) {
 func TestReviewerTakesTheWorkflowsReviewerLaunch(t *testing.T) {
 	tests := []struct {
 		name            string
-		role            agentstore.Role
+		role            agentv1.AgentRole
 		reviewerHarness string
 		reviewerFlags   string
 		wantHarness     string
@@ -2031,13 +2033,13 @@ func TestReviewerTakesTheWorkflowsReviewerLaunch(t *testing.T) {
 	}{
 		{
 			name:        "a reviewer in a workflow naming no reviewer launch takes the workflow's own",
-			role:        agentstore.RoleReviewer,
+			role:        agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 			wantHarness: harnesstest.FakeID,
 			wantFlags:   "--default-flag --model opus",
 		},
 		{
 			name:            "a reviewer takes the reviewer CLI and flags",
-			role:            agentstore.RoleReviewer,
+			role:            agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 			reviewerHarness: "codex",
 			reviewerFlags:   "--model gpt-5",
 			wantHarness:     "codex",
@@ -2045,21 +2047,21 @@ func TestReviewerTakesTheWorkflowsReviewerLaunch(t *testing.T) {
 		},
 		{
 			name:            "a reviewer on another CLI with no reviewer flags is launched without the workflow's",
-			role:            agentstore.RoleReviewer,
+			role:            agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 			reviewerHarness: "codex",
 			wantHarness:     "codex",
 			wantFlags:       "",
 		},
 		{
 			name:          "reviewer flags alone keep the workflow's CLI",
-			role:          agentstore.RoleReviewer,
+			role:          agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 			reviewerFlags: "--model sonnet",
 			wantHarness:   harnesstest.FakeID,
 			wantFlags:     "--default-flag --model sonnet",
 		},
 		{
 			name:            "a writer ignores the reviewer launch",
-			role:            agentstore.RoleWriter,
+			role:            agentv1.AgentRole_AGENT_ROLE_WRITER,
 			reviewerHarness: "codex",
 			reviewerFlags:   "--model gpt-5",
 			wantHarness:     harnesstest.FakeID,

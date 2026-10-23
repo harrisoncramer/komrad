@@ -2852,15 +2852,7 @@ func reviewWideningOf(widened *history.Widening) *agentv1.ReviewWidening {
 		return nil
 	}
 
-	reasons := map[history.WidenedReason]agentv1.ReviewWidenedReason{
-		history.WidenedAnswerGone:          agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_ANSWER_GONE,
-		history.WidenedCommentSnapshotGone: agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_COMMENT_SNAPSHOT_GONE,
-		history.WidenedRangeSnapshotGone:   agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_RANGE_SNAPSHOT_GONE,
-		history.WidenedRangeBackwards:      agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_RANGE_BACKWARDS,
-		history.WidenedAnswerAcrossRebase:  agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_ANSWER_ACROSS_REBASE,
-	}
-
-	return &agentv1.ReviewWidening{Reason: reasons[widened.Reason], Conflicts: widened.Conflicts}
+	return &agentv1.ReviewWidening{Reason: widened.Reason, Conflicts: widened.Conflicts}
 }
 
 func historyID(id string) uuid.UUID {

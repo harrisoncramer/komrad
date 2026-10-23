@@ -5,6 +5,8 @@ import (
 
 	"komrad/internal/forge"
 	"komrad/lib/xptr"
+	forgev1 "komrad/proto/gen/forge/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -70,7 +72,7 @@ func TestMerge(t *testing.T) {
 		{
 			name: "the pull request merges by the method and message asked for at the head the person saw",
 			params: forge.MergeParams{
-				Method:   forge.MergeMethodRebase,
+				Method:   forgev1.MergeMethod_MERGE_METHOD_REBASE,
 				Headline: xptr.Ptr("Land the fix"),
 				Body:     xptr.Ptr("Merges stop failing."),
 				HeadSHA:  "abc123",
@@ -84,7 +86,7 @@ func TestMerge(t *testing.T) {
 		{
 			name: "a headline alone leaves the body to github",
 			params: forge.MergeParams{
-				Method:   forge.MergeMethodSquash,
+				Method:   forgev1.MergeMethod_MERGE_METHOD_SQUASH,
 				Headline: xptr.Ptr("Land the fix"),
 			},
 			answers: map[string]answer{
@@ -95,7 +97,7 @@ func TestMerge(t *testing.T) {
 		},
 		{
 			name:    "a method github does not have is refused before github is asked to merge",
-			params:  forge.MergeParams{Method: forge.MergeMethodFastForward},
+			params:  forge.MergeParams{Method: forgev1.MergeMethod_MERGE_METHOD_FAST_FORWARD},
 			answers: map[string]answer{"MergeTarget": target},
 			wantErr: forge.ErrNoMergeMethod,
 		},
@@ -235,17 +237,17 @@ func TestMergeabilityOf(t *testing.T) {
 
 	tests := []struct {
 		status string
-		want   forge.Mergeability
+		want   pullrequestv1.Mergeability
 	}{
-		{status: "CLEAN", want: forge.MergeabilityClean},
-		{status: "HAS_HOOKS", want: forge.MergeabilityClean},
-		{status: "UNSTABLE", want: forge.MergeabilityUnstable},
-		{status: "BLOCKED", want: forge.MergeabilityBlocked},
-		{status: "DRAFT", want: forge.MergeabilityBlocked},
-		{status: "BEHIND", want: forge.MergeabilityBehind},
-		{status: "DIRTY", want: forge.MergeabilityConflicting},
-		{status: "UNKNOWN", want: forge.MergeabilityUnknown},
-		{status: "", want: forge.MergeabilityUnknown},
+		{status: "CLEAN", want: pullrequestv1.Mergeability_MERGEABILITY_CLEAN},
+		{status: "HAS_HOOKS", want: pullrequestv1.Mergeability_MERGEABILITY_CLEAN},
+		{status: "UNSTABLE", want: pullrequestv1.Mergeability_MERGEABILITY_UNSTABLE},
+		{status: "BLOCKED", want: pullrequestv1.Mergeability_MERGEABILITY_BLOCKED},
+		{status: "DRAFT", want: pullrequestv1.Mergeability_MERGEABILITY_BLOCKED},
+		{status: "BEHIND", want: pullrequestv1.Mergeability_MERGEABILITY_BEHIND},
+		{status: "DIRTY", want: pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING},
+		{status: "UNKNOWN", want: pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN},
+		{status: "", want: pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN},
 	}
 	for _, tt := range tests {
 		t.Run(tt.status, func(t *testing.T) {

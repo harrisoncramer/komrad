@@ -78,15 +78,20 @@ func (s *RowStore) Get(ctx context.Context, id uuid.UUID) (*Row, error) {
 }
 
 // fromWatched builds each watched agent's row.
-func fromWatched(watched []*models.ListWatchedAgentsRow) []Row {
-	return xslice.Map(watched, func(fact *models.ListWatchedAgentsRow) Row {
+func fromWatched(watched []*models.ListWatchedAgentsRow) ([]Row, error) {
+	return xslice.TryMap(watched, func(fact *models.ListWatchedAgentsRow) (Row, error) {
+		agent, err := agentstore.FromRow(fact.Agent)
+		if err != nil {
+			return Row{}, err
+		}
+
 		return Row{
-			Agent:              agentstore.FromRow(fact.Agent),
+			Agent:              *agent,
 			FailedRun:          fact.FailedRun,
 			FailedRunLog:       fact.FailedRunLog,
 			Documents:          fact.Documents,
 			DocumentsUpdatedAt: fact.DocumentsUpdatedAt,
 			TaskSlug:           fact.TaskSlug,
-		}
+		}, nil
 	})
 }

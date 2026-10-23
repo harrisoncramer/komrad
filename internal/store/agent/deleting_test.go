@@ -6,6 +6,7 @@ import (
 
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -82,15 +83,15 @@ func TestDeletingClaimHidesTheRow(t *testing.T) {
 			f := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, f.Create(ctx, Agent{Name: "author", State: StateIdle}))
+			require.NoError(t, f.Create(ctx, Agent{Name: "author", State: agentv1.AgentState_AGENT_STATE_IDLE}))
 			writer, err := f.Get(ctx, "author")
 			require.NoError(t, err)
 			require.NotNil(t, writer)
 			require.NoError(t, f.Create(ctx, Agent{
 				Name:   "reviewer",
 				TaskID: writer.TaskID,
-				Role:   RoleReviewer,
-				State:  StateIdle,
+				Role:   agentv1.AgentRole_AGENT_ROLE_REVIEWER,
+				State:  agentv1.AgentState_AGENT_STATE_IDLE,
 			}))
 			reviewer, err := f.Get(ctx, "reviewer")
 			require.NoError(t, err)
@@ -100,7 +101,7 @@ func TestDeletingClaimHidesTheRow(t *testing.T) {
 				require.NoError(t, err)
 			}
 			if tt.failed {
-				writer.State = StateFailedToCleanup
+				writer.State = agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP
 				require.NoError(t, f.Update(ctx, *writer))
 			}
 
@@ -125,7 +126,7 @@ func TestReleaseLeavesAnUnclaimedRowUntouched(t *testing.T) {
 	f := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, f.Create(ctx, Agent{Name: "author", State: StateIdle}))
+	require.NoError(t, f.Create(ctx, Agent{Name: "author", State: agentv1.AgentState_AGENT_STATE_IDLE}))
 	before, err := f.Get(ctx, "author")
 	require.NoError(t, err)
 	require.NotNil(t, before)
@@ -144,18 +145,18 @@ func TestDeletingClaimReturnsWhatItTook(t *testing.T) {
 	f := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, f.Create(ctx, Agent{Name: "author", State: StateIdle}))
+	require.NoError(t, f.Create(ctx, Agent{Name: "author", State: agentv1.AgentState_AGENT_STATE_IDLE}))
 	writer, err := f.Get(ctx, "author")
 	require.NoError(t, err)
 	require.NoError(t, f.Create(ctx, Agent{
 		Name:   "reviewer",
 		TaskID: writer.TaskID,
-		Role:   RoleReviewer,
-		State:  StateIdle,
+		Role:   agentv1.AgentRole_AGENT_ROLE_REVIEWER,
+		State:  agentv1.AgentState_AGENT_STATE_IDLE,
 	}))
 	reviewer, err := f.Get(ctx, "reviewer")
 	require.NoError(t, err)
-	require.NoError(t, f.Create(ctx, Agent{Name: "other", State: StateIdle}))
+	require.NoError(t, f.Create(ctx, Agent{Name: "other", State: agentv1.AgentState_AGENT_STATE_IDLE}))
 	other, err := f.Get(ctx, "other")
 	require.NoError(t, err)
 
@@ -181,14 +182,14 @@ func TestAReviewerClaimedBeforeItsWriterIsARoot(t *testing.T) {
 	f := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, f.Create(ctx, Agent{Name: "author", State: StateIdle}))
+	require.NoError(t, f.Create(ctx, Agent{Name: "author", State: agentv1.AgentState_AGENT_STATE_IDLE}))
 	writer, err := f.Get(ctx, "author")
 	require.NoError(t, err)
 	require.NoError(t, f.Create(ctx, Agent{
 		Name:   "reviewer",
 		TaskID: writer.TaskID,
-		Role:   RoleReviewer,
-		State:  StateIdle,
+		Role:   agentv1.AgentRole_AGENT_ROLE_REVIEWER,
+		State:  agentv1.AgentState_AGENT_STATE_IDLE,
 	}))
 	reviewer, err := f.Get(ctx, "reviewer")
 	require.NoError(t, err)
@@ -223,11 +224,11 @@ func TestClaimRoots(t *testing.T) {
 			claims: []Claim{{
 				ID:     writer,
 				TaskID: &task,
-				Role:   RoleWriter,
+				Role:   agentv1.AgentRole_AGENT_ROLE_WRITER,
 			}, {
 				ID:     reviewer,
 				TaskID: &task,
-				Role:   RoleReviewer,
+				Role:   agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 			}},
 			want: []uuid.UUID{writer},
 		},
@@ -236,7 +237,7 @@ func TestClaimRoots(t *testing.T) {
 			claims: []Claim{{
 				ID:     reviewer,
 				TaskID: &task,
-				Role:   RoleReviewer,
+				Role:   agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 			}},
 			want: []uuid.UUID{reviewer},
 		},
@@ -256,26 +257,26 @@ func TestListProvisionedIDsByTask(t *testing.T) {
 	f := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, f.Create(ctx, Agent{Name: "author", State: StateIdle}))
+	require.NoError(t, f.Create(ctx, Agent{Name: "author", State: agentv1.AgentState_AGENT_STATE_IDLE}))
 	author, err := f.Get(ctx, "author")
 	require.NoError(t, err)
 	require.NotNil(t, author)
 	require.NoError(t, f.Create(ctx, Agent{
 		Name:   "reviewer",
 		TaskID: author.TaskID,
-		Role:   RoleReviewer,
-		State:  StateIdle,
+		Role:   agentv1.AgentRole_AGENT_ROLE_REVIEWER,
+		State:  agentv1.AgentState_AGENT_STATE_IDLE,
 	}))
 	reviewer, err := f.Get(ctx, "reviewer")
 	require.NoError(t, err)
 	require.NoError(t, f.Create(ctx, Agent{
 		Name:             "adopter",
 		ProvisionEnabled: xptr.Ptr(false),
-		State:            StateIdle,
+		State:            agentv1.AgentState_AGENT_STATE_IDLE,
 	}))
 	adopter, err := f.Get(ctx, "adopter")
 	require.NoError(t, err)
-	require.NoError(t, f.Create(ctx, Agent{Name: "live", State: StateIdle}))
+	require.NoError(t, f.Create(ctx, Agent{Name: "live", State: agentv1.AgentState_AGENT_STATE_IDLE}))
 	live, err := f.Get(ctx, "live")
 	require.NoError(t, err)
 	_, err = f.Archive(ctx, []uuid.UUID{author.ID, reviewer.ID, adopter.ID})

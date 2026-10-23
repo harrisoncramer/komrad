@@ -9,7 +9,6 @@ import (
 	"komrad/internal/harness"
 	"komrad/internal/komradtest"
 	"komrad/internal/mail"
-	agentstore "komrad/internal/store/agent"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 
@@ -31,7 +30,7 @@ func TestIntegrationReviews(t *testing.T) {
 	require.NoError(t, err)
 
 	worker := createAgent(t, instance, workflow.Msg.GetWorkflow().GetId(), "worker")
-	instance.Settle(worker.GetId(), harness.ActivityIdle, agentstore.StateIdle)
+	instance.Settle(worker.GetId(), harness.ActivityIdle, agentv1.AgentState_AGENT_STATE_IDLE)
 	writeIn(t, worker.GetCwd(), "greet.go", "package greet\n\nfunc Hello() {}\n")
 	runGitIn(t, worker.GetCwd(), "add", "greet.go")
 	runGitIn(t, worker.GetCwd(), "commit", "--quiet", "-m", "greeting")

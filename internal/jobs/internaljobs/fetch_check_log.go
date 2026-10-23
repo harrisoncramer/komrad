@@ -13,6 +13,7 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/store"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
@@ -112,7 +113,7 @@ func (w *FetchCheckLogWorker) Work(ctx context.Context, job *river.Job[FetchChec
 	if err != nil {
 		return err
 	}
-	if check.State != string(forge.StatusCheckStateCompleted) || check.JobID == nil {
+	if check.State != pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED || check.JobID == nil {
 		return nil
 	}
 
@@ -127,7 +128,7 @@ func (w *FetchCheckLogWorker) Work(ctx context.Context, job *river.Job[FetchChec
 	}
 	reader, ok := hostForge.(forge.JobLogReader)
 	if !ok {
-		return w.record(ctx, pullrequeststore.CheckLog{CheckID: check.ID, Outcome: pullrequeststore.CheckLogMissing})
+		return w.record(ctx, pullrequeststore.CheckLog{CheckID: check.ID, Outcome: pullrequestv1.CheckLogState_CHECK_LOG_STATE_MISSING})
 	}
 
 	repo, err := git.ParseRemoteURL(check.RepositoryURL)
@@ -144,13 +145,13 @@ func (w *FetchCheckLogWorker) Work(ctx context.Context, job *river.Job[FetchChec
 	var throttled *forge.ThrottledError
 	switch {
 	case errors.Is(err, forge.ErrExpired):
-		return w.record(ctx, pullrequeststore.CheckLog{CheckID: check.ID, Outcome: pullrequeststore.CheckLogExpired})
+		return w.record(ctx, pullrequeststore.CheckLog{CheckID: check.ID, Outcome: pullrequestv1.CheckLogState_CHECK_LOG_STATE_EXPIRED})
 	case errors.Is(err, forge.ErrNotFound):
 		if check.FinishedAt != nil && now.Before(check.FinishedAt.Add(logReadyGrace)) {
 			return river.JobSnooze(max(check.FinishedAt.Add(logReadyGrace).Sub(now), minNotReadySnooze))
 		}
 
-		return w.record(ctx, pullrequeststore.CheckLog{CheckID: check.ID, Outcome: pullrequeststore.CheckLogMissing})
+		return w.record(ctx, pullrequeststore.CheckLog{CheckID: check.ID, Outcome: pullrequestv1.CheckLogState_CHECK_LOG_STATE_MISSING})
 	case errors.As(err, &throttled):
 		return river.JobSnooze(max(throttled.RetryAt.Sub(now), minThrottleSnooze))
 	case err != nil:
@@ -160,7 +161,7 @@ func (w *FetchCheckLogWorker) Work(ctx context.Context, job *river.Job[FetchChec
 	w.setLimit(check.Host, jobLog.RateLimit)
 
 	if jobLog.TooLarge {
-		return w.record(ctx, pullrequeststore.CheckLog{CheckID: check.ID, Outcome: pullrequeststore.CheckLogTooLarge})
+		return w.record(ctx, pullrequeststore.CheckLog{CheckID: check.ID, Outcome: pullrequestv1.CheckLogState_CHECK_LOG_STATE_TOO_LARGE})
 	}
 
 	parsed, err := checklog.Parse(strings.NewReader(jobLog.Text), check.Steps)
@@ -170,7 +171,7 @@ func (w *FetchCheckLogWorker) Work(ctx context.Context, job *river.Job[FetchChec
 
 	return w.record(ctx, pullrequeststore.CheckLog{
 		CheckID:    check.ID,
-		Outcome:    pullrequeststore.CheckLogFetched,
+		Outcome:    pullrequestv1.CheckLogState_CHECK_LOG_STATE_FETCHED,
 		Text:       parsed.Text,
 		LineCount:  parsed.LineCount,
 		ErrorCount: parsed.ErrorCount,
@@ -205,7 +206,7 @@ func (w *FetchCheckLogWorker) failOrRetry(ctx context.Context, job *river.Job[Fe
 		return err
 	}
 
-	if recordErr := w.record(context.WithoutCancel(ctx), pullrequeststore.CheckLog{CheckID: checkID, Outcome: pullrequeststore.CheckLogFailed}); recordErr != nil {
+	if recordErr := w.record(context.WithoutCancel(ctx), pullrequeststore.CheckLog{CheckID: checkID, Outcome: pullrequestv1.CheckLogState_CHECK_LOG_STATE_FAILED}); recordErr != nil {
 		return errors.Join(err, recordErr)
 	}
 

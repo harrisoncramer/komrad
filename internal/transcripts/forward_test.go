@@ -11,13 +11,13 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/mail"
 	"komrad/internal/store"
-	"komrad/internal/storetest"
-	"komrad/internal/tmuxtest"
-	"komrad/lib/xptr"
-
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	transcriptstore "komrad/internal/store/transcript"
+	"komrad/internal/storetest"
+	"komrad/internal/tmuxtest"
+	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -236,7 +236,7 @@ func TestForwardLastTurns(t *testing.T) {
 			beta := st.SeedAgent(t, agentstore.Agent{
 				Name:  "beta",
 				Pane:  "%beta",
-				State: agentstore.StateIdle,
+				State: agentv1.AgentState_AGENT_STATE_IDLE,
 			})
 			gamma := st.SeedAgent(t, agentstore.Agent{Name: "gamma"})
 			if tt.running {

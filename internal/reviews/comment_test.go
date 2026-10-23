@@ -8,9 +8,10 @@ import (
 	"komrad/internal/eventprompts"
 	"komrad/internal/fail"
 	"komrad/internal/mail"
-	mailstore "komrad/internal/store/mail"
 	taskstore "komrad/internal/store/task"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -26,7 +27,7 @@ func TestACommentGoesToTheWriterAtOnce(t *testing.T) {
 
 	rung := fx.listMail(t, fx.writer.ID)
 	require.Len(t, rung, 1)
-	assert.Equal(t, mailstore.KindReviewComment, rung[0].Kind)
+	assert.Equal(t, agentv1.MailKind_MAIL_KIND_REVIEW_COMMENT, rung[0].Kind)
 	assert.Equal(t, []eventv1.Event{eventv1.Event_EVENT_REVIEW_COMMENTED_BY_PERSON}, rung[0].Events)
 	assert.Contains(t, rung[0].Body, "the person commented on snapshot 1 at greet.go:41, thread "+written.Thread.ID.String())
 	assert.Contains(t, rung[0].Body, "+\tgreet(nil)")
@@ -149,7 +150,7 @@ func TestReadMail(t *testing.T) {
 			name: "a comment on a task whose worktree was removed is read on no snapshot",
 			arrange: func(t *testing.T, fx *reviewFixture) {
 				fx.writeComment(t, personAuthor, "this needs a nil check")
-				require.NoError(t, fx.stores.Tasks.SetHead(t.Context(), *fx.writer.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone}))
+				require.NoError(t, fx.stores.Tasks.SetHead(t.Context(), *fx.writer.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE}))
 			},
 			wantClaimed: 1,
 		},

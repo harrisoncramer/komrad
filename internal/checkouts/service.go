@@ -20,7 +20,9 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/wake"
 	"komrad/lib/xpath"
+	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/oneofs"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -101,9 +103,9 @@ type branchMover interface {
 	CountAheadBehind(ctx context.Context, dir, ref string) (ahead, behind int, err error)
 	PeekChanges(ctx context.Context, dir string) (git.Changes, error)
 	Push(ctx context.Context, params git.PushParams) (string, error)
-	ReadSequence(ctx context.Context, dir string) (git.Sequence, error)
+	ReadSequence(ctx context.Context, dir string) (taskv1.Sequence, error)
 	ReadRebaseOnto(ctx context.Context, dir string) (string, error)
-	AbortSequence(ctx context.Context, dir string, sequence git.Sequence) error
+	AbortSequence(ctx context.Context, dir string, sequence taskv1.Sequence) error
 	FetchBranchTip(ctx context.Context, dir, branch string) (string, error)
 	IsAncestor(ctx context.Context, params git.IsAncestorParams) (bool, error)
 	ReadMergeBase(ctx context.Context, dir, ref string) (string, error)
@@ -219,7 +221,7 @@ func readWriter(ctx context.Context, agents *agentstore.AgentStore, task tasksto
 		return nil, err
 	}
 
-	if writer.State == agentstore.StateSettingUp {
+	if writer.State == agentv1.AgentState_AGENT_STATE_SETTING_UP {
 		return nil, fmt.Errorf("%w: %q is still being set up", errBusy, writer.Name)
 	}
 

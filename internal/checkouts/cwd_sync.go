@@ -17,6 +17,7 @@ import (
 	worktreestore "komrad/internal/store/worktree"
 	"komrad/internal/worktrees"
 	"komrad/lib/xptr"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/google/uuid"
 	"github.com/harrisoncramer/streamer"
@@ -386,10 +387,10 @@ func (cs *CwdSyncer) write(ctx context.Context, look cwdLook) error {
 		Branch:        xptr.NonEmpty(head.Branch),
 		RepositoryURL: xptr.NonEmpty(head.RepositoryURL),
 		HeadSHA:       xptr.NonEmpty(head.SHA),
-		Sequence:      sequenceOf(head.Sequence),
+		Sequence:      head.Sequence,
 	}
 	if look.removed {
-		read.WorktreeRemovalReason = taskstore.WorktreeGone
+		read.WorktreeRemovalReason = taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE
 	}
 	unchanged := xptr.Equal(stored.Branch, read.Branch) &&
 		xptr.Equal(stored.RepositoryURL, read.RepositoryURL) &&
@@ -761,15 +762,6 @@ func (cs *CwdSyncer) readStanding(ctx context.Context, look *cwdLook, owned map[
 func (cl *cwdLook) keepDiffStat(err error) {
 	cl.diffStat = cl.task.Checkout.DiffStat
 	cl.err = errors.Join(cl.err, fmt.Errorf("failed to measure the checkout of task %q: %w", cl.task.Slug, err))
-}
-
-// sequenceOf is a sequence git read, as the task stores it.
-func sequenceOf(sequence git.Sequence) taskstore.Sequence {
-	if !sequence.IsInProgress() {
-		return taskstore.SequenceNone
-	}
-
-	return taskstore.Sequence(sequence)
 }
 
 func isStandingUnchanged(stored *worktreestore.Standing, read worktreestore.Standing) bool {

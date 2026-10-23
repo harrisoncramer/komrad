@@ -4,16 +4,18 @@ import (
 	"slices"
 
 	"komrad/internal/forge"
+	"komrad/lib/protoenum"
+	forgev1 "komrad/proto/gen/forge/v1"
 )
 
 // mergeMethodOrder is the order GitHub offers merge methods in.
 var mergeMethodOrder = []string{"MERGE", "SQUASH", "REBASE"}
 
 // mergeMethodOf is each of GitHub's merge methods in komrad's words.
-var mergeMethodOf = map[string]forge.MergeMethod{
-	"MERGE":  forge.MergeMethodMerge,
-	"SQUASH": forge.MergeMethodSquash,
-	"REBASE": forge.MergeMethodRebase,
+var mergeMethodOf = map[string]forgev1.MergeMethod{
+	"MERGE":  forgev1.MergeMethod_MERGE_METHOD_MERGE,
+	"SQUASH": forgev1.MergeMethod_MERGE_METHOD_SQUASH,
+	"REBASE": forgev1.MergeMethod_MERGE_METHOD_REBASE,
 }
 
 // mergeSettings is the merge methods a repository allows and the one the credential defaults to.
@@ -74,8 +76,8 @@ func (s mergeSettings) chooseMethod(base *baseRef) string {
 }
 
 // methodFor is GitHub's name for the method asked for, or the default method when none was.
-func (s mergeSettings) methodFor(base *baseRef, asked forge.MergeMethod) (string, error) {
-	if asked == "" {
+func (s mergeSettings) methodFor(base *baseRef, asked forgev1.MergeMethod) (string, error) {
+	if asked == forgev1.MergeMethod_MERGE_METHOD_UNSPECIFIED {
 		return s.chooseMethod(base), nil
 	}
 	for method, named := range mergeMethodOf {
@@ -84,7 +86,7 @@ func (s mergeSettings) methodFor(base *baseRef, asked forge.MergeMethod) (string
 		}
 	}
 
-	return "", forge.ErrNoMergeMethod.Saying("github cannot merge by %s", asked)
+	return "", forge.ErrNoMergeMethod.Saying("github cannot merge by %s", protoenum.Name(asked))
 }
 
 func (b *baseRef) isMethodAllowed(method string) bool {

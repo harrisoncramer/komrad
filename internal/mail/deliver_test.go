@@ -15,6 +15,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	"komrad/internal/storetest"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -30,7 +31,7 @@ const movingDir = "/moving"
 func TestDeliver(t *testing.T) {
 	tests := []struct {
 		name      string
-		state     agentstore.State
+		state     agentv1.AgentState
 		cwd       string
 		noMail    bool
 		refuse    bool
@@ -56,7 +57,7 @@ func TestDeliver(t *testing.T) {
 		},
 		{
 			name:  "an agent sitting on a permission prompt",
-			state: agentstore.StateWaiting,
+			state: agentv1.AgentState_AGENT_STATE_WAITING,
 			want:  DeliveryLater,
 		},
 		{
@@ -95,7 +96,7 @@ func TestDeliver(t *testing.T) {
 		},
 		{
 			name:      "an agent mid-turn",
-			state:     agentstore.StateThinking,
+			state:     agentv1.AgentState_AGENT_STATE_THINKING,
 			want:      DeliverySoon,
 			wantClaim: true,
 			wantNudge: true,
@@ -112,7 +113,7 @@ func TestDeliver(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := storetest.Open(t)
 			agent := seedAgent(t, st, tt.cwd)
-			if tt.state != "" {
+			if tt.state != agentv1.AgentState_AGENT_STATE_UNSPECIFIED {
 				require.NoError(t, st.Agents.SetStateByID(t.Context(), agent.ID, tt.state))
 			}
 			if !tt.noMail {
@@ -209,7 +210,7 @@ func seedAgent(t *testing.T, st *storetest.Stores, cwd string) agentstore.Agent 
 		Name:    name,
 		Pane:    "%" + name,
 		Cwd:     cwd,
-		State:   agentstore.StateIdle,
+		State:   agentv1.AgentState_AGENT_STATE_IDLE,
 		Harness: harnesstest.FakeID,
 	})
 }

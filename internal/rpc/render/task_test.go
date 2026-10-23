@@ -4,15 +4,15 @@ import (
 	"testing"
 	"time"
 
+	taskstore "komrad/internal/store/task"
+	"komrad/lib/xptr"
+	taskv1 "komrad/proto/gen/task/v1"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
-
-	taskstore "komrad/internal/store/task"
-	"komrad/lib/xptr"
-	taskv1 "komrad/proto/gen/task/v1"
 )
 
 // TestTask pins the checkout fields a client cannot draw unless the task carries them.
@@ -56,10 +56,10 @@ func TestTask(t *testing.T) {
 					Cwd:                   "/tmp/worktrees/worked",
 					Branch:                xptr.Ptr("harry/spike"),
 					AdoptedBranch:         "harry/spike",
-					WorktreeRemovalReason: taskstore.WorktreeGone,
+					WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE,
 					RepositoryURL:         xptr.Ptr("https://github.com/harrisoncramer/komrad"),
 					HeadSHA:               xptr.Ptr("abc"),
-					Sequence:              taskstore.SequenceRebase,
+					Sequence:              taskv1.Sequence_SEQUENCE_REBASE,
 					MovedSinceSnapshot:    "snapshot-one",
 					DiffStat:              &taskstore.DiffStat{Added: 12, Removed: 3},
 				},

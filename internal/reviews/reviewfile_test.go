@@ -5,6 +5,7 @@ import (
 
 	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -83,7 +84,7 @@ func TestRenderReviewHeadsEachThread(t *testing.T) {
 					BaseSHA: "base-sha",
 					SHA:     "snapshot-sha",
 				},
-				Verdict: reviewstore.VerdictChangesRequested,
+				Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 				Threads: []ReviewThreadInContext{{Thread: tt.thread}},
 			})
 

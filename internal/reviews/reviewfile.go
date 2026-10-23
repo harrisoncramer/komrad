@@ -9,6 +9,7 @@ import (
 	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
 	"komrad/lib/xsha"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 // contextLines is how much of the file either side of a comment goes into the review.
@@ -21,7 +22,7 @@ type renderReviewParams struct {
 	Snapshot reviewstore.Snapshot
 	// Author names the agent that gave the review.
 	Author  string
-	Verdict reviewstore.Verdict
+	Verdict agentv1.ReviewVerdict
 	// Said is what the reviewer wrote about the change as a whole rather than about any one line,
 	// empty when they wrote nothing.
 	Said    string
@@ -203,13 +204,13 @@ func oldSideSentence(thread reviewstore.Thread, snapshot reviewstore.Snapshot) s
 }
 
 // verdictSentence opens the file with what the review asks of the agent.
-func verdictSentence(verdict reviewstore.Verdict) string {
+func verdictSentence(verdict agentv1.ReviewVerdict) string {
 	switch verdict {
-	case reviewstore.VerdictApproved:
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
 		return "Approved. This snapshot is good as it stands."
-	case reviewstore.VerdictChangesRequested:
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
 		return "Changes requested. Keep working on this."
-	case reviewstore.VerdictCommented:
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED, agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED:
 	}
 
 	return "Comments only, with no conclusion either way."

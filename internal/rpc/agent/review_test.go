@@ -368,7 +368,7 @@ func TestListReviewThreadsNamesTheCaller(t *testing.T) {
 			callerID: alphaID,
 			wantListed: reviews.ListReviewThreadsParams{
 				Author: reviews.ReviewAuthor{
-					Kind:    reviewstore.AuthorAgent,
+					Kind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
 					AgentID: xptr.Ptr(alphaID),
 				},
 			},
@@ -380,7 +380,7 @@ func TestListReviewThreadsNamesTheCaller(t *testing.T) {
 			wantListed: reviews.ListReviewThreadsParams{
 				Task: betaTask,
 				Author: reviews.ReviewAuthor{
-					Kind:    reviewstore.AuthorAgent,
+					Kind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
 					AgentID: xptr.Ptr(alphaID),
 				},
 			},
@@ -390,7 +390,7 @@ func TestListReviewThreadsNamesTheCaller(t *testing.T) {
 			task: xptr.Ptr(betaTaskID.String()),
 			wantListed: reviews.ListReviewThreadsParams{
 				Task:   betaTask,
-				Author: reviews.ReviewAuthor{Kind: reviewstore.AuthorHuman},
+				Author: reviews.ReviewAuthor{Kind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN},
 			},
 		},
 	}
@@ -464,7 +464,7 @@ func TestOpenReviewHistoryPassesTheSpan(t *testing.T) {
 			assert.Equal(t, []reviews.GetHistoryParams{{
 				Task:   betaTask,
 				Span:   tt.wantSpan,
-				Author: reviews.ReviewAuthor{Kind: reviewstore.AuthorHuman},
+				Author: reviews.ReviewAuthor{Kind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN},
 			}}, reviewer.opened)
 		})
 	}
@@ -483,7 +483,7 @@ func TestOpenReviewHistoryRendersTheHistory(t *testing.T) {
 				Conflicts: []string{"greet.go"},
 			},
 			Widened: &history.Widening{
-				Reason:    history.WidenedAnswerAcrossRebase,
+				Reason:    agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_ANSWER_ACROSS_REBASE,
 				Conflicts: []string{"greet.go", "second.go"},
 			},
 			Earlier:             &history.Snapshot{ID: firstSnapshotID},
@@ -533,27 +533,27 @@ func TestReleaseReviewPassesTheVerdict(t *testing.T) {
 	tests := []struct {
 		name        string
 		verdict     agentv1.ReviewVerdict
-		wantVerdict reviewstore.Verdict
+		wantVerdict agentv1.ReviewVerdict
 	}{
 		{
 			name:        "no verdict at all is left for the service to settle",
 			verdict:     agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED,
-			wantVerdict: "",
+			wantVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED,
 		},
 		{
 			name:        "a comment",
 			verdict:     agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED,
-			wantVerdict: reviewstore.VerdictCommented,
+			wantVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED,
 		},
 		{
 			name:        "changes requested",
 			verdict:     agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
-			wantVerdict: reviewstore.VerdictChangesRequested,
+			wantVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 		},
 		{
 			name:        "an approval",
 			verdict:     agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
-			wantVerdict: reviewstore.VerdictApproved,
+			wantVerdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
 		},
 	}
 
@@ -573,7 +573,7 @@ func TestReleaseReviewPassesTheVerdict(t *testing.T) {
 				Task:    betaTask,
 				Verdict: tt.wantVerdict,
 				Body:    "two things before it goes",
-				Author:  reviews.ReviewAuthor{Kind: reviewstore.AuthorHuman},
+				Author:  reviews.ReviewAuthor{Kind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN},
 			}}, reviewer.released)
 		})
 	}
@@ -587,9 +587,9 @@ func TestGetReviewRendersTheReview(t *testing.T) {
 			TaskID:          betaTaskID,
 			SnapshotID:      firstSnapshotID,
 			SnapshotOrdinal: 1,
-			AuthorKind:      reviewstore.AuthorAgent,
+			AuthorKind:      agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
 			AuthorAgentID:   xptr.Ptr(alphaID),
-			Verdict:         xptr.Ptr(reviewstore.VerdictChangesRequested),
+			Verdict:         agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 			ReleasedAt:      &reviewedAt,
 			Body:            "two things before it goes",
 			OpenThreads:     1,
@@ -608,6 +608,7 @@ func TestGetReviewRendersTheReview(t *testing.T) {
 			ID:         threadID,
 			TaskID:     betaTaskID,
 			SnapshotID: firstSnapshotID,
+			AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
 			FilePath:   "greet.go",
 		},
 	}

@@ -1,0 +1,41 @@
+// The schedule.v1 enums, in Edition 2026 so that each value's JSON name is its lowercase word.
+// event/v1/event.proto says why Edition 2026 needs release candidates.
+edition = "2026";
+
+package schedule.v1;
+
+import option "google/protobuf/json_enumvalue_options.proto";
+
+option go_package = "komrad/proto/gen/schedule/v1;schedulev1";
+
+// ScheduleRunState is the state of one schedule run.
+export enum ScheduleRunState {
+  // No state was recorded. No run has this value.
+  SCHEDULE_RUN_STATE_UNSPECIFIED = 0;
+  // Waiting to start.
+  SCHEDULE_RUN_STATE_AVAILABLE = 1 [(pb.enumvalue.json).string = "available"];
+  // Held back until something releases the run.
+  SCHEDULE_RUN_STATE_PENDING = 2 [(pb.enumvalue.json).string = "pending"];
+  // Waiting for a later time to start.
+  SCHEDULE_RUN_STATE_SCHEDULED = 3 [(pb.enumvalue.json).string = "scheduled"];
+  // Running now.
+  SCHEDULE_RUN_STATE_RUNNING = 4 [(pb.enumvalue.json).string = "running"];
+  // Failed an attempt and waiting to try again.
+  SCHEDULE_RUN_STATE_RETRYABLE = 5 [(pb.enumvalue.json).string = "retryable"];
+  // Launched the run's agent or sent the run's mail.
+  SCHEDULE_RUN_STATE_COMPLETED = 6 [(pb.enumvalue.json).string = "completed"];
+  // Skipped, with the reason in the run's message.
+  SCHEDULE_RUN_STATE_CANCELLED = 7 [(pb.enumvalue.json).string = "cancelled"];
+  // Out of attempts, with the last error in the run's message.
+  SCHEDULE_RUN_STATE_DISCARDED = 8 [(pb.enumvalue.json).string = "discarded"];
+}
+
+// ScheduleKind is what a schedule does each time its cron expression matches.
+export enum ScheduleKind {
+  // No kind was recorded. No schedule has this value.
+  SCHEDULE_KIND_UNSPECIFIED = 0;
+  // Mails the prompt to a running orchestrator.
+  SCHEDULE_KIND_ORCHESTRATOR = 1 [(pb.enumvalue.json).string = "orchestrator"];
+  // Creates a task in the workflow and launches its writer with the prompt.
+  SCHEDULE_KIND_TASK = 2 [(pb.enumvalue.json).string = "task"];
+}

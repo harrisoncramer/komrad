@@ -10,6 +10,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	"komrad/internal/storetest"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
@@ -27,7 +28,7 @@ func (r failingRouter) Route(ctx context.Context, tx store.DBTX, _ events.Event)
 		FromName:  "komrad",
 		ToAgentID: r.recipient,
 		Body:      "written before the handler failed",
-		Kind:      mailstore.KindPullRequestChanged,
+		Kind:      agentv1.MailKind_MAIL_KIND_PULL_REQUEST_CHANGED,
 		SubjectID: uuid.New(),
 	})
 	if err != nil {

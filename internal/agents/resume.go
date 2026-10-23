@@ -21,6 +21,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tasks"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
@@ -150,13 +151,13 @@ func (s *ResumeService) refuseResumingOthers(ctx context.Context, byAgentID uuid
 	if err != nil {
 		return fmt.Errorf("failed to get the agent resuming: %w", err)
 	}
-	if asker.Role == agentstore.RoleOrchestrator {
+	if asker.Role == agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR {
 		return nil
 	}
 	if isWriterAndReviewer(*asker, target) {
 		return nil
 	}
-	if target.Role == agentstore.RoleOrchestrator && target.WorkflowID == asker.WorkflowID {
+	if target.Role == agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR && target.WorkflowID == asker.WorkflowID {
 		return nil
 	}
 
@@ -247,7 +248,7 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 
 	// Killing the tmux server takes every pane and the reconciler's view of them at once, so
 	// this code stamps the interrupted turn rather than leaving it to the reconciler.
-	if agent.InterruptedAt == nil && agent.State.IsTurnUnfinished() {
+	if agent.InterruptedAt == nil && agentstore.IsTurnUnfinished(agent.State) {
 		at := time.Now()
 		if err := s.agents.SetInterruptedAtByID(ctx, agent.ID, &at); err != nil {
 			return fmt.Errorf("failed to record the cut-off turn for %q: %w", agent.Name, err)
@@ -295,7 +296,7 @@ type resumeStart struct {
 	service *ResumeService
 	scripts agentScriptRunner
 	harness harness.Harness
-	prior   agentstore.State
+	prior   agentv1.AgentState
 	restart *restartLaunch
 }
 
@@ -333,7 +334,7 @@ func (r *resumeStart) record(ctx context.Context, agent *agentstore.Agent, pane 
 	}
 
 	agent.Pane = pane
-	agent.State = agentstore.StateSettingUp
+	agent.State = agentv1.AgentState_AGENT_STATE_SETTING_UP
 	// An archive or a delete takes the row without reading the resume mark, so this write is where
 	// a resume finds out it lost and has to take away the pane it opened.
 	written, err := r.service.agents.UpdateIfLive(ctx, *agent)

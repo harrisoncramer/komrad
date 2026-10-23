@@ -10,6 +10,7 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/oneofs"
 
 	"github.com/google/uuid"
@@ -50,9 +51,9 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 	// A reviewer reads its task's checkout rather than writing one, so it has no change of its own
 	// for a second agent to be shown.
 	switch {
-	case author.Role == agentstore.RoleReviewer:
+	case author.Role == agentv1.AgentRole_AGENT_ROLE_REVIEWER:
 		return nil, "", fmt.Errorf("%w: %q was launched to review", agenterr.ErrReviewNeedsOwnWork, author.Name)
-	case author.Role == agentstore.RoleOrchestrator:
+	case author.Role == agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR:
 		return nil, "", fmt.Errorf("%w: %q writes no code, so it has no change to be read", agenterr.ErrReviewNeedsOwnWork, author.Name)
 	case author.TaskID == nil:
 		return nil, "", fmt.Errorf("%w: %q works on no task, so it has no change to be read", agenterr.ErrReviewNeedsOwnWork, author.Name)
@@ -70,7 +71,7 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 		Flags:          params.Flags,
 		WorkflowID:     author.WorkflowID,
 		Task:           oneofs.Task{TaskId: author.TaskID},
-		Role:           agentstore.RoleReviewer,
+		Role:           agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 		IdempotencyKey: params.IdempotencyKey,
 	})
 	if errors.Is(err, agenterr.ErrAlreadyLaunched) && !isReviewerOf(*reviewer, *author) {
@@ -85,7 +86,7 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 
 // isReviewerOf reports whether the agent reviews the author's task.
 func isReviewerOf(agent, author agentstore.Agent) bool {
-	return agent.Role == agentstore.RoleReviewer &&
+	return agent.Role == agentv1.AgentRole_AGENT_ROLE_REVIEWER &&
 		agent.TaskID != nil && author.TaskID != nil && *agent.TaskID == *author.TaskID
 }
 

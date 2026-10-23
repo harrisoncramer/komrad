@@ -9,7 +9,9 @@ import (
 	"komrad/db/models"
 	"komrad/internal/fail"
 	"komrad/internal/store"
+	"komrad/lib/protoenum"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 )
@@ -21,25 +23,11 @@ var (
 	errReplyState = fail.Precondition("the forge reply is not in a state that allows that")
 )
 
-// ForgeReplyState is where a forge reply is on its way to the forge.
-type ForgeReplyState string
-
-const (
-	// ForgeReplyApproved is a reply waiting to post.
-	ForgeReplyApproved ForgeReplyState = ForgeReplyState(models.ForgeReplyStateApproved)
-	// ForgeReplySending is a reply in the middle of posting, which may already be on the forge.
-	ForgeReplySending ForgeReplyState = ForgeReplyState(models.ForgeReplyStateSending)
-	// ForgeReplySent is a reply the forge accepted.
-	ForgeReplySent ForgeReplyState = ForgeReplyState(models.ForgeReplyStateSent)
-	// ForgeReplyFailed is a reply the forge refused on its latest attempt.
-	ForgeReplyFailed ForgeReplyState = ForgeReplyState(models.ForgeReplyStateFailed)
-)
-
 // ForgeReply is a reply komrad posts to the forge on a mirrored thread.
 type ForgeReply struct {
 	ID                     uuid.UUID
 	ThreadID               uuid.UUID
-	State                  ForgeReplyState
+	State                  agentv1.ForgeReplyState
 	Body                   string
 	ApprovedAt             *time.Time
 	SendingStartedAt       *time.Time
@@ -71,7 +59,7 @@ func (s *ReviewStore) CreateForgeReply(ctx context.Context, threadID uuid.UUID, 
 		return nil, fmt.Errorf("failed to write a forge reply on review thread %q: %w", threadID, err)
 	}
 
-	return forgeReplyFromRow(row), nil
+	return forgeReplyFromRow(row)
 }
 
 // BeginForgeReplySend marks an approved or failed reply as sending.
@@ -124,7 +112,7 @@ func (s *ReviewStore) GetForgeReply(ctx context.Context, id uuid.UUID) (*ForgeRe
 		return nil, fmt.Errorf("failed to read the forge reply %q: %w", id, err)
 	}
 
-	return forgeReplyFromRow(row), nil
+	return forgeReplyFromRow(row)
 }
 
 // ListForgeReplies is every forge reply on the given threads, oldest first within each.
@@ -138,7 +126,7 @@ func (s *ReviewStore) ListForgeReplies(ctx context.Context, threadIDs []uuid.UUI
 		return nil, fmt.Errorf("failed to list the forge replies of %d review thread(s): %w", len(threadIDs), err)
 	}
 
-	return xslice.Map(rows, listedForgeReplyFromRow), nil
+	return xslice.TryMap(rows, listedForgeReplyFromRow)
 }
 
 // ListSendingForgeReplies is every reply whose posting was begun and never settled.
@@ -148,9 +136,14 @@ func (s *ReviewStore) ListSendingForgeReplies(ctx context.Context) ([]ForgeReply
 		return nil, fmt.Errorf("failed to list the forge replies being sent: %w", err)
 	}
 
-	return xslice.Map(rows, func(row *models.ReviewForgeReply) ForgeReply {
-		return *forgeReplyFromRow(row)
-	}), nil
+	return xslice.TryMap(rows, func(row *models.ReviewForgeReply) (ForgeReply, error) {
+		reply, err := forgeReplyFromRow(row)
+		if err != nil {
+			return ForgeReply{}, err
+		}
+
+		return *reply, nil
+	})
 }
 
 // GetForgeReplyTarget returns where a reply on a mirrored review thread goes on the forge.
@@ -179,7 +172,7 @@ func (s *ReviewStore) finishForgeReplyMove(ctx context.Context, id uuid.UUID, ro
 		return nil, fmt.Errorf("failed to move the forge reply %q: %w", id, err)
 	}
 
-	return forgeReplyFromRow(row), nil
+	return forgeReplyFromRow(row)
 }
 
 func (s *ReviewStore) explainForgeReplyRefusal(ctx context.Context, id uuid.UUID) error {
@@ -188,14 +181,19 @@ func (s *ReviewStore) explainForgeReplyRefusal(ctx context.Context, id uuid.UUID
 		return err
 	}
 
-	return fmt.Errorf("%w: forge reply %q is %s", errReplyState, id, reply.State)
+	return fmt.Errorf("%w: forge reply %q is %s", errReplyState, id, protoenum.Name(reply.State))
 }
 
-func forgeReplyFromRow(row *models.ReviewForgeReply) *ForgeReply {
+func forgeReplyFromRow(row *models.ReviewForgeReply) (*ForgeReply, error) {
+	state, err := fromDBToServiceForgeReplyState(row.State)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ForgeReply{
 		ID:                     row.ID,
 		ThreadID:               row.ThreadID,
-		State:                  ForgeReplyState(row.State),
+		State:                  state,
 		Body:                   row.Body,
 		ApprovedAt:             row.ApprovedAt,
 		SendingStartedAt:       row.SendingStartedAt,
@@ -203,7 +201,7 @@ func forgeReplyFromRow(row *models.ReviewForgeReply) *ForgeReply {
 		ForgeCommentProviderID: row.ForgeCommentProviderID,
 		Error:                  row.Error,
 		CreatedAt:              row.CreatedAt,
-	}
+	}, nil
 }
 
 func notMirrored(threadID uuid.UUID) error {
@@ -214,9 +212,12 @@ func forgeReplyNotFound(id uuid.UUID) error {
 	return fmt.Errorf("%w: forge reply %q", store.ErrNotFound, id)
 }
 
-func listedForgeReplyFromRow(row *models.ListForgeRepliesRow) ForgeReply {
-	reply := forgeReplyFromRow(&row.ReviewForgeReply)
+func listedForgeReplyFromRow(row *models.ListForgeRepliesRow) (ForgeReply, error) {
+	reply, err := forgeReplyFromRow(&row.ReviewForgeReply)
+	if err != nil {
+		return ForgeReply{}, err
+	}
 	reply.MirroredCommentID = row.MirroredCommentID
 
-	return *reply
+	return *reply, nil
 }

@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/forge"
 	"komrad/lib/xslice"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -95,7 +96,7 @@ func finishedAt(check forge.StatusCheck, at time.Time) forge.StatusCheck {
 func TestCheckFailuresAreToldToEachAgentOnce(t *testing.T) {
 	h := openCheckFailures(t)
 	ctx := t.Context()
-	failed := finishedAt(statusCheckRun("1", "lint", forge.StatusCheckStateCompleted, "failure"), statusCheckReadAt)
+	failed := finishedAt(statusCheckRun("1", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure"), statusCheckReadAt)
 	h.read(t, "c1", failed)
 
 	assert.Equal(t, []*time.Time{nil}, h.notedAt(t, h.failures(h.agentID, "c1", failed)), "a failure no one was told of is not noted")
@@ -119,7 +120,7 @@ func TestCheckFailuresAreToldToEachAgentOnce(t *testing.T) {
 func TestCheckFailureThatFailsAgainIsNew(t *testing.T) {
 	h := openCheckFailures(t)
 	ctx := t.Context()
-	failed := finishedAt(statusCheckRun("1", "lint", forge.StatusCheckStateCompleted, "failure"), statusCheckReadAt)
+	failed := finishedAt(statusCheckRun("1", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure"), statusCheckReadAt)
 	h.read(t, "c1", failed)
 	require.NoError(t, h.checks.RecordCheckFailures(ctx, h.told(h.agentID, failed)))
 
@@ -134,7 +135,7 @@ func TestCheckFailureThatFailsAgainIsNew(t *testing.T) {
 func TestCheckFailureWithNoFinishTimeIsNotedOnce(t *testing.T) {
 	h := openCheckFailures(t)
 	ctx := t.Context()
-	failed := statusCheckRun("1", "lint", forge.StatusCheckStateCompleted, "failure")
+	failed := statusCheckRun("1", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure")
 	h.read(t, "c1", failed)
 
 	require.NoError(t, h.checks.RecordCheckFailures(ctx, h.told(h.agentID, failed)))
@@ -149,7 +150,7 @@ func TestCheckFailureWithNoFinishTimeIsNotedOnce(t *testing.T) {
 func TestCheckFailureNotesGoWithTheirAgentAndPullRequest(t *testing.T) {
 	h := openCheckFailures(t)
 	ctx := t.Context()
-	failed := finishedAt(statusCheckRun("1", "lint", forge.StatusCheckStateCompleted, "failure"), statusCheckReadAt)
+	failed := finishedAt(statusCheckRun("1", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure"), statusCheckReadAt)
 	h.read(t, "c1", failed)
 	require.NoError(t, h.checks.RecordCheckFailures(ctx, h.told(h.agentID, failed)))
 	require.NoError(t, h.checks.RecordCheckFailures(ctx, h.told(h.otherAgentID, failed)))

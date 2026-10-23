@@ -14,6 +14,7 @@ import (
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 	"komrad/proto/gen/oneofs"
 
@@ -204,7 +205,7 @@ func TestSendMailRecordsWhoSentIt(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, waiting, 1)
 			assert.Equal(t, sent.ID, waiting[0].ID)
-			assert.Equal(t, mailstore.KindPlain, waiting[0].Kind)
+			assert.Equal(t, agentv1.MailKind_MAIL_KIND_PLAIN, waiting[0].Kind)
 			assert.Equal(t, tt.wantFromName, waiting[0].FromName)
 			assert.Equal(t, replyTo, waiting[0].ReplyTo)
 
@@ -453,14 +454,14 @@ func TestSendFromKomradRefusesIncompleteMail(t *testing.T) {
 		{
 			name: "a plain kind",
 			params: SendFromKomradParams{
-				Mail:      fakeMail{kind: mailstore.KindPlain, body: "hello"},
+				Mail:      fakeMail{kind: agentv1.MailKind_MAIL_KIND_PLAIN, body: "hello"},
 				SubjectID: uuid.New(),
 			},
 			wantErr: ErrKindMissing,
 		},
 		{
 			name:    "no subject",
-			params:  SendFromKomradParams{Mail: fakeMail{kind: mailstore.KindDocumentEdited, body: "hello"}},
+			params:  SendFromKomradParams{Mail: fakeMail{kind: agentv1.MailKind_MAIL_KIND_DOCUMENT_EDITED, body: "hello"}},
 			wantErr: errSubjectMissing,
 		},
 	}
@@ -490,7 +491,7 @@ func TestSendFromKomradRewritesTheUnreadOne(t *testing.T) {
 		t.Helper()
 		sent, err := svc.SendFromKomrad(ctx, SendFromKomradParams{
 			ToAgentID: recipient.ID,
-			Mail:      fakeMail{kind: mailstore.KindDocumentEdited, body: body},
+			Mail:      fakeMail{kind: agentv1.MailKind_MAIL_KIND_DOCUMENT_EDITED, body: body},
 			SubjectID: document,
 		})
 		require.NoError(t, err)
@@ -625,7 +626,7 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 				sent, err = svc.SendFromKomrad(ctx, SendFromKomradParams{
 					ToAgentID: recipient.ID,
 					Mail: fakeMail{
-						kind:   mailstore.KindPullRequestChanged,
+						kind:   agentv1.MailKind_MAIL_KIND_PULL_REQUEST_CHANGED,
 						body:   "changed",
 						events: s.events,
 					},
@@ -710,14 +711,14 @@ func TestClaimMail(t *testing.T) {
 			NewStart:   1,
 			NewEnd:     1,
 			Body:       body,
-			AuthorKind: reviewstore.AuthorHuman,
+			AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
 		})
 		require.NoError(t, err)
 		sent, err := st.Mail.UpsertFromKomrad(ctx, mailstore.UpsertFromKomradParams{
 			FromName:  "komrad",
 			ToAgentID: writer.ID,
 			Body:      body,
-			Kind:      mailstore.KindReviewComment,
+			Kind:      agentv1.MailKind_MAIL_KIND_REVIEW_COMMENT,
 			SubjectID: opened.MessageID,
 			Deadline:  time.Hour,
 		})
@@ -1095,7 +1096,7 @@ func seedTask(t *testing.T, st *storetest.Stores) map[string]agentstore.Agent {
 	seedReviewer := func(name string, writer agentstore.Agent) agentstore.Agent {
 		return *st.SeedAgent(t, agentstore.Agent{
 			Name:       name,
-			Role:       agentstore.RoleReviewer,
+			Role:       agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 			WorkflowID: writer.WorkflowID,
 			TaskID:     writer.TaskID,
 		})
@@ -1107,7 +1108,7 @@ func seedTask(t *testing.T, st *storetest.Stores) map[string]agentstore.Agent {
 		"second-reviewer": seedReviewer("test-runner", *writer),
 		"orchestrator": *st.SeedAgent(t, agentstore.Agent{
 			Name:       "orchestrator",
-			Role:       agentstore.RoleOrchestrator,
+			Role:       agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 			WorkflowID: writer.WorkflowID,
 		}),
 		"other-writer":   *otherWriter,
@@ -1147,7 +1148,7 @@ func listCappedMail(t *testing.T, st *storetest.Stores, agentID uuid.UUID) []mai
 	require.NoError(t, err)
 
 	return xslice.Filter(listed, func(mail mailstore.Mail) bool {
-		return mail.Kind == mailstore.KindExchangeCapped
+		return mail.Kind == agentv1.MailKind_MAIL_KIND_EXCHANGE_CAPPED
 	})
 }
 
@@ -1155,22 +1156,22 @@ func listCappedMail(t *testing.T, st *storetest.Stores, agentID uuid.UUID) []mai
 func TestIsDormant(t *testing.T) {
 	tests := []struct {
 		name        string
-		state       agentstore.State
+		state       agentv1.AgentState
 		running     bool
 		wantDormant bool
 	}{
 		{
 			name:        "an idle agent whose pane is gone",
-			state:       agentstore.StateIdle,
+			state:       agentv1.AgentState_AGENT_STATE_IDLE,
 			wantDormant: true,
 		},
 		{
 			name:  "an agent still being set up, whose pane does not decide yet",
-			state: agentstore.StateSettingUp,
+			state: agentv1.AgentState_AGENT_STATE_SETTING_UP,
 		},
 		{
 			name:    "an idle agent in its pane",
-			state:   agentstore.StateIdle,
+			state:   agentv1.AgentState_AGENT_STATE_IDLE,
 			running: true,
 		},
 	}
@@ -1194,12 +1195,12 @@ func TestIsDormant(t *testing.T) {
 }
 
 type fakeMail struct {
-	kind   mailstore.Kind
+	kind   agentv1.MailKind
 	body   string
 	events []eventv1.Event
 }
 
-func (m fakeMail) Kind() mailstore.Kind {
+func (m fakeMail) Kind() agentv1.MailKind {
 	return m.kind
 }
 

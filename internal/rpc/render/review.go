@@ -3,10 +3,9 @@ package render
 import (
 	"komrad/internal/reviews"
 	"komrad/internal/reviews/history"
+	reviewstore "komrad/internal/store/review"
 	"komrad/lib/dates"
 	"komrad/lib/xslice"
-
-	reviewstore "komrad/internal/store/review"
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
@@ -18,13 +17,11 @@ func WatchedReview(review reviewstore.Review) *agentv1.WatchedReview {
 		SnapshotId:      review.SnapshotID.String(),
 		SnapshotOrdinal: review.SnapshotOrdinal,
 		SnapshotSha:     review.SnapshotSHA,
-		AuthorKind:      reviewAuthorKindOf(review.AuthorKind),
+		AuthorKind:      review.AuthorKind,
 		AuthorAgentId:   formatOptionalID(review.AuthorAgentID),
+		Verdict:         review.Verdict,
 		CreatedAt:       dates.Stamp(review.CreatedAt),
 		UpdatedAt:       dates.Stamp(review.UpdatedAt),
-	}
-	if review.Verdict != nil {
-		watched.Verdict = reviewVerdictOf(*review.Verdict)
 	}
 	if at := review.ReleasedAt; at != nil {
 		watched.ReleasedAt = dates.Stamp(*at)
@@ -43,18 +40,16 @@ func Review(review reviewstore.Review) *agentv1.Review {
 		TaskId:          review.TaskID.String(),
 		SnapshotId:      review.SnapshotID.String(),
 		SnapshotOrdinal: review.SnapshotOrdinal,
-		AuthorKind:      reviewAuthorKindOf(review.AuthorKind),
+		AuthorKind:      review.AuthorKind,
 		AuthorAgentId:   formatOptionalID(review.AuthorAgentID),
 		Body:            review.Body,
 		Path:            review.Path,
 		OpenThreads:     review.OpenThreads,
+		Verdict:         review.Verdict,
 		CreatedAt:       dates.Stamp(review.CreatedAt),
 		UpdatedAt:       dates.Stamp(review.UpdatedAt),
 	}
 
-	if review.Verdict != nil {
-		answered.Verdict = reviewVerdictOf(*review.Verdict)
-	}
 	if at := review.ReleasedAt; at != nil {
 		answered.ReleasedAt = dates.Stamp(*at)
 	}
@@ -90,14 +85,6 @@ func ReviewViewedFile(viewed reviewstore.ViewedFile) *agentv1.ReviewViewedFile {
 		Fingerprint: viewed.Fingerprint,
 		ViewedAt:    dates.Stamp(viewed.ViewedAt),
 	}
-}
-
-func reviewAuthorKindOf(kind reviewstore.AuthorKind) agentv1.ReviewAuthorKind {
-	if kind == reviewstore.AuthorAgent {
-		return agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT
-	}
-
-	return agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN
 }
 
 // ReviewHistory draws a review as the panel opens it.
@@ -152,24 +139,7 @@ func reviewWidening(widened *history.Widening) *agentv1.ReviewWidening {
 	}
 
 	return &agentv1.ReviewWidening{
-		Reason:    reviewWidenedReasonOf(widened.Reason),
+		Reason:    widened.Reason,
 		Conflicts: widened.Conflicts,
 	}
-}
-
-func reviewWidenedReasonOf(reason history.WidenedReason) agentv1.ReviewWidenedReason {
-	switch reason {
-	case history.WidenedAnswerGone:
-		return agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_ANSWER_GONE
-	case history.WidenedCommentSnapshotGone:
-		return agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_COMMENT_SNAPSHOT_GONE
-	case history.WidenedRangeSnapshotGone:
-		return agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_RANGE_SNAPSHOT_GONE
-	case history.WidenedRangeBackwards:
-		return agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_RANGE_BACKWARDS
-	case history.WidenedAnswerAcrossRebase:
-		return agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_ANSWER_ACROSS_REBASE
-	}
-
-	return agentv1.ReviewWidenedReason_REVIEW_WIDENED_REASON_UNSPECIFIED
 }

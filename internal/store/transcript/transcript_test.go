@@ -14,6 +14,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -784,7 +785,7 @@ func seedAgent(t *testing.T, st *fixture, name string) uuid.UUID {
 	require.NoError(t, st.agents.Create(ctx, agentstore.Agent{
 		TaskID:     taskID,
 		Name:       name,
-		State:      agentstore.StateIdle,
+		State:      agentv1.AgentState_AGENT_STATE_IDLE,
 		WorkflowID: st.workflow,
 	}))
 	got, err := st.agents.GetInWorkflow(ctx, st.workflow, name)
@@ -947,12 +948,12 @@ func seedNarrowed(t *testing.T) narrowed {
 	alpha := seedAgentAs(t, st, agentstore.Agent{Name: "alpha", WorkflowID: st.workflow})
 	beta := seedAgentAs(t, st, agentstore.Agent{
 		Name:       "beta",
-		Role:       agentstore.RoleReviewer,
+		Role:       agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 		WorkflowID: st.workflow,
 	})
 	gamma := seedAgentAs(t, st, agentstore.Agent{
 		Name:       "gamma",
-		Role:       agentstore.RoleOrchestrator,
+		Role:       agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 		WorkflowID: web.ID,
 	})
 	delta := seedAgentAs(t, st, agentstore.Agent{Name: "delta", WorkflowID: st.workflow})
@@ -996,8 +997,8 @@ func seedNarrowed(t *testing.T) narrowed {
 
 func seedAgentAs(t *testing.T, st *fixture, agent agentstore.Agent) uuid.UUID {
 	t.Helper()
-	agent.State = agentstore.StateIdle
-	if agent.Role != agentstore.RoleOrchestrator {
+	agent.State = agentv1.AgentState_AGENT_STATE_IDLE
+	if agent.Role != agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR {
 		taskID, err := tasktest.Seed(t.Context(), st.db, agent.WorkflowID)
 		require.NoError(t, err)
 		agent.TaskID = taskID

@@ -6,13 +6,12 @@ import (
 
 	"komrad/internal/harness"
 	"komrad/internal/harnesstest"
-	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tasks"
 	"komrad/internal/tmuxtest"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -38,7 +37,7 @@ func TestRetryCreateRelaunches(t *testing.T) {
 	agents, err := st.Agents.List(t.Context())
 	require.NoError(t, err)
 	require.Len(t, agents, 1)
-	assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State)
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE, agents[0].State)
 
 	tmux.RespawnErr = nil
 
@@ -137,7 +136,7 @@ func TestRetryCreateFailsAgainOnBadLaunch(t *testing.T) {
 
 	got, err := st.Agents.GetByID(t.Context(), id)
 	require.NoError(t, err)
-	assert.Equal(t, agentstore.StateFailedToCreate, got.State, "goes back to failed_to_create for another retry")
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE, got.State, "goes back to failed_to_create for another retry")
 }
 
 // TestRetryCreateOntoAnotherHarness covers a retry that corrects the CLI the agent runs.

@@ -8,7 +8,6 @@ import (
 
 	"komrad/internal/harness"
 	"komrad/internal/komradtest"
-	agentstore "komrad/internal/store/agent"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	schedulev1 "komrad/proto/gen/schedule/v1"
@@ -65,7 +64,7 @@ func TestIntegrationSchedulesLaunchOnTheirFirings(t *testing.T) {
 	})
 
 	t.Run("a firing while that agent is working launches nothing", func(t *testing.T) {
-		instance.Settle(launched.GetId(), harness.ActivityWorking, agentstore.StateThinking)
+		instance.Settle(launched.GetId(), harness.ActivityWorking, agentv1.AgentState_AGENT_STATE_THINKING)
 
 		instance.Fire(scheduleID, nine.Add(24*time.Hour))
 
@@ -75,7 +74,7 @@ func TestIntegrationSchedulesLaunchOnTheirFirings(t *testing.T) {
 		assert.Equal(t, schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_CANCELLED, runs[0].GetState())
 		assert.Contains(t, runs[0].GetMessage(), "still has 1 agent(s) running")
 
-		instance.Settle(launched.GetId(), harness.ActivityIdle, agentstore.StateIdle)
+		instance.Settle(launched.GetId(), harness.ActivityIdle, agentv1.AgentState_AGENT_STATE_IDLE)
 	})
 
 	t.Run("a paused schedule launches nothing", func(t *testing.T) {

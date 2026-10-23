@@ -7,7 +7,8 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/gittest"
 	agentstore "komrad/internal/store/agent"
-	taskstore "komrad/internal/store/task"
+	agentv1 "komrad/proto/gen/agent/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,24 +29,24 @@ func TestAbortRefusals(t *testing.T) {
 		{
 			name:    "an agent whose tree something else is working in",
 			agent:   agentstore.Agent{Cwd: "/locked"},
-			aborter: gittest.Mover{Sequence: git.SequenceRebase},
+			aborter: gittest.Mover{Sequence: taskv1.Sequence_SEQUENCE_REBASE},
 			wantErr: errBusy,
 		},
 		{
 			name:    "a writer part way through a turn",
-			agent:   agentstore.Agent{Pane: "%1", State: agentstore.StateThinking},
-			aborter: gittest.Mover{Sequence: git.SequenceRebase},
+			agent:   agentstore.Agent{Pane: "%1", State: agentv1.AgentState_AGENT_STATE_THINKING},
+			aborter: gittest.Mover{Sequence: taskv1.Sequence_SEQUENCE_REBASE},
 			wantErr: errWriterNotAtRest,
 		},
 		{
 			name:    "a checkout with nothing part-way through",
-			aborter: gittest.Mover{Sequence: git.SequenceNone},
+			aborter: gittest.Mover{Sequence: taskv1.Sequence_SEQUENCE_NONE},
 			wantErr: ErrAbortNothing,
 		},
 		{
 			name: "a checkout another git command holds",
 			aborter: gittest.Mover{
-				Sequence: git.SequenceRebase,
+				Sequence: taskv1.Sequence_SEQUENCE_REBASE,
 				AbortErr: git.ErrIndexLocked,
 			},
 			wantErr:   errBusy,
@@ -57,7 +58,7 @@ func TestAbortRefusals(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := fixture.seed(t, tt.agent)
-			require.NoError(t, fixture.stores.Tasks.SetSequence(t.Context(), *agent.TaskID, taskstore.SequenceRebase))
+			require.NoError(t, fixture.stores.Tasks.SetSequence(t.Context(), *agent.TaskID, taskv1.Sequence_SEQUENCE_REBASE))
 			locks := NewTreeLocks()
 			release, taken := locks.TryLock("/locked")
 			require.True(t, taken)
@@ -68,7 +69,7 @@ func TestAbortRefusals(t *testing.T) {
 			require.ErrorIs(t, err, tt.wantErr)
 			assert.Equal(t, tt.wantCalls, tt.aborter.Calls)
 			assert.Empty(t, fixture.readInbox(t, agent.ID))
-			assert.Equal(t, taskstore.SequenceRebase, fixture.readCheckout(t, agent).Sequence, "nothing was undone, so the row still says so")
+			assert.Equal(t, taskv1.Sequence_SEQUENCE_REBASE, fixture.readCheckout(t, agent).Sequence, "nothing was undone, so the row still says so")
 		})
 	}
 }
@@ -93,7 +94,7 @@ func TestAbortUndoesTheSequence(t *testing.T) {
 			name:       "the rebase komrad left stopped on conflicts",
 			lastRebase: conflicted,
 			aborter: gittest.Mover{
-				Sequence: git.SequenceRebase,
+				Sequence: taskv1.Sequence_SEQUENCE_REBASE,
 				Onto:     "basesha",
 				State:    git.TreeState{Branch: "agent/a1"},
 			},
@@ -104,7 +105,7 @@ func TestAbortUndoesTheSequence(t *testing.T) {
 			name:       "a rebase the agent started after komrad's stopped one",
 			lastRebase: conflicted,
 			aborter: gittest.Mover{
-				Sequence: git.SequenceRebase,
+				Sequence: taskv1.Sequence_SEQUENCE_REBASE,
 				Onto:     "othersha",
 				State:    git.TreeState{Branch: "agent/a1"},
 			},
@@ -113,7 +114,7 @@ func TestAbortUndoesTheSequence(t *testing.T) {
 		{
 			name: "a rebase komrad never started",
 			aborter: gittest.Mover{
-				Sequence: git.SequenceRebase,
+				Sequence: taskv1.Sequence_SEQUENCE_REBASE,
 				Onto:     "basesha",
 				State:    git.TreeState{Branch: "agent/a1"},
 			},
@@ -122,14 +123,14 @@ func TestAbortUndoesTheSequence(t *testing.T) {
 		{
 			name: "a cherry-pick the agent started",
 			aborter: gittest.Mover{
-				Sequence: git.SequenceCherryPick,
+				Sequence: taskv1.Sequence_SEQUENCE_CHERRY_PICK,
 				State:    git.TreeState{Branch: "agent/a1"},
 			},
 			wantMail: []string{"The cherry-pick you had part-way through"},
 		},
 		{
 			name:     "a sequence that leaves the checkout detached",
-			aborter:  gittest.Mover{Sequence: git.SequenceMerge},
+			aborter:  gittest.Mover{Sequence: taskv1.Sequence_SEQUENCE_MERGE},
 			wantMail: []string{"The merge you had", "Your checkout is back"},
 		},
 	}
@@ -138,7 +139,7 @@ func TestAbortUndoesTheSequence(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fixture := newRebaseFixture(t)
 			agent := fixture.seed(t, agentstore.Agent{})
-			require.NoError(t, fixture.stores.Tasks.SetSequence(t.Context(), *agent.TaskID, taskstore.Sequence(tt.aborter.Sequence)))
+			require.NoError(t, fixture.stores.Tasks.SetSequence(t.Context(), *agent.TaskID, tt.aborter.Sequence))
 			if tt.lastRebase != nil {
 				raw, err := json.Marshal(tt.lastRebase)
 				require.NoError(t, err)
@@ -149,15 +150,15 @@ func TestAbortUndoesTheSequence(t *testing.T) {
 			result, err := fixture.newService(NewServiceParams{Git: &tt.aborter}).Abort(t.Context(), taskByID(*agent.TaskID))
 			require.NoError(t, err)
 
-			assert.Equal(t, sequenceOf(sequence), result.Sequence)
+			assert.Equal(t, sequence, result.Sequence)
 			assert.Equal(t, tt.aborter.State.Branch, result.Branch)
 			assert.Equal(t, tt.wantOurs, result.Ours)
-			assert.Equal(t, []string{"park", "abort " + string(sequence)}, tt.aborter.Calls)
+			assert.Equal(t, []string{"park", "abort " + git.GetSequenceCommand(sequence)}, tt.aborter.Calls)
 			assert.Equal(t, []string{result.ParkedRef}, tt.aborter.Parked)
 			assert.Contains(t, result.ParkedRef, "refs/komrad/aborted/"+agent.TaskID.String()+"/")
 			assert.Equal(t, 1, fixture.checkoutSync.Wakes)
 
-			assert.Equal(t, taskstore.SequenceNone, fixture.readCheckout(t, agent).Sequence)
+			assert.Equal(t, taskv1.Sequence_SEQUENCE_NONE, fixture.readCheckout(t, agent).Sequence)
 
 			inbox := fixture.readInbox(t, agent.ID)
 			require.Len(t, inbox, 1)

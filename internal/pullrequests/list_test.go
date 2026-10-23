@@ -11,6 +11,7 @@ import (
 	"komrad/internal/storetest"
 	"komrad/lib/xslice"
 	forgev1 "komrad/proto/gen/forge/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -127,11 +128,11 @@ func TestListStatusChecks(t *testing.T) {
 	run := func(id string, runStartedAt time.Time) forge.StatusCheck {
 		return forge.StatusCheck{
 			ProviderID:   id,
-			Kind:         forge.StatusCheckKindRun,
+			Kind:         pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 			Source:       "ci",
 			RunEvent:     "pull_request",
 			Name:         "test",
-			State:        forge.StatusCheckStateCompleted,
+			State:        pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 			Conclusion:   "success",
 			RunStartedAt: &runStartedAt,
 		}

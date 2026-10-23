@@ -3,11 +3,12 @@ package server
 import (
 	"testing"
 
-	annotationv1 "komrad/proto/gen/annotation/v1"
-
 	"komrad/internal/rpcapi"
 	agentstore "komrad/internal/store/agent"
 	"komrad/internal/storetest"
+	"komrad/lib/protoenum"
+	agentv1 "komrad/proto/gen/agent/v1"
+	annotationv1 "komrad/proto/gen/annotation/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -16,9 +17,9 @@ import (
 
 // TestEveryRoleIsMapped fails when a role reaches the server with nothing to place it by.
 func TestEveryRoleIsMapped(t *testing.T) {
-	assert.Len(t, toolRoles, len(agentstore.Roles))
+	assert.Len(t, toolRoles, len(protoenum.Values[agentv1.AgentRole]()))
 
-	for _, role := range agentstore.Roles {
+	for _, role := range protoenum.Values[agentv1.AgentRole]() {
 		assert.NotEqual(t, annotationv1.Role_ROLE_UNSPECIFIED, toolRoles[role], "role %q is not mapped", role)
 	}
 }
@@ -32,13 +33,13 @@ func TestRoleOf(t *testing.T) {
 		ID:   uuid.New(),
 		Name: "reviewer",
 		Cwd:  "/repo",
-		Role: agentstore.RoleReviewer,
+		Role: agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 	})
 	archived := stores.SeedAgent(t, agentstore.Agent{
 		ID:   uuid.New(),
 		Name: "archived",
 		Cwd:  "/repo",
-		Role: agentstore.RoleOrchestrator,
+		Role: agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 	})
 	_, err := stores.Agents.Archive(t.Context(), []uuid.UUID{archived.ID})
 	require.NoError(t, err)

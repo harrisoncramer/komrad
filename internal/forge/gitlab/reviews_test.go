@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/forge"
 	"komrad/lib/xslice"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -146,7 +147,7 @@ func TestDecisionFolds(t *testing.T) {
 	tests := []struct {
 		name string
 		node string
-		want forge.ReviewDecision
+		want pullrequestv1.ReviewDecision
 	}{
 		{
 			name: "a reviewer asking for changes beats an approval",
@@ -171,7 +172,7 @@ func TestDecisionFolds(t *testing.T) {
 		]
 	}
 }`,
-			want: forge.ReviewDecisionChangesRequested,
+			want: pullrequestv1.ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED,
 		},
 		{
 			name: "approvals still owed are pending whoever has approved",
@@ -201,7 +202,7 @@ func TestDecisionFolds(t *testing.T) {
 		]
 	}
 }`,
-			want: forge.ReviewDecisionPending,
+			want: pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
 		},
 		{
 			name: "approved",
@@ -221,7 +222,7 @@ func TestDecisionFolds(t *testing.T) {
 		]
 	}
 }`,
-			want: forge.ReviewDecisionApproved,
+			want: pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED,
 		},
 		{
 			name: "no rule and nobody has approved is nothing, whatever the reviewers did",
@@ -241,7 +242,7 @@ func TestDecisionFolds(t *testing.T) {
 		]
 	}
 }`,
-			want: forge.ReviewDecisionNone,
+			want: pullrequestv1.ReviewDecision_REVIEW_DECISION_NONE,
 		},
 	}
 

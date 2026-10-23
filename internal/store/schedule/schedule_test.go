@@ -10,6 +10,8 @@ import (
 	"komrad/internal/store/task/tasktest"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
+	schedulev1 "komrad/proto/gen/schedule/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -134,36 +136,36 @@ func TestNameTaken(t *testing.T) {
 func TestKind(t *testing.T) {
 	tests := []struct {
 		name              string
-		kind              Kind
+		kind              schedulev1.ScheduleKind
 		namesOrchestrator bool
 		namesStranger     bool
 		wantErr           bool
-		wantKind          Kind
+		wantKind          schedulev1.ScheduleKind
 	}{
 		{
 			name:     "a schedule given no kind starts a task",
-			wantKind: KindTask,
+			wantKind: schedulev1.ScheduleKind_SCHEDULE_KIND_TASK,
 		},
 		{
 			name:              "an orchestrator schedule names the orchestrator it mails",
-			kind:              KindOrchestrator,
+			kind:              schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR,
 			namesOrchestrator: true,
-			wantKind:          KindOrchestrator,
+			wantKind:          schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR,
 		},
 		{
 			name:    "an orchestrator schedule naming no orchestrator is refused",
-			kind:    KindOrchestrator,
+			kind:    schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR,
 			wantErr: true,
 		},
 		{
 			name:          "an orchestrator schedule naming an agent komrad does not hold is refused",
-			kind:          KindOrchestrator,
+			kind:          schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR,
 			namesStranger: true,
 			wantErr:       true,
 		},
 		{
 			name:              "a task schedule naming an orchestrator is refused",
-			kind:              KindTask,
+			kind:              schedulev1.ScheduleKind_SCHEDULE_KIND_TASK,
 			namesOrchestrator: true,
 			wantErr:           true,
 		},
@@ -484,7 +486,7 @@ func TestDelete(t *testing.T) {
 		Name:       "launched",
 		WorkflowID: created.WorkflowID,
 		ScheduleID: &created.ID,
-		State:      agentstore.StateIdle,
+		State:      agentv1.AgentState_AGENT_STATE_IDLE,
 		TaskID:     taskID,
 	}
 	require.NoError(t, st.agents.Create(ctx, agent))
@@ -517,7 +519,7 @@ func TestDeletingAnOrchestratorTakesItsSchedules(t *testing.T) {
 		Cron:                "0 9 * * *",
 		Prompt:              "go",
 		WorkflowID:          workflow,
-		Kind:                KindOrchestrator,
+		Kind:                schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR,
 		OrchestratorAgentID: &gone,
 	})
 	mailingKept := seed(t, st, Config{
@@ -525,7 +527,7 @@ func TestDeletingAnOrchestratorTakesItsSchedules(t *testing.T) {
 		Cron:                "0 9 * * *",
 		Prompt:              "go",
 		WorkflowID:          workflow,
-		Kind:                KindOrchestrator,
+		Kind:                schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR,
 		OrchestratorAgentID: &kept,
 	})
 
@@ -589,7 +591,7 @@ func seedAgent(t *testing.T, st *fixture, workflowID uuid.UUID) uuid.UUID {
 		ID:         id,
 		Name:       "orchestrator-" + id.String(),
 		WorkflowID: workflowID,
-		State:      agentstore.StateIdle,
+		State:      agentv1.AgentState_AGENT_STATE_IDLE,
 	}))
 
 	return id

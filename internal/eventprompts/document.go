@@ -3,7 +3,7 @@ package eventprompts
 import (
 	"fmt"
 
-	mailstore "komrad/internal/store/mail"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
@@ -19,8 +19,8 @@ type DocumentWritten struct {
 }
 
 // Kind is the kind document mail is filed under.
-func (DocumentWritten) Kind() mailstore.Kind {
-	return mailstore.KindDocumentEdited
+func (DocumentWritten) Kind() agentv1.MailKind {
+	return agentv1.MailKind_MAIL_KIND_DOCUMENT_EDITED
 }
 
 // Events is the event a person's write starts.

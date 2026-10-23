@@ -5,20 +5,20 @@ import (
 	"errors"
 	"fmt"
 
-	annotationv1 "komrad/proto/gen/annotation/v1"
-
 	"komrad/internal/rpcapi"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
+	agentv1 "komrad/proto/gen/agent/v1"
+	annotationv1 "komrad/proto/gen/annotation/v1"
 
 	"github.com/google/uuid"
 )
 
 // toolRoles maps what komrad launched an agent to do onto the annotation the tools declare.
-var toolRoles = map[agentstore.Role]annotationv1.Role{
-	agentstore.RoleWriter:       annotationv1.Role_ROLE_WRITER,
-	agentstore.RoleReviewer:     annotationv1.Role_ROLE_REVIEWER,
-	agentstore.RoleOrchestrator: annotationv1.Role_ROLE_ORCHESTRATOR,
+var toolRoles = map[agentv1.AgentRole]annotationv1.Role{
+	agentv1.AgentRole_AGENT_ROLE_WRITER:       annotationv1.Role_ROLE_WRITER,
+	agentv1.AgentRole_AGENT_ROLE_REVIEWER:     annotationv1.Role_ROLE_REVIEWER,
+	agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR: annotationv1.Role_ROLE_ORCHESTRATOR,
 }
 
 // newRoleOf reads the role of an agent making a call.

@@ -19,6 +19,7 @@ import (
 	worktreestore "komrad/internal/store/worktree"
 	"komrad/lib/xslice"
 	"komrad/lib/xuuid"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 )
@@ -27,7 +28,7 @@ import (
 type Agent struct {
 	ID             uuid.UUID
 	Name           string
-	State          agentstore.State
+	State          agentv1.AgentState
 	StateChangedAt time.Time
 	ArchivedAt     *time.Time
 }

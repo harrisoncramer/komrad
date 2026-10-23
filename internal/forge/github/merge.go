@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/forge"
 	"komrad/lib/xptr"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 //go:embed mergetarget.gql
@@ -82,21 +83,21 @@ func finishedRefusal(state string, number int) error {
 }
 
 // mergeabilityOf is GitHub's mergeStateStatus in komrad's words.
-func mergeabilityOf(status string) forge.Mergeability {
+func mergeabilityOf(status string) pullrequestv1.Mergeability {
 	switch status {
 	case "CLEAN", "HAS_HOOKS":
-		return forge.MergeabilityClean
+		return pullrequestv1.Mergeability_MERGEABILITY_CLEAN
 	case "UNSTABLE":
-		return forge.MergeabilityUnstable
+		return pullrequestv1.Mergeability_MERGEABILITY_UNSTABLE
 	case "BLOCKED", "DRAFT":
-		return forge.MergeabilityBlocked
+		return pullrequestv1.Mergeability_MERGEABILITY_BLOCKED
 	case "BEHIND":
-		return forge.MergeabilityBehind
+		return pullrequestv1.Mergeability_MERGEABILITY_BEHIND
 	case "DIRTY":
-		return forge.MergeabilityConflicting
+		return pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING
 	}
 
-	return forge.MergeabilityUnknown
+	return pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN
 }
 
 // messageVariables is the commit message as a merge mutation's variables, each null to leave

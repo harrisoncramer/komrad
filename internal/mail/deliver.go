@@ -12,6 +12,7 @@ import (
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 )
@@ -123,7 +124,7 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID uuid.UUID) (Deliv
 	if s.trees != nil && agent.Cwd != "" && s.trees.IsMoving(agent.Cwd) {
 		return DeliveryLater, nil
 	}
-	if agent.State == agentstore.StateWaiting {
+	if agent.State == agentv1.AgentState_AGENT_STATE_WAITING {
 		return DeliveryLater, nil
 	}
 

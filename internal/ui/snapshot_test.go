@@ -10,6 +10,7 @@ import (
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,52 +26,52 @@ func TestSnapshotStatus(t *testing.T) {
 	}{
 		{
 			name: "a create that failed is broken",
-			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCreate}},
+			item: panel.AgentRow{Agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE}},
 			want: view.StatusBroken,
 		},
 		{
 			name: "a teardown that failed is broken",
-			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCleanup}},
+			item: panel.AgentRow{Agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP}},
 			want: view.StatusBroken,
 		},
 		{
 			name: "a turn an API error ended is broken",
-			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateErrored}, Alive: true},
+			item: panel.AgentRow{Agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_ERRORED}, Alive: true},
 			want: view.StatusBroken,
 		},
 		{
 			name: "a turn an API error ended stays broken once the pane has gone",
-			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateErrored}},
+			item: panel.AgentRow{Agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_ERRORED}},
 			want: view.StatusBroken,
 		},
 		{
 			name: "an agent stopped at a prompt wants you",
-			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateWaiting}, Alive: true},
+			item: panel.AgentRow{Agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_WAITING}, Alive: true},
 			want: view.StatusWaiting,
 		},
 		{
 			name: "a pane nobody can read wants you, since nobody else will look",
-			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateUncertain}, Alive: true},
+			item: panel.AgentRow{Agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_UNCERTAIN}, Alive: true},
 			want: view.StatusWaiting,
 		},
 		{
 			name: "an agent whose pane has gone is idle whatever it stopped in",
-			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateThinking}},
+			item: panel.AgentRow{Agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_THINKING}},
 			want: view.StatusIdle,
 		},
 		{
 			name: "an agent still being set up is under way, with nobody blocked",
-			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateSettingUp}},
+			item: panel.AgentRow{Agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_SETTING_UP}},
 			want: view.StatusThinking,
 		},
 		{
 			name: "a running agent is thinking",
-			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateThinking}, Alive: true},
+			item: panel.AgentRow{Agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_THINKING}, Alive: true},
 			want: view.StatusThinking,
 		},
 		{
 			name: "an agent doing nothing is idle",
-			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateIdle}, Alive: true},
+			item: panel.AgentRow{Agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_IDLE}, Alive: true},
 			want: view.StatusIdle,
 		},
 	}
@@ -93,28 +94,28 @@ func TestSnapshotRepo(t *testing.T) {
 	}{
 		{
 			name: "a directory that has gone beats a rebase left in it",
-			task: panel.Task{WorktreeRemovalReason: panel.WorktreeGone, Sequence: panel.SequenceRebase},
+			task: panel.Task{WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE, Sequence: taskv1.Sequence_SEQUENCE_REBASE},
 			want: view.RepoGone,
 		},
 		{
 			name: "a worktree a delete removed says so",
-			task: panel.Task{WorktreeRemovalReason: panel.WorktreeDeleted},
+			task: panel.Task{WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED},
 			want: view.RepoDeleted,
 		},
 		{
 			name:  "a create that failed with a directory that has gone still says so",
-			agent: panel.Agent{State: panel.StateFailedToCreate},
-			task:  panel.Task{WorktreeRemovalReason: panel.WorktreeGone},
+			agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE},
+			task:  panel.Task{WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE},
 			want:  view.RepoGone,
 		},
 		{
 			name:  "a create that failed before there was a directory reads as clean",
-			agent: panel.Agent{State: panel.StateFailedToCreate},
+			agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE},
 			want:  view.RepoClean,
 		},
 		{
 			name: "a rebase left part way through says so",
-			task: panel.Task{Sequence: panel.SequenceRebase},
+			task: panel.Task{Sequence: taskv1.Sequence_SEQUENCE_REBASE},
 			want: view.RepoRebasing,
 		},
 		{
@@ -409,27 +410,27 @@ func TestSnapshotProcess(t *testing.T) {
 	}{
 		{
 			name: "an agent whose pane has gone has nothing behind it",
-			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateIdle}},
+			item: panel.AgentRow{Agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_IDLE}},
 			want: view.ProcessStopped,
 		},
 		{
 			name: "an agent that stopped mid-thought has nothing behind it either",
-			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateThinking}},
+			item: panel.AgentRow{Agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_THINKING}},
 			want: view.ProcessStopped,
 		},
 		{
 			name: "a create that failed is not dormant, since the row still has a failure to report",
-			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCreate}},
+			item: panel.AgentRow{Agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE}},
 			want: view.ProcessAlive,
 		},
 		{
 			name: "an agent still being set up is not dormant, since it is on its way",
-			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateSettingUp}},
+			item: panel.AgentRow{Agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_SETTING_UP}},
 			want: view.ProcessAlive,
 		},
 		{
 			name: "an agent sitting quiet with a pane of its own is not dormant",
-			item: panel.AgentRow{Agent: panel.Agent{State: panel.StateIdle}, Alive: true},
+			item: panel.AgentRow{Agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_IDLE}, Alive: true},
 			want: view.ProcessAlive,
 		},
 	}
@@ -455,7 +456,7 @@ func TestSnapshotKinds(t *testing.T) {
 				header:   true,
 				workflow: panel.Workflow{ID: "w1", Name: "komrad"},
 				orchestrator: &panel.AgentRow{
-					Agent: panel.Agent{ID: "o1", State: panel.StateThinking},
+					Agent: panel.Agent{ID: "o1", State: agentv1.AgentState_AGENT_STATE_THINKING},
 					Alive: true,
 				},
 			},
@@ -484,7 +485,7 @@ func TestSnapshotKinds(t *testing.T) {
 			row: agentRow{
 				header:       true,
 				workflow:     panel.Workflow{ID: "w1", Name: "komrad"},
-				orchestrator: &panel.AgentRow{Agent: panel.Agent{ID: "o1", State: panel.StateIdle}},
+				orchestrator: &panel.AgentRow{Agent: panel.Agent{ID: "o1", State: agentv1.AgentState_AGENT_STATE_IDLE}},
 			},
 			want: view.Row{
 				Key:     "workflow:w1",
@@ -499,7 +500,7 @@ func TestSnapshotKinds(t *testing.T) {
 				header:   true,
 				workflow: panel.Workflow{ID: "w1", Name: "komrad"},
 				orchestrator: &panel.AgentRow{
-					Agent:      panel.Agent{ID: "o1", State: panel.StateIdle},
+					Agent:      panel.Agent{ID: "o1", State: agentv1.AgentState_AGENT_STATE_IDLE},
 					UnreadMail: true,
 				},
 			},
@@ -516,7 +517,7 @@ func TestSnapshotKinds(t *testing.T) {
 			row: agentRow{
 				header:       true,
 				workflow:     panel.Workflow{ID: "w1", Name: "komrad"},
-				orchestrator: &panel.AgentRow{Agent: panel.Agent{ID: "o1", State: panel.StateFailedToCreate}},
+				orchestrator: &panel.AgentRow{Agent: panel.Agent{ID: "o1", State: agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE}},
 			},
 			want: view.Row{
 				Key:    "workflow:w1",
@@ -549,7 +550,7 @@ func TestSnapshotKinds(t *testing.T) {
 						ID:         "a1",
 						Name:       "worker",
 						WorkflowID: "w1",
-						State:      panel.StateIdle,
+						State:      agentv1.AgentState_AGENT_STATE_IDLE,
 					},
 				},
 			},
@@ -572,8 +573,8 @@ func TestSnapshotKinds(t *testing.T) {
 					Agent: panel.Agent{
 						ID:    "a1",
 						Name:  "writer",
-						Role:  panel.RoleWriter,
-						State: panel.StateThinking,
+						Role:  agentv1.AgentRole_AGENT_ROLE_WRITER,
+						State: agentv1.AgentState_AGENT_STATE_THINKING,
 					},
 					Alive: true,
 				},
@@ -608,7 +609,7 @@ func TestSnapshotKinds(t *testing.T) {
 				item: panel.AgentRow{Agent: panel.Agent{
 					ID:   "a1",
 					Name: "reviewer",
-					Role: panel.RoleReviewer,
+					Role: agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 				}},
 				underTask: true,
 			},
@@ -656,11 +657,11 @@ func TestSnapshotPlainWorkflowKeepsItsColumns(t *testing.T) {
 				WorkflowID: "w1",
 				TaskID:     "t1",
 				Cwd:        "/tmp/somewhere",
-				State:      panel.StateIdle,
+				State:      agentv1.AgentState_AGENT_STATE_IDLE,
 			},
 		},
 	}}, tasks: map[string]panel.Task{"t1": {
-		WorktreeRemovalReason: panel.WorktreeGone,
+		WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE,
 		PersonComments:        &agentv1.CommentCounts{Open: 1},
 	}}})
 
@@ -857,7 +858,7 @@ func snapshotRunning(t *testing.T, item panel.AgentRow) view.Row {
 	t.Helper()
 
 	item.Alive = true
-	item.Agent.State = panel.StateIdle
+	item.Agent.State = agentv1.AgentState_AGENT_STATE_IDLE
 
 	return snapshotOne(t, item)
 }

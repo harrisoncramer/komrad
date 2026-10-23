@@ -1,18 +1,6 @@
 package forge
 
-// MergeMethod is how a pull request's commits land on its base.
-type MergeMethod string
-
-const (
-	// MergeMethodMerge lands the commits under a merge commit.
-	MergeMethodMerge MergeMethod = "merge"
-	// MergeMethodSquash lands the commits as one new commit.
-	MergeMethodSquash MergeMethod = "squash"
-	// MergeMethodRebase replays the commits onto the base one by one.
-	MergeMethodRebase MergeMethod = "rebase"
-	// MergeMethodFastForward moves the base to the head without a commit of its own.
-	MergeMethodFastForward MergeMethod = "fast_forward"
-)
+import forgev1 "komrad/proto/gen/forge/v1"
 
 // CommitMessage is the text of the commit a merge writes.
 type CommitMessage struct {
@@ -22,7 +10,7 @@ type CommitMessage struct {
 
 // MergeOption is one way a pull request could merge.
 type MergeOption struct {
-	Method MergeMethod
+	Method forgev1.MergeMethod
 	// Allowed says whether the repository and its base branch allow the method.
 	Allowed bool
 	// Message is what the forge writes for the method by itself, nil for a method without one.
@@ -33,7 +21,7 @@ type MergeOption struct {
 type MergePlan struct {
 	Options []MergeOption
 	// DefaultMethod is the method the forge merges with when asked for none.
-	DefaultMethod MergeMethod
+	DefaultMethod forgev1.MergeMethod
 	HeadSHA       string
 }
 
@@ -41,7 +29,7 @@ type MergePlan struct {
 type MergeParams struct {
 	URL string
 	// Method is how to merge, empty for the plan's default method.
-	Method MergeMethod
+	Method forgev1.MergeMethod
 	// Headline is the first line of the commit, nil to leave it to the forge.
 	Headline *string
 	// Body is the rest of the commit, nil to leave it to the forge.

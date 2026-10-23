@@ -12,6 +12,7 @@ import (
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
+	"komrad/lib/protoenum"
 	"komrad/lib/xptr"
 	"komrad/lib/xstr"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -94,7 +95,7 @@ func agentFits(in screen.Inputs, row panel.AgentRow, clause searchsyntax.Clause)
 	case searchsyntax.KeyWorkflow:
 		return xstr.ContainsFold(in.Listing.WorkflowName(agent.WorkflowID), clause.Value)
 	case searchsyntax.KeyIs:
-		return strings.EqualFold(string(agent.Role), clause.Value)
+		return strings.EqualFold(protoenum.Name(agent.Role), clause.Value)
 	case searchsyntax.KeyTask:
 		return xstr.ContainsFold(in.Listing.Tasks.FindForAgent(agent).Slug, clause.Value)
 	case searchsyntax.KeyHarness:

@@ -2,45 +2,12 @@ syntax = "proto3";
 
 package agent.v1;
 
+import "agent/v1/enums.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/timestamp.proto";
 import "pagination/v1/pagination.proto";
 
 option go_package = "komrad/proto/gen/agent/v1;agentv1";
-
-// MailKind is who wrote a piece of mail and why.
-enum MailKind {
-  // No kind was recorded.
-  MAIL_KIND_UNSPECIFIED = 0;
-  // Mail from an agent or the person.
-  MAIL_KIND_PLAIN = 1;
-  // From komrad: a review changed. The mail names the file the review was written to.
-  MAIL_KIND_REVIEW_ACTIVITY = 2;
-  // From komrad: the agent and one other agent have used up their mail limit with each other.
-  MAIL_KIND_EXCHANGE_CAPPED = 3;
-  // From komrad: the person wrote or edited one of the agent's documents.
-  MAIL_KIND_DOCUMENT_EDITED = 4;
-  // From komrad: a pull request on the agent's branch changed on the forge.
-  MAIL_KIND_PULL_REQUEST_CHANGED = 5;
-  // From komrad: komrad rebased the agent's worktree, or tried to.
-  MAIL_KIND_WORKTREE_REBASED = 6;
-  // From komrad: the agent's branch was force-pushed to origin.
-  MAIL_KIND_WORKTREE_PUSHED = 7;
-  // From komrad: the sequence stopped in the agent's worktree was aborted.
-  MAIL_KIND_WORKTREE_ABORTED = 8;
-  // From komrad: the person commented on the agent's work. The mail carries the comment.
-  MAIL_KIND_REVIEW_COMMENT = 9;
-}
-
-// MailDirection is whether a listing returns the mail an agent received or sent.
-enum MailDirection {
-  // No direction was chosen. Treated as `MAIL_DIRECTION_RECEIVED`.
-  MAIL_DIRECTION_UNSPECIFIED = 0;
-  // The mail sent to the agent.
-  MAIL_DIRECTION_RECEIVED = 1;
-  // The mail the agent sent.
-  MAIL_DIRECTION_SENT = 2;
-}
 
 // Mail is one message in an agent's mailbox.
 message Mail {

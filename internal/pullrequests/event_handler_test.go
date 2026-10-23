@@ -16,7 +16,9 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -26,9 +28,9 @@ import (
 // TestAPullRequestChangeTellsTheAgentsOnItsBranch pins what the one unread mail about a pull request says after each pass.
 func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 	pending := forge.MergeReadiness{
-		Decision:     forge.ReviewDecisionPending,
-		Listing:      listedStatusChecks(forge.ChecksPending),
-		Mergeability: forge.MergeabilityClean,
+		Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+		Listing:      listedStatusChecks(pullrequestv1.Checks_CHECKS_PENDING),
+		Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 	}
 
 	tests := []struct {
@@ -39,44 +41,44 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 	}{
 		{
 			name:       "checks failing",
-			reads:      []forge.MergeReadiness{{Decision: forge.ReviewDecisionPending, Listing: listedStatusChecks(forge.ChecksFailing)}},
+			reads:      []forge.MergeReadiness{{Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING, Listing: listedStatusChecks(pullrequestv1.Checks_CHECKS_FAILING)}},
 			wantLines:  []string{"  checks: failing on abc\n"},
 			wantEvents: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING},
 		},
 		{
 			name:       "checks failing while others still run",
-			reads:      []forge.MergeReadiness{{Decision: forge.ReviewDecisionPending, Listing: listedStatusChecks(forge.ChecksFailingRunning)}},
+			reads:      []forge.MergeReadiness{{Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING, Listing: listedStatusChecks(pullrequestv1.Checks_CHECKS_FAILING_RUNNING)}},
 			wantLines:  []string{"  checks: failing on abc, others still running\n"},
 			wantEvents: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING_RUNNING},
 		},
 		{
 			name: "the run finishing before the agent reads folds the early word into the settled one",
 			reads: []forge.MergeReadiness{
-				{Decision: forge.ReviewDecisionPending, Listing: listedStatusChecks(forge.ChecksFailingRunning)},
-				{Decision: forge.ReviewDecisionPending, Listing: listedStatusChecks(forge.ChecksFailing)},
+				{Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING, Listing: listedStatusChecks(pullrequestv1.Checks_CHECKS_FAILING_RUNNING)},
+				{Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING, Listing: listedStatusChecks(pullrequestv1.Checks_CHECKS_FAILING)},
 			},
 			wantLines:  []string{"  checks: failing on abc\n"},
 			wantEvents: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING},
 		},
 		{
 			name:      "an approval",
-			reads:     []forge.MergeReadiness{{Decision: forge.ReviewDecisionApproved, Listing: listedStatusChecks(forge.ChecksPending)}},
+			reads:     []forge.MergeReadiness{{Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED, Listing: listedStatusChecks(pullrequestv1.Checks_CHECKS_PENDING)}},
 			wantLines: []string{"  review: approved\n", "do not fetch them from the forge"},
 		},
 		{
 			name: "checks passing while the forge blocks the merge is not news",
 			reads: []forge.MergeReadiness{{
-				Decision:     forge.ReviewDecisionPending,
-				Listing:      listedStatusChecks(forge.ChecksPassing),
-				Mergeability: forge.MergeabilityBlocked,
+				Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+				Listing:      listedStatusChecks(pullrequestv1.Checks_CHECKS_PASSING),
+				Mergeability: pullrequestv1.Mergeability_MERGEABILITY_BLOCKED,
 			}},
 		},
 		{
 			name: "checks passing on a pull request the forge would merge",
 			reads: []forge.MergeReadiness{{
-				Decision:     forge.ReviewDecisionPending,
-				Listing:      listedStatusChecks(forge.ChecksPassing),
-				Mergeability: forge.MergeabilityClean,
+				Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+				Listing:      listedStatusChecks(pullrequestv1.Checks_CHECKS_PASSING),
+				Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 			}},
 			wantLines:  []string{"  checks: passing on abc\n", "  mergeability: clean\n"},
 			wantEvents: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_PASSING},
@@ -84,11 +86,11 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 		{
 			name: "two changes before the agent reads are one mail",
 			reads: []forge.MergeReadiness{
-				{Decision: forge.ReviewDecisionPending, Listing: listedStatusChecks(forge.ChecksFailing)},
+				{Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING, Listing: listedStatusChecks(pullrequestv1.Checks_CHECKS_FAILING)},
 				{
-					Decision:     forge.ReviewDecisionPending,
-					Listing:      listedStatusChecks(forge.ChecksFailing),
-					Mergeability: forge.MergeabilityConflicting,
+					Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+					Listing:      listedStatusChecks(pullrequestv1.Checks_CHECKS_FAILING),
+					Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING,
 				},
 			},
 			wantLines: []string{"  checks: failing on abc\n", "  mergeability: conflicting with main\n"},
@@ -96,16 +98,16 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 		{
 			name: "a later change rewrites the mail to where things stand",
 			reads: []forge.MergeReadiness{
-				{Decision: forge.ReviewDecisionPending, Listing: listedStatusChecks(forge.ChecksFailing)},
-				{Decision: forge.ReviewDecisionPending, Listing: listedStatusChecks(forge.ChecksPassing)},
+				{Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING, Listing: listedStatusChecks(pullrequestv1.Checks_CHECKS_FAILING)},
+				{Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING, Listing: listedStatusChecks(pullrequestv1.Checks_CHECKS_PASSING)},
 			},
 			wantLines: []string{"  checks: passing on abc\n"},
 		},
 		{
 			name: "auto-merge turned on",
 			reads: []forge.MergeReadiness{{
-				Decision:  forge.ReviewDecisionPending,
-				Listing:   listedStatusChecks(forge.ChecksPending),
+				Decision:  pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+				Listing:   listedStatusChecks(pullrequestv1.Checks_CHECKS_PENDING),
 				AutoMerge: forge.AutoMerge{On: true},
 			}},
 			wantLines: []string{"  auto-merge: on, so whatever is on the branch merges once its checks and reviews pass\n"},
@@ -114,8 +116,8 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 			name: "auto-merge turned off again rewrites the mail",
 			reads: []forge.MergeReadiness{
 				{
-					Decision:  forge.ReviewDecisionPending,
-					Listing:   listedStatusChecks(forge.ChecksPending),
+					Decision:  pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+					Listing:   listedStatusChecks(pullrequestv1.Checks_CHECKS_PENDING),
 					AutoMerge: forge.AutoMerge{On: true},
 				},
 				pending,
@@ -142,7 +144,7 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 				return
 			}
 			require.Len(t, told, 1)
-			assert.Equal(t, mailstore.KindPullRequestChanged, told[0].Kind)
+			assert.Equal(t, agentv1.MailKind_MAIL_KIND_PULL_REQUEST_CHANGED, told[0].Kind)
 			for _, line := range tt.wantLines {
 				assert.Contains(t, told[0].Body, line)
 			}
@@ -155,24 +157,24 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 
 // TestTheMailNamesOnlyTheRequiredChecksFailingOnTheHead pins which checks the pull request mail lists as failing.
 func TestTheMailNamesOnlyTheRequiredChecksFailingOnTheHead(t *testing.T) {
-	optionalFailed := listedStatusCheck("3", "docs", forge.StatusCheckStateCompleted, "failure")
+	optionalFailed := listedStatusCheck("3", "docs", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure")
 	optionalFailed.Required = false
 
 	tests := []struct {
 		name             string
-		checks           forge.Checks
+		checks           pullrequestv1.Checks
 		headStatusChecks []forge.StatusCheck
 		want             []string
 	}{
 		{
 			name:             "a required failure beside an optional failure and a running check",
-			checks:           forge.ChecksFailingRunning,
-			headStatusChecks: append(listedStatusChecks(forge.ChecksFailingRunning).StatusChecks, optionalFailed),
+			checks:           pullrequestv1.Checks_CHECKS_FAILING_RUNNING,
+			headStatusChecks: append(listedStatusChecks(pullrequestv1.Checks_CHECKS_FAILING_RUNNING).StatusChecks, optionalFailed),
 			want:             []string{"test"},
 		},
 		{
 			name:             "no check is named while the checks are unknown",
-			headStatusChecks: listedStatusChecks(forge.ChecksFailing).StatusChecks,
+			headStatusChecks: listedStatusChecks(pullrequestv1.Checks_CHECKS_FAILING).StatusChecks,
 		},
 	}
 
@@ -181,7 +183,7 @@ func TestTheMailNamesOnlyTheRequiredChecksFailingOnTheHead(t *testing.T) {
 			pullRequest := pullrequeststore.PullRequest{
 				HeadSHA: scriptedHeadSHA,
 				MergeReadiness: forge.RememberedMergeReadiness{
-					Checks: forge.RememberedAnswer[forge.Checks]{Value: tt.checks, HeadSHA: scriptedHeadSHA},
+					Checks: forge.RememberedAnswer[pullrequestv1.Checks]{Value: tt.checks, HeadSHA: scriptedHeadSHA},
 				},
 				HeadStatusChecks: tt.headStatusChecks,
 			}
@@ -195,8 +197,8 @@ func TestTheMailNamesOnlyTheRequiredChecksFailingOnTheHead(t *testing.T) {
 // TestAPullRequestChangeAfterTheMailWasReadStartsAnother pins that mail the agent read is left alone.
 func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 	failingOnA := forge.MergeReadiness{
-		Decision: forge.ReviewDecisionPending,
-		Listing:  listedStatusChecks(forge.ChecksFailing),
+		Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+		Listing:  listedStatusChecks(pullrequestv1.Checks_CHECKS_FAILING),
 	}
 
 	tests := []struct {
@@ -211,8 +213,8 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			name:   "an approval",
 			before: failingOnA,
 			after: forge.MergeReadiness{
-				Decision: forge.ReviewDecisionApproved,
-				Listing:  listedStatusChecks(forge.ChecksFailing),
+				Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED,
+				Listing:  listedStatusChecks(pullrequestv1.Checks_CHECKS_FAILING),
 			},
 			afterHead: "aaa",
 			wantLines: []string{"  review: approved\n", "  checks: failing on aaa\n"},
@@ -221,8 +223,8 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			name:   "the checks failing again on a new head",
 			before: failingOnA,
 			after: forge.MergeReadiness{
-				Decision: forge.ReviewDecisionPending,
-				Listing:  listedStatusChecks(forge.ChecksFailing),
+				Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+				Listing:  listedStatusChecks(pullrequestv1.Checks_CHECKS_FAILING),
 			},
 			afterHead: "bbb",
 			wantLines: []string{"  checks: failing on bbb\n"},
@@ -231,8 +233,8 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			name:   "an approval on a new head with no checks yet leaves the checks unknown",
 			before: failingOnA,
 			after: forge.MergeReadiness{
-				Decision: forge.ReviewDecisionApproved,
-				Listing:  listedStatusChecks(forge.ChecksNone),
+				Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED,
+				Listing:  listedStatusChecks(pullrequestv1.Checks_CHECKS_NONE),
 			},
 			afterHead: "bbb",
 			wantLines: []string{"  review: approved\n", "  checks: unknown\n"},
@@ -247,10 +249,10 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			name:   "another check failing on the same head",
 			before: failingOnA,
 			after: forge.MergeReadiness{
-				Decision: forge.ReviewDecisionPending,
+				Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
 				Listing: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{
-					listedStatusCheck("1", "test", forge.StatusCheckStateCompleted, "failure"),
-					listedStatusCheck("5", "build", forge.StatusCheckStateCompleted, "failure"),
+					listedStatusCheck("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure"),
+					listedStatusCheck("5", "build", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure"),
 				}},
 			},
 			afterHead: "aaa",
@@ -264,9 +266,9 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			name:   "a rerun of the failed check failing again",
 			before: failingOnA,
 			after: forge.MergeReadiness{
-				Decision: forge.ReviewDecisionPending,
+				Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
 				Listing: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{
-					listedStatusCheck("6", "test", forge.StatusCheckStateCompleted, "failure"),
+					listedStatusCheck("6", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure"),
 				}},
 			},
 			afterHead:  "aaa",
@@ -276,14 +278,14 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 		{
 			name: "the run finishing with no new failure after the early word was read",
 			before: forge.MergeReadiness{
-				Decision: forge.ReviewDecisionPending,
-				Listing:  listedStatusChecks(forge.ChecksFailingRunning),
+				Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+				Listing:  listedStatusChecks(pullrequestv1.Checks_CHECKS_FAILING_RUNNING),
 			},
 			after: forge.MergeReadiness{
-				Decision: forge.ReviewDecisionPending,
+				Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
 				Listing: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{
-					listedStatusCheck("1", "test", forge.StatusCheckStateCompleted, "failure"),
-					listedStatusCheck("2", "lint", forge.StatusCheckStateCompleted, "success"),
+					listedStatusCheck("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure"),
+					listedStatusCheck("2", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success"),
 				}},
 			},
 			afterHead:  "aaa",
@@ -294,9 +296,9 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			name:   "the checks passing on a new head the forge blocks is not news",
 			before: failingOnA,
 			after: forge.MergeReadiness{
-				Decision:     forge.ReviewDecisionPending,
-				Listing:      listedStatusChecks(forge.ChecksPassing),
-				Mergeability: forge.MergeabilityBlocked,
+				Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+				Listing:      listedStatusChecks(pullrequestv1.Checks_CHECKS_PASSING),
+				Mergeability: pullrequestv1.Mergeability_MERGEABILITY_BLOCKED,
 			},
 			afterHead: "bbb",
 		},
@@ -307,9 +309,9 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			f := newSyncFixture(t)
 			agentID := f.agentOn(t, "a", "agent/x")
 			f.hold(withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), forge.MergeReadiness{
-				Decision:     forge.ReviewDecisionPending,
-				Listing:      listedStatusChecks(forge.ChecksPending),
-				Mergeability: forge.MergeabilityClean,
+				Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+				Listing:      listedStatusChecks(pullrequestv1.Checks_CHECKS_PENDING),
+				Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 			}))
 			f.sync(t)
 
@@ -352,8 +354,8 @@ func (f *syncFixture) listMail(t *testing.T, agentID uuid.UUID) []mailstore.Mail
 func (f *syncFixture) setMergeReadiness(t *testing.T, said forge.MergeReadiness, head string, readAt time.Time) {
 	t.Helper()
 
-	if said.Mergeability == forge.MergeabilityUnknown {
-		said.Mergeability = forge.MergeabilityClean
+	if said.Mergeability == pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN {
+		said.Mergeability = pullrequestv1.Mergeability_MERGEABILITY_CLEAN
 	}
 	held := f.forge.pullRequests["harrisoncramer/komrad"]
 	held[0] = withMergeReadiness(held[0], said)
@@ -370,14 +372,14 @@ func TestAPullRequestChangeRetriesAFullMailboxAlone(t *testing.T) {
 	told := f.agentOn(t, "a", "agent/x")
 	full := f.agentOn(t, "b", "agent/x")
 	f.hold(withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), forge.MergeReadiness{
-		Decision:     forge.ReviewDecisionPending,
-		Listing:      listedStatusChecks(forge.ChecksPending),
-		Mergeability: forge.MergeabilityClean,
+		Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+		Listing:      listedStatusChecks(pullrequestv1.Checks_CHECKS_PENDING),
+		Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 	}))
 	f.sync(t)
 	f.fillMailbox(t, full)
 
-	f.setMergeReadiness(t, forge.MergeReadiness{Decision: forge.ReviewDecisionPending, Listing: listedStatusChecks(forge.ChecksFailing)}, "", syncNow.Add(time.Minute))
+	f.setMergeReadiness(t, forge.MergeReadiness{Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING, Listing: listedStatusChecks(pullrequestv1.Checks_CHECKS_FAILING)}, "", syncNow.Add(time.Minute))
 
 	assert.Empty(t, f.events.TakeErrors())
 	require.Len(t, f.listMail(t, told), 1)
@@ -399,7 +401,7 @@ func TestAPullRequestChangeRetriesAFullMailboxAlone(t *testing.T) {
 	require.Len(t, f.listMail(t, told), 1, "the retry tells only the agent it was for")
 	var pullRequestMail []mailstore.Mail
 	for _, held := range f.listMail(t, full) {
-		if held.Kind == mailstore.KindPullRequestChanged {
+		if held.Kind == agentv1.MailKind_MAIL_KIND_PULL_REQUEST_CHANGED {
 			pullRequestMail = append(pullRequestMail, held)
 		}
 	}
@@ -415,17 +417,17 @@ func TestAMutedFailureIsToldOnceUnmuted(t *testing.T) {
 	agentID := f.agentOn(t, "a", "agent/x")
 	f.setEventPrompts(t, []workflowstore.EventPrompt{{Event: eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING, Muted: true}})
 	f.hold(withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), forge.MergeReadiness{
-		Decision:     forge.ReviewDecisionPending,
-		Listing:      listedStatusChecks(forge.ChecksPending),
-		Mergeability: forge.MergeabilityClean,
+		Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+		Listing:      listedStatusChecks(pullrequestv1.Checks_CHECKS_PENDING),
+		Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 	}))
 	f.sync(t)
 
-	f.setMergeReadiness(t, forge.MergeReadiness{Decision: forge.ReviewDecisionPending, Listing: listedStatusChecks(forge.ChecksFailing)}, "aaa", syncNow.Add(time.Minute))
+	f.setMergeReadiness(t, forge.MergeReadiness{Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING, Listing: listedStatusChecks(pullrequestv1.Checks_CHECKS_FAILING)}, "aaa", syncNow.Add(time.Minute))
 	require.Empty(t, f.listMail(t, agentID), "a muted failure opens no mail")
 
 	f.setEventPrompts(t, nil)
-	f.setMergeReadiness(t, forge.MergeReadiness{Decision: forge.ReviewDecisionApproved, Listing: listedStatusChecks(forge.ChecksFailing)}, "aaa", syncNow.Add(2*time.Minute))
+	f.setMergeReadiness(t, forge.MergeReadiness{Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED, Listing: listedStatusChecks(pullrequestv1.Checks_CHECKS_FAILING)}, "aaa", syncNow.Add(2*time.Minute))
 
 	told := f.listMail(t, agentID)
 	require.Len(t, told, 1)

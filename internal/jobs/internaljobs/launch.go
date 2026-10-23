@@ -13,6 +13,7 @@ import (
 	"komrad/internal/store"
 	schedulestore "komrad/internal/store/schedule"
 	"komrad/lib/xptr"
+	schedulev1 "komrad/proto/gen/schedule/v1"
 
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
@@ -124,7 +125,7 @@ func (w *LaunchAgentWorker) fire(ctx context.Context, schedule *schedulestore.Sc
 		return river.JobCancel(fmt.Errorf("schedule %q is paused", schedule.Name))
 	}
 
-	if schedule.Kind == schedulestore.KindOrchestrator {
+	if schedule.Kind == schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR {
 		return w.mailOrchestrator(ctx, schedule, args)
 	}
 
@@ -206,12 +207,12 @@ func buildRunOutcome(err error, job *rivertype.JobRow) schedulestore.RunOutcome 
 
 	switch {
 	case err == nil:
-		return schedulestore.RunOutcome{State: schedulestore.RunStateCompleted}
+		return schedulestore.RunOutcome{State: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED}
 	case errors.As(err, &cancelled):
-		return schedulestore.RunOutcome{State: schedulestore.RunStateCancelled, Message: errors.Unwrap(cancelled).Error()}
+		return schedulestore.RunOutcome{State: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_CANCELLED, Message: errors.Unwrap(cancelled).Error()}
 	case job.Attempt >= job.MaxAttempts:
-		return schedulestore.RunOutcome{State: schedulestore.RunStateDiscarded, Message: err.Error()}
+		return schedulestore.RunOutcome{State: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_DISCARDED, Message: err.Error()}
 	}
 
-	return schedulestore.RunOutcome{State: schedulestore.RunStateRetryable, Message: err.Error()}
+	return schedulestore.RunOutcome{State: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_RETRYABLE, Message: err.Error()}
 }

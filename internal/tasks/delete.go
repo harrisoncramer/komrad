@@ -15,6 +15,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
 	eventv1 "komrad/proto/gen/event/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/google/uuid"
 )
@@ -86,7 +87,7 @@ func (s *TaskService) removeWorktree(ctx context.Context, id uuid.UUID) error {
 	if err != nil {
 		return errors.Join(err, s.tasks.ClearDeleting(cleanup, id))
 	}
-	if found.Checkout.Cwd == "" || found.Checkout.WorktreeRemovalReason == taskstore.WorktreeDeleted {
+	if found.Checkout.Cwd == "" || found.Checkout.WorktreeRemovalReason == taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED {
 		return s.tasks.ClearDeleting(cleanup, found.ID)
 	}
 

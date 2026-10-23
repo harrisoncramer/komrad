@@ -11,6 +11,20 @@ func Map[T, U any](in []T, f func(T) U) []U {
 	return out
 }
 
+// TryMap applies f to every element of in, returning the results in order or the first error f returns.
+func TryMap[T, U any](in []T, f func(T) (U, error)) ([]U, error) {
+	out := make([]U, len(in))
+	for i, v := range in {
+		mapped, err := f(v)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = mapped
+	}
+
+	return out, nil
+}
+
 // Filter returns the elements of in for which keep reports true, preserving order.
 func Filter[T any](in []T, keep func(T) bool) []T {
 	out := make([]T, 0, len(in))

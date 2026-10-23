@@ -33,9 +33,17 @@ func (s *ScheduleStore) ListWatched(ctx context.Context, keys []uuid.UUID) ([]Sc
 		return nil, fmt.Errorf("failed to list the watched schedules: %w", err)
 	}
 
-	schedules := xslice.Map(rows, func(row *models.ListWatchedSchedulesRow) Schedule {
-		return scheduleFromRow(row.Schedule)
+	schedules, err := xslice.TryMap(rows, func(row *models.ListWatchedSchedulesRow) (Schedule, error) {
+		schedule, err := scheduleFromRow(row.Schedule)
+		if err != nil {
+			return Schedule{}, err
+		}
+
+		return *schedule, nil
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	return s.attachRuns(ctx, schedules, recentRunsWatched)
 }

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"komrad/internal/forge"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -145,7 +146,7 @@ func TestDecision(t *testing.T) {
 	tests := []struct {
 		name      string
 		readiness string
-		want      forge.ReviewDecision
+		want      pullrequestv1.ReviewDecision
 	}{
 		{
 			name: "every user asking for changes asked again",
@@ -182,7 +183,7 @@ func TestDecision(t *testing.T) {
 		]
 	}
 }`,
-			want: forge.ReviewDecisionRereviewRequested,
+			want: pullrequestv1.ReviewDecision_REVIEW_DECISION_REREVIEW_REQUESTED,
 		},
 		{
 			name: "one user asking for changes not asked again",
@@ -214,7 +215,7 @@ func TestDecision(t *testing.T) {
 		]
 	}
 }`,
-			want: forge.ReviewDecisionChangesRequested,
+			want: pullrequestv1.ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED,
 		},
 		{
 			name: "a team asked to review is not the user who asked for changes",
@@ -238,7 +239,7 @@ func TestDecision(t *testing.T) {
 		]
 	}
 }`,
-			want: forge.ReviewDecisionChangesRequested,
+			want: pullrequestv1.ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED,
 		},
 		{
 			name: "a bot asking for changes is left out, as it cannot be asked again",
@@ -268,7 +269,7 @@ func TestDecision(t *testing.T) {
 		]
 	}
 }`,
-			want: forge.ReviewDecisionRereviewRequested,
+			want: pullrequestv1.ReviewDecision_REVIEW_DECISION_REREVIEW_REQUESTED,
 		},
 		{
 			name: "only a bot asking for changes",
@@ -286,7 +287,7 @@ func TestDecision(t *testing.T) {
 		"nodes": []
 	}
 }`,
-			want: forge.ReviewDecisionChangesRequested,
+			want: pullrequestv1.ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED,
 		},
 		{
 			name: "changes requested with no verdict naming who asked",
@@ -305,7 +306,7 @@ func TestDecision(t *testing.T) {
 		]
 	}
 }`,
-			want: forge.ReviewDecisionChangesRequested,
+			want: pullrequestv1.ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED,
 		},
 		{
 			name: "an approval asked to review again stays approved",
@@ -331,7 +332,7 @@ func TestDecision(t *testing.T) {
 		]
 	}
 }`,
-			want: forge.ReviewDecisionApproved,
+			want: pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED,
 		},
 	}
 	for _, tt := range tests {

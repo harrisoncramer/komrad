@@ -25,8 +25,10 @@ import (
 	"komrad/internal/tasks"
 	"komrad/lib/xslice"
 	"komrad/lib/xstr"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 	"komrad/proto/gen/oneofs"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/google/uuid"
 )
@@ -125,7 +127,7 @@ func (s *LifecycleService) listTaskReviewers(ctx context.Context, agent agentsto
 	}
 
 	return xslice.Filter(onTask, func(other agentstore.Agent) bool {
-		return other.Role == agentstore.RoleReviewer
+		return other.Role == agentv1.AgentRole_AGENT_ROLE_REVIEWER
 	}), nil
 }
 
@@ -240,7 +242,7 @@ func (s *LifecycleService) failCleanup(ctx context.Context, agent agentstore.Age
 	failAs(ctx, failAsParams{
 		agents: s.agents,
 		agent:  agent,
-		state:  agentstore.StateFailedToCleanup,
+		state:  agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP,
 		verb:   "cleanup",
 		cause:  cause,
 	})
@@ -585,7 +587,7 @@ func (s *LifecycleService) refuseDeletedWorktrees(ctx context.Context, agents []
 		if err != nil {
 			return err
 		}
-		if task.Checkout.WorktreeRemovalReason == taskstore.WorktreeDeleted {
+		if task.Checkout.WorktreeRemovalReason == taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED {
 			return tasks.ErrWorktreeRemoved.Saying("task %q's worktree was deleted, so %q cannot be restored", task.Slug, agent.Name)
 		}
 	}
@@ -629,7 +631,7 @@ func (s *LifecycleService) refuseArchivingOthers(ctx context.Context, params Arc
 	if err != nil {
 		return fmt.Errorf("failed to get the agent archiving: %w", err)
 	}
-	if asker.Role == agentstore.RoleOrchestrator {
+	if asker.Role == agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR {
 		return nil
 	}
 
@@ -727,7 +729,7 @@ func (s *LifecycleService) removeRunLogs(ctx context.Context, ids []uuid.UUID) {
 type failAsParams struct {
 	agents *agentstore.AgentStore
 	agent  agentstore.Agent
-	state  agentstore.State
+	state  agentv1.AgentState
 	verb   string
 	cause  error
 }

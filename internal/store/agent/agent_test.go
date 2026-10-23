@@ -8,6 +8,7 @@ import (
 	"komrad/internal/store"
 	"komrad/internal/store/task/tasktest"
 	workflowstore "komrad/internal/store/workflow"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -99,7 +100,7 @@ func (f *fixture) Create(ctx context.Context, agent Agent) error {
 	if agent.WorkflowID == uuid.Nil {
 		agent.WorkflowID = f.defaultWorkflow
 	}
-	if agent.TaskID == nil && agent.Role != RoleOrchestrator {
+	if agent.TaskID == nil && agent.Role != agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR {
 		taskID, err := f.taskFor(ctx, agent)
 		if err != nil {
 			return err

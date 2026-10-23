@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"komrad/internal/git"
+	taskv1 "komrad/proto/gen/task/v1"
 )
 
 // Mover is the git a rebase, push or abort drives, answering from its fields and recording each call.
@@ -28,7 +29,7 @@ type Mover struct {
 	SHA     string
 	// Pushed is every push asked for, in order.
 	Pushed   []git.PushParams
-	Sequence git.Sequence
+	Sequence taskv1.Sequence
 	// Onto is the commit a rebase in progress is replaying onto.
 	Onto string
 	// AbortErr is what the abort answers with.
@@ -134,7 +135,7 @@ func (f *Mover) Push(_ context.Context, params git.PushParams) (string, error) {
 }
 
 // ReadSequence answers Sequence.
-func (f *Mover) ReadSequence(context.Context, string) (git.Sequence, error) {
+func (f *Mover) ReadSequence(context.Context, string) (taskv1.Sequence, error) {
 	return f.Sequence, nil
 }
 
@@ -144,12 +145,12 @@ func (f *Mover) ReadRebaseOnto(context.Context, string) (string, error) {
 }
 
 // AbortSequence records the abort and, unless AbortErr says otherwise, leaves nothing in progress.
-func (f *Mover) AbortSequence(_ context.Context, _ string, sequence git.Sequence) error {
-	f.Calls = append(f.Calls, "abort "+string(sequence))
+func (f *Mover) AbortSequence(_ context.Context, _ string, sequence taskv1.Sequence) error {
+	f.Calls = append(f.Calls, "abort "+git.GetSequenceCommand(sequence))
 	if f.AbortErr != nil {
 		return f.AbortErr
 	}
-	f.Sequence = git.SequenceNone
+	f.Sequence = taskv1.Sequence_SEQUENCE_NONE
 
 	return nil
 }

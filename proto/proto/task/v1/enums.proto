@@ -1,0 +1,49 @@
+// The task.v1 enums, in Edition 2026 so that each value's JSON name is its lowercase word.
+// event/v1/event.proto says why Edition 2026 needs release candidates.
+edition = "2026";
+
+package task.v1;
+
+import option "google/protobuf/json_enumvalue_options.proto";
+
+option go_package = "komrad/proto/gen/task/v1;taskv1";
+
+// Sequence is a git operation stopped part way in a task's checkout.
+export enum Sequence {
+  // No value was recorded. No task has this value.
+  SEQUENCE_UNSPECIFIED = 0;
+  // No git operation is stopped part way.
+  SEQUENCE_NONE = 1 [(pb.enumvalue.json).string = "none"];
+  // A rebase stopped on a commit it could not replay.
+  SEQUENCE_REBASE = 2 [(pb.enumvalue.json).string = "rebase"];
+  // A `git am` stopped on a patch it could not apply.
+  SEQUENCE_AM = 3 [(pb.enumvalue.json).string = "am"];
+  // A merge stopped on conflicts.
+  SEQUENCE_MERGE = 4 [(pb.enumvalue.json).string = "merge"];
+  // A cherry-pick stopped on conflicts or paused between commits.
+  SEQUENCE_CHERRY_PICK = 5 [(pb.enumvalue.json).string = "cherry_pick"];
+  // A revert stopped on conflicts or paused between commits.
+  SEQUENCE_REVERT = 6 [(pb.enumvalue.json).string = "revert"];
+}
+
+// CascadeBlock is why the cascade cannot rebase a child onto its parent.
+export enum CascadeBlock {
+  // Nothing blocks the cascade.
+  CASCADE_BLOCK_UNSPECIFIED = 0;
+  // Rebasing the child's own commits onto its parent stopped on conflicts.
+  CASCADE_BLOCK_CONFLICTED = 1 [(pb.enumvalue.json).string = "conflicted"];
+  // The child is orphaned: its branch holds neither its fork point nor any of its parent's own commits.
+  CASCADE_BLOCK_ORPHANED = 2 [(pb.enumvalue.json).string = "orphaned"];
+  // The parent's pull request closed without merging.
+  CASCADE_BLOCK_PARENT_CLOSED = 3 [(pb.enumvalue.json).string = "parent_closed"];
+}
+
+// WorktreeRemovalReason is why a task's worktree is no longer on disk.
+export enum WorktreeRemovalReason {
+  // The worktree is on disk, or the task has none.
+  WORKTREE_REMOVAL_REASON_UNSPECIFIED = 0;
+  // A delete removed the worktree. Komrad never makes it again.
+  WORKTREE_REMOVAL_REASON_DELETED = 1 [(pb.enumvalue.json).string = "deleted"];
+  // Komrad found the worktree's directory gone without a delete.
+  WORKTREE_REMOVAL_REASON_GONE = 2 [(pb.enumvalue.json).string = "gone"];
+}

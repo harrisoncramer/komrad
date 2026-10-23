@@ -5,16 +5,16 @@ import (
 	"testing"
 	"time"
 
+	agentstore "komrad/internal/store/agent"
+	rowstore "komrad/internal/store/row"
+	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
-
-	agentstore "komrad/internal/store/agent"
-	rowstore "komrad/internal/store/row"
-	"komrad/lib/xptr"
-	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 // TestAgent pins the fields a client cannot draw unless the response carries them.
@@ -52,8 +52,8 @@ func TestAgent(t *testing.T) {
 				ID:             firstAgentID,
 				WorkflowID:     workflowID,
 				Name:           "worker",
-				State:          agentstore.StateWaiting,
-				Role:           agentstore.RoleReviewer,
+				State:          agentv1.AgentState_AGENT_STATE_WAITING,
+				Role:           agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 				StateChangedAt: changed,
 			},
 			want: &agentv1.Agent{
@@ -91,7 +91,7 @@ func TestAgent(t *testing.T) {
 				ID:         fifthAgentID,
 				WorkflowID: workflowID,
 				Name:       "failed",
-				State:      agentstore.StateErrored,
+				State:      agentv1.AgentState_AGENT_STATE_ERRORED,
 				Turn: agentstore.Turn{
 					EndedAt:  xptr.Ptr(changed),
 					FailedAt: xptr.Ptr(changed),
@@ -199,41 +199,6 @@ func TestWatchedAgent(t *testing.T) {
 // rowOf is an agent's row with nothing beside it.
 func rowOf(stored agentstore.Agent) rowstore.Row {
 	return rowstore.Row{Agent: stored}
-}
-
-// TestAgentStateOf checks every stored state lands on its own wire value.
-func TestAgentStateOf(t *testing.T) {
-	t.Parallel()
-
-	states := map[agentstore.State]agentv1.AgentState{
-		agentstore.StateIdle:            agentv1.AgentState_AGENT_STATE_IDLE,
-		agentstore.StateThinking:        agentv1.AgentState_AGENT_STATE_THINKING,
-		agentstore.StateWaiting:         agentv1.AgentState_AGENT_STATE_WAITING,
-		agentstore.StateSettingUp:       agentv1.AgentState_AGENT_STATE_SETTING_UP,
-		agentstore.StateFailedToCreate:  agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
-		agentstore.StateFailedToCleanup: agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP,
-		agentstore.StateUncertain:       agentv1.AgentState_AGENT_STATE_UNCERTAIN,
-		agentstore.StateErrored:         agentv1.AgentState_AGENT_STATE_ERRORED,
-	}
-	for stored, wire := range states {
-		assert.Equal(t, wire, AgentStateOf(stored), string(stored))
-	}
-	assert.Equal(t, agentv1.AgentState_AGENT_STATE_UNSPECIFIED, AgentStateOf(""))
-}
-
-// TestAgentRoleOf checks every stored role lands on its own wire value.
-func TestAgentRoleOf(t *testing.T) {
-	t.Parallel()
-
-	roles := map[agentstore.Role]agentv1.AgentRole{
-		agentstore.RoleWriter:       agentv1.AgentRole_AGENT_ROLE_WRITER,
-		agentstore.RoleReviewer:     agentv1.AgentRole_AGENT_ROLE_REVIEWER,
-		agentstore.RoleOrchestrator: agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
-	}
-	for stored, wire := range roles {
-		assert.Equal(t, wire, agentRoleOf(stored), string(stored))
-	}
-	assert.Equal(t, agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED, agentRoleOf(""))
 }
 
 var (

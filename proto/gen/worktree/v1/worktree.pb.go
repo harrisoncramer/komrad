@@ -26,160 +26,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// WorktreeFate is what removes a worktree directory.
-type WorktreeFate int32
-
-const (
-	// No value was recorded. No worktree has this value.
-	WorktreeFate_WORKTREE_FATE_UNSPECIFIED WorktreeFate = 0
-	// No task owns the directory. `remove_unowned_worktrees` removes it.
-	WorktreeFate_WORKTREE_FATE_UNOWNED WorktreeFate = 1
-	// The directory's task is archived. Deleting the task removes it.
-	WorktreeFate_WORKTREE_FATE_ARCHIVED WorktreeFate = 2
-	// The directory's task is live. Nothing removes it.
-	WorktreeFate_WORKTREE_FATE_LIVE WorktreeFate = 3
-	// The directory's task is being deleted, which removes the directory.
-	WorktreeFate_WORKTREE_FATE_DELETING WorktreeFate = 4
-)
-
-// Enum value maps for WorktreeFate.
-var (
-	WorktreeFate_name = map[int32]string{
-		0: "WORKTREE_FATE_UNSPECIFIED",
-		1: "WORKTREE_FATE_UNOWNED",
-		2: "WORKTREE_FATE_ARCHIVED",
-		3: "WORKTREE_FATE_LIVE",
-		4: "WORKTREE_FATE_DELETING",
-	}
-	WorktreeFate_value = map[string]int32{
-		"WORKTREE_FATE_UNSPECIFIED": 0,
-		"WORKTREE_FATE_UNOWNED":     1,
-		"WORKTREE_FATE_ARCHIVED":    2,
-		"WORKTREE_FATE_LIVE":        3,
-		"WORKTREE_FATE_DELETING":    4,
-	}
-)
-
-func (x WorktreeFate) Enum() *WorktreeFate {
-	p := new(WorktreeFate)
-	*p = x
-	return p
-}
-
-func (x WorktreeFate) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (WorktreeFate) Descriptor() protoreflect.EnumDescriptor {
-	return file_worktree_v1_worktree_proto_enumTypes[0].Descriptor()
-}
-
-func (WorktreeFate) Type() protoreflect.EnumType {
-	return &file_worktree_v1_worktree_proto_enumTypes[0]
-}
-
-func (x WorktreeFate) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use WorktreeFate.Descriptor instead.
-func (WorktreeFate) EnumDescriptor() ([]byte, []int) {
-	return file_worktree_v1_worktree_proto_rawDescGZIP(), []int{0}
-}
-
-// RefusalReason is why komrad kept a worktree it was asked to remove.
-type RefusalReason int32
-
-const (
-	// No reason was recorded. No refusal has this value.
-	RefusalReason_REFUSAL_REASON_UNSPECIFIED RefusalReason = 0
-	// The path is not under the worktree directories.
-	RefusalReason_REFUSAL_REASON_OUTSIDE RefusalReason = 1
-	// The listing of the worktree directories does not hold the path.
-	RefusalReason_REFUSAL_REASON_UNLISTED RefusalReason = 2
-	// The task `task_slug` names owns the worktree. Deleting the task removes it.
-	RefusalReason_REFUSAL_REASON_TASK_HOLDS RefusalReason = 3
-	// The task `task_slug` names is live. Archiving it comes before deleting its worktree.
-	RefusalReason_REFUSAL_REASON_TASK_LIVE RefusalReason = 4
-	// The task `task_slug` names is being deleted, which removes the worktree.
-	RefusalReason_REFUSAL_REASON_TASK_DELETING RefusalReason = 5
-	// The agent `agent_name` names is working in the worktree.
-	RefusalReason_REFUSAL_REASON_AGENT_INSIDE RefusalReason = 6
-	// The agent `agent_name` names is working somewhere under the worktree.
-	RefusalReason_REFUSAL_REASON_AGENT_BENEATH RefusalReason = 7
-	// The worktree `nested_dir` names sits inside this one. Removing that worktree comes first.
-	RefusalReason_REFUSAL_REASON_NESTS_WORKTREE RefusalReason = 8
-	// Komrad could not resolve the path. `error` says why.
-	RefusalReason_REFUSAL_REASON_UNRESOLVED RefusalReason = 9
-	// Git could not list the worktrees of the worktree's repository. `error` says why.
-	RefusalReason_REFUSAL_REASON_LIST_FAILED RefusalReason = 10
-	// Git could not unlock the worktree. `error` says why.
-	RefusalReason_REFUSAL_REASON_UNLOCK_FAILED RefusalReason = 11
-	// Komrad could not remove the worktree's directory. `error` says why.
-	RefusalReason_REFUSAL_REASON_REMOVE_FAILED RefusalReason = 12
-)
-
-// Enum value maps for RefusalReason.
-var (
-	RefusalReason_name = map[int32]string{
-		0:  "REFUSAL_REASON_UNSPECIFIED",
-		1:  "REFUSAL_REASON_OUTSIDE",
-		2:  "REFUSAL_REASON_UNLISTED",
-		3:  "REFUSAL_REASON_TASK_HOLDS",
-		4:  "REFUSAL_REASON_TASK_LIVE",
-		5:  "REFUSAL_REASON_TASK_DELETING",
-		6:  "REFUSAL_REASON_AGENT_INSIDE",
-		7:  "REFUSAL_REASON_AGENT_BENEATH",
-		8:  "REFUSAL_REASON_NESTS_WORKTREE",
-		9:  "REFUSAL_REASON_UNRESOLVED",
-		10: "REFUSAL_REASON_LIST_FAILED",
-		11: "REFUSAL_REASON_UNLOCK_FAILED",
-		12: "REFUSAL_REASON_REMOVE_FAILED",
-	}
-	RefusalReason_value = map[string]int32{
-		"REFUSAL_REASON_UNSPECIFIED":    0,
-		"REFUSAL_REASON_OUTSIDE":        1,
-		"REFUSAL_REASON_UNLISTED":       2,
-		"REFUSAL_REASON_TASK_HOLDS":     3,
-		"REFUSAL_REASON_TASK_LIVE":      4,
-		"REFUSAL_REASON_TASK_DELETING":  5,
-		"REFUSAL_REASON_AGENT_INSIDE":   6,
-		"REFUSAL_REASON_AGENT_BENEATH":  7,
-		"REFUSAL_REASON_NESTS_WORKTREE": 8,
-		"REFUSAL_REASON_UNRESOLVED":     9,
-		"REFUSAL_REASON_LIST_FAILED":    10,
-		"REFUSAL_REASON_UNLOCK_FAILED":  11,
-		"REFUSAL_REASON_REMOVE_FAILED":  12,
-	}
-)
-
-func (x RefusalReason) Enum() *RefusalReason {
-	p := new(RefusalReason)
-	*p = x
-	return p
-}
-
-func (x RefusalReason) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (RefusalReason) Descriptor() protoreflect.EnumDescriptor {
-	return file_worktree_v1_worktree_proto_enumTypes[1].Descriptor()
-}
-
-func (RefusalReason) Type() protoreflect.EnumType {
-	return &file_worktree_v1_worktree_proto_enumTypes[1]
-}
-
-func (x RefusalReason) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use RefusalReason.Descriptor instead.
-func (RefusalReason) EnumDescriptor() ([]byte, []int) {
-	return file_worktree_v1_worktree_proto_rawDescGZIP(), []int{1}
-}
-
 // WorktreeAgent is an agent working in a worktree.
 type WorktreeAgent struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1205,7 +1051,7 @@ type Refusal struct {
 	TaskSlug string `protobuf:"bytes,3,opt,name=task_slug,json=taskSlug,proto3" json:"task_slug,omitempty"`
 	// The agent the reason names. Empty unless the reason is about an agent.
 	AgentName string `protobuf:"bytes,4,opt,name=agent_name,json=agentName,proto3" json:"agent_name,omitempty"`
-	// The worktree inside this one. Empty unless the reason is `REFUSAL_REASON_NESTS_WORKTREE`.
+	// The worktree inside this one. Empty unless the reason is `nests_worktree`.
 	NestedDir string `protobuf:"bytes,5,opt,name=nested_dir,json=nestedDir,proto3" json:"nested_dir,omitempty"`
 	// What failed. Empty unless a step broke.
 	Error         string `protobuf:"bytes,6,opt,name=error,proto3" json:"error,omitempty"`
@@ -1388,7 +1234,7 @@ var File_worktree_v1_worktree_proto protoreflect.FileDescriptor
 
 const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\n" +
-	"\x1aworktree/v1/worktree.proto\x12\vworktree.v1\x1a\x14agent/v1/agent.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb1\x01\n" +
+	"\x1aworktree/v1/worktree.proto\x12\vworktree.v1\x1a\x14agent/v1/enums.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x17worktree/v1/enums.proto\"\xb1\x01\n" +
 	"\rWorktreeAgent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12*\n" +
@@ -1510,28 +1356,7 @@ const file_worktree_v1_worktree_proto_rawDesc = "" +
 	"\arefused\x18\x02 \x03(\v2\x14.worktree.v1.RefusalR\arefused\">\n" +
 	"\x16DeleteWorktreesRequest\x12$\n" +
 	"\x04dirs\x18\x01 \x03(\tB\x10\xbaH\r\x92\x01\n" +
-	"\b\x01\x18\x01\"\x04r\x02\x10\x01R\x04dirs*\x98\x01\n" +
-	"\fWorktreeFate\x12\x1d\n" +
-	"\x19WORKTREE_FATE_UNSPECIFIED\x10\x00\x12\x19\n" +
-	"\x15WORKTREE_FATE_UNOWNED\x10\x01\x12\x1a\n" +
-	"\x16WORKTREE_FATE_ARCHIVED\x10\x02\x12\x16\n" +
-	"\x12WORKTREE_FATE_LIVE\x10\x03\x12\x1a\n" +
-	"\x16WORKTREE_FATE_DELETING\x10\x04*\xb0\x03\n" +
-	"\rRefusalReason\x12\x1e\n" +
-	"\x1aREFUSAL_REASON_UNSPECIFIED\x10\x00\x12\x1a\n" +
-	"\x16REFUSAL_REASON_OUTSIDE\x10\x01\x12\x1b\n" +
-	"\x17REFUSAL_REASON_UNLISTED\x10\x02\x12\x1d\n" +
-	"\x19REFUSAL_REASON_TASK_HOLDS\x10\x03\x12\x1c\n" +
-	"\x18REFUSAL_REASON_TASK_LIVE\x10\x04\x12 \n" +
-	"\x1cREFUSAL_REASON_TASK_DELETING\x10\x05\x12\x1f\n" +
-	"\x1bREFUSAL_REASON_AGENT_INSIDE\x10\x06\x12 \n" +
-	"\x1cREFUSAL_REASON_AGENT_BENEATH\x10\a\x12!\n" +
-	"\x1dREFUSAL_REASON_NESTS_WORKTREE\x10\b\x12\x1d\n" +
-	"\x19REFUSAL_REASON_UNRESOLVED\x10\t\x12\x1e\n" +
-	"\x1aREFUSAL_REASON_LIST_FAILED\x10\n" +
-	"\x12 \n" +
-	"\x1cREFUSAL_REASON_UNLOCK_FAILED\x10\v\x12 \n" +
-	"\x1cREFUSAL_REASON_REMOVE_FAILED\x10\f2\xf8\b\n" +
+	"\b\x01\x18\x01\"\x04r\x02\x10\x01R\x04dirs2\xf8\b\n" +
 	"\x0fWorktreeService\x12\xe3\x01\n" +
 	"\rListWorktrees\x12\x16.google.protobuf.Empty\x1a\".worktree.v1.ListWorktreesResponse\"\x95\x01\x9a\xb5\x18\x8d\x01\b\x01\x10\x01\x1a\x0elist_worktrees\"tList every worktree with its repository, branch, agents and last measured size. The call runs no git, so it is fast.:\x01\x02\x90\x02\x01\x12\x8e\x02\n" +
 	"\vGetWorktree\x12\x1f.worktree.v1.GetWorktreeRequest\x1a .worktree.v1.GetWorktreeResponse\"\xbb\x01\x9a\xb5\x18\xb3\x01\b\x01\x10\x01\x1a\fget_worktree\"\x9b\x01Read one worktree: its size and largest entries, its uncommitted changes, and how it compares with the base branch. Set `fetch` to fetch from origin first.:\x01\x02\x90\x02\x01\x12\x97\x02\n" +
@@ -1550,56 +1375,55 @@ func file_worktree_v1_worktree_proto_rawDescGZIP() []byte {
 	return file_worktree_v1_worktree_proto_rawDescData
 }
 
-var file_worktree_v1_worktree_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_worktree_v1_worktree_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_worktree_v1_worktree_proto_goTypes = []any{
-	(WorktreeFate)(0),                      // 0: worktree.v1.WorktreeFate
-	(RefusalReason)(0),                     // 1: worktree.v1.RefusalReason
-	(*WorktreeAgent)(nil),                  // 2: worktree.v1.WorktreeAgent
-	(*WorktreeTask)(nil),                   // 3: worktree.v1.WorktreeTask
-	(*Worktree)(nil),                       // 4: worktree.v1.Worktree
-	(*WatchedWorktree)(nil),                // 5: worktree.v1.WatchedWorktree
-	(*WorktreeStanding)(nil),               // 6: worktree.v1.WorktreeStanding
-	(*ListWorktreesResponse)(nil),          // 7: worktree.v1.ListWorktreesResponse
-	(*GetWorktreeRequest)(nil),             // 8: worktree.v1.GetWorktreeRequest
-	(*Entry)(nil),                          // 9: worktree.v1.Entry
-	(*Commit)(nil),                         // 10: worktree.v1.Commit
-	(*GetWorktreeResponse)(nil),            // 11: worktree.v1.GetWorktreeResponse
-	(*RemoveUnownedWorktreesRequest)(nil),  // 12: worktree.v1.RemoveUnownedWorktreesRequest
-	(*Refusal)(nil),                        // 13: worktree.v1.Refusal
-	(*RemoveUnownedWorktreesResponse)(nil), // 14: worktree.v1.RemoveUnownedWorktreesResponse
-	(*DeleteWorktreesRequest)(nil),         // 15: worktree.v1.DeleteWorktreesRequest
-	(v1.AgentState)(0),                     // 16: agent.v1.AgentState
-	(*timestamppb.Timestamp)(nil),          // 17: google.protobuf.Timestamp
+	(*WorktreeAgent)(nil),                  // 0: worktree.v1.WorktreeAgent
+	(*WorktreeTask)(nil),                   // 1: worktree.v1.WorktreeTask
+	(*Worktree)(nil),                       // 2: worktree.v1.Worktree
+	(*WatchedWorktree)(nil),                // 3: worktree.v1.WatchedWorktree
+	(*WorktreeStanding)(nil),               // 4: worktree.v1.WorktreeStanding
+	(*ListWorktreesResponse)(nil),          // 5: worktree.v1.ListWorktreesResponse
+	(*GetWorktreeRequest)(nil),             // 6: worktree.v1.GetWorktreeRequest
+	(*Entry)(nil),                          // 7: worktree.v1.Entry
+	(*Commit)(nil),                         // 8: worktree.v1.Commit
+	(*GetWorktreeResponse)(nil),            // 9: worktree.v1.GetWorktreeResponse
+	(*RemoveUnownedWorktreesRequest)(nil),  // 10: worktree.v1.RemoveUnownedWorktreesRequest
+	(*Refusal)(nil),                        // 11: worktree.v1.Refusal
+	(*RemoveUnownedWorktreesResponse)(nil), // 12: worktree.v1.RemoveUnownedWorktreesResponse
+	(*DeleteWorktreesRequest)(nil),         // 13: worktree.v1.DeleteWorktreesRequest
+	(v1.AgentState)(0),                     // 14: agent.v1.AgentState
+	(*timestamppb.Timestamp)(nil),          // 15: google.protobuf.Timestamp
+	(WorktreeFate)(0),                      // 16: worktree.v1.WorktreeFate
+	(RefusalReason)(0),                     // 17: worktree.v1.RefusalReason
 	(*emptypb.Empty)(nil),                  // 18: google.protobuf.Empty
 }
 var file_worktree_v1_worktree_proto_depIdxs = []int32{
-	16, // 0: worktree.v1.WorktreeAgent.state:type_name -> agent.v1.AgentState
-	17, // 1: worktree.v1.WorktreeAgent.archived_at:type_name -> google.protobuf.Timestamp
-	17, // 2: worktree.v1.WorktreeTask.archived_at:type_name -> google.protobuf.Timestamp
-	2,  // 3: worktree.v1.Worktree.occupants:type_name -> worktree.v1.WorktreeAgent
-	17, // 4: worktree.v1.Worktree.measured_at:type_name -> google.protobuf.Timestamp
-	17, // 5: worktree.v1.Worktree.last_active_at:type_name -> google.protobuf.Timestamp
-	0,  // 6: worktree.v1.Worktree.fate:type_name -> worktree.v1.WorktreeFate
-	3,  // 7: worktree.v1.Worktree.task:type_name -> worktree.v1.WorktreeTask
-	17, // 8: worktree.v1.WatchedWorktree.measured_at:type_name -> google.protobuf.Timestamp
-	17, // 9: worktree.v1.WatchedWorktree.modified_at:type_name -> google.protobuf.Timestamp
-	6,  // 10: worktree.v1.WatchedWorktree.standing:type_name -> worktree.v1.WorktreeStanding
-	17, // 11: worktree.v1.WorktreeStanding.read_at:type_name -> google.protobuf.Timestamp
-	4,  // 12: worktree.v1.ListWorktreesResponse.worktrees:type_name -> worktree.v1.Worktree
-	17, // 13: worktree.v1.Commit.committed_at:type_name -> google.protobuf.Timestamp
-	4,  // 14: worktree.v1.GetWorktreeResponse.worktree:type_name -> worktree.v1.Worktree
-	9,  // 15: worktree.v1.GetWorktreeResponse.entries:type_name -> worktree.v1.Entry
-	10, // 16: worktree.v1.GetWorktreeResponse.commits:type_name -> worktree.v1.Commit
-	1,  // 17: worktree.v1.Refusal.reason:type_name -> worktree.v1.RefusalReason
-	13, // 18: worktree.v1.RemoveUnownedWorktreesResponse.refused:type_name -> worktree.v1.Refusal
+	14, // 0: worktree.v1.WorktreeAgent.state:type_name -> agent.v1.AgentState
+	15, // 1: worktree.v1.WorktreeAgent.archived_at:type_name -> google.protobuf.Timestamp
+	15, // 2: worktree.v1.WorktreeTask.archived_at:type_name -> google.protobuf.Timestamp
+	0,  // 3: worktree.v1.Worktree.occupants:type_name -> worktree.v1.WorktreeAgent
+	15, // 4: worktree.v1.Worktree.measured_at:type_name -> google.protobuf.Timestamp
+	15, // 5: worktree.v1.Worktree.last_active_at:type_name -> google.protobuf.Timestamp
+	16, // 6: worktree.v1.Worktree.fate:type_name -> worktree.v1.WorktreeFate
+	1,  // 7: worktree.v1.Worktree.task:type_name -> worktree.v1.WorktreeTask
+	15, // 8: worktree.v1.WatchedWorktree.measured_at:type_name -> google.protobuf.Timestamp
+	15, // 9: worktree.v1.WatchedWorktree.modified_at:type_name -> google.protobuf.Timestamp
+	4,  // 10: worktree.v1.WatchedWorktree.standing:type_name -> worktree.v1.WorktreeStanding
+	15, // 11: worktree.v1.WorktreeStanding.read_at:type_name -> google.protobuf.Timestamp
+	2,  // 12: worktree.v1.ListWorktreesResponse.worktrees:type_name -> worktree.v1.Worktree
+	15, // 13: worktree.v1.Commit.committed_at:type_name -> google.protobuf.Timestamp
+	2,  // 14: worktree.v1.GetWorktreeResponse.worktree:type_name -> worktree.v1.Worktree
+	7,  // 15: worktree.v1.GetWorktreeResponse.entries:type_name -> worktree.v1.Entry
+	8,  // 16: worktree.v1.GetWorktreeResponse.commits:type_name -> worktree.v1.Commit
+	17, // 17: worktree.v1.Refusal.reason:type_name -> worktree.v1.RefusalReason
+	11, // 18: worktree.v1.RemoveUnownedWorktreesResponse.refused:type_name -> worktree.v1.Refusal
 	18, // 19: worktree.v1.WorktreeService.ListWorktrees:input_type -> google.protobuf.Empty
-	8,  // 20: worktree.v1.WorktreeService.GetWorktree:input_type -> worktree.v1.GetWorktreeRequest
-	12, // 21: worktree.v1.WorktreeService.RemoveUnownedWorktrees:input_type -> worktree.v1.RemoveUnownedWorktreesRequest
-	15, // 22: worktree.v1.WorktreeService.DeleteWorktrees:input_type -> worktree.v1.DeleteWorktreesRequest
-	7,  // 23: worktree.v1.WorktreeService.ListWorktrees:output_type -> worktree.v1.ListWorktreesResponse
-	11, // 24: worktree.v1.WorktreeService.GetWorktree:output_type -> worktree.v1.GetWorktreeResponse
-	14, // 25: worktree.v1.WorktreeService.RemoveUnownedWorktrees:output_type -> worktree.v1.RemoveUnownedWorktreesResponse
+	6,  // 20: worktree.v1.WorktreeService.GetWorktree:input_type -> worktree.v1.GetWorktreeRequest
+	10, // 21: worktree.v1.WorktreeService.RemoveUnownedWorktrees:input_type -> worktree.v1.RemoveUnownedWorktreesRequest
+	13, // 22: worktree.v1.WorktreeService.DeleteWorktrees:input_type -> worktree.v1.DeleteWorktreesRequest
+	5,  // 23: worktree.v1.WorktreeService.ListWorktrees:output_type -> worktree.v1.ListWorktreesResponse
+	9,  // 24: worktree.v1.WorktreeService.GetWorktree:output_type -> worktree.v1.GetWorktreeResponse
+	12, // 25: worktree.v1.WorktreeService.RemoveUnownedWorktrees:output_type -> worktree.v1.RemoveUnownedWorktreesResponse
 	18, // 26: worktree.v1.WorktreeService.DeleteWorktrees:output_type -> google.protobuf.Empty
 	23, // [23:27] is the sub-list for method output_type
 	19, // [19:23] is the sub-list for method input_type
@@ -1613,6 +1437,7 @@ func file_worktree_v1_worktree_proto_init() {
 	if File_worktree_v1_worktree_proto != nil {
 		return
 	}
+	file_worktree_v1_enums_proto_init()
 	file_worktree_v1_worktree_proto_msgTypes[0].OneofWrappers = []any{}
 	file_worktree_v1_worktree_proto_msgTypes[1].OneofWrappers = []any{}
 	file_worktree_v1_worktree_proto_msgTypes[2].OneofWrappers = []any{}
@@ -1623,14 +1448,13 @@ func file_worktree_v1_worktree_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_worktree_v1_worktree_proto_rawDesc), len(file_worktree_v1_worktree_proto_rawDesc)),
-			NumEnums:      2,
+			NumEnums:      0,
 			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_worktree_v1_worktree_proto_goTypes,
 		DependencyIndexes: file_worktree_v1_worktree_proto_depIdxs,
-		EnumInfos:         file_worktree_v1_worktree_proto_enumTypes,
 		MessageInfos:      file_worktree_v1_worktree_proto_msgTypes,
 	}.Build()
 	File_worktree_v1_worktree_proto = out.File

@@ -1,10 +1,9 @@
 package render
 
 import (
+	reviewstore "komrad/internal/store/review"
 	"komrad/lib/dates"
 	"komrad/lib/xslice"
-
-	reviewstore "komrad/internal/store/review"
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
@@ -22,7 +21,7 @@ func ReviewThread(thread reviewstore.Thread, messages []reviewstore.Message) *ag
 		Id:              thread.ID.String(),
 		TaskId:          thread.TaskID.String(),
 		ReviewId:        formatOptionalID(thread.ReviewID),
-		AuthorKind:      reviewAuthorKindOf(thread.AuthorKind),
+		AuthorKind:      thread.AuthorKind,
 		AuthorAgentId:   formatOptionalID(thread.AuthorAgentID),
 		SnapshotId:      thread.SnapshotID.String(),
 		SnapshotOrdinal: thread.SnapshotOrdinal,
@@ -52,7 +51,7 @@ func ReviewMessage(message reviewstore.Message) *agentv1.ReviewMessage {
 	answered := &agentv1.ReviewMessage{
 		Id:             message.ID.String(),
 		ThreadId:       message.ThreadID.String(),
-		AuthorKind:     reviewAuthorKindOf(message.AuthorKind),
+		AuthorKind:     message.AuthorKind,
 		AuthorAgentId:  formatOptionalID(message.AuthorAgentID),
 		ReviewId:       formatOptionalID(message.ReviewID),
 		SnapshotId:     formatOptionalID(message.SnapshotID),

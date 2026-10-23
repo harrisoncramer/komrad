@@ -6,6 +6,7 @@ import (
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -84,7 +85,7 @@ func (r Screen) isEditRefused(in screen.Inputs) (string, bool) {
 // isAgentUnreadable reports whether komrad cannot say what the agent is doing.
 func (r Screen) isAgentUnreadable(in screen.Inputs) (string, bool) {
 	item, ok := r.agentRow(in)
-	if !ok || !item.Alive || item.Agent.State != panel.StateUncertain {
+	if !ok || !item.Alive || item.Agent.State != agentv1.AgentState_AGENT_STATE_UNCERTAIN {
 		return "", false
 	}
 
@@ -143,13 +144,13 @@ func (r Screen) isAgentBusy(in screen.Inputs) (string, bool) {
 	// No default, so a state added later fails the exhaustive check here rather than quietly
 	// letting an editor in over a writer.
 	switch item.Agent.State {
-	case panel.StateThinking:
+	case agentv1.AgentState_AGENT_STATE_THINKING:
 		return "the agent is writing in this worktree" + separated +
 			"two writers in one checkout cannot both win, so stop it before you edit", true
-	case panel.StateUncertain:
+	case agentv1.AgentState_AGENT_STATE_UNCERTAIN:
 		return r.isAgentUnreadable(in)
-	case panel.StateWaiting, panel.StateIdle, panel.StateErrored, panel.StateSettingUp,
-		panel.StateFailedToCreate, panel.StateFailedToCleanup:
+	case agentv1.AgentState_AGENT_STATE_WAITING, agentv1.AgentState_AGENT_STATE_IDLE, agentv1.AgentState_AGENT_STATE_ERRORED, agentv1.AgentState_AGENT_STATE_SETTING_UP,
+		agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE, agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP, agentv1.AgentState_AGENT_STATE_UNSPECIFIED:
 	}
 
 	return "", false

@@ -50,7 +50,7 @@ func TestIntegrationListMailDirectionOverJSON(t *testing.T) {
 	}{
 		{
 			name:    "the name of a direction reads that half",
-			request: `{"id":%q,"direction":"MAIL_DIRECTION_SENT"}`,
+			request: `{"id":%q,"direction":"sent"}`,
 			want:    "what alpha said",
 		},
 		{
@@ -68,7 +68,7 @@ func TestIntegrationListMailDirectionOverJSON(t *testing.T) {
 		},
 		{
 			name:    "a field komrad does not have is refused",
-			request: `{"id":%q,"directoin":"MAIL_DIRECTION_SENT"}`,
+			request: `{"id":%q,"directoin":"sent"}`,
 		},
 		{
 			name:    "the number of a direction reads that half",

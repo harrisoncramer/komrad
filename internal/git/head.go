@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	taskv1 "komrad/proto/gen/task/v1"
 )
 
 // rebaseDirs are the sequences that leave HEAD detached for as long as they are unfinished.
@@ -20,7 +22,7 @@ type HeadState struct {
 	// SHA is the commit HEAD points at.
 	SHA string
 	// Sequence is what git has part-way through in the checkout.
-	Sequence Sequence
+	Sequence taskv1.Sequence
 	// RepositoryURL is the canonical address of the repository origin points at, empty when
 	// there is no origin or it names no forge.
 	RepositoryURL string

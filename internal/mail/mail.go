@@ -19,6 +19,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
 	"komrad/lib/xstr"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 	"komrad/proto/gen/oneofs"
 
@@ -113,7 +114,7 @@ func NewMailService(params NewMailServiceParams) *MailService {
 // IsDormant says whether nothing runs behind an agent whose pane decides its state, so mail to it
 // waits until it is resumed.
 func (s *MailService) IsDormant(agent agentstore.Agent) bool {
-	return agent.State.DoesPaneDecide() && !s.panes.IsAgentRunning(agent)
+	return agentstore.DoesPaneDecide(agent.State) && !s.panes.IsAgentRunning(agent)
 }
 
 type FindRecipientParams struct {
@@ -206,7 +207,7 @@ func (s *MailService) SendMail(ctx context.Context, params SendMailParams) (*mai
 		ToAgentID: params.ToAgentID,
 		Body:      params.Body,
 		ReplyTo:   params.ReplyTo,
-		Kind:      mailstore.KindPlain,
+		Kind:      agentv1.MailKind_MAIL_KIND_PLAIN,
 	})
 }
 
@@ -230,7 +231,7 @@ func (s *MailService) SendScheduledMail(ctx context.Context, params SendSchedule
 	return s.send(ctx, sendParams{
 		ToAgentID:      params.ToAgentID,
 		Body:           params.Body,
-		Kind:           mailstore.KindPlain,
+		Kind:           agentv1.MailKind_MAIL_KIND_PLAIN,
 		SenderName:     "schedule " + params.ScheduleName,
 		IdempotencyKey: params.IdempotencyKey,
 	})
@@ -258,7 +259,7 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 		return nil, fmt.Errorf("%w: mail from komrad needs something to say", ErrKindMissing)
 	}
 	kind := params.Mail.Kind()
-	if kind == "" || kind == mailstore.KindPlain {
+	if kind == agentv1.MailKind_MAIL_KIND_UNSPECIFIED || kind == agentv1.MailKind_MAIL_KIND_PLAIN {
 		return nil, fmt.Errorf("%w: mail from komrad needs a kind of its own to be told apart by", ErrKindMissing)
 	}
 	if params.SubjectID == uuid.Nil {
@@ -319,8 +320,8 @@ func (s *MailService) SendFromKomrad(ctx context.Context, params SendFromKomradP
 
 // requireRoomFor refuses mail to a full mailbox, except a person's comment on the recipient's work,
 // which the person's own mail never counts against.
-func (s *MailService) requireRoomFor(ctx context.Context, recipient agentstore.Agent, kind mailstore.Kind) error {
-	if kind == mailstore.KindReviewComment {
+func (s *MailService) requireRoomFor(ctx context.Context, recipient agentstore.Agent, kind agentv1.MailKind) error {
+	if kind == agentv1.MailKind_MAIL_KIND_REVIEW_COMMENT {
 		return nil
 	}
 
@@ -353,7 +354,7 @@ func (s *MailService) requireRoom(ctx context.Context, recipient agentstore.Agen
 func requireSameTask(sender *agentstore.Agent, recipient agentstore.Agent) error {
 	switch {
 	case sender == nil:
-	case sender.Role != agentstore.RoleReviewer && recipient.Role != agentstore.RoleReviewer:
+	case sender.Role != agentv1.AgentRole_AGENT_ROLE_REVIEWER && recipient.Role != agentv1.AgentRole_AGENT_ROLE_REVIEWER:
 	case isOrchestratorOf(*sender, recipient) || isOrchestratorOf(recipient, *sender):
 	case sender.TaskID != nil && recipient.TaskID != nil && *sender.TaskID == *recipient.TaskID:
 	default:
@@ -364,7 +365,7 @@ func requireSameTask(sender *agentstore.Agent, recipient agentstore.Agent) error
 }
 
 func isOrchestratorOf(orchestrator, agent agentstore.Agent) bool {
-	return orchestrator.Role == agentstore.RoleOrchestrator && orchestrator.WorkflowID == agent.WorkflowID
+	return orchestrator.Role == agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR && orchestrator.WorkflowID == agent.WorkflowID
 }
 
 type sendParams struct {
@@ -372,7 +373,7 @@ type sendParams struct {
 	ToAgentID uuid.UUID
 	Body      string
 	ReplyTo   *uuid.UUID
-	Kind      mailstore.Kind
+	Kind      agentv1.MailKind
 	// SenderName names mail sent on a person's behalf by something other than an agent.
 	SenderName     string
 	IdempotencyKey string
@@ -406,7 +407,7 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 	}
 
 	// The cap decides before the mailbox does: a full mailbox is a wait and the cap is permanent.
-	if sender != nil && params.Kind == mailstore.KindPlain {
+	if sender != nil && params.Kind == agentv1.MailKind_MAIL_KIND_PLAIN {
 		if err := s.holdToTheExchangeCap(ctx, *sender, *recipient); err != nil {
 			return nil, err
 		}
@@ -536,7 +537,7 @@ func (s *MailService) ClaimMail(ctx context.Context, params ClaimMailParams) ([]
 			return err
 		}
 
-		comments := xslice.Filter(claimed, func(m mailstore.Mail) bool { return m.Kind == mailstore.KindReviewComment })
+		comments := xslice.Filter(claimed, func(m mailstore.Mail) bool { return m.Kind == agentv1.MailKind_MAIL_KIND_REVIEW_COMMENT })
 		if len(comments) == 0 {
 			return nil
 		}

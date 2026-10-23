@@ -14,6 +14,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/protoenum"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
@@ -93,17 +94,17 @@ func startHooksFor(ctx context.Context, params batchHooksParams) {
 // agentHooks are the hooks a workflow lists for one of its agents, which only a writer that owns its
 // directory runs.
 func agentHooks(ctx context.Context, workflows *workflowstore.WorkflowStore, agent agentstore.Agent) []workflowstore.Hook {
-	if agent.Role != agentstore.RoleWriter || agent.IsProvisionerDisabled() {
+	if agent.Role != agentv1.AgentRole_AGENT_ROLE_WRITER || agent.IsProvisionerDisabled() {
 		return nil
 	}
 
 	return hooksFor(workflowFor(ctx, workflows, agent), agent.Role, agent.ProvisionEnabled)
 }
 
-func hooksFor(wf *workflowstore.Workflow, role agentstore.Role, provisionEnabled *bool) []workflowstore.Hook {
+func hooksFor(wf *workflowstore.Workflow, role agentv1.AgentRole, provisionEnabled *bool) []workflowstore.Hook {
 	// The hooks a workflow lists are read only for a writer that owns its own directory, and a
 	// writer told to keep the directory it was given was handed somebody else's.
-	if wf == nil || role != agentstore.RoleWriter || agentstore.IsProvisionerDisabled(provisionEnabled) {
+	if wf == nil || role != agentv1.AgentRole_AGENT_ROLE_WRITER || agentstore.IsProvisionerDisabled(provisionEnabled) {
 		return nil
 	}
 

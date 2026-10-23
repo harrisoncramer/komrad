@@ -27,7 +27,9 @@ import (
 	"komrad/internal/storetest"
 	"komrad/internal/waketest"
 	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
 	forgev1 "komrad/proto/gen/forge/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -205,7 +207,7 @@ func (f *syncFixture) agentIn(t *testing.T, name, repository, branch string) uui
 		TaskID:     taskID,
 		Name:       name,
 		Pane:       "%1",
-		State:      agentstore.StateIdle,
+		State:      agentv1.AgentState_AGENT_STATE_IDLE,
 		WorkflowID: f.workflow,
 	}))
 	created, err := f.agents.GetInWorkflow(ctx, f.workflow, name)
@@ -283,8 +285,8 @@ func pullRequestIn(repository git.RemoteURL, providerID, branch string, updatedA
 		CreatedAt:  updatedAt.Add(-time.Hour),
 		UpdatedAt:  updatedAt,
 		MergeReadiness: &forge.MergeReadiness{
-			Decision:     forge.ReviewDecisionPending,
-			Mergeability: forge.MergeabilityClean,
+			Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+			Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 		},
 	}
 }
@@ -297,28 +299,28 @@ func withMergeReadiness(pullRequest forge.PullRequest, answered forge.MergeReadi
 }
 
 // listedStatusChecks is a listing of required status checks that stands where word says, blank for none.
-func listedStatusChecks(word forge.Checks) *forge.StatusCheckListing {
-	failed := listedStatusCheck("1", "test", forge.StatusCheckStateCompleted, "failure")
+func listedStatusChecks(word pullrequestv1.Checks) *forge.StatusCheckListing {
+	failed := listedStatusCheck("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure")
 	switch word {
-	case forge.ChecksPending:
-		return &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{listedStatusCheck("1", "test", forge.StatusCheckStateRunning, "")}}
-	case forge.ChecksPassing:
-		return &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{listedStatusCheck("1", "test", forge.StatusCheckStateCompleted, "success")}}
-	case forge.ChecksFailing:
+	case pullrequestv1.Checks_CHECKS_PENDING:
+		return &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{listedStatusCheck("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, "")}}
+	case pullrequestv1.Checks_CHECKS_PASSING:
+		return &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{listedStatusCheck("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success")}}
+	case pullrequestv1.Checks_CHECKS_FAILING:
 		return &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{failed}}
-	case forge.ChecksFailingRunning:
-		return &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{failed, listedStatusCheck("2", "lint", forge.StatusCheckStateRunning, "")}}
-	case forge.ChecksNone:
+	case pullrequestv1.Checks_CHECKS_FAILING_RUNNING:
+		return &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{failed, listedStatusCheck("2", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, "")}}
+	case pullrequestv1.Checks_CHECKS_UNSPECIFIED, pullrequestv1.Checks_CHECKS_NONE:
 	}
 
 	return &forge.StatusCheckListing{}
 }
 
 // listedStatusCheck is a required status check run with a link to it.
-func listedStatusCheck(providerID, name string, state forge.StatusCheckState, conclusion string) forge.StatusCheck {
+func listedStatusCheck(providerID, name string, state pullrequestv1.StatusCheckState, conclusion string) forge.StatusCheck {
 	return forge.StatusCheck{
 		ProviderID: providerID,
-		Kind:       forge.StatusCheckKindRun,
+		Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 		Name:       name,
 		State:      state,
 		Conclusion: conclusion,
@@ -408,14 +410,14 @@ func TestSyncReadsAQuietRepositoryOnceAMinute(t *testing.T) {
 // after a read, and what keeps it out.
 func TestSyncReadsAHotRepositoryEveryFiveSeconds(t *testing.T) {
 	pending := forge.MergeReadiness{
-		Decision:     forge.ReviewDecisionPending,
-		Listing:      listedStatusChecks(forge.ChecksPending),
-		Mergeability: forge.MergeabilityClean,
+		Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+		Listing:      listedStatusChecks(pullrequestv1.Checks_CHECKS_PENDING),
+		Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 	}
 	blank := forge.MergeReadiness{
-		Decision:     forge.ReviewDecisionPending,
-		Listing:      listedStatusChecks(forge.ChecksNone),
-		Mergeability: forge.MergeabilityUnknown,
+		Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+		Listing:      listedStatusChecks(pullrequestv1.Checks_CHECKS_NONE),
+		Mergeability: pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN,
 	}
 
 	tests := []struct {
@@ -529,9 +531,9 @@ func TestSyncStopsHurryingABlankThatStaysBlank(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
 	f.hold(withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)), forge.MergeReadiness{
-		Decision:     forge.ReviewDecisionPending,
-		Listing:      listedStatusChecks(forge.ChecksNone),
-		Mergeability: forge.MergeabilityUnknown,
+		Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+		Listing:      listedStatusChecks(pullrequestv1.Checks_CHECKS_NONE),
+		Mergeability: pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN,
 	}))
 	f.sync(t)
 
@@ -573,26 +575,26 @@ func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
 	merged := withMergeReadiness(pullRequestAt("PR_4", "agent/x", syncNow.Add(-4*time.Hour)), forge.MergeReadiness{
-		Decision:     forge.ReviewDecisionChangesRequested,
-		Listing:      listedStatusChecks(forge.ChecksFailing),
-		Mergeability: forge.MergeabilityClean,
+		Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED,
+		Listing:      listedStatusChecks(pullrequestv1.Checks_CHECKS_FAILING),
+		Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 	})
 	merged.State = "MERGED"
 	f.hold(
 		withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)), forge.MergeReadiness{
-			Decision:     forge.ReviewDecisionPending,
-			Listing:      listedStatusChecks(forge.ChecksPending),
-			Mergeability: forge.MergeabilityClean,
+			Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+			Listing:      listedStatusChecks(pullrequestv1.Checks_CHECKS_PENDING),
+			Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 		}),
 		withMergeReadiness(pullRequestAt("PR_2", "agent/x", syncNow.Add(-2*time.Hour)), forge.MergeReadiness{
-			Decision:     forge.ReviewDecisionApproved,
-			Listing:      listedStatusChecks(forge.ChecksPassing),
-			Mergeability: forge.MergeabilityClean,
+			Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED,
+			Listing:      listedStatusChecks(pullrequestv1.Checks_CHECKS_PASSING),
+			Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 		}),
 		withMergeReadiness(pullRequestAt("PR_3", "agent/x", syncNow.Add(-3*time.Hour)), forge.MergeReadiness{
-			Decision:     forge.ReviewDecisionChangesRequested,
-			Listing:      listedStatusChecks(forge.ChecksFailing),
-			Mergeability: forge.MergeabilityConflicting,
+			Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED,
+			Listing:      listedStatusChecks(pullrequestv1.Checks_CHECKS_FAILING),
+			Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING,
 		}),
 		merged,
 	)
@@ -600,9 +602,9 @@ func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 	f.sync(t)
 	badly := f.stored(t, "PR_3").ID
 	firstSeen := Change{ID: badly, Moves: []Move{
-		{Field: fieldDecision, To: string(forge.ReviewDecisionChangesRequested)},
-		{Field: fieldChecks, To: string(forge.ChecksFailing)},
-		{Field: fieldMergeability, To: string(forge.MergeabilityConflicting)},
+		{Field: fieldDecision, To: forge.DescribeDecision(pullrequestv1.ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED)},
+		{Field: fieldChecks, To: forge.DescribeChecks(pullrequestv1.Checks_CHECKS_FAILING)},
+		{Field: fieldMergeability, To: forge.DescribeMergeability(pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING)},
 	}}
 	assert.Equal(t, []Change{firstSeen}, f.changes(t), "only the open pull request first seen alarming moved")
 	id := f.stored(t, "PR_1").ID
@@ -612,17 +614,17 @@ func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 	assert.Equal(t, []Change{firstSeen}, f.changes(t), "an unchanged answer records nothing")
 
 	failing := forge.MergeReadiness{
-		Decision:     forge.ReviewDecisionPending,
-		Listing:      listedStatusChecks(forge.ChecksFailing),
-		Mergeability: forge.MergeabilityClean,
+		Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+		Listing:      listedStatusChecks(pullrequestv1.Checks_CHECKS_FAILING),
+		Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 	}
 	f.forge.pullRequests["harrisoncramer/komrad"][0] = withMergeReadiness(f.forge.pullRequests["harrisoncramer/komrad"][0], failing)
 	f.syncer.Wake()
 	f.pass(t, syncNow.Add(2*time.Minute))
 
 	failing.Listing = &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{
-		listedStatusCheck("1", "test", forge.StatusCheckStateCompleted, "failure"),
-		listedStatusCheck("2", "lint", forge.StatusCheckStateCompleted, "failure"),
+		listedStatusCheck("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure"),
+		listedStatusCheck("2", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure"),
 	}}
 	f.forge.pullRequests["harrisoncramer/komrad"][0] = withMergeReadiness(f.forge.pullRequests["harrisoncramer/komrad"][0], failing)
 	f.syncer.Wake()
@@ -638,20 +640,20 @@ func TestSyncRecordsWhatMovedOnAPullRequest(t *testing.T) {
 		firstSeen,
 		{ID: id, Moves: []Move{{
 			Field: fieldChecks,
-			From:  string(forge.ChecksPending),
-			To:    string(forge.ChecksFailing),
+			From:  forge.DescribeChecks(pullrequestv1.Checks_CHECKS_PENDING),
+			To:    forge.DescribeChecks(pullrequestv1.Checks_CHECKS_FAILING),
 		}}},
 		{ID: id},
 		{ID: id, Moves: []Move{
 			{
 				Field: fieldChecks,
-				From:  string(forge.ChecksFailing),
-				To:    string(forge.ChecksFailing),
+				From:  forge.DescribeChecks(pullrequestv1.Checks_CHECKS_FAILING),
+				To:    forge.DescribeChecks(pullrequestv1.Checks_CHECKS_FAILING),
 			},
 			{
 				Field: fieldMergeability,
-				From:  string(forge.MergeabilityClean),
-				To:    string(forge.MergeabilityClean),
+				From:  forge.DescribeMergeability(pullrequestv1.Mergeability_MERGEABILITY_CLEAN),
+				To:    forge.DescribeMergeability(pullrequestv1.Mergeability_MERGEABILITY_CLEAN),
 			},
 		}},
 	}, f.changes(t))
@@ -664,18 +666,18 @@ func TestSyncKeepsTheChecksOnAHead(t *testing.T) {
 	f.agentOn(t, "a", "agent/x")
 	failing := forge.StatusCheck{
 		ProviderID: "CR_1",
-		Kind:       forge.StatusCheckKindRun,
+		Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 		Source:     "CI",
 		Name:       "test",
-		State:      forge.StatusCheckStateCompleted,
+		State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 		Conclusion: "failure",
 		Required:   true,
 		URL:        "https://github.com/harrisoncramer/komrad/runs/1",
 	}
 	f.hold(
 		withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)), forge.MergeReadiness{
-			Decision:     forge.ReviewDecisionPending,
-			Mergeability: forge.MergeabilityClean,
+			Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+			Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 			Listing:      &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{failing}},
 		}),
 		pullRequestAt("PR_2", "agent/x", syncNow.Add(-2*time.Hour)),
@@ -699,14 +701,14 @@ func TestSyncKeepsTheChecksOnAHead(t *testing.T) {
 func TestSyncFetchesTheLogsOfFinishedChecks(t *testing.T) {
 	f := newSyncFixture(t)
 	f.agentOn(t, "a", "agent/x")
-	finished := listedStatusCheck("1", "test", forge.StatusCheckStateCompleted, "failure")
+	finished := listedStatusCheck("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure")
 	finished.JobID = xptr.Ptr(int64(41))
-	running := listedStatusCheck("2", "lint", forge.StatusCheckStateRunning, "")
+	running := listedStatusCheck("2", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, "")
 	running.JobID = xptr.Ptr(int64(42))
-	noJob := listedStatusCheck("3", "status", forge.StatusCheckStateCompleted, "success")
+	noJob := listedStatusCheck("3", "status", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success")
 	f.hold(withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)), forge.MergeReadiness{
-		Decision:     forge.ReviewDecisionPending,
-		Mergeability: forge.MergeabilityClean,
+		Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+		Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 		Listing:      &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{finished, running, noJob}},
 	}))
 
@@ -725,7 +727,7 @@ func TestSyncFetchesTheLogsOfFinishedChecks(t *testing.T) {
 		return pullrequeststore.NewStatusCheckStore(tx).RecordCheckLog(t.Context(), pullrequeststore.CheckLog{
 			CheckID:   fetch.CheckID,
 			FetchedAt: syncNow,
-			Outcome:   pullrequeststore.CheckLogExpired,
+			Outcome:   pullrequestv1.CheckLogState_CHECK_LOG_STATE_EXPIRED,
 		})
 	}))
 	f.pass(t, syncNow.Add(time.Minute))

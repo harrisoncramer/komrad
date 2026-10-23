@@ -21,7 +21,9 @@ import (
 	"komrad/internal/tasks"
 	"komrad/internal/waketest"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/oneofs"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -78,7 +80,7 @@ func TestRebaseRefusals(t *testing.T) {
 		{
 			name: "a task whose writer is still being set up",
 			lay: func(t *testing.T, fixture *rebaseFixture) uuid.UUID {
-				return *fixture.seed(t, agentstore.Agent{State: agentstore.StateSettingUp}).TaskID
+				return *fixture.seed(t, agentstore.Agent{State: agentv1.AgentState_AGENT_STATE_SETTING_UP}).TaskID
 			},
 			wantErr: errBusy,
 		},
@@ -105,7 +107,7 @@ func TestRebaseRefusals(t *testing.T) {
 			name: "a task whose directory is gone",
 			lay: func(t *testing.T, fixture *rebaseFixture) uuid.UUID {
 				agent := fixture.seed(t, agentstore.Agent{})
-				fixture.stores.SeedTaskHead(t, agent.ID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone})
+				fixture.stores.SeedTaskHead(t, agent.ID, taskstore.SetHeadParams{WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE})
 
 				return *agent.TaskID
 			},
@@ -133,7 +135,7 @@ func TestRebaseRefusals(t *testing.T) {
 		{
 			name: "a writer part way through a turn, before anything moves the branch",
 			lay: func(t *testing.T, fixture *rebaseFixture) uuid.UUID {
-				return *fixture.seed(t, agentstore.Agent{Pane: "%1", State: agentstore.StateThinking}).TaskID
+				return *fixture.seed(t, agentstore.Agent{Pane: "%1", State: agentv1.AgentState_AGENT_STATE_THINKING}).TaskID
 			},
 			wantErr: errWriterNotAtRest,
 		},
@@ -145,7 +147,7 @@ func TestRebaseRefusals(t *testing.T) {
 			beforeMove: func(t *testing.T, fixture *rebaseFixture, task uuid.UUID) {
 				writer, err := fixture.stores.Agents.GetTaskWriter(t.Context(), task)
 				require.NoError(t, err)
-				require.NoError(t, fixture.stores.Agents.SetStateByID(t.Context(), writer.ID, agentstore.StateThinking))
+				require.NoError(t, fixture.stores.Agents.SetStateByID(t.Context(), writer.ID, agentv1.AgentState_AGENT_STATE_THINKING))
 			},
 			wantErr: errWriterNotAtRest,
 		},
@@ -321,7 +323,7 @@ func TestRebaseMovesTheBranch(t *testing.T) {
 			assert.Equal(t, tt.rebaser.Prediction.Replay, result.Replay)
 			assert.False(t, result.Moved, "work was replayed or stopped, so the branch was not merely moved")
 
-			assert.Equal(t, tt.wantStopped, fixture.readCheckout(t, agent).Sequence.IsInProgress())
+			assert.Equal(t, tt.wantStopped, git.IsInProgress(fixture.readCheckout(t, agent).Sequence))
 			assert.Equal(t, 1, fixture.checkoutSync.Wakes)
 		})
 	}
@@ -448,7 +450,7 @@ func TestRebaseRefusesATaskInTheCallersCheckout(t *testing.T) {
 				asker := fixture.seed(t, agentstore.Agent{
 					Name:  "asker",
 					Cwd:   tt.askerCwd,
-					State: agentstore.StateThinking,
+					State: agentv1.AgentState_AGENT_STATE_THINKING,
 				})
 				from = caller.Caller{AgentID: asker.ID}
 			}
@@ -575,7 +577,7 @@ func (f *rebaseFixture) newService(params NewServiceParams) *Service {
 		params.Git = &gittest.Mover{
 			State:    git.TreeState{Branch: "agent/a1"},
 			Own:      1,
-			Sequence: git.SequenceRebase,
+			Sequence: taskv1.Sequence_SEQUENCE_REBASE,
 		}
 	}
 	if params.PullRequestSync == nil {

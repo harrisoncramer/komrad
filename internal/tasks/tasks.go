@@ -9,9 +9,6 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/scriptrun"
 	"komrad/internal/store"
-	"komrad/lib/xstr"
-	"komrad/proto/gen/oneofs"
-
 	agentstore "komrad/internal/store/agent"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	reviewstore "komrad/internal/store/review"
@@ -19,6 +16,9 @@ import (
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
+	"komrad/lib/xstr"
+	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/oneofs"
 
 	"github.com/google/uuid"
 )
@@ -211,7 +211,7 @@ func (s *TaskService) requireMayWriteNotes(ctx context.Context, callerAgentID uu
 // mayWriteNotes reports whether an agent may write a task's notes, being on the task or the
 // orchestrator of its workflow.
 func mayWriteNotes(caller agentstore.Agent, target taskstore.Task) bool {
-	if caller.Role == agentstore.RoleOrchestrator {
+	if caller.Role == agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR {
 		return caller.WorkflowID == target.WorkflowID
 	}
 

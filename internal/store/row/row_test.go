@@ -12,6 +12,7 @@ import (
 	"komrad/internal/storetest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
@@ -185,7 +186,7 @@ func TestListWatchedCarriesTheTaskSlug(t *testing.T) {
 		WorkflowID: task.WorkflowID,
 		TaskID:     &task.ID,
 	})
-	idle := st.SeedAgent(t, agentstore.Agent{Name: "idle", Role: agentstore.RoleOrchestrator})
+	idle := st.SeedAgent(t, agentstore.Agent{Name: "idle", Role: agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR})
 
 	rows, err := st.Rows.ListWatched(t.Context(), []uuid.UUID{working.ID, idle.ID})
 	require.NoError(t, err)

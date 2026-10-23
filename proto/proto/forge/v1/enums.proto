@@ -1,8 +1,5 @@
-// This file names the kinds of forge, the ways a credential is given and the problems a check
-// finds. It is Edition 2026 so that each value's JSON name is the plain word komrad writes
-// everywhere, such as github or rotating-token, on the wire, in stored rows and as the CLI's flag
-// values. event/v1/event.proto says why Edition 2026 needs release candidates and how to move to
-// the final releases.
+// The forge.v1 enums, in Edition 2026 so that each value's JSON name is its lowercase word.
+// event/v1/event.proto says why Edition 2026 needs release candidates.
 edition = "2026";
 
 package forge.v1;
@@ -43,4 +40,18 @@ export enum ProblemKind {
   PROBLEM_KIND_NO_CREDENTIAL = 2 [(pb.enumvalue.json).string = "no-credential"];
   // The forge could not be reached.
   PROBLEM_KIND_UNREACHABLE = 3 [(pb.enumvalue.json).string = "unreachable"];
+}
+
+// MergeMethod is how a pull request's commits land on its base branch.
+export enum MergeMethod {
+  // No method was chosen.
+  MERGE_METHOD_UNSPECIFIED = 0;
+  // The commits land under a merge commit.
+  MERGE_METHOD_MERGE = 1 [(pb.enumvalue.json).string = "merge"];
+  // The commits land as one new commit.
+  MERGE_METHOD_SQUASH = 2 [(pb.enumvalue.json).string = "squash"];
+  // The commits are replayed onto the base branch one by one.
+  MERGE_METHOD_REBASE = 3 [(pb.enumvalue.json).string = "rebase"];
+  // The base branch moves to the head commit, with no commit of its own.
+  MERGE_METHOD_FAST_FORWARD = 4 [(pb.enumvalue.json).string = "fast_forward"];
 }

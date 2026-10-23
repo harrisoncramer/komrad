@@ -3,7 +3,7 @@ package eventprompts
 import (
 	"fmt"
 
-	mailstore "komrad/internal/store/mail"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
@@ -17,8 +17,8 @@ type ExchangeCapped struct {
 }
 
 // Kind is the kind the exchange cap mail is filed under.
-func (ExchangeCapped) Kind() mailstore.Kind {
-	return mailstore.KindExchangeCapped
+func (ExchangeCapped) Kind() agentv1.MailKind {
+	return agentv1.MailKind_MAIL_KIND_EXCHANGE_CAPPED
 }
 
 // Events is empty, since reaching the cap starts no event.

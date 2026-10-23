@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"komrad/internal/ui/panel"
+	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -17,7 +19,7 @@ func TestTriageRefresh(t *testing.T) {
 	changed := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 	earlier := changed.Add(-time.Hour)
 	seen := changed.Add(time.Hour)
-	live := func(state panel.State) panel.AgentRow {
+	live := func(state agentv1.AgentState) panel.AgentRow {
 		return panel.AgentRow{
 			Agent: panel.Agent{
 				ID:             "a1",
@@ -28,23 +30,23 @@ func TestTriageRefresh(t *testing.T) {
 		}
 	}
 	idle := func(change func(*panel.AgentRow)) panel.AgentRow {
-		item := live(panel.StateIdle)
+		item := live(agentv1.AgentState_AGENT_STATE_IDLE)
 		change(&item)
 
 		return item
 	}
 	writer := func(change func(*panel.AgentRow)) panel.AgentRow {
 		return idle(func(item *panel.AgentRow) {
-			item.Agent.Role = panel.RoleWriter
+			item.Agent.Role = agentv1.AgentRole_AGENT_ROLE_WRITER
 			change(item)
 		})
 	}
-	reviewer := func(state panel.State) panel.AgentRow {
+	reviewer := func(state agentv1.AgentState) panel.AgentRow {
 		return panel.AgentRow{
 			Agent: panel.Agent{
 				ID:     "r1",
 				State:  state,
-				Role:   panel.RoleReviewer,
+				Role:   agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 				TaskID: "t1",
 			},
 			Alive: true,
@@ -76,18 +78,18 @@ func TestTriageRefresh(t *testing.T) {
 	}{
 		{
 			name: "an agent at work is not in triage",
-			item: live(panel.StateThinking),
+			item: live(agentv1.AgentState_AGENT_STATE_THINKING),
 			want: "",
 		},
 		{
 			name: "a prompt in a pane that has gone is not in triage",
-			item: panel.AgentRow{Agent: panel.Agent{ID: "a1", State: panel.StateWaiting}},
+			item: panel.AgentRow{Agent: panel.Agent{ID: "a1", State: agentv1.AgentState_AGENT_STATE_WAITING}},
 			want: "",
 		},
 		{
 			name: "an agent on a hidden task is not in triage",
 			item: func() panel.AgentRow {
-				item := live(panel.StateWaiting)
+				item := live(agentv1.AgentState_AGENT_STATE_WAITING)
 				item.Agent.TaskID = "hidden"
 
 				return item
@@ -96,16 +98,16 @@ func TestTriageRefresh(t *testing.T) {
 		},
 		{
 			name: "a conflict an agent is working through is not in triage",
-			item: live(panel.StateThinking),
-			task: panel.Task{Sequence: panel.SequenceRebase},
+			item: live(agentv1.AgentState_AGENT_STATE_THINKING),
+			task: panel.Task{Sequence: taskv1.Sequence_SEQUENCE_REBASE},
 			want: "",
 		},
 		{
 			name: "a reviewer in its writer's conflicted checkout is not in triage",
 			item: idle(func(item *panel.AgentRow) {
-				item.Agent.Role = panel.RoleReviewer
+				item.Agent.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
 			}),
-			task: panel.Task{Sequence: panel.SequenceRebase},
+			task: panel.Task{Sequence: taskv1.Sequence_SEQUENCE_REBASE},
 			want: "",
 		},
 		{
@@ -163,44 +165,44 @@ func TestTriageRefresh(t *testing.T) {
 		{
 			name:   "an idle writer with a reviewer at work is not in triage",
 			item:   writer(func(*panel.AgentRow) {}),
-			others: []panel.AgentRow{reviewer(panel.StateThinking)},
+			others: []panel.AgentRow{reviewer(agentv1.AgentState_AGENT_STATE_THINKING)},
 			want:   "",
 		},
 		{
 			name: "an idle reviewer is not in triage",
-			item: idle(func(item *panel.AgentRow) { item.Agent.Role = panel.RoleReviewer }),
+			item: idle(func(item *panel.AgentRow) { item.Agent.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER }),
 			want: "",
 		},
 		{
 			name: "an agent komrad cannot read and was not in triage stays out",
-			item: live(panel.StateUncertain),
+			item: live(agentv1.AgentState_AGENT_STATE_UNCERTAIN),
 			want: "",
 		},
 		{
 			name:  "an agent komrad cannot read stays in",
 			was:   map[string]triageEntry{"a1": {since: earlier, rule: findRule("asking")}},
-			item:  live(panel.StateUncertain),
+			item:  live(agentv1.AgentState_AGENT_STATE_UNCERTAIN),
 			want:  "asking",
 			since: earlier,
 		},
 		{
 			name:  "an agent that stays in its tier keeps when it entered triage",
 			was:   map[string]triageEntry{"a1": {since: earlier, rule: findRule("errored")}},
-			item:  live(panel.StateFailedToCreate),
+			item:  live(agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE),
 			want:  "launch failed",
 			since: earlier,
 		},
 		{
 			name:  "an agent that moves tier enters triage again",
 			was:   map[string]triageEntry{"a1": {since: earlier, rule: findRule("asking")}},
-			item:  live(panel.StateErrored),
+			item:  live(agentv1.AgentState_AGENT_STATE_ERRORED),
 			want:  "errored",
 			since: changed,
 		},
 		{
 			name: "the most urgent tier names the agent",
 			item: func() panel.AgentRow {
-				item := live(panel.StateWaiting)
+				item := live(agentv1.AgentState_AGENT_STATE_WAITING)
 				item.FailedRun = true
 
 				return item
@@ -219,14 +221,14 @@ func TestTriageRefresh(t *testing.T) {
 		},
 		{
 			name:  "a prompt is asking",
-			item:  live(panel.StateWaiting),
+			item:  live(agentv1.AgentState_AGENT_STATE_WAITING),
 			want:  "asking",
 			since: changed,
 		},
 		{
 			name:  "a conflict left for a person",
 			item:  writer(func(*panel.AgentRow) {}),
-			task:  panel.Task{Sequence: panel.SequenceRebase},
+			task:  panel.Task{Sequence: taskv1.Sequence_SEQUENCE_REBASE},
 			want:  "checkout conflict",
 			since: seen,
 		},
@@ -234,7 +236,7 @@ func TestTriageRefresh(t *testing.T) {
 			name: "a failed turn has errored",
 			item: panel.AgentRow{Agent: panel.Agent{
 				ID:             "a1",
-				State:          panel.StateErrored,
+				State:          agentv1.AgentState_AGENT_STATE_ERRORED,
 				StateChangedAt: changed,
 			}},
 			want:  "errored",
@@ -242,13 +244,13 @@ func TestTriageRefresh(t *testing.T) {
 		},
 		{
 			name:  "a launch that failed",
-			item:  live(panel.StateFailedToCreate),
+			item:  live(agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE),
 			want:  "launch failed",
 			since: changed,
 		},
 		{
 			name:  "a cleanup that failed",
-			item:  live(panel.StateFailedToCleanup),
+			item:  live(agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP),
 			want:  "cleanup failed",
 			since: changed,
 		},
@@ -280,7 +282,7 @@ func TestTriageRefresh(t *testing.T) {
 		{
 			name:   "a writer that finished its turn is finished",
 			item:   writer(func(*panel.AgentRow) {}),
-			others: []panel.AgentRow{reviewer(panel.StateIdle)},
+			others: []panel.AgentRow{reviewer(agentv1.AgentState_AGENT_STATE_IDLE)},
 			want:   "finished",
 			since:  changed,
 		},

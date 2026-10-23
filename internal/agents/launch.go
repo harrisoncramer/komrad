@@ -26,6 +26,7 @@ import (
 	"komrad/lib/clock"
 	"komrad/lib/xptr"
 	"komrad/lib/xstr"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 	"komrad/proto/gen/oneofs"
 
@@ -104,7 +105,7 @@ type NewAgentParams struct {
 	IdempotencyKey   string
 	AdoptedBranch    string
 	RepositoryURL    string
-	Role             agentstore.Role
+	Role             agentv1.AgentRole
 	Task             oneofs.Task
 	TaskSlug         string
 	TaskGoal         string
@@ -179,8 +180,8 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 			return nil, err
 		}
 	}
-	if params.Role == "" {
-		params.Role = agentstore.RoleWriter
+	if params.Role == agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED {
+		params.Role = agentv1.AgentRole_AGENT_ROLE_WRITER
 	}
 
 	if err := requireRoomForAgents(ctx, s.agents, s.usage.MaxAgents, 1); err != nil {
@@ -194,7 +195,7 @@ func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*a
 // attempt launches.
 func (s *LaunchService) releaseFailedLaunch(ctx context.Context, existing agentstore.Agent, key agentstore.IdempotencyKey) (bool, error) {
 	// A failed cleanup belongs to an agent that ran, so only a failed create launched nothing.
-	if existing.State != agentstore.StateFailedToCreate {
+	if existing.State != agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE {
 		return false, nil
 	}
 
@@ -212,7 +213,7 @@ func idempotencyKey(ctx context.Context, params NewAgentParams) agentstore.Idemp
 
 // requireOwnWorkflow holds an orchestrator to the workflow it stands behind.
 func requireOwnWorkflow(spawner agentstore.Agent, params NewAgentParams) error {
-	if spawner.Role != agentstore.RoleOrchestrator || params.WorkflowID == spawner.WorkflowID {
+	if spawner.Role != agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR || params.WorkflowID == spawner.WorkflowID {
 		return nil
 	}
 
@@ -222,7 +223,7 @@ func requireOwnWorkflow(spawner agentstore.Agent, params NewAgentParams) error {
 // findSpawnedBy picks the agent a new one answers to, the workflow's orchestrator for a writer
 // starting a task of its own.
 func (s *LaunchService) findSpawnedBy(ctx context.Context, spawner agentstore.Agent, params NewAgentParams) (*agentstore.Agent, error) {
-	if spawner.Role != agentstore.RoleWriter || params.Task != (oneofs.Task{}) {
+	if spawner.Role != agentv1.AgentRole_AGENT_ROLE_WRITER || params.Task != (oneofs.Task{}) {
 		return &spawner, nil
 	}
 
@@ -282,7 +283,7 @@ func (s *LaunchService) joinParams(ctx context.Context, params NewAgentParams, t
 	if i := slices.IndexFunc(onTask, isTaskWriter); i >= 0 {
 		writer = &onTask[i]
 	}
-	if writer == nil && params.Role != agentstore.RoleReviewer {
+	if writer == nil && params.Role != agentv1.AgentRole_AGENT_ROLE_REVIEWER {
 		return params, nil
 	}
 
@@ -304,7 +305,7 @@ func (s *LaunchService) joinParams(ctx context.Context, params NewAgentParams, t
 
 	params.Dir = dir
 	params.ProvisionEnabled = xptr.Ptr(false)
-	params.Role = agentstore.RoleReviewer
+	params.Role = agentv1.AgentRole_AGENT_ROLE_REVIEWER
 
 	return params, nil
 }
@@ -428,12 +429,12 @@ func (s *LaunchService) workflowHarness(wf *workflowstore.Workflow) string {
 }
 
 // roleDefaults is the CLI and flags a workflow gives an agent in role that names none of its own.
-func (s *LaunchService) roleDefaults(wf *workflowstore.Workflow, role agentstore.Role) (string, string) {
+func (s *LaunchService) roleDefaults(wf *workflowstore.Workflow, role agentv1.AgentRole) (string, string) {
 	harnessID := s.workflowHarness(wf)
 	if wf == nil {
 		return harnessID, ""
 	}
-	if role != agentstore.RoleReviewer {
+	if role != agentv1.AgentRole_AGENT_ROLE_REVIEWER {
 		return harnessID, wf.Flags
 	}
 
@@ -466,7 +467,7 @@ func (p *launchPlan) newAgent(params NewAgentParams, spawner *agentstore.Agent) 
 		Flags:            p.flags,
 		ProvisionEnabled: params.ProvisionEnabled,
 		Prompt:           params.Prompt,
-		State:            agentstore.StateSettingUp,
+		State:            agentv1.AgentState_AGENT_STATE_SETTING_UP,
 		Harness:          p.harnessID,
 		SessionID:        harness.MintSessionID(p.harness),
 		WorkflowID:       params.WorkflowID,
@@ -627,7 +628,7 @@ func (c *createStart) buildOpenedTask(agent agentstore.Agent) taskstore.Task {
 
 func (c *createStart) record(ctx context.Context, agent *agentstore.Agent, pane string) error {
 	agent.Pane = pane
-	agent.State = agentstore.StateIdle
+	agent.State = agentv1.AgentState_AGENT_STATE_IDLE
 	written, err := c.service.agents.UpdateIfLive(ctx, *agent)
 	if err != nil {
 		return fmt.Errorf("failed to record agent %q: %w", agent.Name, err)
@@ -712,7 +713,7 @@ func (s *LaunchService) failCreate(ctx context.Context, agent agentstore.Agent, 
 	failAs(ctx, failAsParams{
 		agents: s.agents,
 		agent:  agent,
-		state:  agentstore.StateFailedToCreate,
+		state:  agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
 		verb:   "create",
 		cause:  cause,
 	})
@@ -782,7 +783,7 @@ type creation struct {
 // isCheckoutClaimant reports whether an agent's directory becomes its task's checkout, which only a
 // writer that provisions does.
 func isCheckoutClaimant(agent agentstore.Agent, provisioner string) bool {
-	return agent.TaskID != nil && agent.Role == agentstore.RoleWriter && provisioner != ""
+	return agent.TaskID != nil && agent.Role == agentv1.AgentRole_AGENT_ROLE_WRITER && provisioner != ""
 }
 
 // placement is the task an agent was created on and the place in its hook queue the agent holds
@@ -802,7 +803,7 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*pl
 		if err := claimRoomForAgents(ctx, agentStore, s.usage.MaxAgents, 1); err != nil {
 			return err
 		}
-		if c.agent.Role == agentstore.RoleWriter {
+		if c.agent.Role == agentv1.AgentRole_AGENT_ROLE_WRITER {
 			if err := claimRoomForTask(ctx, agentStore, s.usage.Orchestrator.MaxTasks, c.spawner); err != nil {
 				return err
 			}
@@ -825,7 +826,7 @@ func (s *LaunchService) createUnderCeiling(ctx context.Context, c creation) (*pl
 			c.agent.TaskID = &opened.Task.ID
 		}
 
-		if c.agent.Role == agentstore.RoleReviewer {
+		if c.agent.Role == agentv1.AgentRole_AGENT_ROLE_REVIEWER {
 			if err := claimRoomForReviewer(ctx, agentStore, s.usage.Task.MaxReviewers, *c.agent.TaskID); err != nil {
 				return err
 			}

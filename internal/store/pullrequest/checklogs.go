@@ -15,28 +15,9 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/google/uuid"
-)
-
-// CheckLogOutcome is where fetching a check's log stands.
-type CheckLogOutcome string
-
-const (
-	// CheckLogNone is a check that ran in no job.
-	CheckLogNone CheckLogOutcome = "none"
-	// CheckLogPending is a log still to come.
-	CheckLogPending CheckLogOutcome = "pending"
-	// CheckLogFetched is a log the forge handed over and komrad kept.
-	CheckLogFetched CheckLogOutcome = "fetched"
-	// CheckLogTooLarge is a log that ran past the most komrad keeps.
-	CheckLogTooLarge CheckLogOutcome = "too_large"
-	// CheckLogMissing is a log the forge never had.
-	CheckLogMissing CheckLogOutcome = "missing"
-	// CheckLogExpired is a log the forge no longer keeps.
-	CheckLogExpired CheckLogOutcome = "expired"
-	// CheckLogFailed is a log komrad gave up asking for.
-	CheckLogFailed CheckLogOutcome = "failed"
 )
 
 const (
@@ -53,7 +34,7 @@ var ErrInvalidPattern = fail.InvalidArgument("the pattern is not a valid regular
 type CheckLog struct {
 	CheckID   uuid.UUID
 	FetchedAt time.Time
-	Outcome   CheckLogOutcome
+	Outcome   pullrequestv1.CheckLogState
 	// Text is every line of a fetched log followed by a newline, empty when the log was listed.
 	Text       string
 	LineCount  int
@@ -89,7 +70,7 @@ type CheckLogSearch struct {
 // checkForLogFetch is what fetching a check's log needs to know about the check.
 type checkForLogFetch struct {
 	ID            uuid.UUID
-	State         string
+	State         pullrequestv1.StatusCheckState
 	JobID         *int64
 	FinishedAt    *time.Time
 	Host          string
@@ -99,14 +80,14 @@ type checkForLogFetch struct {
 
 // GetLogOf is where fetching a check's log stands and the log kept for it, which is nil unless the check has
 // finished and a log is kept.
-func (r StatusCheckReading) GetLogOf(check forge.StatusCheck) (CheckLogOutcome, *CheckLog) {
+func (r StatusCheckReading) GetLogOf(check forge.StatusCheck) (pullrequestv1.CheckLogState, *CheckLog) {
 	if check.JobID == nil {
-		return CheckLogNone, nil
+		return pullrequestv1.CheckLogState_CHECK_LOG_STATE_NONE, nil
 	}
 
 	log, ok := r.Logs[r.CheckIDs[check.ProviderID]]
-	if !ok || check.State != forge.StatusCheckStateCompleted {
-		return CheckLogPending, nil
+	if !ok || check.State != pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED {
+		return pullrequestv1.CheckLogState_CHECK_LOG_STATE_PENDING, nil
 	}
 
 	return log.Outcome, &log
@@ -115,10 +96,15 @@ func (r StatusCheckReading) GetLogOf(check forge.StatusCheck) (CheckLogOutcome, 
 // RecordCheckLog keeps a check's log, replacing the one kept before it with its steps, and must run on a
 // store built inside InTx.
 func (s *StatusCheckStore) RecordCheckLog(ctx context.Context, log CheckLog) error {
+	outcome, err := fromServiceToDBCheckLogState(log.Outcome)
+	if err != nil {
+		return err
+	}
+
 	logID, err := s.queries.RecordCheckLog(ctx, models.RecordCheckLogParams{
 		CheckID:    log.CheckID,
 		FetchedAt:  log.FetchedAt,
-		Outcome:    string(log.Outcome),
+		Outcome:    outcome,
 		Text:       log.Text,
 		LineCount:  int32(log.LineCount),
 		ErrorCount: int32(log.ErrorCount),
@@ -178,16 +164,21 @@ func (s *StatusCheckStore) ListCheckLogsOfReadings(ctx context.Context, readingI
 		})
 	}
 
-	return xslice.Map(logs, func(log *models.ListCheckLogsOfReadingsRow) CheckLog {
+	return xslice.TryMap(logs, func(log *models.ListCheckLogsOfReadingsRow) (CheckLog, error) {
+		outcome, err := fromDBToServiceCheckLogState(log.Outcome)
+		if err != nil {
+			return CheckLog{}, err
+		}
+
 		return CheckLog{
 			CheckID:    log.CheckID,
 			FetchedAt:  log.FetchedAt,
-			Outcome:    CheckLogOutcome(log.Outcome),
+			Outcome:    outcome,
 			LineCount:  int(log.LineCount),
 			ErrorCount: int(log.ErrorCount),
 			Steps:      stepsOf[log.CheckID],
-		}
-	}), nil
+		}, nil
+	})
 }
 
 // GetCheckLogLines is up to count lines of a check's fetched log from firstLine, counting from one, or
@@ -271,10 +262,14 @@ func (s *StatusCheckStore) GetCheckForLogFetch(ctx context.Context, checkID uuid
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the steps of check %s: %w", checkID, err)
 	}
+	state, err := fromDBToServiceStatusCheckState(row.State)
+	if err != nil {
+		return nil, err
+	}
 
 	return &checkForLogFetch{
 		ID:            row.ID,
-		State:         row.State,
+		State:         state,
 		JobID:         row.JobID,
 		FinishedAt:    row.FinishedAt,
 		Host:          row.Host,

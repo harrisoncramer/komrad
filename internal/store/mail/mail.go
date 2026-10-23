@@ -12,6 +12,7 @@ import (
 	"komrad/db/models"
 	"komrad/internal/store"
 	"komrad/lib/protoenum"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
@@ -20,38 +21,13 @@ import (
 // Cursor pages this listing, which resumes from one row's id.
 type Cursor = store.IDCursor
 
-// Kind separates mail an agent sent, always KindPlain, from mail komrad wrote itself.
-type Kind string
-
-const (
-	// KindPlain is ordinary mail.
-	KindPlain Kind = Kind(models.MailKindPlain)
-	// KindReviewActivity tells an agent that a review of its diff is waiting.
-	KindReviewActivity Kind = Kind(models.MailKindReviewActivity)
-	// KindExchangeCapped tells an agent that mail written to it was refused because the pair had
-	// reached the cap on how much they may exchange.
-	KindExchangeCapped Kind = Kind(models.MailKindExchangeCapped)
-	// KindDocumentEdited tells an agent that a person wrote or edited one of its documents in the panel.
-	KindDocumentEdited Kind = Kind(models.MailKindDocumentEdited)
-	// KindPullRequestChanged tells an agent that a pull request on its branch changed at the forge.
-	KindPullRequestChanged Kind = Kind(models.MailKindPullRequestChanged)
-	// KindWorktreeRebased tells an agent that komrad rebased its worktree, or tried to.
-	KindWorktreeRebased Kind = Kind(models.MailKindWorktreeRebased)
-	// KindWorktreePushed tells an agent that its branch was force-pushed to origin from the panel.
-	KindWorktreePushed Kind = Kind(models.MailKindWorktreePushed)
-	// KindWorktreeAborted tells an agent that the rebase, merge or pick part-way through its worktree was aborted.
-	KindWorktreeAborted Kind = Kind(models.MailKindWorktreeAborted)
-	// KindReviewComment carries a person's comment on the recipient's work.
-	KindReviewComment Kind = Kind(models.MailKindReviewComment)
-)
-
 type Mail struct {
 	ID          uuid.UUID
 	FromAgentID *uuid.UUID
 	FromName    string
 	ToAgentID   uuid.UUID
 	Body        string
-	Kind        Kind
+	Kind        agentv1.MailKind
 	ReplyTo     *uuid.UUID
 	// SubjectID is the thing mail from komrad is about, unset on ordinary mail.
 	SubjectID *uuid.UUID
@@ -76,7 +52,7 @@ type SendParams struct {
 	FromName       string
 	ToAgentID      uuid.UUID
 	Body           string
-	Kind           Kind
+	Kind           agentv1.MailKind
 	ReplyTo        *uuid.UUID
 	IdempotencyKey *string
 	// Deadline is how long the mail stays deliverable, counted from the database's clock rather than
@@ -87,8 +63,12 @@ type SendParams struct {
 // Send writes one piece of mail.
 func (s *MailStore) Send(ctx context.Context, params SendParams) (*Mail, error) {
 	kind := params.Kind
-	if kind == "" {
-		kind = KindPlain
+	if kind == agentv1.MailKind_MAIL_KIND_UNSPECIFIED {
+		kind = agentv1.MailKind_MAIL_KIND_PLAIN
+	}
+	stored, err := fromServiceToDBMailKind(kind)
+	if err != nil {
+		return nil, err
 	}
 
 	row, err := s.queries.InsertMail(ctx, models.InsertMailParams{
@@ -96,7 +76,7 @@ func (s *MailStore) Send(ctx context.Context, params SendParams) (*Mail, error) 
 		FromName:       params.FromName,
 		ToAgentID:      params.ToAgentID,
 		Body:           params.Body,
-		Kind:           models.MailKind(kind),
+		Kind:           stored,
 		ReplyTo:        params.ReplyTo,
 		IdempotencyKey: params.IdempotencyKey,
 		DeadlineMicros: params.Deadline.Microseconds(),
@@ -112,7 +92,7 @@ type UpsertFromKomradParams struct {
 	FromName  string
 	ToAgentID uuid.UUID
 	Body      string
-	Kind      Kind
+	Kind      agentv1.MailKind
 	SubjectID uuid.UUID
 	Events    []eventv1.Event
 	Deadline  time.Duration
@@ -121,17 +101,22 @@ type UpsertFromKomradParams struct {
 // UpsertFromKomrad writes mail from komrad, rewriting the recipient's unread mail of the
 // same kind about the same subject when it holds one.
 func (s *MailStore) UpsertFromKomrad(ctx context.Context, params UpsertFromKomradParams) (*Mail, error) {
+	kind, err := fromServiceToDBMailKind(params.Kind)
+	if err != nil {
+		return nil, err
+	}
+
 	row, err := s.queries.UpsertFromKomrad(ctx, models.UpsertFromKomradParams{
 		FromName:       params.FromName,
 		ToAgentID:      params.ToAgentID,
 		Body:           params.Body,
-		Kind:           models.MailKind(params.Kind),
+		Kind:           kind,
 		SubjectID:      params.SubjectID,
 		Events:         protoenum.Names(params.Events),
 		DeadlineMicros: params.Deadline.Microseconds(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to write %q mail for agent %q: %w", params.Kind, params.ToAgentID, err)
+		return nil, fmt.Errorf("failed to write %q mail for agent %q: %w", protoenum.Name(params.Kind), params.ToAgentID, err)
 	}
 
 	return fromRow(row)
@@ -139,38 +124,48 @@ func (s *MailStore) UpsertFromKomrad(ctx context.Context, params UpsertFromKomra
 
 // GetUnreadAbout is the unread mail of a kind about a subject that its recipient holds,
 // expired or not, ErrNotFound when it holds none.
-func (s *MailStore) GetUnreadAbout(ctx context.Context, toAgentID uuid.UUID, kind Kind, subjectID uuid.UUID) (*Mail, error) {
+func (s *MailStore) GetUnreadAbout(ctx context.Context, toAgentID uuid.UUID, kind agentv1.MailKind, subjectID uuid.UUID) (*Mail, error) {
+	stored, err := fromServiceToDBMailKind(kind)
+	if err != nil {
+		return nil, err
+	}
+
 	row, err := s.queries.GetUnreadAbout(ctx, models.GetUnreadAboutParams{
 		ToAgentID: toAgentID,
-		Kind:      models.MailKind(kind),
+		Kind:      stored,
 		SubjectID: subjectID,
 	})
 	if db.IsNoRows(err) {
 		return nil, noUnreadAbout(toAgentID, kind)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the unread %q mail of agent %q: %w", kind, toAgentID, err)
+		return nil, fmt.Errorf("failed to read the unread %q mail of agent %q: %w", protoenum.Name(kind), toAgentID, err)
 	}
 
 	return fromRow(row)
 }
 
 // ExistsReadAbout says whether the recipient has read any mail of a kind about a subject.
-func (s *MailStore) ExistsReadAbout(ctx context.Context, toAgentID uuid.UUID, kind Kind, subjectID uuid.UUID) (bool, error) {
+func (s *MailStore) ExistsReadAbout(ctx context.Context, toAgentID uuid.UUID, kind agentv1.MailKind, subjectID uuid.UUID) (bool, error) {
+	stored, err := fromServiceToDBMailKind(kind)
+	if err != nil {
+		return false, err
+	}
+
 	read, err := s.queries.ExistsReadAbout(ctx, models.ExistsReadAboutParams{
 		ToAgentID: toAgentID,
-		Kind:      models.MailKind(kind),
+		Kind:      stored,
 		SubjectID: subjectID,
 	})
 	if err != nil {
-		return false, fmt.Errorf("failed to read whether agent %q read its %q mail: %w", toAgentID, kind, err)
+		return false, fmt.Errorf("failed to read whether agent %q read its %q mail: %w", toAgentID, protoenum.Name(kind), err)
 	}
 
 	return read, nil
 }
 
-func noUnreadAbout(toAgentID uuid.UUID, kind Kind) error {
-	return fmt.Errorf("%w: unread %q mail for agent %q", store.ErrNotFound, kind, toAgentID)
+func noUnreadAbout(toAgentID uuid.UUID, kind agentv1.MailKind) error {
+	return fmt.Errorf("%w: unread %q mail for agent %q", store.ErrNotFound, protoenum.Name(kind), toAgentID)
 }
 
 // GetByIdempotencyKey is the mail a send with that key already wrote, ErrNotFound when none did.
@@ -381,6 +376,10 @@ func fromRow(row *models.Mail) (*Mail, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the events of mail %q: %w", row.ID, err)
 	}
+	kind, err := fromDBToServiceMailKind(row.Kind)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Mail{
 		ID:          row.ID,
@@ -388,7 +387,7 @@ func fromRow(row *models.Mail) (*Mail, error) {
 		FromName:    row.FromName,
 		ToAgentID:   row.ToAgentID,
 		Body:        row.Body,
-		Kind:        Kind(row.Kind),
+		Kind:        kind,
 		ReplyTo:     row.ReplyTo,
 		SubjectID:   row.SubjectID,
 		Events:      events,

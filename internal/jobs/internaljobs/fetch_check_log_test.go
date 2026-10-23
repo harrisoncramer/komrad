@@ -10,8 +10,10 @@ import (
 	"komrad/internal/git"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/internal/storetest"
+	"komrad/lib/protoenum"
 	"komrad/lib/xptr"
 	forgev1 "komrad/proto/gen/forge/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
@@ -95,10 +97,10 @@ func seedCheckForLog(t *testing.T, stores *storetest.Stores, check forge.StatusC
 func finishedCheck() forge.StatusCheck {
 	return forge.StatusCheck{
 		ProviderID: "1",
-		Kind:       forge.StatusCheckKindRun,
+		Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 		Source:     "CI",
 		Name:       "test",
-		State:      forge.StatusCheckStateCompleted,
+		State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 		Conclusion: "failure",
 		StartedAt:  xptr.Ptr(checkFinishedAt.Add(-time.Minute)),
 		FinishedAt: xptr.Ptr(checkFinishedAt),
@@ -107,14 +109,14 @@ func finishedCheck() forge.StatusCheck {
 			{
 				Number:     1,
 				Name:       "Set up job",
-				State:      forge.StatusCheckStateCompleted,
+				State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 				Conclusion: "success",
 				StartedAt:  xptr.Ptr(checkFinishedAt.Add(-time.Minute)),
 			},
 			{
 				Number:     2,
 				Name:       "Run go test",
-				State:      forge.StatusCheckStateCompleted,
+				State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 				Conclusion: "failure",
 				StartedAt:  xptr.Ptr(checkFinishedAt.Add(-30 * time.Second)),
 			},
@@ -136,7 +138,8 @@ func keptLog(t *testing.T, stores *storetest.Stores, checkID uuid.UUID) *pullreq
 		return nil
 	}
 	require.NoError(t, err)
-	log.Outcome = pullrequeststore.CheckLogOutcome(outcome)
+	log.Outcome, err = protoenum.Parse[pullrequestv1.CheckLogState](outcome)
+	require.NoError(t, err)
 
 	return &log
 }
@@ -162,7 +165,7 @@ func TestFetchCheckLogWorker(t *testing.T) {
 		now         time.Time
 		wantErr     bool
 		wantSnooze  time.Duration
-		wantOutcome pullrequeststore.CheckLogOutcome
+		wantOutcome pullrequestv1.CheckLogState
 		wantText    string
 		wantLines   int
 		wantErrors  int
@@ -172,7 +175,7 @@ func TestFetchCheckLogWorker(t *testing.T) {
 			name:        "a log the forge hands over is kept cleaned with its counts",
 			forge:       func() forge.Forge { return &logForge{log: &forge.JobLog{Text: rawLog}} },
 			now:         checkFinishedAt.Add(time.Minute),
-			wantOutcome: pullrequeststore.CheckLogFetched,
+			wantOutcome: pullrequestv1.CheckLogState_CHECK_LOG_STATE_FETCHED,
 			wantText:    "##[group]Set up job\n##[endgroup]\n##[group]Run go test\n##[error]boom\n",
 			wantLines:   4,
 			wantErrors:  1,
@@ -181,13 +184,13 @@ func TestFetchCheckLogWorker(t *testing.T) {
 			name:        "a log past the most komrad keeps is kept as too large with no text",
 			forge:       func() forge.Forge { return &logForge{log: &forge.JobLog{TooLarge: true}} },
 			now:         checkFinishedAt.Add(time.Minute),
-			wantOutcome: pullrequeststore.CheckLogTooLarge,
+			wantOutcome: pullrequestv1.CheckLogState_CHECK_LOG_STATE_TOO_LARGE,
 		},
 		{
 			name:        "a log the forge no longer keeps is kept as expired",
 			forge:       func() forge.Forge { return &logForge{err: forge.ErrExpired} },
 			now:         checkFinishedAt.Add(time.Minute),
-			wantOutcome: pullrequeststore.CheckLogExpired,
+			wantOutcome: pullrequestv1.CheckLogState_CHECK_LOG_STATE_EXPIRED,
 		},
 		{
 			name:       "a log not ready soon after the check finished is fetched again once the grace runs out",
@@ -205,13 +208,13 @@ func TestFetchCheckLogWorker(t *testing.T) {
 			name:        "a log not ready past the grace is kept as missing",
 			forge:       func() forge.Forge { return &logForge{err: forge.ErrNotFound} },
 			now:         checkFinishedAt.Add(logReadyGrace),
-			wantOutcome: pullrequeststore.CheckLogMissing,
+			wantOutcome: pullrequestv1.CheckLogState_CHECK_LOG_STATE_MISSING,
 		},
 		{
 			name:        "a forge that serves no logs keeps the log as missing",
 			forge:       func() forge.Forge { return plainForge{} },
 			now:         checkFinishedAt.Add(time.Minute),
-			wantOutcome: pullrequeststore.CheckLogMissing,
+			wantOutcome: pullrequestv1.CheckLogState_CHECK_LOG_STATE_MISSING,
 		},
 		{
 			name: "a throttled fetch waits until the forge says",
@@ -233,7 +236,7 @@ func TestFetchCheckLogWorker(t *testing.T) {
 			forge:       func() forge.Forge { return &logForge{err: errors.New("the forge is away")} },
 			attempt:     fetchCheckLogMaxAttempts,
 			now:         checkFinishedAt.Add(time.Minute),
-			wantOutcome: pullrequeststore.CheckLogFailed,
+			wantOutcome: pullrequestv1.CheckLogState_CHECK_LOG_STATE_FAILED,
 		},
 		{
 			name:      "a host komrad cannot reach before the last attempt is retried",
@@ -247,7 +250,7 @@ func TestFetchCheckLogWorker(t *testing.T) {
 			name: "a check still running is left alone",
 			check: func() forge.StatusCheck {
 				check := finishedCheck()
-				check.State = forge.StatusCheckStateRunning
+				check.State = pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING
 				check.Conclusion = ""
 				check.FinishedAt = nil
 
@@ -312,7 +315,7 @@ func TestFetchCheckLogWorker(t *testing.T) {
 			}
 
 			kept := keptLog(t, stores, checkID)
-			if tt.wantOutcome == "" {
+			if tt.wantOutcome == pullrequestv1.CheckLogState_CHECK_LOG_STATE_UNSPECIFIED {
 				assert.Nil(t, kept)
 
 				return

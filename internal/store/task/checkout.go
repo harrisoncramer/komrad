@@ -10,45 +10,9 @@ import (
 	"komrad/internal/store"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/google/uuid"
-)
-
-// Sequence is what git has part-way through a task's checkout.
-type Sequence string
-
-const (
-	SequenceNone       Sequence = Sequence(models.AgentSequenceNone)
-	SequenceRebase     Sequence = Sequence(models.AgentSequenceRebase)
-	SequenceApply      Sequence = Sequence(models.AgentSequenceAm)
-	SequenceMerge      Sequence = Sequence(models.AgentSequenceMerge)
-	SequenceCherryPick Sequence = Sequence(models.AgentSequenceCherryPick)
-	SequenceRevert     Sequence = Sequence(models.AgentSequenceRevert)
-)
-
-// IsInProgress reports whether anything is part-way through.
-func (s Sequence) IsInProgress() bool {
-	return s != SequenceNone && s != ""
-}
-
-func (s Sequence) orNone() Sequence {
-	if s == "" {
-		return SequenceNone
-	}
-
-	return s
-}
-
-// WorktreeRemovalReason is why a task's worktree is no longer on disk, empty while it is.
-type WorktreeRemovalReason string
-
-const (
-	// WorktreeOnDisk is a worktree still on disk, or a task without one.
-	WorktreeOnDisk WorktreeRemovalReason = ""
-	// WorktreeDeleted is a worktree a delete removed.
-	WorktreeDeleted WorktreeRemovalReason = WorktreeRemovalReason(models.WorktreeRemovalReasonDeleted)
-	// WorktreeGone is a worktree komrad found gone from disk without a delete.
-	WorktreeGone WorktreeRemovalReason = WorktreeRemovalReason(models.WorktreeRemovalReasonGone)
 )
 
 // DiffStat is how many lines a checkout adds and removes.
@@ -65,14 +29,14 @@ type Checkout struct {
 	Branch *string
 	// AdoptedBranch is the branch the checkout was put on rather than one komrad made for it.
 	AdoptedBranch string
-	// WorktreeRemovalReason is why the worktree is no longer on disk, empty while it is.
-	WorktreeRemovalReason WorktreeRemovalReason
+	// WorktreeRemovalReason is why the worktree is no longer on disk, unspecified while it is.
+	WorktreeRemovalReason taskv1.WorktreeRemovalReason
 	// RepositoryURL is the canonical web address of the repository the checkout pushes to.
 	RepositoryURL *string
 	// HeadSHA is the commit the checkout has checked out.
 	HeadSHA *string
 	// Sequence is what git has part-way through the checkout and waiting on somebody.
-	Sequence Sequence
+	Sequence taskv1.Sequence
 	// MovedSinceSnapshot is the newest snapshot's commit while the checkout no longer hashes to it.
 	MovedSinceSnapshot string
 	// DiffStat is the lines the checkout adds and removes since it left its base, nil where
@@ -87,41 +51,33 @@ func (c Checkout) IsUsable() bool {
 
 // IsWorktreeRemoved reports whether the checkout's worktree is no longer on disk, for either reason.
 func (c Checkout) IsWorktreeRemoved() bool {
-	return c.WorktreeRemovalReason != WorktreeOnDisk
+	return c.WorktreeRemovalReason != taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_UNSPECIFIED
 }
 
-func checkoutFrom(row *models.Task) Checkout {
+func checkoutFrom(row *models.Task) (Checkout, error) {
+	reason, err := fromDBToServiceNullWorktreeRemovalReason(row.WorktreeRemovalReason)
+	if err != nil {
+		return Checkout{}, err
+	}
+	sequence, err := fromDBToServiceNullSequence(row.Sequence)
+	if err != nil {
+		return Checkout{}, err
+	}
 	checkout := Checkout{
-		Cwd:                xptr.Deref(row.Cwd),
-		Branch:             row.Branch,
-		AdoptedBranch:      xptr.Deref(row.AdoptedBranch),
-		RepositoryURL:      row.RepositoryUrl,
-		HeadSHA:            row.HeadSha,
-		Sequence:           SequenceNone,
-		MovedSinceSnapshot: xptr.Deref(row.MovedSinceSnapshot),
-	}
-	if row.WorktreeRemovalReason.Valid {
-		checkout.WorktreeRemovalReason = WorktreeRemovalReason(row.WorktreeRemovalReason.WorktreeRemovalReason)
-	}
-	if row.Sequence.Valid {
-		checkout.Sequence = Sequence(row.Sequence.AgentSequence)
+		Cwd:                   xptr.Deref(row.Cwd),
+		Branch:                row.Branch,
+		AdoptedBranch:         xptr.Deref(row.AdoptedBranch),
+		RepositoryURL:         row.RepositoryUrl,
+		HeadSHA:               row.HeadSha,
+		Sequence:              sequence,
+		WorktreeRemovalReason: reason,
+		MovedSinceSnapshot:    xptr.Deref(row.MovedSinceSnapshot),
 	}
 	if row.LinesAdded != nil && row.LinesRemoved != nil {
 		checkout.DiffStat = &DiffStat{Added: int(*row.LinesAdded), Removed: int(*row.LinesRemoved)}
 	}
 
-	return checkout
-}
-
-func sequenceParam(sequence Sequence) models.NullAgentSequence {
-	return models.NullAgentSequence{AgentSequence: models.AgentSequence(sequence.orNone()), Valid: true}
-}
-
-func worktreeRemovalReasonParam(reason WorktreeRemovalReason) models.NullWorktreeRemovalReason {
-	return models.NullWorktreeRemovalReason{
-		WorktreeRemovalReason: models.WorktreeRemovalReason(reason),
-		Valid:                 reason != WorktreeOnDisk,
-	}
+	return checkout, nil
 }
 
 // ClaimCheckoutParams is how a launch is to make a task's checkout.
@@ -185,21 +141,30 @@ type SetHeadParams struct {
 	RepositoryURL *string
 	// HeadSHA is the commit checked out there, nil when git reads none.
 	HeadSHA *string
-	// WorktreeRemovalReason is WorktreeGone when the checkout's directory is gone, empty while it is there.
-	WorktreeRemovalReason WorktreeRemovalReason
-	Sequence              Sequence
+	// WorktreeRemovalReason is gone when the checkout's directory is gone, unspecified while it is there.
+	WorktreeRemovalReason taskv1.WorktreeRemovalReason
+	Sequence              taskv1.Sequence
 }
 
 // SetHead records what the cwd syncer read of a task's checkout.
 func (s *TaskStore) SetHead(ctx context.Context, id uuid.UUID, params SetHeadParams) error {
+	reason, err := fromServiceToDBNullWorktreeRemovalReason(params.WorktreeRemovalReason)
+	if err != nil {
+		return err
+	}
+	sequence, err := fromServiceToDBNullSequence(params.Sequence)
+	if err != nil {
+		return err
+	}
+
 	if err := s.queries.SetTaskHead(ctx, models.SetTaskHeadParams{
 		ID:                    id,
 		Branch:                params.Branch,
 		RepositoryUrl:         params.RepositoryURL,
 		HeadSha:               params.HeadSHA,
-		WorktreeRemoved:       xptr.Ptr(params.WorktreeRemovalReason != WorktreeOnDisk),
-		WorktreeRemovalReason: worktreeRemovalReasonParam(params.WorktreeRemovalReason),
-		Sequence:              sequenceParam(params.Sequence),
+		WorktreeRemoved:       xptr.Ptr(params.WorktreeRemovalReason != taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_UNSPECIFIED),
+		WorktreeRemovalReason: reason,
+		Sequence:              sequence,
 	}); err != nil {
 		return fmt.Errorf("failed to set the head of task %q: %w", id, err)
 	}
@@ -208,10 +173,15 @@ func (s *TaskStore) SetHead(ctx context.Context, id uuid.UUID, params SetHeadPar
 }
 
 // SetSequence records what git has part-way through a task's checkout.
-func (s *TaskStore) SetSequence(ctx context.Context, id uuid.UUID, sequence Sequence) error {
+func (s *TaskStore) SetSequence(ctx context.Context, id uuid.UUID, sequence taskv1.Sequence) error {
+	stored, err := fromServiceToDBNullSequence(sequence)
+	if err != nil {
+		return err
+	}
+
 	if err := s.queries.SetTaskSequence(ctx, models.SetTaskSequenceParams{
 		ID:       id,
-		Sequence: sequenceParam(sequence),
+		Sequence: stored,
 	}); err != nil {
 		return fmt.Errorf("failed to set the sequence of task %q: %w", id, err)
 	}
@@ -276,7 +246,7 @@ func (s *TaskStore) ListCheckouts(ctx context.Context) ([]Task, error) {
 		return nil, fmt.Errorf("failed to list the task checkouts: %w", err)
 	}
 
-	return xslice.Map(rows, fromRow), nil
+	return fromRows(rows)
 }
 
 // ListByID returns the tasks among ids, archived or not.
@@ -290,5 +260,12 @@ func (s *TaskStore) ListByID(ctx context.Context, ids []uuid.UUID) ([]Task, erro
 		return nil, fmt.Errorf("failed to list %d tasks: %w", len(ids), err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListTasksByIDRow) Task { return fromCountedRow(&row.Task, row.Snapshots) }), nil
+	return xslice.TryMap(rows, func(row *models.ListTasksByIDRow) (Task, error) {
+		task, err := fromCountedRow(&row.Task, row.Snapshots)
+		if err != nil {
+			return Task{}, err
+		}
+
+		return *task, nil
+	})
 }
