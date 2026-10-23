@@ -1,5 +1,5 @@
-// Package view draws the panel's lists of rows. That covers the agents list with its workflows and
-// tasks, and the worktrees, documents, schedules and search screens built on the same rows.
+// Package view draws the panel's lists of rows, for the agents list with its workflows and tasks
+// and for the worktrees, documents, schedules and search screens built on the same rows.
 //
 // Drawing takes three steps. The panel gathers a [Snapshot] of plain data. [Prepare] decides
 // every glyph, tone and weight each row wears and returns a [List]. [Window] renders the part of
