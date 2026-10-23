@@ -150,3 +150,11 @@ func windowStart(cursor, total, visible int) int {
 
 	return max(min(cursor-visible/2, total-visible), 0)
 }
+
+// Compose renders layers stacked by their depth onto a canvas of the size given.
+func Compose(width, height int, layers []*lipgloss.Layer) string {
+	canvas := lipgloss.NewCanvas(width, height)
+	canvas.Compose(lipgloss.NewCompositor(layers...))
+
+	return canvas.Render()
+}

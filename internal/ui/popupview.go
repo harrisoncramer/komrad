@@ -12,7 +12,7 @@ import (
 
 // overlayPopup lays a popup rendered by renderPopup over an area at its slot.
 func overlayPopup(area, box string, slot popupSlot) string {
-	return compose(lipgloss.Width(area), strings.Count(area, "\n")+1, []*lipgloss.Layer{
+	return paint.Compose(lipgloss.Width(area), strings.Count(area, "\n")+1, []*lipgloss.Layer{
 		lipgloss.NewLayer(area),
 		lipgloss.NewLayer(box).X(slot.x).Y(slot.y).Z(1),
 	})
