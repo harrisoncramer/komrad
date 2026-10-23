@@ -11851,7 +11851,7 @@
               "task.pre-delete"
             ]
           },
-          "description": "The moment the hook runs at."
+          "description": "The moment the hook runs at, any but the provisioner's own."
         },
         {
           "name": "script",

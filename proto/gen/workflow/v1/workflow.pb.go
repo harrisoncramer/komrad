@@ -300,7 +300,7 @@ func (x *WorkflowEventPrompts) GetPrompts() []*WorkflowEventPrompt {
 // WorkflowHook is a hook that runs at one moment in the life of a workflow's task or agent.
 type WorkflowHook struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The moment the hook runs at.
+	// The moment the hook runs at, any but the provisioner's own.
 	Event v1.Moment `protobuf:"varint,1,opt,name=event,proto3,enum=event.v1.Moment" json:"event,omitempty"`
 	// The hook's script, by file name in the hooks directory.
 	Script        string `protobuf:"bytes,2,opt,name=script,proto3" json:"script,omitempty"`

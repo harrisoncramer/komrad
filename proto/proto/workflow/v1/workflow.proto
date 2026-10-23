@@ -68,7 +68,7 @@ message WorkflowEventPrompts {
 
 // WorkflowHook is a hook that runs at one moment in the life of a workflow's task or agent.
 message WorkflowHook {
-  // The moment the hook runs at.
+  // The moment the hook runs at, any but the provisioner's own.
   event.v1.Moment event = 1 [(buf.validate.field).enum = {
     defined_only: true
     not_in: [
