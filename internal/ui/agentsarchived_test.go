@@ -17,6 +17,7 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	schedulev1 "komrad/proto/gen/schedule/v1"
 	taskv1 "komrad/proto/gen/task/v1"
 	"komrad/proto/gen/task/v1/taskv1connect"
 	watchv1 "komrad/proto/gen/watch/v1"
@@ -559,13 +560,10 @@ func TestArchivedAgentsMenuEntries(t *testing.T) {
 
 // TestArchivedAgentsRename covers a name typed over an archived agents row going out as its rename.
 func TestArchivedAgentsRename(t *testing.T) {
-	archivedSchedule := newNamedSchedule("s2", "weekly-gone")
-	archivedSchedule.ArchivedAt = paneltest.ArchivedAt
-
 	archived := []proto.Message{
 		paneltest.ArchivedWorkflow("w1", "backend"),
 		paneltest.ArchivedAgent("a1", "api-refactor", "w1"),
-		archivedSchedule,
+		&schedulev1.Schedule{Id: "s2", Name: "weekly-gone", WorkflowId: "w1", Cron: "0 9 * * *", ArchivedAt: paneltest.ArchivedAt},
 	}
 	live := []proto.Message{
 		paneltest.Workflow("w1", "backend"),

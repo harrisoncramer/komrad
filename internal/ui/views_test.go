@@ -221,6 +221,44 @@ func TestWorktreesLanding(t *testing.T) {
 	}
 }
 
+// TestStatusChecksOpen covers the status checks screen opening from the subpages menu.
+func TestStatusChecksOpen(t *testing.T) {
+	t.Parallel()
+
+	t.Run("a task with no pull request has no status checks to list", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openTaskChecks(t)
+
+		frame := harness.Frame()
+		assert.Equal(t, screen.StatusChecks, paneltest.Screen(harness.Frame()))
+		assert.Contains(t, frame, "agents › author › status checks")
+		assert.Contains(t, frame, "no pull request")
+	})
+
+	t.Run("back returns to the list on the agent it opened for", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openTaskChecks(t)
+		harness.Press("esc")
+
+		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
+		assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "author")
+	})
+}
+
+// openTaskChecks opens the status checks of a task with no pull request from the agents list.
+func openTaskChecks(t *testing.T) *paneltest.Panel {
+	t.Helper()
+
+	author := paneltest.Agent("author", "author", "w1")
+	harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "komrad"), author, paneltest.TaskOf(author))
+	harness.MoveToRow("task-author")
+	harness.Press("space", "x")
+
+	return harness
+}
+
 // buildWorktreeRows is a live task's checkout holding its writer and an occupant, two archived
 // tasks' checkouts, and one no task answers for.
 func buildWorktreeRows() []proto.Message {

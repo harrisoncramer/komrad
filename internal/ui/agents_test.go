@@ -753,7 +753,7 @@ func TestAgentsRecordCopy(t *testing.T) {
 		require.Contains(t, opened, "Could not copy")
 		require.Contains(t, opened, "no clipboard utility found")
 		harness.Press("ctrl+g")
-		settleFlash(harness)
+		harness.Advance(6 * time.Second)
 		refused := harness.Frame()
 		require.Contains(t, paneltest.EngineLine(refused), "✗ 1")
 
