@@ -141,7 +141,8 @@ func (m *model) backSubmenu(parents []submenuLevel) tea.Cmd {
 }
 
 // reopenMenus builds each menu of a stack again from the listing, its cursor where it was, and hands
-// the keys to the top one, closing them all when what they act on has left the listing.
+// the keys to the top one, closing them all when what they act on has left the listing or when there
+// are none.
 func (m *model) reopenMenus(stack []submenuLevel) tea.Cmd {
 	rebuilt := make([]submenuLevel, 0, len(stack))
 	for _, level := range stack {

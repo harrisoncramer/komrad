@@ -220,11 +220,8 @@ func holdSubmit(write func(*model) tea.Cmd) func(*model) tea.Cmd {
 		if m.writes.count != began && m.form.isActive() {
 			return tea.Batch(cmd, m.holdForm())
 		}
-		if returnTo != nil {
-			return tea.Batch(cmd, m.reopenMenus(returnTo))
-		}
 
-		return tea.Batch(cmd, m.closeForm())
+		return tea.Batch(cmd, m.reopenMenus(returnTo))
 	}
 }
 
