@@ -81,7 +81,12 @@ func RemoteEditSettings(t *testing.T, editor string) ui.PanelSettings {
 	sshConfig := filepath.Join(t.TempDir(), "komrad-remote.conf")
 	require.NoError(t, os.WriteFile(sshConfig, []byte("Host komrad-remote\n"), 0o600))
 
-	return ui.PanelSettings{Editor: editor, SSHHost: "komrad-remote", SSHConfig: sshConfig, IsSSHIncluded: true}
+	return ui.PanelSettings{
+		Editor:        editor,
+		SSHHost:       "komrad-remote",
+		SSHConfig:     sshConfig,
+		IsSSHIncluded: true,
+	}
 }
 
 // Panel is a panel under test and everything it talks to.
