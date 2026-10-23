@@ -23,7 +23,7 @@ func (a Archive) Details(in screen.Inputs) record.Details {
 func (a Archive) docRows(in screen.Inputs, width int) []string {
 	item, ok := list.At(a.listRows(in), a.Row)
 	if !ok {
-		return paint.DocStyledRows(emptyArchiveMarkdown, width, paint.Panel.Stage())
+		return paint.Panel.DocRows(emptyArchiveMarkdown, width)
 	}
 
 	return documentRows(item, width)

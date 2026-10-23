@@ -83,7 +83,7 @@ func recordFields(sched panel.Schedule, target recordTarget) []record.Field {
 func (w *Screen) docRows(in screen.Inputs, width int) []string {
 	item, ok := w.selected(in)
 	if !ok {
-		return paint.DocStyledRows(emptyMarkdown, width, paint.Panel.Stage())
+		return paint.Panel.DocRows(emptyMarkdown, width)
 	}
 
 	return documentRows(item, width)
@@ -173,10 +173,10 @@ func documentRows(item row, width int) []string {
 		prose += "\n\nIts runs start hidden."
 	}
 
-	rows := paint.DocStyledRows(paint.DocumentMarkdown(sched.Name, notice, "", ""), width, paint.Panel.Stage())
+	rows := paint.Panel.DocRows(paint.DocumentMarkdown(sched.Name, notice, "", ""), width)
 	if fired := runRows(sched.RecentRuns, width); len(fired) > 0 {
 		rows = append(append(rows, ""), fired...)
 	}
 
-	return append(rows, paint.DocStyledRows(prose+"\n", width, paint.Panel.Stage())...)
+	return append(rows, paint.Panel.DocRows(prose+"\n", width)...)
 }

@@ -94,7 +94,7 @@ func (r Screen) diffView(in screen.Inputs, split column.Split) string {
 		// This is the larger half of the window, so it says what is being waited on rather than
 		// standing empty under a band, and stands rather than collapsing so the frame does not
 		// shift under the reader when the patch lands.
-		return reader.Page{Rows: paint.DocStyledRows(r.diffNotice(in), split.ColumnWidth, paint.Panel.Stage())}.View(split.RowCount)
+		return reader.Page{Rows: paint.Panel.DocRows(r.diffNotice(in), split.ColumnWidth)}.View(split.RowCount)
 	}
 
 	held := diffview.LiveCursor

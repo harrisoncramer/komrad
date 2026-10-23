@@ -363,7 +363,7 @@ func (a *Screen) Column(in screen.Inputs) column.Spec {
 		Floor: column.Narrowest,
 		Read:  column.IsAlwaysRead,
 		DocRows: func(width int) []string {
-			return paint.DocStyledRows(a.doc(in), max(width, 1), paint.Panel.Stage())
+			return paint.Panel.DocRows(a.doc(in), max(width, 1))
 		},
 		Said: func() string {
 			if a.isHoveringNotes(in) {

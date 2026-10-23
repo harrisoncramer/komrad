@@ -40,7 +40,7 @@ func TestStageStyleRendersEveryElement(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			renderer, err := glamour.NewTermRenderer(glamour.WithStyles(Panel.Stage()), glamour.WithWordWrap(60))
+			renderer, err := glamour.NewTermRenderer(glamour.WithStyles(*Panel.stage), glamour.WithWordWrap(60))
 			require.NoError(t, err)
 
 			got, err := renderer.Render(tt.markdown)
@@ -107,7 +107,7 @@ func TestEveryToneIsItsOwnColour(t *testing.T) {
 
 // TestStageCarriesTheTones covers the markdown a block beside a list is rendered in.
 func TestStageCarriesTheTones(t *testing.T) {
-	stage := Panel.Stage()
+	stage := *Panel.stage
 
 	require.NotNil(t, stage.H1.Color)
 	require.NotNil(t, stage.Item.Color)

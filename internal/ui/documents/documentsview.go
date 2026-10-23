@@ -139,15 +139,15 @@ func prose(name, body string) string {
 // changed, or the document as it stands.
 func (d *Screen) docRows(in screen.Inputs, width int) []string {
 	if d.kind == kindTypes {
-		return paint.DocStyledRows(typeMarkdown(d.hoveredType(in), in.Room.Now), max(width, 1), paint.Panel.Stage())
+		return paint.Panel.DocRows(typeMarkdown(d.hoveredType(in), in.Room.Now), max(width, 1))
 	}
 
 	item, ok := d.hovered(in)
 	if !ok {
-		return paint.DocStyledRows(d.doc(in), max(width, 1), paint.Panel.Stage())
+		return paint.Panel.DocRows(d.doc(in), max(width, 1))
 	}
 	if !d.isSteppingHovered(in) {
-		return in.Room.Pattern.MarkSaid(item.id, paint.DocStyledRows(d.doc(in), max(width, 1), paint.Panel.Stage()))
+		return in.Room.Pattern.MarkSaid(item.id, paint.Panel.DocRows(d.doc(in), max(width, 1)))
 	}
 
 	h := d.history
@@ -186,7 +186,7 @@ func (h *history) head(in screen.Inputs, glyphs glyph.Set, item document, width 
 		notice = h.notice(in.Room.Now)
 	}
 
-	rows := paint.DocStyledRows(paint.DocumentMarkdown(item.name, notice, "", ""), width, paint.Panel.Stage())
+	rows := paint.Panel.DocRows(paint.DocumentMarkdown(item.name, notice, "", ""), width)
 	if h.err != nil || h.versions == nil {
 		return rows
 	}
@@ -247,7 +247,7 @@ func (h *history) changeRows(width int) []string {
 	case before.err != nil:
 		return []string{paint.FitRow("could not read: "+errui.GetReason(before.err), width)}
 	case h.isOldestKeptLate():
-		return paint.DocStyledRows(after.body+"\n", width, paint.Panel.Stage())
+		return paint.Panel.DocRows(after.body+"\n", width)
 	}
 
 	return []string{paint.FitRow(paint.Panel.Style(paint.ToneMuted).Render("no change to the text"), width)}

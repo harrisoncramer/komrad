@@ -18,7 +18,7 @@ func (s saidTranscript) columnRows(pattern list.Pattern, agentID string, width i
 	}
 
 	if !s.isSaidRead(agentID, pattern.Said.Text) || !s.answered {
-		return paint.DocStyledRows("_reading the conversation…_", max(width, 1), paint.Panel.Stage())
+		return paint.Panel.DocRows("_reading the conversation…_", max(width, 1))
 	}
 
 	if s.rows != nil && s.width == width {
@@ -46,9 +46,9 @@ func saidRows(params saidRowsParams) ([]string, int) {
 	width := max(params.width, 1)
 	switch {
 	case params.said.err != nil:
-		return paint.DocStyledRows("_could not read the conversation: "+errui.GetReason(params.said.err)+"_", width, paint.Panel.Stage()), 0
+		return paint.Panel.DocRows("_could not read the conversation: "+errui.GetReason(params.said.err)+"_", width), 0
 	case strings.TrimSpace(params.said.content) == "":
-		return paint.DocStyledRows("_no transcript yet_", width, paint.Panel.Stage()), 0
+		return paint.Panel.DocRows("_no transcript yet_", width), 0
 	}
 
 	content := params.said.content
