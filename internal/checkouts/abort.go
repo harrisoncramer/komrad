@@ -77,7 +77,7 @@ func (s *Service) abort(ctx context.Context, target checkoutTarget) (*AbortResul
 
 	result := &AbortResult{
 		Sequence:  sequence,
-		Command:   git.GetCommand(sequence),
+		Command:   git.GetSequenceCommand(sequence),
 		ParkedRef: buildParkRef(parkAbort, target.task.ID),
 		Ours:      ours,
 	}

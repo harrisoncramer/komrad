@@ -443,22 +443,15 @@ func rememberedMergeReadinessOf(row *models.PullRequest, checks StatusCheckReadi
 }
 
 func toWriteMergeReadiness(id uuid.UUID, readiness forge.RememberedMergeReadiness) (*models.WriteMergeReadinessParams, error) {
-	var knownDecision *string
-	if readiness.Decision.Value != pullrequestv1.ReviewDecision_REVIEW_DECISION_UNSPECIFIED {
-		text, err := fromServiceToDBReviewDecision(readiness.Decision.Value)
-		if err != nil {
-			return nil, err
-		}
-		knownDecision = &text
+	decision, err := knownTextOf(readiness.Decision.Value, fromServiceToDBReviewDecision)
+	if err != nil {
+		return nil, err
 	}
-	var knownMergeability *string
-	if readiness.Mergeability.Value != pullrequestv1.Mergeability_MERGEABILITY_UNSPECIFIED {
-		text, err := fromServiceToDBMergeability(readiness.Mergeability.Value)
-		if err != nil {
-			return nil, err
-		}
-		knownMergeability = &text
+	mergeability, err := knownTextOf(readiness.Mergeability.Value, fromServiceToDBMergeability)
+	if err != nil {
+		return nil, err
 	}
+	knownDecision, knownMergeability := xptr.NonEmpty(decision), xptr.NonEmpty(mergeability)
 
 	params := &models.WriteMergeReadinessParams{
 		ID:                     id,
@@ -484,6 +477,15 @@ func latestReadOf(wasBlank bool, known *string) *string {
 	}
 
 	return known
+}
+
+func knownTextOf[T comparable](value T, toDB func(T) (string, error)) (string, error) {
+	var unspecified T
+	if value == unspecified {
+		return "", nil
+	}
+
+	return toDB(value)
 }
 
 func knownValueOf[T any](known *string, fromDB func(string) (T, error)) (T, error) {

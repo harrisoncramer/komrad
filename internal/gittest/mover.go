@@ -146,7 +146,7 @@ func (f *Mover) ReadRebaseOnto(context.Context, string) (string, error) {
 
 // AbortSequence records the abort and, unless AbortErr says otherwise, leaves nothing in progress.
 func (f *Mover) AbortSequence(_ context.Context, _ string, sequence taskv1.Sequence) error {
-	f.Calls = append(f.Calls, "abort "+git.GetCommand(sequence))
+	f.Calls = append(f.Calls, "abort "+git.GetSequenceCommand(sequence))
 	if f.AbortErr != nil {
 		return f.AbortErr
 	}

@@ -18,7 +18,7 @@ var ErrIndexLocked = fail.Precondition("another git command is running in this w
 // AbortSequence undoes the sequence part-way through a checkout, putting the branch back where
 // it stood before the sequence began.
 func (c *Client) AbortSequence(ctx context.Context, dir string, sequence taskv1.Sequence) error {
-	verb := GetCommand(sequence)
+	verb := GetSequenceCommand(sequence)
 	if verb == "" {
 		return fmt.Errorf("there is no way to abort a sequence of kind %v", sequence)
 	}

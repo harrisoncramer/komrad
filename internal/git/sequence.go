@@ -27,8 +27,8 @@ func IsInProgress(sequence taskv1.Sequence) bool {
 	return sequence != taskv1.Sequence_SEQUENCE_NONE && sequence != taskv1.Sequence_SEQUENCE_UNSPECIFIED
 }
 
-// GetCommand is the git command that runs the sequence, empty when nothing is in progress.
-func GetCommand(sequence taskv1.Sequence) string {
+// GetSequenceCommand is the git command that runs the sequence, empty when nothing is in progress.
+func GetSequenceCommand(sequence taskv1.Sequence) string {
 	switch sequence {
 	case taskv1.Sequence_SEQUENCE_REBASE:
 		return "rebase"

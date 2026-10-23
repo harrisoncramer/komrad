@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"komrad/db/models"
-	"komrad/internal/fail"
 	"komrad/lib/xptr"
 	taskv1 "komrad/proto/gen/task/v1"
 
@@ -24,13 +23,7 @@ type Parent struct {
 	Blocked taskv1.CascadeBlock
 }
 
-// errNoParent is a task row that depends on no other task.
-var errNoParent = fail.NotFound("the task has no parent")
-
 func parentFrom(row *models.Task) (*Parent, error) {
-	if row.ParentTaskID == nil {
-		return nil, errNoParent
-	}
 	blocked, err := fromDBToServiceCascadeBlock(row.CascadeBlocked)
 	if err != nil {
 		return nil, err

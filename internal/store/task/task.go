@@ -94,9 +94,12 @@ func fromRow(row *models.Task) (*Task, error) {
 	if err != nil {
 		return nil, err
 	}
-	parent, err := parentFrom(row)
-	if err != nil && !errors.Is(err, errNoParent) {
-		return nil, err
+	var parent *Parent
+	if row.ParentTaskID != nil {
+		parent, err = parentFrom(row)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &Task{
