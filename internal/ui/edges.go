@@ -79,7 +79,7 @@ func (m *model) isColumnKeyed() bool {
 	case in.Room.MessagesFocused, m.form.isOpening() && !m.isPopupForm(), in.Room.Doc.Focused:
 		return true
 	case m.screen == screen.Review:
-		return m.review.isDiffFocused(in)
+		return m.review.IsDiffFocused(in)
 	}
 
 	b, ok := m.active().(columnFocuser)

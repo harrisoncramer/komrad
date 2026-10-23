@@ -49,8 +49,8 @@ func (m *model) isEditing() bool {
 		return focused != nil && field.IsText(focused) && m.form.vim.IsInserting(focused.GetKey())
 	}
 
-	if m.screen == screen.Review && m.review.isWriting() {
-		return m.review.threads.editor.isInserting()
+	if m.screen == screen.Review && m.review.IsWriting() {
+		return m.review.IsInserting()
 	}
 
 	if line, ok := m.typedLine(); ok {

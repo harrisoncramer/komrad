@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/logs"
+	"komrad/internal/ui/review"
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/zone"
 
@@ -105,7 +106,7 @@ func (m *model) clickerOf(name zone.Name) (clicker, bool) {
 	case zone.Diff:
 		if m.screen == screen.Review {
 			return m.stopClicker(stopList, clickFunc(func(m *model, key string, _ int) tea.Cmd {
-				return m.apply(m.review.diffKeys().Click(m.inputs(), key))
+				return m.apply(m.review.ClickDiff(m.inputs(), key))
 			})), true
 		}
 		if m.screen == screen.Documents {
@@ -117,7 +118,7 @@ func (m *model) clickerOf(name zone.Name) (clicker, bool) {
 		return clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickSubmenu(key, false) }), true
 	case zoneParentMenu:
 		return clickFunc(func(m *model, key string, _ int) tea.Cmd { return m.clickSubmenu(key, true) }), true
-	case zoneFiles:
+	case review.ZoneFiles:
 		return m.stopClicker(stopBlock, popupClick(popupHost.ClickFile)), true
 	case zoneDetails:
 		return m.stopClicker(stopRecord, requestClick(func(m *model, key string, nth int) screen.Request {
@@ -127,7 +128,7 @@ func (m *model) clickerOf(name zone.Name) (clicker, bool) {
 		if lister, ok := m.active().(activeLister); ok {
 			return m.listClicker(lister.ActiveList()), true
 		}
-	case zoneSide:
+	case review.ZoneSide:
 		return m.stopClicker(stopBlock, popupClick(popupHost.ClickSide)), true
 	case zoneColumn, zone.Block:
 	}

@@ -32,6 +32,7 @@ import (
 	"komrad/internal/ui/layout"
 	"komrad/internal/ui/logs"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/review"
 	"komrad/internal/ui/schedules"
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/submitting"
@@ -302,7 +303,7 @@ type model struct {
 	inspections map[string]panel.WorktreeInspection
 	lastScreen  lastScreen
 	said        saidTranscript
-	review      reviewScreen
+	review      review.Screen
 	filter      filter.State
 	form        formState
 	// register is the text vim last yanked or deleted in any field, nil when vim is off.
@@ -477,17 +478,17 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 			Clients:  clients,
 			Top:      top,
 		}),
-		review: reviewScreen{deps: reviewDeps{
-			keys:           deps.Keys,
-			glyphs:         deps.Glyphs,
-			register:       register,
-			clients:        clients,
-			patches:        deps.Patches,
-			panes:          deps.Tmux,
-			top:            top,
-			editor:         shell,
-			editorSettings: editorSettings,
-		}},
+		review: review.New(review.Deps{
+			Keys:           deps.Keys,
+			Glyphs:         deps.Glyphs,
+			Register:       register,
+			Clients:        clients,
+			Patches:        deps.Patches,
+			Panes:          deps.Tmux,
+			Top:            top,
+			Editor:         shell,
+			EditorSettings: editorSettings,
+		}),
 		worktrees: worktrees.New(worktrees.Deps{
 			Keys:    deps.Keys,
 			Clients: clients,

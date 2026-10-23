@@ -296,7 +296,7 @@ func (m *model) relayout() {
 
 	// A field open in the review's sidebar is rendered in a column of this window rather than in the
 	// form's, so the size is rewritten here too.
-	m.review.threads.editor.resize(reviewInputWidth(m.review.measurePopupInner(m.inputs())))
+	m.review.Relayout(m.inputs())
 }
 
 // routeScreenMessage hands a message to the screen that is up, letting its popup take a scroll key first.
