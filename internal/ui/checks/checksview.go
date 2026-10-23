@@ -60,7 +60,7 @@ func (c *Screen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
 				Matches: list.Matches(in.Room.Pattern.Regexp, r.item.name),
 				Process: view.ProcessNone,
 				Cells: []view.Cell{
-					checkIcon(r.item, in.Room.Spinner),
+					checkIcon(r.item, in.Room.SpinnerFrame),
 				},
 			}
 		}),
@@ -96,7 +96,7 @@ func (c *Screen) docRows(in screen.Inputs, width int) []string {
 
 	item := rows[c.Row].item
 	icon := func(item check) string {
-		cell := checkIcon(item, in.Room.Spinner)
+		cell := checkIcon(item, in.Room.SpinnerFrame)
 		text := cell.Text
 		if text == "" {
 			text = c.deps.Glyphs.Spell(cell.Glyph)

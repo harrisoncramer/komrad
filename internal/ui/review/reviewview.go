@@ -43,11 +43,11 @@ const changeFolds = 2
 // View renders the diff and, beside it, the file tree, with the thread the cursor is standing on
 // in a popup over them.
 func (r Screen) View(in screen.Inputs, chrome screen.Chrome) string {
-	split := in.Room.Split
-	if !split.On && in.Room.Halved {
+	split := in.Room.OwnBlockSplit
+	if !split.IsDivided && in.Room.IsListHalfOfSplit {
 		return r.sidebarView(in, chrome)
 	}
-	if !split.On {
+	if !split.IsDivided {
 		band := r.bandView(in)
 		layout := r.layoutSidebar(in, chrome, band)
 
@@ -58,8 +58,8 @@ func (r Screen) View(in screen.Inputs, chrome screen.Chrome) string {
 	// the patch.
 	band := r.bandView(in)
 	diff := band + r.diffView(in, split)
-	if in.Room.Marks {
-		diff = zone.MarkBlock(zone.List, diff, split.Column)
+	if in.Room.ShouldMarkZones {
+		diff = zone.MarkBlock(zone.List, diff, split.ColumnWidth)
 	}
 
 	return r.overlayThread(in, chrome, chrome.Join(split, r.sidebarView(in, chrome), diff))
@@ -70,7 +70,7 @@ func (r Screen) View(in screen.Inputs, chrome screen.Chrome) string {
 func (r Screen) sidebarView(in screen.Inputs, chrome screen.Chrome) string {
 	sidebar := r.layoutSidebar(in, chrome)
 	block := sidebar.block()
-	if in.Room.Marks {
+	if in.Room.ShouldMarkZones {
 		block = zone.MarkBlock(zone.Block, block, layout.LineWidth(in.Room.Width))
 	}
 
@@ -80,13 +80,13 @@ func (r Screen) sidebarView(in screen.Inputs, chrome screen.Chrome) string {
 // overlayThread renders the popup over an area, and leaves the area alone where the popup has
 // nothing to hold or the frame is rendered to find its blocks.
 func (r Screen) overlayThread(in screen.Inputs, chrome screen.Chrome, area string) string {
-	if in.Room.Marks {
+	if in.Room.ShouldMarkZones {
 		return area
 	}
 
 	inner := r.measurePopupInner(in)
 	body, back := r.popupBody(in, inner)
-	if in.Room.PopupForm {
+	if in.Room.IsFormInPopup {
 		body = withSection(body, chrome.Form(), inner)
 		back = 0
 	}

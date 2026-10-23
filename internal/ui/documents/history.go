@@ -288,22 +288,22 @@ func (d *Screen) applyVersionRead(msg versionReadMsg) {
 
 // BuildFrame builds the diff of the write stepped to once it is rendered beside the list.
 func (d *Screen) BuildFrame(in screen.Inputs) {
-	if in.Room.Split.On && d.isSteppingHovered(in) {
-		d.history.keepDiff(in.Room.Dark)
+	if in.Room.OwnBlockSplit.IsDivided && d.isSteppingHovered(in) {
+		d.history.keepDiff(in.Room.IsDarkBackground)
 	}
 }
 
 // diffWindow is the size the panel renders the diff at, under the rows over it.
 func (d *Screen) diffWindow(in screen.Inputs) diffview.Window {
-	split := in.Room.Split
+	split := in.Room.OwnBlockSplit
 	item, hovered := d.hovered(in)
-	if !split.On || !hovered || d.history == nil {
-		return diffview.Window{Height: 1, Wrap: in.Room.Wrap}
+	if !split.IsDivided || !hovered || d.history == nil {
+		return diffview.Window{Height: 1, Wrap: in.Room.IsDiffWrapped}
 	}
 
 	return diffview.Window{
-		Width:  split.Column,
-		Height: max(split.Rows-len(d.history.head(in, d.deps.Glyphs, item, split.Column)), 1),
-		Wrap:   in.Room.Wrap,
+		Width:  split.ColumnWidth,
+		Height: max(split.RowCount-len(d.history.head(in, d.deps.Glyphs, item, split.ColumnWidth)), 1),
+		Wrap:   in.Room.IsDiffWrapped,
 	}
 }

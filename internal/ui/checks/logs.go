@@ -200,20 +200,20 @@ func (c Logs) rows(in screen.Inputs) []logRow {
 
 // anchor puts the hovered row's header at the top of the document.
 func (c Logs) anchor(in screen.Inputs) screen.Request {
-	split := in.Room.Split
-	if !split.On {
+	split := in.Room.OwnBlockSplit
+	if !split.IsDivided {
 		return nil
 	}
 
-	doc := c.keepDoc(split.Column)
+	doc := c.keepDoc(split.ColumnWidth)
 	line, ok := doc.anchors[c.list().Hovered(in)]
 	if !ok {
 		return nil
 	}
 
 	var top int
-	if height := in.Room.Doc.Window; height > 0 {
-		top = reader.Window{Len: len(doc.rows), Markers: true}.Clamp(line, height)
+	if height := in.Room.DocumentReader.VisibleRows; height > 0 {
+		top = reader.Window{DocumentLength: len(doc.rows), HasMarkers: true}.Clamp(line, height)
 		c.placed, c.placedTop = line, top
 	}
 
@@ -222,8 +222,8 @@ func (c Logs) anchor(in screen.Inputs) screen.Request {
 
 // reanchor keeps the hovered row's header in view as the document changes above it, unless the reader has moved or scrolled off it.
 func (c Logs) reanchor(in screen.Inputs) screen.Request {
-	doc := in.Room.Doc
-	if !in.Up || doc.Held || doc.Line != c.placed || doc.Top != c.placedTop {
+	doc := in.Room.DocumentReader
+	if !in.Up || doc.Held || doc.CursorLine != c.placed || doc.TopLine != c.placedTop {
 		return nil
 	}
 
@@ -379,8 +379,8 @@ func (c Logs) IsLoading(screen.Inputs) bool {
 
 // BuildFrame renders the logs at the width of the block beside the list.
 func (c Logs) BuildFrame(in screen.Inputs) {
-	if split := in.Room.Split; split.On {
-		c.keepDoc(split.Column)
+	if split := in.Room.OwnBlockSplit; split.IsDivided {
+		c.keepDoc(split.ColumnWidth)
 	}
 }
 

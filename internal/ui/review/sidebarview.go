@@ -44,7 +44,7 @@ func (r Screen) sideView(in screen.Inputs, lines int) string {
 		keys = append(keys, row.key())
 	}
 
-	if in.Room.Marks {
+	if in.Room.ShouldMarkZones {
 		for at, row := range rows {
 			if sideRows[at].kind.isStop() {
 				rows[at] = zone.MarkSpan(ZoneSide, keys[at], row)

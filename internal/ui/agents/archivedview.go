@@ -71,7 +71,7 @@ func (a *archivedAgents) snapshot(in screen.Inputs, pane list.Pane) view.Snapsho
 		workflowDirs: in.Listing.WorkflowDirs(),
 		focused:      list.KeyAt(rows, a.Row),
 		caret:        pane.Caret,
-		loaderFrame:  in.Room.Spinner,
+		loaderFrame:  in.Room.SpinnerFrame,
 		matcher:      in.Room.Pattern.Regexp,
 		picked:       list.Picked(in.Room.Pattern, rows, agentRowFits(in)),
 		tasks:        in.Listing.Tasks,

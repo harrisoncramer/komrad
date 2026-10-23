@@ -13,12 +13,12 @@ func (p Page) View(rows int) string {
 	top, end := p.Shape().Span(rows)
 
 	out := make([]string, 0, rows)
-	if p.Markers && top > 0 {
+	if p.HasMarkers && top > 0 {
 		out = append(out, paint.MoreAbove(top, paint.Panel.Style(paint.ToneMuted)))
 	}
 
 	out = append(out, p.Rows[top:end]...)
-	if rest := len(p.Rows) - end; p.Markers && rest > 0 && len(out) < rows {
+	if rest := len(p.Rows) - end; p.HasMarkers && rest > 0 && len(out) < rows {
 		out = append(out, paint.MoreBelow(rest, paint.Panel.Style(paint.ToneMuted)))
 	}
 

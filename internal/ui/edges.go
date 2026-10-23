@@ -71,12 +71,12 @@ func (m *model) atRegion() keyRegion {
 // isColumnKeyed reports whether the keys are on the block the panel renders beside its list.
 func (m *model) isColumnKeyed() bool {
 	in := m.inputs()
-	if !in.Room.Geometry.On {
+	if !in.Room.WindowSplit.IsDivided {
 		return false
 	}
 
 	switch {
-	case in.Room.MessagesFocused, m.form.isOpening() && !m.isPopupForm(), in.Room.Doc.Focused:
+	case in.Room.AreMessagesFocused, m.form.isOpening() && !m.isPopupForm(), in.Room.DocumentReader.HoldsKeys:
 		return true
 	case m.screen == screen.Review:
 		return m.review.IsDiffFocused(in)

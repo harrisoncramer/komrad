@@ -32,7 +32,7 @@ func (c Logs) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
 				Name:    name,
 				Matches: list.Matches(in.Room.Pattern.Regexp, name),
 				Process: view.ProcessNone,
-				Cells:   []view.Cell{checkIcon(r.item, in.Room.Spinner)},
+				Cells:   []view.Cell{checkIcon(r.item, in.Room.SpinnerFrame)},
 			}
 			if r.step != nil {
 				row.Kind = view.KindChild

@@ -104,15 +104,15 @@ func (r *Screen) refuseExpand() string {
 
 // diffWindow is the window that renders the diff, zero-sized without a split.
 func (r *Screen) diffWindow(in screen.Inputs) diffview.Window {
-	split := in.Room.Split
-	if !split.On {
-		return diffview.Window{Wrap: in.Room.Wrap}
+	split := in.Room.OwnBlockSplit
+	if !split.IsDivided {
+		return diffview.Window{Wrap: in.Room.IsDiffWrapped}
 	}
 
 	return diffview.Window{
-		Width:  split.Column,
-		Height: split.Rows,
-		Wrap:   in.Room.Wrap,
+		Width:  split.ColumnWidth,
+		Height: split.RowCount,
+		Wrap:   in.Room.IsDiffWrapped,
 	}
 }
 
@@ -266,7 +266,7 @@ func (r *Screen) ScrollSidebarAt(in screen.Inputs, chrome screen.Chrome, y, rows
 
 // sidebarNavAt is the sidebar section rendered on row y, and false for a row the wheel leaves alone.
 func (r *Screen) sidebarNavAt(in screen.Inputs, chrome screen.Chrome, y int) (keys.Navigable, bool) {
-	if !in.Room.Split.On {
+	if !in.Room.OwnBlockSplit.IsDivided {
 		return nil, false
 	}
 

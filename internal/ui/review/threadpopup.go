@@ -12,12 +12,12 @@ import (
 // popupAnchor is the columns the popup takes beside the diff's code, which are the sidebar, the
 // divider and the gutter with a split and the whole pane without one.
 func (r Screen) popupAnchor(in screen.Inputs) popupAnchor {
-	split := in.Room.Split
-	if !split.On {
+	split := in.Room.OwnBlockSplit
+	if !split.IsDivided {
 		return popupAnchor{right: in.Room.Width}
 	}
 
-	return popupAnchor{right: split.Sidebar + column.DividerCols + diffview.GutterWidth, codeOnRight: true}
+	return popupAnchor{right: split.SidebarWidth + column.DividerCols + diffview.GutterWidth, codeOnRight: true}
 }
 
 // measurePopupInner is the room inside the popup over the review.
@@ -82,8 +82,8 @@ func (r Screen) MeasurePopup(in screen.Inputs, chrome screen.Chrome) (width, hei
 // measurePopupStage is the rows the popup stands over, the band and the diff beside the sidebar or
 // the band and the sidebar without a split, less the bar at the top that carries the messages.
 func (r Screen) measurePopupStage(in screen.Inputs, chrome screen.Chrome) popupStage {
-	split := in.Room.Split
-	if !split.On {
+	split := in.Room.OwnBlockSplit
+	if !split.IsDivided {
 		band := r.bandView(in)
 		layout := r.layoutSidebar(in, chrome, band)
 
@@ -104,6 +104,6 @@ func (r Screen) measurePopupStage(in screen.Inputs, chrome screen.Chrome) popupS
 		top:        strings.Count(r.layoutSidebar(in, chrome).bar, "\n"),
 		cursor:     above + first,
 		cursorLast: above + first + height - 1,
-		rows:       above + split.Rows,
+		rows:       above + split.RowCount,
 	}
 }

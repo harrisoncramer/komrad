@@ -24,9 +24,9 @@ func TestWindowSpan(t *testing.T) {
 		{
 			name: "a document shorter than the window is rendered whole",
 			window: reader.Window{
-				Len:     3,
-				Top:     2,
-				Markers: true,
+				DocumentLength: 3,
+				TopLine:        2,
+				HasMarkers:     true,
 			},
 			height:    5,
 			wantFirst: 0,
@@ -34,7 +34,7 @@ func TestWindowSpan(t *testing.T) {
 		},
 		{
 			name:      "the top of a long document leaves a row for the marker under it",
-			window:    reader.Window{Len: 20, Markers: true},
+			window:    reader.Window{DocumentLength: 20, HasMarkers: true},
 			height:    5,
 			wantFirst: 0,
 			wantEnd:   4,
@@ -42,9 +42,9 @@ func TestWindowSpan(t *testing.T) {
 		{
 			name: "the middle leaves a row for a marker either side",
 			window: reader.Window{
-				Len:     20,
-				Top:     6,
-				Markers: true,
+				DocumentLength: 20,
+				TopLine:        6,
+				HasMarkers:     true,
 			},
 			height:    5,
 			wantFirst: 6,
@@ -53,9 +53,9 @@ func TestWindowSpan(t *testing.T) {
 		{
 			name: "the bottom leaves a row for the marker over it",
 			window: reader.Window{
-				Len:     20,
-				Top:     99,
-				Markers: true,
+				DocumentLength: 20,
+				TopLine:        99,
+				HasMarkers:     true,
 			},
 			height:    5,
 			wantFirst: 16,
@@ -63,7 +63,7 @@ func TestWindowSpan(t *testing.T) {
 		},
 		{
 			name:      "without markers every row is text",
-			window:    reader.Window{Len: 20, Top: 6},
+			window:    reader.Window{DocumentLength: 20, TopLine: 6},
 			height:    5,
 			wantFirst: 6,
 			wantEnd:   11,
@@ -95,9 +95,9 @@ func TestWindowReveal(t *testing.T) {
 		{
 			name: "a row already rendered leaves the window alone",
 			window: reader.Window{
-				Len:     20,
-				Top:     6,
-				Markers: true,
+				DocumentLength: 20,
+				TopLine:        6,
+				HasMarkers:     true,
 			},
 			row:    7,
 			height: 5,
@@ -106,9 +106,9 @@ func TestWindowReveal(t *testing.T) {
 		{
 			name: "a row above brings the window up to it",
 			window: reader.Window{
-				Len:     20,
-				Top:     6,
-				Markers: true,
+				DocumentLength: 20,
+				TopLine:        6,
+				HasMarkers:     true,
 			},
 			row:    2,
 			height: 5,
@@ -116,21 +116,21 @@ func TestWindowReveal(t *testing.T) {
 		},
 		{
 			name:   "a row below brings the window down just far enough",
-			window: reader.Window{Len: 20, Markers: true},
+			window: reader.Window{DocumentLength: 20, HasMarkers: true},
 			row:    10,
 			height: 5,
 			want:   8,
 		},
 		{
 			name:   "the last row lands the window on the bottom",
-			window: reader.Window{Len: 20, Markers: true},
+			window: reader.Window{DocumentLength: 20, HasMarkers: true},
 			row:    19,
 			height: 5,
 			want:   16,
 		},
 		{
 			name:   "a window too short to render any text still settles on the row",
-			window: reader.Window{Len: 20, Markers: true},
+			window: reader.Window{DocumentLength: 20, HasMarkers: true},
 			row:    10,
 			height: 1,
 			want:   10,
@@ -165,28 +165,28 @@ func TestReader(t *testing.T) {
 		},
 		{
 			name:     "moving before the start stops on the first row",
-			start:    reader.Reader{Line: 5, Top: 4},
+			start:    reader.Reader{CursorLine: 5, TopLine: 4},
 			act:      func(r *reader.Reader) { r.MoveTo(-3, 20, 5) },
 			wantLine: 0,
 			wantTop:  0,
 		},
 		{
 			name:     "scrolling moves the window and not the cursor",
-			start:    reader.Reader{Line: 1},
+			start:    reader.Reader{CursorLine: 1},
 			act:      func(r *reader.Reader) { r.Scroll(6, 20, 5) },
 			wantLine: 1,
 			wantTop:  6,
 		},
 		{
 			name:     "settling a cursor scrolled out of the window puts it on the first row rendered",
-			start:    reader.Reader{Line: 1, Top: 6},
+			start:    reader.Reader{CursorLine: 1, TopLine: 6},
 			act:      func(r *reader.Reader) { r.Settle(20, 5) },
 			wantLine: 6,
 			wantTop:  6,
 		},
 		{
 			name:     "settling a cursor the window renders leaves it there",
-			start:    reader.Reader{Line: 8, Top: 6},
+			start:    reader.Reader{CursorLine: 8, TopLine: 6},
 			act:      func(r *reader.Reader) { r.Settle(20, 5) },
 			wantLine: 8,
 			wantTop:  6,
@@ -199,8 +199,8 @@ func TestReader(t *testing.T) {
 
 			r := tt.start
 			tt.act(&r)
-			assert.Equal(t, tt.wantLine, r.Line)
-			assert.Equal(t, tt.wantTop, r.Top)
+			assert.Equal(t, tt.wantLine, r.CursorLine)
+			assert.Equal(t, tt.wantTop, r.TopLine)
 		})
 	}
 }

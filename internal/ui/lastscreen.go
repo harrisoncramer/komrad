@@ -102,10 +102,10 @@ func (m *model) screenNotice() string {
 
 // columnHeight is the rows that render the block beside the list.
 func (m *model) columnHeight() int {
-	split := m.inputs().Room.Column
-	if !split.On {
+	split := m.inputs().Room.BlockAreaSplit
+	if !split.IsDivided {
 		return 0
 	}
 
-	return split.Rows
+	return split.RowCount
 }

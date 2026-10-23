@@ -37,7 +37,7 @@ type Diff struct {
 
 // DiffTable is the keys that move through a diff pane, search it and pan it.
 func DiffTable[S any](k Diff, in screen.Inputs) []Action[S] {
-	panning := func(S) bool { return !in.Room.Wrap }
+	panning := func(S) bool { return !in.Room.IsDiffWrapped }
 
 	return append(NavActions[S](NavActionsParams{Keys: k.Keys, Nav: k, In: in, Page: NavPageStep, Scroll: DiffWheelStep}), []Action[S]{
 		{
@@ -176,7 +176,7 @@ func diffWrapRow[S any](in screen.Inputs) LegendRow[S] {
 
 // WrapDesc names what the wrap key does to the diff's long lines.
 func WrapDesc(in screen.Inputs) string {
-	if in.Room.Wrap {
+	if in.Room.IsDiffWrapped {
 		return "stop wrapping lines"
 	}
 
@@ -241,12 +241,12 @@ func (k Diff) jumpMatch(in screen.Inputs, direction int) screen.Request {
 
 // ToggleWrap wraps lines wider than the pane, or cuts them off again.
 func (k Diff) ToggleWrap(in screen.Inputs) screen.Request {
-	in.Room.Wrap = !in.Room.Wrap
+	in.Room.IsDiffWrapped = !in.Room.IsDiffWrapped
 	if k.Pane.View() != nil {
 		k.Pane.ScrollToCursor(k.Window(in))
 	}
 
-	return screen.Wrap{On: in.Room.Wrap}
+	return screen.Wrap{On: in.Room.IsDiffWrapped}
 }
 
 // ToggleExpanded renders the whole of the file the cursor is in, or gives back the changed lines
@@ -319,12 +319,12 @@ func (k Diff) MoveToEnd(in screen.Inputs, direction int) screen.Request {
 
 // panStep is a third of the pane, or the smallest jump until the pane is measured.
 func panStep(in screen.Inputs) int {
-	split := in.Room.Split
-	if !split.On {
+	split := in.Room.OwnBlockSplit
+	if !split.IsDivided {
 		return diffPanStep
 	}
 
-	return max(split.Column/3, diffPanStep)
+	return max(split.ColumnWidth/3, diffPanStep)
 }
 
 // Click puts the reader on the row a click marked with key.

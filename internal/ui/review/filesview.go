@@ -28,7 +28,7 @@ func (r Screen) filesView(in screen.Inputs, lines int) string {
 	case lines == 0:
 		return ""
 	case r.loading:
-		return in.Room.Spinner + " " + paint.Panel.Style(paint.ToneMuted).Render(loadingWord) + "\n"
+		return in.Room.SpinnerFrame + " " + paint.Panel.Style(paint.ToneMuted).Render(loadingWord) + "\n"
 	case r.diff.View() == nil || r.diff.View().Len() == 0:
 		return paint.Panel.Style(paint.ToneMuted).Render(emptyWord) + "\n"
 	}
@@ -49,12 +49,12 @@ func (r Screen) filesView(in screen.Inputs, lines int) string {
 			Width:   width,
 			Columns: columns,
 			Filter:  r.filesFilter,
-			Caret:   in.Room.Caret,
+			Caret:   in.Room.ListCaret,
 		}))
 		keys = append(keys, row.Path)
 	}
 
-	if in.Room.Marks {
+	if in.Room.ShouldMarkZones {
 		for at, row := range rows {
 			rows[at] = zone.MarkSpan(ZoneFiles, keys[at], row)
 		}
@@ -65,7 +65,7 @@ func (r Screen) filesView(in screen.Inputs, lines int) string {
 	}
 
 	header := ansi.Truncate(r.filesFilter.Line(r.deps.Glyphs), max(width, 0), "…")
-	if in.Room.Marks {
+	if in.Room.ShouldMarkZones {
 		header = zone.MarkKey(zone.Search, width, 0, zone.SearchBlock) + header
 	}
 	header += "\n"

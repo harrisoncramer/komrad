@@ -13,21 +13,21 @@ import (
 // Window is the rows of a document a view of some height renders, counting off what is past either
 // end when it has markers.
 type Window struct {
-	Len     int
-	Top     int
-	Markers bool
+	DocumentLength int
+	TopLine        int
+	HasMarkers     bool
 }
 
 // Clamp keeps a first row inside the document.
 func (w Window) Clamp(top, height int) int {
-	if w.Len <= height {
+	if w.DocumentLength <= height {
 		return 0
 	}
 
 	// The marker saying what is above takes a row of its own once the reader has scrolled, so a
 	// document that counts them ends one row further down than the window is tall.
-	end := w.Len - height
-	if w.Markers {
+	end := w.DocumentLength - height
+	if w.HasMarkers {
 		end++
 	}
 
@@ -36,16 +36,16 @@ func (w Window) Clamp(top, height int) int {
 
 // Span is the rows the window renders, from the first to one past the last.
 func (w Window) Span(height int) (int, int) {
-	top := w.Clamp(w.Top, height)
+	top := w.Clamp(w.TopLine, height)
 
 	above := 0
-	if w.Markers && top > 0 {
+	if w.HasMarkers && top > 0 {
 		above = 1
 	}
 
 	// The marker under the text takes a row as well.
-	end := min(top+max(height-above, 0), w.Len)
-	if w.Markers && end < w.Len {
+	end := min(top+max(height-above, 0), w.DocumentLength)
+	if w.HasMarkers && end < w.DocumentLength {
 		end = max(end-1, top)
 	}
 
@@ -54,7 +54,7 @@ func (w Window) Span(height int) (int, int) {
 
 // Reveal is the first row of the window moved as little as it takes to render a row.
 func (w Window) Reveal(row, height int) int {
-	w.Top = w.Clamp(w.Top, height)
+	w.TopLine = w.Clamp(w.TopLine, height)
 	for {
 		first, end := w.Span(height)
 		switch {
@@ -64,46 +64,46 @@ func (w Window) Reveal(row, height int) int {
 			return first
 		}
 
-		next := w.Clamp(w.Top+1, height)
-		if next == w.Top {
-			return w.Top
+		next := w.Clamp(w.TopLine+1, height)
+		if next == w.TopLine {
+			return w.TopLine
 		}
-		w.Top = next
+		w.TopLine = next
 	}
 }
 
 // Reader is a cursor on one row of a document and the first row its window renders.
 type Reader struct {
-	Line int
-	Top  int
+	CursorLine int
+	TopLine    int
 }
 
 func (r Reader) window(rows int) Window {
 	return Window{
-		Len:     rows,
-		Top:     r.Top,
-		Markers: true,
+		DocumentLength: rows,
+		TopLine:        r.TopLine,
+		HasMarkers:     true,
 	}
 }
 
 // MoveTo puts the cursor on a row and brings the window round to it.
 func (r *Reader) MoveTo(line, rows, height int) {
-	r.Line = cursor.Clamp(line, rows)
-	r.Top = r.window(rows).Reveal(r.Line, height)
+	r.CursorLine = cursor.Clamp(line, rows)
+	r.TopLine = r.window(rows).Reveal(r.CursorLine, height)
 }
 
 // Scroll moves the window and leaves the cursor where it is.
 func (r *Reader) Scroll(delta, rows, height int) {
 	window := r.window(rows)
-	r.Top = window.Clamp(window.Clamp(r.Top, height)+delta, height)
+	r.TopLine = window.Clamp(window.Clamp(r.TopLine, height)+delta, height)
 }
 
 // Settle keeps the cursor where it is while the window renders it, and puts it on the first row
 // rendered otherwise.
 func (r *Reader) Settle(rows, height int) {
 	first, end := r.window(rows).Span(height)
-	if r.Line < first || r.Line >= end {
-		r.Line = first
+	if r.CursorLine < first || r.CursorLine >= end {
+		r.CursorLine = first
 	}
 }
 

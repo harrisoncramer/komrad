@@ -250,7 +250,7 @@ func (r Screen) doesWalk() bool {
 
 // doesFitBaseLegend reports whether the step keys are worth a legend row.
 func (r Screen) doesFitBaseLegend(in screen.Inputs) bool {
-	if in.Room.HelpExpanded && in.Room.Height > 0 && in.Room.Height < legendFloor {
+	if in.Room.IsHelpExpanded && in.Room.PaneHeight > 0 && in.Room.PaneHeight < legendFloor {
 		return false
 	}
 

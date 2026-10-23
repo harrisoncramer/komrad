@@ -30,12 +30,12 @@ func (m *model) listScreenView(l listRenderer, in screen.Inputs) string {
 		return m.welcomeView(l, in, params)
 	}
 
-	split := in.Room.Split
-	if !split.On {
+	split := in.Room.OwnBlockSplit
+	if !split.IsDivided {
 		return m.screenListView(params)
 	}
 
-	held := m.measuredAt(split.Sidebar)
+	held := m.measuredAt(split.SidebarWidth)
 
 	return m.Join(split, held.screenListView(params), held.docColumnView(split))
 }
@@ -73,7 +73,7 @@ func (m *model) screenListView(params list.Params) string {
 	in := m.inputs()
 	pane := in.Room.Width
 	lines := m.Lines(header, below)
-	snapshot := params.Snapshot(list.Pane{Width: pane, Caret: in.Room.Caret})
+	snapshot := params.Snapshot(list.Pane{Width: pane, Caret: in.Room.ListCaret})
 	window := view.Window(view.WindowParams{
 		List:    list.Prepare(m.glyphs, snapshot),
 		Palette: paint.Panel,
