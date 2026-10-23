@@ -77,7 +77,8 @@ func (s *PullRequestSyncer) Wake() {
 	s.loop.Wake()
 }
 
-// ReadOften reads every repository on the host at once and keeps it in the fast lane for a while.
+// ReadOften reads every repository on the host at once while its budget lasts, and keeps it in the
+// fast lane for a while.
 func (s *PullRequestSyncer) ReadOften(host string) {
 	s.pacing.readOften(host, s.now())
 	s.loop.Wake()

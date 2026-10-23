@@ -497,6 +497,19 @@ func TestSyncReadsAHotRepositoryEveryFiveSeconds(t *testing.T) {
 			},
 		},
 		{
+			name: "a write on a host whose budget runs low",
+			held: pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)),
+			rateLimit: forge.RateLimit{
+				Known:     true,
+				Limit:     5000,
+				Remaining: 999,
+				ResetAt:   syncNow.Add(30 * time.Minute),
+			},
+			after: func(_ *testing.T, f *syncFixture, _ uuid.UUID) {
+				f.syncer.ReadOften("github.com")
+			},
+		},
+		{
 			name: "pending checks on a host whose budget runs low",
 			held: withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), pending),
 			rateLimit: forge.RateLimit{

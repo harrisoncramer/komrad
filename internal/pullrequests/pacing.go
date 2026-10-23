@@ -89,13 +89,18 @@ func (p *pacing) pick(candidates []candidate, now time.Time) []candidate {
 
 	due := []candidate{}
 	for _, next := range candidates {
-		if woken || written[next.remote.Host] || p.isDue(next, now) {
+		if woken || p.isWritten(written, next.remote.Host, now) || p.isDue(next, now) {
 			next.askedAt = now
 			due = append(due, next)
 		}
 	}
 
 	return due
+}
+
+// isWritten says whether komrad wrote to the host since the last pass while its budget lasts.
+func (p *pacing) isWritten(written map[string]bool, host string, now time.Time) bool {
+	return written[host] && !now.Before(p.slowed[host])
 }
 
 // isDue says whether a repository is read on this pass.
