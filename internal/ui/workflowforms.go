@@ -98,14 +98,14 @@ func (v workflowFormValues) toConfig() panel.WorkflowConfig {
 
 // hooksByMoment is each moment's first hook, which is the one the form shows.
 func hooksByMoment(hooks []panel.Hook) map[eventv1.Moment]*string {
-	byEvent := make(map[eventv1.Moment]*string, len(hooks))
+	byMoment := make(map[eventv1.Moment]*string, len(hooks))
 	for _, hook := range hooks {
-		if _, ok := byEvent[hook.Moment]; !ok {
-			byEvent[hook.Moment] = &hook.Script
+		if _, ok := byMoment[hook.Moment]; !ok {
+			byMoment[hook.Moment] = &hook.Script
 		}
 	}
 
-	return byEvent
+	return byMoment
 }
 
 func (v *workflowFormValues) hookFor(moment eventv1.Moment) *string {
