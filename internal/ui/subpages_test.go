@@ -4,12 +4,16 @@ import (
 	"testing"
 	"time"
 
+	"komrad/internal/gittest"
 	"komrad/internal/ui/paneltest"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	paginationv1 "komrad/proto/gen/pagination/v1"
+	taskv1 "komrad/proto/gen/task/v1"
+	watchv1 "komrad/proto/gen/watch/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -94,10 +98,8 @@ func TestSubpages(t *testing.T) {
 	t.Run("review answers its letter", func(t *testing.T) {
 		t.Parallel()
 
-		server := newReviewServer(t)
-		harness := paneltest.Start(t, paneltest.Params{Git: server.repo})
-		server.serve(harness)
-		harness.Watch(server.buildSnapshot())
+		harness, reviewed := startReviewed(t, paneltest.Params{})
+		harness.Watch(reviewed.snapshot())
 		harness.Press("space")
 		menuUp := len(harness.Tmux().Zooms())
 		require.True(t, harness.Tmux().IsZoomed())
@@ -106,6 +108,48 @@ func TestSubpages(t *testing.T) {
 
 		assert.Equal(t, screen.Review, paneltest.Screen(harness.Frame()))
 		assert.NotContains(t, harness.Tmux().Zooms()[menuUp:], false, "the list is not rendered again on the way")
+	})
+
+	t.Run("a task's row opens the review of its task", func(t *testing.T) {
+		t.Parallel()
+
+		harness, reviewed := startReviewed(t, paneltest.Params{})
+		reviewed.task.Slug = "login-fix"
+		harness.Watch(reviewed.snapshot())
+		require.Contains(t, paneltest.HoveredRow(harness.Frame()), "login-fix")
+
+		harness.Press("space", "r")
+
+		assert.Equal(t, screen.Review, paneltest.Screen(harness.Frame()))
+		harness.AssertSentTo(agentv1connect.AgentServiceOpenReviewHistoryProcedure, &agentv1.OpenReviewHistoryRequest{Task: &agentv1.OpenReviewHistoryRequest_TaskId{TaskId: "t1"}})
+	})
+
+	t.Run("an agent whose worktree was removed in a workflow with no directory is not opened", func(t *testing.T) {
+		t.Parallel()
+
+		harness, reviewed := startReviewed(t, paneltest.Params{})
+		reviewed.task.WorktreeRemovalReason = taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE
+		reviewed.task.Snapshots = 1
+		harness.Watch(reviewed.snapshot())
+
+		harness.Press("space", "r")
+
+		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
+		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceOpenReviewHistoryProcedure))
+	})
+
+	t.Run("an agent whose worktree was removed with no snapshot is not opened", func(t *testing.T) {
+		t.Parallel()
+
+		harness, reviewed := startReviewed(t, paneltest.Params{})
+		reviewed.task.WorktreeRemovalReason = taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE
+		reviewed.workflow.Cwd = reviewed.agent.GetCwd()
+		harness.Watch(reviewed.snapshot())
+
+		harness.Press("space", "r")
+
+		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
+		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceOpenReviewHistoryProcedure))
 	})
 
 	t.Run("review on a task with no checkout says why", func(t *testing.T) {
@@ -241,6 +285,60 @@ func openSubpages(t *testing.T, row string) *paneltest.Panel {
 	harness.Press("space")
 
 	return harness
+}
+
+// reviewed is a workflow that cuts worktrees, its writer alive in pane %9 and the writer's task,
+// kept in a repository the panel can read.
+type reviewed struct {
+	workflow *workflowv1.Workflow
+	agent    *agentv1.Agent
+	task     *taskv1.Task
+}
+
+// startReviewed starts the panel over a repository of its own and answers the reads that open its
+// review.
+func startReviewed(t *testing.T, params paneltest.Params) (*paneltest.Panel, *reviewed) {
+	t.Helper()
+
+	repo := gittest.NewRepo(t.TempDir())
+	params.Git = repo
+	harness := paneltest.Start(t, params)
+	harness.AnswerWorktreeReads()
+	harness.Answer(agentv1connect.AgentServiceOpenReviewHistoryProcedure, paneltest.AnswerWith(&agentv1.OpenReviewHistoryResponse{
+		Snapshot: &agentv1.ReviewSnapshot{Id: "snapshot-1", TaskId: "t1", Ordinal: 1, BaseSha: gittest.BaseSHA, Sha: gittest.SnapshotSHA},
+		Resolved: &agentv1.ReviewResolvedSpan{BaseSha: gittest.BaseSHA, HeadSha: gittest.SnapshotSHA},
+	}))
+	harness.Answer(agentv1connect.AgentServiceListReviewViewedFilesProcedure, paneltest.AnswerWith(&agentv1.ListReviewViewedFilesResponse{}))
+
+	return harness, &reviewed{
+		workflow: &workflowv1.Workflow{
+			Id:       "w1",
+			Name:     "backend",
+			Worktree: &workflowv1.WorktreeConfig{Enabled: true, BaseBranch: "main"},
+		},
+		agent: &agentv1.Agent{
+			Id:         "a1",
+			Name:       "auth",
+			WorkflowId: "w1",
+			Role:       agentv1.AgentRole_AGENT_ROLE_WRITER,
+			TaskId:     xptr.Ptr("t1"),
+			Cwd:        repo.Root,
+			PaneId:     "%9",
+			Alive:      xptr.Ptr(true),
+			State:      agentv1.AgentState_AGENT_STATE_IDLE,
+		},
+		task: &taskv1.Task{
+			Id:         "t1",
+			WorkflowId: "w1",
+			Slug:       "auth",
+			Cwd:        xptr.Ptr(repo.Root),
+		},
+	}
+}
+
+// snapshot is the reviewed rows beside any others given.
+func (r *reviewed) snapshot(rows ...proto.Message) *watchv1.WatchEvent {
+	return paneltest.Snapshot(append([]proto.Message{r.workflow, r.agent, r.task}, rows...)...)
 }
 
 // openArchivedSubpages opens the subpages menu on an archived agent that has written documents.

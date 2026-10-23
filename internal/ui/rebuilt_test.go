@@ -108,9 +108,10 @@ func TestRebuilt(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				t.Parallel()
 
-				server := newReviewServer(t)
 				binary := &fakeBinary{isReplaced: true}
-				harness := openReviewAt(t, server, paneltest.Params{Binary: binary})
+				harness, reviewed := startReviewed(t, paneltest.Params{Binary: binary})
+				harness.Watch(reviewed.snapshot())
+				harness.Press("space", "r")
 				harness.Press(tt.press...)
 				binary.asked = 0
 

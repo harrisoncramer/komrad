@@ -49,24 +49,6 @@ func TestReviewOpen(t *testing.T) {
 		assert.Contains(t, harness.ReadMessages(), "no change against the base branch")
 	})
 
-	t.Run("a task's row opens the review of its task", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.task.Slug = "login-fix"
-		harness := paneltest.Start(t, paneltest.Params{
-			Width:  reviewWidth,
-			Height: reviewHeight,
-			Git:    server.repo,
-		})
-		server.serve(harness)
-		harness.Watch(server.buildSnapshot())
-		require.Contains(t, paneltest.HoveredRow(harness.Frame()), "login-fix")
-
-		harness.Press("space", "r")
-
-		assert.True(t, isBeside(harness))
-		harness.AssertSentTo(agentv1connect.AgentServiceOpenReviewHistoryProcedure, &agentv1.OpenReviewHistoryRequest{Task: &agentv1.OpenReviewHistoryRequest_TaskId{TaskId: "t1"}})
-	})
-
 	t.Run("an agent whose worktree was removed opens from its workflow's directory", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.task.WorktreeRemovalReason = taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE
@@ -77,28 +59,6 @@ func TestReviewOpen(t *testing.T) {
 
 		assert.True(t, isBeside(harness))
 		assert.Contains(t, paneltest.Stage(harness.Frame()), "greet.go")
-	})
-
-	t.Run("an agent whose worktree was removed in a workflow with no directory is not opened", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.task.WorktreeRemovalReason = taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE
-		server.task.Snapshots = 1
-
-		harness := openReview(t, server)
-
-		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
-		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceOpenReviewHistoryProcedure))
-	})
-
-	t.Run("an agent whose worktree was removed with no snapshot is not opened", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.task.WorktreeRemovalReason = taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE
-		server.workflow.Cwd = server.repo.Root
-
-		harness := openReview(t, server)
-
-		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
-		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceOpenReviewHistoryProcedure))
 	})
 
 	t.Run("an agent part way through a rebase opens on its newest snapshot", func(t *testing.T) {
