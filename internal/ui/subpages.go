@@ -23,10 +23,9 @@ const (
 )
 
 var (
-	errReviewReviewer   = errors.New("this agent reviews its task's checkout, so open the review from the task's writer")
-	errReviewNoCheckout = errors.New("this agent has no checkout of its own to read")
-	errTerminalHere     = errors.New("open a terminal from the agents list")
-	errAgentGone        = errors.New("the agent the menu was opened on has left the list")
+	errReviewReviewer = errors.New("this agent reviews its task's checkout, so open the review from the task's writer")
+	errTerminalHere   = errors.New("open a terminal from the agents list")
+	errAgentGone      = errors.New("the agent the menu was opened on has left the list")
 )
 
 // agentMenuParams is the agent a band acts on, the menus it nests, and the entries a screen adds
@@ -111,7 +110,7 @@ func reviewRefusal(l panel.Listing, agent panel.Agent) error {
 	case agent.Role == panel.RoleReviewer:
 		return errReviewReviewer
 	case !l.IsReviewable(agent):
-		return errReviewNoCheckout
+		return panel.ErrNoCheckout
 	}
 
 	return nil

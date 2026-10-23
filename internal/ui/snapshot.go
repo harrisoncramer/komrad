@@ -299,7 +299,7 @@ func parentTail(r agentRow, tasks panel.Tasks) view.Cell {
 		return view.Cell{}
 	}
 
-	said := cascadeBlockSaid(parent.GetBlocked(), tasks[parent.GetTaskId()].Slug)
+	said := tasks.CascadeBlockSaid(parent)
 	if said == "" {
 		return view.Cell{}
 	}

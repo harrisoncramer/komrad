@@ -184,7 +184,7 @@ func stackRow(tasks panel.Tasks, task panel.Task, kind sideKind, depth int) side
 	if task.PullRequest.Number > 0 {
 		row.note = task.PullRequest.Ref()
 	}
-	if said := cascadeBlockSaid(task.Parent.GetBlocked(), tasks[task.Parent.GetTaskId()].Slug); said != "" {
+	if said := tasks.CascadeBlockSaid(task.Parent); said != "" {
 		row.note = strings.TrimSpace(row.note + " " + said)
 	}
 
@@ -481,7 +481,7 @@ func (r reviewScreen) stackedOffSaid(in screen.Inputs, taskID string) string {
 	case !ok || writer.Agent.ArchivedAt != nil:
 		return "its writer is archived"
 	case !in.Listing.IsReviewable(writer.Agent):
-		return errReviewNoCheckout.Error()
+		return panel.ErrNoCheckout.Error()
 	}
 
 	return ""

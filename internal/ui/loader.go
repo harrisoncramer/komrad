@@ -10,7 +10,6 @@ import (
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/submitting"
 	"komrad/internal/view"
-	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -52,20 +51,20 @@ func (r reviewScreen) IsLoading(in screen.Inputs) bool {
 
 	item, ok := in.Listing.LiveAgent(r.agentID)
 
-	return ok && isChecksRunning(in.Listing.Tasks.FindForAgent(item.Agent).PullRequest)
+	return ok && in.Listing.Tasks.FindForAgent(item.Agent).PullRequest.IsChecksRunning()
 }
 
 func isRowLoading(l panel.Listing, r agentRow) bool {
 	if r.isTask() {
 		writer, ok := r.writer()
 
-		return isChecksRunning(r.task.PullRequest) || ok && isAgentLoading(writer)
+		return r.task.PullRequest.IsChecksRunning() || ok && isAgentLoading(writer)
 	}
 	if r.header {
 		return r.orchestrator != nil && isThinking(*r.orchestrator)
 	}
 
-	return isChecksRunning(l.Tasks.FindForAgent(r.item.Agent).PullRequest) || isAgentLoading(r.item)
+	return l.Tasks.FindForAgent(r.item.Agent).PullRequest.IsChecksRunning() || isAgentLoading(r.item)
 }
 
 // isAgentLoading reports whether an agent is setting up or at work, either of which turns the loader.
@@ -77,10 +76,6 @@ func isAgentLoading(item panel.AgentRow) bool {
 // loader after its name.
 func isThinking(item panel.AgentRow) bool {
 	return item.Process() == view.ProcessAlive && item.Status() == view.StatusThinking
-}
-
-func isChecksRunning(standing panel.PullRequestStanding) bool {
-	return standing.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING
 }
 
 func (m *model) spinLoader() tea.Cmd {

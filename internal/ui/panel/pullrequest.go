@@ -62,6 +62,11 @@ func (s PullRequestStanding) Describe(said string) string {
 	return "its " + s.Noun() + " " + said
 }
 
+// IsChecksRunning reports whether the current one is waiting on checks still running.
+func (s PullRequestStanding) IsChecksRunning() bool {
+	return s.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING
+}
+
 // Ref names it the way its forge writes it, such as #12 or !12.
 func (p PullRequest) Ref() string {
 	return forge.Ref(p.Forge, int(p.Number))
