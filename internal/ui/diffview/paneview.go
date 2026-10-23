@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"komrad/internal/glyph"
-	"komrad/internal/ui/filter"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/zone"
@@ -14,10 +13,10 @@ import (
 
 const separated = " " + glyph.Separator + " "
 
-// MatchCount is where in the search the cursor is standing, rendered under the pattern.
-func (p *Pane) MatchCount(search filter.State) string {
+// RenderMatchCount is where in the search the cursor is standing, rendered under the pattern.
+func (p *Pane) RenderMatchCount(standing bool) string {
 	view := p.View()
-	if view == nil || !search.IsStanding() {
+	if view == nil || !standing {
 		return ""
 	}
 

@@ -189,7 +189,7 @@ func (h *documentHistory) head(in screen.Inputs, glyphs glyph.Set, item document
 		return rows
 	}
 
-	count := strings.TrimRight(h.pane.MatchCount(h.filter), "\n")
+	count := strings.TrimRight(h.pane.RenderMatchCount(h.filter.IsStanding()), "\n")
 
 	return append(rows, h.filter.Head(filter.HeadParams{Glyphs: glyphs, Marks: in.Room.Marks, Count: count, Width: width})...)
 }
