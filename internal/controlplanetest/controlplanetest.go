@@ -200,7 +200,7 @@ func (g *GitHub) serve(w http.ResponseWriter, r *http.Request) {
 	case r.URL.Path == "/user":
 		writeJSON(w, map[string]any{"login": tokenOf(r), "id": 7})
 	case r.Method == http.MethodPost && r.URL.Path == "/graphql":
-		writeJSON(w, map[string]any{"data": map[string]any{"viewer": map[string]any{"login": tokenOf(r), "databaseId": 7}}})
+		writeJSON(w, map[string]any{"data": map[string]any{"viewer": map[string]any{"login": tokenOf(r)}}})
 	default:
 		http.NotFound(w, r)
 	}
