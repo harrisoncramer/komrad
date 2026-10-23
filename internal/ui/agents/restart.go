@@ -99,10 +99,10 @@ func (a *Screen) restartWrite(l panel.Listing, agent panel.Agent, values restart
 	clients := a.deps.Clients
 
 	return screen.Write{
-		Doing:   "restarting " + l.AgentName(agent),
-		Summary: fmt.Sprintf("Could not restart agent %q", l.AgentName(agent)),
-		Unstage: []panel.Agent{agent},
-		Send: func() screen.Landed {
+		Doing:          "restarting " + l.AgentName(agent),
+		FailureSummary: fmt.Sprintf("Could not restart agent %q", l.AgentName(agent)),
+		UnstageFirst:   []panel.Agent{agent},
+		Send: func() screen.WriteResult {
 			restarted, err := clients.RestartAgent(api.RestartAgentParams{
 				ID:      agent.ID,
 				Note:    values.Note,
@@ -110,10 +110,10 @@ func (a *Screen) restartWrite(l panel.Listing, agent panel.Agent, values restart
 				Flags:   values.Flags,
 			})
 			if err != nil {
-				return screen.Landed{Err: err}
+				return screen.WriteResult{Err: err}
 			}
 
-			return madeAgent(restarted, false)
+			return createdAgent(restarted, false)
 		},
 	}
 }

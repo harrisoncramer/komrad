@@ -90,7 +90,7 @@ func (r *Screen) ownTable(in screen.Inputs) []keys.Action[*Screen] {
 // the agent it would reach is no longer there.
 func (r *Screen) orRefuseWrite(in screen.Inputs, fn func(screen.Inputs) screen.Request) screen.Request {
 	if r.isArchived(in) {
-		return screen.NewNote(screen.Warning, archivedSaid)
+		return screen.NewPostMessage(screen.Warning, archivedSaid)
 	}
 
 	return fn(in)

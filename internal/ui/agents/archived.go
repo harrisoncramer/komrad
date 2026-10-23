@@ -64,7 +64,7 @@ func (a *Screen) KindsSwitch() bool {
 
 // StepKind moves the agents view to its other kind, back on the row it last stood on.
 func (a *Screen) StepKind(_ screen.Inputs, delta int) screen.Request {
-	return screen.Leave{Then: func() screen.Request {
+	return screen.Leave{AfterClose: func() screen.Request {
 		a.kind = agentsKind(tabs.StepStop(int(a.kind), delta, len(a.Kinds().Labels)))
 		var staged screen.Request
 		if shown := a.archiveOfKind(); shown != nil {
@@ -75,7 +75,7 @@ func (a *Screen) StepKind(_ screen.Inputs, delta int) screen.Request {
 			staged = a.Stage()
 		}
 
-		return screen.Batch{screen.ResetFilter{}, screen.Reconcile{}, staged, screen.Settle{}}
+		return screen.Batch{screen.DropFilterLeaveCursor{}, screen.RestoreWindowLayout{}, staged, screen.Settle{}}
 	}}
 }
 
@@ -385,7 +385,7 @@ func (a *archivedAgents) IsLoading(in screen.Inputs) bool {
 }
 
 func (a *archivedAgents) StageResting(screen.Inputs) screen.Request {
-	return screen.Batch{a.Stage(), screen.ReadLastScreen{}}
+	return screen.Batch{a.Stage(), screen.ReadSavedScreen{}}
 }
 
 // menuTarget is what the archive menu would act on, and none on the folder of a live workflow
@@ -491,10 +491,10 @@ func restoreAgents(clients api.Clients, agents []panel.Agent) screen.Request {
 	}
 
 	return clients.AwaitingWrite(api.AwaitingWriteParams{
-		Doing:   "restoring " + describeAgents(agents),
-		Summary: fmt.Sprintf("Could not restore %s", describeAgents(agents)),
-		Awaits:  screen.Awaits{Shown: screen.RowsIn(screen.ListAgents, panel.IDs(agents)...)},
-		Write:   func(a api.Clients) error { return a.RestoreAgents(panel.IDs(agents)) },
+		Doing:          "restoring " + describeAgents(agents),
+		FailureSummary: fmt.Sprintf("Could not restore %s", describeAgents(agents)),
+		WaitFor:        screen.WaitFor{RowsShown: screen.RowsIn(screen.ListAgents, panel.IDs(agents)...)},
+		Write:          func(a api.Clients) error { return a.RestoreAgents(panel.IDs(agents)) },
 	})
 }
 
@@ -504,10 +504,10 @@ func confirmDeleteWorkflow(in screen.Inputs, clients api.Clients, workflow panel
 
 	return confirm.Open(in, func(form.Inputs) screen.Request {
 		return clients.AwaitingWrite(api.AwaitingWriteParams{
-			Doing:   "deleting " + workflow.Name,
-			Summary: fmt.Sprintf("Could not delete workflow %q", workflow.Name),
-			Awaits:  awaitDeleted(confirm.Values.DeletesRecords(), screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)),
-			Write:   func(a api.Clients) error { return a.DeleteWorkflow(workflow.ID, confirm.Values.DeletesRecords()) },
+			Doing:          "deleting " + workflow.Name,
+			FailureSummary: fmt.Sprintf("Could not delete workflow %q", workflow.Name),
+			WaitFor:        waitForDeleted(confirm.Values.DeletesRecords(), screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)),
+			Write:          func(a api.Clients) error { return a.DeleteWorkflow(workflow.ID, confirm.Values.DeletesRecords()) },
 		})
 	})
 }

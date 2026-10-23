@@ -22,7 +22,7 @@ func (a Archive) table(in screen.Inputs) []keys.Action[Archive] {
 		keys.Action[Archive]{
 			ID:   actionArchiveBack,
 			Keys: keys.FixedBack,
-			Nav:  func(Archive, string) screen.Request { return screen.PickView{} },
+			Nav:  func(Archive, string) screen.Request { return screen.FocusViewSwitcher{} },
 		},
 	)
 }

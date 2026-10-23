@@ -72,26 +72,26 @@ func reportRebased(name string, result *agentv1.RebaseWorktreeResponse, err erro
 
 	// Neither a success nor a failure: the work is intact and the agent has something to do.
 	if result.GetConflicted() {
-		return screen.Note{
-			Kind:    screen.Error,
-			Summary: name + ": the rebase stopped on conflicts",
+		return screen.PostMessage{
+			MessageKind: screen.Error,
+			Summary:     name + ": the rebase stopped on conflicts",
 			Detail: fmt.Sprintf("onto %s (%s). The rebase is still in progress in that worktree, and komrad told %s to settle it.",
 				baseRef, xsha.Short(baseSHA), name),
 		}
 	}
 
 	if result.GetMoved() {
-		return screen.Note{
-			Kind:    screen.Info,
-			Summary: name + ": moved onto " + baseRef,
+		return screen.PostMessage{
+			MessageKind: screen.Info,
+			Summary:     name + ": moved onto " + baseRef,
 			Detail: fmt.Sprintf("%s. The base already had its work, so komrad dropped %s instead of replaying them.",
 				xsha.Short(baseSHA), label.Count(int(result.GetLandedCommits()), "commit", "commits")),
 		}
 	}
 
-	return screen.Note{
-		Kind:    screen.Info,
-		Summary: name + ": rebased onto " + baseRef,
+	return screen.PostMessage{
+		MessageKind: screen.Info,
+		Summary:     name + ": rebased onto " + baseRef,
 		Detail: fmt.Sprintf("%s. Komrad replayed %s.",
 			xsha.Short(baseSHA), label.Count(int(result.GetReplayCommits()), "commit", "commits")),
 	}

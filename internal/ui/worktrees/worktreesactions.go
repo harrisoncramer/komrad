@@ -31,7 +31,7 @@ func (w *Screen) table(in screen.Inputs) []keys.Action[*Screen] {
 			ID:   actionBack,
 			Keys: keys.FixedBack,
 			When: func(*Screen) bool { return list.IsBrowsing() },
-			Nav:  func(*Screen, string) screen.Request { return screen.PickView{} },
+			Nav:  func(*Screen, string) screen.Request { return screen.FocusViewSwitcher{} },
 		},
 	)
 }
@@ -207,13 +207,13 @@ func (w *Screen) deleteWorktreesWrite(deletion deletion) screen.Write {
 	clients := w.deps.Clients
 
 	return screen.Write{
-		Doing:   "deleting " + subject,
-		Summary: "Could not delete " + subject,
-		Send: func() screen.Landed {
-			return screen.Landed{
-				Err:    clients.DeleteWorktrees(dirs),
-				Awaits: screen.Awaits{Gone: screen.RowsIn(screen.ListWorktrees, dirs...)},
-				Notice: &screen.Notice{
+		Doing:          "deleting " + subject,
+		FailureSummary: "Could not delete " + subject,
+		Send: func() screen.WriteResult {
+			return screen.WriteResult{
+				Err:     clients.DeleteWorktrees(dirs),
+				WaitFor: screen.WaitFor{RowsGone: screen.RowsIn(screen.ListWorktrees, dirs...)},
+				SuccessNotice: &screen.Notice{
 					Summary: "Deleting " + subject,
 					Detail:  "A background job deletes the directories. Komrad drops their rows from the list now. If the job refuses one, its row comes back and the log says why.",
 				},

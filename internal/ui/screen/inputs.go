@@ -9,21 +9,21 @@ import (
 type Inputs struct {
 	Listing panel.Listing
 	Room    Room
-	// Inspections is what the server answered for each worktree directory.
-	Inspections map[string]panel.WorktreeInspection
-	// Up is whether this screen is the one up.
-	Up bool
+	// WorktreeInspections is what the server answered for each worktree directory.
+	WorktreeInspections map[string]panel.WorktreeInspection
+	// IsActive is whether this screen is the one up.
+	IsActive bool
 }
 
-// Relisted tells every screen the listing changed, carrying the listing it replaced.
-type Relisted struct {
-	Was     panel.Listing
-	Changed assemble.Changed
+// ListingChanged tells every screen the listing changed, carrying the listing it replaced.
+type ListingChanged struct {
+	PreviousListing panel.Listing
+	Changed         assemble.Changed
 }
 
-// Before is the inputs as they stood before the listing changed.
-func (r Relisted) Before(in Inputs) Inputs {
-	in.Listing = r.Was
+// WithPreviousListing is the inputs as they stood before the listing changed.
+func (r ListingChanged) WithPreviousListing(in Inputs) Inputs {
+	in.Listing = r.PreviousListing
 
 	return in
 }

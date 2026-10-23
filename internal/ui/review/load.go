@@ -72,7 +72,7 @@ type wroteMsg struct {
 
 // Open puts the review on an agent's diff and reads it.
 func (r *Screen) Open(listing panel.Listing, agent panel.Agent) screen.Request {
-	unnote := screen.Unnote{Key: r.notices.moved}
+	removeMoved := screen.RemoveMessage{MessageKey: r.notices.moved}
 
 	workflow := listing.WorkflowFor(agent)
 
@@ -88,7 +88,7 @@ func (r *Screen) Open(listing panel.Listing, agent panel.Agent) screen.Request {
 		diff:      diffPane{spec: wholeChange()},
 	}
 
-	return screen.Batch{unnote, r.loadWhole()}
+	return screen.Batch{removeMoved, r.loadWhole()}
 }
 
 // refuse backs out to the listing, for a worktree that turned out to hold nothing.
@@ -97,10 +97,10 @@ func (r *Screen) refuse(in screen.Inputs, err error) screen.Request {
 
 	return screen.Batch{
 		r.drop(in),
-		screen.Note{
-			Kind:    screen.Error,
-			Summary: describeRefusedReview(name, err),
-			Detail:  err.Error(),
+		screen.PostMessage{
+			MessageKind: screen.Error,
+			Summary:     describeRefusedReview(name, err),
+			Detail:      err.Error(),
 		},
 	}
 }
@@ -117,7 +117,7 @@ func (r *Screen) abandon(in screen.Inputs, err error) screen.Request {
 func (r *Screen) drop(in screen.Inputs) screen.Request {
 	var unstaged screen.Request
 	if r.edit.atEditor {
-		unstaged = screen.Unstage{}
+		unstaged = screen.UnstageEditor{}
 	}
 
 	told := r.mailEdited(in)
@@ -141,7 +141,7 @@ func describeRefusedReview(name string, err error) string {
 func (r *Screen) loadWhole() screen.Request {
 	r.loads++
 
-	return screen.Cmd(r.loadReviewCmd(loadReviewCmdParams{
+	return screen.RunCmd(r.loadReviewCmd(loadReviewCmdParams{
 		AgentID: r.agentID,
 		TaskID:  r.taskID,
 		Dir:     r.dir,
@@ -329,7 +329,7 @@ func (r *Screen) applyLoaded(in screen.Inputs, msg loadedMsg) screen.Request {
 	var widened screen.Request
 	if msg.widened != nil {
 		r.diff.widen()
-		widened = screen.NewNote(screen.Warning, widenedSaid(msg.widened))
+		widened = screen.NewPostMessage(screen.Warning, widenedSaid(msg.widened))
 	}
 
 	isEmpty := errors.Is(msg.err, diff.ErrNoChanges) || errors.Is(msg.err, diff.ErrAllExcluded)
@@ -344,7 +344,7 @@ func (r *Screen) applyLoaded(in screen.Inputs, msg loadedMsg) screen.Request {
 
 		r.diff.widen()
 
-		return screen.Batch{widened, screen.NewNote(screen.Warning, said), r.loadWhole()}
+		return screen.Batch{widened, screen.NewPostMessage(screen.Warning, said), r.loadWhole()}
 	}
 
 	// Both render nothing, so both back out rather than leaving the reader in an empty viewer.
@@ -355,7 +355,7 @@ func (r *Screen) applyLoaded(in screen.Inputs, msg loadedMsg) screen.Request {
 	if msg.patch == nil && r.diff.spec.origin != nil {
 		r.diff.widen()
 
-		return screen.Batch{widened, screen.NewNote(screen.Warning, "could not render where this comment was written: "+msg.err.Error()), r.loadWhole()}
+		return screen.Batch{widened, screen.NewPostMessage(screen.Warning, "could not render where this comment was written: "+msg.err.Error()), r.loadWhole()}
 	}
 
 	if msg.patch == nil {
@@ -462,7 +462,7 @@ func (r *Screen) applyWrote(in screen.Inputs, msg wroteMsg) screen.Request {
 
 	var requests screen.Batch
 	if msg.notice != "" {
-		requests = append(requests, screen.NewNote(screen.Success, msg.notice))
+		requests = append(requests, screen.NewPostMessage(screen.Success, msg.notice))
 	}
 
 	switch {
@@ -524,7 +524,7 @@ func (r *Screen) reload() screen.Request {
 
 	r.loads++
 
-	return screen.Cmd(r.loadReviewCmd(loadReviewCmdParams{
+	return screen.RunCmd(r.loadReviewCmd(loadReviewCmdParams{
 		AgentID: r.agentID,
 		TaskID:  r.taskID,
 		Dir:     r.dir,

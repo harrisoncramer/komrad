@@ -122,10 +122,10 @@ func restoreArchived(clients api.Clients, target archived) screen.Request {
 		workflow := *target.workflow
 
 		return clients.AwaitingWrite(api.AwaitingWriteParams{
-			Doing:   "restoring " + workflow.Name,
-			Summary: fmt.Sprintf("Could not restore workflow %q", workflow.Name),
-			Awaits:  screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)},
-			Write:   func(c api.Clients) error { return c.RestoreWorkflow(workflow.ID) },
+			Doing:          "restoring " + workflow.Name,
+			FailureSummary: fmt.Sprintf("Could not restore workflow %q", workflow.Name),
+			WaitFor:        screen.WaitFor{RowsGone: screen.RowsIn(screen.ListArchivedWorkflows, workflow.ID)},
+			Write:          func(c api.Clients) error { return c.RestoreWorkflow(workflow.ID) },
 		})
 	}
 
@@ -208,9 +208,9 @@ func (a *Screen) archiveChosenAgents(in screen.Inputs, work chosenWork) screen.R
 	subject := describeAgents(work.chosen)
 
 	return a.deps.Clients.ArchivingWrite(api.ArchivingWriteParams{
-		Doing:   "archiving " + subject,
-		Summary: "Could not archive " + subject,
-		Agents:  work.affected(in.Listing),
+		Doing:          "archiving " + subject,
+		FailureSummary: "Could not archive " + subject,
+		Agents:         work.affected(in.Listing),
 		Write: func(clients api.Clients) error {
 			for _, task := range work.wholeTasks {
 				if err := clients.ArchiveTask(task.ID); err != nil {
@@ -232,10 +232,10 @@ func deleteChosenWrite(l panel.Listing, clients api.Clients, work chosenWork, re
 	subject := describeAgents(work.chosen)
 
 	return clients.ArchivingWrite(api.ArchivingWriteParams{
-		Doing:   "deleting " + subject,
-		Summary: "Could not delete " + subject,
-		Agents:  work.affected(l),
-		Awaits:  awaitDeleted(records, screen.RowsIn(screen.ListArchivedAgents, panel.IDs(work.chosen)...)),
+		Doing:          "deleting " + subject,
+		FailureSummary: "Could not delete " + subject,
+		Agents:         work.affected(l),
+		WaitFor:        waitForDeleted(records, screen.RowsIn(screen.ListArchivedAgents, panel.IDs(work.chosen)...)),
 		Write: func(a api.Clients) error {
 			return a.DeleteTasks(panel.TaskIDs(work.wholeTasks), records)
 		},
@@ -251,11 +251,11 @@ func confirmDeleteChosenAgents(in screen.Inputs, clients api.Clients, work chose
 	})
 }
 
-// awaitDeleted waits for the rows to leave the listing when the delete takes the records.
-func awaitDeleted(records bool, rows []screen.Row) screen.Awaits {
+// waitForDeleted waits for the rows to leave the listing when the delete takes the records.
+func waitForDeleted(records bool, rows []screen.Row) screen.WaitFor {
 	if !records {
-		return screen.Awaits{}
+		return screen.WaitFor{}
 	}
 
-	return screen.Awaits{Gone: rows}
+	return screen.WaitFor{RowsGone: rows}
 }

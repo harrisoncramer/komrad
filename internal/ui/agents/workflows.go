@@ -77,10 +77,10 @@ func (a *Screen) getAvailableHooks() []string {
 
 func (a *Screen) archiveWorkflow(in screen.Inputs, workflow panel.Workflow) screen.Request {
 	return a.deps.Clients.ArchivingWrite(api.ArchivingWriteParams{
-		Doing:   "archiving " + workflow.Name,
-		Summary: fmt.Sprintf("Could not archive workflow %q", workflow.Name),
-		Agents:  in.Listing.AgentsOf(workflow.ID),
-		Awaits:  screen.Awaits{Gone: screen.RowsIn(screen.ListWorkflows, workflow.ID)},
+		Doing:          "archiving " + workflow.Name,
+		FailureSummary: fmt.Sprintf("Could not archive workflow %q", workflow.Name),
+		Agents:         in.Listing.AgentsOf(workflow.ID),
+		WaitFor:        screen.WaitFor{RowsGone: screen.RowsIn(screen.ListWorkflows, workflow.ID)},
 		Write: func(clients api.Clients) error {
 			return clients.ArchiveWorkflow(workflow.ID)
 		},

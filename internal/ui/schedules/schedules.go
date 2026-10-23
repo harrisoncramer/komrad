@@ -95,8 +95,8 @@ func (w *Screen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 		w.settleRename(in, msg.Row, msg.Err)
 
 		return nil, true
-	case screen.Relisted:
-		return w.apply(in, w.list().Hovered(msg.Before(in))), true
+	case screen.ListingChanged:
+		return w.apply(in, w.list().Hovered(msg.WithPreviousListing(in))), true
 	}
 
 	return nil, false
@@ -251,10 +251,10 @@ func prefill(schedule panel.Schedule) panel.ScheduleConfig {
 
 func (w *Screen) archiveSchedule(schedule panel.Schedule) screen.Request {
 	return w.deps.Clients.AwaitingWrite(api.AwaitingWriteParams{
-		Doing:   "archiving " + schedule.Name,
-		Summary: fmt.Sprintf("Could not archive schedule %q", schedule.Name),
-		Awaits:  screen.Awaits{Gone: screen.RowsIn(screen.ListSchedules, schedule.ID)},
-		Write:   func(a api.Clients) error { return a.ArchiveSchedule(schedule.ID) },
+		Doing:          "archiving " + schedule.Name,
+		FailureSummary: fmt.Sprintf("Could not archive schedule %q", schedule.Name),
+		WaitFor:        screen.WaitFor{RowsGone: screen.RowsIn(screen.ListSchedules, schedule.ID)},
+		Write:          func(a api.Clients) error { return a.ArchiveSchedule(schedule.ID) },
 	})
 }
 

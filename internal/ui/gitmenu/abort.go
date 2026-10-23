@@ -38,10 +38,10 @@ func reportAborted(name string, sequence taskv1.Sequence, result *agentv1.AbortS
 
 	lines := []string{where + " is back where it was before.", "Komrad saved a copy of the worktree from before the abort at " + result.GetParkedRef() + "."}
 
-	return screen.Note{
-		Kind:    screen.Info,
-		Summary: fmt.Sprintf("%s: aborted the %s", name, panel.DescribeSequence(result.GetSequence())),
-		Detail:  strings.Join(lines, " "),
+	return screen.PostMessage{
+		MessageKind: screen.Info,
+		Summary:     fmt.Sprintf("%s: aborted the %s", name, panel.DescribeSequence(result.GetSequence())),
+		Detail:      strings.Join(lines, " "),
 	}
 }
 

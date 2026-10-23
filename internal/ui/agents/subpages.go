@@ -147,9 +147,9 @@ func enterSubpage(l panel.Listing, agentID string, picked subpage) screen.Reques
 
 		return screen.Open{Screen: screen.Review, Target: screen.Target{AgentID: agentID}}
 	case subpageLogs:
-		return screen.Open{Screen: screen.Logs, Target: screen.Target{AgentID: agentID, OpenedFrom: screen.Agents}}
+		return screen.Open{Screen: screen.Logs, Target: screen.Target{AgentID: agentID, OpenedFromScreen: screen.Agents}}
 	case subpageChecks:
-		return screen.Open{Screen: screen.StatusChecks, Target: screen.Target{AgentID: agentID, OpenedFrom: screen.Agents}}
+		return screen.Open{Screen: screen.StatusChecks, Target: screen.Target{AgentID: agentID, OpenedFromScreen: screen.Agents}}
 	case subpageTerminal:
 		if err := terminalRefusal(item.Agent); err != nil {
 			return refuseSubpage("Could not open a terminal", err)

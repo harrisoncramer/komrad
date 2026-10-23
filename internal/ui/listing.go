@@ -70,7 +70,7 @@ func (m *model) withListing(change func(*panel.Listing) assemble.Changed) tea.Cm
 	was := m.listing
 	changed := change(&m.listing)
 	m.forgetUnlistedInspections()
-	relisted, _ := m.routeResult(screen.Relisted{Was: was, Changed: changed})
+	relisted, _ := m.routeResult(screen.ListingChanged{PreviousListing: was, Changed: changed})
 	m.sizeAgentWindows()
 
 	// A form renders its options from the listing it was built over, so it is rendered again when
@@ -101,13 +101,13 @@ func (m *model) afterListing() tea.Cmd {
 
 type writeResult struct {
 	summary string
-	landed  screen.Landed
+	landed  screen.WriteResult
 	// write is which write this result belongs to.
 	write int
 	// unstaged is the agents whose panes came off the stage before the write was sent.
 	unstaged []panel.Agent
 	// awaits is what the panel shows once the write is answered, and the write is held until it does.
-	awaits screen.Awaits
+	awaits screen.WaitFor
 	// keyMoved says a key moved the cursor while the write was parked.
 	keyMoved bool
 }
@@ -124,19 +124,19 @@ func (m *model) send(write screen.Write) tea.Cmd {
 		id = m.beginWrite(write.Doing)
 	}
 
-	if len(write.Unstage) > 0 {
-		m.unstageAhead(write.Unstage)
+	if len(write.UnstageFirst) > 0 {
+		m.unstageAhead(write.UnstageFirst)
 	}
 
 	return func() tea.Msg {
 		landed := write.Send()
 
 		return writeResult{
-			summary:  write.Summary,
+			summary:  write.FailureSummary,
 			landed:   landed,
 			write:    id,
-			unstaged: write.Unstage,
-			awaits:   awaitsOf(landed, write.Unstage),
+			unstaged: write.UnstageFirst,
+			awaits:   awaitsOf(landed, write.UnstageFirst),
 		}
 	}
 }
@@ -190,11 +190,11 @@ func (m *model) finishWrite(result writeResult) tea.Cmd {
 		m.settleUnstaged(result.unstaged, landed.Killed)
 	}
 
-	if landed.Notice != nil && landed.Err == nil {
+	if landed.SuccessNotice != nil && landed.Err == nil {
 		m.pushMessage(message{
 			kind:    screen.Info,
-			summary: landed.Notice.Summary,
-			detail:  landed.Notice.Detail,
+			summary: landed.SuccessNotice.Summary,
+			detail:  landed.SuccessNotice.Detail,
 		})
 	}
 
@@ -206,7 +206,7 @@ func (m *model) finishWrite(result writeResult) tea.Cmd {
 		m.writes.held = heldWrite{}
 
 		switch {
-		case landed.Replaces:
+		case landed.FollowUpReplacesForm:
 		case landed.Err == nil || m.form.ClosesOnRefusal:
 			cmds = append(cmds, m.closeForm())
 		default:
@@ -221,21 +221,21 @@ func (m *model) finishWrite(result writeResult) tea.Cmd {
 		cmds = append(cmds, formResized())
 	}
 
-	if made := landed.Made; made != nil && !walkedAway {
+	if made := landed.CreatedRow; made != nil && !walkedAway {
 		cmds = append(cmds, m.landOnMade(*made, result.keyMoved))
 	}
 
 	m.landWrite(result.write)
 
-	if landed.Then != nil {
-		cmds = append(cmds, m.route(landed.Then))
+	if landed.FollowUp != nil {
+		cmds = append(cmds, m.route(landed.FollowUp))
 	}
 
 	return tea.Batch(cmds...)
 }
 
 // landOnMade takes the panel to the row a write made, showing its pane.
-func (m *model) landOnMade(made screen.Made, keyMoved bool) tea.Cmd {
+func (m *model) landOnMade(made screen.CreatedRow, keyMoved bool) tea.Cmd {
 	switch {
 	case made.Archived && keyMoved:
 		return m.apply(m.enterArchived(screen.Target{}))

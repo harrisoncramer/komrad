@@ -35,12 +35,12 @@ func (g Menus) toggleDraft(task panel.Task) screen.Request {
 	}
 
 	return screen.Write{
-		Doing:   doing,
-		Summary: "Could not change " + standing.Ref() + " of " + task.Slug,
-		Send: func() screen.Landed {
-			return screen.Landed{
-				Err:    clients.SetPullRequestDraft(standing.URL, draft),
-				Notice: &screen.Notice{Summary: task.Slug + ": " + standing.Ref() + said, Detail: standing.Title},
+		Doing:          doing,
+		FailureSummary: "Could not change " + standing.Ref() + " of " + task.Slug,
+		Send: func() screen.WriteResult {
+			return screen.WriteResult{
+				Err:           clients.SetPullRequestDraft(standing.URL, draft),
+				SuccessNotice: &screen.Notice{Summary: task.Slug + ": " + standing.Ref() + said, Detail: standing.Title},
 			}
 		},
 	}

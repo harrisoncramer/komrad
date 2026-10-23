@@ -60,10 +60,10 @@ func (w *Screen) KindsSwitch() bool {
 
 // StepKind moves the schedules view to its other kind, back on the row it last stood on.
 func (w *Screen) StepKind(in screen.Inputs, delta int) screen.Request {
-	return screen.Leave{Then: func() screen.Request {
+	return screen.Leave{AfterClose: func() screen.Request {
 		w.kind = kind(tabs.StepStop(int(w.kind), delta, len(w.Kinds().Labels)))
 
-		return screen.Batch{screen.ResetFilter{}, screen.StageTerminal{}, screen.Settle{}}
+		return screen.Batch{screen.DropFilterLeaveCursor{}, screen.StageTerminal{}, screen.Settle{}}
 	}}
 }
 
@@ -125,12 +125,12 @@ func (a Archive) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 
 // Receive keeps the cursor on its archived schedule as the listing moves.
 func (a Archive) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
-	relisted, ok := msg.(screen.Relisted)
+	relisted, ok := msg.(screen.ListingChanged)
 	if !ok {
 		return nil, false
 	}
 
-	a.place(in, a.list().Hovered(relisted.Before(in)))
+	a.place(in, a.list().Hovered(relisted.WithPreviousListing(in)))
 
 	return nil, true
 }
@@ -201,10 +201,10 @@ func (a Archive) archiveMenu(schedule panel.Schedule) menu.Menu {
 
 func (a Archive) restore(schedule panel.Schedule) screen.Request {
 	return a.deps.Clients.AwaitingWrite(api.AwaitingWriteParams{
-		Doing:   "restoring " + schedule.Name,
-		Summary: fmt.Sprintf("Could not restore schedule %q", schedule.Name),
-		Awaits:  screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedSchedules, schedule.ID)},
-		Write:   func(c api.Clients) error { return c.RestoreSchedule(schedule.ID) },
+		Doing:          "restoring " + schedule.Name,
+		FailureSummary: fmt.Sprintf("Could not restore schedule %q", schedule.Name),
+		WaitFor:        screen.WaitFor{RowsGone: screen.RowsIn(screen.ListArchivedSchedules, schedule.ID)},
+		Write:          func(c api.Clients) error { return c.RestoreSchedule(schedule.ID) },
 	})
 }
 
@@ -220,10 +220,10 @@ func confirmDelete(clients api.Clients, schedule panel.Schedule) screen.Request 
 			}
 
 			return clients.AwaitingWrite(api.AwaitingWriteParams{
-				Doing:   "deleting " + schedule.Name,
-				Summary: fmt.Sprintf("Could not delete schedule %q", schedule.Name),
-				Awaits:  screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedSchedules, schedule.ID)},
-				Write:   func(c api.Clients) error { return c.DeleteSchedule(schedule.ID) },
+				Doing:          "deleting " + schedule.Name,
+				FailureSummary: fmt.Sprintf("Could not delete schedule %q", schedule.Name),
+				WaitFor:        screen.WaitFor{RowsGone: screen.RowsIn(screen.ListArchivedSchedules, schedule.ID)},
+				Write:          func(c api.Clients) error { return c.DeleteSchedule(schedule.ID) },
 			})
 		},
 		Narrow:          true,

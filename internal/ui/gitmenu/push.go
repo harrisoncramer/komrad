@@ -72,18 +72,18 @@ func reportPushed(name string, result *agentv1.PushWorktreeResponse, err error) 
 	sha := result.GetSha()
 
 	if result.GetForced() {
-		return screen.Note{
-			Kind:    screen.Info,
-			Summary: name + ": force-pushed " + result.GetBranch(),
+		return screen.PostMessage{
+			MessageKind: screen.Info,
+			Summary:     name + ": force-pushed " + result.GetBranch(),
 			Detail: fmt.Sprintf("%s. Komrad pushed %s over origin's copy and told %s.",
 				xsha.Short(sha), label.Count(commits, "commit", "commits"), name),
 		}
 	}
 
-	return screen.Note{
-		Kind:    screen.Info,
-		Summary: name + ": pushed " + result.GetBranch(),
-		Detail:  fmt.Sprintf("%s. Komrad pushed %s.", xsha.Short(sha), label.Count(commits, "commit", "commits")),
+	return screen.PostMessage{
+		MessageKind: screen.Info,
+		Summary:     name + ": pushed " + result.GetBranch(),
+		Detail:      fmt.Sprintf("%s. Komrad pushed %s.", xsha.Short(sha), label.Count(commits, "commit", "commits")),
 	}
 }
 

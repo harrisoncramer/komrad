@@ -34,12 +34,12 @@ func (g Menus) requestRereview(task panel.Task) screen.Request {
 	standing := task.PullRequest
 
 	return screen.Write{
-		Doing:   "asking for another review of " + standing.Ref(),
-		Summary: "Could not ask for another review of " + standing.Ref() + " of " + task.Slug,
-		Send: func() screen.Landed {
-			return screen.Landed{
-				Err:    clients.RequestPullRequestRereview(standing.URL),
-				Notice: &screen.Notice{Summary: task.Slug + ": " + standing.Ref() + " is waiting on another review", Detail: standing.Title},
+		Doing:          "asking for another review of " + standing.Ref(),
+		FailureSummary: "Could not ask for another review of " + standing.Ref() + " of " + task.Slug,
+		Send: func() screen.WriteResult {
+			return screen.WriteResult{
+				Err:           clients.RequestPullRequestRereview(standing.URL),
+				SuccessNotice: &screen.Notice{Summary: task.Slug + ": " + standing.Ref() + " is waiting on another review", Detail: standing.Title},
 			}
 		},
 	}

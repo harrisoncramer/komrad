@@ -229,7 +229,7 @@ func (k Diff) jumpMatch(in screen.Inputs, direction int) screen.Request {
 			said = "no matches"
 		}
 
-		return screen.NewNote(screen.Warning, said)
+		return screen.NewPostMessage(screen.Warning, said)
 	}
 
 	if !moved {
@@ -246,7 +246,7 @@ func (k Diff) ToggleWrap(in screen.Inputs) screen.Request {
 		k.Pane.ScrollToCursor(k.Window(in))
 	}
 
-	return screen.Wrap{On: in.Room.IsDiffWrapped}
+	return screen.SetDiffWrap{ShouldWrap: in.Room.IsDiffWrapped}
 }
 
 // ToggleExpanded renders the whole of the file the cursor is in, or gives back the changed lines
@@ -254,7 +254,7 @@ func (k Diff) ToggleWrap(in screen.Inputs) screen.Request {
 func (k Diff) ToggleExpanded(in screen.Inputs) screen.Request {
 	if k.RefuseExpand != nil {
 		if refused := k.RefuseExpand(); refused != "" {
-			return screen.NewNote(screen.Warning, refused)
+			return screen.NewPostMessage(screen.Warning, refused)
 		}
 	}
 
@@ -263,11 +263,11 @@ func (k Diff) ToggleExpanded(in screen.Inputs) screen.Request {
 	case diffview.ExpandNothing:
 		return nil
 	case diffview.ExpandNoMore:
-		return screen.NewNote(screen.Warning, "there is no more of that file to show")
+		return screen.NewPostMessage(screen.Warning, "there is no more of that file to show")
 	case diffview.ExpandWhole:
-		said = screen.NewNote(screen.Info, "showing the whole file")
+		said = screen.NewPostMessage(screen.Info, "showing the whole file")
 	case diffview.ExpandChanged:
-		said = screen.NewNote(screen.Info, "showing the changed lines")
+		said = screen.NewPostMessage(screen.Info, "showing the changed lines")
 	}
 
 	return screen.Batch{said, k.Land()}

@@ -473,7 +473,7 @@ func (m *model) apply(request screen.Request) tea.Cmd {
 		return m.send(request)
 	case screen.Stage:
 		return m.route(request.Staged(m.stageEditor(request.Content)))
-	case screen.Cmd:
+	case screen.RunCmd:
 		return tea.Cmd(request)
 	case screen.Settle:
 		return m.waitToStage()
@@ -483,22 +483,22 @@ func (m *model) apply(request screen.Request) tea.Cmd {
 		m.stageTerminal()
 	case screen.OpenTerminal:
 		return m.openTerminal(request.Dir)
-	case screen.Unstage:
+	case screen.UnstageEditor:
 		m.unstageEditor()
-	case screen.SelectGuest:
+	case screen.FocusStagedPane:
 		m.selectGuest(request.Pane)
-	case screen.Reconcile:
+	case screen.RestoreWindowLayout:
 		m.reconcileSolo()
-	case screen.PickView:
+	case screen.FocusViewSwitcher:
 		return m.pickView()
 	case screen.Leave:
 		left := m.leaveScreen()
-		if request.Then == nil {
+		if request.AfterClose == nil {
 			return left
 		}
 
-		return tea.Batch(left, m.apply(request.Then()))
-	case screen.ResetFilter:
+		return tea.Batch(left, m.apply(request.AfterClose()))
+	case screen.DropFilterLeaveCursor:
 		m.filter = filter.State{}
 	case screen.BeginFilter:
 		m.beginFilter()
@@ -506,30 +506,30 @@ func (m *model) apply(request screen.Request) tea.Cmd {
 		return m.stepFilterMatch(request.Delta)
 	case screen.ClearFilter:
 		m.clearFilter()
-	case screen.Filter:
+	case screen.ApplyFilter:
 		m.filterBy(request.Query)
-	case screen.FocusDoc:
+	case screen.FocusDocument:
 		m.focusDoc()
-	case screen.PlaceDoc:
-		m.placeDoc(request.Line, request.Top)
-	case screen.Wrap:
-		m.diffWrap = request.On
-	case screen.Inspect:
+	case screen.PlaceDocumentReader:
+		m.placeDoc(request.CursorLine, request.TopLine)
+	case screen.SetDiffWrap:
+		m.diffWrap = request.ShouldWrap
+	case screen.InspectWorktree:
 		return m.readWorktreeCmd(request.Dir)
-	case screen.ReadLastScreen:
+	case screen.ReadSavedScreen:
 		return m.readLastScreenCmd()
 	case screen.Copy:
 		return m.copyCmd(request.Text)
-	case screen.Note:
+	case screen.PostMessage:
 		m.pushMessage(message{
-			kind:    request.Kind,
-			key:     request.Key,
+			kind:    request.MessageKind,
+			key:     request.MessageKey,
 			summary: request.Summary,
 			detail:  request.Detail,
 			hint:    request.Hint,
 		})
-	case screen.Unnote:
-		m.dropMessage(request.Key)
+	case screen.RemoveMessage:
+		m.dropMessage(request.MessageKey)
 	case menu.Open:
 		return m.openForm(submenuState(nil, newSubmenuLevel(request.Menu)))
 	case form.Open:

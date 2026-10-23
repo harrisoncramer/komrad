@@ -698,11 +698,11 @@ func (a *Screen) revealAgent(in screen.Inputs, id string) {
 
 // Land puts the cursor on the row a write made, unless a key moved it while the write was parked, and
 // closes the editor when the made row brings a pane of its own.
-func (a *Screen) Land(in screen.Inputs, made screen.Made, keyMoved bool) screen.Request {
+func (a *Screen) Land(in screen.Inputs, made screen.CreatedRow, keyMoved bool) screen.Request {
 	a.showHiddenFor(in.Listing, made.Agent)
 
 	rows := a.rows(in)
-	if key := findLandingKey(rows, a.list().Hovered(in), made.Row); !keyMoved && list.IndexOf(rows, key) >= 0 {
+	if key := findLandingKey(rows, a.list().Hovered(in), made.RowKey); !keyMoved && list.IndexOf(rows, key) >= 0 {
 		a.apply(in, key)
 	}
 

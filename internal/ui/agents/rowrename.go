@@ -48,30 +48,30 @@ func (r *rowRename) save(clients api.Clients) (screen.Request, bool) {
 		id := r.task.ID
 
 		return clients.RenameWrite(api.RenameWriteParams{
-			Doing:   "renaming " + r.Was(),
-			Summary: fmt.Sprintf("Could not rename task %q", r.Was()),
-			Row:     r.Key(),
-			Write:   func(a api.Clients) error { return a.UpdateTask(api.UpdateTaskParams{ID: id, Slug: &name}) },
+			Doing:          "renaming " + r.Was(),
+			FailureSummary: fmt.Sprintf("Could not rename task %q", r.Was()),
+			Row:            r.Key(),
+			Write:          func(a api.Clients) error { return a.UpdateTask(api.UpdateTaskParams{ID: id, Slug: &name}) },
 		}), true
 	case r.workflow != nil:
 		renamed := *r.workflow
 		renamed.Name = name
 
 		return clients.RenameWrite(api.RenameWriteParams{
-			Doing:   "renaming " + r.Was(),
-			Summary: fmt.Sprintf("Could not rename workflow %q", r.Was()),
-			Row:     r.Key(),
-			Write:   func(a api.Clients) error { return a.UpdateWorkflow(renamed) },
+			Doing:          "renaming " + r.Was(),
+			FailureSummary: fmt.Sprintf("Could not rename workflow %q", r.Was()),
+			Row:            r.Key(),
+			Write:          func(a api.Clients) error { return a.UpdateWorkflow(renamed) },
 		}), true
 	}
 
 	agent := r.agent
 
 	return clients.RenameWrite(api.RenameWriteParams{
-		Doing:   "renaming " + r.Was(),
-		Summary: fmt.Sprintf("Could not rename agent %q", r.Was()),
-		Row:     r.Key(),
-		Write:   func(a api.Clients) error { return a.RenameAgent(agent, name) },
+		Doing:          "renaming " + r.Was(),
+		FailureSummary: fmt.Sprintf("Could not rename agent %q", r.Was()),
+		Row:            r.Key(),
+		Write:          func(a api.Clients) error { return a.RenameAgent(agent, name) },
 	}), true
 }
 
@@ -102,7 +102,7 @@ func reconcileRename[T list.Keyed](r *renameSlot, rows []T, hovered string, name
 func (r *renameSlot) updateRename(register *vim.Register, clients api.Clients, msg tea.Msg) screen.Request {
 	switch r.renaming.Take(msg, register) {
 	case field.NameGone:
-		return screen.NewNote(screen.Warning, r.renaming.GoneWarning())
+		return screen.NewPostMessage(screen.Warning, r.renaming.GoneWarning())
 	case field.NameHidden:
 		return screen.Hide{}
 	case field.NameCancelled:

@@ -118,7 +118,7 @@ func (r typeRow) Key() string {
 // Enter opens on every agent's documents, filtered down to the task or agent the target names when one is.
 func (d *Screen) Enter(in screen.Inputs, target screen.Target) screen.Request {
 	var requests screen.Batch
-	if !target.Resume {
+	if !target.IsResuming {
 		d.agentID, d.taskID = target.AgentID, target.TaskID
 		if target.AgentID != "" || target.TaskID != "" {
 			requests = append(requests, d.closeEdit())
@@ -127,9 +127,9 @@ func (d *Screen) Enter(in screen.Inputs, target screen.Target) screen.Request {
 		}
 		switch {
 		case target.TaskID != "":
-			requests = append(requests, screen.Filter{Query: taskClause(in.Listing.Tasks[target.TaskID].Slug)})
+			requests = append(requests, screen.ApplyFilter{Query: taskClause(in.Listing.Tasks[target.TaskID].Slug)})
 		case target.AgentID != "":
-			requests = append(requests, screen.Filter{Query: agentClause(findAgentName(in.Listing, target.AgentID))})
+			requests = append(requests, screen.ApplyFilter{Query: agentClause(findAgentName(in.Listing, target.AgentID))})
 		}
 	}
 
@@ -172,8 +172,8 @@ func (d *Screen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 		return nil, true
 	case editorStaged:
 		return d.applyEditorStaged(msg), true
-	case screen.Relisted:
-		return screen.Cmd(d.readDocumentsCmd(in)), true
+	case screen.ListingChanged:
+		return screen.RunCmd(d.readDocumentsCmd(in)), true
 	case api.RenameSettled:
 		d.settleRename(in, msg.Row, msg.Err)
 
@@ -215,7 +215,7 @@ func (d *Screen) StepKind(in screen.Inputs, delta int) screen.Request {
 	d.kind = kind(tabs.StepStop(int(d.kind), delta, len(d.Kinds().Labels)))
 	d.history, d.focus = nil, false
 
-	return screen.Batch{screen.ResetFilter{}, screen.StageTerminal{}, screen.Settle{}}
+	return screen.Batch{screen.DropFilterLeaveCursor{}, screen.StageTerminal{}, screen.Settle{}}
 }
 
 func (d *Screen) list() keys.ScreenList[row] {
@@ -365,7 +365,7 @@ func (d *Screen) Crumbs(in screen.Inputs) screen.Crumbs {
 }
 
 func (d *Screen) back() screen.Request {
-	return screen.PickView{}
+	return screen.FocusViewSwitcher{}
 }
 
 // findAgentName is the name of the agent an id names, live or archived, and the id when neither.
@@ -403,7 +403,7 @@ type readMsg struct {
 // readDocumentsCmd lists the documents again when any agent has written since they were last
 // listed, and otherwise reads the one under the cursor.
 func (d *Screen) readDocumentsCmd(in screen.Inputs) tea.Cmd {
-	if !in.Up {
+	if !in.IsActive {
 		return nil
 	}
 
@@ -483,7 +483,7 @@ func (d *Screen) applyListed(in screen.Inputs, msg listedMsg) screen.Request {
 	d.revision++
 	d.keepCursor(in, hovered)
 
-	return screen.Cmd(d.readDocumentsCmd(in))
+	return screen.RunCmd(d.readDocumentsCmd(in))
 }
 
 // readHoveredDocumentCmd reads the document under the cursor where the text held is older than
@@ -539,7 +539,7 @@ func (d *Screen) Stage() screen.Request {
 
 // StageResting stages the terminal and reads the document the cursor came to rest on.
 func (d *Screen) StageResting(in screen.Inputs) screen.Request {
-	return screen.Batch{d.Stage(), screen.Cmd(d.readDocumentsCmd(in))}
+	return screen.Batch{d.Stage(), screen.RunCmd(d.readDocumentsCmd(in))}
 }
 
 // DoesRenderFromListing reports that the screen names agents and tasks from the listing.

@@ -52,7 +52,7 @@ func (a *Screen) modeActions(in screen.Inputs) []keys.Action[*Screen] {
 			ID:   Back,
 			Keys: keys.FixedBack,
 			When: (*Screen).isBrowsing,
-			Nav:  func(*Screen, string) screen.Request { return screen.PickView{} },
+			Nav:  func(*Screen, string) screen.Request { return screen.FocusViewSwitcher{} },
 		},
 	)
 }

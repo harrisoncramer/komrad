@@ -42,12 +42,12 @@ func (w *Screen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 
 // Receive takes a fresh listing and asks for the hovered directory's standing the first time.
 func (w *Screen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
-	relisted, ok := msg.(screen.Relisted)
+	relisted, ok := msg.(screen.ListingChanged)
 	if !ok {
 		return nil, false
 	}
 
-	w.apply(in, w.list().Hovered(relisted.Before(in)))
+	w.apply(in, w.list().Hovered(relisted.WithPreviousListing(in)))
 
 	return w.inspectUnread(in), true
 }
@@ -81,7 +81,7 @@ func (w *Screen) Stage() screen.Request {
 
 // StageResting stages the row the cursor came to rest on, with its standing and its agent's saved screen.
 func (w *Screen) StageResting(in screen.Inputs) screen.Request {
-	return screen.Batch{w.Stage(), w.inspect(in), screen.ReadLastScreen{}}
+	return screen.Batch{w.Stage(), w.inspect(in), screen.ReadSavedScreen{}}
 }
 
 // inspect asks the server for the hovered directory's standing.
@@ -91,12 +91,12 @@ func (w *Screen) inspect(in screen.Inputs) screen.Request {
 		return nil
 	}
 
-	return screen.Inspect{Dir: row.item.Dir}
+	return screen.InspectWorktree{Dir: row.item.Dir}
 }
 
 // inspectUnread asks for the hovered directory's standing the first time, while the screen is up.
 func (w *Screen) inspectUnread(in screen.Inputs) screen.Request {
-	if !in.Up {
+	if !in.IsActive {
 		return nil
 	}
 
@@ -104,11 +104,11 @@ func (w *Screen) inspectUnread(in screen.Inputs) screen.Request {
 	if !ok {
 		return nil
 	}
-	if _, asked := in.Inspections[row.item.Dir]; asked {
+	if _, asked := in.WorktreeInspections[row.item.Dir]; asked {
 		return nil
 	}
 
-	return screen.Inspect{Dir: row.item.Dir}
+	return screen.InspectWorktree{Dir: row.item.Dir}
 }
 
 // ScreenedAgentID is the stopped agent working in the hovered directory, whose saved screen is rendered beside the list.

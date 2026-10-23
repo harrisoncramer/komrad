@@ -49,12 +49,12 @@ func (g Menus) autoMergeWrite(task panel.Task, params api.MergeParams, on bool) 
 	}
 
 	return screen.Write{
-		Doing:   doing,
-		Summary: "Could not change auto-merge on " + ref + " of " + task.Slug,
-		Send: func() screen.Landed {
-			return screen.Landed{
-				Err:    clients.SetPullRequestAutoMerge(params, on),
-				Notice: &screen.Notice{Summary: task.Slug + ": " + ref + said, Detail: task.PullRequest.Title},
+		Doing:          doing,
+		FailureSummary: "Could not change auto-merge on " + ref + " of " + task.Slug,
+		Send: func() screen.WriteResult {
+			return screen.WriteResult{
+				Err:           clients.SetPullRequestAutoMerge(params, on),
+				SuccessNotice: &screen.Notice{Summary: task.Slug + ": " + ref + said, Detail: task.PullRequest.Title},
 			}
 		},
 	}
