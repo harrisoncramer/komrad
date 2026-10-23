@@ -2,10 +2,19 @@ package list
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"komrad/internal/searchsyntax"
 )
+
+// SaysLimit is the most hits a says: qualifier reads the rows from.
+const SaysLimit = 100
+
+// Phrase quotes text so a search reads it as one phrase.
+func Phrase(text string) string {
+	return `"` + strings.ReplaceAll(text, `"`, "") + `"`
+}
 
 // Grammar is the qualifiers one list's filter reads and the values it takes for each.
 type Grammar struct {

@@ -289,23 +289,7 @@ func snapshotForge(standing panel.PullRequestStanding) view.Forge {
 // matchesOf is the stretches of a row's name the search lights, the whole of it when only qualifiers
 // picked the row.
 func (p snapshotParams) matchesOf(r agentRow, name string) []view.Span {
-	return pickedMatches(p.matcher, p.picked, r.Key(), name)
-}
-
-// pickedMatches is the stretches of a row's name the search lights, the whole of it when only
-// qualifiers picked the row.
-func pickedMatches(matcher *regexp.Regexp, picked map[string]bool, key, name string) []view.Span {
-	if picked == nil {
-		return list.Matches(matcher, name)
-	}
-	if !picked[key] {
-		return nil
-	}
-	if matcher == nil {
-		return []view.Span{{Start: 0, End: len(name)}}
-	}
-
-	return list.Matches(matcher, name)
+	return list.PickedMatches(p.matcher, p.picked, r.Key(), name)
 }
 
 // parentTail is what a child's row says after its name while something blocks its cascade.

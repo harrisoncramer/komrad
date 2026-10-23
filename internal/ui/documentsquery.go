@@ -177,8 +177,8 @@ func (d *documentsScreen) openedForTask(in screen.Inputs, slug string) (string, 
 // searchDocumentsSaid asks the server which documents hold the text as they stand now, with the passages it was found in keyed by document id.
 func searchDocumentsSaid(ctx context.Context, client api.AgentReads, text string) (map[string][]list.SaidHit, error) {
 	resp, err := client.SearchDocuments(ctx, connect.NewRequest(&agentv1.SearchDocumentsRequest{
-		Query: phrase(text),
-		Limit: saysLimit,
+		Query: list.Phrase(text),
+		Limit: list.SaysLimit,
 	}))
 	if err != nil {
 		return nil, err
