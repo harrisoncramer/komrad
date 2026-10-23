@@ -862,6 +862,13 @@ func (a Clients) WriteDocumentType(params WriteDocumentTypeParams) error {
 	})
 }
 
+// DeleteDocument deletes a document and every write of it.
+func (a Clients) DeleteDocument(id string) error {
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.Agents.DeleteDocument(ctx, connect.NewRequest(&agentv1.DeleteDocumentRequest{Id: id}))
+	})
+}
+
 // DeleteDocumentType deletes a document type.
 func (a Clients) DeleteDocumentType(id string) error {
 	return mutate(func(ctx context.Context) (any, error) {

@@ -174,6 +174,8 @@ rename = ["r"]
 # Write a new document for the agent whose documents are listed, from a form. The entry is
 # only on the documents view opened from an agent.
 new    = ["c"]
+# Delete the document and every earlier version of it, once you confirm.
+delete = ["d"]
 
 # The menu on the document type under the cursor of the documents view.
 [keybindings.document_types_menu]

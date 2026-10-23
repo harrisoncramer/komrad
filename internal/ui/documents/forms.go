@@ -104,3 +104,48 @@ func (d *Screen) pressNew(in screen.Inputs) screen.Request {
 
 	return d.newForm(in, agentID)
 }
+
+// deleteForm asks before it deletes a document.
+func (d *Screen) deleteForm(item document) form.Form {
+	return d.confirmDeleteForm(confirmDeleteFormParams{
+		noun:    "document",
+		name:    item.name,
+		warning: "Komrad deletes every version of it, and agents can no longer read it.",
+		delete:  func(a api.Clients) error { return a.DeleteDocument(item.id) },
+	})
+}
+
+// confirmDeleteFormParams is what a delete asks about and the call that carries it out.
+type confirmDeleteFormParams struct {
+	noun    string
+	name    string
+	warning string
+	delete  func(api.Clients) error
+}
+
+// confirmDeleteForm asks before it deletes a document or a document type.
+func (d *Screen) confirmDeleteForm(params confirmDeleteFormParams) form.Form {
+	built, confirmed := form.Confirm(
+		fmt.Sprintf("Delete %s %q?", params.noun, params.name),
+		params.warning,
+		"Delete",
+		config.Fixed(),
+	)
+
+	return form.Form{
+		Built: built,
+		Submit: func(form.Inputs) screen.Request {
+			if !*confirmed {
+				return nil
+			}
+
+			return d.deps.Clients.Write(
+				"deleting "+params.name,
+				fmt.Sprintf("Could not delete %s %q", params.noun, params.name),
+				params.delete,
+			)
+		},
+		Narrow:          true,
+		ClosesOnRefusal: true,
+	}
+}

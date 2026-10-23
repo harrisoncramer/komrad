@@ -100,6 +100,12 @@ func (d *Screen) documentMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bo
 				Off:   !hovered || d.editing != nil,
 				Pick:  d.openRename,
 			},
+			{
+				Label: "delete",
+				Keys:  d.deps.Keys.DocumentMenu.Delete,
+				Off:   !hovered || d.editing != nil,
+				Form:  func() form.Form { return d.deleteForm(item) },
+			},
 		},
 	}
 	if !hovered {

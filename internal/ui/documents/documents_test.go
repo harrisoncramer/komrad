@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -658,23 +659,21 @@ func TestDocumentsMenu(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		open     func(*testing.T) *paneltest.Panel
-		presses  []string
-		wantOn   []*regexp.Regexp
-		wantOff  []*regexp.Regexp
-		wantGone []*regexp.Regexp
+		name    string
+		open    func(*testing.T) *paneltest.Panel
+		presses []string
+		wantOn  []*regexp.Regexp
+		wantOff []*regexp.Regexp
 	}{
 		{
-			name: "a document's band is titled for it and has no delete",
+			name: "a document's band is titled for it",
 			open: func(t *testing.T) *paneltest.Panel {
 				harness, _ := openDocuments(t)
 
 				return harness
 			},
-			presses:  []string{"space"},
-			wantOn:   []*regexp.Regexp{regexp.MustCompile(`Design the cache`), regexp.MustCompile(`edit +e`), regexp.MustCompile(`rename +r`), regexp.MustCompile(`new document +c`)},
-			wantGone: []*regexp.Regexp{regexp.MustCompile(`delete +d`)},
+			presses: []string{"space"},
+			wantOn:  []*regexp.Regexp{regexp.MustCompile(`Design the cache`), regexp.MustCompile(`edit +e`), regexp.MustCompile(`rename +r`), regexp.MustCompile(`new document +c`), regexp.MustCompile(`delete +d`)},
 		},
 		{
 			name: "an open editor turns edit into closing it and grays the rest",
@@ -685,7 +684,7 @@ func TestDocumentsMenu(t *testing.T) {
 			},
 			presses: []string{"space", "e", "space"},
 			wantOn:  []*regexp.Regexp{regexp.MustCompile(`close editor +e`)},
-			wantOff: []*regexp.Regexp{paneltest.OffEntry("rename", "r"), paneltest.OffEntry("new document", "c")},
+			wantOff: []*regexp.Regexp{paneltest.OffEntry("rename", "r"), paneltest.OffEntry("delete", "d"), paneltest.OffEntry("new document", "c")},
 		},
 		{
 			name:    "every agent's documents have no agent to write a new one for",
@@ -710,9 +709,48 @@ func TestDocumentsMenu(t *testing.T) {
 			for _, want := range tt.wantOff {
 				assert.Regexp(t, want, harness.RawFrame())
 			}
-			for _, gone := range tt.wantGone {
-				assert.NotRegexp(t, gone, frame)
+		})
+	}
+}
+
+// TestDocumentsDelete covers deleting the hovered document from the menu on it.
+func TestDocumentsDelete(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		presses []string
+		want    *agentv1.DeleteDocumentRequest
+	}{
+		{
+			name:    "declining the delete deletes nothing",
+			presses: []string{"space", "d", "n"},
+		},
+		{
+			name:    "confirming the delete deletes the document",
+			presses: []string{"space", "d", "y"},
+			want:    &agentv1.DeleteDocumentRequest{Id: "d1"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness, _ := openDocuments(t)
+			harness.Answer(agentv1connect.AgentServiceDeleteDocumentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+				return connect.NewResponse(&emptypb.Empty{}), nil
+			})
+			harness.Press(tt.presses...)
+			harness.Advance(time.Second)
+
+			assert.NotContains(t, harness.Frame(), "Delete document", "the form is down")
+			if tt.want == nil {
+				assert.Empty(t, harness.Sent(agentv1connect.AgentServiceDeleteDocumentProcedure))
+
+				return
 			}
+			harness.AssertSentTo(agentv1connect.AgentServiceDeleteDocumentProcedure, tt.want)
 		})
 	}
 }

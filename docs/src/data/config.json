@@ -412,6 +412,13 @@
               "type": "array",
               "description": "Write a new document for the agent whose documents are listed, from a form. The entry is\nonly on the documents view opened from an agent.",
               "default": "[\"c\"]"
+            },
+            {
+              "key": "delete",
+              "path": "keybindings.document_menu.delete",
+              "type": "array",
+              "description": "Delete the document and every earlier version of it, once you confirm.",
+              "default": "[\"d\"]"
             }
           ],
           "sections": []
