@@ -126,7 +126,7 @@ function codeRef({ messages = [], enum: enumName }: Scope, code: string): Ref | 
   const moment = api.enums["event.v1.Moment"]?.values.find(({ name }) => name === code);
   if (moment)
     return {
-      href: link(`/guides/hooks#${code.split(".")[0]}-lifecycle`),
+      href: link(`/guides/hooks#${code.slice(0, code.indexOf("."))}-lifecycle`),
       title: code,
       description: moment.description,
       detail: "",
