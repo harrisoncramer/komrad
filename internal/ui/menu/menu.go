@@ -1,4 +1,3 @@
-// Package menu is the short lists a screen offers beside the list it opened over.
 package menu
 
 import (

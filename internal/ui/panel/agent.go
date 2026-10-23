@@ -1,4 +1,3 @@
-// Package panel is what the server has told the panel, in the panel's own shape.
 package panel
 
 import (

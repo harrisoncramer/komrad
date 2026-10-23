@@ -1,4 +1,3 @@
-// Package review holds the screen that reads one agent's diff beside its file tree and the threads written on it.
 package review
 
 import (

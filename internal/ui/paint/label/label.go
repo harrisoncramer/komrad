@@ -1,5 +1,3 @@
-// Package label turns a number, a time, a path, a hash or a blank into the short text a row or a
-// record shows.
 package label
 
 import (

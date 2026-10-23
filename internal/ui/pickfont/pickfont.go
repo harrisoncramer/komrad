@@ -1,4 +1,3 @@
-// Package pickfont is the pane picker's letters drawn large.
 package pickfont
 
 import (

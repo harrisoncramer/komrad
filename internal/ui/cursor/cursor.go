@@ -1,4 +1,3 @@
-// Package cursor keeps a cursor inside a list of lines, and a view of the lines around it.
 package cursor
 
 // Clamp is an index kept inside a list of length lines, the first line of an empty one.

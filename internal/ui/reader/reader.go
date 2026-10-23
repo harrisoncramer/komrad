@@ -1,5 +1,3 @@
-// Package reader walks a cursor through rows already rendered: the window that renders it, and the
-// rows a search found.
 package reader
 
 import (

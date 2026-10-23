@@ -1,4 +1,3 @@
-// Package tabs holds the rows of stops over a list: the tab strip and the kinds row.
 package tabs
 
 import "slices"

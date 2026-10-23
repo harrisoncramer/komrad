@@ -1,4 +1,3 @@
-// Package legend holds the bindings a legend renders under a screen.
 package legend
 
 import "charm.land/bubbles/v2/key"

@@ -1,10 +1,3 @@
-// Package ui is the panel: one bubbletea program, rendered in its own tmux session, that holds no
-// database connection and knows nothing the server has not told it.
-//
-// It is a client like any other. A keypress becomes an RPC, and the panel learns what came of
-// it from the watch stream rather than by changing its own state first, so what is on screen is
-// what the server last said was true. It is the largest package in the tree and README.md in
-// this directory is the map of it.
 package ui
 
 import (

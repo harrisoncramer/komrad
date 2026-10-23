@@ -1,5 +1,3 @@
-// Package keys is the panel's key tables: the actions a screen answers, the order a press is
-// offered to them, and the legend that names them.
 package keys
 
 import (

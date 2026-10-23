@@ -1,5 +1,3 @@
-// Package logs holds the screen that lists where an agent's or a task's logs can be read from
-// and tails the one under the cursor.
 package logs
 
 import (

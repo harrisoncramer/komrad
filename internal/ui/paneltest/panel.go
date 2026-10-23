@@ -1,5 +1,3 @@
-// Package paneltest drives the panel the way a person, the server and the terminal do, and reads
-// back what they would see.
 package paneltest
 
 import (

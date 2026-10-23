@@ -1,4 +1,3 @@
-// Package documents holds the screen that lists every agent's documents and their types, and steps through a document's writes beside the list.
 package documents
 
 import (

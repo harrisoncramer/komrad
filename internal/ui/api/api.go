@@ -1,4 +1,3 @@
-// Package api is the server the panel calls, and the writes more than one screen sends.
 package api
 
 import (

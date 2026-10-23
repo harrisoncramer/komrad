@@ -1,4 +1,3 @@
-// Package filter holds the search line a screen narrows or walks its rows by.
 package filter
 
 import (

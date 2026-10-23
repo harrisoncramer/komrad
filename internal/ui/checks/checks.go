@@ -1,5 +1,3 @@
-// Package checks holds the screen that lists the status checks on an agent's pull request and the
-// screen that reads their logs.
 package checks
 
 import (
