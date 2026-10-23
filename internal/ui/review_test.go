@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -2119,7 +2118,7 @@ func TestReviewEdit(t *testing.T) {
 
 	t.Run("on an engine elsewhere the editor runs there, through its ssh host", func(t *testing.T) {
 		server := newReviewServer(t)
-		harness := openReviewAt(t, server, paneltest.Params{Settings: remoteEditSettings(t, "/opt/homebrew/bin/nvim")})
+		harness := openReviewAt(t, server, paneltest.Params{Settings: paneltest.RemoteEditSettings(t, "/opt/homebrew/bin/nvim")})
 
 		harness.Press("space", "e")
 
@@ -2130,7 +2129,7 @@ func TestReviewEdit(t *testing.T) {
 	})
 
 	t.Run("on an engine elsewhere an editor that cannot reach it opens nothing", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: remoteEditSettings(t, "goland")})
+		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: paneltest.RemoteEditSettings(t, "goland")})
 
 		harness.Press("space", "e")
 
@@ -2139,7 +2138,7 @@ func TestReviewEdit(t *testing.T) {
 	})
 
 	t.Run("on an engine elsewhere an editor with a window of its own needs the ssh hosts included", func(t *testing.T) {
-		settings := remoteEditSettings(t, "code")
+		settings := paneltest.RemoteEditSettings(t, "code")
 		settings.IsSSHIncluded = false
 		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: settings})
 
@@ -2150,7 +2149,7 @@ func TestReviewEdit(t *testing.T) {
 	})
 
 	t.Run("on an engine elsewhere with no ssh host written the editor opens nothing", func(t *testing.T) {
-		settings := remoteEditSettings(t, "nvim")
+		settings := paneltest.RemoteEditSettings(t, "nvim")
 		settings.SSHConfig = filepath.Join(t.TempDir(), "missing.conf")
 		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: settings})
 
@@ -2876,15 +2875,6 @@ func historyThreadOf(thread *agentv1.ReviewThread) history.Thread {
 		NewStart:   thread.GetNewStart(),
 		NewEnd:     thread.GetNewEnd(),
 	}
-}
-
-func remoteEditSettings(t *testing.T, editor string) ui.PanelSettings {
-	t.Helper()
-
-	config := filepath.Join(t.TempDir(), "komrad-remote.conf")
-	require.NoError(t, os.WriteFile(config, []byte("Host komrad-remote\n"), 0o600))
-
-	return ui.PanelSettings{Editor: editor, SSHHost: "komrad-remote", SSHConfig: config, IsSSHIncluded: true}
 }
 
 func newWholeChangeThread(snapshotID string, ordinal int32, at time.Time) *agentv1.ReviewThread {

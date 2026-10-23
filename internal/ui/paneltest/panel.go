@@ -4,6 +4,7 @@ package paneltest
 
 import (
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -71,6 +72,16 @@ type Params struct {
 	EngineStatus ui.EngineStatus
 	Loader       loader.Style
 	SignIn       ui.SignIn
+}
+
+// RemoteEditSettings opens files in the editor given over ssh to a host its own ssh config names.
+func RemoteEditSettings(t *testing.T, editor string) ui.PanelSettings {
+	t.Helper()
+
+	sshConfig := filepath.Join(t.TempDir(), "komrad-remote.conf")
+	require.NoError(t, os.WriteFile(sshConfig, []byte("Host komrad-remote\n"), 0o600))
+
+	return ui.PanelSettings{Editor: editor, SSHHost: "komrad-remote", SSHConfig: sshConfig, IsSSHIncluded: true}
 }
 
 // Panel is a panel under test and everything it talks to.
