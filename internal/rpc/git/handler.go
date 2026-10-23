@@ -1,5 +1,3 @@
-// Package git is the ConnectRPC transport over the git a panel somewhere else reads a review
-// through.
 package git
 
 import (

@@ -1,5 +1,3 @@
-// Package forge serves the connections komrad holds to the services pull requests live on, and
-// reads pull requests through them.
 package forge
 
 import (

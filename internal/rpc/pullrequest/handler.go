@@ -1,4 +1,3 @@
-// Package pullrequest serves the pull requests komrad has stored from its forges.
 package pullrequest
 
 import (

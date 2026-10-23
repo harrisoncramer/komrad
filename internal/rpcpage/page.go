@@ -1,4 +1,3 @@
-// Package rpcpage runs one page of a keyset listing for a handler.
 package rpcpage
 
 import (

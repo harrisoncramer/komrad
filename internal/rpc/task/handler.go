@@ -1,5 +1,3 @@
-// Package task serves the task RPCs, which create, read, rewrite, archive and delete the
-// outcomes agents work toward.
 package task
 
 import (
