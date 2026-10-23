@@ -14,10 +14,10 @@ import (
 	"charm.land/huh/v2"
 )
 
-func abortOp(taskID, name string, sequence panel.Sequence) gitOp {
-	return gitOp{
+func abortOp(taskID, name string, sequence panel.Sequence) operation {
+	return operation{
 		running: "aborting the " + string(sequence) + " of " + name,
-		run: func(clients api.Clients) gitReport {
+		run: func(clients api.Clients) report {
 			result, err := clients.AbortSequence(taskID)
 
 			return func(*model) screen.Request { return reportAborted(name, sequence, result, err) }
@@ -44,7 +44,7 @@ func reportAborted(name string, sequence panel.Sequence, result *agentv1.AbortSe
 	}
 }
 
-func abortForm(name string, sequence panel.Sequence) gitConfirmForm {
+func abortForm(name string, sequence panel.Sequence) confirmForm {
 	return func(keys config.FixedKeys) (*huh.Form, *bool) {
 		return form.Confirm(
 			fmt.Sprintf("Abort the %s in the worktree of %s?", sequence, name),

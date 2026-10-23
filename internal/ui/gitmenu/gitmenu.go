@@ -29,7 +29,6 @@ var (
 	errNoWorktree           = errors.New("this task has no worktree of its own for komrad to act on")
 	errPushInProgress       = errors.New("the worktree is part-way through a rebase, merge or pick, so finish or abort that first")
 	errAbortNothing         = errors.New("nothing is part-way through in this worktree, so there is nothing to abort")
-	errAgentGone            = errors.New("the agent the menu was opened on has left the list")
 	errTaskGone             = errors.New("the task the menu was opened on has left the list")
 	errNoPullRequest        = errors.New("nobody has opened a pull request from this branch")
 	errMovedPastPullRequest = errors.New("the branch moved on after its last pull request finished, and nobody has opened a new one")
@@ -66,7 +65,7 @@ func (m *model) Git(task panel.Task) menu.Menu {
 			Label: abortLabel(task),
 			Keys:  m.keys.Git.Abort,
 			Off:   abortRefusal(m.listing, task) != nil,
-			Pick:  func(screen.Inputs) screen.Request { return m.openGitAbort(taskID) },
+			Pick:  func(screen.Inputs) screen.Request { return m.openAbort(taskID) },
 		},
 	}
 
@@ -238,7 +237,7 @@ func openPullRequestRefusal(task panel.Task) error {
 
 // runGitChoice does what the entry asked for, or says why this task is not one to ask it of.
 func (m *model) runGitChoice(taskID string, choice gitChoice) screen.Request {
-	task, ok := m.findGitTask(taskID)
+	task, ok := m.findTask(taskID)
 	if !ok {
 		return screen.Report{Summary: "Could not act on the task", Err: errTaskGone}
 	}
@@ -249,19 +248,19 @@ func (m *model) runGitChoice(taskID string, choice gitChoice) screen.Request {
 			return screen.Report{Summary: "Could not rebase the worktree of " + task.Slug, Err: err}
 		}
 
-		return m.planGit(rebaseOp(task.ID, task.Slug, false))
+		return m.planOperation(rebaseOp(task.ID, task.Slug, false))
 	case gitChoiceRebaseOntoBase:
 		if err := rebaseOntoBaseRefusal(m.listing, task); err != nil {
 			return screen.Report{Summary: "Could not re-target " + task.Slug + " onto the base branch", Err: err}
 		}
 
-		return m.planGit(rebaseOp(task.ID, task.Slug, true))
+		return m.planOperation(rebaseOp(task.ID, task.Slug, true))
 	case gitChoicePush:
 		if err := pushRefusal(m.listing, task); err != nil {
 			return screen.Report{Summary: "Could not push the branch of " + task.Slug, Err: err}
 		}
 
-		return m.planGit(pushOp(task))
+		return m.planOperation(pushOp(task))
 	case gitChoiceOpenPullRequest:
 		return m.openPullRequest(task)
 	case gitChoiceCopyPullRequestURL:
@@ -275,17 +274,17 @@ func (m *model) runGitChoice(taskID string, choice gitChoice) screen.Request {
 	return nil
 }
 
-// findGitTask returns the task the menu opened on, as the list holds it now.
-func (m *model) findGitTask(taskID string) (panel.Task, bool) {
+// findTask returns the task the menu opened on, as the list holds it now.
+func (m *model) findTask(taskID string) (panel.Task, bool) {
 	// The list may have moved under the open menu.
 	task, ok := m.listing.Tasks[taskID]
 
 	return task, ok
 }
 
-// openGitAbort leaves the menu for the abort's confirmation, or says why there is nothing to abort.
-func (m *model) openGitAbort(taskID string) screen.Request {
-	task, ok := m.findGitTask(taskID)
+// openAbort leaves the menu for the abort's confirmation, or says why there is nothing to abort.
+func (m *model) openAbort(taskID string) screen.Request {
+	task, ok := m.findTask(taskID)
 	if !ok {
 		return screen.Batch{screen.Report{Summary: "Could not act on the task", Err: errTaskGone}, form.Close{}}
 	}
@@ -294,12 +293,12 @@ func (m *model) openGitAbort(taskID string) screen.Request {
 		return screen.Batch{screen.Report{Summary: "Could not abort what the worktree of " + task.Slug + " has in progress", Err: err}, form.Close{}}
 	}
 
-	return m.openGitConfirm(abortOp(task.ID, task.Slug, task.Sequence), abortForm(task.Slug, task.Sequence))
+	return m.openConfirm(abortOp(task.ID, task.Slug, task.Sequence), abortForm(task.Slug, task.Sequence))
 }
 
 // openGitPickForkPoint leaves the menu for the form that picks an orphaned child's fork point, or says why the task is not orphaned.
 func (m *model) openGitPickForkPoint(taskID string) screen.Request {
-	task, ok := m.findGitTask(taskID)
+	task, ok := m.findTask(taskID)
 	if !ok {
 		return screen.Batch{screen.Report{Summary: "Could not act on the task", Err: errTaskGone}, form.Close{}}
 	}

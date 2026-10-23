@@ -83,7 +83,7 @@ func mergeMenu(m *model, task panel.Task) menu.Menu {
 // cancels auto-merge at once.
 func (m *model) runMerge(taskID string, choice mergeChoice) screen.Request {
 	// The list may have moved under the open menu.
-	task, ok := m.findGitTask(taskID)
+	task, ok := m.findTask(taskID)
 	if !ok {
 		return screen.Report{Summary: "Could not act on the task", Err: errTaskGone}
 	}
@@ -188,17 +188,17 @@ func (m *model) mergeWrite(task panel.Task, choice mergeChoice, params api.Merge
 	case mergeChoiceAutoMerge:
 		return m.autoMergeWrite(task, params, true)
 	case mergeChoiceMergeRebase:
-		return m.gitOpWrite(mergeRebaseOp(task, params))
+		return m.operationWrite(mergeRebaseOp(task, params))
 	case mergeChoiceMerge, mergeChoiceMergeArchive:
 	}
 
-	return m.gitOpWrite(mergeOp(task, choice == mergeChoiceMergeArchive, params))
+	return m.operationWrite(mergeOp(task, choice == mergeChoiceMergeArchive, params))
 }
 
-func mergeOp(task panel.Task, archive bool, params api.MergeParams) gitOp {
-	return gitOp{
+func mergeOp(task panel.Task, archive bool, params api.MergeParams) operation {
+	return operation{
 		running: "merging " + task.PullRequest.Ref(),
-		run: func(clients api.Clients) gitReport {
+		run: func(clients api.Clients) report {
 			err := clients.MergePullRequest(params)
 
 			return func(m *model) screen.Request {
@@ -228,12 +228,12 @@ func (m *model) reportMerged(task panel.Task, archive bool, err error) screen.Re
 	return screen.Batch{merged, m.api.ArchiveTasksWrite(tasks, m.listing.AgentsOnTasks(tasks))}
 }
 
-func mergeRebaseOp(task panel.Task, params api.MergeParams) gitOp {
+func mergeRebaseOp(task panel.Task, params api.MergeParams) operation {
 	taskID, name := task.ID, task.Slug
 
-	return gitOp{
+	return operation{
 		running: "merging " + task.PullRequest.Ref() + " and rebasing " + name,
-		run: func(clients api.Clients) gitReport {
+		run: func(clients api.Clients) report {
 			if err := clients.MergePullRequest(params); err != nil {
 				return func(m *model) screen.Request {
 					return m.reportMerged(task, false, err)

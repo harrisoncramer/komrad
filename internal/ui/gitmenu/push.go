@@ -28,19 +28,19 @@ type pushPlan struct {
 	pullRequest panel.PullRequestStanding
 }
 
-func pushOp(task panel.Task) gitOp {
+func pushOp(task panel.Task) operation {
 	taskID, name := task.ID, task.Slug
 
-	return gitOp{
+	return operation{
 		planning:   "planning the push of " + name,
 		planFailed: "Could not work out what a push would do",
-		plan: func(clients api.Clients) (gitConfirmForm, error) {
+		plan: func(clients api.Clients) (confirmForm, error) {
 			response, err := clients.PlanPush(taskID)
 			if err != nil {
 				return nil, err
 			}
 			if response.GetInSync() {
-				return nil, gitSkippedError(name + ": commit already pushed")
+				return nil, skippedError(name + ": commit already pushed")
 			}
 
 			plan := pushPlan{
@@ -55,7 +55,7 @@ func pushOp(task panel.Task) gitOp {
 			return pushForm(plan), nil
 		},
 		running: "pushing " + name,
-		run: func(clients api.Clients) gitReport {
+		run: func(clients api.Clients) report {
 			result, err := clients.PushWorktree(taskID)
 
 			return func(*model) screen.Request { return reportPushed(name, result, err) }
@@ -87,7 +87,7 @@ func reportPushed(name string, result *agentv1.PushWorktreeResponse, err error) 
 	}
 }
 
-func pushForm(plan pushPlan) gitConfirmForm {
+func pushForm(plan pushPlan) confirmForm {
 	return func(keys config.FixedKeys) (*huh.Form, *bool) {
 		return form.Confirm(
 			"Push the branch of "+plan.name+"?",
