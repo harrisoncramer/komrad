@@ -49,32 +49,32 @@ func (g Menus) mergeMenu(l panel.Listing, task panel.Task) menu.Menu {
 		Title: "merge",
 		Entries: []menu.Entry{
 			{
-				Label: "merge",
-				Keys:  g.deps.Keys.Merge.Merge,
-				Off:   refused,
-				After: menu.Hold,
-				Pick:  run(mergeChoiceMerge),
+				Label:     "merge",
+				Keys:      g.deps.Keys.Merge.Merge,
+				Off:       refused,
+				AfterPick: menu.Hold,
+				Pick:      run(mergeChoiceMerge),
 			},
 			{
-				Label: "merge and archive",
-				Keys:  g.deps.Keys.Merge.MergeArchive,
-				Off:   refused || task.ArchivedAt != nil,
-				After: menu.Hold,
-				Pick:  run(mergeChoiceMergeArchive),
+				Label:     "merge and archive",
+				Keys:      g.deps.Keys.Merge.MergeArchive,
+				Off:       refused || task.ArchivedAt != nil,
+				AfterPick: menu.Hold,
+				Pick:      run(mergeChoiceMergeArchive),
 			},
 			{
-				Label: autoMergeLabel(task),
-				Keys:  g.deps.Keys.Merge.AutoMerge,
-				Off:   autoMergeRefusal(task) != nil,
-				After: menu.Hold,
-				Pick:  run(mergeChoiceAutoMerge),
+				Label:     autoMergeLabel(task),
+				Keys:      g.deps.Keys.Merge.AutoMerge,
+				Off:       autoMergeRefusal(task) != nil,
+				AfterPick: menu.Hold,
+				Pick:      run(mergeChoiceAutoMerge),
 			},
 			{
-				Label: "merge then rebase",
-				Keys:  g.deps.Keys.Merge.MergeRebase,
-				Off:   mergeRebaseRefusal(l, task) != nil,
-				After: menu.Hold,
-				Pick:  run(mergeChoiceMergeRebase),
+				Label:     "merge then rebase",
+				Keys:      g.deps.Keys.Merge.MergeRebase,
+				Off:       mergeRebaseRefusal(l, task) != nil,
+				AfterPick: menu.Hold,
+				Pick:      run(mergeChoiceMergeRebase),
 			},
 		},
 	}
@@ -157,8 +157,8 @@ func (g Menus) openMergeForm(task panel.Task, choice mergeChoice, plan *forgev1.
 				plan:   plan,
 			})
 		},
-		Reshaped: func() bool { return values.Method != renderedMethod },
-		Editable: []form.Editable{{Key: "body", Value: &values.Body}},
+		DoesAnswerReshape: func() bool { return values.Method != renderedMethod },
+		Editable:          []form.Editable{{Key: "body", Value: &values.Body}},
 		Submit: func(form.Inputs) screen.Request {
 			params, err := values.buildMergeParams(task.PullRequest, plan)
 			if err != nil {

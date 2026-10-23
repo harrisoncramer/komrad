@@ -63,7 +63,7 @@ func TestNested(t *testing.T) {
 		},
 		{
 			name: "a list with no entries yet",
-			menu: menu.Menu{Actions: func(int) menu.Menu { return menu.Menu{} }},
+			menu: menu.Menu{ActionsForChoice: func(int) menu.Menu { return menu.Menu{} }},
 		},
 	}
 
@@ -74,7 +74,7 @@ func TestNested(t *testing.T) {
 			entry := menu.Nested("git", nil, tt.menu)
 
 			assert.Equal(t, tt.wantOff, entry.Off)
-			assert.NotNil(t, entry.Opens)
+			assert.NotNil(t, entry.Submenu)
 		})
 	}
 }
@@ -108,7 +108,7 @@ func TestJoin(t *testing.T) {
 
 	assert.Equal(t, "agent", joined.Title)
 	require.Len(t, joined.Entries, 3)
-	assert.True(t, joined.Entries[1].Divider)
+	assert.True(t, joined.Entries[1].IsDivider)
 	assert.True(t, joined.Entries[1].Off)
 	assert.Equal(t, "archive", joined.Entries[2].Label)
 }

@@ -12,30 +12,31 @@ import (
 const Cancel = -1
 
 // divider is a rule between two bands of entries.
-var divider = Entry{Off: true, Divider: true}
+var divider = Entry{Off: true, IsDivider: true}
 
 // Menu is a short list beside the list it opened over, with the cursor and each entry's own key
 // picking an entry.
 type Menu struct {
 	Title   string
 	Entries []Entry
-	// Actions is the menu the menu key opens on the entry under a list's cursor, nil for a menu
-	// whose entries act on their own.
-	Actions func(choice int) Menu
+	// ActionsForChoice is the menu the menu key opens on the entry under a list's cursor, nil for
+	// a menu whose entries act on their own.
+	ActionsForChoice func(choice int) Menu
 	// Preview renders the entry under a list's cursor beside the list, within width and height.
 	Preview func(choice, width, height int) string
-	// Empty is the row a list renders while it holds nothing.
-	Empty string
-	// InPlace says a form an entry opens takes the menu's place rather than opening beside it.
-	InPlace bool
+	// EmptyListRow is the row a list renders while it holds nothing.
+	EmptyListRow string
+	// FormReplacesMenu says a form an entry opens takes the menu's place rather than opening
+	// beside it.
+	FormReplacesMenu bool
 }
 
 // after is what becomes of the menu once an entry is picked.
 type after int
 
 const (
-	// Leave takes the menu down before the pick runs.
-	Leave after = iota
+	// CloseBeforePick takes the menu down before the pick runs.
+	CloseBeforePick after = iota
 	// Hold keeps the menu up while a write the pick began is in flight.
 	Hold
 )
@@ -48,21 +49,21 @@ type Entry struct {
 	Off bool
 	// OffSaid is why the entry would do nothing here, drawn under it.
 	OffSaid string
-	// Divider says the row is a rule between two bands of entries.
-	Divider bool
-	// Opens is the menu the entry opens to the right of its own.
-	Opens *Menu
+	// IsDivider says the row is a rule between two bands of entries.
+	IsDivider bool
+	// Submenu is the menu the entry opens to the right of its own.
+	Submenu *Menu
 	// Form is the form the entry opens beside the menu.
-	Form  func() form.Form
-	Pick  func(screen.Inputs) screen.Request
-	After after
+	Form      func() form.Form
+	Pick      func(screen.Inputs) screen.Request
+	AfterPick after
 }
 
-// Nester is what builds the git and jump menus a band nests.
-type Nester interface {
+// NestedMenuBuilder is what builds the git and jump menus a band nests.
+type NestedMenuBuilder interface {
 	Git(task panel.Task) Menu
 	PullRequestGit(task panel.Task) Menu
-	Jump(from screen.ID, to screen.Target) Menu
+	Jump(fromScreen screen.ID, target screen.Target) Menu
 }
 
 // Open renders a menu, its cursor on the first entry that would do something.
@@ -75,7 +76,7 @@ func (Open) Request() {}
 
 // IsList reports whether the menu is a list whose entries open a menu of their own.
 func (m Menu) IsList() bool {
-	return m.Actions != nil
+	return m.ActionsForChoice != nil
 }
 
 // FirstOn is the first entry that would do something, Cancel when none would.
@@ -92,10 +93,10 @@ func (m Menu) FirstOn() int {
 // Nested is an entry that opens a menu, off when nothing inside it would do anything.
 func Nested(label string, keys []string, menu Menu) Entry {
 	return Entry{
-		Label: label,
-		Keys:  keys,
-		Off:   !menu.IsList() && menu.FirstOn() == Cancel,
-		Opens: &menu,
+		Label:   label,
+		Keys:    keys,
+		Off:     !menu.IsList() && menu.FirstOn() == Cancel,
+		Submenu: &menu,
 	}
 }
 
@@ -134,5 +135,5 @@ func Leaving(label string, keys []string, pick func(screen.Inputs) screen.Reques
 
 // Holding is an entry that keeps the menu up while a write pick began is in flight.
 func Holding(label string, keys []string, pick func(screen.Inputs) screen.Request) Entry {
-	return Entry{Label: label, Keys: keys, Pick: pick, After: Hold}
+	return Entry{Label: label, Keys: keys, Pick: pick, AfterPick: Hold}
 }

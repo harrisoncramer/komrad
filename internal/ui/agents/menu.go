@@ -15,7 +15,7 @@ import (
 var errNoTaskDir = errors.New("the task has no checkout, and its workflow has no directory")
 
 // BuildScreenMenu builds the agents list's own band, for starting a workflow, under every row.
-func (a *Screen) BuildScreenMenu(_ screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
+func (a *Screen) BuildScreenMenu(_ screen.Inputs, _ menu.NestedMenuBuilder) (menu.Menu, bool) {
 	return menu.Menu{
 		Title: "agents",
 		Entries: []menu.Entry{
@@ -26,7 +26,7 @@ func (a *Screen) BuildScreenMenu(_ screen.Inputs, _ menu.Nester) (menu.Menu, boo
 
 // taskMenu is the hovered task's band: its pages, what starts or edits work on it, its git, and
 // the menus that hide, archive or delete it.
-func (a *Screen) taskMenu(in screen.Inputs, nest menu.Nester, row agentRow) menu.Menu {
+func (a *Screen) taskMenu(in screen.Inputs, nest menu.NestedMenuBuilder, row agentRow) menu.Menu {
 	task := *row.task
 	writer, _ := row.writer()
 	band := menu.Menu{
@@ -82,7 +82,7 @@ func isTaskStartable(l panel.Listing, task panel.Task) bool {
 
 // taskJumpMenu is the jump menu of the agent that opens a task, with its documents entry landing on the
 // task's.
-func (a *Screen) taskJumpMenu(nest menu.Nester, agentID, taskID string) menu.Menu {
+func (a *Screen) taskJumpMenu(nest menu.NestedMenuBuilder, agentID, taskID string) menu.Menu {
 	band := nest.Jump(screen.Agents, screen.Target{AgentID: agentID})
 	band.Entries = xslice.Map(band.Entries, func(entry menu.Entry) menu.Entry {
 		if !slices.Equal(entry.Keys, a.deps.Keys.JumpMenu.Documents) {
@@ -187,10 +187,10 @@ func (a *Screen) snoozeEntries(in screen.Inputs, item panel.AgentRow) []menu.Ent
 	}
 
 	return []menu.Entry{{
-		Label: label,
-		Keys:  a.deps.Keys.Menu.Snooze,
-		After: menu.Hold,
-		Pick:  func(in screen.Inputs) screen.Request { return a.toggleSnooze(in, key) },
+		Label:     label,
+		Keys:      a.deps.Keys.Menu.Snooze,
+		AfterPick: menu.Hold,
+		Pick:      func(in screen.Inputs) screen.Request { return a.toggleSnooze(in, key) },
 	}}
 }
 
@@ -230,7 +230,7 @@ func (a *Screen) workflowEntries(workflow panel.Workflow, orchestrator *panel.Ag
 }
 
 // BuildItemMenu builds the band on the hovered row or the selection.
-func (a *Screen) BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
+func (a *Screen) BuildItemMenu(in screen.Inputs, nest menu.NestedMenuBuilder) (menu.Menu, bool) {
 	if a.list().IsSelecting() {
 		chosen := chosenAgents(a.Selected, a.rows(in))
 		if len(chosen) == 0 {

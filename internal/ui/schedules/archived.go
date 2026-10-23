@@ -166,7 +166,7 @@ func (a Archive) hoveredSchedule(in screen.Inputs) (panel.Schedule, bool) {
 }
 
 // BuildItemMenu builds the band on the hovered archived schedule.
-func (a Archive) BuildItemMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
+func (a Archive) BuildItemMenu(in screen.Inputs, _ menu.NestedMenuBuilder) (menu.Menu, bool) {
 	schedule, ok := a.hoveredSchedule(in)
 	if !ok {
 		return menu.Menu{}, false
@@ -184,10 +184,10 @@ func (a Archive) archiveMenu(schedule panel.Schedule) menu.Menu {
 		Entries: []menu.Entry{
 			menu.Holding("restore", bindings.Restore, func(screen.Inputs) screen.Request { return a.restore(schedule) }),
 			{
-				Label: "restore and open",
-				Keys:  bindings.RestoreOpen,
-				Off:   true,
-				After: menu.Hold,
+				Label:     "restore and open",
+				Keys:      bindings.RestoreOpen,
+				Off:       true,
+				AfterPick: menu.Hold,
 				Pick: func(screen.Inputs) screen.Request {
 					return screen.Report{Summary: "Could not restore and open " + schedule.Name, Err: errOpensOneAgent}
 				},
@@ -213,7 +213,7 @@ func confirmDelete(clients api.Clients, schedule panel.Schedule) screen.Request 
 	built, confirmed := deleteForm(schedule.Name, config.Fixed())
 
 	return form.Open{Form: form.Form{
-		Built: built,
+		Prebuilt: built,
 		Submit: func(form.Inputs) screen.Request {
 			if !*confirmed {
 				return nil

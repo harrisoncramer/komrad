@@ -189,12 +189,12 @@ type hoveredNamer interface {
 
 // screenMenuBuilder is a screen that adds its own band to the menu.
 type screenMenuBuilder interface {
-	BuildScreenMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool)
+	BuildScreenMenu(in screen.Inputs, nest menu.NestedMenuBuilder) (menu.Menu, bool)
 }
 
 // itemMenuBuilder is a screen that adds a band to the menu for its hovered row.
 type itemMenuBuilder interface {
-	BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool)
+	BuildItemMenu(in screen.Inputs, nest menu.NestedMenuBuilder) (menu.Menu, bool)
 }
 
 // lineTyper is a screen with a one-row field the user can type into.

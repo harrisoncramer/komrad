@@ -10,13 +10,13 @@ import (
 
 // Jump is the menu landing on the rows related to an agent, or to the task it names in place
 // of the agent, less the screen it was opened from.
-func (m *model) Jump(from screen.ID, to screen.Target) menu.Menu {
+func (m *model) Jump(fromScreen screen.ID, to screen.Target) menu.Menu {
 	agentID := to.AgentID
 	_, found := m.listing.AnyAgent(agentID)
 	target := screen.Target{AgentID: agentID}
 
 	var entries []menu.Entry
-	if from != screen.Agents {
+	if fromScreen != screen.Agents {
 		if task, listed := m.listing.Tasks[to.TaskID]; listed {
 			entries = append(entries, taskJumpEntry(m, task))
 		} else {
@@ -31,14 +31,14 @@ func (m *model) Jump(from screen.ID, to screen.Target) menu.Menu {
 			entries = append(entries, agent)
 		}
 	}
-	if from != screen.Worktrees {
+	if fromScreen != screen.Worktrees {
 		worktree := menu.Leaving("worktree", m.keys.JumpMenu.Worktree, func(screen.Inputs) screen.Request {
 			return screen.Open{Screen: screen.Worktrees, Target: target}
 		})
 		worktree.Off = !slices.ContainsFunc(m.listing.Worktrees, func(w panel.Worktree) bool { return w.HoldsAgent(agentID) })
 		entries = append(entries, worktree)
 	}
-	if from != screen.Documents {
+	if fromScreen != screen.Documents {
 		documents := menu.Leaving("documents", m.keys.JumpMenu.Documents, func(screen.Inputs) screen.Request {
 			return screen.Open{Screen: screen.Documents, Target: target}
 		})

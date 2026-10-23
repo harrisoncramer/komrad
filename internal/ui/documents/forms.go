@@ -140,7 +140,7 @@ func (d *Screen) confirmDeleteForm(params confirmDeleteFormParams) form.Form {
 	)
 
 	return form.Form{
-		Built: built,
+		Prebuilt: built,
 		Submit: func(form.Inputs) screen.Request {
 			if !*confirmed {
 				return nil

@@ -207,8 +207,8 @@ func (w *Screen) openScheduleForm(values *panel.ScheduleConfig, stored *panel.Sc
 				keys:          config.Fixed(),
 			})
 		},
-		Reshaped: func() bool { return values.Kind != renderedKind },
-		Editable: []form.Editable{{Key: "prompt", Value: &values.Prompt}},
+		DoesAnswerReshape: func() bool { return values.Kind != renderedKind },
+		Editable:          []form.Editable{{Key: "prompt", Value: &values.Prompt}},
 		Submit: func(form.Inputs) screen.Request {
 			if stored == nil {
 				return w.deps.Clients.Write("creating schedule "+values.Name, "Could not create the schedule", func(a api.Clients) error { return a.CreateSchedule(*values) })
