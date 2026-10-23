@@ -333,7 +333,7 @@ func (d *Screen) ListParams(in screen.Inputs) list.Params {
 	}
 }
 
-// Parent is the screen the documents were opened from.
+// Parent is the documents view, which heads its own trail.
 func (d *Screen) Parent() screen.ID {
 	return screen.Documents
 }
