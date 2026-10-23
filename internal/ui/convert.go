@@ -19,7 +19,7 @@ func worktreeInspectionFrom(read *worktreev1.GetWorktreeResponse, now time.Time)
 			return panel.WorktreeEntry{
 				Path:  entry.GetPath(),
 				Bytes: entry.GetSizeBytes(),
-				Dir:   entry.GetDir(),
+				IsDir: entry.GetDir(),
 			}
 		}),
 		Modified:          read.GetModified(),

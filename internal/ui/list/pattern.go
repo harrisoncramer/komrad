@@ -33,13 +33,13 @@ type Row struct {
 }
 
 type Pattern struct {
-	Prompt      string
-	Compiled    string
-	Regexp      *regexp.Regexp
-	IsBroken    bool
-	Clauses     []searchsyntax.Clause
-	CompiledAt  time.Time
-	IsFiltering bool
+	Query         string
+	CompiledQuery string
+	Regexp        *regexp.Regexp
+	IsBroken      bool
+	Clauses       []searchsyntax.Clause
+	CompiledAt    time.Time
+	IsFiltering   bool
 	// OpenedIn is the section the keys were in when the filter opened.
 	OpenedIn Section
 	Said     Said
@@ -52,16 +52,16 @@ type Said struct {
 }
 
 type PatternKey struct {
-	narrows    bool
-	compiled   string
-	compiledAt time.Time
-	said       string
-	isWaiting  bool
+	narrows       bool
+	compiledQuery string
+	compiledAt    time.Time
+	said          string
+	isWaiting     bool
 }
 
 // IsStanding reports whether anything is typed.
 func (p Pattern) IsStanding() bool {
-	return p.Prompt != ""
+	return p.Query != ""
 }
 
 // HasQuery reports whether a pattern or a qualifier stands to match rows by.
@@ -87,11 +87,11 @@ func (p Pattern) Key() PatternKey {
 	}
 
 	return PatternKey{
-		narrows:    true,
-		compiled:   p.Compiled,
-		compiledAt: p.CompiledAt,
-		said:       p.Said.Text,
-		isWaiting:  p.Said.IsWaiting,
+		narrows:       true,
+		compiledQuery: p.CompiledQuery,
+		compiledAt:    p.CompiledAt,
+		said:          p.Said.Text,
+		isWaiting:     p.Said.IsWaiting,
 	}
 }
 

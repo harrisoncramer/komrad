@@ -154,14 +154,14 @@ func (f State) IsStanding() bool {
 // Pattern is the compiled pattern a screen narrows its rows by.
 func (f State) Pattern() list.Pattern {
 	return list.Pattern{
-		Prompt:      f.Query(),
-		Compiled:    f.compiledQuery,
-		Regexp:      f.Matcher,
-		IsBroken:    f.IsPatternBroken,
-		Clauses:     f.qualifiers.clauses,
-		CompiledAt:  f.qualifiers.compiledAt,
-		IsFiltering: f.Mode == ModeFilter && !f.IsTyping,
-		OpenedIn:    f.OpenedIn,
+		Query:         f.Query(),
+		CompiledQuery: f.compiledQuery,
+		Regexp:        f.Matcher,
+		IsBroken:      f.IsPatternBroken,
+		Clauses:       f.qualifiers.clauses,
+		CompiledAt:    f.qualifiers.compiledAt,
+		IsFiltering:   f.Mode == ModeFilter && !f.IsTyping,
+		OpenedIn:      f.OpenedIn,
 		Said: list.Said{
 			Text:      f.qualifiers.said.text,
 			Hits:      f.qualifiers.said.hits,

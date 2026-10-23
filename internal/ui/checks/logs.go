@@ -282,19 +282,19 @@ func (c Logs) listActions(in screen.Inputs) keys.Spec[Logs] {
 				Desc:      keys.FilterDescOf[Logs](in),
 			},
 			{
-				ActionIDs: []keys.ID{keys.FilterClear},
-				Desc:      keys.FilterClearDescOf[Logs](in),
-				Strip:     true,
+				ActionIDs:     []keys.ID{keys.FilterClear},
+				Desc:          keys.FilterClearDescOf[Logs](in),
+				IsInShortHelp: true,
 			},
 			{
-				ActionIDs: []keys.ID{keys.FilterMatch},
-				Desc:      func(Logs) string { return "next/prev match" },
-				Strip:     true,
+				ActionIDs:     []keys.ID{keys.FilterMatch},
+				Desc:          func(Logs) string { return "next/prev match" },
+				IsInShortHelp: true,
 			},
 			{
-				ActionIDs: []keys.ID{actionLogsBack},
-				Desc:      func(Logs) string { return "back" },
-				Strip:     true,
+				ActionIDs:     []keys.ID{actionLogsBack},
+				Desc:          func(Logs) string { return "back" },
+				IsInShortHelp: true,
 			},
 		}),
 	}

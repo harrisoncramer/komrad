@@ -90,9 +90,9 @@ func (w *Screen) actions(in screen.Inputs) keys.Spec[*Screen] {
 				Desc:      func(*Screen) string { return "back" },
 			},
 			{
-				ActionIDs: []keys.ID{keys.FilterClear},
-				Desc:      keys.FilterClearDescOf[*Screen](in),
-				Strip:     true,
+				ActionIDs:     []keys.ID{keys.FilterClear},
+				Desc:          keys.FilterClearDescOf[*Screen](in),
+				IsInShortHelp: true,
 			},
 		},
 	}

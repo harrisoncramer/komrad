@@ -238,10 +238,10 @@ func (r *Screen) filesActions(in screen.Inputs) keys.Spec[*Screen] {
 				Desc:      func(*Screen) string { return r.filesFilter.ClearDesc() },
 			},
 			{
-				ActionIDs: []keys.ID{actionBack},
-				Desc:      func(*Screen) string { return r.backDesc() },
-				Show:      func(*Screen) bool { return !r.filesFilter.IsStanding() },
-				Strip:     true,
+				ActionIDs:     []keys.ID{actionBack},
+				Desc:          func(*Screen) string { return r.backDesc() },
+				Show:          func(*Screen) bool { return !r.filesFilter.IsStanding() },
+				IsInShortHelp: true,
 			},
 		},
 	}
@@ -279,9 +279,9 @@ func (r *Screen) sideActions(in screen.Inputs) keys.Spec[*Screen] {
 				Show:      func(*Screen) bool { return r.chooseDesc(in) != "" },
 			},
 			{
-				ActionIDs: []keys.ID{actionBack},
-				Desc:      func(*Screen) string { return r.backDesc() },
-				Strip:     true,
+				ActionIDs:     []keys.ID{actionBack},
+				Desc:          func(*Screen) string { return r.backDesc() },
+				IsInShortHelp: true,
 			},
 		},
 	}

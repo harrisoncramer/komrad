@@ -55,14 +55,14 @@ func (w *Screen) legend(in screen.Inputs) []keys.LegendRow[*Screen] {
 			Desc:      func(*Screen) string { return "back" },
 		},
 		{
-			ActionIDs: []keys.ID{keys.FilterClear},
-			Desc:      keys.FilterClearDescOf[*Screen](in),
-			Strip:     true,
+			ActionIDs:     []keys.ID{keys.FilterClear},
+			Desc:          keys.FilterClearDescOf[*Screen](in),
+			IsInShortHelp: true,
 		},
 		{
-			ActionIDs: []keys.ID{keys.FilterMatch},
-			Desc:      func(*Screen) string { return "next/prev match" },
-			Strip:     true,
+			ActionIDs:     []keys.ID{keys.FilterMatch},
+			Desc:          func(*Screen) string { return "next/prev match" },
+			IsInShortHelp: true,
 		},
 	})
 }

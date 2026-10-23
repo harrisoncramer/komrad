@@ -46,10 +46,10 @@ func ColumnScrollLabel(k config.Keybindings) string {
 // MoveRow names the move keys.
 func MoveRow[S any]() LegendRow[S] {
 	return LegendRow[S]{
-		ActionIDs: []ID{Move},
-		Desc:      func(S) string { return "move" },
-		Label:     MoveLabel,
-		Strip:     true,
+		ActionIDs:     []ID{Move},
+		Desc:          func(S) string { return "move" },
+		Label:         MoveLabel,
+		IsInShortHelp: true,
 	}
 }
 
@@ -74,7 +74,7 @@ func JumpRow[S any]() LegendRow[S] {
 // NavLegend is the four rows the cursor keys are named by.
 func NavLegend[S any]() []LegendRow[S] {
 	move := MoveRow[S]()
-	move.Strip = false
+	move.IsInShortHelp = false
 
 	return []LegendRow[S]{
 		move,

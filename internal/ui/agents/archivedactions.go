@@ -43,10 +43,10 @@ func (a Archive) legend(in screen.Inputs) []keys.LegendRow[Archive] {
 
 	return slices.Concat(keys.SelectionLegend[Archive](list, in), []keys.LegendRow[Archive]{
 		{
-			ActionIDs: []keys.ID{actionArchiveRename},
-			Desc:      func(Archive) string { return "rename" },
-			Show:      func(Archive) bool { return a.holdsARenameable(in) },
-			Strip:     true,
+			ActionIDs:     []keys.ID{actionArchiveRename},
+			Desc:          func(Archive) string { return "rename" },
+			Show:          func(Archive) bool { return a.holdsARenameable(in) },
+			IsInShortHelp: true,
 		},
 		{
 			ActionIDs: []keys.ID{keys.SelectToggle},
@@ -63,14 +63,14 @@ func (a Archive) legend(in screen.Inputs) []keys.LegendRow[Archive] {
 			Desc:      func(Archive) string { return "back" },
 		},
 		{
-			ActionIDs: []keys.ID{keys.FilterClear},
-			Desc:      keys.FilterClearDescOf[Archive](in),
-			Strip:     true,
+			ActionIDs:     []keys.ID{keys.FilterClear},
+			Desc:          keys.FilterClearDescOf[Archive](in),
+			IsInShortHelp: true,
 		},
 		{
-			ActionIDs: []keys.ID{keys.FilterMatch},
-			Desc:      func(Archive) string { return "next/prev match" },
-			Strip:     true,
+			ActionIDs:     []keys.ID{keys.FilterMatch},
+			Desc:          func(Archive) string { return "next/prev match" },
+			IsInShortHelp: true,
 		},
 	})
 }

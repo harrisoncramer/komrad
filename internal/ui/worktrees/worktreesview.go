@@ -258,7 +258,7 @@ func entryLines(entries []panel.WorktreeEntry) []string {
 }
 
 func entryName(entry panel.WorktreeEntry) string {
-	if entry.Dir {
+	if entry.IsDir {
 		return entry.Path + "/"
 	}
 
