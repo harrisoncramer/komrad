@@ -151,7 +151,7 @@
               "key": "max_tasks",
               "path": "usage.orchestrator.max_tasks",
               "type": "integer",
-              "description": "The number of live tasks one orchestrator may have started at once. 0 leaves max_agents as the only\ncap.",
+              "description": "The number of live tasks one orchestrator may have started at once. 0 leaves max_agents as\nthe only cap.",
               "default": "0"
             }
           ],
