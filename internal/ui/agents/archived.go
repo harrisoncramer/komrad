@@ -448,7 +448,7 @@ func (a *archivedAgents) menuTarget(in screen.Inputs) (archived, bool) {
 	}, true
 }
 
-func (a *archivedAgents) BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
+func (a *archivedAgents) BuildItemMenu(in screen.Inputs, nest menu.NestedMenuBuilder) (menu.Menu, bool) {
 	target, ok := a.menuTarget(in)
 	if !ok {
 		return menu.Menu{}, false

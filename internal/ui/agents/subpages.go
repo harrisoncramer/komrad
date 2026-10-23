@@ -33,7 +33,7 @@ var (
 // of its own before git.
 type agentMenuParams struct {
 	in       screen.Inputs
-	nest     menu.Nester
+	nest     menu.NestedMenuBuilder
 	bindings config.Keybindings
 	item     panel.AgentRow
 	own      []menu.Entry
@@ -59,7 +59,7 @@ func agentMenu(params agentMenuParams) menu.Menu {
 func subpageEntries(l panel.Listing, bindings config.Keybindings, item panel.AgentRow, pages []subpage) []menu.Entry {
 	return xslice.Map(pages, func(page subpage) menu.Entry {
 		entry := page.entry(l, bindings, item)
-		if entry.Opens == nil {
+		if entry.Submenu == nil {
 			entry.Pick = func(in screen.Inputs) screen.Request {
 				return enterSubpage(in.Listing, item.Agent.ID, page)
 			}

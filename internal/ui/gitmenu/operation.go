@@ -94,7 +94,7 @@ func (g Menus) openConfirm(op operation, buildForm confirmForm) screen.Request {
 	built, confirmed := buildForm(config.Fixed())
 
 	return form.Open{Form: form.Form{
-		Built: built,
+		Prebuilt: built,
 		Build: func(form.Inputs) (*huh.Form, []string) {
 			held, _ := buildForm(config.Fixed())
 

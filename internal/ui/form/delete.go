@@ -70,15 +70,15 @@ func (c DeleteConfirm) Open(in screen.Inputs, write func(Inputs) screen.Request)
 			}
 			if c.Values != nil {
 				if err := c.Values.check(); err != nil {
-					return Refuse{Err: err, Field: deleteKey}
+					return Refuse{Err: err, ReturnToField: deleteKey}
 				}
 			}
 
 			return write(submitted)
 		},
-		Narrow:          true,
-		ClosesOnRefusal: true,
-		Worktrees:       c.Dirs,
+		Narrow:             true,
+		ClosesOnRefusal:    true,
+		DescribedWorktrees: c.Dirs,
 	}})
 }
 

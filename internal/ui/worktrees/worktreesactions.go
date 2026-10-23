@@ -223,7 +223,7 @@ func (w *Screen) deleteWorktreesWrite(deletion deletion) screen.Write {
 }
 
 // BuildItemMenu builds the band on the hovered directory, or on every chosen one while any are selected.
-func (w *Screen) BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
+func (w *Screen) BuildItemMenu(in screen.Inputs, nest menu.NestedMenuBuilder) (menu.Menu, bool) {
 	if w.list().IsSelecting() {
 		deletion := w.chosenDeletion(in)
 		if deletion.chosen() == 0 {
@@ -266,7 +266,7 @@ func (w *Screen) BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, b
 }
 
 // BuildScreenMenu builds the worktrees screen's own band, for clearing every directory that can go.
-func (w *Screen) BuildScreenMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
+func (w *Screen) BuildScreenMenu(in screen.Inputs, _ menu.NestedMenuBuilder) (menu.Menu, bool) {
 	clearable := w.clearDeletion(in)
 	clearAll := menu.Leaving("delete unused worktrees", w.deps.Keys.ArchiveMenu.Clear, func(in screen.Inputs) screen.Request {
 		return w.confirmDeleteWorktrees(in, clearable)

@@ -29,7 +29,7 @@ func (d *Screen) typeMenu(t *agentv1.DocumentType) menu.Menu {
 }
 
 // BuildItemMenu builds the band on the hovered document or type, or on every chosen document while any are selected.
-func (d *Screen) BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
+func (d *Screen) BuildItemMenu(in screen.Inputs, nest menu.NestedMenuBuilder) (menu.Menu, bool) {
 	if d.kind == kindTypes {
 		t := d.hoveredType(in)
 
@@ -47,7 +47,7 @@ func (d *Screen) BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, b
 }
 
 // BuildScreenMenu builds the documents screen's own band, for writing a new document or type.
-func (d *Screen) BuildScreenMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
+func (d *Screen) BuildScreenMenu(in screen.Inputs, _ menu.NestedMenuBuilder) (menu.Menu, bool) {
 	if d.kind == kindTypes {
 		return menu.Menu{
 			Title: "document types",
@@ -81,7 +81,7 @@ func (d *Screen) BuildScreenMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bo
 
 // documentMenu is the actions on the hovered document, or on the editor open over the list,
 // false for neither.
-func (d *Screen) documentMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
+func (d *Screen) documentMenu(in screen.Inputs, nest menu.NestedMenuBuilder) (menu.Menu, bool) {
 	item, hovered := d.hovered(in)
 	if !hovered && d.editing == nil {
 		return menu.Menu{}, false

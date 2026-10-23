@@ -293,7 +293,7 @@ const (
 )
 
 // BuildItemMenu builds the band on the thread under the diff's cursor.
-func (r *Screen) BuildItemMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
+func (r *Screen) BuildItemMenu(in screen.Inputs, _ menu.NestedMenuBuilder) (menu.Menu, bool) {
 	if side, ok := r.findSide(in); ok && r.IsBlockFocused(in) {
 		return r.sideMenu(in, side)
 	}
@@ -354,7 +354,7 @@ func (r *Screen) BuildItemMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool
 
 // BuildScreenMenu builds the band of whichever of the diff, the file tree and the rows over it holds
 // the keys.
-func (r *Screen) BuildScreenMenu(in screen.Inputs, nest menu.Nester) (menu.Menu, bool) {
+func (r *Screen) BuildScreenMenu(in screen.Inputs, nest menu.NestedMenuBuilder) (menu.Menu, bool) {
 	var band menu.Menu
 	switch {
 	case r.isSideFocused(in):
@@ -386,7 +386,7 @@ func (r *Screen) fileEntries(in screen.Inputs) []menu.Entry {
 
 // diffMenu is the diff's band, for the file in the editor, how the diff is rendered and the review
 // waiting to be sent.
-func (r *Screen) diffMenu(in screen.Inputs, nest menu.Nester) menu.Menu {
+func (r *Screen) diffMenu(in screen.Inputs, nest menu.NestedMenuBuilder) menu.Menu {
 	reachable := !r.isArchived(in)
 	_, onThread := r.diff.threadAtCursor()
 	diffFocused := r.IsDiffFocused(in)

@@ -62,11 +62,11 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 			}
 
 			switch {
-			case entry.Opens != nil:
-				return m.pushSubmenu(stack, newSubmenuLevel(*entry.Opens))
+			case entry.Submenu != nil:
+				return m.pushSubmenu(stack, newSubmenuLevel(*entry.Submenu))
 			case entry.Form != nil:
 				beside := openedFormState(entry.Form())
-				if level.menu.InPlace {
+				if level.menu.FormReplacesMenu {
 					return m.stackForm(parents, stack, beside)
 				}
 
@@ -75,8 +75,8 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 				return m.closeForm()
 			}
 
-			switch entry.After {
-			case menu.Leave:
+			switch entry.AfterPick {
+			case menu.CloseBeforePick:
 				m.leaveForm()
 			case menu.Hold:
 				return holdSubmit(func(m *model) tea.Cmd { return m.apply(entry.Pick(m.inputs())) })(m)
@@ -105,8 +105,8 @@ func (m *model) pushSubmenu(parents []submenuLevel, level submenuLevel) tea.Cmd 
 // openListActions renders the menu on the entry under a list's cursor in place of the list's
 // preview.
 func (m *model) openListActions(stack []submenuLevel, list submenuLevel) tea.Cmd {
-	actions := list.menu.Actions(*list.choice)
-	actions.InPlace = true
+	actions := list.menu.ActionsForChoice(*list.choice)
+	actions.FormReplacesMenu = true
 
 	return m.pushSubmenu(stack, newSubmenuLevel(actions))
 }
@@ -197,7 +197,7 @@ func (m *model) updateSubmenu(msg tea.Msg, parents []submenuLevel, level submenu
 func (l submenuLevel) isOnDivider() bool {
 	choice := *l.choice
 
-	return choice >= 0 && choice < len(l.menu.Entries) && l.menu.Entries[choice].Divider
+	return choice >= 0 && choice < len(l.menu.Entries) && l.menu.Entries[choice].IsDivider
 }
 
 type submenuClickMsg struct {

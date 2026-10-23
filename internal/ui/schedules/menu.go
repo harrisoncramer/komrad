@@ -7,7 +7,7 @@ import (
 )
 
 // BuildItemMenu builds the band on the hovered schedule.
-func (w *Screen) BuildItemMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
+func (w *Screen) BuildItemMenu(in screen.Inputs, _ menu.NestedMenuBuilder) (menu.Menu, bool) {
 	item, ok := w.selected(in)
 	if !ok {
 		return menu.Menu{}, false
@@ -17,7 +17,7 @@ func (w *Screen) BuildItemMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool
 }
 
 // BuildScreenMenu builds the schedules screen's own band, for writing a new schedule.
-func (w *Screen) BuildScreenMenu(_ screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
+func (w *Screen) BuildScreenMenu(_ screen.Inputs, _ menu.NestedMenuBuilder) (menu.Menu, bool) {
 	return menu.Menu{
 		Title: "schedules",
 		Entries: []menu.Entry{
@@ -46,10 +46,10 @@ func (w *Screen) archiveMenu(schedule panel.Schedule) menu.Menu {
 	return menu.Menu{
 		Title: "archive",
 		Entries: []menu.Entry{{
-			Label: "archive",
-			Keys:  w.deps.Keys.ArchiveMenu.Archive,
-			After: menu.Hold,
-			Pick:  func(screen.Inputs) screen.Request { return w.archiveSchedule(schedule) },
+			Label:     "archive",
+			Keys:      w.deps.Keys.ArchiveMenu.Archive,
+			AfterPick: menu.Hold,
+			Pick:      func(screen.Inputs) screen.Request { return w.archiveSchedule(schedule) },
 		}},
 	}
 }

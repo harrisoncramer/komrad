@@ -80,7 +80,7 @@ func (f formState) isActive() bool {
 // isOpening reports whether a form is on screen or is about to be, which the built form cannot
 // answer, a form being built only once its column is settled.
 func (f formState) isOpening() bool {
-	return f.Built != nil || f.Build != nil
+	return f.Prebuilt != nil || f.Build != nil
 }
 
 // openForm puts a form on screen over the screen the panel is already on, taking the window
@@ -90,7 +90,7 @@ func (m *model) openForm(f formState) tea.Cmd {
 	m.reconcileSolo()
 	m.form.vim = field.NewVim(m.register)
 
-	m.form.rendered = m.form.Built
+	m.form.rendered = m.form.Prebuilt
 	if m.form.rendered == nil {
 		m.form.rendered, m.form.order = m.form.Build(m.formInputs())
 	}
@@ -257,7 +257,7 @@ func (m *model) rerenderOpenForm() tea.Cmd {
 // rerenderWorktreeConfirm renders a delete confirm again once git answers for a worktree it
 // describes.
 func (m *model) rerenderWorktreeConfirm(dir string) tea.Cmd {
-	if !slices.Contains(m.form.Worktrees, dir) {
+	if !slices.Contains(m.form.DescribedWorktrees, dir) {
 		return nil
 	}
 
@@ -313,8 +313,8 @@ func (m *model) submitForm() tea.Cmd {
 // the refusal names or when huh had finished it.
 func (m *model) refuseForm(refused form.Refuse) tea.Cmd {
 	m.form.refusal = refused.Err.Error()
-	if refused.Field != "" {
-		return m.rerenderFormOn(refused.Field)
+	if refused.ReturnToField != "" {
+		return m.rerenderFormOn(refused.ReturnToField)
 	}
 	if m.form.rendered.State == huh.StateCompleted {
 		return m.rebuildForm()
@@ -354,7 +354,7 @@ func (m *model) updateForm(msg tea.Msg) tea.Cmd {
 	case huh.StateNormal:
 	}
 
-	if m.form.Reshaped != nil && m.form.Reshaped() {
+	if m.form.DoesAnswerReshape != nil && m.form.DoesAnswerReshape() {
 		key := ""
 		if focused := m.form.rendered.GetFocusedField(); focused != nil {
 			key = focused.GetKey()

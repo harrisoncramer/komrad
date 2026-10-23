@@ -64,7 +64,7 @@ func frozenSubmenu(level submenuLevel, nested bool) string {
 // submenuColumns is the widest label and the widest key among a menu's entries.
 func submenuColumns(entries []menu.Entry) (labelCols, keyCols int) {
 	for _, entry := range entries {
-		if entry.Divider {
+		if entry.IsDivider {
 			continue
 		}
 
@@ -76,7 +76,7 @@ func submenuColumns(entries []menu.Entry) (labelCols, keyCols int) {
 }
 
 func entryText(entry menu.Entry) string {
-	if entry.Opens != nil {
+	if entry.Submenu != nil {
 		return entry.Label + nestedMark
 	}
 
@@ -89,7 +89,7 @@ func submenuLabel(entry menu.Entry, labelCols, keyCols int) string {
 	muted := paint.Panel.Style(paint.ToneMuted)
 	width := labelCols + submenuKeyGap + keyCols
 
-	if entry.Divider {
+	if entry.IsDivider {
 		return muted.Render(strings.Repeat(glyph.Rule, width))
 	}
 
@@ -122,7 +122,7 @@ func markParentMenu(view string, at int) string {
 func submenuOptions(open menu.Menu, nested bool) []huh.Option[int] {
 	if open.IsList() {
 		if len(open.Entries) == 0 {
-			return []huh.Option[int]{huh.NewOption(paint.Panel.Style(paint.ToneMuted).Render(open.Empty), menu.Cancel)}
+			return []huh.Option[int]{huh.NewOption(paint.Panel.Style(paint.ToneMuted).Render(open.EmptyListRow), menu.Cancel)}
 		}
 
 		options := make([]huh.Option[int], 0, len(open.Entries))

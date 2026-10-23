@@ -248,10 +248,10 @@ func workflowForm(params workflowFormParams) form.Form {
 
 			return form.Of(config.Fixed(), append(workflowTopFields(params.NameTitle, values), form.SubformList("Settings", subforms, &choice))...)
 		},
-		Reshaped: func() bool { return values.Provisioner != renderedProvisioner },
-		Editable: []form.Editable{{Key: "context", Value: &values.Context}},
-		Subforms: subforms,
-		Submit:   params.Submit,
+		DoesAnswerReshape: func() bool { return values.Provisioner != renderedProvisioner },
+		Editable:          []form.Editable{{Key: "context", Value: &values.Context}},
+		Subforms:          subforms,
+		Submit:            params.Submit,
 	}
 }
 
