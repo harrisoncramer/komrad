@@ -338,13 +338,13 @@ func readStyledPane(harness *paneltest.Panel) string {
 }
 
 func readStyledSummary(harness *paneltest.Panel, summary string) string {
-	line := findLine(paneltest.Stage(harness.RawFrame()), summary)
-	at := strings.Index(line, summary)
-	if at < 0 {
-		return ""
+	for _, line := range paneltest.Stage(harness.RawFrame()) {
+		if at := strings.Index(line, summary); at >= 0 {
+			return line[max(0, strings.LastIndex(line[:at], "\x1b[")):]
+		}
 	}
 
-	return line[max(0, strings.LastIndex(line[:at], "\x1b[")):]
+	return ""
 }
 
 func readPaneTally(frame string) string {
