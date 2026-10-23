@@ -27,6 +27,7 @@ import (
 	"komrad/internal/ui/documents"
 	"komrad/internal/ui/editor"
 	"komrad/internal/ui/filter"
+	"komrad/internal/ui/gitmenu"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/layout"
 	"komrad/internal/ui/logs"
@@ -271,7 +272,6 @@ type model struct {
 	session         *Session
 	api             api.Clients
 	tmux            Tmux
-	browser         browser.Opener
 	harnessFrames   HarnessFrameReader
 	binary          BinaryWatcher
 	frame           *layout.Frame
@@ -296,6 +296,7 @@ type model struct {
 	schedules       schedules.Screen
 	worktrees       worktrees.Screen
 	documents       documents.Screen
+	git             gitmenu.Menus
 	logs            logs.Screen
 	statusChecks    checks.Screen
 	// inspections is what the server answered for each worktree directory.
@@ -450,7 +451,6 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		watcher:         deps.Watcher,
 		editor:          shell,
 		tmux:            deps.Tmux,
-		browser:         deps.Browser,
 		harnessFrames:   deps.HarnessFrames,
 		binary:          deps.Binary,
 		frame:           layout.New(deps.Tmux, deps.Layout, layout.WithEngine(deps.Engine), layout.WithShellCommand(deps.ShellCommand), layout.WithTerminalCommand(deps.TerminalCommand)),
@@ -503,6 +503,11 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 			EditorCommand: deps.Settings.Editor,
 			DraftDir:      deps.Settings.DraftDir,
 			Glyphs:        deps.Glyphs,
+		}),
+		git: gitmenu.New(gitmenu.Deps{
+			Keys:    deps.Keys,
+			Clients: clients,
+			Browser: deps.Browser,
 		}),
 		logs: logs.New(logs.Deps{
 			Keys:     deps.Keys,

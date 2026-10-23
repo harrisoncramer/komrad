@@ -314,6 +314,10 @@ func (m *model) routeScreenMessage(msg tea.Msg) tea.Cmd {
 
 // routeResult hands a message to every screen, and reports whether any of them owned it.
 func (m *model) routeResult(msg tea.Msg) (tea.Cmd, bool) {
+	if request, ok := m.git.Receive(m.inputs(), msg); ok {
+		return m.apply(request), true
+	}
+
 	var cmds []tea.Cmd
 	owned := false
 	for _, s := range m.screens() {
@@ -403,8 +407,6 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 		m.applyDocFilterSettled(msg)
 
 		return nil, true
-	case urlOpenedMsg:
-		return m.apply(m.applyURLOpened(msg)), true
 	case client.WatchBatch:
 		return m.applyWatch(msg), true
 	case watchLostMsg:
@@ -415,12 +417,6 @@ func (m *model) routeAsyncMessage(msg tea.Msg) (tea.Cmd, bool) {
 		return nil, true
 	case writeResult:
 		return m.applyWrite(msg), true
-	case gitPlannedMsg:
-		return m.apply(m.applyGitPlanned(msg)), true
-	case gitDoneMsg:
-		return m.apply(m.applyGitDone(msg)), true
-	case mergePlannedMsg:
-		return m.apply(m.applyMergePlanned(msg)), true
 	case formFieldEditedMsg:
 		return m.applyFormFieldEdited(msg), true
 	case copyResult:
