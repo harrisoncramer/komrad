@@ -55,7 +55,7 @@ message WorkflowEventPrompt {
   }];
   // The text added to the mail about the event. Empty adds nothing.
   string prompt = 2 [(buf.validate.field).string.max_len = 500];
-  // Whether the event is muted. A muted event sends no mail of its own, and updates the agent's
+  // Whether the event is muted. A muted event doesn't send mail of its own, and updates the agent's
   // unread mail without its prompt.
   bool muted = 3;
 }

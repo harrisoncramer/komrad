@@ -17,7 +17,7 @@ export enum PullRequestState {
   PULL_REQUEST_STATE_UNREAD = 1 [(pb.enumvalue.json).string = "unread"];
   // Komrad read the repository and found no pull request from the branch.
   PULL_REQUEST_STATE_NONE = 2 [(pb.enumvalue.json).string = "none"];
-  // Open, with no review decision that decides it.
+  // Open, without a review decision that decides it.
   PULL_REQUEST_STATE_OPEN = 3 [(pb.enumvalue.json).string = "open"];
   // Open, and the forge would merge it now.
   PULL_REQUEST_STATE_APPROVED = 4 [(pb.enumvalue.json).string = "approved"];

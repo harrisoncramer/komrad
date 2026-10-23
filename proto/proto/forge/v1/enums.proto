@@ -52,6 +52,6 @@ export enum MergeMethod {
   MERGE_METHOD_SQUASH = 2 [(pb.enumvalue.json).string = "squash"];
   // The commits are replayed onto the base branch one by one.
   MERGE_METHOD_REBASE = 3 [(pb.enumvalue.json).string = "rebase"];
-  // The base branch moves to the head commit, with no commit of its own.
+  // The base branch moves to the head commit, without a commit of its own.
   MERGE_METHOD_FAST_FORWARD = 4 [(pb.enumvalue.json).string = "fast_forward"];
 }

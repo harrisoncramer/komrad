@@ -34,7 +34,7 @@ const (
 	PullRequestState_PULL_REQUEST_STATE_UNREAD PullRequestState = 1
 	// Komrad read the repository and found no pull request from the branch.
 	PullRequestState_PULL_REQUEST_STATE_NONE PullRequestState = 2
-	// Open, with no review decision that decides it.
+	// Open, without a review decision that decides it.
 	PullRequestState_PULL_REQUEST_STATE_OPEN PullRequestState = 3
 	// Open, and the forge would merge it now.
 	PullRequestState_PULL_REQUEST_STATE_APPROVED PullRequestState = 4

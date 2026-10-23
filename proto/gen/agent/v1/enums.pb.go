@@ -85,7 +85,7 @@ const (
 	ReviewVerdict_REVIEW_VERDICT_APPROVED ReviewVerdict = 1
 	// The writer has more to do.
 	ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED ReviewVerdict = 2
-	// Comments with no conclusion either way.
+	// Comments without a conclusion either way.
 	ReviewVerdict_REVIEW_VERDICT_COMMENTED ReviewVerdict = 3
 )
 
@@ -256,7 +256,7 @@ const (
 	AgentState_AGENT_STATE_THINKING AgentState = 2
 	// The CLI is waiting for the person to answer a selection.
 	AgentState_AGENT_STATE_WAITING AgentState = 3
-	// The agent is launching and has no pane to read yet.
+	// The agent is launching and doesn't have a pane to read yet.
 	AgentState_AGENT_STATE_SETTING_UP AgentState = 4
 	// The launch failed. `retry_agent` launches the agent again.
 	AgentState_AGENT_STATE_FAILED_TO_CREATE AgentState = 5

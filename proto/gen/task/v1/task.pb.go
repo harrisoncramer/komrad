@@ -438,7 +438,7 @@ func (x *Parent) GetBlocked() CascadeBlock {
 
 type CreateTaskRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The task's slug. No task may have used it before.
+	// The task's slug. A task can't take a slug another task has used.
 	Slug string `protobuf:"bytes,1,opt,name=slug,proto3" json:"slug,omitempty"`
 	// The task's title.
 	Title string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`

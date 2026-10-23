@@ -294,7 +294,7 @@ const file_event_v1_event_proto_rawDesc = "" +
 	"\x16Task post-archive hook\x12Iruns after komrad archives a task's last live agent, and the task with it\x12\xa9\x01\n" +
 	"\x16MOMENT_TASK_PRE_DELETE\x10\x10\x1a\x8c\x01\xb2>\x11\n" +
 	"\x0ftask.pre-delete\xa2\xb5\x18t\n" +
-	"\x14Task pre-delete hook\x12\\runs as komrad deletes a task, before it releases the worktree, and a failure keeps the task0\x02*\xeb\x14\n" +
+	"\x14Task pre-delete hook\x12\\runs as komrad deletes a task, before it releases the worktree, and a failure keeps the task0\x02*\xed\x14\n" +
 	"\x05Event\x12\x15\n" +
 	"\x11EVENT_UNSPECIFIED\x10\x00\x12\xb3\x01\n" +
 	")EVENT_PULL_REQUEST_CHECKS_FAILING_RUNNING\x10\x01\x1a\x83\x01\xb2>%\n" +
@@ -345,10 +345,10 @@ const file_event_v1_event_proto_rawDesc = "" +
 	"\x0fReview approved\x12$a reviewer approved the agent's work\x12|\n" +
 	"\x1eEVENT_REVIEW_CHANGES_REQUESTED\x10\x10\x1aX\xb2>\x1a\n" +
 	"\x18review.changes_requested\xa2\xb5\x187\n" +
-	"\x17Review asks for changes\x12\x1ca reviewer asked for changes\x12\x80\x01\n" +
-	"\x16EVENT_REVIEW_COMMENTED\x10\x11\x1ad\xb2>\x12\n" +
-	"\x10review.commented\xa2\xb5\x18K\n" +
-	"\x10Review commented\x127a reviewer released comments with no verdict either way\x12\x83\x01\n" +
+	"\x17Review asks for changes\x12\x1ca reviewer asked for changes\x12\x82\x01\n" +
+	"\x16EVENT_REVIEW_COMMENTED\x10\x11\x1af\xb2>\x12\n" +
+	"\x10review.commented\xa2\xb5\x18M\n" +
+	"\x10Review commented\x129a reviewer released comments without a verdict either way\x12\x83\x01\n" +
 	" EVENT_REVIEW_COMMENTED_BY_PERSON\x10\x12\x1a]\xb2>\x1c\n" +
 	"\x1areview.commented_by_person\xa2\xb5\x18:\n" +
 	"\x10Person commented\x12&a person commented on the agent's work\x12\x8b\x01\n" +

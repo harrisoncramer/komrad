@@ -55,7 +55,7 @@ type TerminalServiceClient interface {
 	Attach(context.Context) *connect.BidiStreamForClient[v1.AttachRequest, v1.AttachResponse]
 	// SSH carries one SSH connection to a server on komrad's machine, until either side closes it.
 	// The server runs commands and shells as the account the agents run as, and forwards to ports and
-	// sockets there. It takes no password or key, since the stream is already signed in.
+	// sockets there. It doesn't take a password or key, since the stream is already signed in.
 	SSH(context.Context) *connect.BidiStreamForClient[v1.SSHRequest, v1.SSHResponse]
 	// GetSSHHostKey returns the public key of the SSH server that `SSH` reaches, so a client can trust
 	// it before connecting.
@@ -139,7 +139,7 @@ type TerminalServiceHandler interface {
 	Attach(context.Context, *connect.BidiStream[v1.AttachRequest, v1.AttachResponse]) error
 	// SSH carries one SSH connection to a server on komrad's machine, until either side closes it.
 	// The server runs commands and shells as the account the agents run as, and forwards to ports and
-	// sockets there. It takes no password or key, since the stream is already signed in.
+	// sockets there. It doesn't take a password or key, since the stream is already signed in.
 	SSH(context.Context, *connect.BidiStream[v1.SSHRequest, v1.SSHResponse]) error
 	// GetSSHHostKey returns the public key of the SSH server that `SSH` reaches, so a client can trust
 	// it before connecting.

@@ -122,7 +122,7 @@ message FileMapping {
   string old_path = 1;
   // The file's path in the later commit. Empty when the file is not in that commit.
   string new_path = 2;
-  // The lines the later commit changed. Empty for a file the patch shows no content for.
+  // The lines the later commit changed. Empty for a file the patch doesn't show content for.
   repeated RangeMapping ranges = 3;
 }
 

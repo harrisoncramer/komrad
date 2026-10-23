@@ -195,7 +195,8 @@ message CreateAgentRequest {
     // The task, by slug.
     string task_slug = 12 [(buf.validate.field).string.min_len = 1];
   }
-  // The slug of the task komrad creates when no task is named. No task may have used it before.
+  // The slug of the task komrad creates when the call doesn't name one. A task can't take a slug
+  // another task has used.
   // Unset to derive one from the agent's name.
   optional string new_task_slug = 9 [(buf.validate.field).string = {
     max_len: 80
@@ -268,7 +269,7 @@ message AdoptRequest {
   }];
   // The workflow to create the agent in, by id. The workflow's directory picks the repository.
   string workflow_id = 2 [(buf.validate.field).string.uuid = true];
-  // The agent's prompt. Empty to launch the CLI with no prompt.
+  // The agent's prompt. Empty to launch the CLI without a prompt.
   string prompt = 3 [(buf.validate.field).string.max_len = 50000];
   // The agent's name. Empty to have komrad name the agent.
   string title = 4 [(buf.validate.field).string = {
@@ -1098,7 +1099,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "create_review_thread"
-      description: "Start a thread on a line range of the diff under review, with the diff lines as `quoted_lines` and the snapshot's `sha` as `snapshot_sha`, or on the change as a whole with no file and no lines. Pass `suggestion` for exact replacement lines. The thread is released with `release_review`."
+      description: "Start a thread on a line range of the diff under review, with the diff lines as `quoted_lines` and the snapshot's `sha` as `snapshot_sha`, or on the change as a whole without a file or lines. Pass `suggestion` for exact replacement lines. The thread is released with `release_review`."
       mcp_guidance: "The body limit is a ceiling, not a length to aim for."
       destructive: false
       idempotent: false
@@ -1252,7 +1253,7 @@ service AgentService {
       cli: true
       mcp: true
       name: "take_review_snapshot"
-      description: "Take a snapshot of a task's checkout to review, the caller's task by default. Diff the snapshot's `base_sha` against its `sha` to read the change. A checkout with no change since the newest snapshot returns that snapshot."
+      description: "Take a snapshot of a task's checkout to review, the caller's task by default. Diff the snapshot's `base_sha` against its `sha` to read the change. A checkout that hasn't changed since the newest snapshot returns that snapshot."
       destructive: false
       idempotent: true
       roles: [ROLE_REVIEWER]
