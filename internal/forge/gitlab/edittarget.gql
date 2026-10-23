@@ -1,0 +1,11 @@
+query EditTarget($path: ID!, $iid: String!) {
+  project(fullPath: $path) {
+    mergeRequest(iid: $iid) {
+      title
+      description
+      userPermissions {
+        updateMergeRequest
+      }
+    }
+  }
+}

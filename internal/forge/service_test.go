@@ -80,6 +80,11 @@ func (f *fakeForge) SetBase(context.Context, string, string) error { return nil 
 func (f *fakeForge) SetAutoMerge(context.Context, SetAutoMergeParams) error { return nil }
 
 func (f *fakeForge) RequestRereview(context.Context, string) error { return nil }
+
+func (f *fakeForge) ReadText(context.Context, string) (*Text, error) { return &Text{}, nil }
+
+func (f *fakeForge) Edit(context.Context, EditParams) error { return nil }
+
 func (f *fakeForge) ReplyToThread(context.Context, ReplyToThreadParams) (string, error) {
 	return "", nil
 }

@@ -167,6 +167,7 @@ func TestGitMenuRefusals(t *testing.T) {
 		name        string
 		rows        []proto.Message
 		press       []string
+		staysOpen   bool
 		wantRefusal string
 	}{
 		{
@@ -221,72 +222,84 @@ func TestGitMenuRefusals(t *testing.T) {
 			name:        "the merge of a branch with no pull request",
 			rows:        buildUncutAgent(),
 			press:       []string{"f", "m"},
+			staysOpen:   true,
 			wantRefusal: "komrad has not read this task's repository yet",
 		},
 		{
 			name:        "the merge of a pull request that has already merged",
 			rows:        append(buildGitAgent(), newCurrentMergedPullRequest()),
 			press:       []string{"f", "m"},
+			staysOpen:   true,
 			wantRefusal: "its pull request has already merged",
 		},
 		{
 			name:        "the merge when ready of a draft",
 			rows:        append(buildGitAgent(), newQueueableDraft()),
 			press:       []string{"f", "u"},
+			staysOpen:   true,
 			wantRefusal: "its pull request is a draft, so mark it ready first",
 		},
 		{
 			name:        "the merge when ready of a pull request the forge will not queue",
 			rows:        append(buildGitAgent(), newOpenPullRequest()),
 			press:       []string{"f", "u"},
+			staysOpen:   true,
 			wantRefusal: "the forge refused to queue it",
 		},
 		{
 			name:        "the merge then rebase of a worktree part-way through a rebase",
 			rows:        append(buildRebasingGitAgent(), newOpenPullRequest()),
 			press:       []string{"f", "r"},
+			staysOpen:   true,
 			wantRefusal: "part-way through a rebase, merge or pick",
 		},
 		{
 			name:        "the merge then rebase of a branch with no pull request",
 			rows:        buildGitAgent(),
 			press:       []string{"f", "r"},
+			staysOpen:   true,
 			wantRefusal: "komrad has not read this task's repository yet",
 		},
 		{
 			name:        "the merge then rebase of a pull request a forge rule blocks",
 			rows:        append(buildGitAgent(), withMergeability(newOpenPullRequest(), pullrequestv1.Mergeability_MERGEABILITY_BLOCKED)),
 			press:       []string{"f", "r"},
+			staysOpen:   true,
 			wantRefusal: "its pull request is blocked by a rule on the forge, so merge it when ready instead",
 		},
 		{
 			name:        "the merge then rebase of a draft the forge blocks",
 			rows:        append(buildGitAgent(), withMergeability(newQueueableDraft(), pullrequestv1.Mergeability_MERGEABILITY_BLOCKED)),
 			press:       []string{"f", "r"},
+			staysOpen:   true,
 			wantRefusal: "its pull request is a draft, so mark it ready first",
 		},
 		{
 			name:        "the merge then rebase of a pull request behind its base branch",
 			rows:        append(buildGitAgent(), withMergeability(newOpenPullRequest(), pullrequestv1.Mergeability_MERGEABILITY_BEHIND)),
 			press:       []string{"f", "r"},
+			staysOpen:   true,
 			wantRefusal: "its pull request is behind the base branch, so rebase it first",
 		},
 		{
 			name:        "the merge then rebase of a pull request that conflicts with its base branch",
 			rows:        append(buildGitAgent(), withMergeability(newOpenPullRequest(), pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING)),
 			press:       []string{"f", "r"},
+			staysOpen:   true,
 			wantRefusal: "its pull request conflicts with the base branch, so rebase it first",
 		},
 		{
 			name:        "the draft toggle of a pull request that has already merged",
 			rows:        append(buildGitAgent(), newCurrentMergedPullRequest()),
 			press:       []string{"f", "d"},
+			staysOpen:   true,
 			wantRefusal: "its pull request has already merged",
 		},
 		{
 			name:        "the merge of a merge request that has already merged",
 			rows:        append(buildGitAgent(), onGitLab(newCurrentMergedPullRequest())),
 			press:       []string{"f", "m"},
+			staysOpen:   true,
 			wantRefusal: "its merge request has already merged",
 		},
 	}
@@ -299,7 +312,11 @@ func TestGitMenuRefusals(t *testing.T) {
 
 			harness.Press(tt.press...)
 
-			assert.NotContains(t, harness.Frame(), gitMenuEntry)
+			if tt.staysOpen {
+				assert.Equal(t, forgeTrail, paneltest.Trail(harness.Frame()))
+			} else {
+				assert.NotContains(t, harness.Frame(), gitMenuEntry)
+			}
 			assert.Contains(t, harness.ReadMessages(), tt.wantRefusal)
 		})
 	}
@@ -321,21 +338,27 @@ func TestGitMenuMerges(t *testing.T) {
 		forge       forgev1.Kind
 		press       []string
 		refuse      error
+		shown       *pullrequestv1.PullRequest
 		wantMerges  []proto.Message
 		wantArchive []proto.Message
+		wantMenu    bool
 		wantMessage string
 	}{
 		{
 			name:        "merge leaves the task where it is",
 			press:       []string{"m", "enter"},
+			shown:       newCurrentMergedPullRequest(),
 			wantMerges:  []proto.Message{merge},
+			wantMenu:    true,
 			wantMessage: "task-a1: merged #740",
 		},
 		{
 			name:        "merge names a merge request the way GitLab does",
 			forge:       forgev1.Kind_KIND_GITLAB,
 			press:       []string{"m", "enter"},
+			shown:       onGitLab(newCurrentMergedPullRequest()),
 			wantMerges:  []proto.Message{merge},
+			wantMenu:    true,
 			wantMessage: "task-a1: merged !740",
 		},
 		{
@@ -372,12 +395,19 @@ func TestGitMenuMerges(t *testing.T) {
 			}
 
 			harness.Press("f")
-			require.Equal(t, "agents › task-a1 › git › forge", paneltest.Trail(harness.Frame()))
+			require.Equal(t, forgeTrail, paneltest.Trail(harness.Frame()))
 			harness.Press(tt.press...)
+			if tt.shown != nil {
+				showPullRequest(harness, tt.shown)
+			}
 
 			harness.AssertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.wantMerges...)
 			harness.AssertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, tt.wantArchive...)
-			assert.NotContains(t, harness.Frame(), "merge and archive")
+			if tt.wantMenu {
+				assert.Equal(t, forgeTrail, paneltest.Trail(harness.Frame()))
+			} else {
+				assert.NotContains(t, harness.Frame(), "merge and archive")
+			}
 			if tt.wantMessage != "" {
 				assert.Contains(t, harness.ReadMessages(), tt.wantMessage)
 			}
@@ -393,11 +423,13 @@ func TestGitMenuMergesThenRebases(t *testing.T) {
 	tests := []struct {
 		name         string
 		refuse       error
+		shown        *pullrequestv1.PullRequest
 		wantRebases  []proto.Message
 		wantMessages []string
 	}{
 		{
 			name:         "a merged pull request has its worktree moved onto the base",
+			shown:        newCurrentMergedPullRequest(),
 			wantRebases:  []proto.Message{&agentv1.RebaseWorktreeRequest{Task: &agentv1.RebaseWorktreeRequest_TaskId{TaskId: "task-a1"}}},
 			wantMessages: []string{"task-a1: merged #740", "task-a1: moved onto main"},
 		},
@@ -426,6 +458,9 @@ func TestGitMenuMergesThenRebases(t *testing.T) {
 			})
 
 			harness.Press("f", "r", "enter")
+			if tt.shown != nil {
+				showPullRequest(harness, tt.shown)
+			}
 
 			harness.AssertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, &forgev1.MergeForgePullRequestRequest{
 				Url:     pullRequestURL,
@@ -434,7 +469,7 @@ func TestGitMenuMergesThenRebases(t *testing.T) {
 			})
 			harness.AssertSentTo(agentv1connect.AgentServiceRebaseWorktreeProcedure, tt.wantRebases...)
 			harness.AssertSentTo(agentv1connect.AgentServicePlanRebaseProcedure)
-			assert.NotContains(t, harness.Frame(), "merge then rebase")
+			assert.Equal(t, forgeTrail, paneltest.Trail(harness.Frame()))
 			messages := harness.ReadMessages()
 			for _, want := range tt.wantMessages {
 				assert.Contains(t, messages, want)
@@ -460,7 +495,9 @@ func TestGitMenuMergesWhenReady(t *testing.T) {
 		pullRequest *pullrequestv1.PullRequest
 		press       []string
 		refuse      error
+		shown       *pullrequestv1.PullRequest
 		wantLabel   string
+		wantRelabel string
 		wantPlans   []proto.Message
 		wantSent    proto.Message
 		wantMessage string
@@ -471,6 +508,7 @@ func TestGitMenuMergesWhenReady(t *testing.T) {
 			press:       []string{"u", "enter"},
 			refuse:      connect.NewError(connect.CodeFailedPrecondition, errors.New("github will not change auto-merge on #740: Head sha didn't match expected")),
 			wantLabel:   "merge when ready",
+			wantRelabel: "merge when ready",
 			wantPlans:   []proto.Message{&forgev1.PlanForgePullRequestMergeRequest{Url: pullRequestURL}},
 			wantSent:    queue,
 			wantMessage: "Head sha didn't match expected",
@@ -479,7 +517,9 @@ func TestGitMenuMergesWhenReady(t *testing.T) {
 			name:        "a pull request the forge would queue is queued at the head the panel holds",
 			pullRequest: newQueueablePullRequest(),
 			press:       []string{"u", "enter"},
+			shown:       newAutoMergedPullRequest(),
 			wantLabel:   "merge when ready",
+			wantRelabel: "cancel auto-merge",
 			wantPlans:   []proto.Message{&forgev1.PlanForgePullRequestMergeRequest{Url: pullRequestURL}},
 			wantSent:    queue,
 			wantMessage: "task-a1: #740 merges when ready",
@@ -488,7 +528,9 @@ func TestGitMenuMergesWhenReady(t *testing.T) {
 			name:        "a queued pull request stops waiting without asking how it would merge",
 			pullRequest: newAutoMergedPullRequest(),
 			press:       []string{"u"},
+			shown:       newQueueablePullRequest(),
 			wantLabel:   "cancel auto-merge",
+			wantRelabel: "merge when ready",
 			wantSent:    &forgev1.SetForgePullRequestAutoMergeRequest{Url: pullRequestURL, HeadSha: "new"},
 			wantMessage: "task-a1: #740 no longer merges on its own",
 		},
@@ -507,11 +549,15 @@ func TestGitMenuMergesWhenReady(t *testing.T) {
 			require.Contains(t, harness.Frame(), tt.wantLabel)
 
 			harness.Press(tt.press...)
+			if tt.shown != nil {
+				showPullRequest(harness, tt.shown)
+			}
 
 			harness.AssertSentTo(forgev1connect.ForgeServicePlanForgePullRequestMergeProcedure, tt.wantPlans...)
 			harness.AssertSentTo(forgev1connect.ForgeServiceSetForgePullRequestAutoMergeProcedure, tt.wantSent)
 			frame := harness.Frame()
-			assert.NotContains(t, frame, tt.wantLabel)
+			assert.Equal(t, forgeTrail, paneltest.Trail(frame))
+			assert.Contains(t, frame, tt.wantRelabel)
 			assert.NotContains(t, frame, "Merge #740 when ready")
 			assert.Contains(t, harness.ReadMessages(), tt.wantMessage)
 		})
@@ -890,21 +936,27 @@ func TestGitMenuTogglesDraft(t *testing.T) {
 		name        string
 		pullRequest *pullrequestv1.PullRequest
 		refuse      error
+		shown       *pullrequestv1.PullRequest
 		wantLabel   string
+		wantRelabel string
 		wantSent    proto.Message
 		wantMessage string
 	}{
 		{
 			name:        "an open pull request is made a draft",
 			pullRequest: newOpenPullRequest(),
+			shown:       drafted,
 			wantLabel:   "toggle draft on",
+			wantRelabel: "toggle draft off",
 			wantSent:    &forgev1.SetForgePullRequestDraftRequest{Url: pullRequestURL, Draft: true},
 			wantMessage: "task-a1: #740 is a draft",
 		},
 		{
 			name:        "a draft is marked ready for review",
 			pullRequest: drafted,
+			shown:       newOpenPullRequest(),
 			wantLabel:   "toggle draft off",
+			wantRelabel: "toggle draft on",
 			wantSent:    &forgev1.SetForgePullRequestDraftRequest{Url: pullRequestURL},
 			wantMessage: "task-a1: #740 is ready for review",
 		},
@@ -913,6 +965,7 @@ func TestGitMenuTogglesDraft(t *testing.T) {
 			pullRequest: newOpenPullRequest(),
 			refuse:      connect.NewError(connect.CodeFailedPrecondition, errors.New("github will not change #740: Draft pull requests are not supported")),
 			wantLabel:   "toggle draft on",
+			wantRelabel: "toggle draft on",
 			wantSent:    &forgev1.SetForgePullRequestDraftRequest{Url: pullRequestURL, Draft: true},
 			wantMessage: "Draft pull requests are not supported",
 		},
@@ -930,9 +983,14 @@ func TestGitMenuTogglesDraft(t *testing.T) {
 			require.Contains(t, harness.Frame(), tt.wantLabel)
 
 			harness.Press("d")
+			if tt.shown != nil {
+				showPullRequest(harness, tt.shown)
+			}
 
 			harness.AssertSentTo(forgev1connect.ForgeServiceSetForgePullRequestDraftProcedure, tt.wantSent)
-			assert.NotContains(t, harness.Frame(), gitMenuEntry)
+			frame := harness.Frame()
+			assert.Equal(t, forgeTrail, paneltest.Trail(frame))
+			assert.Contains(t, frame, tt.wantRelabel)
 			assert.Contains(t, harness.ReadMessages(), tt.wantMessage)
 		})
 	}
@@ -952,18 +1010,21 @@ func TestGitMenuRequestsRereview(t *testing.T) {
 		name        string
 		pullRequest *pullrequestv1.PullRequest
 		refuse      error
+		shown       *pullrequestv1.PullRequest
 		wantSent    []proto.Message
 		wantMessage string
 	}{
 		{
 			name:        "a pull request with changes requested is sent back to its reviewers",
 			pullRequest: changesRequested,
+			shown:       rereviewRequested,
 			wantSent:    []proto.Message{&forgev1.RequestForgePullRequestRereviewRequest{Url: pullRequestURL}},
 			wantMessage: "task-a1: #740 is waiting on another review",
 		},
 		{
 			name:        "a pull request already waiting on another review is asked again",
 			pullRequest: rereviewRequested,
+			shown:       rereviewRequested,
 			wantSent:    []proto.Message{&forgev1.RequestForgePullRequestRereviewRequest{Url: pullRequestURL}},
 			wantMessage: "task-a1: #740 is waiting on another review",
 		},
@@ -992,10 +1053,147 @@ func TestGitMenuRequestsRereview(t *testing.T) {
 			require.Contains(t, harness.Frame(), "re-request review")
 
 			harness.Press("v")
+			if tt.shown != nil {
+				showPullRequest(harness, tt.shown)
+			}
 
 			harness.AssertSentTo(forgev1connect.ForgeServiceRequestForgePullRequestRereviewProcedure, tt.wantSent...)
 			if tt.wantMessage != "" {
-				assert.NotContains(t, harness.Frame(), gitMenuEntry)
+				assert.Equal(t, forgeTrail, paneltest.Trail(harness.Frame()))
+				assert.Contains(t, harness.ReadMessages(), tt.wantMessage)
+			}
+		})
+	}
+}
+
+// TestGitMenuEditsThePullRequest covers the entry reading the pull request's title and description
+// from the forge into a form and sending back only what the person changed.
+func TestGitMenuEditsThePullRequest(t *testing.T) {
+	t.Parallel()
+
+	read := &forgev1.PullRequestText{Title: "Add the merge form", Body: "Pick a method before merging."}
+
+	t.Run("the form opens on the text the forge holds", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openEditForm(t, read)
+
+		frame := harness.Frame()
+		assert.Contains(t, frame, "Edit #740")
+		assert.Contains(t, frame, "Add the merge form")
+		assert.Contains(t, frame, "Pick a method before merging.")
+		harness.AssertSentTo(forgev1connect.ForgeServiceReadForgePullRequestTextProcedure, &forgev1.ReadForgePullRequestTextRequest{Url: pullRequestURL})
+	})
+
+	t.Run("a forge that will not give the text says why and opens nothing", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
+		harness.Refuse(forgev1connect.ForgeServiceReadForgePullRequestTextProcedure, connect.NewError(connect.CodeFailedPrecondition, errors.New("github will not let the credential change #740")))
+
+		harness.Press("f", "e")
+
+		assert.NotContains(t, harness.Frame(), "Edit #740")
+		assert.Contains(t, harness.ReadMessages(), "github will not let the credential change #740")
+		harness.AssertSentTo(forgev1connect.ForgeServiceEditForgePullRequestProcedure)
+	})
+
+	t.Run("a description written with carriage returns stays out of a title edit", func(t *testing.T) {
+		t.Parallel()
+
+		carried := &forgev1.PullRequestText{Title: "Add the merge form", Body: "Pick a method.\r\n\r\nThen merge."}
+		harness := openEditForm(t, carried)
+
+		harness.Press(slices.Concat(strings.Split(" now", ""), []string{"tab", "enter"})...)
+
+		harness.AssertSentTo(forgev1connect.ForgeServiceEditForgePullRequestProcedure, &forgev1.EditForgePullRequestRequest{
+			Url:        pullRequestURL,
+			EditedFrom: carried,
+			Title:      xptr.Ptr("Add the merge form now"),
+		})
+	})
+
+	retitled := newOpenPullRequest()
+	retitled.Title = "Add the merge form now"
+	redescribed := newOpenPullRequest()
+	redescribed.Body = "Pick a method before merging. Twice."
+
+	tests := []struct {
+		name        string
+		press       []string
+		refuse      error
+		shown       *pullrequestv1.PullRequest
+		wantEdits   []proto.Message
+		wantMessage string
+		wantFrame   string
+	}{
+		{
+			name:  "an edited title goes without the description",
+			press: slices.Concat(strings.Split(" now", ""), []string{"tab", "enter"}),
+			shown: retitled,
+			wantEdits: []proto.Message{&forgev1.EditForgePullRequestRequest{
+				Url:        pullRequestURL,
+				EditedFrom: read,
+				Title:      xptr.Ptr("Add the merge form now"),
+			}},
+			wantMessage: "task-a1: edited #740",
+		},
+		{
+			name:  "an edited description goes without the title",
+			press: slices.Concat([]string{"tab"}, strings.Split(" Twice.", ""), []string{"enter"}),
+			shown: redescribed,
+			wantEdits: []proto.Message{&forgev1.EditForgePullRequestRequest{
+				Url:        pullRequestURL,
+				EditedFrom: read,
+				Body:       xptr.Ptr("Pick a method before merging. Twice."),
+			}},
+			wantMessage: "task-a1: edited #740",
+		},
+		{
+			name:  "an edit the forge refuses says why",
+			press: slices.Concat(strings.Split(" now", ""), []string{"tab", "enter"}),
+			refuse: connect.NewError(connect.CodeFailedPrecondition,
+				errors.New("the title of #740 changed on github since it was read")),
+			wantEdits: []proto.Message{&forgev1.EditForgePullRequestRequest{
+				Url:        pullRequestURL,
+				EditedFrom: read,
+				Title:      xptr.Ptr("Add the merge form now"),
+			}},
+			wantMessage: "the title of #740 changed on github since it was read",
+		},
+		{
+			name:  "unchanged text sends nothing",
+			press: []string{"tab", "enter"},
+		},
+		{
+			name:      "a cleared title is not sent",
+			press:     []string{"ctrl+u", "tab", "enter"},
+			wantFrame: "a pull request needs a title",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := openEditForm(t, read)
+			if tt.refuse != nil {
+				harness.Refuse(forgev1connect.ForgeServiceEditForgePullRequestProcedure, tt.refuse)
+			}
+
+			harness.Press(tt.press...)
+			if tt.shown != nil {
+				showPullRequest(harness, tt.shown)
+			}
+
+			harness.AssertSentTo(forgev1connect.ForgeServiceEditForgePullRequestProcedure, tt.wantEdits...)
+			if tt.wantFrame != "" {
+				assert.Contains(t, harness.Frame(), tt.wantFrame)
+
+				return
+			}
+			assert.Equal(t, forgeTrail, paneltest.Trail(harness.Frame()))
+			if tt.wantMessage != "" {
 				assert.Contains(t, harness.ReadMessages(), tt.wantMessage)
 			}
 		})
@@ -1062,6 +1260,7 @@ func TestGitMenuCopiesThePullRequestURL(t *testing.T) {
 
 const (
 	gitMenuEntry   = "rebase with base"
+	forgeTrail     = "agents › task-a1 › git › forge"
 	repositoryURL  = "https://github.com/harrisoncramer/komrad"
 	pullRequestURL = "https://github.com/harrisoncramer/komrad/pull/740"
 )
@@ -1235,4 +1434,21 @@ func withMergeability(pullRequest *pullrequestv1.PullRequest, mergeability pullr
 	pullRequest.MergeReadiness = &pullrequestv1.MergeReadiness{Mergeability: mergeability}
 
 	return pullRequest
+}
+
+// showPullRequest has the list catch up with what the forge now says of the pull request.
+func showPullRequest(harness *paneltest.Panel, pullRequest *pullrequestv1.PullRequest) {
+	harness.Watch(paneltest.Snapshot(append(buildGitAgent(), pullRequest)...))
+}
+
+// openEditForm opens the edit form on a pull request whose forge holds read.
+func openEditForm(t *testing.T, read *forgev1.PullRequestText) *paneltest.Panel {
+	t.Helper()
+
+	harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
+	harness.Answer(forgev1connect.ForgeServiceReadForgePullRequestTextProcedure, paneltest.AnswerWith(read))
+	harness.Press("f", "e")
+	require.Contains(t, harness.Frame(), "Edit #740")
+
+	return harness
 }

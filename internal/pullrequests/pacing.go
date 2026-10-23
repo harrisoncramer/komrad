@@ -41,6 +41,8 @@ type pacing struct {
 	slowed map[string]time.Time
 	// woken says every repository is due on the next pass.
 	woken bool
+	// written is the hosts komrad wrote to since the last pass, whose repositories are due on the next.
+	written map[string]bool
 }
 
 // repositoryPace is where one repository stands in the pacing.
@@ -61,6 +63,7 @@ func newPacing() *pacing {
 		repositories: map[string]*repositoryPace{},
 		wroteAt:      map[string]time.Time{},
 		slowed:       map[string]time.Time{},
+		written:      map[string]bool{},
 	}
 }
 
@@ -76,23 +79,28 @@ type candidate struct {
 	askedAt time.Time
 }
 
-// pick is the repositories due now, consuming a wake.
+// pick is the repositories due now, consuming a wake and the hosts written to.
 func (p *pacing) pick(candidates []candidate, now time.Time) []candidate {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	woken := p.woken
-	p.woken = false
+	woken, written := p.woken, p.written
+	p.woken, p.written = false, map[string]bool{}
 
 	due := []candidate{}
 	for _, next := range candidates {
-		if woken || p.isDue(next, now) {
+		if woken || p.isWritten(written, next.remote.Host, now) || p.isDue(next, now) {
 			next.askedAt = now
 			due = append(due, next)
 		}
 	}
 
 	return due
+}
+
+// isWritten says whether komrad wrote to the host since the last pass while its budget lasts.
+func (p *pacing) isWritten(written map[string]bool, host string, now time.Time) bool {
+	return written[host] && !now.Before(p.slowed[host])
 }
 
 // isDue says whether a repository is read on this pass.
@@ -157,12 +165,14 @@ func (p *pacing) record(repository candidate) *repositoryPace {
 	return last
 }
 
-// readOften keeps every repository on the host hot for a while from now.
+// readOften makes every repository on the host due on the next pass and keeps it hot for a while
+// from now.
 func (p *pacing) readOften(host string, now time.Time) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	p.wroteAt[host] = now
+	p.written[host] = true
 }
 
 // slow keeps every repository on the host in the slow lane until the moment.

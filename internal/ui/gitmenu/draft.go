@@ -51,6 +51,7 @@ func (g Menus) toggleDraft(task panel.Task) screen.Request {
 		Send: func() screen.WriteResult {
 			return screen.WriteResult{
 				Err:           clients.SetPullRequestDraft(standing.URL, draft),
+				WaitFor:       screen.WaitFor{Shows: showsTask(task.ID, func(task panel.Task) bool { return isDraft(task) == draft })},
 				SuccessNotice: &screen.Notice{Summary: task.Slug + ": " + standing.Ref() + said, Detail: standing.Title},
 			}
 		},

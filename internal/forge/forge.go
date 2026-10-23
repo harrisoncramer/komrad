@@ -44,6 +44,12 @@ var ErrNoAutoMerge = fail.Precondition("the forge will not change auto-merge on 
 // ErrNoRereview says the forge has nobody to ask for another review of a pull request.
 var ErrNoRereview = fail.Precondition("the forge has nobody to ask for another review")
 
+// ErrNotEditable says the forge refused to change a pull request's title or description.
+var ErrNotEditable = fail.Precondition("the forge will not change the pull request's title or description")
+
+// ErrTextMoved says a pull request's title or description changed on the forge after the caller read it.
+var ErrTextMoved = fail.Precondition("the pull request's title or description changed on the forge since it was read")
+
 // ErrReplyRefused says the forge turned a reply down without posting it.
 var ErrReplyRefused = fail.Precondition("the forge will not take the reply")
 
@@ -260,6 +266,11 @@ type Forge interface {
 	// RequestRereview asks every reviewer who requested changes on the pull request at the web
 	// address to review it again.
 	RequestRereview(ctx context.Context, url string) error
+	// ReadText is the title and description of the pull request at the web address, refused when
+	// the credential may not change them.
+	ReadText(ctx context.Context, url string) (*Text, error)
+	// Edit changes the title or description of the pull request.
+	Edit(ctx context.Context, params EditParams) error
 	// ReplyToThread posts a reply in a pull request's thread and answers the new comment's id.
 	ReplyToThread(ctx context.Context, params ReplyToThreadParams) (string, error)
 }

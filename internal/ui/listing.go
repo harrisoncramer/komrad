@@ -212,7 +212,7 @@ func (m *model) finishWrite(result writeResult) tea.Cmd {
 		switch {
 		case landed.FollowUpReplacesForm:
 		case landed.Err == nil || m.form.ClosesOnRefusal:
-			cmds = append(cmds, m.closeForm())
+			cmds = append(cmds, m.reopenMenus(m.form.returnTo))
 		default:
 			m.form.refusal = errui.GetReason(landed.Err)
 			m.messages.setNewestHint("fix and submit again")

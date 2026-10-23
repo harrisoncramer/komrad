@@ -6,6 +6,7 @@ import (
 	"komrad/internal/ui/api"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -52,4 +53,19 @@ func (g Menus) openURLCmd(target string) tea.Cmd {
 
 func applyURLOpened(msg urlOpenedMsg) screen.Request {
 	return screen.Report{Summary: "Could not open " + msg.target, Err: msg.err}
+}
+
+// showsTask waits for the listing to hold the task the way check says, and passes once the task has
+// left it.
+func showsTask(taskID string, check func(panel.Task) bool) func(panel.Listing) bool {
+	return func(l panel.Listing) bool {
+		task, ok := l.Tasks[taskID]
+
+		return !ok || check(task)
+	}
+}
+
+// showsState waits for the task's current pull request to stand in state.
+func showsState(taskID string, state pullrequestv1.PullRequestState) func(panel.Listing) bool {
+	return showsTask(taskID, func(task panel.Task) bool { return task.PullRequest.State == state })
 }

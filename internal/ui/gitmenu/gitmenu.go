@@ -25,6 +25,7 @@ const (
 	gitChoicePush
 	gitChoiceOpenPullRequest
 	gitChoiceCopyPullRequestURL
+	gitChoiceEditPullRequest
 	gitChoiceToggleDraft
 	gitChoiceRequestRereview
 )
@@ -69,6 +70,8 @@ func (g Menus) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 		return g.applyMergePlanned(msg), true
 	case urlOpenedMsg:
 		return applyURLOpened(msg), true
+	case textReadMsg:
+		return g.applyTextRead(msg), true
 	}
 
 	return nil, false
@@ -110,6 +113,7 @@ func (g Menus) Git(l panel.Listing, task panel.Task) menu.Menu {
 	return menu.Menu{
 		Title:   "git",
 		Entries: slices.Concat(worktreeEntries, g.branchEntries(l, task)),
+		Rebuild: rebuild(taskID, g.Git),
 	}
 }
 
@@ -118,6 +122,7 @@ func (g Menus) PullRequestGit(l panel.Listing, task panel.Task) menu.Menu {
 	return menu.Menu{
 		Title:   "git",
 		Entries: g.branchEntries(l, task),
+		Rebuild: rebuild(task.ID, g.PullRequestGit),
 	}
 }
 
@@ -139,14 +144,17 @@ func (g Menus) branchEntries(l panel.Listing, task panel.Task) []menu.Entry {
 // forgeMenu is the actions on a task's pull request, opened from the git menu, with the ways to
 // merge it under a rule.
 func (g Menus) forgeMenu(l panel.Listing, task panel.Task) menu.Menu {
-	return menu.Join(
+	forge := menu.Join(
 		menu.Menu{Title: "forge", Entries: g.pullRequestEntries(task)},
 		menu.Menu{Entries: g.mergeEntries(l, task)},
 	)
+	forge.Rebuild = rebuild(task.ID, g.forgeMenu)
+
+	return forge
 }
 
-// pullRequestEntries are the forge menu's entries that open, copy, draft or re-request review on a
-// task's pull request.
+// pullRequestEntries are the forge menu's entries that open, copy, edit, draft or re-request
+// review on a task's pull request.
 func (g Menus) pullRequestEntries(task panel.Task) []menu.Entry {
 	return []menu.Entry{
 		{
@@ -164,17 +172,24 @@ func (g Menus) pullRequestEntries(task panel.Task) []menu.Entry {
 			Pick:      g.gitWrite(task.ID, gitChoiceCopyPullRequestURL),
 		},
 		{
+			Label:     "edit " + task.PullRequest.Abbrev(),
+			Keys:      g.deps.Keys.Forge.Edit,
+			IsDimmed:  task.PullRequest.URL == "",
+			AfterPick: menu.StayOpenAfterWrite,
+			Pick:      g.gitWrite(task.ID, gitChoiceEditPullRequest),
+		},
+		{
 			Label:     draftLabel(task),
 			Keys:      g.deps.Keys.Forge.ToggleDraft,
 			IsDimmed:  openPullRequestRefusal(task) != nil,
-			AfterPick: menu.KeepOpenWhileWriting,
+			AfterPick: menu.StayOpenAfterWrite,
 			Pick:      g.gitWrite(task.ID, gitChoiceToggleDraft),
 		},
 		{
 			Label:     "re-request review",
 			Keys:      g.deps.Keys.Forge.RequestRereview,
 			IsDimmed:  rereviewRefusal(task) != nil,
-			AfterPick: menu.KeepOpenWhileWriting,
+			AfterPick: menu.StayOpenAfterWrite,
 			Pick:      g.gitWrite(task.ID, gitChoiceRequestRereview),
 		},
 	}
@@ -346,6 +361,8 @@ func (g Menus) runGitChoice(in screen.Inputs, taskID string, choice gitChoice) s
 		return g.openPullRequest(task)
 	case gitChoiceCopyPullRequestURL:
 		return copyPullRequestURL(task)
+	case gitChoiceEditPullRequest:
+		return g.readText(task)
 	case gitChoiceToggleDraft:
 		return g.toggleDraft(task)
 	case gitChoiceRequestRereview:
@@ -353,6 +370,18 @@ func (g Menus) runGitChoice(in screen.Inputs, taskID string, choice gitChoice) s
 	}
 
 	return nil
+}
+
+// rebuild is a menu's Rebuild, building it again on the task as the listing now holds it.
+func rebuild(taskID string, build func(panel.Listing, panel.Task) menu.Menu) func(panel.Listing) (menu.Menu, bool) {
+	return func(l panel.Listing) (menu.Menu, bool) {
+		task, ok := findTask(l, taskID)
+		if !ok {
+			return menu.Menu{}, false
+		}
+
+		return build(l, task), true
+	}
 }
 
 // findTask returns the task the menu opened on, as the list holds it now.

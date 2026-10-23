@@ -47,6 +47,7 @@ const (
 	autoMergeTimeout = 30 * time.Second
 	draftTimeout     = 30 * time.Second
 	rereviewTimeout  = 30 * time.Second
+	editTimeout      = 30 * time.Second
 	rebaseTimeout    = 30 * time.Second
 )
 
@@ -301,6 +302,29 @@ func (a Clients) SetPullRequestDraft(address string, draft bool) error {
 func (a Clients) RequestPullRequestRereview(address string) error {
 	_, err := Call(rereviewTimeout, func(ctx context.Context) (any, error) {
 		return a.Forges.RequestForgePullRequestRereview(ctx, connect.NewRequest(&forgev1.RequestForgePullRequestRereviewRequest{Url: address}))
+	})
+
+	return err
+}
+
+// ReadPullRequestText reads the title and description of the pull request at the address, refused
+// when the forge will not let komrad change them.
+func (a Clients) ReadPullRequestText(address string) (*forgev1.PullRequestText, error) {
+	return Call(editTimeout, func(ctx context.Context) (*forgev1.PullRequestText, error) {
+		resp, err := a.Forges.ReadForgePullRequestText(ctx, connect.NewRequest(&forgev1.ReadForgePullRequestTextRequest{Url: address}))
+		if err != nil {
+			return nil, err
+		}
+
+		return resp.Msg, nil
+	})
+}
+
+// EditPullRequest asks the forge to change the title, description or both of the pull request at
+// the address, refused once a changed field has moved from the text it was edited from.
+func (a Clients) EditPullRequest(req *forgev1.EditForgePullRequestRequest) error {
+	_, err := Call(editTimeout, func(ctx context.Context) (any, error) {
+		return a.Forges.EditForgePullRequest(ctx, connect.NewRequest(req))
 	})
 
 	return err

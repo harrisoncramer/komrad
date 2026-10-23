@@ -152,3 +152,115 @@ func TestSetForgePullRequestAutoMerge(t *testing.T) {
 		Headline: xptr.Ptr("Land the fix"),
 	}}, writer.autoMerged)
 }
+
+// TestReadForgePullRequestText pins the text reaching the caller and a refusal reaching it as a
+// failed precondition.
+func TestReadForgePullRequestText(t *testing.T) {
+	tests := []struct {
+		name     string
+		writer   *fakeWriter
+		wantCode connect.Code
+		wantText *forgev1.PullRequestText
+	}{
+		{
+			name:     "a pull request the credential may not change",
+			writer:   &fakeWriter{err: forge.ErrNotEditable},
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name:     "an editable pull request",
+			writer:   &fakeWriter{text: forge.Text{Title: "Land the fix", Body: "Merges stop failing."}},
+			wantText: &forgev1.PullRequestText{Title: "Land the fix", Body: "Merges stop failing."},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(&fakeConnector{}, tt.writer)}
+
+			resp, err := service.ReadForgePullRequestText(t.Context(), connect.NewRequest(&forgev1.ReadForgePullRequestTextRequest{
+				Url: "https://github.com/harrisoncramer/komrad/pull/1",
+			}))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantText.GetTitle(), resp.Msg.GetTitle())
+			assert.Equal(t, tt.wantText.GetBody(), resp.Msg.GetBody())
+		})
+	}
+}
+
+// TestEditForgePullRequest pins the fields reaching the writer and text that moved reaching the
+// caller as a failed precondition.
+func TestEditForgePullRequest(t *testing.T) {
+	const address = "https://github.com/harrisoncramer/komrad/pull/1"
+	read := &forgev1.PullRequestText{Title: "Land the fix", Body: "Merges stop failing."}
+
+	tests := []struct {
+		name       string
+		req        *forgev1.EditForgePullRequestRequest
+		err        error
+		wantCode   connect.Code
+		wantEdited []forge.EditParams
+	}{
+		{
+			name: "text that moved since it was read",
+			req: &forgev1.EditForgePullRequestRequest{
+				Url:        address,
+				EditedFrom: read,
+				Title:      xptr.Ptr("Land the merge fix"),
+			},
+			err:      forge.ErrTextMoved,
+			wantCode: connect.CodeFailedPrecondition,
+			wantEdited: []forge.EditParams{{
+				URL:        address,
+				EditedFrom: forge.Text{Title: "Land the fix", Body: "Merges stop failing."},
+				Title:      xptr.Ptr("Land the merge fix"),
+			}},
+		},
+		{
+			name: "a title alone",
+			req: &forgev1.EditForgePullRequestRequest{
+				Url:        address,
+				EditedFrom: read,
+				Title:      xptr.Ptr("Land the merge fix"),
+			},
+			wantEdited: []forge.EditParams{{
+				URL:        address,
+				EditedFrom: forge.Text{Title: "Land the fix", Body: "Merges stop failing."},
+				Title:      xptr.Ptr("Land the merge fix"),
+			}},
+		},
+		{
+			name: "a description cleared",
+			req: &forgev1.EditForgePullRequestRequest{
+				Url:        address,
+				EditedFrom: read,
+				Body:       xptr.Ptr(""),
+			},
+			wantEdited: []forge.EditParams{{
+				URL:        address,
+				EditedFrom: forge.Text{Title: "Land the fix", Body: "Merges stop failing."},
+				Body:       xptr.Ptr(""),
+			}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			writer := &fakeWriter{err: tt.err}
+			service := forgev1komrad.ForgeServiceAdapter{Impl: NewHandler(&fakeConnector{}, writer)}
+
+			_, err := service.EditForgePullRequest(t.Context(), connect.NewRequest(tt.req))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tt.wantEdited, writer.edited)
+		})
+	}
+}

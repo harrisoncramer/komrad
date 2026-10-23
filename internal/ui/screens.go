@@ -533,6 +533,13 @@ func (m *model) apply(request screen.Request) tea.Cmd {
 	case menu.Open:
 		return m.openForm(submenuState(nil, newSubmenuLevel(request.Menu)))
 	case form.Open:
+		if returnTo := m.form.returnTo; returnTo != nil {
+			beside := openedFormState(request.Form)
+			beside.returnTo = returnTo
+
+			return m.stackForm(returnTo, returnTo, beside)
+		}
+
 		return m.openForm(openedFormState(request.Form))
 	case form.Close:
 		return m.closeForm()

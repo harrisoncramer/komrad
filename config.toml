@@ -229,6 +229,9 @@ pick_fork_point  = ["s"]
 open_pull_request     = ["o"]
 # Copy the address of the hovered task's current pull request to your clipboard.
 copy_pull_request_url = ["c"]
+# Change the title and description of the hovered task's pull request, in a form that opens
+# on what the forge holds now.
+edit                  = ["e"]
 # Mark the hovered task's pull request a draft, or ready for review when it is one.
 toggle_draft          = ["d"]
 # Ask everyone who requested changes on the hovered task's pull request to review it again.

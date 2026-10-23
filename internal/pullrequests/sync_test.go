@@ -101,6 +101,13 @@ func (f *scriptedForge) SetBase(context.Context, string, string) error { return 
 func (f *scriptedForge) SetAutoMerge(context.Context, forge.SetAutoMergeParams) error { return nil }
 
 func (f *scriptedForge) RequestRereview(context.Context, string) error { return nil }
+
+func (f *scriptedForge) ReadText(context.Context, string) (*forge.Text, error) {
+	return &forge.Text{}, nil
+}
+
+func (f *scriptedForge) Edit(context.Context, forge.EditParams) error { return nil }
+
 func (f *scriptedForge) ReplyToThread(context.Context, forge.ReplyToThreadParams) (string, error) {
 	return "", nil
 }
@@ -490,6 +497,19 @@ func TestSyncReadsAHotRepositoryEveryFiveSeconds(t *testing.T) {
 			},
 		},
 		{
+			name: "a write on a host whose budget runs low",
+			held: pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Hour)),
+			rateLimit: forge.RateLimit{
+				Known:     true,
+				Limit:     5000,
+				Remaining: 999,
+				ResetAt:   syncNow.Add(30 * time.Minute),
+			},
+			after: func(_ *testing.T, f *syncFixture, _ uuid.UUID) {
+				f.syncer.ReadOften("github.com")
+			},
+		},
+		{
 			name: "pending checks on a host whose budget runs low",
 			held: withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), pending),
 			rateLimit: forge.RateLimit{
@@ -566,6 +586,44 @@ func TestSyncWakeReadsEveryRepository(t *testing.T) {
 
 	f.pass(t, syncNow.Add(2*time.Second))
 	assert.Empty(t, f.forge.requests, "a wake is spent by the pass it woke")
+}
+
+// TestSyncReadOftenReadsTheHostAtOnce covers a write on a host: komrad reads its repositories on
+// the next pass, before their gap is up, and asks the loop to run.
+func TestSyncReadOftenReadsTheHostAtOnce(t *testing.T) {
+	tests := []struct {
+		name      string
+		host      string
+		wantReads []string
+	}{
+		{
+			name:      "the host written to",
+			host:      "github.com",
+			wantReads: []string{"read:harrisoncramer/komrad:agent/x"},
+		},
+		{
+			name:      "another host",
+			host:      "gitlab.com",
+			wantReads: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newSyncFixture(t)
+			f.agentOn(t, "a", "agent/x")
+			f.sync(t)
+
+			f.syncer.ReadOften(tt.host)
+			f.pass(t, syncNow.Add(time.Second))
+
+			assert.Equal(t, 1, f.loop.Wakes)
+			assert.Equal(t, tt.wantReads, f.forge.requests)
+
+			f.pass(t, syncNow.Add(2*time.Second))
+			assert.Empty(t, f.forge.requests, "a write is spent by the pass that read it")
+		})
+	}
 }
 
 // TestSyncRecordsWhatMovedOnAPullRequest covers the events a read records: a pull request

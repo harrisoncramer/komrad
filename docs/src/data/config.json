@@ -554,6 +554,13 @@
               "default": "[\"c\"]"
             },
             {
+              "key": "edit",
+              "path": "keybindings.forge.edit",
+              "type": "array",
+              "description": "Change the title and description of the hovered task's pull request, in a form that opens\non what the forge holds now.",
+              "default": "[\"e\"]"
+            },
+            {
               "key": "toggle_draft",
               "path": "keybindings.forge.toggle_draft",
               "type": "array",

@@ -1512,6 +1512,38 @@
           "response": "google.protobuf.Empty"
         },
         {
+          "slug": "read-forge-pull-request-text",
+          "name": "ReadForgePullRequestText",
+          "path": "/forge.v1.ForgeService/ReadForgePullRequestText",
+          "command": "komrad rpc read-forge-pull-request-text",
+          "tool": "read_forge_pull_request_text",
+          "mcp": false,
+          "roles": [],
+          "summary": "Read a pull request's title and description from its forge.",
+          "description": "Read a pull request's title and description from its forge. Refuses when the forge will not let the credential change them.",
+          "readOnly": true,
+          "idempotent": true,
+          "destructive": false,
+          "request": "forge.v1.ReadForgePullRequestTextRequest",
+          "response": "forge.v1.PullRequestText"
+        },
+        {
+          "slug": "edit-forge-pull-request",
+          "name": "EditForgePullRequest",
+          "path": "/forge.v1.ForgeService/EditForgePullRequest",
+          "command": "komrad rpc edit-forge-pull-request",
+          "tool": "edit_forge_pull_request",
+          "mcp": false,
+          "roles": [],
+          "summary": "Change a pull request's title, description or both on its forge.",
+          "description": "Change a pull request's title, description or both on its forge.",
+          "readOnly": false,
+          "idempotent": true,
+          "destructive": true,
+          "request": "forge.v1.EditForgePullRequestRequest",
+          "response": "google.protobuf.Empty"
+        },
+        {
           "slug": "disconnect-forge",
           "name": "DisconnectForge",
           "path": "/forge.v1.ForgeService/DisconnectForge",
@@ -7702,6 +7734,65 @@
       ],
       "oneofs": []
     },
+    "forge.v1.EditForgePullRequestRequest": {
+      "name": "EditForgePullRequestRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "url",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "description": "The pull request to change, by web address. The address's host picks the forge connection."
+        },
+        {
+          "name": "edited_from",
+          "type": "PullRequestText",
+          "ref": "forge.v1.PullRequestText",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "required": true,
+          "constraints": {},
+          "description": "The title and description the caller read. The call refuses to change a field that has moved since, unless the field already holds the new value."
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "required": false,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "description": "The new title. Unset leaves the title as it is."
+        },
+        {
+          "name": "body",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "required": false,
+          "constraints": {
+            "maxLength": 1048576
+          },
+          "description": "The new description. Unset leaves the description as it is, and empty clears it."
+        }
+      ],
+      "oneofs": []
+    },
     "forge.v1.Forge": {
       "name": "Forge",
       "description": "Forge is komrad's connection to one forge host and the credential komrad uses there.",
@@ -8303,6 +8394,60 @@
           "required": false,
           "constraints": {},
           "description": "The pull request's head commit when the plan was read."
+        }
+      ],
+      "oneofs": []
+    },
+    "forge.v1.PullRequestText": {
+      "name": "PullRequestText",
+      "description": "PullRequestText is a pull request's title and description.",
+      "fields": [
+        {
+          "name": "title",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "required": false,
+          "constraints": {
+            "maxLength": 1024
+          },
+          "description": "The pull request's title."
+        },
+        {
+          "name": "body",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "required": false,
+          "constraints": {
+            "maxLength": 1048576
+          },
+          "description": "The pull request's description, empty when it has none."
+        }
+      ],
+      "oneofs": []
+    },
+    "forge.v1.ReadForgePullRequestTextRequest": {
+      "name": "ReadForgePullRequestTextRequest",
+      "description": "",
+      "fields": [
+        {
+          "name": "url",
+          "type": "string",
+          "ref": "",
+          "repeated": false,
+          "map": false,
+          "oneof": "",
+          "required": true,
+          "constraints": {
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "description": "The pull request to read, by web address. The address's host picks the forge connection."
         }
       ],
       "oneofs": []

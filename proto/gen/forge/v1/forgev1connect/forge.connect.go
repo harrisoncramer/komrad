@@ -60,6 +60,12 @@ const (
 	// ForgeServiceRequestForgePullRequestRereviewProcedure is the fully-qualified name of the
 	// ForgeService's RequestForgePullRequestRereview RPC.
 	ForgeServiceRequestForgePullRequestRereviewProcedure = "/forge.v1.ForgeService/RequestForgePullRequestRereview"
+	// ForgeServiceReadForgePullRequestTextProcedure is the fully-qualified name of the ForgeService's
+	// ReadForgePullRequestText RPC.
+	ForgeServiceReadForgePullRequestTextProcedure = "/forge.v1.ForgeService/ReadForgePullRequestText"
+	// ForgeServiceEditForgePullRequestProcedure is the fully-qualified name of the ForgeService's
+	// EditForgePullRequest RPC.
+	ForgeServiceEditForgePullRequestProcedure = "/forge.v1.ForgeService/EditForgePullRequest"
 	// ForgeServiceDisconnectForgeProcedure is the fully-qualified name of the ForgeService's
 	// DisconnectForge RPC.
 	ForgeServiceDisconnectForgeProcedure = "/forge.v1.ForgeService/DisconnectForge"
@@ -76,6 +82,8 @@ type ForgeServiceClient interface {
 	SetForgePullRequestDraft(context.Context, *connect.Request[v1.SetForgePullRequestDraftRequest]) (*connect.Response[emptypb.Empty], error)
 	SetForgePullRequestAutoMerge(context.Context, *connect.Request[v1.SetForgePullRequestAutoMergeRequest]) (*connect.Response[emptypb.Empty], error)
 	RequestForgePullRequestRereview(context.Context, *connect.Request[v1.RequestForgePullRequestRereviewRequest]) (*connect.Response[emptypb.Empty], error)
+	ReadForgePullRequestText(context.Context, *connect.Request[v1.ReadForgePullRequestTextRequest]) (*connect.Response[v1.PullRequestText], error)
+	EditForgePullRequest(context.Context, *connect.Request[v1.EditForgePullRequestRequest]) (*connect.Response[emptypb.Empty], error)
 	DisconnectForge(context.Context, *connect.Request[v1.DisconnectForgeRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
@@ -149,6 +157,20 @@ func NewForgeServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(forgeServiceMethods.ByName("RequestForgePullRequestRereview")),
 			connect.WithClientOptions(opts...),
 		),
+		readForgePullRequestText: connect.NewClient[v1.ReadForgePullRequestTextRequest, v1.PullRequestText](
+			httpClient,
+			baseURL+ForgeServiceReadForgePullRequestTextProcedure,
+			connect.WithSchema(forgeServiceMethods.ByName("ReadForgePullRequestText")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		editForgePullRequest: connect.NewClient[v1.EditForgePullRequestRequest, emptypb.Empty](
+			httpClient,
+			baseURL+ForgeServiceEditForgePullRequestProcedure,
+			connect.WithSchema(forgeServiceMethods.ByName("EditForgePullRequest")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
+			connect.WithClientOptions(opts...),
+		),
 		disconnectForge: connect.NewClient[v1.DisconnectForgeRequest, emptypb.Empty](
 			httpClient,
 			baseURL+ForgeServiceDisconnectForgeProcedure,
@@ -169,6 +191,8 @@ type forgeServiceClient struct {
 	setForgePullRequestDraft        *connect.Client[v1.SetForgePullRequestDraftRequest, emptypb.Empty]
 	setForgePullRequestAutoMerge    *connect.Client[v1.SetForgePullRequestAutoMergeRequest, emptypb.Empty]
 	requestForgePullRequestRereview *connect.Client[v1.RequestForgePullRequestRereviewRequest, emptypb.Empty]
+	readForgePullRequestText        *connect.Client[v1.ReadForgePullRequestTextRequest, v1.PullRequestText]
+	editForgePullRequest            *connect.Client[v1.EditForgePullRequestRequest, emptypb.Empty]
 	disconnectForge                 *connect.Client[v1.DisconnectForgeRequest, emptypb.Empty]
 }
 
@@ -217,6 +241,16 @@ func (c *forgeServiceClient) RequestForgePullRequestRereview(ctx context.Context
 	return c.requestForgePullRequestRereview.CallUnary(ctx, req)
 }
 
+// ReadForgePullRequestText calls forge.v1.ForgeService.ReadForgePullRequestText.
+func (c *forgeServiceClient) ReadForgePullRequestText(ctx context.Context, req *connect.Request[v1.ReadForgePullRequestTextRequest]) (*connect.Response[v1.PullRequestText], error) {
+	return c.readForgePullRequestText.CallUnary(ctx, req)
+}
+
+// EditForgePullRequest calls forge.v1.ForgeService.EditForgePullRequest.
+func (c *forgeServiceClient) EditForgePullRequest(ctx context.Context, req *connect.Request[v1.EditForgePullRequestRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.editForgePullRequest.CallUnary(ctx, req)
+}
+
 // DisconnectForge calls forge.v1.ForgeService.DisconnectForge.
 func (c *forgeServiceClient) DisconnectForge(ctx context.Context, req *connect.Request[v1.DisconnectForgeRequest]) (*connect.Response[emptypb.Empty], error) {
 	return c.disconnectForge.CallUnary(ctx, req)
@@ -233,6 +267,8 @@ type ForgeServiceHandler interface {
 	SetForgePullRequestDraft(context.Context, *connect.Request[v1.SetForgePullRequestDraftRequest]) (*connect.Response[emptypb.Empty], error)
 	SetForgePullRequestAutoMerge(context.Context, *connect.Request[v1.SetForgePullRequestAutoMergeRequest]) (*connect.Response[emptypb.Empty], error)
 	RequestForgePullRequestRereview(context.Context, *connect.Request[v1.RequestForgePullRequestRereviewRequest]) (*connect.Response[emptypb.Empty], error)
+	ReadForgePullRequestText(context.Context, *connect.Request[v1.ReadForgePullRequestTextRequest]) (*connect.Response[v1.PullRequestText], error)
+	EditForgePullRequest(context.Context, *connect.Request[v1.EditForgePullRequestRequest]) (*connect.Response[emptypb.Empty], error)
 	DisconnectForge(context.Context, *connect.Request[v1.DisconnectForgeRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
@@ -302,6 +338,20 @@ func NewForgeServiceHandler(svc ForgeServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(forgeServiceMethods.ByName("RequestForgePullRequestRereview")),
 		connect.WithHandlerOptions(opts...),
 	)
+	forgeServiceReadForgePullRequestTextHandler := connect.NewUnaryHandler(
+		ForgeServiceReadForgePullRequestTextProcedure,
+		svc.ReadForgePullRequestText,
+		connect.WithSchema(forgeServiceMethods.ByName("ReadForgePullRequestText")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	forgeServiceEditForgePullRequestHandler := connect.NewUnaryHandler(
+		ForgeServiceEditForgePullRequestProcedure,
+		svc.EditForgePullRequest,
+		connect.WithSchema(forgeServiceMethods.ByName("EditForgePullRequest")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
+		connect.WithHandlerOptions(opts...),
+	)
 	forgeServiceDisconnectForgeHandler := connect.NewUnaryHandler(
 		ForgeServiceDisconnectForgeProcedure,
 		svc.DisconnectForge,
@@ -328,6 +378,10 @@ func NewForgeServiceHandler(svc ForgeServiceHandler, opts ...connect.HandlerOpti
 			forgeServiceSetForgePullRequestAutoMergeHandler.ServeHTTP(w, r)
 		case ForgeServiceRequestForgePullRequestRereviewProcedure:
 			forgeServiceRequestForgePullRequestRereviewHandler.ServeHTTP(w, r)
+		case ForgeServiceReadForgePullRequestTextProcedure:
+			forgeServiceReadForgePullRequestTextHandler.ServeHTTP(w, r)
+		case ForgeServiceEditForgePullRequestProcedure:
+			forgeServiceEditForgePullRequestHandler.ServeHTTP(w, r)
 		case ForgeServiceDisconnectForgeProcedure:
 			forgeServiceDisconnectForgeHandler.ServeHTTP(w, r)
 		default:
@@ -373,6 +427,14 @@ func (UnimplementedForgeServiceHandler) SetForgePullRequestAutoMerge(context.Con
 
 func (UnimplementedForgeServiceHandler) RequestForgePullRequestRereview(context.Context, *connect.Request[v1.RequestForgePullRequestRereviewRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("forge.v1.ForgeService.RequestForgePullRequestRereview is not implemented"))
+}
+
+func (UnimplementedForgeServiceHandler) ReadForgePullRequestText(context.Context, *connect.Request[v1.ReadForgePullRequestTextRequest]) (*connect.Response[v1.PullRequestText], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("forge.v1.ForgeService.ReadForgePullRequestText is not implemented"))
+}
+
+func (UnimplementedForgeServiceHandler) EditForgePullRequest(context.Context, *connect.Request[v1.EditForgePullRequestRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("forge.v1.ForgeService.EditForgePullRequest is not implemented"))
 }
 
 func (UnimplementedForgeServiceHandler) DisconnectForge(context.Context, *connect.Request[v1.DisconnectForgeRequest]) (*connect.Response[emptypb.Empty], error) {
