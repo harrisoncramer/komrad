@@ -156,7 +156,7 @@ func worktreeStandingFields(read panel.WorktreeInspection, now time.Time) []reco
 	}
 
 	if read.Item.Readable {
-		fields = append(fields, record.Field{Label: "changes", Value: changesField(read)})
+		fields = append(fields, record.Field{Label: "changes", Value: read.Changes()})
 		if read.Landed > 0 {
 			fields = append(fields, record.Field{Label: "landed", Value: fmt.Sprintf("%s the base already holds", label.Count(read.Landed, "commit", "commits"))})
 		}
@@ -165,7 +165,7 @@ func worktreeStandingFields(read panel.WorktreeInspection, now time.Time) []reco
 		}
 	}
 
-	return append(fields, record.Field{Label: "size", Value: sizeField(read.Item, now)})
+	return append(fields, record.Field{Label: "size", Value: read.Item.SizeAt(now)})
 }
 
 // hoveredRecordAgent is the agent the record under the agents list or the archive is about, which

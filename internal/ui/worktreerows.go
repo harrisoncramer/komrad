@@ -33,16 +33,13 @@ type worktreeRow struct {
 func worktreeColumns() view.Columns {
 	return view.Columns{
 		{Kind: view.ColumnText, Width: sizeColumns},
-		{Kind: view.ColumnText, Width: ageColumns},
+		{Kind: view.ColumnText, Width: label.AgeWidth},
 		{Kind: view.ColumnText, Width: glyph.Columns},
 	}
 }
 
-// sizeColumns and ageColumns are how wide the two figures are rendered.
-const (
-	sizeColumns = 4
-	ageColumns  = 4
-)
+// sizeColumns is how wide a directory's size is rendered.
+const sizeColumns = 4
 
 // noRepository heads the directories whose .git file names nothing.
 const noRepository = "no repository"
@@ -311,7 +308,7 @@ func worktreeAgentFacts(row view.Row, agent panel.WorktreeAgent, live map[string
 		}}
 	}
 
-	return agentFacts(row, item)
+	return item.Facts(row)
 }
 
 // rowCells are a directory's size, its age, then where it stands.

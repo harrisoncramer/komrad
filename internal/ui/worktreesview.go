@@ -55,7 +55,7 @@ func worktreeFields(in screen.Inputs, item panel.Worktree) []record.Field {
 	fields := []record.Field{
 		{Label: "name", Value: worktreeRow{item: item}.name()},
 		{Label: "directory", Value: item.Dir},
-		{Label: "size", Value: sizeField(item, in.Room.Now)},
+		{Label: "size", Value: item.SizeAt(in.Room.Now)},
 		{Label: "last active", Value: lastActiveField(item, in.Room.Now)},
 	}
 
@@ -76,7 +76,7 @@ func worktreeFields(in screen.Inputs, item panel.Worktree) []record.Field {
 	if read.IsRead() {
 		fields = append(fields,
 			buildBaseField(read),
-			record.Field{Label: "changes", Value: changesField(read)},
+			record.Field{Label: "changes", Value: read.Changes()},
 		)
 	}
 
@@ -101,18 +101,6 @@ func appendOccupantsField(fields []record.Field, name string, occupants []panel.
 	}
 
 	return append(fields, record.Field{Label: name, Value: strings.Join(xslice.Map(occupants, func(occupant panel.WorktreeAgent) string { return occupant.Name }), ", ")})
-}
-
-// sizeField is what the directory takes and when that was measured, or why it could not be.
-func sizeField(item panel.Worktree, now time.Time) string {
-	switch {
-	case item.Size == nil:
-		return label.Dash
-	case item.Size.Err != "":
-		return label.Dash + ", could not measure: " + item.Size.Err
-	}
-
-	return fmt.Sprintf("%s, measured %s ago", label.Bytes(item.Size.Bytes), label.AgeAt(item.Size.MeasuredAt, now))
 }
 
 // lastActiveField is how long ago the directory was last touched.
@@ -162,21 +150,6 @@ func countTone(count int, tone paint.Tone) paint.Tone {
 	}
 
 	return tone
-}
-
-func changesField(read panel.WorktreeInspection) string {
-	var parts []string
-	if n := len(read.Modified); n > 0 {
-		parts = append(parts, label.Count(n, "modified", "modified"))
-	}
-	if n := len(read.Untracked); n > 0 {
-		parts = append(parts, label.Count(n, "untracked", "untracked"))
-	}
-	if len(parts) == 0 {
-		return "none"
-	}
-
-	return strings.Join(parts, ", ")
 }
 
 func worktreeWorkflowField(l panel.Listing, item panel.Worktree) string {

@@ -333,7 +333,7 @@ func TestAgentNoticesSpeakForEveryColumnState(t *testing.T) {
 	}
 
 	for _, state := range []panel.State{panel.StateFailedToCreate, panel.StateFailedToCleanup} {
-		require.Equal(t, view.StatusBroken, snapshotStatus(panel.AgentRow{Agent: panel.Agent{State: state}}), "state %q no longer renders broken", state)
+		require.Equal(t, view.StatusBroken, panel.AgentRow{Agent: panel.Agent{State: state}}.Status(), "state %q no longer renders broken", state)
 		assert.NotEmpty(t, failureSaid[state], "state %q renders broken with no sentence", state)
 	}
 }

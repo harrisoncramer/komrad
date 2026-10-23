@@ -616,17 +616,6 @@ func (r agentRow) Key() string {
 	return rowKey(r)
 }
 
-// displayState is the state a row wears, idle once the pane has gone even though the store
-// still holds whatever the agent stopped in.
-func displayState(item panel.AgentRow) panel.State {
-	state := item.Agent.State
-	if !item.Alive && state.DoesPaneDecide() && state != panel.StateErrored {
-		return panel.StateIdle
-	}
-
-	return state
-}
-
 // apply takes a fresh listing, keeping the cursor on the row named.
 func (a *agentsScreen) apply(in screen.Inputs, selected string) {
 	placed := a.placed

@@ -32,7 +32,7 @@ func (d *documentsScreen) emptyLine() string {
 
 // documentColumns is the gutter of the documents list: how long ago each was last written.
 func documentColumns() view.Columns {
-	return view.Columns{{Kind: view.ColumnText, Width: ageColumns}}
+	return view.Columns{{Kind: view.ColumnText, Width: label.AgeWidth}}
 }
 
 func (d *documentsScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
