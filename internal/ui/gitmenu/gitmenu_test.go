@@ -107,15 +107,31 @@ func TestGitMenu(t *testing.T) {
 		assert.Less(t, strings.Index(frame, "abort"), strings.Index(frame, "push"))
 	})
 
+	t.Run("the forge menu holds the pull request's entries and the ways to merge it", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openGitMenu(t, append(buildGitAgent(), newQueueablePullRequest())...)
+		require.NotContains(t, harness.Frame(), "open pr")
+
+		harness.Press("f")
+
+		frame := harness.Frame()
+		assert.Equal(t, "agents › task-a1 › git › forge", paneltest.Trail(frame))
+		for _, entry := range []string{"open pr", "copy pr url", "toggle draft on", "re-request review", "merge and archive", "merge when ready", "merge then rebase"} {
+			assert.Contains(t, frame, entry)
+		}
+	})
+
 	t.Run("a merge request's entries are named the way GitLab does", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openGitMenu(t, append(buildGitAgent(), onGitLab(newOpenPullRequest()))...)
 
+		harness.Press("f")
+
 		frame := harness.Frame()
 		assert.Contains(t, frame, "open mr")
 		assert.Contains(t, frame, "copy mr url")
-		assert.Contains(t, frame, "merge mr")
 		assert.NotContains(t, frame, "open pr")
 	})
 
@@ -180,73 +196,73 @@ func TestGitMenuRefusals(t *testing.T) {
 		{
 			name:        "the pull request of a repository not read yet",
 			rows:        buildUncutAgent(),
-			press:       []string{"o"},
+			press:       []string{"f", "o"},
 			wantRefusal: "komrad has not read this task's repository yet",
 		},
 		{
 			name:        "the pull request of a branch with none",
 			rows:        append(buildUncutAgent(), &pullrequestv1.Repository{Url: repositoryURL}),
-			press:       []string{"o"},
+			press:       []string{"f", "o"},
 			wantRefusal: "nobody has opened a pull request from this branch",
 		},
 		{
 			name:        "the pull request of a branch that has moved past its last one",
 			rows:        append(buildUncutAgent(), newMergedPullRequest()),
-			press:       []string{"o"},
+			press:       []string{"f", "o"},
 			wantRefusal: "the branch moved on after its last pull request finished",
 		},
 		{
 			name:        "the copy of a pull request address on a branch with none",
 			rows:        buildUncutAgent(),
-			press:       []string{"c"},
+			press:       []string{"f", "c"},
 			wantRefusal: "komrad has not read this task's repository yet",
 		},
 		{
 			name:        "the merge of a branch with no pull request",
 			rows:        buildUncutAgent(),
-			press:       []string{"m", "m"},
+			press:       []string{"f", "m"},
 			wantRefusal: "komrad has not read this task's repository yet",
 		},
 		{
 			name:        "the merge of a pull request that has already merged",
 			rows:        append(buildGitAgent(), newCurrentMergedPullRequest()),
-			press:       []string{"m", "m"},
+			press:       []string{"f", "m"},
 			wantRefusal: "its pull request has already merged",
 		},
 		{
 			name:        "the merge when ready of a draft",
 			rows:        append(buildGitAgent(), newQueueableDraft()),
-			press:       []string{"m", "u"},
+			press:       []string{"f", "u"},
 			wantRefusal: "its pull request is a draft, so mark it ready first",
 		},
 		{
 			name:        "the merge when ready of a pull request the forge will not queue",
 			rows:        append(buildGitAgent(), newOpenPullRequest()),
-			press:       []string{"m", "u"},
+			press:       []string{"f", "u"},
 			wantRefusal: "the forge refused to queue it",
 		},
 		{
 			name:        "the merge then rebase of a worktree part-way through a rebase",
 			rows:        append(buildRebasingGitAgent(), newOpenPullRequest()),
-			press:       []string{"m", "r"},
+			press:       []string{"f", "r"},
 			wantRefusal: "part-way through a rebase, merge or pick",
 		},
 		{
 			name:        "the merge then rebase of a branch with no pull request",
 			rows:        buildGitAgent(),
-			press:       []string{"m", "r"},
+			press:       []string{"f", "r"},
 			wantRefusal: "komrad has not read this task's repository yet",
 		},
 		{
 			name:        "the draft toggle of a pull request that has already merged",
 			rows:        append(buildGitAgent(), newCurrentMergedPullRequest()),
-			press:       []string{"d"},
+			press:       []string{"f", "d"},
 			wantRefusal: "its pull request has already merged",
 		},
 		{
 			name:        "the merge of a merge request that has already merged",
 			rows:        append(buildGitAgent(), onGitLab(newCurrentMergedPullRequest())),
-			press:       []string{"m", "m"},
+			press:       []string{"f", "m"},
 			wantRefusal: "its merge request has already merged",
 		},
 	}
@@ -265,7 +281,7 @@ func TestGitMenuRefusals(t *testing.T) {
 	}
 }
 
-// TestGitMenuMerges covers the merge menu merging the current pull request and archiving the
+// TestGitMenuMerges covers the forge menu merging the current pull request and archiving the
 // agent after.
 func TestGitMenuMerges(t *testing.T) {
 	t.Parallel()
@@ -331,8 +347,8 @@ func TestGitMenuMerges(t *testing.T) {
 				harness.Refuse(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.refuse)
 			}
 
-			harness.Press("m")
-			require.Equal(t, "agents › task-a1 › git › merge", paneltest.Trail(harness.Frame()))
+			harness.Press("f")
+			require.Equal(t, "agents › task-a1 › git › forge", paneltest.Trail(harness.Frame()))
 			harness.Press(tt.press...)
 
 			harness.AssertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, tt.wantMerges...)
@@ -385,7 +401,7 @@ func TestGitMenuMergesThenRebases(t *testing.T) {
 				}), nil
 			})
 
-			harness.Press("m", "r", "enter")
+			harness.Press("f", "r", "enter")
 
 			harness.AssertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure, &forgev1.MergeForgePullRequestRequest{
 				Url:     pullRequestURL,
@@ -403,7 +419,7 @@ func TestGitMenuMergesThenRebases(t *testing.T) {
 	}
 }
 
-// TestGitMenuMergesWhenReady covers the merge menu entry naming which way it goes, asking the
+// TestGitMenuMergesWhenReady covers the forge menu entry naming which way it goes, asking the
 // forge to merge on its own the way the form says, and stopping it again at once.
 func TestGitMenuMergesWhenReady(t *testing.T) {
 	t.Parallel()
@@ -463,7 +479,7 @@ func TestGitMenuMergesWhenReady(t *testing.T) {
 			if tt.refuse != nil {
 				harness.Refuse(forgev1connect.ForgeServiceSetForgePullRequestAutoMergeProcedure, tt.refuse)
 			}
-			harness.Press("m")
+			harness.Press("f")
 			require.Contains(t, harness.Frame(), tt.wantLabel)
 
 			harness.Press(tt.press...)
@@ -489,7 +505,7 @@ func TestGitMenuMergeForm(t *testing.T) {
 		harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
 		answerMergePlan(harness, newMergePlan())
 
-		harness.Press("m", "m")
+		harness.Press("f", "m")
 
 		frame := harness.Frame()
 		assert.Contains(t, frame, "Merge #740")
@@ -557,7 +573,7 @@ func TestGitMenuMergeForm(t *testing.T) {
 
 			harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
 			answerMergePlan(harness, newMergePlan())
-			harness.Press("m", "m")
+			harness.Press("f", "m")
 
 			harness.Press(tt.press...)
 
@@ -574,7 +590,7 @@ func TestGitMenuMergeForm(t *testing.T) {
 		harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
 		harness.Refuse(forgev1connect.ForgeServicePlanForgePullRequestMergeProcedure, connect.NewError(connect.CodeUnavailable, errors.New("github is down")))
 
-		harness.Press("m", "m")
+		harness.Press("f", "m")
 
 		assert.NotContains(t, harness.Frame(), "Merge #740")
 		assert.Contains(t, harness.ReadMessages(), "github is down")
@@ -886,6 +902,7 @@ func TestGitMenuTogglesDraft(t *testing.T) {
 			if tt.refuse != nil {
 				harness.Refuse(forgev1connect.ForgeServiceSetForgePullRequestDraftProcedure, tt.refuse)
 			}
+			harness.Press("f")
 			require.Contains(t, harness.Frame(), tt.wantLabel)
 
 			harness.Press("d")
@@ -947,6 +964,7 @@ func TestGitMenuRequestsRereview(t *testing.T) {
 			if tt.refuse != nil {
 				harness.Refuse(forgev1connect.ForgeServiceRequestForgePullRequestRereviewProcedure, tt.refuse)
 			}
+			harness.Press("f")
 			require.Contains(t, harness.Frame(), "re-request review")
 
 			harness.Press("v")
@@ -988,7 +1006,7 @@ func TestGitMenuOpensThePullRequest(t *testing.T) {
 			harness.AnswerWorktreeReads()
 			harness.Watch(paneltest.Snapshot(append(buildGitAgent(), newOpenPullRequest())...))
 			harness.MoveToRow("task-a1")
-			harness.Press("space", "g", "o")
+			harness.Press("space", "g", "f", "o")
 
 			assert.Equal(t, []string{pullRequestURL}, opener.readTargets())
 			frame := harness.Frame()
@@ -1010,7 +1028,7 @@ func TestGitMenuCopiesThePullRequestURL(t *testing.T) {
 
 	harness := openGitMenu(t, append(buildGitAgent(), newOpenPullRequest())...)
 
-	harness.Press("c")
+	harness.Press("f", "c")
 
 	assert.Equal(t, []string{pullRequestURL}, harness.Copied())
 	frame := harness.Frame()

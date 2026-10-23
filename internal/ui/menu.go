@@ -37,7 +37,7 @@ func (m *model) Git(task panel.Task) menu.Menu {
 	return m.git.Git(m.listing, task)
 }
 
-// PullRequestGit is the git menu holding only a task's pull request entries.
+// PullRequestGit is the git menu holding only a task's push and its forge menu.
 func (m *model) PullRequestGit(task panel.Task) menu.Menu {
 	return m.git.PullRequestGit(m.listing, task)
 }

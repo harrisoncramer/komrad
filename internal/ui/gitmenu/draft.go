@@ -11,7 +11,7 @@ func isDraft(task panel.Task) bool {
 	return task.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT
 }
 
-// draftLabel is the git menu entry that toggles the draft, naming which way it goes.
+// draftLabel is the forge menu entry that toggles the draft, naming which way it goes.
 func draftLabel(task panel.Task) string {
 	if isDraft(task) {
 		return "toggle draft off"

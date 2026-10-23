@@ -491,25 +491,11 @@
           "description": "The git menu, nested under the menu on the hovered row, and the actions inside it.",
           "settings": [
             {
-              "key": "copy_pull_request_url",
-              "path": "keybindings.git.copy_pull_request_url",
+              "key": "forge",
+              "path": "keybindings.git.forge",
               "type": "array",
-              "description": "Copy the address of the hovered task's current pull request to your clipboard.",
-              "default": "[\"c\"]"
-            },
-            {
-              "key": "merge",
-              "path": "keybindings.git.merge",
-              "type": "array",
-              "description": "Open the merge menu to the right of this one, for merging the hovered task's pull request\non the forge and archiving the task after.",
-              "default": "[\"m\"]"
-            },
-            {
-              "key": "open_pull_request",
-              "path": "keybindings.git.open_pull_request",
-              "type": "array",
-              "description": "Open the hovered task's current pull request in your browser: the newest one opened from\nits branch that is not finished, else the newest finished one. The entry says so rather\nthan acting on a task with none.",
-              "default": "[\"o\"]"
+              "description": "Open the forge menu to the right of this one, for acting on the hovered task's pull request.",
+              "default": "[\"f\"]"
             },
             {
               "key": "push",
@@ -545,20 +531,69 @@
               "type": "array",
               "description": "Pick the fork point of the hovered child, the commit its own commits sit on, once a rewrite\nof its branch has orphaned it.",
               "default": "[\"s\"]"
+            }
+          ],
+          "sections": []
+        },
+        {
+          "path": "keybindings.forge",
+          "description": "The forge menu, nested under the git menu, which acts on the hovered task's pull request.",
+          "settings": [
+            {
+              "key": "open_pull_request",
+              "path": "keybindings.forge.open_pull_request",
+              "type": "array",
+              "description": "Open the hovered task's current pull request in your browser: the newest one opened from\nits branch that is not finished, else the newest finished one. The entry says so rather\nthan acting on a task with none.",
+              "default": "[\"o\"]"
+            },
+            {
+              "key": "copy_pull_request_url",
+              "path": "keybindings.forge.copy_pull_request_url",
+              "type": "array",
+              "description": "Copy the address of the hovered task's current pull request to your clipboard.",
+              "default": "[\"c\"]"
+            },
+            {
+              "key": "toggle_draft",
+              "path": "keybindings.forge.toggle_draft",
+              "type": "array",
+              "description": "Mark the hovered task's pull request a draft, or ready for review when it is one.",
+              "default": "[\"d\"]"
             },
             {
               "key": "request_rereview",
-              "path": "keybindings.git.request_rereview",
+              "path": "keybindings.forge.request_rereview",
               "type": "array",
               "description": "Ask everyone who requested changes on the hovered task's pull request to review it again.",
               "default": "[\"v\"]"
             },
             {
-              "key": "toggle_draft",
-              "path": "keybindings.git.toggle_draft",
+              "key": "merge",
+              "path": "keybindings.forge.merge",
               "type": "array",
-              "description": "Mark the hovered task's pull request a draft, or ready for review when it is one.",
-              "default": "[\"d\"]"
+              "description": "Merge the pull request and leave the task where it is.",
+              "default": "[\"m\"]"
+            },
+            {
+              "key": "merge_archive",
+              "path": "keybindings.forge.merge_archive",
+              "type": "array",
+              "description": "Merge the pull request, then archive the task once the forge has merged it.",
+              "default": "[\"a\"]"
+            },
+            {
+              "key": "auto_merge",
+              "path": "keybindings.forge.auto_merge",
+              "type": "array",
+              "description": "Have the forge merge the pull request on its own once its checks and reviews pass, or stop it\nwhen it is already waiting to.",
+              "default": "[\"u\"]"
+            },
+            {
+              "key": "merge_rebase",
+              "path": "keybindings.forge.merge_rebase",
+              "type": "array",
+              "description": "Merge the pull request on the forge, then bring the task's worktree up to date on the base,\nwhich now holds its work.",
+              "default": "[\"r\"]"
             }
           ],
           "sections": []
@@ -615,41 +650,6 @@
               "type": "array",
               "description": "Show the hidden tasks alongside the rest, or put them away again.",
               "default": "[\"H\"]"
-            }
-          ],
-          "sections": []
-        },
-        {
-          "path": "keybindings.merge",
-          "description": "The merge menu, nested under the git menu, which merges the hovered task's pull request.",
-          "settings": [
-            {
-              "key": "merge",
-              "path": "keybindings.merge.merge",
-              "type": "array",
-              "description": "Merge the pull request and leave the task where it is.",
-              "default": "[\"m\"]"
-            },
-            {
-              "key": "merge_archive",
-              "path": "keybindings.merge.merge_archive",
-              "type": "array",
-              "description": "Merge the pull request, then archive the task once the forge has merged it.",
-              "default": "[\"a\"]"
-            },
-            {
-              "key": "auto_merge",
-              "path": "keybindings.merge.auto_merge",
-              "type": "array",
-              "description": "Have the forge merge the pull request on its own once its checks and reviews pass, or stop it\nwhen it is already waiting to.",
-              "default": "[\"u\"]"
-            },
-            {
-              "key": "merge_rebase",
-              "path": "keybindings.merge.merge_rebase",
-              "type": "array",
-              "description": "Merge the pull request on the forge, then bring the task's worktree up to date on the base,\nwhich now holds its work.",
-              "default": "[\"r\"]"
             }
           ],
           "sections": []
@@ -1026,7 +1026,7 @@
               "key": "git",
               "path": "keybindings.menu.git",
               "type": "array",
-              "description": "Open the git menu to the right of this one, for rebasing the task's branch or opening or\nmerging its pull request. On the review the git menu holds only the pull request's entries.",
+              "description": "Open the git menu to the right of this one, for rebasing or pushing the task's branch, with\nits pull request in the forge menu nested inside. On the review the git menu holds only push\nand the forge menu.",
               "default": "[\"g\"]"
             },
             {

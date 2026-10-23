@@ -37,12 +37,12 @@ type Keybindings struct {
 	Help HelpKeys `mapstructure:"help"`
 	// The git menu, nested under the menu on the hovered row, and the actions inside it.
 	Git GitKeys `mapstructure:"git"`
+	// The forge menu, nested under the git menu, which acts on the hovered task's pull request.
+	Forge ForgeKeys `mapstructure:"forge"`
 	// The jump menu, nested under the menu on a task, a document or a worktree.
 	JumpMenu JumpMenuKeys `mapstructure:"jump_menu"`
 	// The hide menu, nested under the menu on the agents list.
 	HideMenu HideMenuKeys `mapstructure:"hide_menu"`
-	// The merge menu, nested under the git menu, which merges the hovered task's pull request.
-	Merge MergeKeys `mapstructure:"merge"`
 	// The logs screen, which tails what the server logged about one agent.
 	Logs LogsKeys `mapstructure:"logs"`
 	// The messages komrad pushed, read in the main pane.
@@ -191,15 +191,8 @@ type AgentsKeys struct {
 // GitKeys are the bindings for the git menu, which opens from the menu on the hovered task and
 // holds the actions that act on its branch.
 type GitKeys struct {
-	// Copy the address of the hovered task's current pull request to your clipboard.
-	CopyPullRequestURL []string `mapstructure:"copy_pull_request_url" default:"c"`
-	// Open the merge menu to the right of this one, for merging the hovered task's pull request
-	// on the forge and archiving the task after.
-	Merge []string `mapstructure:"merge" default:"m"`
-	// Open the hovered task's current pull request in your browser: the newest one opened from
-	// its branch that is not finished, else the newest finished one. The entry says so rather
-	// than acting on a task with none.
-	OpenPullRequest []string `mapstructure:"open_pull_request" default:"o"`
+	// Open the forge menu to the right of this one, for acting on the hovered task's pull request.
+	Forge []string `mapstructure:"forge" default:"f"`
 	// Send the hovered task's branch to origin, which asks first and says how many commits go
 	// up, whether origin's copy is overwritten after a rebase, and what stays uncommitted.
 	Push []string `mapstructure:"push" default:"p"`
@@ -215,22 +208,21 @@ type GitKeys struct {
 	// Pick the fork point of the hovered child, the commit its own commits sit on, once a rewrite
 	// of its branch has orphaned it.
 	PickForkPoint []string `mapstructure:"pick_fork_point" default:"s"`
-	// Ask everyone who requested changes on the hovered task's pull request to review it again.
-	RequestRereview []string `mapstructure:"request_rereview" default:"v"`
+}
+
+// ForgeKeys are the bindings for the forge menu, which opens from the git menu and holds the
+// actions on the hovered task's pull request.
+type ForgeKeys struct {
+	// Open the hovered task's current pull request in your browser: the newest one opened from
+	// its branch that is not finished, else the newest finished one. The entry says so rather
+	// than acting on a task with none.
+	OpenPullRequest []string `mapstructure:"open_pull_request" default:"o"`
+	// Copy the address of the hovered task's current pull request to your clipboard.
+	CopyPullRequestURL []string `mapstructure:"copy_pull_request_url" default:"c"`
 	// Mark the hovered task's pull request a draft, or ready for review when it is one.
 	ToggleDraft []string `mapstructure:"toggle_draft" default:"d"`
-}
-
-// HideMenuKeys are the bindings for the hide menu, which opens from the menu on the agents list.
-type HideMenuKeys struct {
-	// Hide the hovered task or every chosen task, or unhide them when they are all hidden.
-	Hide []string `mapstructure:"hide" default:"h"`
-	// Show the hidden tasks alongside the rest, or put them away again.
-	ShowHidden []string `mapstructure:"show_hidden" default:"H"`
-}
-
-// MergeKeys are the bindings for the merge menu, which opens from the git menu.
-type MergeKeys struct {
+	// Ask everyone who requested changes on the hovered task's pull request to review it again.
+	RequestRereview []string `mapstructure:"request_rereview" default:"v"`
 	// Merge the pull request and leave the task where it is.
 	Merge []string `mapstructure:"merge" default:"m"`
 	// Merge the pull request, then archive the task once the forge has merged it.
@@ -241,6 +233,14 @@ type MergeKeys struct {
 	// Merge the pull request on the forge, then bring the task's worktree up to date on the base,
 	// which now holds its work.
 	MergeRebase []string `mapstructure:"merge_rebase" default:"r"`
+}
+
+// HideMenuKeys are the bindings for the hide menu, which opens from the menu on the agents list.
+type HideMenuKeys struct {
+	// Hide the hovered task or every chosen task, or unhide them when they are all hidden.
+	Hide []string `mapstructure:"hide" default:"h"`
+	// Show the hidden tasks alongside the rest, or put them away again.
+	ShowHidden []string `mapstructure:"show_hidden" default:"H"`
 }
 
 // MenuKeys are the bindings for the menu, which lists the hovered row's entries over the
@@ -262,8 +262,9 @@ type MenuKeys struct {
 	// or hand the keyboard to the one already rooted there. The entry is gray in the archive and
 	// where there is no directory.
 	Terminal []string `mapstructure:"terminal" default:"t"`
-	// Open the git menu to the right of this one, for rebasing the task's branch or opening or
-	// merging its pull request. On the review the git menu holds only the pull request's entries.
+	// Open the git menu to the right of this one, for rebasing or pushing the task's branch, with
+	// its pull request in the forge menu nested inside. On the review the git menu holds only push
+	// and the forge menu.
 	Git []string `mapstructure:"git" default:"g"`
 	// Open the jump menu to the right of this one, for landing on the hovered row's agent or task,
 	// its worktree or its documents.
