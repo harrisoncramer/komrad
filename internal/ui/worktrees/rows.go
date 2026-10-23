@@ -184,8 +184,8 @@ func (w *Screen) rows(in screen.Inputs) []row {
 	})
 }
 
-func rowDepth(row row) int {
-	if row.header {
+func rowDepth(r row) int {
+	if r.header {
 		return 0
 	}
 
@@ -209,11 +209,11 @@ func repoHeading(item panel.Worktree) string {
 
 // refs is the worktrees list as the selection sees it.
 func refs(rows []row) []list.Ref {
-	return xslice.Map(rows, func(row row) list.Ref {
+	return xslice.Map(rows, func(r row) list.Ref {
 		return list.Ref{
-			Key:    row.Key(),
-			Header: row.header,
-			Group:  repoRowKey(row.repo),
+			Key:    r.Key(),
+			Header: r.header,
+			Group:  repoRowKey(r.repo),
 		}
 	})
 }

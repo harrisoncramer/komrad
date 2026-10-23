@@ -196,15 +196,15 @@ func TestWorktreeRowsLeaveTheOccupantOffTheList(t *testing.T) {
 	rows := buildRows(buildRowsParams{items: worktreeFixture(), order: worktreesOrder(tabs.State{})})
 
 	assert.Len(t, rows, 8)
-	assert.NotContains(t, xslice.Map(rows, func(row row) string { return row.name() }), "review-607")
+	assert.NotContains(t, xslice.Map(rows, func(r row) string { return r.name() }), "review-607")
 }
 
 // TestWorktreeRowNames covers the name falling from the task to the branch to the directory.
 func TestWorktreeRowNames(t *testing.T) {
 	rows := buildRows(buildRowsParams{items: worktreeFixture(), order: worktreesOrder(tabs.State{})})
 
-	names := xslice.Map(rows, func(row row) string {
-		return row.name()
+	names := xslice.Map(rows, func(r row) string {
+		return r.name()
 	})
 
 	assert.Equal(t, []string{
