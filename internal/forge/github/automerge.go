@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/forge"
 	"komrad/lib/xptr"
+	forgev1 "komrad/proto/gen/forge/v1"
 )
 
 //go:embed automergetarget.gql
@@ -33,8 +34,8 @@ func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParam
 	}
 	shouldChange, err := forge.ShouldChange(forge.ShouldChangeParams{
 		Sentinel:  forge.ErrNoAutoMerge,
-		Forge:     forge.KindGitHub,
-		Ref:       forge.Ref(forge.KindGitHub, number),
+		Forge:     forgev1.Kind_KIND_GITHUB,
+		Ref:       forge.Ref(forgev1.Kind_KIND_GITHUB, number),
 		Merged:    target.State == "MERGED",
 		Closed:    target.State == "CLOSED",
 		IsSettled: (target.AutoMergeRequest != nil) == params.On,

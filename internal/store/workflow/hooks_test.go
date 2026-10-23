@@ -3,6 +3,8 @@ package workflow
 import (
 	"testing"
 
+	eventv1 "komrad/proto/gen/event/v1"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -14,9 +16,9 @@ func TestHooksComeBackWithEveryReader(t *testing.T) {
 	ctx := t.Context()
 
 	hooks := []Hook{
-		{Event: HookAgentPreLaunch, Script: "install-deps"},
-		{Event: HookAgentPreLaunch, Script: "copy-env"},
-		{Event: HookAgentPostLaunch, Script: "announce"},
+		{Moment: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH, Script: "install-deps"},
+		{Moment: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH, Script: "copy-env"},
+		{Moment: eventv1.Moment_MOMENT_AGENT_POST_LAUNCH, Script: "announce"},
 	}
 
 	created, err := st.Create(ctx, Config{

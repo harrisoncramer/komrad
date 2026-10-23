@@ -385,7 +385,7 @@ func calculatePullRequestStanding(task *taskv1.Task, repository *pullrequestv1.R
 		Title:          xptr.Ptr(current.GetTitle()),
 		MergeReadiness: current.GetMergeReadiness(),
 		HeadSha:        xptr.NonEmpty(current.GetHeadSha()),
-		Forge:          xptr.NonEmpty(current.GetForge()),
+		Forge:          current.GetForge(),
 	}
 }
 

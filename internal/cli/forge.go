@@ -9,12 +9,14 @@ import (
 
 	"komrad/internal/forge"
 	"komrad/lib/dates"
+	"komrad/lib/protoenum"
 	"komrad/lib/xhttp"
 	forgev1 "komrad/proto/gen/forge/v1"
 	"komrad/proto/gen/forge/v1/forgev1connect"
 
 	"connectrpc.com/connect"
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -84,28 +86,28 @@ for GitHub or /api/v4 for GitLab. The address has to be https.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			req := &forgev1.ConnectForgeRequest{
 				Host:   args[0],
-				Kind:   kind,
 				ApiUrl: apiURL,
 			}
-			switch method {
-			case "token", "":
+			if kind != "" {
+				found, err := enumFlag[forgev1.Kind]("--kind", kind)
+				if err != nil {
+					return err
+				}
+				req.Kind = found
+			}
+			if method != "" {
+				found, err := enumFlag[forgev1.CredentialMethod]("--method", method)
+				if err != nil {
+					return err
+				}
+				req.Method = found
+			}
+			if req.GetMethod() != forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP {
 				token, err := readToken(cmd.InOrStdin(), tokenFile)
 				if err != nil {
 					return err
 				}
-
-				req.Method, req.Token = forge.MethodToken, tokenForTheWire(token)
-			case "rotating-token":
-				token, err := readToken(cmd.InOrStdin(), tokenFile)
-				if err != nil {
-					return err
-				}
-
-				req.Method, req.Token = forge.MethodRotatingToken, tokenForTheWire(token)
-			case "github-app":
-				req.Method = forge.MethodGitHubApp
-			default:
-				return fmt.Errorf("--method is token, rotating-token or github-app, not %q", method)
+				req.Token = tokenForTheWire(token)
 			}
 
 			return state.withAPI(cmd.Context(), func(ctx context.Context, base string) error {
@@ -227,7 +229,7 @@ func printForges(out io.Writer, forges []*forgev1.Forge, problems map[string]str
 			verified = dates.Read(f.GetVerifiedAt()).Local().Format("2006-01-02 15:04")
 		}
 
-		rows = append(rows, []string{f.GetHost(), f.GetKind(), f.GetLogin(), f.GetMethod(), verified})
+		rows = append(rows, []string{f.GetHost(), protoenum.Name(f.GetKind()), f.GetLogin(), protoenum.Name(f.GetMethod()), verified})
 	}
 
 	return printTable(out, []string{"HOST", "KIND", "LOGIN", "METHOD", "VERIFIED"}, rows)
@@ -261,4 +263,17 @@ func readToken(stdin io.Reader, tokenFile string) (forge.Secret, error) {
 	}
 
 	return token, nil
+}
+
+// enumFlag is the value of T a flag's value names, refusing a value T does not define.
+func enumFlag[T interface {
+	~int32
+	protoreflect.Enum
+}](flag, value string) (T, error) {
+	found, err := protoenum.Parse[T](value)
+	if err != nil {
+		return found, fmt.Errorf("%s takes %s, not %q", flag, strings.Join(protoenum.Names(protoenum.Values[T]()), ", "), value)
+	}
+
+	return found, nil
 }

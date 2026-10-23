@@ -12,11 +12,12 @@ import (
 	"komrad/internal/rpc/render"
 	"komrad/internal/rpcerr"
 	"komrad/internal/rpcpage"
+	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/protoenum"
 	"komrad/lib/xslice"
+	eventv1 "komrad/proto/gen/event/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	"komrad/proto/gen/workflow/v1/workflowv1komrad"
-
-	workflowstore "komrad/internal/store/workflow"
 
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -163,7 +164,7 @@ func (s *Handler) DeleteWorkflow(ctx context.Context, req *workflowv1komrad.Dele
 
 func buildHooksFromProto(hooks []*workflowv1.WorkflowHook) []workflowstore.Hook {
 	return xslice.Map(hooks, func(hook *workflowv1.WorkflowHook) workflowstore.Hook {
-		return workflowstore.Hook{Event: hook.GetEvent(), Script: hook.GetScript()}
+		return workflowstore.Hook{Moment: hook.GetEvent(), Script: hook.GetScript()}
 	})
 }
 
@@ -171,8 +172,8 @@ func buildHooksFromProto(hooks []*workflowv1.WorkflowHook) []workflowstore.Hook 
 // caller sent none.
 func buildCreatedEventPrompts(sent *workflowv1.WorkflowEventPrompts) []workflowstore.EventPrompt {
 	if sent == nil {
-		return xslice.Map(eventprompts.All(), func(event eventprompts.Event) workflowstore.EventPrompt {
-			return workflowstore.EventPrompt{Event: event.Name, Prompt: event.DefaultPrompt}
+		return xslice.Map(protoenum.Values[eventv1.Event](), func(event eventv1.Event) workflowstore.EventPrompt {
+			return workflowstore.EventPrompt{Event: event, Prompt: eventprompts.DefaultPrompt(event)}
 		})
 	}
 

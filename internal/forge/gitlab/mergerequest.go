@@ -12,6 +12,7 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/forge/graphql"
 	"komrad/internal/git"
+	forgev1 "komrad/proto/gen/forge/v1"
 )
 
 // mergeRequestFragment is every field of a merge request the record is built from.
@@ -171,7 +172,7 @@ func (n mergeRequestNode) toPullRequest(withMergeReadiness bool) forge.PullReque
 	}
 
 	pullRequest := forge.PullRequest{
-		Forge:      forge.KindGitLab,
+		Forge:      forgev1.Kind_KIND_GITLAB,
 		ProviderID: strings.TrimPrefix(n.ID, "gid://gitlab/MergeRequest/"),
 		URL:        n.WebURL,
 		Repository: n.TargetProject.remote(),

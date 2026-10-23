@@ -1,13 +1,16 @@
 package main
 
 import (
+	"cmp"
 	"regexp"
 	"strings"
 
 	"komrad/internal/eventprompts"
 	"komrad/internal/rpcapi"
+	"komrad/lib/protoenum"
 	"komrad/lib/xslice"
 	annotationv1 "komrad/proto/gen/annotation/v1"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -93,8 +96,8 @@ func buildAPI(notes comments) apiDoc {
 		Services: []serviceDoc{},
 		Messages: map[string]messageDoc{},
 		Enums:    map[string]enumDoc{},
-		Events: xslice.Map(eventprompts.All(), func(event eventprompts.Event) eventDoc {
-			return eventDoc{Name: event.Name, Description: event.Description, DefaultPrompt: event.DefaultPrompt}
+		Events: xslice.Map(protoenum.Values[eventv1.Event](), func(event eventv1.Event) eventDoc {
+			return eventDoc{Name: protoenum.Name(event), Description: protoenum.Label(event).GetDescription(), DefaultPrompt: eventprompts.DefaultPrompt(event)}
 		}),
 	}
 	index := map[protoreflect.FullName]int{}
@@ -229,7 +232,7 @@ func addEnum(doc apiDoc, notes comments, enum protoreflect.EnumDescriptor) {
 			continue
 		}
 
-		entry.Values = append(entry.Values, enumValueDoc{Name: string(value.Name()), Description: notes.of(value)})
+		entry.Values = append(entry.Values, enumValueDoc{Name: protoenum.NameOf(value), Description: cmp.Or(notes.of(value), protoenum.LabelOf(value).GetDescription())})
 	}
 
 	doc.Enums[name] = entry

@@ -13,15 +13,10 @@ import (
 	"komrad/internal/git"
 	"komrad/internal/store"
 	forgestore "komrad/internal/store/forge"
+	"komrad/lib/protoenum"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/google/uuid"
-)
-
-// The kinds of trouble a check reports.
-const (
-	ProblemRefused      = "refused"
-	problemNoCredential = "no_credential"
-	problemUnreachable  = "unreachable"
 )
 
 // errUnknownKind says no forge of that kind is compiled in.
@@ -73,7 +68,7 @@ type Builder func(api string, auth Authenticator) Forge
 type CheckResult struct {
 	Connection  forgestore.Connection
 	Problem     error
-	ProblemKind string
+	ProblemKind forgev1.ProblemKind
 }
 
 // remoteURLParser takes a git remote apart, swapping a named SSH host for its web host.
@@ -85,7 +80,7 @@ type remoteURLParser interface {
 type NewServiceParams struct {
 	Connections *forgestore.ForgeStore
 	Credentials credentialStore
-	Builders    map[string]Builder
+	Builders    map[forgev1.Kind]Builder
 	// Verified is what a refusal is recorded on, the connections themselves when unset and
 	// NoRecord for a caller that only reports.
 	Verified verifiedSetter
@@ -102,7 +97,7 @@ type NewServiceParams struct {
 type Service struct {
 	connections *forgestore.ForgeStore
 	credentials credentialStore
-	builders    map[string]Builder
+	builders    map[forgev1.Kind]Builder
 	verified    verifiedSetter
 	loadApp     func() (App, error)
 	now         func() time.Time
@@ -139,14 +134,14 @@ func NewService(params NewServiceParams) *Service {
 }
 
 // KindForHost is the forge a public host runs, or ErrKindUnknownForHost.
-func KindForHost(host string) (string, error) {
+func KindForHost(host string) (forgev1.Kind, error) {
 	switch strings.ToLower(host) {
 	case "github.com":
-		return KindGitHub, nil
+		return forgev1.Kind_KIND_GITHUB, nil
 	case "gitlab.com":
-		return KindGitLab, nil
+		return forgev1.Kind_KIND_GITLAB, nil
 	default:
-		return "", errKindUnknownForHost.Saying("%s is not a public forge, so say which kind it runs", host)
+		return forgev1.Kind_KIND_UNSPECIFIED, errKindUnknownForHost.Saying("%s is not a public forge, so say which kind it runs", host)
 	}
 }
 
@@ -168,18 +163,19 @@ func (p ConnectParams) resolveAPIURL() (string, error) {
 	}
 
 	switch p.Kind {
-	case KindGitHub:
+	case forgev1.Kind_KIND_GITHUB:
 		return "https://" + p.Host + "/api/v3", nil
-	case KindGitLab:
+	case forgev1.Kind_KIND_GITLAB:
 		return "https://" + p.Host + "/api/v4", nil
-	default:
-		return "", errUnknownKind.Saying("%q is not a forge this build knows", p.Kind)
+	case forgev1.Kind_KIND_UNSPECIFIED:
 	}
+
+	return "", errUnknownKind.Saying("%s is not a forge this build knows", protoenum.Name(p.Kind))
 }
 
 // headerFor is the header a credential obtained one way is sent in on one kind of forge.
-func headerFor(kind, method string) string {
-	if kind == KindGitLab && method != MethodGitHubApp {
+func headerFor(kind forgev1.Kind, method forgev1.CredentialMethod) string {
+	if kind == forgev1.Kind_KIND_GITLAB && method != forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP {
 		return HeaderPrivateToken
 	}
 
@@ -190,13 +186,13 @@ func headerFor(kind, method string) string {
 type ConnectParams struct {
 	// Host is what agents' remotes name.
 	Host string
-	// Kind is which forge it runs, worked out from the host when empty.
-	Kind string
+	// Kind is which forge it runs, worked out from the host when unspecified.
+	Kind forgev1.Kind
 	// APIURL is where an enterprise host answers, empty for the public forge.
 	APIURL string
-	// Method is how the credential comes, MethodToken when empty.
-	Method string
-	// Token is the credential for MethodToken and MethodRotatingToken, and ignored for MethodGitHubApp.
+	// Method is how the credential comes, a token when unspecified.
+	Method forgev1.CredentialMethod
+	// Token is the credential for the token and rotating token methods, and ignored for the App.
 	Token Secret
 }
 
@@ -208,7 +204,7 @@ func (s *Service) Connect(ctx context.Context, params ConnectParams) (*forgestor
 		return nil, errNoHost
 	}
 
-	if params.Kind == "" {
+	if params.Kind == forgev1.Kind_KIND_UNSPECIFIED {
 		found, err := KindForHost(params.Host)
 		if err != nil {
 			return nil, err
@@ -219,11 +215,11 @@ func (s *Service) Connect(ctx context.Context, params ConnectParams) (*forgestor
 
 	build, ok := s.builders[params.Kind]
 	if !ok {
-		return nil, errUnknownKind.Saying("%q is not a forge this build knows", params.Kind)
+		return nil, errUnknownKind.Saying("%s is not a forge this build knows", protoenum.Name(params.Kind))
 	}
 
-	if params.Method == "" {
-		params.Method = MethodToken
+	if params.Method == forgev1.CredentialMethod_CREDENTIAL_METHOD_UNSPECIFIED {
+		params.Method = forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN
 	}
 
 	apiURL, err := params.resolveAPIURL()
@@ -238,22 +234,12 @@ func (s *Service) Connect(ctx context.Context, params ConnectParams) (*forgestor
 		return nil, err
 	}
 
-	var login string
-	switch params.Method {
-	case MethodToken:
-		login, err = s.proveToken(ctx, build, params)
-	case MethodGitHubApp:
-		login, err = s.proveApp(ctx, build, params)
-	case MethodRotatingToken:
-		login, err = s.proveRotatingToken(ctx, build, params)
-	default:
-		return nil, errUnknownMethod.Saying("%q is not a way to connect", params.Method)
-	}
+	login, err := s.prove(ctx, build, params)
 	if err != nil {
 		return nil, err
 	}
 
-	if params.Method == MethodRotatingToken {
+	if params.Method == forgev1.CredentialMethod_CREDENTIAL_METHOD_ROTATING_TOKEN {
 		s.rotation.Lock()
 		defer s.rotation.Unlock()
 	}
@@ -280,13 +266,29 @@ func (s *Service) Connect(ctx context.Context, params ConnectParams) (*forgestor
 // keepCredential stores what a new connection sends the forge, which an App mints rather than keeps.
 func (s *Service) keepCredential(ctx context.Context, build Builder, params ConnectParams, connectionID uuid.UUID) error {
 	switch params.Method {
-	case MethodToken:
+	case forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN:
 		return s.credentials.Set(ctx, connectionID, params.Token)
-	case MethodRotatingToken:
+	case forgev1.CredentialMethod_CREDENTIAL_METHOD_ROTATING_TOKEN:
 		return s.keepRotatedToken(ctx, build, params, connectionID)
-	default:
-		return nil
+	case forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP, forgev1.CredentialMethod_CREDENTIAL_METHOD_UNSPECIFIED:
 	}
+
+	return nil
+}
+
+// prove asks the forge who a credential belongs to, the way its method allows.
+func (s *Service) prove(ctx context.Context, build Builder, params ConnectParams) (string, error) {
+	switch params.Method {
+	case forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN:
+		return s.proveToken(ctx, build, params)
+	case forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP:
+		return s.proveApp(ctx, build, params)
+	case forgev1.CredentialMethod_CREDENTIAL_METHOD_ROTATING_TOKEN:
+		return s.proveRotatingToken(ctx, build, params)
+	case forgev1.CredentialMethod_CREDENTIAL_METHOD_UNSPECIFIED:
+	}
+
+	return "", errUnknownMethod.Saying("%s is not a way to connect", protoenum.Name(params.Method))
 }
 
 // proveToken asks the forge who a pasted token belongs to.
@@ -295,7 +297,7 @@ func (s *Service) proveToken(ctx context.Context, build Builder, params ConnectP
 		return "", errNoToken
 	}
 
-	probe := build(params.APIURL, staticCredential{Header: headerFor(params.Kind, MethodToken), Token: params.Token})
+	probe := build(params.APIURL, staticCredential{Header: headerFor(params.Kind, forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN), Token: params.Token})
 	login, err := probe.Verify(ctx)
 	if errors.Is(err, ErrUnauthorized) {
 		return "", fmt.Errorf("failed to verify the token with %s: %w", params.Host, err)
@@ -310,7 +312,7 @@ func (s *Service) proveToken(ctx context.Context, build Builder, params ConnectP
 // proveApp mints from the App, checks its installation reaches a repository, and answers with
 // the App's own name.
 func (s *Service) proveApp(ctx context.Context, build Builder, params ConnectParams) (string, error) {
-	if params.Kind != KindGitHub {
+	if params.Kind != forgev1.Kind_KIND_GITHUB {
 		return "", errAppNotGitHub
 	}
 	app, err := s.loadApp()
@@ -366,7 +368,7 @@ func (s *Service) Disconnect(ctx context.Context, host string) error {
 	}
 
 	var revoked error
-	if connection.Method == MethodRotatingToken {
+	if connection.Method == forgev1.CredentialMethod_CREDENTIAL_METHOD_ROTATING_TOKEN {
 		revoked = s.revokeRotatingToken(ctx, *connection)
 	}
 
@@ -381,7 +383,7 @@ func (s *Service) Disconnect(ctx context.Context, host string) error {
 // token belongs to for a pasted token, which a rotating one also rotates when due, and whether
 // the installation still reaches a repository for an App, whose login is the row's own.
 func (s *Service) Check(ctx context.Context, connection forgestore.Connection) (string, error) {
-	if connection.Method == MethodRotatingToken {
+	if connection.Method == forgev1.CredentialMethod_CREDENTIAL_METHOD_ROTATING_TOKEN {
 		return s.checkRotating(ctx, connection)
 	}
 
@@ -390,7 +392,7 @@ func (s *Service) Check(ctx context.Context, connection forgestore.Connection) (
 		return "", err
 	}
 
-	if connection.Method != MethodGitHubApp {
+	if connection.Method != forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP {
 		return f.Verify(ctx)
 	}
 
@@ -418,7 +420,7 @@ func (s *Service) heldForge(ctx context.Context, connection forgestore.Connectio
 func (s *Service) RecheckConnection(ctx context.Context, connection forgestore.Connection) (*CheckResult, error) {
 	if _, err := s.Check(ctx, connection); err != nil {
 		kind := problemKind(err)
-		if kind != problemUnreachable {
+		if kind != forgev1.ProblemKind_PROBLEM_KIND_UNREACHABLE {
 			if err := s.connections.SetVerifiedAt(ctx, connection.ID, nil); err != nil {
 				return nil, err
 			}
@@ -510,7 +512,7 @@ func (s *Service) ListPullRequests(ctx context.Context, params ListPullRequestsP
 // HasCredential says whether a connection still has what it needs to speak, which for an App
 // row is always so.
 func (s *Service) HasCredential(ctx context.Context, connection forgestore.Connection) (bool, error) {
-	if connection.Method == MethodGitHubApp {
+	if connection.Method == forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP {
 		return true, nil
 	}
 
@@ -534,7 +536,7 @@ func (s *Service) SetThrottledUntil(ctx context.Context, id uuid.UUID, until *ti
 func (s *Service) ForConnection(connection forgestore.Connection) (Forge, error) {
 	build, ok := s.builders[connection.Kind]
 	if !ok {
-		return nil, errUnknownKind.Saying("%q is not a forge this build knows", connection.Kind)
+		return nil, errUnknownKind.Saying("%s is not a forge this build knows", protoenum.Name(connection.Kind))
 	}
 
 	var auth Authenticator = newStoredCredential(newStoredCredentialParams{
@@ -543,7 +545,7 @@ func (s *Service) ForConnection(connection forgestore.Connection) (Forge, error)
 		Header:       headerFor(connection.Kind, connection.Method),
 		Connections:  s.verified,
 	})
-	if connection.Method == MethodGitHubApp {
+	if connection.Method == forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP {
 		app, err := s.loadApp()
 		if err != nil {
 			return nil, errBadApp.Saying("%v", err)
@@ -560,14 +562,14 @@ func (s *Service) ForConnection(connection forgestore.Connection) (Forge, error)
 }
 
 // problemKind says which kind of trouble a connection is in.
-func problemKind(err error) string {
+func problemKind(err error) forgev1.ProblemKind {
 	switch {
 	case errors.Is(err, ErrNoCredential):
-		return problemNoCredential
+		return forgev1.ProblemKind_PROBLEM_KIND_NO_CREDENTIAL
 	case errors.Is(err, ErrUnauthorized), errors.Is(err, errAppReachesNothing):
-		return ProblemRefused
+		return forgev1.ProblemKind_PROBLEM_KIND_REFUSED
 	default:
-		return problemUnreachable
+		return forgev1.ProblemKind_PROBLEM_KIND_UNREACHABLE
 	}
 }
 

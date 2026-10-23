@@ -13,15 +13,15 @@ import (
 	"komrad/internal/gittest"
 	"komrad/internal/scriptrun"
 	"komrad/internal/store"
-	"komrad/internal/storetest"
-	"komrad/lib/clock"
-	"komrad/lib/xslice"
-
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 	worktreestore "komrad/internal/store/worktree"
+	"komrad/internal/storetest"
+	"komrad/lib/clock"
+	"komrad/lib/xslice"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -37,7 +37,7 @@ type fakeScripts struct {
 	deprovisioned  []string
 }
 
-func (f *fakeScripts) RunHook(context.Context, agentstore.Agent, string, string) error {
+func (f *fakeScripts) RunHook(context.Context, agentstore.Agent, string, eventv1.Moment) error {
 	return nil
 }
 

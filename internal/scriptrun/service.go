@@ -3,20 +3,12 @@ package scriptrun
 import (
 	"sync"
 
-	"komrad/config"
-
 	agentstore "komrad/internal/store/agent"
 	runstore "komrad/internal/store/run"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
 
 	"github.com/google/uuid"
-)
-
-const (
-	triggerProvision   = config.TriggerAgentProvision
-	triggerResume      = config.TriggerAgentResume
-	triggerDeprovision = config.TriggerAgentDeprovision
 )
 
 type tmuxReadWriter interface {

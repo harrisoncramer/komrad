@@ -12,9 +12,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// MethodGitHubApp is the method for a credential minted from the engine's GitHub App.
-const MethodGitHubApp = "github_app"
-
 // App is the GitHub App a service can connect as, and where its minted tokens are kept.
 type App struct {
 	Cache githubapp.Cache

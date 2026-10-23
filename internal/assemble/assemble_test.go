@@ -8,6 +8,7 @@ import (
 	"komrad/lib/dates"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
@@ -101,7 +102,7 @@ type pullRequest struct {
 func (p pullRequest) row() *pullrequestv1.PullRequest {
 	row := &pullrequestv1.PullRequest{
 		Id:                p.id,
-		Forge:             "github",
+		Forge:             forgev1.Kind_KIND_GITHUB,
 		RepositoryUrl:     repo,
 		HeadRepositoryUrl: p.headRepo,
 		HeadBranch:        p.branch,
@@ -153,7 +154,7 @@ func currentStanding(p pullRequest) *agentv1.PullRequestStanding {
 		Title:          xptr.Ptr(row.GetTitle()),
 		MergeReadiness: row.GetMergeReadiness(),
 		HeadSha:        xptr.Ptr(row.GetHeadSha()),
-		Forge:          xptr.Ptr(row.GetForge()),
+		Forge:          row.GetForge(),
 	}
 }
 

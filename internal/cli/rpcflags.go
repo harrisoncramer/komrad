@@ -206,10 +206,12 @@ func declareListFlag(cmd *cobra.Command, field protoreflect.FieldDescriptor, fla
 }
 
 func describeField(field protoreflect.FieldDescriptor) string {
+	constraints := rpcapi.GetConstraints(field)
 	parts := []string{field.Kind().String()}
 	switch {
 	case field.Kind() == protoreflect.EnumKind:
-		parts = []string{strings.Join(rpcapi.EnumNames(field.Enum()), "|")}
+		parts = []string{strings.Join(rpcapi.EnumNames(field), "|")}
+		constraints.Enum = nil
 	case rpcapi.IsUUID(field):
 		parts = []string{"uuid"}
 	}
@@ -222,7 +224,7 @@ func describeField(field protoreflect.FieldDescriptor) string {
 		parts = append(parts, "required")
 	}
 
-	return strings.Join(append(parts, describeConstraints(rpcapi.GetConstraints(field), required)...), ", ")
+	return strings.Join(append(parts, describeConstraints(constraints, required)...), ", ")
 }
 
 // describeConstraints spells out what the server refuses of a value, leaving out the emptiness a required field already rules out.

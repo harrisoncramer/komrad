@@ -4,6 +4,7 @@ package pullrequest.v1;
 
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
+import "forge/v1/connection.proto";
 import "google/protobuf/timestamp.proto";
 import "pagination/v1/pagination.proto";
 
@@ -26,8 +27,8 @@ message ListPullRequestsRequest {
 message PullRequest {
   // The pull request's id.
   string id = 1;
-  // The forge the pull request is on, such as `github`.
-  string forge = 2;
+  // The kind of forge the pull request is on.
+  forge.v1.Kind forge = 2;
   // The forge's own stable id for the pull request, such as GitHub's `node_id`.
   string provider_id = 3;
   // The pull request's web address.

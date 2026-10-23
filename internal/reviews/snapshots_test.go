@@ -16,6 +16,7 @@ import (
 	reviewstore "komrad/internal/store/review"
 	"komrad/lib/clock"
 	"komrad/lib/xslice"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
@@ -196,7 +197,7 @@ func TestReleaseReviewRingsTheAgent(t *testing.T) {
 	assert.Contains(t, rung[0].Body, "get_review with review id "+released.Review.ID.String())
 	assert.Contains(t, rung[0].Body, "or read "+released.Path)
 	assert.Contains(t, rung[0].Body, "changes requested")
-	assert.Equal(t, []string{eventprompts.ReviewChangesRequested}, rung[0].Events)
+	assert.Equal(t, []eventv1.Event{eventv1.Event_EVENT_REVIEW_CHANGES_REQUESTED}, rung[0].Events)
 	assert.NotContains(t, rung[0].Body, "nil check", "the mail carries no feedback")
 }
 

@@ -14,6 +14,7 @@ import (
 	mailstore "komrad/internal/store/mail"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/lib/xslice"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
@@ -71,7 +72,7 @@ func handleChange(ctx context.Context, tx store.DBTX, mailer *mail.MailService, 
 
 		newFailures := untold(failures)
 		recipientStarted := started
-		if failing != "" && (len(newFailures) > 0 || finished || carriesFailing(held)) {
+		if failing != eventv1.Event_EVENT_UNSPECIFIED && (len(newFailures) > 0 || finished || carriesFailing(held)) {
 			recipientStarted = append(slices.Clone(started), failing)
 		}
 

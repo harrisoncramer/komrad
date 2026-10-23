@@ -74,7 +74,7 @@ func Generate(plugin *protogen.Plugin) error {
 	plugin.SupportedFeatures = uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL |
 		pluginpb.CodeGeneratorResponse_FEATURE_SUPPORTS_EDITIONS)
 	plugin.SupportedEditionsMinimum = descriptorpb.Edition_EDITION_PROTO2
-	plugin.SupportedEditionsMaximum = descriptorpb.Edition_EDITION_2023
+	plugin.SupportedEditionsMaximum = descriptorpb.Edition_EDITION_2026
 
 	run := &generation{
 		plugin:   plugin,

@@ -12,6 +12,7 @@ import (
 	"komrad/internal/git"
 	forgestore "komrad/internal/store/forge"
 	reviewstore "komrad/internal/store/review"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/google/uuid"
 )
@@ -228,7 +229,7 @@ func findPostedReply(params findPostedReplyParams) string {
 
 // getViewerLogin returns the login komrad posts as, empty for a GitHub App whose login is unknown.
 func getViewerLogin(connection forgestore.Connection) string {
-	if connection.Method == forge.MethodGitHubApp {
+	if connection.Method == forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP {
 		return ""
 	}
 

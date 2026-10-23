@@ -9,6 +9,7 @@ import (
 
 	"komrad/internal/ui/paneltest"
 	"komrad/lib/xptr"
+	forgev1 "komrad/proto/gen/forge/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	tea "charm.land/bubbletea/v2"
@@ -47,7 +48,7 @@ func TestReviewPullRequest(t *testing.T) {
 
 	t.Run("a merge request is numbered the way GitLab does", func(t *testing.T) {
 		server := newDescribedReviewServer(t, "Why it changed.")
-		server.forge[0].(*pullrequestv1.PullRequest).Forge = "gitlab"
+		server.forge[0].(*pullrequestv1.PullRequest).Forge = forgev1.Kind_KIND_GITLAB
 		harness := openReviewAt(t, server, paneltest.Params{Height: 40})
 
 		assert.Contains(t, paneltest.SidebarProse(harness.Frame()), "!7 fix the greeting")

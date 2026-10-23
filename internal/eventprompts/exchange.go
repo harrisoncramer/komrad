@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	mailstore "komrad/internal/store/mail"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 )
@@ -21,7 +22,7 @@ func (ExchangeCapped) Kind() mailstore.Kind {
 }
 
 // Events is empty, since reaching the cap starts no event.
-func (ExchangeCapped) Events() []string {
+func (ExchangeCapped) Events() []eventv1.Event {
 	return nil
 }
 

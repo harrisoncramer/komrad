@@ -8,16 +8,17 @@ import (
 	"sync"
 
 	"komrad/internal/logging"
-
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/protoenum"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 )
 
 // HookRunner runs a workflow's hooks, each in its turn among those queued under the same key.
 type HookRunner interface {
-	RunHook(ctx context.Context, agent agentstore.Agent, name, event string) error
+	RunHook(ctx context.Context, agent agentstore.Agent, name string, moment eventv1.Moment) error
 	AwaitHooks(ctx context.Context, key uuid.UUID) error
 	QueueHooks(key uuid.UUID) *HookTurn
 }
@@ -28,7 +29,7 @@ type HookRun struct {
 	Scripts HookRunner
 	Agent   agentstore.Agent
 	Hooks   []workflowstore.Hook
-	Event   string
+	Moment  eventv1.Moment
 }
 
 // HookQueue orders the hooks queued under each key, an agent's id or a task's, one moment at a time.
@@ -116,11 +117,11 @@ func (r HookRun) Run(ctx context.Context) error {
 	}
 
 	for _, hook := range r.Hooks {
-		if hook.Event != r.Event {
+		if hook.Moment != r.Moment {
 			continue
 		}
 
-		if err := r.Scripts.RunHook(ctx, r.Agent, hook.Script, r.Event); err != nil {
+		if err := r.Scripts.RunHook(ctx, r.Agent, hook.Script, r.Moment); err != nil {
 			return err
 		}
 	}
@@ -130,7 +131,7 @@ func (r HookRun) Run(ctx context.Context) error {
 
 // RunInTurn runs the hooks on one moment once those queued ahead of it under the same key have finished.
 func (r HookRun) RunInTurn(ctx context.Context) error {
-	if r.Scripts == nil || !HasHookOn(r.Hooks, r.Event) {
+	if r.Scripts == nil || !HasHookOn(r.Hooks, r.Moment) {
 		return nil
 	}
 
@@ -146,7 +147,7 @@ func (r HookRun) RunInTurn(ctx context.Context) error {
 
 // Start runs a moment's hooks in the background.
 func (r HookRun) Start(ctx context.Context) {
-	if r.Scripts == nil || !HasHookOn(r.Hooks, r.Event) {
+	if r.Scripts == nil || !HasHookOn(r.Hooks, r.Moment) {
 		return
 	}
 
@@ -163,7 +164,7 @@ func (r HookRun) Start(ctx context.Context) {
 		if err := r.Run(bg); err != nil {
 			logging.From(bg).LogAttrs(bg, slog.LevelError, "a hook failed",
 				append([]slog.Attr{
-					slog.String(logging.RunTrigger, r.Event),
+					slog.String(logging.RunTrigger, protoenum.Name(r.Moment)),
 					slog.String(logging.ScriptAgentID, r.Agent.ID.String()),
 				}, logging.Err(err)...)...)
 		}
@@ -172,7 +173,7 @@ func (r HookRun) Start(ctx context.Context) {
 
 // queueKey is what a moment's hooks queue under, the task's id for a moment in a task's life and the agent's otherwise.
 func (r HookRun) queueKey() uuid.UUID {
-	if workflowstore.IsTaskEvent(r.Event) && r.Agent.TaskID != nil {
+	if workflowstore.IsTaskMoment(r.Moment) && r.Agent.TaskID != nil {
 		return *r.Agent.TaskID
 	}
 
@@ -180,8 +181,8 @@ func (r HookRun) queueKey() uuid.UUID {
 }
 
 // HasHookOn reports whether a workflow hangs any script on one moment.
-func HasHookOn(hooks []workflowstore.Hook, event string) bool {
-	return slices.ContainsFunc(hooks, func(hook workflowstore.Hook) bool { return hook.Event == event })
+func HasHookOn(hooks []workflowstore.Hook, moment eventv1.Moment) bool {
+	return slices.ContainsFunc(hooks, func(hook workflowstore.Hook) bool { return hook.Moment == moment })
 }
 
 func awaitHooks(ctx context.Context, key uuid.UUID, ahead <-chan struct{}) error {

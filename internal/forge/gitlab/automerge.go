@@ -12,6 +12,7 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/forge/graphql"
 	"komrad/lib/xhttp"
+	forgev1 "komrad/proto/gen/forge/v1"
 )
 
 //go:embed automergetarget.gql
@@ -31,8 +32,8 @@ func (f *Forge) SetAutoMerge(ctx context.Context, params forge.SetAutoMergeParam
 	}
 	shouldChange, err := forge.ShouldChange(forge.ShouldChangeParams{
 		Sentinel:  forge.ErrNoAutoMerge,
-		Forge:     forge.KindGitLab,
-		Ref:       forge.Ref(forge.KindGitLab, number),
+		Forge:     forgev1.Kind_KIND_GITLAB,
+		Ref:       forge.Ref(forgev1.Kind_KIND_GITLAB, number),
 		Merged:    target.State == "merged",
 		Closed:    target.State == "closed",
 		IsSettled: target.AutoMergeEnabled == params.On,

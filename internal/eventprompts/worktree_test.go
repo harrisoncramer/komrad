@@ -3,6 +3,8 @@ package eventprompts
 import (
 	"testing"
 
+	eventv1 "komrad/proto/gen/event/v1"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -11,28 +13,28 @@ func TestRebaseMailStartsTheEventForItsOutcome(t *testing.T) {
 	tests := []struct {
 		name string
 		mail Mail
-		want string
+		want eventv1.Event
 	}{
 		{
 			name: "a rebase stopped on conflicts",
 			mail: Rebased{Conflicted: true},
-			want: worktreeRebaseConflicted,
+			want: eventv1.Event_EVENT_WORKTREE_REBASE_CONFLICTED,
 		},
 		{
 			name: "a branch whose work had all landed",
 			mail: Rebased{Landed: 2, Moved: true},
-			want: worktreeLanded,
+			want: eventv1.Event_EVENT_WORKTREE_LANDED,
 		},
 		{
 			name: "a replay",
 			mail: Rebased{Replay: 1},
-			want: worktreeRebased,
+			want: eventv1.Event_EVENT_WORKTREE_REBASED,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, []string{tt.want}, tt.mail.Events())
+			assert.Equal(t, []eventv1.Event{tt.want}, tt.mail.Events())
 		})
 	}
 }

@@ -12,6 +12,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -867,7 +868,7 @@ func TestUpsertFromKomradRewritesTheEvents(t *testing.T) {
 	recipient := seedAgent(t, st, "recipient")
 	subject := uuid.New()
 
-	upsert := func(events []string) *Mail {
+	upsert := func(events []eventv1.Event) *Mail {
 		t.Helper()
 		written, err := st.UpsertFromKomrad(ctx, UpsertFromKomradParams{
 			FromName:  "komrad",
@@ -885,15 +886,15 @@ func TestUpsertFromKomradRewritesTheEvents(t *testing.T) {
 
 	assert.Empty(t, upsert(nil).Events, "mail naming no event stores none")
 
-	upsert([]string{"pull_request.checks_failing", "pull_request.behind"})
+	upsert([]eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING, eventv1.Event_EVENT_PULL_REQUEST_BEHIND})
 	found, err := st.GetUnreadAbout(ctx, recipient, KindPullRequestChanged, subject)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"pull_request.checks_failing", "pull_request.behind"}, found.Events)
+	assert.Equal(t, []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING, eventv1.Event_EVENT_PULL_REQUEST_BEHIND}, found.Events)
 
-	upsert([]string{"pull_request.behind"})
+	upsert([]eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_BEHIND})
 	found, err = st.GetUnreadAbout(ctx, recipient, KindPullRequestChanged, subject)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"pull_request.behind"}, found.Events, "a rewrite replaces the events rather than adding to them")
+	assert.Equal(t, []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_BEHIND}, found.Events, "a rewrite replaces the events rather than adding to them")
 }
 
 // TestClaimNudge pins when an agent may be told about its mail: while it holds unread mail it has

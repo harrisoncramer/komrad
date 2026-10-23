@@ -4,15 +4,15 @@ import (
 	"testing"
 
 	"komrad/internal/store"
-	"komrad/internal/storetest"
-	"komrad/lib/xptr"
-	"komrad/lib/xslice"
-
 	agentstore "komrad/internal/store/agent"
 	documentstore "komrad/internal/store/document"
 	rowstore "komrad/internal/store/row"
 	runstore "komrad/internal/store/run"
 	taskstore "komrad/internal/store/task"
+	"komrad/internal/storetest"
+	"komrad/lib/xptr"
+	"komrad/lib/xslice"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -38,7 +38,7 @@ func TestFailedRun(t *testing.T) {
 
 	fine, err := st.Runs.Begin(ctx, runstore.BeginParams{
 		AgentID: alpha.ID,
-		Trigger: "agent.post-launch",
+		Trigger: eventv1.Moment_MOMENT_AGENT_POST_LAUNCH,
 		Script:  "setup",
 	})
 	require.NoError(t, err)
@@ -48,7 +48,7 @@ func TestFailedRun(t *testing.T) {
 	for number := range 3 {
 		id, err := st.Runs.Begin(ctx, runstore.BeginParams{
 			AgentID:   alpha.ID,
-			Trigger:   "agent.post-launch",
+			Trigger:   eventv1.Moment_MOMENT_AGENT_POST_LAUNCH,
 			Script:    "setup",
 			LogNumber: xptr.Ptr(int32(number + 1)),
 		})

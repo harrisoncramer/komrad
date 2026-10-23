@@ -27,6 +27,7 @@ import (
 	"komrad/internal/storetest"
 	"komrad/internal/waketest"
 	"komrad/lib/xptr"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -56,7 +57,7 @@ type scriptedForge struct {
 	reading func()
 }
 
-func (f *scriptedForge) Kind() string { return forge.KindGitHub }
+func (f *scriptedForge) Kind() forgev1.Kind { return forgev1.Kind_KIND_GITHUB }
 
 func (f *scriptedForge) Verify(context.Context) (string, error) { return "harrisoncramer", nil }
 
@@ -145,9 +146,9 @@ func newSyncFixture(t *testing.T) *syncFixture {
 
 	connections := forgestore.NewForgeStore(pool.GetDB())
 	_, err = connections.Create(ctx, forgestore.CreateParams{
-		Kind:       forge.KindGitHub,
+		Kind:       forgev1.Kind_KIND_GITHUB,
 		Host:       "github.com",
-		Method:     forge.MethodToken,
+		Method:     forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN,
 		Login:      "harrisoncramer",
 		VerifiedAt: syncNow,
 	})
@@ -170,8 +171,8 @@ func newSyncFixture(t *testing.T) *syncFixture {
 		Forges: forge.NewService(forge.NewServiceParams{
 			Connections: connections,
 			Credentials: forge.NewFileStore(t.TempDir()),
-			Builders: map[string]forge.Builder{
-				forge.KindGitHub: func(string, forge.Authenticator) forge.Forge {
+			Builders: map[forgev1.Kind]forge.Builder{
+				forgev1.Kind_KIND_GITHUB: func(string, forge.Authenticator) forge.Forge {
 					return scripted
 				},
 			},
@@ -265,7 +266,7 @@ func pullRequestAt(providerID, branch string, updatedAt time.Time) forge.PullReq
 // no checks and nothing in the way of merging.
 func pullRequestIn(repository git.RemoteURL, providerID, branch string, updatedAt time.Time) forge.PullRequest {
 	return forge.PullRequest{
-		Forge:      forge.KindGitHub,
+		Forge:      forgev1.Kind_KIND_GITHUB,
 		ProviderID: providerID,
 		URL:        repository.Canonical() + "/pull/" + providerID,
 		Repository: repository,

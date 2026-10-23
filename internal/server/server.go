@@ -31,6 +31,7 @@ import (
 	"komrad/internal/tmux"
 	"komrad/internal/watch"
 	"komrad/internal/watched"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -52,7 +53,7 @@ type NewServerParams struct {
 	HookCommand        string
 	FallbackResumeRoot string
 	Doctor             doctor.Settings
-	ForgeBuilders      map[string]forge.Builder
+	ForgeBuilders      map[forgev1.Kind]forge.Builder
 	SignIn             config.SignIn
 	// EmbeddedPostgresDir holds the embedded Postgres the server keeps running, and is empty when the config turns it off.
 	EmbeddedPostgresDir string

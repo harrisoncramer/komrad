@@ -10,7 +10,8 @@ import (
 	"komrad/db/models"
 	"komrad/internal/fail"
 	"komrad/internal/store"
-	"komrad/lib/xslice"
+	"komrad/lib/protoenum"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/google/uuid"
 )
@@ -21,14 +22,14 @@ var ErrHostTaken = fail.AlreadyExists("this host is already connected")
 // Connection is one forge a machine acts on, and who it acts as there.
 type Connection struct {
 	ID uuid.UUID
-	// Kind is which forge the host runs, github or gitlab.
-	Kind string
+	// Kind is which forge the host runs.
+	Kind forgev1.Kind
 	// Host is what agents' remotes name, such as github.com.
 	Host string
 	// APIURL is where an enterprise host answers API calls, empty for the public forge.
 	APIURL string
-	// Method is how the credential was obtained, token or github_app.
-	Method string
+	// Method is how the credential was obtained.
+	Method forgev1.CredentialMethod
 	// Login is who the forge said the credential belongs to.
 	Login string
 	// VerifiedAt is when the forge last confirmed the credential, nil once it refused.
@@ -51,10 +52,10 @@ func NewForgeStore(db store.DBTX) *ForgeStore {
 
 // CreateParams holds what creates a connection.
 type CreateParams struct {
-	Kind       string
+	Kind       forgev1.Kind
 	Host       string
 	APIURL     string
-	Method     string
+	Method     forgev1.CredentialMethod
 	Login      string
 	VerifiedAt time.Time
 }
@@ -63,10 +64,10 @@ type CreateParams struct {
 func (s *ForgeStore) Create(ctx context.Context, params CreateParams) (*Connection, error) {
 	verified := params.VerifiedAt
 	row, err := s.queries.CreateForgeConnection(ctx, models.CreateForgeConnectionParams{
-		Kind:       params.Kind,
+		Kind:       protoenum.Name(params.Kind),
 		Host:       params.Host,
 		ApiUrl:     params.APIURL,
-		Method:     params.Method,
+		Method:     protoenum.Name(params.Method),
 		Login:      params.Login,
 		VerifiedAt: &verified,
 	})
@@ -77,9 +78,7 @@ func (s *ForgeStore) Create(ctx context.Context, params CreateParams) (*Connecti
 		return nil, fmt.Errorf("failed to connect %s: %w", params.Host, err)
 	}
 
-	connection := fromRow(row)
-
-	return &connection, nil
+	return fromRow(row)
 }
 
 // Get is a connection by id, or ErrNotFound.
@@ -92,9 +91,7 @@ func (s *ForgeStore) Get(ctx context.Context, id uuid.UUID) (*Connection, error)
 		return nil, fmt.Errorf("failed to get connection %q: %w", id, err)
 	}
 
-	connection := fromRow(row)
-
-	return &connection, nil
+	return fromRow(row)
 }
 
 // GetByHost is the connection for a host, or ErrNotFound.
@@ -107,9 +104,7 @@ func (s *ForgeStore) GetByHost(ctx context.Context, host string) (*Connection, e
 		return nil, fmt.Errorf("failed to get the connection for %s: %w", host, err)
 	}
 
-	connection := fromRow(row)
-
-	return &connection, nil
+	return fromRow(row)
 }
 
 // List is every connection, by host.
@@ -119,9 +114,7 @@ func (s *ForgeStore) List(ctx context.Context) ([]Connection, error) {
 		return nil, fmt.Errorf("failed to list connections: %w", err)
 	}
 
-	connections := xslice.Map(rows, fromRow)
-
-	return connections, nil
+	return fromRows(rows)
 }
 
 // SetVerifiedAt records when the forge last confirmed the credential, or clears it.
@@ -163,16 +156,38 @@ func (s *ForgeStore) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func fromRow(row *models.ForgeConnection) Connection {
-	return Connection{
+func fromRows(rows []*models.ForgeConnection) ([]Connection, error) {
+	connections := make([]Connection, len(rows))
+	for i, row := range rows {
+		connection, err := fromRow(row)
+		if err != nil {
+			return nil, err
+		}
+		connections[i] = *connection
+	}
+
+	return connections, nil
+}
+
+func fromRow(row *models.ForgeConnection) (*Connection, error) {
+	kind, err := protoenum.Parse[forgev1.Kind](row.Kind)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the connection for %s: %w", row.Host, err)
+	}
+	method, err := protoenum.Parse[forgev1.CredentialMethod](row.Method)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the connection for %s: %w", row.Host, err)
+	}
+
+	return &Connection{
 		ID:             row.ID,
-		Kind:           row.Kind,
+		Kind:           kind,
 		Host:           row.Host,
 		APIURL:         row.ApiUrl,
-		Method:         row.Method,
+		Method:         method,
 		Login:          row.Login,
 		VerifiedAt:     row.VerifiedAt,
 		ThrottledUntil: row.ThrottledUntil,
 		CreatedAt:      row.CreatedAt,
-	}
+	}, nil
 }

@@ -6,6 +6,7 @@ import (
 
 	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 )
@@ -30,16 +31,16 @@ func (ReviewReleased) Kind() mailstore.Kind {
 }
 
 // Events is the event the release starts.
-func (m ReviewReleased) Events() []string {
+func (m ReviewReleased) Events() []eventv1.Event {
 	switch {
 	case m.ForgeLogin != "":
-		return []string{reviewForgeCommented}
+		return []eventv1.Event{eventv1.Event_EVENT_REVIEW_FORGE_COMMENTED}
 	case m.Verdict == reviewstore.VerdictApproved:
-		return []string{ReviewApproved}
+		return []eventv1.Event{eventv1.Event_EVENT_REVIEW_APPROVED}
 	case m.Verdict == reviewstore.VerdictChangesRequested:
-		return []string{ReviewChangesRequested}
+		return []eventv1.Event{eventv1.Event_EVENT_REVIEW_CHANGES_REQUESTED}
 	default:
-		return []string{reviewCommented}
+		return []eventv1.Event{eventv1.Event_EVENT_REVIEW_COMMENTED}
 	}
 }
 
@@ -95,8 +96,8 @@ func (ReviewComment) Kind() mailstore.Kind {
 }
 
 // Events is the event a person's comment starts.
-func (ReviewComment) Events() []string {
-	return []string{ReviewCommentedByPerson}
+func (ReviewComment) Events() []eventv1.Event {
+	return []eventv1.Event{eventv1.Event_EVENT_REVIEW_COMMENTED_BY_PERSON}
 }
 
 // Body is the comment itself, where it is pinned, and how to answer it.
@@ -174,8 +175,8 @@ func (ThreadAnswered) Kind() mailstore.Kind {
 }
 
 // Events is the event an answer starts.
-func (ThreadAnswered) Events() []string {
-	return []string{ReviewAnswered}
+func (ThreadAnswered) Events() []eventv1.Event {
+	return []eventv1.Event{eventv1.Event_EVENT_REVIEW_ANSWERED}
 }
 
 // Body asks the reviewer to read the answer and release a verdict on it.

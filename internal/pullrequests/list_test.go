@@ -10,6 +10,7 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/internal/storetest"
 	"komrad/lib/xslice"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,7 +45,7 @@ func TestListPullRequests(t *testing.T) {
 	} {
 		_, err := st.PullRequests.Upsert(t.Context(), pullrequeststore.UpsertParams{
 			Host:              "github.com",
-			Forge:             "github",
+			Forge:             forgev1.Kind_KIND_GITHUB,
 			ProviderID:        pullRequest.repository + pullRequest.branch,
 			URL:               fmt.Sprintf("%s/pull/%d", pullRequest.repository, pullRequest.number),
 			RepositoryURL:     pullRequest.repository,
@@ -109,7 +110,7 @@ func TestListStatusChecks(t *testing.T) {
 	opened := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
 	pullRequest, err := st.PullRequests.Upsert(t.Context(), pullrequeststore.UpsertParams{
 		Host:              "github.com",
-		Forge:             "github",
+		Forge:             forgev1.Kind_KIND_GITHUB,
 		ProviderID:        "PR_1",
 		URL:               syncRepository + "/pull/1",
 		RepositoryURL:     syncRepository,

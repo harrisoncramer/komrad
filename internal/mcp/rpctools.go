@@ -173,8 +173,8 @@ func addConstraints(schema map[string]any, constraints rpcapi.Constraints) error
 
 // enumSchema describes an enum by the names of its values, which connect's JSON
 // codec accepts in place of the number.
-func enumSchema(values protoreflect.EnumDescriptor) map[string]any {
-	return map[string]any{"type": "string", "enum": rpcapi.EnumNames(values)}
+func enumSchema(field protoreflect.FieldDescriptor) map[string]any {
+	return map[string]any{"type": "string", "enum": rpcapi.EnumNames(field)}
 }
 
 func valueSchema(field protoreflect.FieldDescriptor, enclosing map[protoreflect.FullName]bool) (map[string]any, error) {
@@ -194,7 +194,7 @@ func valueSchema(field protoreflect.FieldDescriptor, enclosing map[protoreflect.
 	case protoreflect.FloatKind, protoreflect.DoubleKind:
 		return map[string]any{"type": "number"}, nil
 	case protoreflect.EnumKind:
-		return enumSchema(field.Enum()), nil
+		return enumSchema(field), nil
 	case protoreflect.Sint32Kind, protoreflect.Sint64Kind,
 		protoreflect.Sfixed32Kind, protoreflect.Fixed32Kind,
 		protoreflect.Sfixed64Kind, protoreflect.Fixed64Kind,

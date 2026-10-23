@@ -10,6 +10,7 @@ import (
 	"komrad/internal/mail"
 	mailstore "komrad/internal/store/mail"
 	taskstore "komrad/internal/store/task"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -26,7 +27,7 @@ func TestACommentGoesToTheWriterAtOnce(t *testing.T) {
 	rung := fx.listMail(t, fx.writer.ID)
 	require.Len(t, rung, 1)
 	assert.Equal(t, mailstore.KindReviewComment, rung[0].Kind)
-	assert.Equal(t, []string{eventprompts.ReviewCommentedByPerson}, rung[0].Events)
+	assert.Equal(t, []eventv1.Event{eventv1.Event_EVENT_REVIEW_COMMENTED_BY_PERSON}, rung[0].Events)
 	assert.Contains(t, rung[0].Body, "the person commented on snapshot 1 at greet.go:41, thread "+written.Thread.ID.String())
 	assert.Contains(t, rung[0].Body, "+\tgreet(nil)")
 	assert.Contains(t, rung[0].Body, "this needs a nil check")

@@ -8,14 +8,16 @@ import (
 	"komrad/internal/ui/form"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
+	"komrad/lib/protoenum"
 	"komrad/lib/xslice"
+	eventv1 "komrad/proto/gen/event/v1"
 	hookv1 "komrad/proto/gen/hook/v1"
 )
 
 func (a *agentsScreen) newWorkflowForm(in screen.Inputs) screen.Request {
 	values := workflowFormValues{
-		EventPrompts: eventPromptsByEvent(xslice.Map(eventprompts.All(), func(event eventprompts.Event) panel.EventPrompt {
-			return panel.EventPrompt{Event: event.Name, Prompt: event.DefaultPrompt}
+		EventPrompts: eventPromptsByEvent(xslice.Map(protoenum.Values[eventv1.Event](), func(event eventv1.Event) panel.EventPrompt {
+			return panel.EventPrompt{Event: event, Prompt: eventprompts.DefaultPrompt(event)}
 		})),
 	}
 	if len(in.Listing.Workflows) == 0 {
@@ -87,7 +89,7 @@ func (a *agentsScreen) archiveWorkflow(in screen.Inputs, workflow panel.Workflow
 
 // eventPromptEditables are the event prompts the panel's editor key can open.
 func eventPromptEditables(values *workflowFormValues) []form.Editable {
-	return xslice.Map(eventprompts.All(), func(event eventprompts.Event) form.Editable {
-		return form.Editable{Key: eventPromptKey(event.Name), Value: values.eventPromptFor(event.Name)}
+	return xslice.Map(protoenum.Values[eventv1.Event](), func(event eventv1.Event) form.Editable {
+		return form.Editable{Key: eventPromptKey(event), Value: values.eventPromptFor(event)}
 	})
 }

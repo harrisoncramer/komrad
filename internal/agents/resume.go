@@ -21,6 +21,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tasks"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 )
@@ -316,7 +317,7 @@ func (r *resumeStart) runPreHooks(ctx context.Context, agent agentstore.Agent) e
 		Scripts: r.scripts,
 		Agent:   agent,
 		Hooks:   agentHooks(ctx, r.service.workflows, agent),
-		Event:   workflowstore.HookAgentPreResume,
+		Moment:  eventv1.Moment_MOMENT_AGENT_PRE_RESUME,
 	}.RunInTurn(ctx)); err != nil {
 		return fmt.Errorf("failed to run the pre-resume hook of %q: %w", agent.Name, err)
 	}
@@ -388,7 +389,7 @@ func (r *resumeStart) finish(ctx context.Context, agent agentstore.Agent) error 
 		Scripts: r.scripts,
 		Agent:   agent,
 		Hooks:   agentHooks(ctx, r.service.workflows, agent),
-		Event:   workflowstore.HookAgentPostResume,
+		Moment:  eventv1.Moment_MOMENT_AGENT_POST_RESUME,
 	}.Start(ctx)
 
 	return nil

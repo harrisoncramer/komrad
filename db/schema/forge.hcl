@@ -25,7 +25,7 @@ table "forge_connections" {
   column "method" {
     null    = false
     type    = text
-    comment = "How the credential was obtained: token for one a person supplied, github_app for one minted from the engine's App."
+    comment = "How the credential was obtained: token for one a person supplied, rotating-token for a GitLab token komrad rotates, github-app for one minted from the engine's App."
   }
   column "login" {
     null    = false

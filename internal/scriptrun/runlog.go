@@ -12,9 +12,9 @@ import (
 	"komrad/internal/logging"
 	"komrad/internal/scripts"
 	"komrad/internal/store"
-
 	agentstore "komrad/internal/store/agent"
 	runstore "komrad/internal/store/run"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 )
@@ -30,7 +30,7 @@ type runRecord struct {
 
 // claimRunLog names the file one run writes to and creates it empty, taking the number under
 // the lock and by an exclusive create.
-func (s *ScriptService) claimRunLog(ctx context.Context, agentID uuid.UUID, trigger, name string) (string, int) {
+func (s *ScriptService) claimRunLog(ctx context.Context, agentID uuid.UUID, trigger eventv1.Moment, name string) (string, int) {
 	if s.logsDir == "" || agentID == uuid.Nil {
 		return "", 0
 	}
@@ -84,7 +84,7 @@ func (s *ScriptService) claimRunLog(ctx context.Context, agentID uuid.UUID, trig
 }
 
 // beginRun claims a run's log file and opens the row that indexes it.
-func (s *ScriptService) beginRun(ctx context.Context, agent agentstore.Agent, trigger, name string) runRecord {
+func (s *ScriptService) beginRun(ctx context.Context, agent agentstore.Agent, trigger eventv1.Moment, name string) runRecord {
 	path, number := s.claimRunLog(ctx, agent.ID, trigger, name)
 	record := runRecord{logPath: path}
 

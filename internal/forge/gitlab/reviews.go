@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"komrad/internal/forge"
+	forgev1 "komrad/proto/gen/forge/v1"
 )
 
 // reviewStateRequestedChanges is the reviewer state GitLab records when one asks for changes.
@@ -57,8 +58,8 @@ func (f *Forge) RequestRereview(ctx context.Context, address string) error {
 	target := data.Project.MergeRequest
 	if _, err := forge.ShouldChange(forge.ShouldChangeParams{
 		Sentinel: forge.ErrNoRereview,
-		Forge:    forge.KindGitLab,
-		Ref:      forge.Ref(forge.KindGitLab, number),
+		Forge:    forgev1.Kind_KIND_GITLAB,
+		Ref:      forge.Ref(forgev1.Kind_KIND_GITLAB, number),
 		Merged:   target.State == "merged",
 		Closed:   target.State == "closed",
 	}); err != nil {

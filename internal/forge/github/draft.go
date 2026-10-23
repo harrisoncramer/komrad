@@ -5,6 +5,7 @@ import (
 	_ "embed"
 
 	"komrad/internal/forge"
+	forgev1 "komrad/proto/gen/forge/v1"
 )
 
 //go:embed drafttarget.gql
@@ -50,8 +51,8 @@ func (f *Forge) SetDraft(ctx context.Context, address string, draft bool) error 
 	target := data.Repository.PullRequest
 	shouldChange, err := forge.ShouldChange(forge.ShouldChangeParams{
 		Sentinel:  forge.ErrNotDraftable,
-		Forge:     forge.KindGitHub,
-		Ref:       forge.Ref(forge.KindGitHub, number),
+		Forge:     forgev1.Kind_KIND_GITHUB,
+		Ref:       forge.Ref(forgev1.Kind_KIND_GITHUB, number),
 		Merged:    target.State == "MERGED",
 		Closed:    target.State == "CLOSED",
 		IsSettled: target.IsDraft == draft,

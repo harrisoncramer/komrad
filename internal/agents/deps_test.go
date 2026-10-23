@@ -37,6 +37,7 @@ import (
 	"komrad/lib/clock"
 	"komrad/lib/clock/clocktest"
 	"komrad/lib/xptr"
+	eventv1 "komrad/proto/gen/event/v1"
 	"komrad/proto/gen/oneofs"
 
 	"github.com/google/uuid"
@@ -323,7 +324,7 @@ func (s *testStore) agentServiceCapped(tmux *tmuxtest.Fake, lifecycle agentScrip
 
 // ranHook is one hook the fake was asked to run, in the order it was asked.
 type ranHook struct {
-	Event  string
+	Moment eventv1.Moment
 	Script string
 	Cwd    string
 }
@@ -372,7 +373,7 @@ func (f *fakeLifecycle) RunResume(_ context.Context, _ agentstore.Agent, name st
 	return f.dir, nil
 }
 
-func (f *fakeLifecycle) RunHook(_ context.Context, agent agentstore.Agent, name, event string) error {
+func (f *fakeLifecycle) RunHook(_ context.Context, agent agentstore.Agent, name string, moment eventv1.Moment) error {
 	if f.holdHooks != nil {
 		<-f.holdHooks
 	}
@@ -381,7 +382,7 @@ func (f *fakeLifecycle) RunHook(_ context.Context, agent agentstore.Agent, name,
 	defer f.hooksMu.Unlock()
 
 	f.hooks = append(f.hooks, ranHook{
-		Event:  event,
+		Moment: moment,
 		Script: name,
 		Cwd:    agent.Cwd,
 	})
@@ -404,7 +405,7 @@ func (f *fakeLifecycle) ranTaskHooks() []agentstore.Agent {
 
 	var ran []agentstore.Agent
 	for i, hook := range f.hooks {
-		if workflowstore.IsTaskEvent(hook.Event) {
+		if workflowstore.IsTaskMoment(hook.Moment) {
 			ran = append(ran, f.ranAs[i])
 		}
 	}

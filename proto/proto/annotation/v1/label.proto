@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package annotation.v1;
+
+import "google/protobuf/descriptor.proto";
+
+option go_package = "komrad/proto/gen/annotation/v1;annotationv1";
+
+extend google.protobuf.EnumValueOptions {
+  // The enum value's title and description.
+  Label label = 50004;
+}
+
+// Label is the title and description of an enum value.
+message Label {
+  // The value's title, such as `Agent pre-launch hook`.
+  string title = 1;
+  // What the value means, in one phrase.
+  string description = 2;
+}

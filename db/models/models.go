@@ -686,7 +686,7 @@ type ForgeConnection struct {
 	Host string
 	// Where the forge answers API calls when it is not the public one, such as https://ghe.example.com/api/v3. Empty for github.com and gitlab.com.
 	ApiUrl string
-	// How the credential was obtained: token for one a person supplied, github_app for one minted from the engine's App.
+	// How the credential was obtained: token for one a person supplied, rotating-token for a GitLab token komrad rotates, github-app for one minted from the engine's App.
 	Method string
 	// Who the forge said the credential belongs to when it was verified, a user login or an App slug.
 	Login string

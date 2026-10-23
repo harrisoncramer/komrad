@@ -20,6 +20,7 @@ import (
 	githubapp "komrad/internal/github/app"
 	"komrad/internal/store"
 	forgestore "komrad/internal/store/forge"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,8 +36,8 @@ type fakeForge struct {
 	listed  *[]ListParams
 }
 
-func (f *fakeForge) Kind() string {
-	return KindGitHub
+func (f *fakeForge) Kind() forgev1.Kind {
+	return forgev1.Kind_KIND_GITHUB
 }
 
 func (f *fakeForge) Verify(ctx context.Context) (string, error) {
@@ -110,8 +111,8 @@ func newFixture(t *testing.T, login string, verifyErr error) *fixture {
 	f.service = NewService(NewServiceParams{
 		Connections: f.store,
 		Credentials: f.credentials,
-		Builders: map[string]Builder{
-			KindGitHub: func(api string, auth Authenticator) Forge {
+		Builders: map[forgev1.Kind]Builder{
+			forgev1.Kind_KIND_GITHUB: func(api string, auth Authenticator) Forge {
 				credential, _ := auth.Credential(t.Context())
 				f.seen = append(f.seen, credential)
 				f.apis = append(f.apis, api)
@@ -141,8 +142,8 @@ func TestConnect(t *testing.T) {
 	connection, err := f.service.Connect(ctx, ConnectParams{Host: "GitHub.com", Token: NewSecret(" ghp_secret\n")})
 	require.NoError(t, err)
 	assert.Equal(t, "github.com", connection.Host)
-	assert.Equal(t, KindGitHub, connection.Kind)
-	assert.Equal(t, MethodToken, connection.Method)
+	assert.Equal(t, forgev1.Kind_KIND_GITHUB, connection.Kind)
+	assert.Equal(t, forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN, connection.Method)
 	assert.Equal(t, "harrisoncramer", connection.Login)
 	require.NotNil(t, connection.VerifiedAt)
 
@@ -191,7 +192,7 @@ func TestConnectRefusals(t *testing.T) {
 			name: "a kind this build does not have",
 			params: ConnectParams{
 				Host:  "ghe.example.com",
-				Kind:  "gitea",
+				Kind:  forgev1.Kind(99),
 				Token: NewSecret("tok"),
 			},
 			wantErr: errUnknownKind,
@@ -228,7 +229,7 @@ func TestResolveAPIURL(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		kind    string
+		kind    forgev1.Kind
 		host    string
 		given   string
 		want    string
@@ -236,59 +237,59 @@ func TestResolveAPIURL(t *testing.T) {
 	}{
 		{
 			name: "github.com needs nothing",
-			kind: KindGitHub,
+			kind: forgev1.Kind_KIND_GITHUB,
 			host: "github.com",
 			want: "",
 		},
 		{
 			name: "gitlab.com needs nothing",
-			kind: KindGitLab,
+			kind: forgev1.Kind_KIND_GITLAB,
 			host: "gitlab.com",
 			want: "",
 		},
 		{
 			name: "an enterprise github host derives api/v3",
-			kind: KindGitHub,
+			kind: forgev1.Kind_KIND_GITHUB,
 			host: "ghe.example.com",
 			want: "https://ghe.example.com/api/v3",
 		},
 		{
 			name: "a self-hosted gitlab derives api/v4",
-			kind: KindGitLab,
+			kind: forgev1.Kind_KIND_GITLAB,
 			host: "git.example.com",
 			want: "https://git.example.com/api/v4",
 		},
 		{
 			name:  "an https address is kept without its trailing slash",
-			kind:  KindGitHub,
+			kind:  forgev1.Kind_KIND_GITHUB,
 			host:  "ghe.example.com",
 			given: "https://api.ghe.example.com/",
 			want:  "https://api.ghe.example.com",
 		},
 		{
 			name:    "an http address is refused",
-			kind:    KindGitHub,
+			kind:    forgev1.Kind_KIND_GITHUB,
 			host:    "ghe.example.com",
 			given:   "http://ghe.example.com/api/v3",
 			wantErr: errInsecureAPI,
 		},
 		{
 			name:    "an address with no host is refused",
-			kind:    KindGitHub,
+			kind:    forgev1.Kind_KIND_GITHUB,
 			host:    "ghe.example.com",
 			given:   "https:///api/v3",
 			wantErr: errInsecureAPI,
 		},
 		{
 			name:    "not a url is refused",
-			kind:    KindGitHub,
+			kind:    forgev1.Kind_KIND_GITHUB,
 			host:    "ghe.example.com",
 			given:   "::nope::",
 			wantErr: errInsecureAPI,
 		},
 		{
 			name:    "an unknown kind on an unknown host is refused",
-			kind:    "gitea",
+			kind:    forgev1.Kind(99),
 			host:    "git.example.com",
 			wantErr: errUnknownKind,
 		},
@@ -322,7 +323,7 @@ func TestConnectSendsTheTokenWhereTheHostSays(t *testing.T) {
 
 	connection, err := f.service.Connect(t.Context(), ConnectParams{
 		Host:  "ghe.example.com",
-		Kind:  KindGitHub,
+		Kind:  forgev1.Kind_KIND_GITHUB,
 		Token: NewSecret("tok"),
 	})
 	require.NoError(t, err)
@@ -331,7 +332,7 @@ func TestConnectSendsTheTokenWhereTheHostSays(t *testing.T) {
 
 	_, err = f.service.Connect(t.Context(), ConnectParams{
 		Host:   "other.example.com",
-		Kind:   KindGitHub,
+		Kind:   forgev1.Kind_KIND_GITHUB,
 		APIURL: "http://other.example.com/api/v3",
 		Token:  NewSecret("tok"),
 	})
@@ -406,7 +407,7 @@ func TestForConnectionRecordsWhereItIsTold(t *testing.T) {
 	reporting := NewService(NewServiceParams{
 		Connections: f.store,
 		Credentials: f.credentials,
-		Builders:    map[string]Builder{KindGitHub: func(_ string, auth Authenticator) Forge { return &fakeForge{auth: auth, err: ErrUnauthorized} }},
+		Builders:    map[forgev1.Kind]Builder{forgev1.Kind_KIND_GITHUB: func(_ string, auth Authenticator) Forge { return &fakeForge{auth: auth, err: ErrUnauthorized} }},
 		Verified:    noRecord{},
 	})
 	reported, err := reporting.ForConnection(*connection)
@@ -488,9 +489,9 @@ func TestConnectWithTheApp(t *testing.T) {
 	withApp(t, f, server)
 	ctx := t.Context()
 
-	connection, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Method: MethodGitHubApp})
+	connection, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Method: forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP})
 	require.NoError(t, err)
-	assert.Equal(t, MethodGitHubApp, connection.Method)
+	assert.Equal(t, forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP, connection.Method)
 	assert.Equal(t, "komrad-engine", connection.Login)
 	assert.Equal(t, 1, *mints)
 	require.Len(t, f.seen, 1)
@@ -528,8 +529,8 @@ func TestConnectWithTheAppSpeaksToTheEnterpriseHost(t *testing.T) {
 
 	_, err := f.service.Connect(t.Context(), ConnectParams{
 		Host:   "ghe.example.com",
-		Kind:   KindGitHub,
-		Method: MethodGitHubApp,
+		Kind:   forgev1.Kind_KIND_GITHUB,
+		Method: forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP,
 		APIURL: server.URL,
 	})
 	require.NoError(t, err)
@@ -544,7 +545,7 @@ func TestConnectWithTheAppRefusals(t *testing.T) {
 	t.Run("no app configured", func(t *testing.T) {
 		f := newFixture(t, "", nil)
 
-		_, err := f.service.Connect(t.Context(), ConnectParams{Host: "github.com", Method: MethodGitHubApp})
+		_, err := f.service.Connect(t.Context(), ConnectParams{Host: "github.com", Method: forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP})
 		require.ErrorIs(t, err, errNoApp)
 	})
 
@@ -554,7 +555,7 @@ func TestConnectWithTheAppRefusals(t *testing.T) {
 			return App{}, errors.New("installation_id: not a number")
 		}
 
-		_, err := f.service.Connect(t.Context(), ConnectParams{Host: "github.com", Method: MethodGitHubApp})
+		_, err := f.service.Connect(t.Context(), ConnectParams{Host: "github.com", Method: forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP})
 		require.ErrorIs(t, err, errBadApp)
 		assert.ErrorContains(t, err, "installation_id")
 	})
@@ -563,18 +564,18 @@ func TestConnectWithTheAppRefusals(t *testing.T) {
 		f := newFixture(t, "", nil)
 		server, _ := appServer(t, false)
 		withApp(t, f, server)
-		f.service.builders[KindGitHub] = func(_ string, auth Authenticator) Forge {
+		f.service.builders[forgev1.Kind_KIND_GITHUB] = func(_ string, auth Authenticator) Forge {
 			return &fakeForge{auth: auth, reaches: 0}
 		}
 
-		_, err := f.service.Connect(t.Context(), ConnectParams{Host: "github.com", Method: MethodGitHubApp})
+		_, err := f.service.Connect(t.Context(), ConnectParams{Host: "github.com", Method: forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP})
 		require.ErrorIs(t, err, errAppReachesNothing)
 	})
 
 	t.Run("a way to connect that does not exist", func(t *testing.T) {
 		f := newFixture(t, "", nil)
 
-		_, err := f.service.Connect(t.Context(), ConnectParams{Host: "github.com", Method: "oauth"})
+		_, err := f.service.Connect(t.Context(), ConnectParams{Host: "github.com", Method: forgev1.CredentialMethod(99)})
 		require.Error(t, err)
 	})
 }
@@ -599,7 +600,7 @@ func TestCheck(t *testing.T) {
 
 	server, _ := appServer(t, false)
 	withApp(t, f, server)
-	app, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Method: MethodGitHubApp})
+	app, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Method: forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP})
 	require.NoError(t, err)
 	seenBefore := len(f.seen)
 	login, err = f.service.Check(ctx, *app)
@@ -607,7 +608,7 @@ func TestCheck(t *testing.T) {
 	assert.Equal(t, "komrad-engine", login)
 	assert.Len(t, f.seen, seenBefore+1, "the App row is checked through its installation, not /user")
 
-	f.service.builders[KindGitHub] = func(_ string, auth Authenticator) Forge {
+	f.service.builders[forgev1.Kind_KIND_GITHUB] = func(_ string, auth Authenticator) Forge {
 		return &fakeForge{
 			auth:    auth,
 			login:   "should-not-be-read",
@@ -628,7 +629,7 @@ func TestCheckReportsARefusedMint(t *testing.T) {
 			withApp(t, f, server)
 			ctx := t.Context()
 
-			app, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Method: MethodGitHubApp})
+			app, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Method: forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP})
 			require.NoError(t, err)
 			row, err := f.store.Get(ctx, app.ID)
 			require.NoError(t, err)
@@ -661,7 +662,7 @@ func TestCheckPassesAMintOutageThrough(t *testing.T) {
 	withApp(t, f, server)
 	ctx := t.Context()
 
-	app, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Method: MethodGitHubApp})
+	app, err := f.service.Connect(ctx, ConnectParams{Host: "github.com", Method: forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP})
 	require.NoError(t, err)
 
 	down := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -694,7 +695,7 @@ func TestRecheckConnection(t *testing.T) {
 		verifyErr    error
 		dropToken    bool
 		stampBefore  *time.Time
-		wantKind     string
+		wantKind     forgev1.ProblemKind
 		wantProblem  bool
 		wantVerified *time.Time
 	}{
@@ -702,21 +703,21 @@ func TestRecheckConnection(t *testing.T) {
 			name:        "a refusal clears the stamp",
 			verifyErr:   ErrUnauthorized.Saying("Bad credentials"),
 			stampBefore: &stampedAt,
-			wantKind:    ProblemRefused,
+			wantKind:    forgev1.ProblemKind_PROBLEM_KIND_REFUSED,
 			wantProblem: true,
 		},
 		{
 			name:        "a missing credential clears the stamp",
 			dropToken:   true,
 			stampBefore: &stampedAt,
-			wantKind:    problemNoCredential,
+			wantKind:    forgev1.ProblemKind_PROBLEM_KIND_NO_CREDENTIAL,
 			wantProblem: true,
 		},
 		{
 			name:         "an unreachable forge leaves the stamp alone",
 			verifyErr:    errors.New("dial tcp: no such host"),
 			stampBefore:  &stampedAt,
-			wantKind:     problemUnreachable,
+			wantKind:     forgev1.ProblemKind_PROBLEM_KIND_UNREACHABLE,
 			wantProblem:  true,
 			wantVerified: &stampedAt,
 		},
@@ -738,7 +739,7 @@ func TestRecheckConnection(t *testing.T) {
 				require.NoError(t, f.credentials.Delete(ctx, connected.ID))
 			}
 
-			f.service.builders[KindGitHub] = func(_ string, auth Authenticator) Forge {
+			f.service.builders[forgev1.Kind_KIND_GITHUB] = func(_ string, auth Authenticator) Forge {
 				return &fakeForge{
 					auth:  auth,
 					login: "harrisoncramer",
@@ -778,34 +779,34 @@ func assertSameStamp(t *testing.T, want, got *time.Time) {
 // TestHeaderFor covers which header each kind and method sends its token in.
 func TestHeaderFor(t *testing.T) {
 	tests := []struct {
-		kind   string
-		method string
+		kind   forgev1.Kind
+		method forgev1.CredentialMethod
 		want   string
 	}{
 		{
-			kind:   KindGitHub,
-			method: MethodToken,
+			kind:   forgev1.Kind_KIND_GITHUB,
+			method: forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN,
 			want:   HeaderBearer,
 		},
 		{
-			kind:   KindGitHub,
-			method: MethodGitHubApp,
+			kind:   forgev1.Kind_KIND_GITHUB,
+			method: forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP,
 			want:   HeaderBearer,
 		},
 		{
-			kind:   KindGitLab,
-			method: MethodToken,
+			kind:   forgev1.Kind_KIND_GITLAB,
+			method: forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN,
 			want:   HeaderPrivateToken,
 		},
 		{
-			kind:   KindGitLab,
-			method: MethodRotatingToken,
+			kind:   forgev1.Kind_KIND_GITLAB,
+			method: forgev1.CredentialMethod_CREDENTIAL_METHOD_ROTATING_TOKEN,
 			want:   HeaderPrivateToken,
 		},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.kind+" "+tt.method, func(t *testing.T) {
+		t.Run(tt.kind.String()+" "+tt.method.String(), func(t *testing.T) {
 			assert.Equal(t, tt.want, headerFor(tt.kind, tt.method))
 		})
 	}

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"komrad/internal/store"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -37,8 +38,8 @@ type fakeGitLab struct {
 	account *gitLabAccount
 }
 
-func (f *fakeGitLab) Kind() string {
-	return KindGitLab
+func (f *fakeGitLab) Kind() forgev1.Kind {
+	return forgev1.Kind_KIND_GITLAB
 }
 
 func (f *fakeGitLab) Verify(ctx context.Context) (string, error) {
@@ -112,7 +113,7 @@ func newGitLabFixture(t *testing.T, account *gitLabAccount) *fixture {
 	t.Helper()
 
 	f := newFixture(t, "harrisoncramer", nil)
-	f.service.builders[KindGitLab] = func(_ string, auth Authenticator) Forge {
+	f.service.builders[forgev1.Kind_KIND_GITLAB] = func(_ string, auth Authenticator) Forge {
 		return &fakeGitLab{fakeForge: fakeForge{auth: auth, login: "harrisoncramer"}, account: account}
 	}
 
@@ -134,7 +135,7 @@ func connectRotating(t *testing.T, f *fixture) error {
 
 	_, err := f.service.Connect(t.Context(), ConnectParams{
 		Host:   "gitlab.com",
-		Method: MethodRotatingToken,
+		Method: forgev1.CredentialMethod_CREDENTIAL_METHOD_ROTATING_TOKEN,
 		Token:  NewSecret("glpat-pasted"),
 	})
 
@@ -153,8 +154,8 @@ func TestConnectWithARotatingToken(t *testing.T) {
 
 	connection, err := f.store.GetByHost(ctx, "gitlab.com")
 	require.NoError(t, err)
-	assert.Equal(t, KindGitLab, connection.Kind)
-	assert.Equal(t, MethodRotatingToken, connection.Method)
+	assert.Equal(t, forgev1.Kind_KIND_GITLAB, connection.Kind)
+	assert.Equal(t, forgev1.CredentialMethod_CREDENTIAL_METHOD_ROTATING_TOKEN, connection.Method)
 	assert.Equal(t, "harrisoncramer", connection.Login)
 	require.NotNil(t, connection.VerifiedAt)
 
@@ -214,7 +215,7 @@ func TestConnectWithARotatingTokenRefusals(t *testing.T) {
 
 			_, err := f.service.Connect(ctx, ConnectParams{
 				Host:   tt.host,
-				Method: MethodRotatingToken,
+				Method: forgev1.CredentialMethod_CREDENTIAL_METHOD_ROTATING_TOKEN,
 				Token:  NewSecret("glpat-pasted"),
 			})
 			require.Error(t, err)

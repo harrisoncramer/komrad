@@ -22,7 +22,7 @@ func main() {
 
 // run writes the reference data the docs site renders, reading the sources under root.
 func run(ctx context.Context, root, dir string) error {
-	notes, err := readComments(ctx, filepath.Join(root, "proto", "proto"))
+	notes, err := readComments(ctx, filepath.Join(root, "proto"))
 	if err != nil {
 		return err
 	}

@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/store"
 	"komrad/lib/xslice"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -191,7 +192,7 @@ func TestWatchedWorkflowsSpanTheArchive(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	hooks := []Hook{{Event: HookAgentPreLaunch, Script: "setup.sh"}}
+	hooks := []Hook{{Moment: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH, Script: "setup.sh"}}
 	create := func(name string) *Workflow {
 		created, err := st.Create(ctx, Config{
 			Name:     name,

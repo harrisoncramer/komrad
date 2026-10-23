@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	forgev1 "komrad/proto/gen/forge/v1"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -42,10 +44,10 @@ func TestForgesCheck(t *testing.T) {
 				{Host: "github.com", Login: "harrisoncramer"},
 				{
 					Host:        "gitlab.com",
-					Kind:        "gitlab",
-					Method:      "token",
+					Kind:        forgev1.Kind_KIND_GITLAB,
+					Method:      forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN,
 					Problem:     "Bad credentials",
-					ProblemKind: "refused",
+					ProblemKind: forgev1.ProblemKind_PROBLEM_KIND_REFUSED,
 				},
 			},
 			wantStatus: StatusWarn,
@@ -58,10 +60,10 @@ func TestForgesCheck(t *testing.T) {
 			statuses: []ForgeStatus{
 				{
 					Host:        "ghe.example.com",
-					Kind:        "github",
-					Method:      "token",
+					Kind:        forgev1.Kind_KIND_GITHUB,
+					Method:      forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN,
 					Problem:     "dial tcp: no such host",
-					ProblemKind: "unreachable",
+					ProblemKind: forgev1.ProblemKind_PROBLEM_KIND_UNREACHABLE,
 				},
 			},
 			wantStatus: StatusWarn,
@@ -72,17 +74,17 @@ func TestForgesCheck(t *testing.T) {
 			statuses: []ForgeStatus{
 				{
 					Host:        "github.com",
-					Kind:        "github",
-					Method:      "token",
+					Kind:        forgev1.Kind_KIND_GITHUB,
+					Method:      forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN,
 					Problem:     "no credential file for github.com; connect it again",
-					ProblemKind: "no_credential",
+					ProblemKind: forgev1.ProblemKind_PROBLEM_KIND_NO_CREDENTIAL,
 				},
 				{
 					Host:        "gitlab.com",
-					Kind:        "gitlab",
-					Method:      "token",
+					Kind:        forgev1.Kind_KIND_GITLAB,
+					Method:      forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN,
 					Problem:     "Bad credentials",
-					ProblemKind: "refused",
+					ProblemKind: forgev1.ProblemKind_PROBLEM_KIND_REFUSED,
 				},
 			},
 			wantStatus: StatusWarn,
@@ -95,10 +97,10 @@ func TestForgesCheck(t *testing.T) {
 			statuses: []ForgeStatus{
 				{
 					Host:        "github.com",
-					Kind:        "github",
-					Method:      "token",
+					Kind:        forgev1.Kind_KIND_GITHUB,
+					Method:      forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN,
 					Problem:     "no credential file for github.com; connect it again",
-					ProblemKind: "no_credential",
+					ProblemKind: forgev1.ProblemKind_PROBLEM_KIND_NO_CREDENTIAL,
 				},
 			},
 			wantStatus: StatusWarn,
@@ -110,10 +112,10 @@ func TestForgesCheck(t *testing.T) {
 			statuses: []ForgeStatus{
 				{
 					Host:        "gitlab.example.com",
-					Kind:        "gitlab",
-					Method:      "token",
+					Kind:        forgev1.Kind_KIND_GITLAB,
+					Method:      forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN,
 					Problem:     "401 Unauthorized",
-					ProblemKind: "refused",
+					ProblemKind: forgev1.ProblemKind_PROBLEM_KIND_REFUSED,
 				},
 			},
 			wantStatus: StatusWarn,
@@ -125,10 +127,10 @@ func TestForgesCheck(t *testing.T) {
 			statuses: []ForgeStatus{
 				{
 					Host:        "github.com",
-					Kind:        "github",
-					Method:      "github_app",
+					Kind:        forgev1.Kind_KIND_GITHUB,
+					Method:      forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP,
 					Problem:     "installation removed",
-					ProblemKind: "refused",
+					ProblemKind: forgev1.ProblemKind_PROBLEM_KIND_REFUSED,
 				},
 			},
 			wantStatus: StatusWarn,

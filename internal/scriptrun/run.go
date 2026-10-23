@@ -14,10 +14,10 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/logging"
 	"komrad/internal/scripts"
-
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 )
@@ -53,23 +53,23 @@ func (s *ScriptService) RunProvision(ctx context.Context, agent agentstore.Agent
 	return s.runAwaited(ctx, prepareParams{
 		agent:   agent,
 		name:    name,
-		trigger: triggerProvision,
+		trigger: eventv1.Moment_MOMENT_AGENT_PROVISION,
 	})
 }
 
 // RunHook runs one of a workflow's hooks for an agent and waits for it.
-func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, name, event string) error {
-	gone := event == workflowstore.HookAgentPostDelete
+func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, name string, moment eventv1.Moment) error {
+	gone := moment == eventv1.Moment_MOMENT_AGENT_POST_DELETE
 
 	var record runRecord
 	if !gone {
-		record = s.beginRun(ctx, agent, event, name)
+		record = s.beginRun(ctx, agent, moment, name)
 	}
 
 	script, env, err := s.prepare(ctx, prepareParams{
 		agent:   agent,
 		name:    name,
-		trigger: event,
+		trigger: moment,
 		hook:    true,
 	})
 	if err != nil {
@@ -83,14 +83,14 @@ func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, nam
 
 	dir := agent.Cwd
 	if err := scripts.RequireUsableDir(dir); err != nil {
-		if !gone && !isOutsideWorktree(agent, event) {
+		if !gone && !isOutsideWorktree(agent, moment) {
 			return s.refuseHook(ctx, record, name, err)
 		}
 
 		dir = script.GetDir()
 	}
 
-	logger := s.runLogger(ctx, name, event, agent)
+	logger := s.runLogger(ctx, name, moment, agent)
 	logger.LogAttrs(ctx, slog.LevelInfo, "script started")
 	began := time.Now()
 
@@ -130,7 +130,7 @@ func (s *ScriptService) RunResume(ctx context.Context, agent agentstore.Agent, n
 	return s.runAwaited(ctx, prepareParams{
 		agent:   agent,
 		name:    name,
-		trigger: triggerResume,
+		trigger: eventv1.Moment_MOMENT_AGENT_RESUME,
 	})
 }
 
@@ -202,13 +202,13 @@ func (s *ScriptService) RunDeprovision(ctx context.Context, agent agentstore.Age
 	script, env, err := s.prepare(ctx, prepareParams{
 		agent:   agent,
 		name:    name,
-		trigger: triggerDeprovision,
+		trigger: eventv1.Moment_MOMENT_AGENT_DEPROVISION,
 	})
 	if err != nil {
 		return err
 	}
 
-	run := s.beginRun(ctx, agent, triggerDeprovision, name)
+	run := s.beginRun(ctx, agent, eventv1.Moment_MOMENT_AGENT_DEPROVISION, name)
 
 	key := scriptKey{agentID: agent.ID, name: script.Name}
 	if !s.claim(key) {
@@ -218,7 +218,7 @@ func (s *ScriptService) RunDeprovision(ctx context.Context, agent agentstore.Age
 		return fmt.Errorf("failed to run script %s: %w", script.Name, ErrScriptAlreadyRunning)
 	}
 
-	logger := s.runLogger(ctx, script.Name, triggerDeprovision, agent)
+	logger := s.runLogger(ctx, script.Name, eventv1.Moment_MOMENT_AGENT_DEPROVISION, agent)
 	ctx = context.WithoutCancel(ctx)
 	began := time.Now()
 
@@ -281,7 +281,7 @@ func (s *ScriptService) release(key scriptKey) {
 type prepareParams struct {
 	agent   agentstore.Agent
 	name    string
-	trigger string
+	trigger eventv1.Moment
 	// hook resolves the name against the hooks directory rather than the built-in scripts
 	// directory.
 	hook bool
@@ -332,13 +332,13 @@ func (s *ScriptService) RunTaskDeprovision(ctx context.Context, task taskstore.T
 	script, env, err := s.prepare(ctx, prepareParams{
 		agent:   owner,
 		name:    name,
-		trigger: triggerDeprovision,
+		trigger: eventv1.Moment_MOMENT_AGENT_DEPROVISION,
 	})
 	if err != nil {
 		return err
 	}
 
-	logger := s.runLogger(ctx, script.Name, triggerDeprovision, owner).With(slog.String(logging.TaskID, task.ID.String()))
+	logger := s.runLogger(ctx, script.Name, eventv1.Moment_MOMENT_AGENT_DEPROVISION, owner).With(slog.String(logging.TaskID, task.ID.String()))
 	logger.LogAttrs(ctx, slog.LevelInfo, "script started")
 	began := time.Now()
 
@@ -358,6 +358,6 @@ func (s *ScriptService) RunTaskDeprovision(ctx context.Context, task taskstore.T
 }
 
 // isOutsideWorktree reports whether a hook is one of a task's run with no worktree, which may fall back to the script's own directory.
-func isOutsideWorktree(agent agentstore.Agent, event string) bool {
-	return workflowstore.IsTaskEvent(event) && agent.IsProvisionerDisabled()
+func isOutsideWorktree(agent agentstore.Agent, moment eventv1.Moment) bool {
+	return workflowstore.IsTaskMoment(moment) && agent.IsProvisionerDisabled()
 }

@@ -3,3 +3,4 @@
 set -euo pipefail
 cd "$MISE_CONFIG_ROOT/proto"
 buf generate
+buf generate --template buf.gen.connect.yaml

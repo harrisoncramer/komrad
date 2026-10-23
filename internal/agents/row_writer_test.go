@@ -11,6 +11,7 @@ import (
 	rowstore "komrad/internal/store/row"
 	runstore "komrad/internal/store/run"
 	"komrad/internal/waketest"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -93,7 +94,7 @@ func TestRowWriterWrites(t *testing.T) {
 			alpha := seed(t, st, "alpha", "", agentstore.StateIdle)
 			failed, err := st.Runs.Begin(t.Context(), runstore.BeginParams{
 				AgentID: alpha.ID,
-				Trigger: "agent.post-launch",
+				Trigger: eventv1.Moment_MOMENT_AGENT_POST_LAUNCH,
 				Script:  "install-deps",
 			})
 			require.NoError(t, err)

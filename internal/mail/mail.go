@@ -19,6 +19,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
 	"komrad/lib/xstr"
+	eventv1 "komrad/proto/gen/event/v1"
 	"komrad/proto/gen/oneofs"
 
 	"github.com/google/uuid"
@@ -247,7 +248,7 @@ type SendFromKomradParams struct {
 	// OnlyRewrite writes nothing when the recipient holds no unread mail of this kind about this subject.
 	OnlyRewrite bool
 	// Holding are the events true of the subject now, which keeps those an earlier unread mail started.
-	Holding []string
+	Holding []eventv1.Event
 }
 
 // SendFromKomrad writes mail as komrad itself, rewriting the unread mail of the same kind about the
@@ -632,10 +633,10 @@ func (s *MailService) findSender(ctx context.Context, from uuid.UUID) (*agentsto
 	return sender, nil
 }
 
-func carryEvents(held *mailstore.Mail, params SendFromKomradParams) []string {
-	var carried []string
+func carryEvents(held *mailstore.Mail, params SendFromKomradParams) []eventv1.Event {
+	var carried []eventv1.Event
 	if held != nil {
-		carried = slices.DeleteFunc(slices.Clone(held.Events), func(event string) bool { return !slices.Contains(params.Holding, event) })
+		carried = slices.DeleteFunc(slices.Clone(held.Events), func(event eventv1.Event) bool { return !slices.Contains(params.Holding, event) })
 	}
 	for _, event := range params.Mail.Events() {
 		if !slices.Contains(carried, event) {

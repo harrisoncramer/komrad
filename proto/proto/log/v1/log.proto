@@ -4,6 +4,7 @@ package log.v1;
 
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
+import "event/v1/event.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -100,8 +101,8 @@ message LogSource {
   string id = 1;
   // The number of the hook run. Unset for the server log.
   optional int32 run = 3;
-  // The moment the hook ran at, such as `agent.pre-launch`. Empty for the server log.
-  string trigger = 6;
+  // The moment the script ran at. Unset for the server log.
+  event.v1.Moment trigger = 6;
   // The hook's script, by file name in the hooks directory. Empty for the server log.
   string script = 7;
   // The id of the agent that recorded the hook run. Empty for the server log.

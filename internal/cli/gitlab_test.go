@@ -14,36 +14,36 @@ import (
 func TestGitLabConnection(t *testing.T) {
 	gitlab := &forgev1.Forge{
 		Id:            "gl",
-		Kind:          forge.KindGitLab,
+		Kind:          forgev1.Kind_KIND_GITLAB,
 		Host:          "gitlab.com",
-		Method:        forge.MethodToken,
+		Method:        forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN,
 		HasCredential: true,
 	}
 	selfHosted := &forgev1.Forge{
 		Id:            "self",
-		Kind:          forge.KindGitLab,
+		Kind:          forgev1.Kind_KIND_GITLAB,
 		Host:          "git.example.com",
-		Method:        forge.MethodToken,
+		Method:        forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN,
 		HasCredential: true,
 	}
 	github := &forgev1.Forge{
 		Id:            "gh",
-		Kind:          forge.KindGitHub,
+		Kind:          forgev1.Kind_KIND_GITHUB,
 		Host:          "github.com",
-		Method:        forge.MethodToken,
+		Method:        forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN,
 		HasCredential: true,
 	}
 	tokenless := &forgev1.Forge{
 		Id:     "gone",
-		Kind:   forge.KindGitLab,
+		Kind:   forgev1.Kind_KIND_GITLAB,
 		Host:   "gitlab.com",
-		Method: forge.MethodToken,
+		Method: forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN,
 	}
 	rotating := &forgev1.Forge{
 		Id:            "rot",
-		Kind:          forge.KindGitLab,
+		Kind:          forgev1.Kind_KIND_GITLAB,
 		Host:          "gitlab.com",
-		Method:        forge.MethodRotatingToken,
+		Method:        forgev1.CredentialMethod_CREDENTIAL_METHOD_ROTATING_TOKEN,
 		HasCredential: true,
 	}
 

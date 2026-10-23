@@ -1,0 +1,46 @@
+// This file names the kinds of forge, the ways a credential is given and the problems a check
+// finds. It is Edition 2026 so that each value's JSON name is the plain word komrad writes
+// everywhere, such as github or rotating-token, on the wire, in stored rows and as the CLI's flag
+// values. event/v1/event.proto says why Edition 2026 needs release candidates and how to move to
+// the final releases.
+edition = "2026";
+
+package forge.v1;
+
+import option "google/protobuf/json_enumvalue_options.proto";
+
+option go_package = "komrad/proto/gen/forge/v1;forgev1";
+
+// Kind is the kind of forge a host runs.
+export enum Kind {
+  // No kind.
+  KIND_UNSPECIFIED = 0;
+  // GitHub, or a GitHub Enterprise host.
+  KIND_GITHUB = 1 [(pb.enumvalue.json).string = "github"];
+  // GitLab, or a self-managed GitLab host.
+  KIND_GITLAB = 2 [(pb.enumvalue.json).string = "gitlab"];
+}
+
+// CredentialMethod is how a forge connection's credential is given.
+export enum CredentialMethod {
+  // No method.
+  CREDENTIAL_METHOD_UNSPECIFIED = 0;
+  // A token the person supplied.
+  CREDENTIAL_METHOD_TOKEN = 1 [(pb.enumvalue.json).string = "token"];
+  // A GitLab token that komrad rotates before it expires.
+  CREDENTIAL_METHOD_ROTATING_TOKEN = 2 [(pb.enumvalue.json).string = "rotating-token"];
+  // A token minted from the GitHub App in the server's config.
+  CREDENTIAL_METHOD_GITHUB_APP = 3 [(pb.enumvalue.json).string = "github-app"];
+}
+
+// ProblemKind is the kind of problem a check found with a forge connection.
+export enum ProblemKind {
+  // No problem.
+  PROBLEM_KIND_UNSPECIFIED = 0;
+  // The forge refused the credential.
+  PROBLEM_KIND_REFUSED = 1 [(pb.enumvalue.json).string = "refused"];
+  // This machine no longer has the credential.
+  PROBLEM_KIND_NO_CREDENTIAL = 2 [(pb.enumvalue.json).string = "no-credential"];
+  // The forge could not be reached.
+  PROBLEM_KIND_UNREACHABLE = 3 [(pb.enumvalue.json).string = "unreachable"];
+}

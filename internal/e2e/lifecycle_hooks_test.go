@@ -11,9 +11,10 @@ import (
 
 	"komrad/internal/komradtest"
 	agentstore "komrad/internal/store/agent"
-	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/protoenum"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
+	eventv1 "komrad/proto/gen/event/v1"
 	taskv1 "komrad/proto/gen/task/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 
@@ -25,14 +26,14 @@ import (
 
 // writeHook writes a hook named for its moment and returns the request for a worktree workflow
 // that hangs it there.
-func writeHook(t *testing.T, instance *komradtest.Instance, event, body string) *workflowv1.CreateWorkflowRequest {
+func writeHook(t *testing.T, instance *komradtest.Instance, moment eventv1.Moment, body string) *workflowv1.CreateWorkflowRequest {
 	t.Helper()
 
-	name := event + "-hook"
+	name := protoenum.Name(moment) + "-hook"
 	require.NoError(t, os.WriteFile(filepath.Join(instance.HooksDir, name), []byte(body), 0o755))
 
 	request := buildWorktreeWorkflow(t)
-	request.Hooks = []*workflowv1.WorkflowHook{{Event: event, Script: name}}
+	request.Hooks = []*workflowv1.WorkflowHook{{Event: moment, Script: name}}
 
 	return request
 }
@@ -47,7 +48,7 @@ func TestIntegrationPreDeleteRunsWhileTheWorktreeIsStillThere(t *testing.T) {
 
 	seen := filepath.Join(t.TempDir(), "seen")
 	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(writeHook(t,
-		instance, workflowstore.HookAgentPreDelete, "#!/bin/sh\nls .git >"+seen+"\n")))
+		instance, eventv1.Moment_MOMENT_AGENT_PRE_DELETE, "#!/bin/sh\nls .git >"+seen+"\n")))
 	require.NoError(t, err)
 
 	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
@@ -85,7 +86,7 @@ func TestIntegrationAFailedPreDeleteHoldsTheDelete(t *testing.T) {
 	ctx := t.Context()
 
 	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(writeHook(t,
-		instance, workflowstore.HookAgentPreDelete, "#!/bin/sh\necho boom >&2\nexit 1\n")))
+		instance, eventv1.Moment_MOMENT_AGENT_PRE_DELETE, "#!/bin/sh\necho boom >&2\nexit 1\n")))
 	require.NoError(t, err)
 
 	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
@@ -125,7 +126,7 @@ func TestIntegrationPreDeleteIsSkippedOnceTheDirectoryHasGone(t *testing.T) {
 
 	ran := filepath.Join(t.TempDir(), "ran")
 	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(writeHook(t,
-		instance, workflowstore.HookAgentPreDelete, "#!/bin/sh\ntouch "+ran+"\nexit 1\n")))
+		instance, eventv1.Moment_MOMENT_AGENT_PRE_DELETE, "#!/bin/sh\ntouch "+ran+"\nexit 1\n")))
 	require.NoError(t, err)
 
 	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
@@ -160,7 +161,7 @@ func TestIntegrationOverlappingDeletesRunThePreDeleteOnce(t *testing.T) {
 
 	counted := filepath.Join(t.TempDir(), "counted")
 	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(writeHook(t,
-		instance, workflowstore.HookAgentPreDelete, "#!/bin/sh\necho run >>"+counted+"\nsleep 1\n")))
+		instance, eventv1.Moment_MOMENT_AGENT_PRE_DELETE, "#!/bin/sh\necho run >>"+counted+"\nsleep 1\n")))
 	require.NoError(t, err)
 
 	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
@@ -230,7 +231,7 @@ func TestIntegrationPostArchiveRunsInTheWorktreeOnceTheAgentIsArchived(t *testin
 	ctx := t.Context()
 
 	seen := filepath.Join(t.TempDir(), "seen")
-	agent := createHookedAgent(t, instance, writeHook(t, instance, workflowstore.HookAgentPostArchive,
+	agent := createHookedAgent(t, instance, writeHook(t, instance, eventv1.Moment_MOMENT_AGENT_POST_ARCHIVE,
 		"#!/bin/sh\npwd -P >"+seen+"\n"))
 
 	_, err := instance.Tasks.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{Task: &taskv1.ArchiveTaskRequest_TaskId{TaskId: agent.GetTaskId()}}))
@@ -255,7 +256,7 @@ func TestIntegrationPostDeleteRunsOnceTheWorktreeIsGone(t *testing.T) {
 	ctx := t.Context()
 
 	seen := filepath.Join(t.TempDir(), "seen")
-	agent := createHookedAgent(t, instance, writeHook(t, instance, workflowstore.HookAgentPostDelete,
+	agent := createHookedAgent(t, instance, writeHook(t, instance, eventv1.Moment_MOMENT_AGENT_POST_DELETE,
 		"#!/bin/sh\n{ pwd -P; echo \"$KOMRAD_AGENT_CWD\"; test -d \"$KOMRAD_AGENT_CWD\" && echo there || echo gone; } >"+seen+"\n"))
 
 	_, err := instance.Tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{TaskIds: []string{agent.GetTaskId()}, Records: true}))
@@ -277,18 +278,18 @@ func TestIntegrationPostDeleteRunsOnceTheWorktreeIsGone(t *testing.T) {
 	assert.Error(t, err, "the row had gone before the hook ran")
 }
 
-func everyMoment() []string {
-	return []string{
-		workflowstore.HookAgentPreLaunch,
-		workflowstore.HookAgentPostLaunch,
-		workflowstore.HookAgentPreResume,
-		workflowstore.HookAgentPostResume,
-		workflowstore.HookAgentPreArchive,
-		workflowstore.HookAgentPostArchive,
-		workflowstore.HookAgentPreRestore,
-		workflowstore.HookAgentPostRestore,
-		workflowstore.HookAgentPreDelete,
-		workflowstore.HookAgentPostDelete,
+func everyMoment() []eventv1.Moment {
+	return []eventv1.Moment{
+		eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH,
+		eventv1.Moment_MOMENT_AGENT_POST_LAUNCH,
+		eventv1.Moment_MOMENT_AGENT_PRE_RESUME,
+		eventv1.Moment_MOMENT_AGENT_POST_RESUME,
+		eventv1.Moment_MOMENT_AGENT_PRE_ARCHIVE,
+		eventv1.Moment_MOMENT_AGENT_POST_ARCHIVE,
+		eventv1.Moment_MOMENT_AGENT_PRE_RESTORE,
+		eventv1.Moment_MOMENT_AGENT_POST_RESTORE,
+		eventv1.Moment_MOMENT_AGENT_PRE_DELETE,
+		eventv1.Moment_MOMENT_AGENT_POST_DELETE,
 	}
 }
 
@@ -298,14 +299,14 @@ func hangOnEvery(t *testing.T, instance *komradtest.Instance, name, body string)
 	require.NoError(t, os.WriteFile(filepath.Join(instance.HooksDir, name), []byte(body), 0o755))
 
 	request := buildWorktreeWorkflow(t)
-	request.Hooks = xslice.Map(everyMoment(), func(moment string) *workflowv1.WorkflowHook {
+	request.Hooks = xslice.Map(everyMoment(), func(moment eventv1.Moment) *workflowv1.WorkflowHook {
 		return &workflowv1.WorkflowHook{Event: moment, Script: name}
 	})
 
 	return request
 }
 
-func waitForMoments(t *testing.T, path string, want ...string) {
+func waitForMoments(t *testing.T, path string, want ...eventv1.Moment) {
 	t.Helper()
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
@@ -314,7 +315,7 @@ func waitForMoments(t *testing.T, path string, want ...string) {
 			return
 		}
 
-		assert.Equal(c, want, strings.Fields(string(landed)))
+		assert.Equal(c, protoenum.Names(want), strings.Fields(string(landed)))
 	}, 20*time.Second, 10*time.Millisecond)
 }
 
@@ -330,29 +331,29 @@ func TestIntegrationEveryMomentFiresInOrderOverAnAgentsLife(t *testing.T) {
 		"#!/bin/sh\necho \"$KOMRAD_TRIGGER\" >>"+record+"\n"))
 	ids := []string{agent.GetId()}
 
-	seen := []string{workflowstore.HookAgentPreLaunch, workflowstore.HookAgentPostLaunch}
+	seen := []eventv1.Moment{eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH, eventv1.Moment_MOMENT_AGENT_POST_LAUNCH}
 	waitForMoments(t, record, seen...)
 
 	_, err := instance.Tasks.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{Task: &taskv1.ArchiveTaskRequest_TaskId{TaskId: agent.GetTaskId()}}))
 	require.NoError(t, err)
-	seen = append(seen, workflowstore.HookAgentPreArchive, workflowstore.HookAgentPostArchive)
+	seen = append(seen, eventv1.Moment_MOMENT_AGENT_PRE_ARCHIVE, eventv1.Moment_MOMENT_AGENT_POST_ARCHIVE)
 	waitForMoments(t, record, seen...)
 
 	_, err = instance.Agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: ids}))
 	require.NoError(t, err)
-	seen = append(seen, workflowstore.HookAgentPreRestore, workflowstore.HookAgentPostRestore)
+	seen = append(seen, eventv1.Moment_MOMENT_AGENT_PRE_RESTORE, eventv1.Moment_MOMENT_AGENT_POST_RESTORE)
 	waitForMoments(t, record, seen...)
 
 	_, err = instance.Agents.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: agent.GetId()}))
 	require.NoError(t, err)
-	seen = append(seen, workflowstore.HookAgentPreResume, workflowstore.HookAgentPostResume)
+	seen = append(seen, eventv1.Moment_MOMENT_AGENT_PRE_RESUME, eventv1.Moment_MOMENT_AGENT_POST_RESUME)
 	waitForMoments(t, record, seen...)
 
 	_, err = instance.Tasks.DeleteTasks(ctx, connect.NewRequest(&taskv1.DeleteTasksRequest{TaskIds: []string{agent.GetTaskId()}, Records: true}))
 	require.NoError(t, err)
 	instance.WorkQueue()
-	seen = append(seen, workflowstore.HookAgentPreArchive, workflowstore.HookAgentPostArchive,
-		workflowstore.HookAgentPreDelete, workflowstore.HookAgentPostDelete)
+	seen = append(seen, eventv1.Moment_MOMENT_AGENT_PRE_ARCHIVE, eventv1.Moment_MOMENT_AGENT_POST_ARCHIVE,
+		eventv1.Moment_MOMENT_AGENT_PRE_DELETE, eventv1.Moment_MOMENT_AGENT_POST_DELETE)
 	waitForMoments(t, record, seen...)
 }
 
@@ -363,7 +364,7 @@ func TestIntegrationAFailedPostArchiveOnlyMarksItsRun(t *testing.T) {
 	instance := komradtest.Start(t, komradtest.Params{})
 	ctx := t.Context()
 
-	agent := createHookedAgent(t, instance, writeHook(t, instance, workflowstore.HookAgentPostArchive,
+	agent := createHookedAgent(t, instance, writeHook(t, instance, eventv1.Moment_MOMENT_AGENT_POST_ARCHIVE,
 		"#!/bin/sh\necho could not give the slot back >&2\nexit 1\n"))
 
 	_, err := instance.Tasks.ArchiveTask(ctx, connect.NewRequest(&taskv1.ArchiveTaskRequest{Task: &taskv1.ArchiveTaskRequest_TaskId{TaskId: agent.GetTaskId()}}))

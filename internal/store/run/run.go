@@ -9,7 +9,8 @@ import (
 
 	"komrad/db/models"
 	"komrad/internal/store"
-	"komrad/lib/xslice"
+	"komrad/lib/protoenum"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 )
@@ -18,7 +19,7 @@ import (
 type Run struct {
 	ID        uuid.UUID
 	AgentID   uuid.UUID
-	Trigger   string
+	Trigger   eventv1.Moment
 	Script    string
 	LogNumber *int32
 	Failure   string
@@ -36,7 +37,7 @@ func NewRunStore(db store.DBTX) *RunStore {
 type BeginParams struct {
 	AgentID   uuid.UUID
 	TaskID    *uuid.UUID
-	Trigger   string
+	Trigger   eventv1.Moment
 	Script    string
 	LogNumber *int32
 }
@@ -46,7 +47,7 @@ func (s *RunStore) Begin(ctx context.Context, params BeginParams) (uuid.UUID, er
 	id, err := s.queries.InsertAgentRun(ctx, models.InsertAgentRunParams{
 		AgentID:   params.AgentID,
 		TaskID:    params.TaskID,
-		Trigger:   params.Trigger,
+		Trigger:   protoenum.Name(params.Trigger),
 		Script:    params.Script,
 		LogNumber: params.LogNumber,
 	})
@@ -126,14 +127,22 @@ func (s *RunStore) ListByTask(ctx context.Context, taskID uuid.UUID) ([]Run, err
 		return nil, fmt.Errorf("failed to list the runs of task %q: %w", taskID, err)
 	}
 
-	return xslice.Map(rows, func(row *models.AgentRun) Run {
-		return Run{
+	runs := make([]Run, 0, len(rows))
+	for _, row := range rows {
+		trigger, err := protoenum.Parse[eventv1.Moment](row.Trigger)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read run %q of task %q: %w", row.ID, taskID, err)
+		}
+
+		runs = append(runs, Run{
 			ID:        row.ID,
 			AgentID:   row.AgentID,
-			Trigger:   row.Trigger,
+			Trigger:   trigger,
 			Script:    row.Script,
 			LogNumber: row.LogNumber,
 			Failure:   row.Failure,
-		}
-	}), nil
+		})
+	}
+
+	return runs, nil
 }

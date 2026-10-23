@@ -3,13 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/fs"
-	"path/filepath"
+	"os"
+	"os/exec"
 	"strings"
 
-	"github.com/bufbuild/protocompile"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
 
 type comments map[protoreflect.FullName]string
@@ -18,50 +19,28 @@ func (c comments) of(descriptor protoreflect.Descriptor) string {
 	return c[descriptor.FullName()]
 }
 
-// readComments compiles the proto sources for their comments, which the generated Go descriptors
-// do not carry.
-func readComments(ctx context.Context, protoDir string) (comments, error) {
-	var paths []string
-	err := filepath.WalkDir(protoDir, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil || entry.IsDir() || filepath.Ext(path) != ".proto" {
-			return err
-		}
+// readComments builds the proto module under dir for its comments, which the generated Go descriptors do not carry.
+func readComments(ctx context.Context, dir string) (comments, error) {
+	command := exec.CommandContext(ctx, "buf", "build", dir, "--exclude-imports", "--output", "-")
+	command.Stderr = os.Stderr
 
-		relative, err := filepath.Rel(protoDir, path)
-		if err != nil {
-			return err
-		}
-
-		paths = append(paths, filepath.ToSlash(relative))
-
-		return nil
-	})
+	image, err := command.Output()
 	if err != nil {
-		return nil, fmt.Errorf("listing %s: %w", protoDir, err)
+		return nil, fmt.Errorf("building %s: %w", dir, err)
 	}
 
-	compiler := protocompile.Compiler{
-		Resolver: protocompile.WithStandardImports(protocompile.CompositeResolver{
-			&protocompile.SourceResolver{ImportPaths: []string{protoDir}},
-			protocompile.ResolverFunc(func(path string) (protocompile.SearchResult, error) {
-				file, err := protoregistry.GlobalFiles.FindFileByPath(path)
-				if err != nil {
-					return protocompile.SearchResult{}, err
-				}
-
-				return protocompile.SearchResult{Desc: file}, nil
-			}),
-		}),
-		SourceInfoMode: protocompile.SourceInfoStandard,
+	set := &descriptorpb.FileDescriptorSet{}
+	if err := proto.Unmarshal(image, set); err != nil {
+		return nil, fmt.Errorf("reading the image of %s: %w", dir, err)
 	}
 
-	files, err := compiler.Compile(ctx, paths...)
+	files, err := protodesc.FileOptions{AllowUnresolvable: true}.NewFiles(set)
 	if err != nil {
-		return nil, fmt.Errorf("compiling %s: %w", protoDir, err)
+		return nil, fmt.Errorf("resolving the image of %s: %w", dir, err)
 	}
 
 	found := comments{}
-	for _, file := range files {
+	files.RangeFiles(func(file protoreflect.FileDescriptor) bool {
 		locations := file.SourceLocations()
 		record := func(descriptor protoreflect.Descriptor) {
 			if text := cleanComment(locations.ByDescriptor(descriptor).LeadingComments); text != "" {
@@ -80,7 +59,9 @@ func readComments(ctx context.Context, protoDir string) (comments, error) {
 
 		recordEnums(file.Enums(), record)
 		recordMessages(file.Messages(), record)
-	}
+
+		return true
+	})
 
 	return found, nil
 }

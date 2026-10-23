@@ -14,6 +14,7 @@ import (
 	"komrad/internal/storetest"
 	"komrad/internal/waketest"
 	"komrad/lib/xptr"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -79,9 +80,9 @@ func newTestWriter(t *testing.T, stores *storetest.Stores, writing *writingForge
 
 	connections := forgestore.NewForgeStore(stores.Pool.GetDB())
 	_, err := connections.Create(t.Context(), forgestore.CreateParams{
-		Kind:       forge.KindGitHub,
+		Kind:       forgev1.Kind_KIND_GITHUB,
 		Host:       "github.com",
-		Method:     forge.MethodToken,
+		Method:     forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN,
 		Login:      "harrisoncramer",
 		VerifiedAt: syncNow,
 	})
@@ -91,8 +92,8 @@ func newTestWriter(t *testing.T, stores *storetest.Stores, writing *writingForge
 		Forges: forge.NewService(forge.NewServiceParams{
 			Connections: connections,
 			Credentials: forge.NewFileStore(t.TempDir()),
-			Builders: map[string]forge.Builder{
-				forge.KindGitHub: func(string, forge.Authenticator) forge.Forge {
+			Builders: map[forgev1.Kind]forge.Builder{
+				forgev1.Kind_KIND_GITHUB: func(string, forge.Authenticator) forge.Forge {
 					return writing
 				},
 			},

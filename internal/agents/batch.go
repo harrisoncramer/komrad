@@ -7,11 +7,11 @@ import (
 
 	"komrad/config"
 	"komrad/internal/store"
-	"komrad/internal/tasks"
-
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/tasks"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 )
@@ -43,7 +43,7 @@ func archiveBatch(ctx context.Context, params archiveBatchParams) error {
 		scripts:     params.scripts,
 		workflows:   params.workflows,
 		agents:      params.live,
-		event:       workflowstore.HookAgentPreArchive,
+		moment:      eventv1.Moment_MOMENT_AGENT_PRE_ARCHIVE,
 		skipGoneDir: true,
 	})); err != nil {
 		return err
@@ -72,7 +72,7 @@ func archiveBatch(ctx context.Context, params archiveBatchParams) error {
 		scripts:   params.scripts,
 		workflows: params.workflows,
 		agents:    params.live,
-		event:     workflowstore.HookAgentPostArchive,
+		moment:    eventv1.Moment_MOMENT_AGENT_POST_ARCHIVE,
 	})
 	params.tasks.StartPostArchive(ctx, taken.tasks, params.live)
 
@@ -106,7 +106,7 @@ func restoreBatch(ctx context.Context, params restoreBatchParams) error {
 		scripts:     params.scripts,
 		workflows:   params.workflows,
 		agents:      params.archived,
-		event:       workflowstore.HookAgentPreRestore,
+		moment:      eventv1.Moment_MOMENT_AGENT_PRE_RESTORE,
 		skipGoneDir: true,
 	})); err != nil {
 		return err
@@ -154,7 +154,7 @@ func restoreBatch(ctx context.Context, params restoreBatchParams) error {
 		scripts:   params.scripts,
 		workflows: params.workflows,
 		agents:    restored,
-		event:     workflowstore.HookAgentPostRestore,
+		moment:    eventv1.Moment_MOMENT_AGENT_POST_RESTORE,
 	})
 
 	return nil

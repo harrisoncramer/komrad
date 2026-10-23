@@ -11,7 +11,8 @@ import (
 	"komrad/db"
 	"komrad/db/models"
 	"komrad/internal/store"
-	"komrad/lib/xslice"
+	"komrad/lib/protoenum"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 )
@@ -55,7 +56,7 @@ type Mail struct {
 	// SubjectID is the thing mail from komrad is about, unset on ordinary mail.
 	SubjectID *uuid.UUID
 	// Events are the events mail from komrad named, whose prompts its body carries.
-	Events    []string
+	Events    []eventv1.Event
 	ClaimedAt *time.Time
 	ExpiresAt time.Time
 	CreatedAt time.Time
@@ -104,9 +105,7 @@ func (s *MailStore) Send(ctx context.Context, params SendParams) (*Mail, error) 
 		return nil, fmt.Errorf("failed to send mail to agent %q: %w", params.ToAgentID, err)
 	}
 
-	sent := fromRow(row)
-
-	return &sent, nil
+	return fromRow(row)
 }
 
 type UpsertFromKomradParams struct {
@@ -115,7 +114,7 @@ type UpsertFromKomradParams struct {
 	Body      string
 	Kind      Kind
 	SubjectID uuid.UUID
-	Events    []string
+	Events    []eventv1.Event
 	Deadline  time.Duration
 }
 
@@ -128,16 +127,14 @@ func (s *MailStore) UpsertFromKomrad(ctx context.Context, params UpsertFromKomra
 		Body:           params.Body,
 		Kind:           models.MailKind(params.Kind),
 		SubjectID:      params.SubjectID,
-		Events:         orEmpty(params.Events),
+		Events:         protoenum.Names(params.Events),
 		DeadlineMicros: params.Deadline.Microseconds(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to write %q mail for agent %q: %w", params.Kind, params.ToAgentID, err)
 	}
 
-	written := fromRow(row)
-
-	return &written, nil
+	return fromRow(row)
 }
 
 // GetUnreadAbout is the unread mail of a kind about a subject that its recipient holds,
@@ -155,9 +152,7 @@ func (s *MailStore) GetUnreadAbout(ctx context.Context, toAgentID uuid.UUID, kin
 		return nil, fmt.Errorf("failed to read the unread %q mail of agent %q: %w", kind, toAgentID, err)
 	}
 
-	held := fromRow(row)
-
-	return &held, nil
+	return fromRow(row)
 }
 
 // ExistsReadAbout says whether the recipient has read any mail of a kind about a subject.
@@ -188,9 +183,7 @@ func (s *MailStore) GetByIdempotencyKey(ctx context.Context, key string) (*Mail,
 		return nil, fmt.Errorf("failed to get the mail for idempotency key %q: %w", key, err)
 	}
 
-	got := fromRow(row)
-
-	return &got, nil
+	return fromRow(row)
 }
 
 // GetByID returns one piece of mail, claimed or not.
@@ -203,9 +196,7 @@ func (s *MailStore) GetByID(ctx context.Context, id uuid.UUID) (*Mail, error) {
 		return nil, fmt.Errorf("failed to get mail %q: %w", id, err)
 	}
 
-	got := fromRow(row)
-
-	return &got, nil
+	return fromRow(row)
 }
 
 // ListWaiting lists up to limit of an agent's waiting mail, oldest first, without claiming it.
@@ -218,7 +209,7 @@ func (s *MailStore) ListWaiting(ctx context.Context, toAgentID uuid.UUID, limit 
 		return nil, fmt.Errorf("failed to list the mail waiting for agent %q: %w", toAgentID, err)
 	}
 
-	return xslice.Map(rows, fromRow), nil
+	return fromRows(rows)
 }
 
 // ClaimByID marks the given mail waiting for an agent as read and returns it, oldest first,
@@ -236,7 +227,10 @@ func (s *MailStore) ClaimByID(ctx context.Context, toAgentID uuid.UUID, ids []uu
 		return nil, fmt.Errorf("failed to claim the mail for agent %q: %w", toAgentID, err)
 	}
 
-	claimed := xslice.Map(rows, fromRow)
+	claimed, err := fromRows(rows)
+	if err != nil {
+		return nil, err
+	}
 
 	slices.SortFunc(claimed, func(a, b Mail) int {
 		return store.CompareIDs(a.ID, b.ID)
@@ -258,7 +252,7 @@ func (s *MailStore) ListPage(ctx context.Context, toAgentID uuid.UUID, limit int
 		return nil, fmt.Errorf("failed to list a page of mail for agent %q: %w", toAgentID, err)
 	}
 
-	return xslice.Map(rows, fromRow), nil
+	return fromRows(rows)
 }
 
 // ListSentPage returns one page of the mail an agent sent, newest first.
@@ -273,7 +267,7 @@ func (s *MailStore) ListSentPage(ctx context.Context, fromAgentID uuid.UUID, lim
 		return nil, fmt.Errorf("failed to list a page of the mail agent %q sent: %w", fromAgentID, err)
 	}
 
-	return xslice.Map(rows, fromRow), nil
+	return fromRows(rows)
 }
 
 // ListByID returns whichever of the given ids hold mail.
@@ -287,7 +281,7 @@ func (s *MailStore) ListByID(ctx context.Context, ids []uuid.UUID) ([]Mail, erro
 		return nil, fmt.Errorf("failed to get %d mail: %w", len(ids), err)
 	}
 
-	return xslice.Map(rows, fromRow), nil
+	return fromRows(rows)
 }
 
 // Delete permanently removes mail by id without checking that every id holds any.
@@ -366,11 +360,29 @@ func (s *MailStore) ListExpired(ctx context.Context, toAgentID uuid.UUID) ([]Mai
 		return nil, fmt.Errorf("failed to report the expired mail for agent %q: %w", toAgentID, err)
 	}
 
-	return xslice.Map(rows, fromRow), nil
+	return fromRows(rows)
 }
 
-func fromRow(row *models.Mail) Mail {
-	return Mail{
+func fromRows(rows []*models.Mail) ([]Mail, error) {
+	mail := make([]Mail, len(rows))
+	for i, row := range rows {
+		read, err := fromRow(row)
+		if err != nil {
+			return nil, err
+		}
+		mail[i] = *read
+	}
+
+	return mail, nil
+}
+
+func fromRow(row *models.Mail) (*Mail, error) {
+	events, err := protoenum.ParseAll[eventv1.Event](row.Events)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the events of mail %q: %w", row.ID, err)
+	}
+
+	return &Mail{
 		ID:          row.ID,
 		FromAgentID: row.FromAgentID,
 		FromName:    row.FromName,
@@ -379,17 +391,9 @@ func fromRow(row *models.Mail) Mail {
 		Kind:        Kind(row.Kind),
 		ReplyTo:     row.ReplyTo,
 		SubjectID:   row.SubjectID,
-		Events:      row.Events,
+		Events:      events,
 		ClaimedAt:   row.ClaimedAt,
 		ExpiresAt:   row.ExpiresAt,
 		CreatedAt:   row.CreatedAt,
-	}
-}
-
-func orEmpty(names []string) []string {
-	if names == nil {
-		return []string{}
-	}
-
-	return names
+	}, nil
 }

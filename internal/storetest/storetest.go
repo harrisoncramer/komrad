@@ -25,6 +25,7 @@ import (
 	transcriptstore "komrad/internal/store/transcript"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -264,7 +265,7 @@ func (s *Stores) SeedForgeThreads(t *testing.T, agentID uuid.UUID, threads ...fo
 	providerID := "PR_" + agentID.String()
 	_, err = s.PullRequests.Upsert(ctx, pullrequeststore.UpsertParams{
 		Host:              "github.com",
-		Forge:             "github",
+		Forge:             forgev1.Kind_KIND_GITHUB,
 		ProviderID:        providerID,
 		URL:               "https://github.com/harrisoncramer/komrad/pull/1",
 		RepositoryURL:     repository,
@@ -322,7 +323,7 @@ func (s *Stores) SeedPullRequest(t *testing.T, params SeedPullRequestParams) *pu
 
 	upsert := pullrequeststore.UpsertParams{
 		Host:              "github.com",
-		Forge:             "github",
+		Forge:             forgev1.Kind_KIND_GITHUB,
 		ProviderID:        fmt.Sprintf("%s/pull/%d", params.RepositoryURL, params.Number),
 		URL:               fmt.Sprintf("%s/pull/%d", params.RepositoryURL, params.Number),
 		RepositoryURL:     params.RepositoryURL,

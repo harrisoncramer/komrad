@@ -6,6 +6,7 @@ import (
 
 	mailstore "komrad/internal/store/mail"
 	"komrad/lib/xsha"
+	eventv1 "komrad/proto/gen/event/v1"
 )
 
 // CascadeRebased tells a child's writer that the cascade rebased its own commits onto its parent's
@@ -29,12 +30,12 @@ func (CascadeRebased) Kind() mailstore.Kind {
 }
 
 // Events is the event a cascade rebase komrad could not push starts, and none once komrad pushed it.
-func (m CascadeRebased) Events() []string {
+func (m CascadeRebased) Events() []eventv1.Event {
 	if m.Pushed {
 		return nil
 	}
 
-	return []string{worktreeRebased}
+	return []eventv1.Event{eventv1.Event_EVENT_WORKTREE_REBASED}
 }
 
 // Body tells the agent where its commits now sit and what is left for it to do.
@@ -75,8 +76,8 @@ func (CascadeConflicted) Kind() mailstore.Kind {
 }
 
 // Events is the event a conflicted cascade rebase starts.
-func (CascadeConflicted) Events() []string {
-	return []string{worktreeRebaseConflicted}
+func (CascadeConflicted) Events() []eventv1.Event {
+	return []eventv1.Event{eventv1.Event_EVENT_WORKTREE_REBASE_CONFLICTED}
 }
 
 // Body names the exact rebase the agent runs to resolve the conflict itself.
@@ -110,7 +111,7 @@ func (ParentClosed) Kind() mailstore.Kind {
 }
 
 // Events is empty, since a closed parent starts no event.
-func (ParentClosed) Events() []string {
+func (ParentClosed) Events() []eventv1.Event {
 	return nil
 }
 
@@ -135,7 +136,7 @@ func (CascadeOrphaned) Kind() mailstore.Kind {
 }
 
 // Events is empty, since an orphaned child starts no event.
-func (CascadeOrphaned) Events() []string {
+func (CascadeOrphaned) Events() []eventv1.Event {
 	return nil
 }
 
@@ -161,7 +162,7 @@ func (RetargetRefused) Kind() mailstore.Kind {
 }
 
 // Events is empty, since a refused re-target starts no event.
-func (RetargetRefused) Events() []string {
+func (RetargetRefused) Events() []eventv1.Event {
 	return nil
 }
 

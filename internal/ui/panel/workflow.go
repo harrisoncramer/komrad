@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 	"time"
+
+	eventv1 "komrad/proto/gen/event/v1"
 )
 
 // ErrNoWorkflow refuses a form that needs a workflow when none exists.
@@ -86,13 +88,13 @@ type WorktreeConfig struct {
 
 // Hook is one script a workflow hangs on a moment.
 type Hook struct {
-	Event  string
+	Moment eventv1.Moment
 	Script string
 }
 
 // EventPrompt is what a workflow asks of its agents when komrad mails them one event.
 type EventPrompt struct {
-	Event  string
+	Event  eventv1.Event
 	Prompt string
 	Muted  bool
 }

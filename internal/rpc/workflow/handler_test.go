@@ -9,20 +9,19 @@ import (
 	"komrad/internal/caller"
 	"komrad/internal/eventprompts"
 	"komrad/internal/rpc/render"
+	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/protoenum"
 	"komrad/lib/xptr"
+	eventv1 "komrad/proto/gen/event/v1"
 	paginationv1 "komrad/proto/gen/pagination/v1"
 	viewv1 "komrad/proto/gen/view/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	workflowv1komrad "komrad/proto/gen/workflow/v1/workflowv1komrad"
 
-	workflowstore "komrad/internal/store/workflow"
-
-	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 )
 
 var workflowID = uuid.MustParse("01a0d228-0000-7000-8000-0000000000aa")
@@ -142,11 +141,11 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 		},
 		Hooks: []workflowstore.Hook{
 			{
-				Event:  workflowstore.HookAgentPreLaunch,
+				Moment: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH,
 				Script: "warm-cache",
 			},
 		},
-		EventPrompts: []workflowstore.EventPrompt{{Event: "review.approved", Prompt: "open the pull request"}, {Event: "pull_request.behind", Muted: true}},
+		EventPrompts: []workflowstore.EventPrompt{{Event: eventv1.Event_EVENT_REVIEW_APPROVED, Prompt: "open the pull request"}, {Event: eventv1.Event_EVENT_PULL_REQUEST_BEHIND, Muted: true}},
 	}
 	worktree := &workflowv1.WorktreeConfig{
 		Enabled:      true,
@@ -159,11 +158,11 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 	}
 	hooks := []*workflowv1.WorkflowHook{
 		{
-			Event:  workflowstore.HookAgentPreLaunch,
+			Event:  eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH,
 			Script: "warm-cache",
 		},
 	}
-	prompts := []*workflowv1.WorkflowEventPrompt{{Event: "review.approved", Prompt: "open the pull request"}, {Event: "pull_request.behind", Muted: true}}
+	prompts := []*workflowv1.WorkflowEventPrompt{{Event: eventv1.Event_EVENT_REVIEW_APPROVED, Prompt: "open the pull request"}, {Event: eventv1.Event_EVENT_PULL_REQUEST_BEHIND, Muted: true}}
 
 	tests := []struct {
 		name string
@@ -257,7 +256,7 @@ func TestCreatingAWorkflowWithoutPromptsGivesTheDefaults(t *testing.T) {
 	}{
 		{
 			name:         "prompts left unset take each event's default",
-			wantCount:    len(eventprompts.All()),
+			wantCount:    len(protoenum.Values[eventv1.Event]()),
 			wantApproved: "The reviewer is finished. Carry on with your next step.",
 		},
 		{
@@ -278,19 +277,9 @@ func TestCreatingAWorkflowWithoutPromptsGivesTheDefaults(t *testing.T) {
 
 			require.Len(t, recorded.created, 1)
 			assert.Len(t, recorded.created[0].EventPrompts, tt.wantCount)
-			assert.Equal(t, tt.wantApproved, eventprompts.Prompts(recorded.created[0].EventPrompts).Get(eventprompts.ReviewApproved))
+			assert.Equal(t, tt.wantApproved, eventprompts.Prompts(recorded.created[0].EventPrompts).Get(eventv1.Event_EVENT_REVIEW_APPROVED))
 		})
 	}
-}
-
-// TestEventPromptEventsAreTheEventsKomradSends pins the events the wire accepts to the ones komrad sends and the ones it retired.
-func TestEventPromptEventsAreTheEventsKomradSends(t *testing.T) {
-	field := (&workflowv1.WorkflowEventPrompt{}).ProtoReflect().Descriptor().Fields().ByName("event")
-	rules, ok := proto.GetExtension(field.Options(), validate.E_Field).(*validate.FieldRules)
-	require.True(t, ok)
-
-	retired := []string{"review.forge_reply_requested", "review.forge_reply_decided"}
-	assert.Equal(t, append(eventprompts.Names(), retired...), rules.GetString().GetIn())
 }
 
 // TestListWorkflows pins which set a listing reads, which view draws the whole context, and when a page hands back a token.

@@ -1,0 +1,31 @@
+# Connect's code generator runs from this second template because it cannot read Edition 2026
+# yet. Every release of protoc-gen-connect-go, v2 included, tells buf that Edition 2024 is the
+# newest it supports, and buf will not hand it a file written in a newer edition.
+#
+# event/v1/event.proto and forge/v1/connection.proto are komrad's Edition 2026 files. They hold
+# enums only, and they need Edition 2026 for the option that sets each value's JSON name, such as
+# agent.pre-launch or github. Neither file holds a service, so connect has nothing to generate
+# from them, and this template leaves them out.
+#
+# The plugin is built from komrad's own go.mod with go tool, not installed by mise. A build of
+# protoc-gen-connect-go against protobuf v1.36 refuses to read an Edition 2026 file even when the
+# file is only imported. Building it here puts it on the same protobuf release as the rest of
+# komrad.
+#
+# To fold this template back into buf.gen.yaml once connect supports Edition 2026:
+#   1. Check that the newest protoc-gen-connect-go sets SupportedEditionsMaximum to
+#      EDITION_2026 or later in cmd/protoc-gen-connect-go/main.go.
+#   2. Bump connectrpc.com/connect in go.mod to that release.
+#   3. Move the plugin entry below into buf.gen.yaml, and drop the exclude_paths with it.
+#   4. Delete this file, and the second buf generate in mise/tasks/proto/generate.
+#   5. Run mise run proto:generate and check that the connect files did not change.
+version: v2
+inputs:
+  - directory: .
+    exclude_paths:
+      - proto/event/v1/event.proto
+      - proto/forge/v1/connection.proto
+plugins:
+  - local: ["go", "tool", "protoc-gen-connect-go"]
+    out: gen
+    opt: paths=source_relative

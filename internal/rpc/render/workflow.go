@@ -48,7 +48,7 @@ func Workflow(w workflowstore.Workflow, options WorkflowOptions) *workflowv1.Wor
 		ContextTruncated: contextTruncated,
 		Worktree:         worktreeConfigToProto(w.Worktree),
 		Hooks: xslice.Map(w.Hooks, func(hook workflowstore.Hook) *workflowv1.WorkflowHook {
-			return &workflowv1.WorkflowHook{Event: hook.Event, Script: hook.Script}
+			return &workflowv1.WorkflowHook{Event: hook.Moment, Script: hook.Script}
 		}),
 		EventPrompts: xslice.Map(w.EventPrompts, func(prompt workflowstore.EventPrompt) *workflowv1.WorkflowEventPrompt {
 			return &workflowv1.WorkflowEventPrompt{

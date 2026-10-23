@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"komrad/internal/forge"
+	"komrad/lib/protoenum"
+	forgev1 "komrad/proto/gen/forge/v1"
 )
 
 // connectFirstFix is how a person connects a forge, whichever they use.
@@ -37,15 +39,17 @@ var errForgeUnreachable = &problemError{
 }
 
 // classifyForgeProblem says which kind of trouble the server said a connection is in.
-func classifyForgeProblem(kind string) *problemError {
+func classifyForgeProblem(kind forgev1.ProblemKind) *problemError {
 	switch kind {
-	case "no_credential":
+	case forgev1.ProblemKind_PROBLEM_KIND_NO_CREDENTIAL:
 		return errForgeNoCredential
-	case "refused":
+	case forgev1.ProblemKind_PROBLEM_KIND_REFUSED:
 		return errForgeRefused
-	default:
+	case forgev1.ProblemKind_PROBLEM_KIND_UNSPECIFIED, forgev1.ProblemKind_PROBLEM_KIND_UNREACHABLE:
 		return errForgeUnreachable
 	}
+
+	return errForgeUnreachable
 }
 
 // forgeProblemRank orders the kinds of trouble, worst last.
@@ -68,14 +72,14 @@ func worseForgeProblem(current, candidate *problemError) *problemError {
 type ForgeStatus struct {
 	Host  string
 	Login string
-	// Kind is which forge the host runs, github or gitlab.
-	Kind string
-	// Method is how komrad obtained the credential, token or github_app.
-	Method string
+	// Kind is which forge the host runs.
+	Kind forgev1.Kind
+	// Method is how komrad obtained the credential.
+	Method forgev1.CredentialMethod
 	// Problem is what went wrong, empty when the forge accepted the credential.
 	Problem string
-	// ProblemKind is refused, no_credential or unreachable when Problem is set.
-	ProblemKind string
+	// ProblemKind is the kind of problem when Problem is set.
+	ProblemKind forgev1.ProblemKind
 }
 
 // newForgesCheck asks the server to check every forge it is connected to and warns for each
@@ -131,16 +135,16 @@ func newForgesCheck() Check {
 // reconnectFix is how a person gives a connection that lost its credential a new one, empty when
 // the trouble is reaching the forge rather than the credential.
 func reconnectFix(status ForgeStatus) string {
-	if status.ProblemKind != "refused" && status.ProblemKind != "no_credential" {
+	if status.ProblemKind != forgev1.ProblemKind_PROBLEM_KIND_REFUSED && status.ProblemKind != forgev1.ProblemKind_PROBLEM_KIND_NO_CREDENTIAL {
 		return ""
 	}
 
 	connect := "komrad forge connect " + status.Host
 	if _, err := forge.KindForHost(status.Host); err != nil {
-		connect += " --kind " + status.Kind
+		connect += " --kind " + protoenum.Name(status.Kind)
 	}
 
-	if status.Method == forge.MethodGitHubApp {
+	if status.Method == forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP {
 		return connect + " --method github-app"
 	}
 

@@ -22,6 +22,7 @@ import (
 	"komrad/internal/tasks"
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xslice"
+	eventv1 "komrad/proto/gen/event/v1"
 	"komrad/proto/gen/oneofs"
 
 	"github.com/google/uuid"
@@ -358,8 +359,8 @@ func TestDeleteAgentRemovesItsRunLogs(t *testing.T) {
 
 			logDir := config.RunLogDir(logsDir, agent.ID)
 			require.NoError(t, os.MkdirAll(logDir, 0o755))
-			provisionPath := filepath.Join(logDir, config.RunLogName(1, config.TriggerAgentProvision, "make-worktree"))
-			deprovisionPath := filepath.Join(logDir, config.RunLogName(2, config.TriggerAgentDeprovision, "drop-worktree"))
+			provisionPath := filepath.Join(logDir, config.RunLogName(1, eventv1.Moment_MOMENT_AGENT_PROVISION, "make-worktree"))
+			deprovisionPath := filepath.Join(logDir, config.RunLogName(2, eventv1.Moment_MOMENT_AGENT_DEPROVISION, "drop-worktree"))
 			require.NoError(t, os.WriteFile(provisionPath, []byte("cloning\n"), 0o644))
 			require.NoError(t, os.WriteFile(deprovisionPath, []byte("dropping\n"), 0o644))
 
@@ -1561,7 +1562,7 @@ func refusingConfig(t *testing.T, name string) workflowstore.Config {
 	t.Helper()
 
 	config := worktreeConfig(t, name)
-	config.Hooks = []workflowstore.Hook{{Event: workflowstore.HookAgentPreDelete, Script: refusingHook}}
+	config.Hooks = []workflowstore.Hook{{Moment: eventv1.Moment_MOMENT_AGENT_PRE_DELETE, Script: refusingHook}}
 
 	return config
 }
@@ -1703,7 +1704,7 @@ func TestDeleteTasksTakesItsAgentsCheckoutAndReviews(t *testing.T) {
 // and a later delete with records taking the task without running its pre-delete hooks again.
 func TestDeleteTasksWithoutRecordsKeepsTheTask(t *testing.T) {
 	lifecycle := &fakeLifecycle{dir: t.TempDir()}
-	fx := newTaskDeleteFixture(t, lifecycle, taskHookConfig(t, workflowstore.HookTaskPreDelete, true))
+	fx := newTaskDeleteFixture(t, lifecycle, taskHookConfig(t, eventv1.Moment_MOMENT_TASK_PRE_DELETE, true))
 	agent, err := launchOnTask(t, fx, NewAgentParams{Title: "auth"})
 	require.NoError(t, err)
 	reviews := reviewstore.NewReviewStore(fx.st.Pool.GetDB())
@@ -1740,7 +1741,7 @@ func TestDeleteTasksWithoutRecordsKeepsTheTask(t *testing.T) {
 // gone recording its worktree as deleted, without running its pre-delete hooks.
 func TestDeleteTasksWithoutRecordsOnAGoneWorktree(t *testing.T) {
 	lifecycle := &fakeLifecycle{dir: t.TempDir()}
-	fx := newTaskDeleteFixture(t, lifecycle, taskHookConfig(t, workflowstore.HookTaskPreDelete, true))
+	fx := newTaskDeleteFixture(t, lifecycle, taskHookConfig(t, eventv1.Moment_MOMENT_TASK_PRE_DELETE, true))
 	agent, err := launchOnTask(t, fx, NewAgentParams{Title: "auth"})
 	require.NoError(t, err)
 	require.NoError(t, fx.st.Tasks.SetHead(t.Context(), *agent.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone}))

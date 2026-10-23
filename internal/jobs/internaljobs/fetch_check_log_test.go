@@ -11,6 +11,7 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/internal/storetest"
 	"komrad/lib/xptr"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
@@ -56,7 +57,7 @@ func seedCheckForLog(t *testing.T, stores *storetest.Stores, check forge.StatusC
 
 	_, err := stores.PullRequests.Upsert(ctx, pullrequeststore.UpsertParams{
 		Host:              "github.com",
-		Forge:             "github",
+		Forge:             forgev1.Kind_KIND_GITHUB,
 		ProviderID:        "PR_1",
 		URL:               "https://github.com/harrisoncramer/komrad/pull/1",
 		RepositoryURL:     "https://github.com/harrisoncramer/komrad",

@@ -5137,14 +5137,14 @@
         },
         {
           "name": "forge",
-          "type": "string",
-          "ref": "",
+          "type": "Kind",
+          "ref": "forge.v1.Kind",
           "repeated": false,
           "map": false,
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "The forge the current pull request is on, such as `github`. Unset for `UNREAD` and `NONE`."
+          "description": "The kind of forge the current pull request is on. Unspecified for `UNREAD` and `NONE`."
         }
       ],
       "oneofs": []
@@ -7715,14 +7715,14 @@
         },
         {
           "name": "kind",
-          "type": "string",
-          "ref": "",
+          "type": "Kind",
+          "ref": "forge.v1.Kind",
           "repeated": false,
           "map": false,
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "The kind of forge the host runs, `github` or `gitlab`."
+          "description": "The kind of forge the host runs."
         },
         {
           "name": "host",
@@ -7748,14 +7748,14 @@
         },
         {
           "name": "method",
-          "type": "string",
-          "ref": "",
+          "type": "CredentialMethod",
+          "ref": "forge.v1.CredentialMethod",
           "repeated": false,
           "map": false,
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "How the credential was given, `token` or `github_app`."
+          "description": "How the credential was given."
         },
         {
           "name": "login",
@@ -7832,14 +7832,14 @@
         },
         {
           "name": "problem_kind",
-          "type": "string",
-          "ref": "",
+          "type": "ProblemKind",
+          "ref": "forge.v1.ProblemKind",
           "repeated": false,
           "map": false,
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "The kind of problem, `refused`, `no_credential` or `unreachable`. Empty when there is none."
+          "description": "The kind of problem. Unspecified when there is none."
         }
       ],
       "oneofs": []
@@ -7850,14 +7850,14 @@
       "fields": [
         {
           "name": "forge",
-          "type": "string",
-          "ref": "",
+          "type": "Kind",
+          "ref": "forge.v1.Kind",
           "repeated": false,
           "map": false,
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "The forge the pull request is on, such as `github`."
+          "description": "The kind of forge the pull request is on."
         },
         {
           "name": "provider_id",
@@ -8758,14 +8758,14 @@
         },
         {
           "name": "trigger",
-          "type": "string",
-          "ref": "",
+          "type": "Moment",
+          "ref": "event.v1.Moment",
           "repeated": false,
           "map": false,
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "The moment the hook ran at, such as `agent.pre-launch`. Empty for the server log."
+          "description": "The moment the script ran at. Unset for the server log."
         },
         {
           "name": "script",
@@ -9177,14 +9177,14 @@
         },
         {
           "name": "forge",
-          "type": "string",
-          "ref": "",
+          "type": "Kind",
+          "ref": "forge.v1.Kind",
           "repeated": false,
           "map": false,
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "The forge the pull request is on, such as `github`."
+          "description": "The kind of forge the pull request is on."
         },
         {
           "name": "provider_id",
@@ -11766,39 +11766,14 @@
       "fields": [
         {
           "name": "event",
-          "type": "string",
-          "ref": "",
+          "type": "Event",
+          "ref": "event.v1.Event",
           "repeated": false,
           "map": false,
           "oneof": "",
           "required": true,
-          "constraints": {
-            "enum": [
-              "pull_request.checks_failing_running",
-              "pull_request.checks_failing",
-              "pull_request.checks_passing",
-              "pull_request.changes_requested",
-              "pull_request.approved",
-              "pull_request.conflicting",
-              "pull_request.behind",
-              "pull_request.merged",
-              "pull_request.closed",
-              "pull_request.auto_merge_on",
-              "worktree.rebased",
-              "worktree.landed",
-              "worktree.rebase_conflicted",
-              "document.written_by_person",
-              "review.approved",
-              "review.changes_requested",
-              "review.commented",
-              "review.commented_by_person",
-              "review.forge_commented",
-              "review.answered",
-              "review.forge_reply_requested",
-              "review.forge_reply_decided"
-            ]
-          },
-          "description": "The event, such as `pull_request.checks_failing` or `review.approved`."
+          "constraints": {},
+          "description": "The event."
         },
         {
           "name": "prompt",
@@ -11853,17 +11828,30 @@
       "fields": [
         {
           "name": "event",
-          "type": "string",
-          "ref": "",
+          "type": "Moment",
+          "ref": "event.v1.Moment",
           "repeated": false,
           "map": false,
           "oneof": "",
           "required": true,
           "constraints": {
-            "minLength": 1,
-            "maxLength": 40
+            "enum": [
+              "agent.pre-launch",
+              "agent.post-launch",
+              "agent.pre-resume",
+              "agent.post-resume",
+              "agent.pre-archive",
+              "agent.post-archive",
+              "agent.pre-restore",
+              "agent.post-restore",
+              "agent.pre-delete",
+              "agent.post-delete",
+              "task.pre-open",
+              "task.post-archive",
+              "task.pre-delete"
+            ]
           },
-          "description": "The moment the hook runs at, such as `agent.pre-launch`, `agent.post-archive` or `task.pre-open`."
+          "description": "The moment the hook runs at."
         },
         {
           "name": "script",
@@ -12962,6 +12950,194 @@
         }
       ]
     },
+    "event.v1.Event": {
+      "name": "Event",
+      "description": "Event is something komrad tells an agent about through mail.",
+      "values": [
+        {
+          "name": "pull_request.checks_failing_running",
+          "description": "some checks on the head failed while others still run"
+        },
+        {
+          "name": "pull_request.checks_failing",
+          "description": "checks on the head failed and the run has finished"
+        },
+        {
+          "name": "pull_request.checks_passing",
+          "description": "checks on the head passed and the forge would merge it"
+        },
+        {
+          "name": "pull_request.changes_requested",
+          "description": "the forge review decision asks for changes"
+        },
+        {
+          "name": "pull_request.approved",
+          "description": "the forge review decision is approved"
+        },
+        {
+          "name": "pull_request.conflicting",
+          "description": "the branch conflicts with its base"
+        },
+        {
+          "name": "pull_request.behind",
+          "description": "the branch is behind its base"
+        },
+        {
+          "name": "pull_request.merged",
+          "description": "the pull request was merged"
+        },
+        {
+          "name": "pull_request.closed",
+          "description": "the pull request was closed unmerged"
+        },
+        {
+          "name": "pull_request.auto_merge_on",
+          "description": "the forge will merge it once its checks and reviews pass"
+        },
+        {
+          "name": "worktree.rebased",
+          "description": "the worktree was rebased and its commits replayed"
+        },
+        {
+          "name": "worktree.landed",
+          "description": "the work was already in the base, so the branch moved onto it"
+        },
+        {
+          "name": "worktree.rebase_conflicted",
+          "description": "a rebase stopped on conflicts"
+        },
+        {
+          "name": "document.written_by_person",
+          "description": "a person wrote or edited the agent's document"
+        },
+        {
+          "name": "review.approved",
+          "description": "a reviewer approved the agent's work"
+        },
+        {
+          "name": "review.changes_requested",
+          "description": "a reviewer asked for changes"
+        },
+        {
+          "name": "review.commented",
+          "description": "a reviewer released comments with no verdict either way"
+        },
+        {
+          "name": "review.commented_by_person",
+          "description": "a person commented on the agent's work"
+        },
+        {
+          "name": "review.forge_commented",
+          "description": "a comment from the pull request on the forge was released"
+        },
+        {
+          "name": "review.answered",
+          "description": "the agent under review answered in a thread, read by its reviewer"
+        }
+      ]
+    },
+    "event.v1.Moment": {
+      "name": "Moment",
+      "description": "Moment is a point in the life of an agent or task at which komrad runs a script.",
+      "values": [
+        {
+          "name": "agent.provision",
+          "description": "runs the provisioner before komrad creates an agent's directory"
+        },
+        {
+          "name": "agent.resume",
+          "description": "reruns the provisioner before komrad resumes an agent"
+        },
+        {
+          "name": "agent.deprovision",
+          "description": "runs the deprovisioner as komrad releases an agent's directory"
+        },
+        {
+          "name": "agent.pre-launch",
+          "description": "runs in the agent's directory before its pane opens, and a failure abandons the create"
+        },
+        {
+          "name": "agent.post-launch",
+          "description": "runs once the agent's pane opens"
+        },
+        {
+          "name": "agent.pre-resume",
+          "description": "runs in the agent's directory before a dormant agent's pane opens, and a failure refuses the resume"
+        },
+        {
+          "name": "agent.post-resume",
+          "description": "runs once a dormant agent is back in a pane"
+        },
+        {
+          "name": "agent.pre-archive",
+          "description": "runs while the agent is still running, and a failure refuses the archive"
+        },
+        {
+          "name": "agent.post-archive",
+          "description": "runs in the agent's directory after komrad closes its pane and archives it"
+        },
+        {
+          "name": "agent.pre-restore",
+          "description": "runs before an archived agent's row comes back, and a failure refuses the restore"
+        },
+        {
+          "name": "agent.post-restore",
+          "description": "runs when an archived agent's row comes back"
+        },
+        {
+          "name": "agent.pre-delete",
+          "description": "runs in the agent's directory as komrad deletes it, before komrad releases the worktree"
+        },
+        {
+          "name": "agent.post-delete",
+          "description": "runs once the agent and its worktree are gone"
+        },
+        {
+          "name": "task.pre-open",
+          "description": "runs before a task's first live agent opens its pane, and a failure abandons the create or restore"
+        },
+        {
+          "name": "task.post-archive",
+          "description": "runs after komrad archives a task's last live agent, and the task with it"
+        },
+        {
+          "name": "task.pre-delete",
+          "description": "runs as komrad deletes a task, before it releases the worktree, and a failure keeps the task"
+        }
+      ]
+    },
+    "forge.v1.CredentialMethod": {
+      "name": "CredentialMethod",
+      "description": "CredentialMethod is how a forge connection's credential is given.",
+      "values": [
+        {
+          "name": "token",
+          "description": "A token the person supplied."
+        },
+        {
+          "name": "rotating-token",
+          "description": "A GitLab token that komrad rotates before it expires."
+        },
+        {
+          "name": "github-app",
+          "description": "A token minted from the GitHub App in the server's config."
+        }
+      ]
+    },
+    "forge.v1.Kind": {
+      "name": "Kind",
+      "description": "Kind is the kind of forge a host runs.",
+      "values": [
+        {
+          "name": "github",
+          "description": "GitHub, or a GitHub Enterprise host."
+        },
+        {
+          "name": "gitlab",
+          "description": "GitLab, or a self-managed GitLab host."
+        }
+      ]
+    },
     "forge.v1.MergeMethod": {
       "name": "MergeMethod",
       "description": "MergeMethod is how a pull request's commits land on its base branch.",
@@ -12981,6 +13157,24 @@
         {
           "name": "MERGE_METHOD_FAST_FORWARD",
           "description": "The base branch moves to the head commit, with no commit of its own."
+        }
+      ]
+    },
+    "forge.v1.ProblemKind": {
+      "name": "ProblemKind",
+      "description": "ProblemKind is the kind of problem a check found with a forge connection.",
+      "values": [
+        {
+          "name": "refused",
+          "description": "The forge refused the credential."
+        },
+        {
+          "name": "no-credential",
+          "description": "This machine no longer has the credential."
+        },
+        {
+          "name": "unreachable",
+          "description": "The forge could not be reached."
         }
       ]
     },

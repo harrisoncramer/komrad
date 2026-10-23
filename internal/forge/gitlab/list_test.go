@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/forge"
 	"komrad/internal/git"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -45,7 +46,7 @@ func TestList(t *testing.T) {
 	require.Len(t, pullRequests, 4)
 
 	assert.Equal(t, forge.PullRequest{
-		Forge:      forge.KindGitLab,
+		Forge:      forgev1.Kind_KIND_GITLAB,
 		ProviderID: "535736457",
 		URL:        "https://gitlab.com/acme/widgets/-/merge_requests/256538",
 		Repository: gitlabOrg,

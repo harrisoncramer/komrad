@@ -8,14 +8,14 @@ import (
 	"testing"
 	"time"
 
-	"komrad/config"
-	"komrad/internal/eventprompts"
 	"komrad/internal/ui/paneltest"
 	"komrad/internal/ui/screen"
+	"komrad/lib/protoenum"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
+	eventv1 "komrad/proto/gen/event/v1"
 	hookv1 "komrad/proto/gen/hook/v1"
 	"komrad/proto/gen/hook/v1/hookv1connect"
 	taskv1 "komrad/proto/gen/task/v1"
@@ -885,20 +885,20 @@ func TestFormsWorkflowSubforms(t *testing.T) {
 // TestFormsWorkflowHooks covers the hook pickers offering what the hooks directory holds.
 func TestFormsWorkflowHooks(t *testing.T) {
 	every := []*workflowv1.WorkflowHook{
-		{Event: config.HookAgentPreLaunch, Script: "install-deps"},
-		{Event: config.HookAgentPostLaunch, Script: "announce"},
-		{Event: config.HookAgentPreResume, Script: "warm-up"},
-		{Event: config.HookAgentPostResume, Script: "announce-back"},
-		{Event: config.HookAgentPreArchive, Script: "check-in"},
-		{Event: config.HookAgentPostArchive, Script: "give-back-the-slot"},
-		{Event: config.HookAgentPreRestore, Script: "lock"},
-		{Event: config.HookAgentPostRestore, Script: "unlock"},
-		{Event: config.HookAgentPreDelete, Script: "take-the-stack-down"},
-		{Event: config.HookAgentPostDelete, Script: "say-goodbye"},
+		{Event: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH, Script: "install-deps"},
+		{Event: eventv1.Moment_MOMENT_AGENT_POST_LAUNCH, Script: "announce"},
+		{Event: eventv1.Moment_MOMENT_AGENT_PRE_RESUME, Script: "warm-up"},
+		{Event: eventv1.Moment_MOMENT_AGENT_POST_RESUME, Script: "announce-back"},
+		{Event: eventv1.Moment_MOMENT_AGENT_PRE_ARCHIVE, Script: "check-in"},
+		{Event: eventv1.Moment_MOMENT_AGENT_POST_ARCHIVE, Script: "give-back-the-slot"},
+		{Event: eventv1.Moment_MOMENT_AGENT_PRE_RESTORE, Script: "lock"},
+		{Event: eventv1.Moment_MOMENT_AGENT_POST_RESTORE, Script: "unlock"},
+		{Event: eventv1.Moment_MOMENT_AGENT_PRE_DELETE, Script: "take-the-stack-down"},
+		{Event: eventv1.Moment_MOMENT_AGENT_POST_DELETE, Script: "say-goodbye"},
 	}
 
 	t.Run("a picker offers every hook and opens on the one the workflow names", func(t *testing.T) {
-		harness := openHookForm(t, []*workflowv1.WorkflowHook{{Event: config.HookAgentPreLaunch, Script: "copy-env"}}, "install-deps", "copy-env")
+		harness := openHookForm(t, []*workflowv1.WorkflowHook{{Event: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH, Script: "copy-env"}}, "install-deps", "copy-env")
 
 		frame := harness.Frame()
 		assert.Contains(t, frame, "install-deps")
@@ -917,7 +917,7 @@ func TestFormsWorkflowHooks(t *testing.T) {
 	})
 
 	t.Run("a hook the directory no longer holds is still offered", func(t *testing.T) {
-		harness := openHookForm(t, []*workflowv1.WorkflowHook{{Event: config.HookAgentPreLaunch, Script: "copy-env"}}, "install-deps")
+		harness := openHookForm(t, []*workflowv1.WorkflowHook{{Event: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH, Script: "copy-env"}}, "install-deps")
 
 		assert.Contains(t, harness.Frame(), "missing")
 	})
@@ -939,13 +939,13 @@ func TestFormsWorkflowHooks(t *testing.T) {
 
 	t.Run("a moment holding two keeps the one that ran first", func(t *testing.T) {
 		harness := openHookForm(t, []*workflowv1.WorkflowHook{
-			{Event: config.HookAgentPreLaunch, Script: "install-deps"},
-			{Event: config.HookAgentPreLaunch, Script: "copy-env"},
+			{Event: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH, Script: "install-deps"},
+			{Event: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH, Script: "copy-env"},
 		}, "install-deps", "copy-env")
 
 		harness.Press("enter")
 
-		assertSentHooks(t, harness, []*workflowv1.WorkflowHook{{Event: config.HookAgentPreLaunch, Script: "install-deps"}})
+		assertSentHooks(t, harness, []*workflowv1.WorkflowHook{{Event: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH, Script: "install-deps"}})
 	})
 }
 
@@ -965,16 +965,16 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 	t.Run("the prompts come back in the order the events are listed", func(t *testing.T) {
 		workflow := newFormWorkflow()
 		workflow.EventPrompts = []*workflowv1.WorkflowEventPrompt{
-			{Event: "review.approved", Prompt: "open the pull request"},
-			{Event: "pull_request.checks_failing", Prompt: "fix the checks"},
+			{Event: eventv1.Event_EVENT_REVIEW_APPROVED, Prompt: "open the pull request"},
+			{Event: eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING, Prompt: "fix the checks"},
 		}
 		harness := openForms(t, workflow, newFormAuthor())
 
 		harness.Press("space", "E", "enter")
 
 		assert.Empty(t, cmp.Diff([]*workflowv1.WorkflowEventPrompt{
-			{Event: "pull_request.checks_failing", Prompt: "fix the checks"},
-			{Event: "review.approved", Prompt: "open the pull request"},
+			{Event: eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING, Prompt: "fix the checks"},
+			{Event: eventv1.Event_EVENT_REVIEW_APPROVED, Prompt: "open the pull request"},
 		}, sentEventPrompts(t, harness), protocmp.Transform()))
 	})
 
@@ -988,15 +988,15 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 		harness.Press(slices.Concat(strings.Split("fix the checks", ""), []string{"enter"})...)
 
 		assert.Empty(t, cmp.Diff([]*workflowv1.WorkflowEventPrompt{
-			{Event: "pull_request.checks_failing_running", Prompt: "fix the checks"},
+			{Event: eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING_RUNNING, Prompt: "fix the checks"},
 		}, sentEventPrompts(t, harness), protocmp.Transform()))
 	})
 
 	t.Run("a muted event with no prompt comes back muted", func(t *testing.T) {
 		workflow := newFormWorkflow()
 		workflow.EventPrompts = []*workflowv1.WorkflowEventPrompt{
-			{Event: "pull_request.checks_failing", Prompt: "fix the checks"},
-			{Event: "pull_request.behind", Muted: true},
+			{Event: eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING, Prompt: "fix the checks"},
+			{Event: eventv1.Event_EVENT_PULL_REQUEST_BEHIND, Muted: true},
 		}
 		harness := openForms(t, workflow, newFormAuthor())
 
@@ -1017,7 +1017,7 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 
 		assert.Empty(t, cmp.Diff([]*workflowv1.WorkflowEventPrompt{
 			{
-				Event:  "pull_request.checks_failing_running",
+				Event:  eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING_RUNNING,
 				Prompt: "fix the checks",
 				Muted:  true,
 			},
@@ -1033,7 +1033,7 @@ func TestFormsWorkflowEventPrompts(t *testing.T) {
 		require.Len(t, sent, 1)
 		create, ok := sent[0].(*workflowv1.CreateWorkflowRequest)
 		require.True(t, ok)
-		require.Len(t, create.GetEventPrompts().GetPrompts(), len(eventprompts.All()))
+		require.Len(t, create.GetEventPrompts().GetPrompts(), len(protoenum.Values[eventv1.Event]()))
 		assert.Contains(t, create.GetEventPrompts().GetPrompts()[0].GetPrompt(), "Read the failed jobs' logs")
 	})
 }

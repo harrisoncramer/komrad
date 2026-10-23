@@ -6,6 +6,7 @@ import (
 
 	mailstore "komrad/internal/store/mail"
 	"komrad/lib/xsha"
+	eventv1 "komrad/proto/gen/event/v1"
 )
 
 // Rebased tells a task's writer how a rebase of its worktree came out.
@@ -25,14 +26,14 @@ func (Rebased) Kind() mailstore.Kind {
 }
 
 // Events is the event the rebase starts, which turns on what became of the branch.
-func (m Rebased) Events() []string {
+func (m Rebased) Events() []eventv1.Event {
 	switch {
 	case m.Conflicted:
-		return []string{worktreeRebaseConflicted}
+		return []eventv1.Event{eventv1.Event_EVENT_WORKTREE_REBASE_CONFLICTED}
 	case m.Moved:
-		return []string{worktreeLanded}
+		return []eventv1.Event{eventv1.Event_EVENT_WORKTREE_LANDED}
 	default:
-		return []string{worktreeRebased}
+		return []eventv1.Event{eventv1.Event_EVENT_WORKTREE_REBASED}
 	}
 }
 
@@ -131,7 +132,7 @@ func (Pushed) Kind() mailstore.Kind {
 }
 
 // Events is empty, since a push from the panel starts no event.
-func (Pushed) Events() []string {
+func (Pushed) Events() []eventv1.Event {
 	return nil
 }
 
@@ -157,7 +158,7 @@ func (Aborted) Kind() mailstore.Kind {
 }
 
 // Events is empty, since an abort starts no event.
-func (Aborted) Events() []string {
+func (Aborted) Events() []eventv1.Event {
 	return nil
 }
 

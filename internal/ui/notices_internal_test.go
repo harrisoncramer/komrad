@@ -14,6 +14,7 @@ import (
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
+	forgev1 "komrad/proto/gen/forge/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
@@ -161,7 +162,7 @@ func TestAgentNotices(t *testing.T) {
 			row:  buildNoticeRow(panel.AgentRow{}),
 			task: panel.Task{PullRequest: panel.PullRequestStanding{
 				State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT,
-				Forge: "gitlab",
+				Forge: forgev1.Kind_KIND_GITLAB,
 			}},
 			want: []string{"its merge request is still a draft"},
 		},

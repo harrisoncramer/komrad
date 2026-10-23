@@ -573,7 +573,7 @@ func worktreeConfigToProto(w panel.WorktreeConfig) *workflowv1.WorktreeConfig {
 
 func hooksToProto(hooks []panel.Hook) []*workflowv1.WorkflowHook {
 	return xslice.Map(hooks, func(hook panel.Hook) *workflowv1.WorkflowHook {
-		return &workflowv1.WorkflowHook{Event: hook.Event, Script: hook.Script}
+		return &workflowv1.WorkflowHook{Event: hook.Moment, Script: hook.Script}
 	})
 }
 

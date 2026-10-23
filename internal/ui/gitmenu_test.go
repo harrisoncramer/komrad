@@ -314,7 +314,7 @@ func TestGitMenuMerges(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		forge       string
+		forge       forgev1.Kind
 		press       []string
 		refuse      error
 		wantMerges  []proto.Message
@@ -329,7 +329,7 @@ func TestGitMenuMerges(t *testing.T) {
 		},
 		{
 			name:        "merge names a merge request the way GitLab does",
-			forge:       "gitlab",
+			forge:       forgev1.Kind_KIND_GITLAB,
 			press:       []string{"m", "enter"},
 			wantMerges:  []proto.Message{merge},
 			wantMessage: "task-a1: merged !740",
@@ -1169,7 +1169,7 @@ func newQueueableDraft() *pullrequestv1.PullRequest {
 }
 
 func onGitLab(pullRequest *pullrequestv1.PullRequest) *pullrequestv1.PullRequest {
-	pullRequest.Forge = "gitlab"
+	pullRequest.Forge = forgev1.Kind_KIND_GITLAB
 
 	return pullRequest
 }

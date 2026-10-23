@@ -10,6 +10,8 @@ import (
 	mailstore "komrad/internal/store/mail"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/lib/xsha"
+	eventv1 "komrad/proto/gen/event/v1"
+	forgev1 "komrad/proto/gen/forge/v1"
 )
 
 // PullRequestFieldName names one field of a pull request the mail lists.
@@ -41,7 +43,7 @@ type PullRequest struct {
 	Failures    []pullrequeststore.CheckFailure
 	// HeldSince is when the unread mail this rewrites was written, nil when there is none.
 	HeldSince *time.Time
-	Started   []string
+	Started   []eventv1.Event
 }
 
 // Kind is the kind the pull request mail is filed under.
@@ -50,7 +52,7 @@ func (PullRequest) Kind() mailstore.Kind {
 }
 
 // Events is the events the change starts.
-func (m PullRequest) Events() []string {
+func (m PullRequest) Events() []eventv1.Event {
 	return m.Started
 }
 
@@ -60,7 +62,7 @@ func (m PullRequest) Body() string {
 
 	noun := "pull request"
 	ref := fmt.Sprintf("#%d", pullRequest.Number)
-	if pullRequest.Forge == forge.KindGitLab {
+	if pullRequest.Forge == forgev1.Kind_KIND_GITLAB {
 		noun = "merge request"
 		ref = fmt.Sprintf("!%d", pullRequest.Number)
 	}

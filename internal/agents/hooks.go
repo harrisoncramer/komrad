@@ -11,9 +11,10 @@ import (
 	"komrad/internal/scriptrun"
 	"komrad/internal/scripts"
 	"komrad/internal/store"
-
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/protoenum"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 )
@@ -22,7 +23,7 @@ type batchHooksParams struct {
 	scripts     agentScriptRunner
 	workflows   *workflowstore.WorkflowStore
 	agents      []agentstore.Agent
-	event       string
+	moment      eventv1.Moment
 	skipGoneDir bool
 }
 
@@ -37,7 +38,7 @@ func runPreHooksFor(ctx context.Context, params batchHooksParams) map[uuid.UUID]
 
 	for _, agent := range params.agents {
 		hooks := agentHooks(ctx, params.workflows, agent)
-		if !scriptrun.HasHookOn(hooks, params.event) {
+		if !scriptrun.HasHookOn(hooks, params.moment) {
 			continue
 		}
 		if params.skipGoneDir && scripts.RequireUsableDir(agent.Cwd) != nil {
@@ -49,7 +50,7 @@ func runPreHooksFor(ctx context.Context, params batchHooksParams) map[uuid.UUID]
 				Scripts: params.scripts,
 				Agent:   agent,
 				Hooks:   hooks,
-				Event:   params.event,
+				Moment:  params.moment,
 			}.RunInTurn(ctx)
 			if err == nil {
 				return
@@ -58,7 +59,7 @@ func runPreHooksFor(ctx context.Context, params batchHooksParams) map[uuid.UUID]
 			mu.Lock()
 			defer mu.Unlock()
 
-			refused[agent.ID] = fmt.Errorf("failed to run the %s hook of %q: %w", params.event, agent.Name, err)
+			refused[agent.ID] = fmt.Errorf("failed to run the %s hook of %q: %w", protoenum.Name(params.moment), agent.Name, err)
 		})
 	}
 
@@ -84,7 +85,7 @@ func startHooksFor(ctx context.Context, params batchHooksParams) {
 			Scripts: params.scripts,
 			Agent:   agent,
 			Hooks:   agentHooks(ctx, params.workflows, agent),
-			Event:   params.event,
+			Moment:  params.moment,
 		}.Start(ctx)
 	}
 }

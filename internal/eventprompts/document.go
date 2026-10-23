@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	mailstore "komrad/internal/store/mail"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 )
@@ -23,8 +24,8 @@ func (DocumentWritten) Kind() mailstore.Kind {
 }
 
 // Events is the event a person's write starts.
-func (DocumentWritten) Events() []string {
-	return []string{DocumentWrittenByPerson}
+func (DocumentWritten) Events() []eventv1.Event {
+	return []eventv1.Event{eventv1.Event_EVENT_DOCUMENT_WRITTEN_BY_PERSON}
 }
 
 // Body tells the agent which document to read and how to write over it.
