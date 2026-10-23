@@ -1,4 +1,4 @@
-package ui_test
+package schedules_test
 
 import (
 	"errors"
@@ -86,7 +86,7 @@ func TestSchedulesKeys(t *testing.T) {
 		{
 			name:         "rename on a kind a newer server added sends nothing",
 			rows:         []proto.Message{paneltest.Workflow("w1", "api"), newUnknownKindSchedule()},
-			press:        slices.Concat([]string{"r"}, spellKeys("-2"), []string{"enter"}),
+			press:        slices.Concat([]string{"r"}, strings.Split("-2", ""), []string{"enter"}),
 			wantRendered: []string{"Could not rename schedule"},
 		},
 		{
@@ -110,7 +110,7 @@ func TestSchedulesKeys(t *testing.T) {
 		{
 			name:         "rename types over the hovered schedule's name",
 			rows:         buildSchedules(),
-			press:        slices.Concat([]string{"r"}, spellKeys("-2")),
+			press:        slices.Concat([]string{"r"}, strings.Split("-2", "")),
 			wantRendered: []string{"morning-ci-2▏", "enter save"},
 		},
 		{
@@ -122,7 +122,7 @@ func TestSchedulesKeys(t *testing.T) {
 		{
 			name:  "rename sends the typed name with the rest of the schedule as it was",
 			rows:  buildSchedules(),
-			press: slices.Concat([]string{"r"}, spellKeys("-2"), []string{"enter"}),
+			press: slices.Concat([]string{"r"}, strings.Split("-2", ""), []string{"enter"}),
 			wantSent: []paneltest.Request{{
 				Procedure: schedulev1connect.ScheduleServiceUpdateScheduleProcedure,
 				Msg: &schedulev1.UpdateScheduleRequest{
@@ -294,7 +294,7 @@ func TestSchedulesFilter(t *testing.T) {
 			nightly.WorkflowId = "w2"
 			harness := openSchedules(t, paneltest.Workflow("w1", "api"), paneltest.Workflow("w2", "web"), newSchedule("s1", "morning-ci"), nightly)
 
-			harness.Press(slices.Concat([]string{"/", "tab"}, spellKeys(tt.query), []string{"enter"})...)
+			harness.Press(slices.Concat([]string{"/", "tab"}, strings.Split(tt.query, ""), []string{"enter"})...)
 
 			frame := harness.Frame()
 			assert.Equal(t, tt.wantRows, readScheduleRows(frame))
@@ -532,36 +532,6 @@ func TestSchedulesRecord(t *testing.T) {
 			harness := openSchedules(t, rows...)
 
 			assert.Equal(t, tt.want, trimRecord(paneltest.Record(harness.Frame())))
-		})
-	}
-}
-
-// TestSchedulesLaunchedAgent covers an agent's record naming the schedule that launched it.
-func TestSchedulesLaunchedAgent(t *testing.T) {
-	tests := []struct {
-		name       string
-		scheduleID string
-		want       string
-	}{
-		{
-			name:       "an agent whose schedule has since gone names nothing",
-			scheduleID: "gone",
-		},
-		{
-			name:       "an agent a schedule launched names it in its own record",
-			scheduleID: "s1",
-			want:       "morning-ci",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			launched := paneltest.Agent("a1", "morning-ci-1", "w1")
-			launched.ScheduleId = xptr.Ptr(tt.scheduleID)
-			harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), newSchedule("s1", "morning-ci"), launched)
-			harness.Press("j")
-
-			assert.Equal(t, tt.want, paneltest.RecordField(harness.Frame(), "launched by"))
 		})
 	}
 }

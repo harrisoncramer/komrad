@@ -1,4 +1,4 @@
-package ui
+package schedules
 
 import (
 	"fmt"
@@ -25,8 +25,8 @@ type runOutcome struct {
 	below  string
 }
 
-// scheduleRunRows is the rows a schedule's firings take in its document, cut to its width.
-func scheduleRunRows(runs []panel.ScheduleRun, width int) []string {
+// runRows is the rows a schedule's firings take in its document, cut to its width.
+func runRows(runs []panel.ScheduleRun, width int) []string {
 	if len(runs) == 0 {
 		return []string{paint.FitRow(paint.Panel.Style(paint.ToneMuted).Render("never fired"), width)}
 	}
@@ -36,13 +36,13 @@ func scheduleRunRows(runs []panel.ScheduleRun, width int) []string {
 	for _, run := range runs {
 		outcome := describeRun(run)
 
-		row := paint.Panel.Style(paint.ToneMuted).Render(run.ScheduledFor.Format(runTimeLayout)) + "  " +
+		line := paint.Panel.Style(paint.ToneMuted).Render(run.ScheduledFor.Format(runTimeLayout)) + "  " +
 			paint.Panel.Style(outcome.tone).Render(fmt.Sprintf("%-*s", runWordWidth, outcome.word))
 		if outcome.detail != "" {
-			row += "  " + paint.Panel.Style(paint.ToneMuted).Render(outcome.detail)
+			line += "  " + paint.Panel.Style(paint.ToneMuted).Render(outcome.detail)
 		}
 
-		rows = append(rows, paint.FitRow(row, width))
+		rows = append(rows, paint.FitRow(line, width))
 		if outcome.below != "" {
 			rows = append(rows, paint.FitRow(under+paint.Panel.Style(paint.ToneMuted).Render(outcome.below), width))
 		}

@@ -18,11 +18,10 @@ var (
 	errWorktreeRemoved = errors.New("this task's worktree was removed, so there is no checkout to run in")
 )
 
-// archived is what the archive menu acts on: chosen or hovered work, a workflow, or a schedule.
+// archived is what the archive menu acts on: chosen or hovered work, or a workflow.
 type archived struct {
 	work     chosenWork
 	workflow *panel.Workflow
-	schedule *panel.Schedule
 	// resumed is the agent restore and open resumes, unset on a selection.
 	resumed *panel.Agent
 	title   string
@@ -31,10 +30,7 @@ type archived struct {
 
 // name is what the menu's band is titled with.
 func (t archived) name() string {
-	switch {
-	case t.schedule != nil:
-		return t.schedule.Name
-	case t.workflow != nil:
+	if t.workflow != nil {
 		return t.workflow.Name
 	}
 
@@ -60,7 +56,7 @@ func (t archived) opensAgent(l panel.Listing) (*panel.Agent, error) {
 
 // deleteOffSaid is why the target cannot be deleted, empty when it can.
 func (t archived) deleteOffSaid() string {
-	if t.schedule != nil || t.workflow != nil {
+	if t.workflow != nil {
 		return ""
 	}
 
@@ -122,17 +118,7 @@ func restoreAndOpen(l panel.Listing, clients api.Clients, target archived) scree
 }
 
 func restoreArchived(clients api.Clients, target archived) screen.Request {
-	switch {
-	case target.schedule != nil:
-		schedule := *target.schedule
-
-		return clients.AwaitingWrite(api.AwaitingWriteParams{
-			Doing:   "restoring " + schedule.Name,
-			Summary: fmt.Sprintf("Could not restore schedule %q", schedule.Name),
-			Awaits:  screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedSchedules, schedule.ID)},
-			Write:   func(c api.Clients) error { return c.RestoreSchedule(schedule.ID) },
-		})
-	case target.workflow != nil:
+	if target.workflow != nil {
 		workflow := *target.workflow
 
 		return clients.AwaitingWrite(api.AwaitingWriteParams{
@@ -147,10 +133,7 @@ func restoreArchived(clients api.Clients, target archived) screen.Request {
 }
 
 func confirmDeleteArchivedRow(in screen.Inputs, clients api.Clients, target archived) screen.Request {
-	switch {
-	case target.schedule != nil:
-		return confirmDeleteSchedule(clients, *target.schedule)
-	case target.workflow != nil:
+	if target.workflow != nil {
 		return confirmDeleteWorkflow(in, clients, *target.workflow)
 	}
 
@@ -265,14 +248,5 @@ func confirmDeleteChosenAgents(in screen.Inputs, clients api.Clients, work chose
 
 	return confirm.open(in, func(submitted form.Inputs) screen.Request {
 		return deleteChosenWrite(submitted.Listing, clients, work, confirm.values.deletesRecords())
-	})
-}
-
-func (w *schedulesScreen) scheduleArchiveMenu(schedule panel.Schedule) menu.Menu {
-	return liveArchiveMenu(menu.Entry{
-		Label: "archive",
-		Keys:  w.deps.keys.ArchiveMenu.Archive,
-		After: menu.Hold,
-		Pick:  func(screen.Inputs) screen.Request { return w.archiveSchedule(schedule) },
 	})
 }

@@ -88,10 +88,6 @@ func (d *documentsScreen) StageResting(in screen.Inputs) screen.Request {
 	return screen.Batch{d.Stage(), screen.Cmd(d.readDocumentsCmd(in))}
 }
 
-func (w *schedulesScreen) StageResting(screen.Inputs) screen.Request {
-	return screen.Restage{}
-}
-
 func (a *agentsScreen) StageResting(in screen.Inputs) screen.Request {
 	return screen.Batch{screen.Restage{}, screen.ReadLastScreen{}, inspectRecordTask(a, in, a.deps.clock.Now())}
 }

@@ -1,4 +1,4 @@
-package ui
+package schedules
 
 import (
 	"slices"
@@ -9,83 +9,89 @@ import (
 	"komrad/internal/ui/screen"
 )
 
+const (
+	actionBack keys.ID = keys.Own + iota
+	actionRename
+	actionArchiveBack
+)
+
 // actions is the schedules screen as one table, walked in precedence order by the dispatch and
 // named in reading order by a legend of the same ids.
-func (w *schedulesScreen) actions(in screen.Inputs) keys.Spec[*schedulesScreen] {
+func (w *Screen) actions(in screen.Inputs) keys.Spec[*Screen] {
 	list := w.list()
-	standing := func(*schedulesScreen) bool { return in.Room.Pattern.IsStanding() }
+	standing := func(*Screen) bool { return in.Room.Pattern.IsStanding() }
 
-	return keys.Spec[*schedulesScreen]{
-		Table: append([]keys.Action[*schedulesScreen]{
+	return keys.Spec[*Screen]{
+		Table: append([]keys.Action[*Screen]{
 			{
 				ID:   keys.FilterOpen,
 				Keys: func(config.Keybindings) []string { return []string{filter.OpenKey} },
-				Nav:  func(*schedulesScreen, string) screen.Request { return screen.BeginFilter{} },
+				Nav:  func(*Screen, string) screen.Request { return screen.BeginFilter{} },
 			},
 			{
 				ID:   keys.Quit,
 				Keys: keys.FixedQuit,
-				Nav:  func(*schedulesScreen, string) screen.Request { return screen.Hide{} },
+				Nav:  func(*Screen, string) screen.Request { return screen.Hide{} },
 			},
 			{
 				ID:   keys.FilterMatch,
 				Keys: func(k config.Keybindings) []string { return slices.Concat(k.Filter.NextMatch, k.Filter.PrevMatch) },
 				When: standing,
-				Nav: func(_ *schedulesScreen, pressed string) screen.Request {
-					return screen.StepMatch{Delta: keys.DirectionOf(pressed, w.deps.keys.Filter.PrevMatch)}
+				Nav: func(_ *Screen, pressed string) screen.Request {
+					return screen.StepMatch{Delta: keys.DirectionOf(pressed, w.deps.Keys.Filter.PrevMatch)}
 				},
 			},
 			{
 				ID:   keys.FilterClear,
 				Keys: keys.FixedBack,
 				When: standing,
-				Nav: func(*schedulesScreen, string) screen.Request {
+				Nav: func(*Screen, string) screen.Request {
 					return screen.Batch{screen.ClearFilter{}, screen.Settle{}}
 				},
 			},
 			{
-				ID:   actionScheduleBack,
+				ID:   actionBack,
 				Keys: keys.FixedBack,
-				Nav:  func(*schedulesScreen, string) screen.Request { return screen.PickView{} },
+				Nav:  func(*Screen, string) screen.Request { return screen.PickView{} },
 			},
 			{
-				ID:     actionScheduleRename,
+				ID:     actionRename,
 				Keys:   func(k config.Keybindings) []string { return k.Schedules.Rename },
-				Direct: keys.Directly(keys.NotInMenu, func(*schedulesScreen, string) screen.Request { return w.openRename(in) }),
+				Direct: keys.Directly(keys.NotInMenu, func(*Screen, string) screen.Request { return w.openRename(in) }),
 			},
-		}, keys.NavActions[*schedulesScreen](keys.NavActionsParams{Keys: w.deps.keys, Nav: list, In: in, Page: keys.NavPageStep, Scroll: 1})...),
-		Legend: []keys.LegendRow[*schedulesScreen]{
+		}, keys.NavActions[*Screen](keys.NavActionsParams{Keys: w.deps.Keys, Nav: list, In: in, Page: keys.NavPageStep, Scroll: 1})...),
+		Legend: []keys.LegendRow[*Screen]{
 			{
-				Of:   []keys.ID{actionScheduleRename},
-				Desc: func(*schedulesScreen) string { return "rename" },
+				Of:   []keys.ID{actionRename},
+				Desc: func(*Screen) string { return "rename" },
 			},
 			{
 				Of:   []keys.ID{keys.FilterOpen},
-				Desc: keys.FilterDescOf[*schedulesScreen](in),
+				Desc: keys.FilterDescOf[*Screen](in),
 			},
 			{
 				Of:   []keys.ID{keys.FilterMatch},
-				Desc: func(*schedulesScreen) string { return "next/prev match" },
+				Desc: func(*Screen) string { return "next/prev match" },
 			},
 			{
 				Of:    []keys.ID{keys.Move},
-				Desc:  func(*schedulesScreen) string { return "move" },
+				Desc:  func(*Screen) string { return "move" },
 				Label: keys.MoveLabel,
 			},
-			keys.NavPageRow[*schedulesScreen](),
-			keys.JumpRow[*schedulesScreen](),
+			keys.NavPageRow[*Screen](),
+			keys.JumpRow[*Screen](),
 			{
 				Of:    []keys.ID{keys.ColumnScroll},
-				Desc:  func(*schedulesScreen) string { return "scroll" },
+				Desc:  func(*Screen) string { return "scroll" },
 				Label: keys.ColumnScrollLabel,
 			},
 			{
-				Of:   []keys.ID{actionScheduleBack},
-				Desc: func(*schedulesScreen) string { return "back" },
+				Of:   []keys.ID{actionBack},
+				Desc: func(*Screen) string { return "back" },
 			},
 			{
 				Of:    []keys.ID{keys.FilterClear},
-				Desc:  keys.FilterClearDescOf[*schedulesScreen](in),
+				Desc:  keys.FilterClearDescOf[*Screen](in),
 				Strip: true,
 			},
 		},

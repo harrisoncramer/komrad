@@ -1,4 +1,4 @@
-package ui
+package schedules
 
 import (
 	"fmt"
@@ -14,57 +14,101 @@ import (
 	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
+	schedulev1 "komrad/proto/gen/schedule/v1"
 )
 
-func (w *schedulesScreen) Details(in screen.Inputs) record.Details {
+const emptyMarkdown = `# Schedules
+
+A schedule launches an agent, or mails an orchestrator, on a cron expression.
+
+Press the new key to write one.
+`
+
+const emptyArchiveMarkdown = "# Archive\n\n_no archived schedules_\n\nKomrad keeps the schedules you archive here until you delete them.\n"
+
+// Details is the record of the schedule the cursor is on.
+func (w *Screen) Details(in screen.Inputs) record.Details {
 	item, ok := w.selected(in)
 	if !ok {
 		return record.Details{}
 	}
 
-	return scheduleDetails(in.Listing, item)
+	return details(in.Listing, item)
 }
 
-func scheduleDetails(listing panel.Listing, item scheduleItem) record.Details {
+func details(listing panel.Listing, item row) record.Details {
 	return record.Details{
 		ID: item.schedule.ID,
-		Fields: scheduleFields(item.schedule, scheduleTarget{
+		Fields: recordFields(item.schedule, recordTarget{
 			workflow:     workflowByID(listing.Workflows, item.schedule.WorkflowID),
 			orchestrator: orchestratorLabel(listing, item.schedule.OrchestratorID),
 		}),
 	}
 }
 
+type recordTarget struct {
+	workflow     *panel.Workflow
+	orchestrator string
+}
+
+func recordFields(sched panel.Schedule, target recordTarget) []record.Field {
+	fields := []record.Field{
+		{Label: "name", Value: label.OrDash(sched.Name)},
+		{Label: "cron", Value: label.OrDash(sched.Cron)},
+		{Label: "timezone", Value: label.OrDash(sched.Timezone)},
+	}
+
+	if sched.Kind == schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR {
+		return append(fields,
+			record.Field{Label: "kind", Value: "orchestrator"},
+			record.Field{Label: "mails", Value: target.orchestrator},
+		)
+	}
+
+	if !panel.IsKnownScheduleKind(sched.Kind) {
+		return append(fields, record.Field{Label: "kind", Value: "unknown"})
+	}
+
+	fields = append(fields, record.Field{Label: "kind", Value: "task"})
+	if target.workflow == nil {
+		return append(fields, record.Field{Label: "workflow", Value: "— (archived)"})
+	}
+
+	fields = append(fields, record.Field{Label: "workflow", Value: target.workflow.Name})
+
+	return append(fields, record.WorkflowConfigFields(*target.workflow)...)
+}
+
 // docRows is the document rendered beside the list at a width: the notice for an empty list, or
 // the schedule the cursor is on with the firings River holds for it between its next run and
 // its prompt.
-func (w *schedulesScreen) docRows(in screen.Inputs, width int) []string {
+func (w *Screen) docRows(in screen.Inputs, width int) []string {
 	item, ok := w.selected(in)
 	if !ok {
-		return paint.DocStyledRows(noSchedulesMarkdown, width, columnStyle())
+		return paint.DocStyledRows(emptyMarkdown, width, paint.Panel.Stage())
 	}
 
-	return scheduleDocRows(item, width)
+	return documentRows(item, width)
 }
 
-func (w *schedulesScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
-	return scheduleSnapshot(in, pane, scheduleSnapshotParams{
+func (w *Screen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
+	return listSnapshot(in, pane, listSnapshotParams{
 		rows:     w.listRows(in),
 		cursor:   w.Row,
 		renaming: w.renamingField(),
 	})
 }
 
-type scheduleSnapshotParams struct {
-	rows     []scheduleItem
+type listSnapshotParams struct {
+	rows     []row
 	cursor   int
 	renaming *field.NameEdit
 }
 
-func scheduleSnapshot(in screen.Inputs, pane list.Pane, params scheduleSnapshotParams) view.Snapshot {
+func listSnapshot(in screen.Inputs, pane list.Pane, params listSnapshotParams) view.Snapshot {
 	return view.Snapshot{
-		Rows: xslice.Map(params.rows, func(item scheduleItem) view.Row {
-			name := scheduleItemName(item)
+		Rows: xslice.Map(params.rows, func(item row) view.Row {
+			name := rowName(item)
 			process := view.ProcessNone
 			if !item.schedule.Enabled {
 				process = view.ProcessStopped
@@ -76,26 +120,42 @@ func scheduleSnapshot(in screen.Inputs, pane list.Pane, params scheduleSnapshotP
 				Name:    name,
 				Matches: list.Matches(in.Room.Pattern.Regexp, name),
 				Process: process,
-				Cells:   []view.Cell{scheduleIcon(item.schedule.Enabled)},
+				Cells:   []view.Cell{icon(item.schedule.Enabled)},
 				Tail:    view.Cell{Text: item.schedule.Cron, Tone: paint.ToneMuted},
 			})
 		}),
 		Caret:   pane.Caret,
 		Focused: list.KeyAt(params.rows, params.cursor),
 		Pane:    pane.Width,
-		Columns: scheduleColumns(),
+		Columns: columns(),
 	}
 }
 
-func scheduleColumns() view.Columns {
+func columns() view.Columns {
 	return view.Columns{
 		{Kind: view.ColumnText, Width: glyph.Columns},
 	}
 }
 
-// scheduleDocRows is a schedule's document at a width: its name and next run, its firings, then
+func icon(enabled bool) view.Cell {
+	if enabled {
+		return view.Cell{Glyph: glyph.ScheduleEnabled, Tone: tone(enabled)}
+	}
+
+	return view.Cell{Glyph: glyph.ScheduleDisabled, Tone: tone(enabled)}
+}
+
+func tone(enabled bool) paint.Tone {
+	if enabled {
+		return paint.ToneSuccess
+	}
+
+	return paint.ToneMuted
+}
+
+// documentRows is a schedule's document at a width: its name and next run, its firings, then
 // its prompt.
-func scheduleDocRows(item scheduleItem, width int) []string {
+func documentRows(item row, width int) []string {
 	sched := item.schedule
 
 	notice := "_paused — will not run_"
@@ -115,10 +175,10 @@ func scheduleDocRows(item scheduleItem, width int) []string {
 		prose += "\n\nIts runs start hidden."
 	}
 
-	rows := paint.DocStyledRows(paint.DocumentMarkdown(sched.Name, notice, "", ""), width, columnStyle())
-	if runRows := scheduleRunRows(sched.RecentRuns, width); len(runRows) > 0 {
-		rows = append(append(rows, ""), runRows...)
+	rows := paint.DocStyledRows(paint.DocumentMarkdown(sched.Name, notice, "", ""), width, paint.Panel.Stage())
+	if fired := runRows(sched.RecentRuns, width); len(fired) > 0 {
+		rows = append(append(rows, ""), fired...)
 	}
 
-	return append(rows, paint.DocStyledRows(prose+"\n", width, columnStyle())...)
+	return append(rows, paint.DocStyledRows(prose+"\n", width, paint.Panel.Stage())...)
 }

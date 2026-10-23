@@ -1,4 +1,4 @@
-package ui
+package schedules
 
 import (
 	"komrad/internal/ui/list"
@@ -7,21 +7,22 @@ import (
 	"komrad/internal/ui/screen"
 )
 
-func (a *archivedSchedules) Details(in screen.Inputs) record.Details {
+// Details is the record of the archived schedule the cursor is on.
+func (a Archive) Details(in screen.Inputs) record.Details {
 	item, ok := list.At(a.listRows(in), a.Row)
 	if !ok {
 		return record.Details{}
 	}
 
-	return scheduleDetails(in.Listing, item)
+	return details(in.Listing, item)
 }
 
 // docRows is the block rendered beside the list at a width for the row the cursor is on.
-func (a *archivedSchedules) docRows(in screen.Inputs, width int) []string {
+func (a Archive) docRows(in screen.Inputs, width int) []string {
 	item, ok := list.At(a.listRows(in), a.Row)
 	if !ok {
-		return paint.DocStyledRows(emptyScheduleArchiveMarkdown, width, columnStyle())
+		return paint.DocStyledRows(emptyArchiveMarkdown, width, paint.Panel.Stage())
 	}
 
-	return scheduleDocRows(item, width)
+	return documentRows(item, width)
 }

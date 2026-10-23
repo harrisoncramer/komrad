@@ -3,12 +3,8 @@ package ui
 import (
 	"fmt"
 
-	"komrad/config"
-	"komrad/internal/ui/form"
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
-
-	"charm.land/huh/v2"
 )
 
 // deleteChosenConfirm asks what goes when the tasks of chosen agents are deleted.
@@ -28,15 +24,6 @@ func deleteWorkflowConfirm(workflow panel.Workflow, offersWorktree bool) worktre
 		startsConfirmed: true,
 		values:          newDeleteFormValues(offersWorktree),
 	}
-}
-
-func deleteScheduleForm(name string, keys config.FixedKeys) (*huh.Form, *bool) {
-	return form.Confirm(
-		fmt.Sprintf("Permanently delete schedule %q?", name),
-		"Komrad deletes its run history too and keeps the agents it launched.",
-		"Delete",
-		keys,
-	)
 }
 
 // deleteTasksConfirm asks what goes when the tasks are deleted.

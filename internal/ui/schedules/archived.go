@@ -1,8 +1,10 @@
-package ui
+package schedules
 
 import (
+	"errors"
 	"fmt"
 
+	"komrad/config"
 	"komrad/internal/ui/api"
 	"komrad/internal/ui/column"
 	"komrad/internal/ui/cursor"
@@ -20,22 +22,25 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// schedulesKind is which schedules the schedules view is listing.
-type schedulesKind int
+var errOpensOneAgent = errors.New("restore and open works on one agent at a time")
+
+// kind is which schedules the schedules view is listing.
+type kind int
 
 const (
-	schedulesLive schedulesKind = iota
-	schedulesArchived
+	live kind = iota
+	archived
 )
 
-// archivedSchedules is the schedules view on its archived kind: the cursor in the archived schedules.
-type archivedSchedules struct {
-	deps schedulesDeps
+// archive is the schedules view on its archived kind: the cursor in the archived schedules.
+type archive struct {
+	deps Deps
 	list.Cursor
-	built screen.Derived[screen.ListingKey, []scheduleItem]
+	built screen.Derived[screen.ListingKey, []row]
 }
 
-func (w *schedulesScreen) Kinds() tabs.Stops {
+// Kinds is the schedules view's row of kinds, live and archived.
+func (w *Screen) Kinds() tabs.Stops {
 	return tabs.Stops{
 		Labels: []string{"live", "archived"},
 		Focus:  tabs.NoStop,
@@ -43,76 +48,83 @@ func (w *schedulesScreen) Kinds() tabs.Stops {
 	}
 }
 
-func (w *schedulesScreen) KindsFocused() *bool {
+// KindsFocused is whether the row of kinds holds the keys.
+func (w *Screen) KindsFocused() *bool {
 	return &w.kindFocus
 }
 
-func (w *schedulesScreen) KindsSwitch() bool {
+// KindsSwitch reports that the kind may always change.
+func (w *Screen) KindsSwitch() bool {
 	return true
 }
 
 // StepKind moves the schedules view to its other kind, back on the row it last stood on.
-func (w *schedulesScreen) StepKind(in screen.Inputs, delta int) screen.Request {
+func (w *Screen) StepKind(in screen.Inputs, delta int) screen.Request {
 	return screen.Leave{Then: func() screen.Request {
-		w.kind = schedulesKind(tabs.StepStop(int(w.kind), delta, len(w.Kinds().Labels)))
+		w.kind = kind(tabs.StepStop(int(w.kind), delta, len(w.Kinds().Labels)))
 
 		return screen.Batch{screen.ResetFilter{}, screen.StageTerminal{}, screen.Settle{}}
 	}}
 }
 
 // ShownArchive is the archived schedules as the screen that renders them, and false on the live kind.
-func (w *schedulesScreen) ShownArchive() (archivedSchedulesScreen, bool) {
-	if w.kind != schedulesArchived {
-		return archivedSchedulesScreen{}, false
+func (w *Screen) ShownArchive() (Archive, bool) {
+	if w.kind != archived {
+		return Archive{}, false
 	}
 
-	return w.archiveScreen(), true
+	return w.Archive(), true
 }
 
-// archivedSchedulesScreen is the schedules view's archive, its own state paired with the view whose
-// kinds row it shares.
-type archivedSchedulesScreen struct {
-	*archivedSchedules
-	schedules *schedulesScreen
+// Archive is the schedules view's archive, its own state paired with the view whose kinds row it
+// shares.
+type Archive struct {
+	*archive
+	schedules *Screen
 }
 
-// archiveScreen is the view's archive as the screen that renders it.
-func (w *schedulesScreen) archiveScreen() archivedSchedulesScreen {
-	return archivedSchedulesScreen{archivedSchedules: &w.archived, schedules: w}
+// Archive is the view's archive as the screen that renders it.
+func (w *Screen) Archive() Archive {
+	return Archive{archive: &w.archive, schedules: w}
 }
 
-func (s archivedSchedulesScreen) Kinds() tabs.Stops {
-	return s.schedules.Kinds()
+// Kinds is the schedules view's row of kinds.
+func (a Archive) Kinds() tabs.Stops {
+	return a.schedules.Kinds()
 }
 
-func (s archivedSchedulesScreen) KindsFocused() *bool {
-	return s.schedules.KindsFocused()
+// KindsFocused is whether the schedules view's row of kinds holds the keys.
+func (a Archive) KindsFocused() *bool {
+	return a.schedules.KindsFocused()
 }
 
-func (s archivedSchedulesScreen) KindsSwitch() bool {
-	return s.schedules.KindsSwitch()
+// KindsSwitch reports whether the schedules view's kind may change.
+func (a Archive) KindsSwitch() bool {
+	return a.schedules.KindsSwitch()
 }
 
-func (s archivedSchedulesScreen) StepKind(in screen.Inputs, delta int) screen.Request {
-	return s.schedules.StepKind(in, delta)
+// StepKind moves the schedules view to its other kind.
+func (a Archive) StepKind(in screen.Inputs, delta int) screen.Request {
+	return a.schedules.StepKind(in, delta)
 }
 
-var _ kindSwitcher = archivedSchedulesScreen{}
-
-func (a *archivedSchedules) Enter(in screen.Inputs, _ screen.Target) screen.Request {
+// Enter stages the archived schedule the cursor is on.
+func (a Archive) Enter(in screen.Inputs, _ screen.Target) screen.Request {
 	return screen.Batch{a.Stage(), screen.Settle{}}
 }
 
-func (a *archivedSchedules) Update(in screen.Inputs, msg tea.Msg) screen.Request {
+// Update sends a key to the archive's table.
+func (a Archive) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 	key, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return nil
 	}
 
-	return a.actions(in).DispatchTop(a.deps.top, a, a.deps.keys, key.String())
+	return a.actions(in).DispatchTop(a.deps.Top, a, a.deps.Keys, key.String())
 }
 
-func (a *archivedSchedules) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
+// Receive keeps the cursor on its archived schedule as the listing moves.
+func (a Archive) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 	relisted, ok := msg.(screen.Relisted)
 	if !ok {
 		return nil, false
@@ -123,55 +135,82 @@ func (a *archivedSchedules) Receive(in screen.Inputs, msg tea.Msg) (screen.Reque
 	return nil, true
 }
 
-func (a *archivedSchedules) list() keys.ScreenList[scheduleItem] {
-	return keys.ScreenList[scheduleItem]{
-		Keys:   a.deps.keys,
+func (a Archive) list() keys.ScreenList[row] {
+	return keys.ScreenList[row]{
+		Keys:   a.deps.Keys,
 		Cursor: func() *list.Cursor { return &a.Cursor },
 		Rows:   a.listRows,
-		Name:   func(item scheduleItem) string { return item.schedule.Name },
-		Fits:   scheduleItemFits,
+		Name:   func(item row) string { return item.schedule.Name },
+		Fits:   rowFits,
 		Placed: func(screen.Inputs) screen.Request { return a.Stage() },
 		Moved:  func(screen.Inputs) screen.Request { return screen.Batch{a.Stage(), screen.Settle{}} },
 	}
 }
 
-func (a *archivedSchedules) listRows(in screen.Inputs) []scheduleItem {
-	return a.built.Read(in.ListingKey(), func() []scheduleItem {
-		return list.Narrowed(in.Room.Pattern, list.NarrowedParams[scheduleItem]{
-			Rows:  xslice.Map(in.Listing.ArchivedSchedules, scheduleItemOf),
-			Depth: func(scheduleItem) int { return 0 },
-			Name:  func(item scheduleItem) string { return item.schedule.Name },
-			Fits:  scheduleItemFits(in),
+func (a Archive) listRows(in screen.Inputs) []row {
+	return a.built.Read(in.ListingKey(), func() []row {
+		return list.Narrowed(in.Room.Pattern, list.NarrowedParams[row]{
+			Rows:  xslice.Map(in.Listing.ArchivedSchedules, rowOf),
+			Depth: func(row) int { return 0 },
+			Name:  func(item row) string { return item.schedule.Name },
+			Fits:  rowFits(in),
 		})
 	})
 }
 
 // hoveredSchedule is the archived schedule the cursor is on.
-func (a *archivedSchedules) hoveredSchedule(in screen.Inputs) (panel.Schedule, bool) {
+func (a Archive) hoveredSchedule(in screen.Inputs) (panel.Schedule, bool) {
 	item, ok := list.At(a.listRows(in), a.Row)
 
 	return item.schedule, ok
 }
 
-// menuTarget is the archived schedule the archive menu would act on.
-func (a *archivedSchedules) menuTarget(in screen.Inputs) (archived, bool) {
+// BuildItemMenu builds the band on the hovered archived schedule.
+func (a Archive) BuildItemMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
 	schedule, ok := a.hoveredSchedule(in)
-
-	return archived{schedule: &schedule}, ok
-}
-
-func (a *archivedSchedules) BuildItemMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
-	target, ok := a.menuTarget(in)
 	if !ok {
 		return menu.Menu{}, false
 	}
 
-	return menu.WithNested(rowMenu(target.name()), "archive", a.deps.keys.Menu.Archive, archiveMenu(in, a.deps.keys, a.deps.clients, target)), true
+	return menu.WithNested(menu.Menu{Title: schedule.Name}, "archive", a.deps.Keys.Menu.Archive, a.archiveMenu(schedule)), true
 }
 
-// confirmDeleteSchedule asks before it deletes an archived schedule for good.
-func confirmDeleteSchedule(clients api.Clients, schedule panel.Schedule) screen.Request {
-	built, confirmed := deleteScheduleForm(schedule.Name, fixedKeys())
+// archiveMenu is the archive's actions on an archived schedule, opened from its menu.
+func (a Archive) archiveMenu(schedule panel.Schedule) menu.Menu {
+	bindings := a.deps.Keys.ArchiveMenu
+
+	return menu.Menu{
+		Title: "archive",
+		Entries: []menu.Entry{
+			menu.Holding("restore", bindings.Restore, func(screen.Inputs) screen.Request { return a.restore(schedule) }),
+			{
+				Label: "restore and open",
+				Keys:  bindings.RestoreOpen,
+				Off:   true,
+				After: menu.Hold,
+				Pick: func(screen.Inputs) screen.Request {
+					return screen.Report{Summary: "Could not restore and open " + schedule.Name, Err: errOpensOneAgent}
+				},
+			},
+			menu.Leaving("delete for good", bindings.Delete, func(screen.Inputs) screen.Request {
+				return confirmDelete(a.deps.Clients, schedule)
+			}),
+		},
+	}
+}
+
+func (a Archive) restore(schedule panel.Schedule) screen.Request {
+	return a.deps.Clients.AwaitingWrite(api.AwaitingWriteParams{
+		Doing:   "restoring " + schedule.Name,
+		Summary: fmt.Sprintf("Could not restore schedule %q", schedule.Name),
+		Awaits:  screen.Awaits{Gone: screen.RowsIn(screen.ListArchivedSchedules, schedule.ID)},
+		Write:   func(c api.Clients) error { return c.RestoreSchedule(schedule.ID) },
+	})
+}
+
+// confirmDelete asks before it deletes an archived schedule for good.
+func confirmDelete(clients api.Clients, schedule panel.Schedule) screen.Request {
+	built, confirmed := deleteForm(schedule.Name, config.Fixed())
 
 	return form.Open{Form: form.Form{
 		Built: built,
@@ -193,23 +232,24 @@ func confirmDeleteSchedule(clients api.Clients, schedule panel.Schedule) screen.
 }
 
 // place keeps the cursor on the archived schedule it was on as the rows under it change.
-func (a *archivedSchedules) place(in screen.Inputs, hovered string) {
+func (a Archive) place(in screen.Inputs, hovered string) {
 	rows := a.listRows(in)
 	a.Row = cursor.Place(list.IndexOf(rows, hovered), a.Row, len(rows))
 }
 
 // Stage keeps the info pane on the row the cursor is standing on.
-func (a *archivedSchedules) Stage() screen.Request {
+func (a Archive) Stage() screen.Request {
 	return screen.StageTerminal{}
 }
 
-func (a *archivedSchedules) ListParams(in screen.Inputs) list.Params {
+// ListParams is the list of archived schedules as the root renders it.
+func (a Archive) ListParams(in screen.Inputs) list.Params {
 	return list.Params{
 		Help:  a.help(in),
 		Rows:  len(a.listRows(in)),
 		Empty: "no archived schedules",
 		Snapshot: func(pane list.Pane) view.Snapshot {
-			return scheduleSnapshot(in, pane, scheduleSnapshotParams{
+			return listSnapshot(in, pane, listSnapshotParams{
 				rows:   a.listRows(in),
 				cursor: a.Row,
 			})
@@ -217,35 +257,32 @@ func (a *archivedSchedules) ListParams(in screen.Inputs) list.Params {
 	}
 }
 
-func (a *archivedSchedules) help(in screen.Inputs) legend.Help {
-	return a.actions(in).Help(a, a.deps.keys)
+func (a Archive) help(in screen.Inputs) legend.Help {
+	return a.actions(in).Help(a, a.deps.Keys)
 }
 
-var (
-	_ recordRenderer  = (*archivedSchedules)(nil)
-	_ activeLister    = (*archivedSchedules)(nil)
-	_ rowStager       = (*archivedSchedules)(nil)
-	_ hoveredNamer    = (*archivedSchedules)(nil)
-	_ itemMenuBuilder = (*archivedSchedules)(nil)
-)
-
-func (a *archivedSchedules) DoesRenderFromListing() bool {
+// DoesRenderFromListing reports that the archive renders the listing's archived schedules.
+func (a Archive) DoesRenderFromListing() bool {
 	return true
 }
 
-func (a *archivedSchedules) TakesEveryKey() bool {
+// TakesEveryKey reports that nothing on the archive takes every key.
+func (a Archive) TakesEveryKey() bool {
 	return false
 }
 
-func (a *archivedSchedules) ActiveList() keys.KeyedList {
+// ActiveList is the list of archived schedules the filter narrows.
+func (a Archive) ActiveList() keys.KeyedList {
 	return a.list()
 }
 
-func (a *archivedSchedules) HoveredName(in screen.Inputs) string {
+// HoveredName is the name of the archived schedule under the cursor.
+func (a Archive) HoveredName(in screen.Inputs) string {
 	return a.list().HoveredName(in)
 }
 
-func (a *archivedSchedules) Column(in screen.Inputs) column.Spec {
+// Column is the hovered archived schedule's document rendered beside the list.
+func (a Archive) Column(in screen.Inputs) column.Spec {
 	return column.Spec{
 		Floor: column.Narrowest,
 		Read:  column.IsAlwaysRead,
@@ -255,10 +292,12 @@ func (a *archivedSchedules) Column(in screen.Inputs) column.Spec {
 	}
 }
 
-func (a *archivedSchedules) Dispatches() []keys.Table {
+// Dispatches is the archive's one table.
+func (a Archive) Dispatches() []keys.Table {
 	return []keys.Table{a.actions(screen.Inputs{})}
 }
 
-func (a *archivedSchedules) StageResting(in screen.Inputs) screen.Request {
+// StageResting stages the pane for the archived schedule the cursor rests on.
+func (a Archive) StageResting(in screen.Inputs) screen.Request {
 	return a.Stage()
 }

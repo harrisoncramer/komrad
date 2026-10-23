@@ -1,4 +1,4 @@
-package ui_test
+package schedules_test
 
 import (
 	"testing"
@@ -19,9 +19,12 @@ import (
 
 // TestArchivedSchedules covers the schedules view switched to its archived kind.
 func TestArchivedSchedules(t *testing.T) {
+	archivedAgent := paneltest.Agent("a1", "api-refactor", "w1")
+	archivedAgent.ArchivedAt = archivedAt
+
 	rows := []proto.Message{
 		paneltest.Workflow("w1", "backend"),
-		newArchivedAgent("a1", "api-refactor", "w1"),
+		archivedAgent,
 		newSchedule("s1", "nightly-live"),
 		newArchivedSchedule("weekly-gone"),
 	}
@@ -96,9 +99,11 @@ func TestArchivedSchedules(t *testing.T) {
 
 const deletePrompt = "Permanently delete"
 
+var archivedAt = timestamppb.New(time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC))
+
 func newArchivedSchedule(name string) *schedulev1.Schedule {
 	schedule := newSchedule("s2", name)
-	schedule.ArchivedAt = timestamppb.New(time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC))
+	schedule.ArchivedAt = archivedAt
 
 	return schedule
 }

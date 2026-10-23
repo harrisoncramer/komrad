@@ -1,4 +1,4 @@
-package ui
+package schedules
 
 import (
 	"strings"
@@ -10,17 +10,19 @@ import (
 	"komrad/lib/xstr"
 )
 
-var schedulesQuery = list.Grammar{Syntax: searchsyntax.Schedules, Check: checkSchedulesClause}
+var grammar = list.Grammar{Syntax: searchsyntax.Schedules, Check: checkClause}
 
-func (w *schedulesScreen) QueryGrammar() (list.Grammar, bool) {
-	return schedulesQuery, true
+// QueryGrammar is the grammar the filter reads a query to the schedules in.
+func (w *Screen) QueryGrammar() (list.Grammar, bool) {
+	return grammar, true
 }
 
-func (a *archivedSchedules) QueryGrammar() (list.Grammar, bool) {
-	return schedulesQuery, true
+// QueryGrammar is the grammar the filter reads a query to the archived schedules in.
+func (a Archive) QueryGrammar() (list.Grammar, bool) {
+	return grammar, true
 }
 
-func checkSchedulesClause(clause searchsyntax.Clause, _ time.Time) error {
+func checkClause(clause searchsyntax.Clause, _ time.Time) error {
 	if clause.Key == searchsyntax.KeyIs && !strings.EqualFold(clause.Value, "paused") {
 		return searchsyntax.ErrBadQualifier.Saying("is:%s is not paused", clause.Value)
 	}
@@ -28,8 +30,8 @@ func checkSchedulesClause(clause searchsyntax.Clause, _ time.Time) error {
 	return nil
 }
 
-func scheduleItemFits(in screen.Inputs) func(scheduleItem) list.Fits {
-	return func(item scheduleItem) list.Fits {
+func rowFits(in screen.Inputs) func(row) list.Fits {
+	return func(item row) list.Fits {
 		return func(clause searchsyntax.Clause) bool {
 			switch clause.Key {
 			case searchsyntax.KeyName:

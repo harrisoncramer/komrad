@@ -8,7 +8,6 @@ import (
 	"komrad/internal/ui/paint/label"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/record"
-	schedulev1 "komrad/proto/gen/schedule/v1"
 )
 
 func workflowFields(w panel.Workflow, agentCount int) []record.Field {
@@ -94,51 +93,9 @@ func sessionFields(agent panel.Agent, schedule string) []record.Field {
 	return fields
 }
 
-const noSchedulesMarkdown = `# Schedules
-
-A schedule launches an agent, or mails an orchestrator, on a cron expression.
-
-Press the new key to write one.
-`
-
-type scheduleTarget struct {
-	workflow     *panel.Workflow
-	orchestrator string
-}
-
-func scheduleFields(sched panel.Schedule, target scheduleTarget) []record.Field {
-	fields := []record.Field{
-		{Label: "name", Value: label.OrDash(sched.Name)},
-		{Label: "cron", Value: label.OrDash(sched.Cron)},
-		{Label: "timezone", Value: label.OrDash(sched.Timezone)},
-	}
-
-	if sched.Kind == schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR {
-		return append(fields,
-			record.Field{Label: "kind", Value: "orchestrator"},
-			record.Field{Label: "mails", Value: target.orchestrator},
-		)
-	}
-
-	if !panel.IsKnownScheduleKind(sched.Kind) {
-		return append(fields, record.Field{Label: "kind", Value: "unknown"})
-	}
-
-	fields = append(fields, record.Field{Label: "kind", Value: "task"})
-	if target.workflow == nil {
-		return append(fields, record.Field{Label: "workflow", Value: "— (archived)"})
-	}
-
-	fields = append(fields, record.Field{Label: "workflow", Value: target.workflow.Name})
-
-	return append(fields, record.WorkflowConfigFields(*target.workflow)...)
-}
-
 const emptyArchiveMarkdown = "# Archive\n\n_nothing archived_\n\nKomrad keeps the agents you archive here until you delete them.\n"
 
 const emptyDeletedMarkdown = "# Deleted\n\n_nothing deleted_\n\nKomrad lists the archived tasks whose worktree was deleted here. Their records stay until you delete them too.\n"
-
-const emptyScheduleArchiveMarkdown = "# Archive\n\n_no archived schedules_\n\nKomrad keeps the schedules you archive here until you delete them.\n"
 
 func archiveMarkdown(agent panel.Agent) string {
 	return paint.DocumentMarkdown(agent.Name, "_archived — kept until deleted_", "",

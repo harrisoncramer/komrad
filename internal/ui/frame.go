@@ -20,16 +20,18 @@ func (m *model) buildFrame() {
 }
 
 type shownScreen struct {
-	screen    screen.ID
-	agents    agentsKind
-	schedules schedulesKind
+	screen            screen.ID
+	agents            agentsKind
+	schedulesArchived bool
 }
 
 func (m *model) shownScreen() shownScreen {
+	_, archived := m.schedules.ShownArchive()
+
 	return shownScreen{
-		screen:    m.screen,
-		agents:    m.agents.kind,
-		schedules: m.schedules.kind,
+		screen:            m.screen,
+		agents:            m.agents.kind,
+		schedulesArchived: archived,
 	}
 }
 

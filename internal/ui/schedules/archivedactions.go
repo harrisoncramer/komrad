@@ -1,4 +1,4 @@
-package ui
+package schedules
 
 import (
 	"slices"
@@ -8,44 +8,44 @@ import (
 )
 
 // actions is the archived schedules as one table and the legend that names it.
-func (a *archivedSchedules) actions(in screen.Inputs) keys.Spec[*archivedSchedules] {
-	return keys.Spec[*archivedSchedules]{
+func (a Archive) actions(in screen.Inputs) keys.Spec[Archive] {
+	return keys.Spec[Archive]{
 		Table:  a.table(in),
 		Legend: a.legend(in),
 	}
 }
 
-func (a *archivedSchedules) table(in screen.Inputs) []keys.Action[*archivedSchedules] {
+func (a Archive) table(in screen.Inputs) []keys.Action[Archive] {
 	list := a.list()
 
-	return append(keys.ListActions[*archivedSchedules](list, in),
-		keys.Action[*archivedSchedules]{
+	return append(keys.ListActions[Archive](list, in),
+		keys.Action[Archive]{
 			ID:   actionArchiveBack,
 			Keys: keys.FixedBack,
-			Nav:  func(*archivedSchedules, string) screen.Request { return screen.PickView{} },
+			Nav:  func(Archive, string) screen.Request { return screen.PickView{} },
 		},
 	)
 }
 
-func (a *archivedSchedules) legend(in screen.Inputs) []keys.LegendRow[*archivedSchedules] {
-	return slices.Concat([]keys.LegendRow[*archivedSchedules]{
+func (a Archive) legend(in screen.Inputs) []keys.LegendRow[Archive] {
+	return slices.Concat([]keys.LegendRow[Archive]{
 		{
 			Of:   []keys.ID{keys.FilterOpen},
-			Desc: keys.FilterDescOf[*archivedSchedules](in),
+			Desc: keys.FilterDescOf[Archive](in),
 		},
-	}, keys.NavLegend[*archivedSchedules](), []keys.LegendRow[*archivedSchedules]{
+	}, keys.NavLegend[Archive](), []keys.LegendRow[Archive]{
 		{
 			Of:   []keys.ID{actionArchiveBack},
-			Desc: func(*archivedSchedules) string { return "back" },
+			Desc: func(Archive) string { return "back" },
 		},
 		{
 			Of:    []keys.ID{keys.FilterClear},
-			Desc:  keys.FilterClearDescOf[*archivedSchedules](in),
+			Desc:  keys.FilterClearDescOf[Archive](in),
 			Strip: true,
 		},
 		{
 			Of:    []keys.ID{keys.FilterMatch},
-			Desc:  func(*archivedSchedules) string { return "next/prev match" },
+			Desc:  func(Archive) string { return "next/prev match" },
 			Strip: true,
 		},
 	})

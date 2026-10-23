@@ -1,4 +1,5 @@
-package ui
+// Package schedules holds the screen that lists the schedules and the archived schedules beside it.
+package schedules
 
 import (
 	"fmt"
@@ -22,51 +23,57 @@ import (
 	"charm.land/huh/v2"
 )
 
-// schedulesDeps is what the schedules screens are given at launch.
-type schedulesDeps struct {
-	keys     config.Keybindings
-	register *vim.Register
-	clients  api.Clients
-	top      *keys.Top
+// Deps is what the schedules screens are given at launch.
+type Deps struct {
+	Keys     config.Keybindings
+	Register *vim.Register
+	Clients  api.Clients
+	Top      *keys.Top
 }
 
-// schedulesScreen is the schedules screen, holding its own cursor behind the panel's one door.
-type schedulesScreen struct {
-	deps schedulesDeps
+// Screen is the schedules screen, holding its own cursor behind the panel's one door.
+type Screen struct {
+	deps Deps
 	list.Cursor
-	built screen.Derived[screen.ListingKey, []scheduleItem]
-	renameSlot
-	kind      schedulesKind
+	built     screen.Derived[screen.ListingKey, []row]
+	renaming  *rename
+	kind      kind
 	kindFocus bool
-	archived  archivedSchedules
+	archive   archive
 }
 
-type scheduleItem struct {
+// New is the schedules screen built from what it is given at launch.
+func New(deps Deps) Screen {
+	return Screen{deps: deps, archive: archive{deps: deps}}
+}
+
+type row struct {
 	schedule panel.Schedule
 }
 
-func (i scheduleItem) Key() string {
-	return i.schedule.ID
+func (r row) Key() string {
+	return r.schedule.ID
 }
 
-func scheduleItemOf(schedule panel.Schedule) scheduleItem {
-	return scheduleItem{schedule: schedule}
+func rowOf(schedule panel.Schedule) row {
+	return row{schedule: schedule}
 }
 
-func scheduleItemName(item scheduleItem) string {
+func rowName(item row) string {
 	return item.schedule.Name
 }
 
 // Enter lands the cursor once the root has put the screen up.
-func (w *schedulesScreen) Enter(in screen.Inputs, _ screen.Target) screen.Request {
+func (w *Screen) Enter(in screen.Inputs, _ screen.Target) screen.Request {
 	w.Row = cursor.Clamp(w.Row, len(w.listRows(in)))
 
 	return screen.Settle{}
 }
 
-func (w *schedulesScreen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
+// Update sends a key to the rename being typed, or to the screen's table.
+func (w *Screen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 	if _, ok := msg.(tea.PasteMsg); ok && w.IsRenaming() {
-		return w.updateRename(w.deps.register, w.deps.clients, msg)
+		return w.updateRename(msg)
 	}
 
 	key, ok := msg.(tea.KeyPressMsg)
@@ -76,13 +83,14 @@ func (w *schedulesScreen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 
 	w.reconcileRename(in)
 	if w.IsRenaming() {
-		return w.updateRename(w.deps.register, w.deps.clients, msg)
+		return w.updateRename(msg)
 	}
 
-	return w.actions(in).DispatchTop(w.deps.top, w, w.deps.keys, key.String())
+	return w.actions(in).DispatchTop(w.deps.Top, w, w.deps.Keys, key.String())
 }
 
-func (w *schedulesScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
+// Receive takes a rename landing and the listing moving.
+func (w *Screen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 	switch msg := msg.(type) {
 	case api.RenameSettled:
 		w.settleRename(in, msg.Row, msg.Err)
@@ -95,34 +103,34 @@ func (w *schedulesScreen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request
 	return nil, false
 }
 
-func (w *schedulesScreen) list() keys.ScreenList[scheduleItem] {
-	return keys.ScreenList[scheduleItem]{
-		Keys:   w.deps.keys,
+func (w *Screen) list() keys.ScreenList[row] {
+	return keys.ScreenList[row]{
+		Keys:   w.deps.Keys,
 		Cursor: func() *list.Cursor { return &w.Cursor },
 		Rows:   w.listRows,
-		Name:   scheduleItemName,
-		Fits:   scheduleItemFits,
+		Name:   rowName,
+		Fits:   rowFits,
 		Moved:  func(screen.Inputs) screen.Request { return screen.Settle{} },
 	}
 }
 
-func (w *schedulesScreen) listRows(in screen.Inputs) []scheduleItem {
-	return w.built.Read(in.ListingKey(), func() []scheduleItem {
-		return list.Narrowed(in.Room.Pattern, list.NarrowedParams[scheduleItem]{
-			Rows:  xslice.Map(in.Listing.Schedules, scheduleItemOf),
-			Depth: func(scheduleItem) int { return 0 },
-			Name:  scheduleItemName,
-			Fits:  scheduleItemFits(in),
+func (w *Screen) listRows(in screen.Inputs) []row {
+	return w.built.Read(in.ListingKey(), func() []row {
+		return list.Narrowed(in.Room.Pattern, list.NarrowedParams[row]{
+			Rows:  xslice.Map(in.Listing.Schedules, rowOf),
+			Depth: func(row) int { return 0 },
+			Name:  rowName,
+			Fits:  rowFits(in),
 		})
 	})
 }
 
-func (w *schedulesScreen) selected(in screen.Inputs) (scheduleItem, bool) {
+func (w *Screen) selected(in screen.Inputs) (row, bool) {
 	return list.At(w.listRows(in), w.Row)
 }
 
 // apply takes a fresh listing, keeping the cursor on the schedule it was on.
-func (w *schedulesScreen) apply(in screen.Inputs, hovered string) screen.Request {
+func (w *Screen) apply(in screen.Inputs, hovered string) screen.Request {
 	placed := w.list().Place(in, hovered)
 	w.reconcileRename(in)
 
@@ -130,14 +138,14 @@ func (w *schedulesScreen) apply(in screen.Inputs, hovered string) screen.Request
 }
 
 func orchestratorLabel(l panel.Listing, id string) string {
-	for _, row := range l.Agents {
-		if row.Agent.ID == id {
-			return row.Agent.Name
+	for _, listed := range l.Agents {
+		if listed.Agent.ID == id {
+			return listed.Agent.Name
 		}
 	}
-	for _, row := range l.ArchivedAgents {
-		if row.Agent.ID == id {
-			return row.Agent.Name + " (archived)"
+	for _, listed := range l.ArchivedAgents {
+		if listed.Agent.ID == id {
+			return listed.Agent.Name + " (archived)"
 		}
 	}
 
@@ -155,19 +163,19 @@ func workflowByID(workflows []panel.Workflow, id string) *panel.Workflow {
 }
 
 // toggleSchedule pauses the schedule, or resumes it when it is paused.
-func (w *schedulesScreen) toggleSchedule(schedule panel.Schedule) screen.Request {
+func (w *Screen) toggleSchedule(schedule panel.Schedule) screen.Request {
 	doing, failure := "pausing "+schedule.Name, fmt.Sprintf("Could not pause schedule %q", schedule.Name)
 	if !schedule.Enabled {
 		doing, failure = "resuming "+schedule.Name, fmt.Sprintf("Could not resume schedule %q", schedule.Name)
 	}
 
-	return w.deps.clients.Write(doing, failure, func(a api.Clients) error {
+	return w.deps.Clients.Write(doing, failure, func(a api.Clients) error {
 		return a.SetScheduleEnabled(schedule.ID, !schedule.Enabled)
 	})
 }
 
 // newScheduleForm puts up the form for a new schedule.
-func (w *schedulesScreen) newScheduleForm(in screen.Inputs) screen.Request {
+func (w *Screen) newScheduleForm(in screen.Inputs) screen.Request {
 	if len(in.Listing.Workflows) == 0 {
 		return screen.Report{Summary: "Could not create a schedule", Err: panel.ErrNoWorkflow}
 	}
@@ -184,51 +192,51 @@ func (w *schedulesScreen) newScheduleForm(in screen.Inputs) screen.Request {
 	return w.openScheduleForm(&values, nil)
 }
 
-// openScheduleForm puts up the schedule form, creating a schedule when target is nil and saving
+// openScheduleForm puts up the schedule form, creating a schedule when stored is nil and saving
 // over the one it names otherwise.
-func (w *schedulesScreen) openScheduleForm(values *panel.ScheduleConfig, target *panel.Schedule) screen.Request {
+func (w *Screen) openScheduleForm(values *panel.ScheduleConfig, stored *panel.Schedule) screen.Request {
 	renderedKind := values.Kind
 
 	return form.Open{Form: form.Form{
 		Build: func(in form.Inputs) (*huh.Form, []string) {
 			renderedKind = values.Kind
 
-			return scheduleForm(scheduleFormParams{
+			return buildForm(buildFormParams{
 				values:        values,
 				workflows:     in.Listing.Workflows,
 				orchestrators: in.Listing.LiveOrchestrators(),
-				keys:          fixedKeys(),
+				keys:          config.Fixed(),
 			})
 		},
 		Reshaped: func() bool { return values.Kind != renderedKind },
 		Editable: []form.Editable{{Key: "prompt", Value: &values.Prompt}},
 		Submit: func(form.Inputs) screen.Request {
-			if target == nil {
-				return w.deps.clients.Write("creating schedule "+values.Name, "Could not create the schedule", func(a api.Clients) error { return a.CreateSchedule(*values) })
+			if stored == nil {
+				return w.deps.Clients.Write("creating schedule "+values.Name, "Could not create the schedule", func(a api.Clients) error { return a.CreateSchedule(*values) })
 			}
 
-			return w.deps.clients.Write(
-				"saving "+target.Name,
-				fmt.Sprintf("Could not save schedule %q", target.Name),
-				func(a api.Clients) error { return a.UpdateSchedule(target.ID, *values) },
+			return w.deps.Clients.Write(
+				"saving "+stored.Name,
+				fmt.Sprintf("Could not save schedule %q", stored.Name),
+				func(a api.Clients) error { return a.UpdateSchedule(stored.ID, *values) },
 			)
 		},
 	}}
 }
 
 // editScheduleForm puts up the form over a stored schedule.
-func (w *schedulesScreen) editScheduleForm(schedule panel.Schedule) screen.Request {
+func (w *Screen) editScheduleForm(schedule panel.Schedule) screen.Request {
 	if !panel.IsKnownScheduleKind(schedule.Kind) {
 		return screen.Report{Summary: fmt.Sprintf("Could not edit schedule %q", schedule.Name), Err: panel.ErrUnknownScheduleKind}
 	}
 
-	values := schedulePrefill(schedule)
+	values := prefill(schedule)
 
 	return w.openScheduleForm(&values, &schedule)
 }
 
-// schedulePrefill is the schedule form as the stored schedule leaves it.
-func schedulePrefill(schedule panel.Schedule) panel.ScheduleConfig {
+// prefill is the schedule form as the stored schedule leaves it.
+func prefill(schedule panel.Schedule) panel.ScheduleConfig {
 	return panel.ScheduleConfig{
 		Name:           schedule.Name,
 		Cron:           schedule.Cron,
@@ -242,8 +250,8 @@ func schedulePrefill(schedule panel.Schedule) panel.ScheduleConfig {
 	}
 }
 
-func (w *schedulesScreen) archiveSchedule(schedule panel.Schedule) screen.Request {
-	return w.deps.clients.AwaitingWrite(api.AwaitingWriteParams{
+func (w *Screen) archiveSchedule(schedule panel.Schedule) screen.Request {
+	return w.deps.Clients.AwaitingWrite(api.AwaitingWriteParams{
 		Doing:   "archiving " + schedule.Name,
 		Summary: fmt.Sprintf("Could not archive schedule %q", schedule.Name),
 		Awaits:  screen.Awaits{Gone: screen.RowsIn(screen.ListSchedules, schedule.ID)},
@@ -251,7 +259,8 @@ func (w *schedulesScreen) archiveSchedule(schedule panel.Schedule) screen.Reques
 	})
 }
 
-func (w *schedulesScreen) ListParams(in screen.Inputs) list.Params {
+// ListParams is the list of schedules as the root renders it.
+func (w *Screen) ListParams(in screen.Inputs) list.Params {
 	return list.Params{
 		Help:     w.help(in),
 		Empty:    "no schedules yet",
@@ -260,39 +269,32 @@ func (w *schedulesScreen) ListParams(in screen.Inputs) list.Params {
 	}
 }
 
-func (w *schedulesScreen) help(in screen.Inputs) legend.Help {
-	return w.actions(in).Help(w, w.deps.keys)
+func (w *Screen) help(in screen.Inputs) legend.Help {
+	return w.actions(in).Help(w, w.deps.Keys)
 }
 
-var (
-	_ recordRenderer    = (*schedulesScreen)(nil)
-	_ activeLister      = (*schedulesScreen)(nil)
-	_ hoveredNamer      = (*schedulesScreen)(nil)
-	_ screenMenuBuilder = (*schedulesScreen)(nil)
-	_ itemMenuBuilder   = (*schedulesScreen)(nil)
-	_ lineTyper         = (*schedulesScreen)(nil)
-	_ renamer           = (*schedulesScreen)(nil)
-	_ kindSwitcher      = (*schedulesScreen)(nil)
-)
-
-func (w *schedulesScreen) DoesRenderFromListing() bool {
+// DoesRenderFromListing reports that the screen renders the listing's schedules.
+func (w *Screen) DoesRenderFromListing() bool {
 	return true
 }
 
-func (w *schedulesScreen) TakesEveryKey() bool {
+// TakesEveryKey reports whether a rename is taking the keys.
+func (w *Screen) TakesEveryKey() bool {
 	return w.IsRenaming()
 }
 
-func (w *schedulesScreen) ActiveList() keys.KeyedList {
+// ActiveList is the list of schedules the filter narrows.
+func (w *Screen) ActiveList() keys.KeyedList {
 	return w.list()
 }
 
-func (w *schedulesScreen) HoveredName(in screen.Inputs) string {
+// HoveredName is the name of the schedule under the cursor.
+func (w *Screen) HoveredName(in screen.Inputs) string {
 	return w.list().HoveredName(in)
 }
 
 // Column is the hovered schedule's own record rendered beside the list.
-func (w *schedulesScreen) Column(in screen.Inputs) column.Spec {
+func (w *Screen) Column(in screen.Inputs) column.Spec {
 	return column.Spec{
 		Floor: column.Narrowest,
 		Read:  column.IsAlwaysRead,
@@ -302,24 +304,12 @@ func (w *schedulesScreen) Column(in screen.Inputs) column.Spec {
 	}
 }
 
-func (w *schedulesScreen) openRename(in screen.Inputs) screen.Request {
-	if item, ok := w.selected(in); ok {
-		w.renaming = renameScheduleRow(item)
-	}
-
-	return nil
+// StageResting restages the pane for the schedule the cursor rests on.
+func (w *Screen) StageResting(screen.Inputs) screen.Request {
+	return screen.Restage{}
 }
 
-func (w *schedulesScreen) reconcileRename(in screen.Inputs) {
-	reconcileRename(&w.renameSlot, w.listRows(in), w.list().Hovered(in), scheduleItemName)
-}
-
-func (w *schedulesScreen) settleRename(in screen.Inputs, row string, err error) {
-	if w.settleField(row, err) {
-		w.reconcileRename(in)
-	}
-}
-
-func (w *schedulesScreen) Dispatches() []keys.Table {
-	return []keys.Table{w.actions(screen.Inputs{}), w.archived.actions(screen.Inputs{})}
+// Dispatches is the screen's table and its archive's.
+func (w *Screen) Dispatches() []keys.Table {
+	return []keys.Table{w.actions(screen.Inputs{}), w.Archive().actions(screen.Inputs{})}
 }

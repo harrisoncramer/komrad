@@ -11,8 +11,6 @@ const (
 	actionTaskRename
 	actionTaskNotesBack
 	actionWorkflowRename
-	actionScheduleRename
-	actionScheduleBack
 	actionArchiveRename
 	actionArchiveBack
 	actionWorktreesBack
