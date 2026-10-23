@@ -6,9 +6,14 @@ import (
 
 	"komrad/internal/ui/paneltest"
 	"komrad/internal/ui/screen"
+	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
+	taskv1 "komrad/proto/gen/task/v1"
+	worktreev1 "komrad/proto/gen/worktree/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 // TestViews covers the switcher rendered over every list and the keys that move between views.
@@ -166,4 +171,94 @@ func TestTrail(t *testing.T) {
 		harness.Press("k")
 		assert.Equal(t, "agents › agent38", paneltest.Trail(harness.Frame()))
 	})
+}
+
+// TestWorktreesLanding covers the worktrees view opening on the directory of the row the cursor
+// was on.
+func TestWorktreesLanding(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		press       []string
+		wantHovered string
+	}{
+		{
+			name:        "from the agents list it lands on the hovered agent's directory",
+			press:       []string{"shift+tab", "esc"},
+			wantHovered: "treeview",
+		},
+		{
+			name:        "a task lands on its writer's directory",
+			press:       []string{"j", "shift+tab", "esc"},
+			wantHovered: "treeview",
+		},
+		{
+			name:        "an occupant lands on the directory it works in",
+			press:       []string{"j", "j", "shift+tab", "esc"},
+			wantHovered: "treeview",
+		},
+		{
+			name:        "from the archived agents it lands on the archived agent's directory",
+			press:       []string{"F", "tab", "esc", "j", "shift+tab", "esc"},
+			wantHovered: "reviewer",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			harness := paneltest.OpenAgents(t, buildWorktreeRows()...)
+			harness.AnswerWorktreeReads()
+
+			harness.Press(tt.press...)
+
+			frame := harness.Frame()
+			assert.Equal(t, screen.Worktrees, paneltest.Screen(frame))
+			assert.Equal(t, tt.wantHovered, strings.TrimSpace(paneltest.HoveredRow(frame)))
+		})
+	}
+}
+
+// buildWorktreeRows is a live task's checkout holding its writer and an occupant, two archived
+// tasks' checkouts, and one no task answers for.
+func buildWorktreeRows() []proto.Message {
+	live := paneltest.Agent("live", "treeview", "w1")
+	live.Cwd = "/trees/live"
+	live.Alive = xptr.Ptr(true)
+	live.State = agentv1.AgentState_AGENT_STATE_THINKING
+	live.Role = agentv1.AgentRole_AGENT_ROLE_WRITER
+	live.TaskId = xptr.Ptr("live")
+
+	occupant := paneltest.Agent("occ", "review-607", "w1")
+	occupant.Cwd = "/trees/live"
+	occupant.Alive = xptr.Ptr(true)
+
+	archived := paneltest.Agent("archived", "reviewer", "w1")
+	archived.Cwd = "/trees/archived"
+	archived.Role = agentv1.AgentRole_AGENT_ROLE_WRITER
+	archived.ArchivedAt = archivedAt
+	archived.TaskId = xptr.Ptr("archived")
+
+	admin := paneltest.Agent("admin", "cargo-fix", "w1")
+	admin.Cwd = "/trees/admin"
+	admin.Role = agentv1.AgentRole_AGENT_ROLE_WRITER
+	admin.ArchivedAt = archivedAt
+	admin.TaskId = xptr.Ptr("admin")
+
+	return []proto.Message{
+		paneltest.Workflow("w1", "komrad"),
+		live,
+		occupant,
+		archived,
+		admin,
+		&taskv1.Task{Id: "live", WorkflowId: "w1", Slug: "treeview", Cwd: xptr.Ptr("/trees/live")},
+		&taskv1.Task{Id: "archived", WorkflowId: "w1", Slug: "reviewer", Cwd: xptr.Ptr("/trees/archived"), ArchivedAt: archivedAt},
+		&taskv1.Task{Id: "admin", WorkflowId: "w1", Slug: "cargo-fix", Cwd: xptr.Ptr("/trees/admin"), ArchivedAt: archivedAt},
+		&worktreev1.WatchedWorktree{Dir: "/trees/live", RepoDir: "/home/h/komrad", Branch: "task/live", Readable: true},
+		&worktreev1.WatchedWorktree{Dir: "/trees/archived", RepoDir: "/home/h/komrad", Branch: "task/archived", Readable: true},
+		&worktreev1.WatchedWorktree{Dir: "/trees/admin", RepoDir: "/home/h/gadgets/admin", Branch: "task/admin", Readable: true},
+		&worktreev1.WatchedWorktree{Dir: "/trees/orphan", RepoDir: "/home/h/komrad", Branch: "task/orphan", Readable: true},
+	}
 }

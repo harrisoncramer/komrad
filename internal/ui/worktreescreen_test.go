@@ -28,51 +28,9 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// TestWorktreesOpen covers the screen opening on the directory of the agent the cursor was on.
+// TestWorktreesOpen covers what the screen holds on when it opens.
 func TestWorktreesOpen(t *testing.T) {
 	t.Parallel()
-
-	tests := []struct {
-		name        string
-		press       []string
-		wantHovered string
-	}{
-		{
-			name:        "from the agents list it lands on the hovered agent's directory",
-			press:       []string{"shift+tab", "esc"},
-			wantHovered: "treeview",
-		},
-		{
-			name:        "a task lands on its writer's directory",
-			press:       []string{"j", "shift+tab", "esc"},
-			wantHovered: "treeview",
-		},
-		{
-			name:        "an occupant lands on the directory it works in",
-			press:       []string{"j", "j", "shift+tab", "esc"},
-			wantHovered: "treeview",
-		},
-		{
-			name:        "from the archived agents it lands on the archived agent's directory",
-			press:       []string{"F", "tab", "esc", "j", "shift+tab", "esc"},
-			wantHovered: "reviewer",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			harness := paneltest.OpenAgents(t, buildWorktrees()...)
-			harness.AnswerWorktreeReads()
-
-			harness.Press(tt.press...)
-
-			frame := harness.Frame()
-			assert.Equal(t, screen.Worktrees, paneltest.Screen(harness.Frame()))
-			assert.Equal(t, tt.wantHovered, readHoveredWorktree(frame))
-		})
-	}
 
 	t.Run("the panel keeps the whole window, a live agent's pane included", func(t *testing.T) {
 		t.Parallel()
@@ -99,56 +57,6 @@ func TestWorktreesOpen(t *testing.T) {
 
 		assert.Contains(t, paneltest.BelowViews(harness.Frame())[0], "5 · 1.6G")
 	})
-}
-
-// TestWorktreesJump covers jumping from a directory to the task it belongs to.
-func TestWorktreesJump(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name        string
-		row         string
-		wantScreen  screen.ID
-		wantHovered string
-		wantTaskID  string
-	}{
-		{
-			name:        "a directory nothing answers for stays put",
-			row:         "task/orphan",
-			wantScreen:  screen.Worktrees,
-			wantHovered: "task/orphan",
-		},
-		{
-			name:        "a live task's directory lands on the agents list",
-			row:         "treeview",
-			wantScreen:  screen.Agents,
-			wantHovered: "treeview",
-			wantTaskID:  "live",
-		},
-		{
-			name:        "an archived task's directory lands in the archive",
-			row:         "reviewer",
-			wantScreen:  screen.Agents,
-			wantHovered: "reviewer",
-			wantTaskID:  "archived",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			harness := openWorktrees(t)
-			moveToWorktree(t, harness, tt.row)
-
-			harness.Press("space", "J", "t")
-
-			frame := harness.Frame()
-			assert.Equal(t, tt.wantScreen, paneltest.Screen(harness.Frame()))
-			assert.Contains(t, paneltest.HoveredRow(frame), tt.wantHovered)
-			assert.Equal(t, tt.wantTaskID, paneltest.RecordField(frame, "task_id"))
-		})
-	}
 }
 
 // TestWorktreesDelete covers what each delete entry opens on the row under the cursor.

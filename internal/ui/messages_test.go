@@ -17,6 +17,7 @@ import (
 	"komrad/internal/ui/paneltest"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
+	worktreev1 "komrad/proto/gen/worktree/v1"
 )
 
 // TestMessagesHeader covers a message flashing on the engine line and what it leaves there.
@@ -30,10 +31,15 @@ func TestMessagesHeader(t *testing.T) {
 	})
 
 	t.Run("an info message leaves nothing once the flash is over", func(t *testing.T) {
-		harness := openWorktrees(t)
+		harness := paneltest.OpenAgents(t, &worktreev1.WatchedWorktree{
+			Dir:      "/trees/orphan",
+			RepoDir:  "/home/h/komrad",
+			Branch:   "task/orphan",
+			Readable: true,
+		})
 
-		harness.Press("space", "c", "y")
-		harness.Watch(buildDeletedWorktrees("/trees/admin", "/trees/archived", "/trees/broken", "/trees/orphan"))
+		harness.Press("shift+tab", "esc", "space", "c", "y")
+		harness.Watch(buildDeletedWorktrees("/trees/orphan"))
 		require.Contains(t, readEngineLine(harness.Frame()), "·")
 		settleFlash(harness)
 
