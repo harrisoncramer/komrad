@@ -113,7 +113,7 @@ func (a *agentsScreen) restartWrite(l panel.Listing, agent panel.Agent, values r
 				return screen.Landed{Err: err}
 			}
 
-			return screen.Landed{Made: madeAgent(restarted, false)}
+			return madeAgent(restarted, false)
 		},
 	}
 }

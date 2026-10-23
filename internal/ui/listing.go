@@ -146,18 +146,11 @@ func (m *model) send(write screen.Write) tea.Cmd {
 }
 
 // rowWrite is a write whose landing takes the panel to the row it made.
-func rowWrite(clients api.Clients, doing, summary string, write func(api.Clients) (*screen.Made, error)) screen.Write {
+func rowWrite(clients api.Clients, doing, summary string, write func(api.Clients) screen.Landed) screen.Write {
 	return screen.Write{
 		Doing:   doing,
 		Summary: summary,
-		Send: func() screen.Landed {
-			made, err := write(clients)
-			if err != nil {
-				return screen.Landed{Err: err}
-			}
-
-			return screen.Landed{Made: made}
-		},
+		Send:    func() screen.Landed { return write(clients) },
 	}
 }
 
@@ -173,26 +166,44 @@ func openingWrite(clients api.Clients, doing, summary string, write func(api.Cli
 	return rowWrite(clients, doing, summary, madeAgentOf(write, true))
 }
 
-// madeAgentOf turns a write answering with an agent into one answering with the agent's row.
-func madeAgentOf(write func(api.Clients) (*agentv1.Agent, error), focus bool) func(api.Clients) (*screen.Made, error) {
-	return func(clients api.Clients) (*screen.Made, error) {
+// madeAgentOf turns a write answering with an agent into one landing on the agent's row.
+func madeAgentOf(write func(api.Clients) (*agentv1.Agent, error), focus bool) func(api.Clients) screen.Landed {
+	return func(clients api.Clients) screen.Landed {
 		agent, err := write(clients)
 		if err != nil {
-			return nil, err
+			return screen.Landed{Err: err}
 		}
 
-		return madeAgent(agent, focus), nil
+		return madeAgent(agent, focus)
 	}
 }
 
-// madeAgent is the row of an agent a write made, shown in the pane the agent is running in.
-func madeAgent(agent *agentv1.Agent, focus bool) *screen.Made {
-	return &screen.Made{
-		Row:     agentRowKey(agent.GetId()),
-		Agent:   agent.GetId(),
-		Pane:    agent.GetPaneId(),
-		Harness: agent.GetHarness(),
-		Focus:   focus,
+// madeAgent lands on the row of an agent a write made, shown in the pane the agent is running in.
+func madeAgent(agent *agentv1.Agent, focus bool) screen.Landed {
+	return screen.Landed{
+		Awaits: screen.Awaits{Shown: screen.RowsIn(screen.ListAgents, agent.GetId())},
+		Made: &screen.Made{
+			Row:     agentRowKey(agent.GetId()),
+			Agent:   agent.GetId(),
+			Pane:    agent.GetPaneId(),
+			Harness: agent.GetHarness(),
+			Focus:   focus,
+		},
+	}
+}
+
+// madeWorkflow lands on the row of a workflow, shown in the pane of the orchestrator standing
+// behind it when there is one.
+func madeWorkflow(workflowID string, orchestrator *agentv1.Agent) screen.Landed {
+	return screen.Landed{
+		Awaits: screen.Awaits{Shown: screen.RowsIn(screen.ListWorkflows, workflowID)},
+		Made: &screen.Made{
+			Row:     workflowRowKey(workflowID),
+			Agent:   orchestrator.GetId(),
+			Pane:    orchestrator.GetPaneId(),
+			Harness: orchestrator.GetHarness(),
+			Focus:   orchestrator != nil,
+		},
 	}
 }
 
@@ -232,9 +243,12 @@ func adoptWrite(clients api.Clients, params api.AdoptParams) screen.Write {
 			}
 
 			agent := adopted.GetAgent()
-			landed := screen.Landed{Made: madeAgent(agent, false)}
+			landed := madeAgent(agent, false)
 			if adopted.GetExisting() {
-				landed.Made.Archived = agent.ArchivedAt != nil
+				if agent.ArchivedAt != nil {
+					landed.Made.Archived = true
+					landed.Awaits.Shown = screen.RowsIn(screen.ListArchivedAgents, agent.GetId())
+				}
 				landed.Notice = &screen.Notice{
 					Summary: "This agent already exists",
 					Detail:  fmt.Sprintf("%s is already on %s", agent.GetName(), params.Ref),
@@ -247,26 +261,20 @@ func adoptWrite(clients api.Clients, params api.AdoptParams) screen.Write {
 }
 
 func createWorkflowWrite(clients api.Clients, cfg panel.WorkflowConfig) screen.Write {
-	return rowWrite(clients, "creating workflow "+cfg.Name, "Could not create the workflow", func(clients api.Clients) (*screen.Made, error) {
+	return rowWrite(clients, "creating workflow "+cfg.Name, "Could not create the workflow", func(clients api.Clients) screen.Landed {
 		workflow, err := clients.CreateWorkflow(cfg)
 		if err != nil {
-			return nil, err
+			return screen.Landed{Err: err}
 		}
 
 		// A new workflow comes with the agent that stands behind it, and stands on its own when
 		// that agent will not start.
 		agent, err := clients.StartOrchestrator(workflow.GetId())
 		if err != nil {
-			return &screen.Made{Row: workflowRowKey(workflow.GetId())}, nil //nolint:nilerr // the workflow was created
+			return madeWorkflow(workflow.GetId(), nil)
 		}
 
-		return &screen.Made{
-			Row:     workflowRowKey(workflow.GetId()),
-			Agent:   agent.GetId(),
-			Pane:    agent.GetPaneId(),
-			Harness: agent.GetHarness(),
-			Focus:   true,
-		}, nil
+		return madeWorkflow(workflow.GetId(), agent)
 	})
 }
 
