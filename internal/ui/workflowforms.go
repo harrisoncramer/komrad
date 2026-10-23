@@ -12,7 +12,9 @@ import (
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
+	"komrad/lib/protoenum"
 	"komrad/lib/xslice"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"charm.land/huh/v2"
 )
@@ -31,7 +33,7 @@ type workflowFormValues struct {
 	ReviewerHarness      string
 	ReviewerFlags        string
 	Provisioner          string
-	Hooks                map[string]*string
+	Hooks                map[eventv1.Moment]*string
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    string
 	WorktreeSymlinkPaths string
@@ -39,9 +41,9 @@ type workflowFormValues struct {
 	WorktreeDir          string
 	WorktreeSetupCommand string
 	// EventPrompts are the workflow's prompts keyed by event.
-	EventPrompts map[string]*string
+	EventPrompts map[eventv1.Event]*string
 	// EventMutes are whether each event is kept from opening mail, keyed by event.
-	EventMutes map[string]*bool
+	EventMutes map[eventv1.Event]*bool
 }
 
 func workflowFormValuesFrom(cfg panel.WorkflowConfig) workflowFormValues {
@@ -94,97 +96,9 @@ func (v workflowFormValues) toConfig() panel.WorkflowConfig {
 	}
 }
 
-type hookMoment struct {
-	event       string
-	key         string
-	title       string
-	description string
-}
-
-var hookMoments = []hookMoment{
-	{
-		event:       config.HookAgentPreLaunch,
-		key:         "pre_launch_hook",
-		title:       "Agent pre-launch hook",
-		description: "runs in the agent's directory before its pane opens, and a failure abandons the create",
-	},
-	{
-		event:       config.HookAgentPostLaunch,
-		key:         "post_launch_hook",
-		title:       "Agent post-launch hook",
-		description: "runs once the agent's pane opens",
-	},
-	{
-		event:       config.HookAgentPreResume,
-		key:         "pre_resume_hook",
-		title:       "Agent pre-resume hook",
-		description: "runs in the agent's directory before a dormant agent's pane opens, and a failure refuses the resume",
-	},
-	{
-		event:       config.HookAgentPostResume,
-		key:         "post_resume_hook",
-		title:       "Agent post-resume hook",
-		description: "runs once a dormant agent is back in a pane",
-	},
-	{
-		event:       config.HookAgentPreArchive,
-		key:         "pre_archive_hook",
-		title:       "Agent pre-archive hook",
-		description: "runs while the agent is still running, and a failure refuses the archive",
-	},
-	{
-		event:       config.HookAgentPostArchive,
-		key:         "post_archive_hook",
-		title:       "Agent post-archive hook",
-		description: "runs in the agent's directory after komrad closes its pane and archives it",
-	},
-	{
-		event:       config.HookAgentPreRestore,
-		key:         "pre_restore_hook",
-		title:       "Agent pre-restore hook",
-		description: "runs before an archived agent's row comes back, and a failure refuses the restore",
-	},
-	{
-		event:       config.HookAgentPostRestore,
-		key:         "post_restore_hook",
-		title:       "Agent post-restore hook",
-		description: "runs when an archived agent's row comes back",
-	},
-	{
-		event:       config.HookAgentPreDelete,
-		key:         "pre_delete_hook",
-		title:       "Agent pre-delete hook",
-		description: "runs in the agent's directory as komrad deletes it, before komrad releases the worktree",
-	},
-	{
-		event:       config.HookAgentPostDelete,
-		key:         "post_delete_hook",
-		title:       "Agent post-delete hook",
-		description: "runs once the agent and its worktree are gone",
-	},
-	{
-		event:       config.HookTaskPreOpen,
-		key:         "task_pre_open_hook",
-		title:       "Task pre-open hook",
-		description: "runs before a task's first live agent opens its pane, and a failure abandons the create or restore",
-	},
-	{
-		event:       config.HookTaskPostArchive,
-		key:         "task_post_archive_hook",
-		title:       "Task post-archive hook",
-		description: "runs after komrad archives a task's last live agent, and the task with it",
-	},
-	{
-		event:       config.HookTaskPreDelete,
-		key:         "task_pre_delete_hook",
-		title:       "Task pre-delete hook",
-		description: "runs as komrad deletes a task, before it releases the worktree, and a failure keeps the task",
-	},
-}
-
 // hooksByEvent is each event's first hook, which is the one the form shows.
-func hooksByEvent(hooks []panel.Hook) map[string]*string {
-	byEvent := make(map[string]*string, len(hooks))
+func hooksByEvent(hooks []panel.Hook) map[eventv1.Moment]*string {
+	byEvent := make(map[eventv1.Moment]*string, len(hooks))
 	for _, hook := range hooks {
 		if _, ok := byEvent[hook.Event]; !ok {
 			byEvent[hook.Event] = &hook.Script
@@ -194,34 +108,34 @@ func hooksByEvent(hooks []panel.Hook) map[string]*string {
 	return byEvent
 }
 
-func (v *workflowFormValues) hookFor(event string) *string {
+func (v *workflowFormValues) hookFor(moment eventv1.Moment) *string {
 	if v.Hooks == nil {
-		v.Hooks = make(map[string]*string)
+		v.Hooks = make(map[eventv1.Moment]*string)
 	}
-	if v.Hooks[event] == nil {
-		v.Hooks[event] = new(string)
+	if v.Hooks[moment] == nil {
+		v.Hooks[moment] = new(string)
 	}
 
-	return v.Hooks[event]
+	return v.Hooks[moment]
 }
 
 func (v workflowFormValues) hookList() []panel.Hook {
 	var hooks []panel.Hook
-	for _, moment := range hookMoments {
-		script, ok := v.Hooks[moment.event]
+	for _, moment := range config.HookMoments() {
+		script, ok := v.Hooks[moment]
 		if !ok || *script == "" {
 			continue
 		}
 
-		hooks = append(hooks, panel.Hook{Event: moment.event, Script: *script})
+		hooks = append(hooks, panel.Hook{Event: moment, Script: *script})
 	}
 
 	return hooks
 }
 
 // eventPromptsByEvent is every event's prompt, blank for an event the workflow attaches none to.
-func eventPromptsByEvent(prompts []panel.EventPrompt) map[string]*string {
-	byEvent := make(map[string]*string, len(prompts))
+func eventPromptsByEvent(prompts []panel.EventPrompt) map[eventv1.Event]*string {
+	byEvent := make(map[eventv1.Event]*string, len(prompts))
 	for _, prompt := range prompts {
 		byEvent[prompt.Event] = &prompt.Prompt
 	}
@@ -230,8 +144,8 @@ func eventPromptsByEvent(prompts []panel.EventPrompt) map[string]*string {
 }
 
 // eventMutesByEvent is whether each event is muted, false for an event the workflow does not mute.
-func eventMutesByEvent(prompts []panel.EventPrompt) map[string]*bool {
-	byEvent := make(map[string]*bool, len(prompts))
+func eventMutesByEvent(prompts []panel.EventPrompt) map[eventv1.Event]*bool {
+	byEvent := make(map[eventv1.Event]*bool, len(prompts))
 	for _, prompt := range prompts {
 		byEvent[prompt.Event] = &prompt.Muted
 	}
@@ -240,9 +154,9 @@ func eventMutesByEvent(prompts []panel.EventPrompt) map[string]*bool {
 }
 
 // eventPromptFor is where the form holds one event's prompt.
-func (v *workflowFormValues) eventPromptFor(event string) *string {
+func (v *workflowFormValues) eventPromptFor(event eventv1.Event) *string {
 	if v.EventPrompts == nil {
-		v.EventPrompts = make(map[string]*string)
+		v.EventPrompts = make(map[eventv1.Event]*string)
 	}
 	if v.EventPrompts[event] == nil {
 		v.EventPrompts[event] = new(string)
@@ -252,9 +166,9 @@ func (v *workflowFormValues) eventPromptFor(event string) *string {
 }
 
 // eventMuteFor is where the form holds whether one event is muted.
-func (v *workflowFormValues) eventMuteFor(event string) *bool {
+func (v *workflowFormValues) eventMuteFor(event eventv1.Event) *bool {
 	if v.EventMutes == nil {
-		v.EventMutes = make(map[string]*bool)
+		v.EventMutes = make(map[eventv1.Event]*bool)
 	}
 	if v.EventMutes[event] == nil {
 		v.EventMutes[event] = new(bool)
@@ -267,18 +181,18 @@ func (v *workflowFormValues) eventMuteFor(event string) *bool {
 // leaving out the events that neither prompt nor mute.
 func (v workflowFormValues) eventPromptList() []panel.EventPrompt {
 	var prompts []panel.EventPrompt
-	for _, event := range eventprompts.All() {
+	for _, event := range protoenum.Values[eventv1.Event]() {
 		var prompt string
-		if text, ok := v.EventPrompts[event.Name]; ok {
+		if text, ok := v.EventPrompts[event]; ok {
 			prompt = strings.TrimSpace(*text)
 		}
-		muted := v.EventMutes[event.Name] != nil && *v.EventMutes[event.Name]
+		muted := v.EventMutes[event] != nil && *v.EventMutes[event]
 		if prompt == "" && !muted {
 			continue
 		}
 
 		prompts = append(prompts, panel.EventPrompt{
-			Event:  event.Name,
+			Event:  event,
 			Prompt: prompt,
 			Muted:  muted,
 		})
@@ -458,15 +372,17 @@ func baseBranchField(values *workflowFormValues, editing bool) huh.Field {
 // hookFields are the scripts hung on a moment rather than on the directory, one select each
 // since a moment holds one hook.
 func hookFields(values *workflowFormValues, available []string) []huh.Field {
-	fields := make([]huh.Field, 0, len(hookMoments))
-	for _, moment := range hookMoments {
-		chosen := values.hookFor(moment.event)
+	moments := config.HookMoments()
+	fields := make([]huh.Field, 0, len(moments))
+	for _, moment := range moments {
+		label := protoenum.Label(moment)
+		chosen := values.hookFor(moment)
 		options := hookOptions(available, *chosen)
 
 		// Options comes before Value so huh reads the zero value and leaves the list scrolled to
 		// the top, which holds only while None, carrying the empty name, leads it.
-		field := huh.NewSelect[string]().Key(moment.key).Title(moment.title).
-			Description(hookFieldDescription(moment.description, available)).
+		field := huh.NewSelect[string]().Key(hookKey(moment)).Title(label.GetTitle()).
+			Description(hookFieldDescription(label.GetDescription(), available)).
 			Options(options...).
 			Value(chosen)
 
@@ -476,14 +392,19 @@ func hookFields(values *workflowFormValues, available []string) []huh.Field {
 	return fields
 }
 
+// hookKey is the form key of one moment's hook.
+func hookKey(moment eventv1.Moment) string {
+	return "hook." + protoenum.Name(moment)
+}
+
 // eventPromptKey is the form key of one event's prompt.
-func eventPromptKey(event string) string {
-	return "event_prompt." + event
+func eventPromptKey(event eventv1.Event) string {
+	return "event_prompt." + protoenum.Name(event)
 }
 
 // eventMuteKey is the form key of whether one event is muted.
-func eventMuteKey(event string) string {
-	return "event_mute." + event
+func eventMuteKey(event eventv1.Event) string {
+	return "event_mute." + protoenum.Name(event)
 }
 
 // eventPromptFields are what the workflow asks of its agents on each event, under a heading of their own.
@@ -492,15 +413,16 @@ func eventPromptFields(values *workflowFormValues, fixed config.FixedKeys) []huh
 		Description(fmt.Sprintf("komrad adds this to the mail it sends an agent on each event, and the agent follows it over komrad's own words; %s opens $EDITOR", keys.Label(fixed.Editor)))
 
 	fields := []huh.Field{heading}
-	for _, event := range eventprompts.All() {
+	for _, event := range protoenum.Values[eventv1.Event]() {
+		label := protoenum.Label(event)
 		fields = append(fields,
-			form.Text(eventPromptKey(event.Name)).Title(event.Title).
-				Description("when "+event.Description).
-				CharLimit(eventprompts.MaxPrompt).Lines(2).Value(values.eventPromptFor(event.Name)),
-			huh.NewSelect[bool]().Key(eventMuteKey(event.Name)).Title(event.Title+" mail").
+			form.Text(eventPromptKey(event)).Title(label.GetTitle()).
+				Description("when "+label.GetDescription()).
+				CharLimit(eventprompts.MaxPrompt).Lines(2).Value(values.eventPromptFor(event)),
+			huh.NewSelect[bool]().Key(eventMuteKey(event)).Title(label.GetTitle()+" mail").
 				Description("when muted, komrad sends no mail of its own and only rewrites mail the agent still holds").
 				Options(huh.NewOption("Tell the agent", false), huh.NewOption("Muted", true)).
-				Value(values.eventMuteFor(event.Name)),
+				Value(values.eventMuteFor(event)),
 		)
 	}
 

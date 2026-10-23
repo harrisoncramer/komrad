@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 
+	"komrad/config"
 	"komrad/internal/agenterr"
 	"komrad/internal/eventprompts"
 	"komrad/internal/fail"
@@ -18,6 +19,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	schedulestore "komrad/internal/store/schedule"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/protoenum"
 
 	"github.com/google/uuid"
 )
@@ -197,16 +199,15 @@ func (w *WorkflowService) normalizeConfig(cfg *workflowstore.Config) error {
 func (w *WorkflowService) normalizeHooks(hooks []workflowstore.Hook) ([]workflowstore.Hook, error) {
 	kept := make([]workflowstore.Hook, 0, len(hooks))
 	for _, hook := range hooks {
-		hook.Event = strings.TrimSpace(hook.Event)
 		hook.Script = strings.TrimSpace(hook.Script)
 		if hook.Script == "" {
 			continue
 		}
-		if !slices.Contains(workflowstore.HookEvents(), hook.Event) {
-			return nil, fmt.Errorf("%w: %q is not one of %s", ErrUnknownHookEvent, hook.Event, strings.Join(workflowstore.HookEvents(), ", "))
+		if !slices.Contains(config.HookMoments(), hook.Event) {
+			return nil, fmt.Errorf("%w: %s is not one of %s", ErrUnknownHookEvent, protoenum.Name(hook.Event), strings.Join(protoenum.Names(config.HookMoments()), ", "))
 		}
 		if _, err := w.hooks.FindHook(hook.Script); errors.Is(err, scripts.ErrScriptNotFound) {
-			return nil, fmt.Errorf("%w: %s: %s", ErrUnknownHookScript, hook.Event, err.Error())
+			return nil, fmt.Errorf("%w: %s: %s", ErrUnknownHookScript, protoenum.Name(hook.Event), err.Error())
 		} else if err != nil {
 			return nil, fmt.Errorf("failed to find hook %q: %w", hook.Script, err)
 		}

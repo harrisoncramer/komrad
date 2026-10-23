@@ -5,14 +5,15 @@ import (
 	"fmt"
 
 	"komrad/db/models"
-	"komrad/lib/xslice"
+	"komrad/lib/protoenum"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 )
 
 // EventPrompt is what a workflow asks of its agents when komrad sends them one event.
 type EventPrompt struct {
-	Event  string
+	Event  eventv1.Event
 	Prompt string
 	Muted  bool
 }
@@ -25,12 +26,12 @@ func (s *WorkflowStore) setEventPrompts(ctx context.Context, workflowID uuid.UUI
 	for position, prompt := range prompts {
 		if err := s.queries.InsertWorkflowPrompt(ctx, models.InsertWorkflowPromptParams{
 			WorkflowID: workflowID,
-			Event:      prompt.Event,
+			Event:      protoenum.Name(prompt.Event),
 			Prompt:     prompt.Prompt,
 			Position:   int32(position),
 			Muted:      prompt.Muted,
 		}); err != nil {
-			return fmt.Errorf("failed to add the %s prompt to workflow %q: %w", prompt.Event, workflowID, err)
+			return fmt.Errorf("failed to add the %s prompt to workflow %q: %w", protoenum.Name(prompt.Event), workflowID, err)
 		}
 	}
 
@@ -43,13 +44,14 @@ func (s *WorkflowStore) eventPromptsFor(ctx context.Context, workflowID uuid.UUI
 		return nil, fmt.Errorf("failed to read the prompts of workflow %q: %w", workflowID, err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListEventPromptsForWorkflowRow) EventPrompt {
-		return EventPrompt{
-			Event:  row.Event,
-			Prompt: row.Prompt,
-			Muted:  row.Muted,
+	prompts := make([]EventPrompt, 0, len(rows))
+	for _, row := range rows {
+		if prompt, ok := eventPromptFromRow(row.Event, row.Prompt, row.Muted); ok {
+			prompts = append(prompts, prompt)
 		}
-	}), nil
+	}
+
+	return prompts, nil
 }
 
 func (s *WorkflowStore) eventPromptsForWorkflows(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]EventPrompt, error) {
@@ -64,12 +66,20 @@ func (s *WorkflowStore) eventPromptsForWorkflows(ctx context.Context, ids []uuid
 
 	prompts := make(map[uuid.UUID][]EventPrompt)
 	for _, row := range rows {
-		prompts[row.WorkflowID] = append(prompts[row.WorkflowID], EventPrompt{
-			Event:  row.Event,
-			Prompt: row.Prompt,
-			Muted:  row.Muted,
-		})
+		if prompt, ok := eventPromptFromRow(row.Event, row.Prompt, row.Muted); ok {
+			prompts[row.WorkflowID] = append(prompts[row.WorkflowID], prompt)
+		}
 	}
 
 	return prompts, nil
+}
+
+// eventPromptFromRow reads a stored prompt, false for an event komrad does not define.
+func eventPromptFromRow(event, prompt string, muted bool) (EventPrompt, bool) {
+	parsed, ok := protoenum.Parse[eventv1.Event](event)
+	if !ok {
+		return EventPrompt{}, false
+	}
+
+	return EventPrompt{Event: parsed, Prompt: prompt, Muted: muted}, true
 }

@@ -8,12 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"komrad/internal/documents"
-	"komrad/internal/eventprompts"
 	"komrad/internal/events/eventstest"
 	"komrad/internal/mail"
 	"komrad/internal/store"
@@ -23,7 +18,12 @@ import (
 	"komrad/internal/storetest"
 	"komrad/internal/tasks"
 	"komrad/lib/xptr"
+	eventv1 "komrad/proto/gen/event/v1"
 	"komrad/proto/gen/oneofs"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestWrite pins where a body comes from and which bodies are refused.
@@ -567,7 +567,7 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 			require.NotNil(t, waiting[0].SubjectID)
 			assert.Equal(t, written.ID, *waiting[0].SubjectID)
 			assert.Contains(t, waiting[0].Body, tt.wantMail)
-			assert.Equal(t, []string{eventprompts.DocumentWrittenByPerson}, waiting[0].Events)
+			assert.Equal(t, []eventv1.Event{eventv1.Event_EVENT_DOCUMENT_WRITTEN_BY_PERSON}, waiting[0].Events)
 		})
 	}
 }

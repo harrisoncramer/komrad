@@ -17,16 +17,16 @@ import (
 	"komrad/internal/scriptrun"
 	"komrad/internal/scripts"
 	"komrad/internal/store"
-	"komrad/internal/tasks"
-	"komrad/lib/xslice"
-	"komrad/lib/xstr"
-	"komrad/proto/gen/oneofs"
-
 	agentstore "komrad/internal/store/agent"
 	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
 	transcriptstore "komrad/internal/store/transcript"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/tasks"
+	"komrad/lib/xslice"
+	"komrad/lib/xstr"
+	eventv1 "komrad/proto/gen/event/v1"
+	"komrad/proto/gen/oneofs"
 
 	"github.com/google/uuid"
 )
@@ -177,7 +177,7 @@ func (s *LifecycleService) deleteAgents(ctx context.Context, agents []agentstore
 			Scripts: s.scripts,
 			Agent:   agent,
 			Hooks:   hooks[agent.ID],
-			Event:   workflowstore.HookAgentPostDelete,
+			Event:   eventv1.Moment_MOMENT_AGENT_POST_DELETE,
 		}.Start(ctx)
 	}
 
@@ -229,7 +229,7 @@ func (s *LifecycleService) tearDown(ctx context.Context, agent agentstore.Agent,
 			Scripts: s.scripts,
 			Agent:   agent,
 			Hooks:   hooks,
-			Event:   workflowstore.HookAgentPreDelete,
+			Event:   eventv1.Moment_MOMENT_AGENT_PRE_DELETE,
 		}.RunInTurn(ctx)
 	}
 

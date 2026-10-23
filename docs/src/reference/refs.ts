@@ -97,8 +97,6 @@ const methods = new Map(
   ),
 );
 
-const hookMoment = /^(agent|task)\.(pre|post)-[a-z]+$/;
-
 function codeRef({ messages = [], enum: enumName }: Scope, code: string): Ref | undefined {
   for (const message of messages) {
     const field = api.messages[message]?.fields.find((candidate) => candidate.name === code);
@@ -125,9 +123,14 @@ function codeRef({ messages = [], enum: enumName }: Scope, code: string): Ref | 
 
   if (code.includes(".") && settings.has(code)) return settingOf(code);
 
-  const lifecycle = hookMoment.exec(code)?.[1];
-  if (lifecycle)
-    return { href: link(`/guides/hooks#${lifecycle}-lifecycle`), title: code, description: "", detail: "" };
+  const moment = api.enums["event.v1.Moment"]?.values.find(({ name }) => name === code);
+  if (moment)
+    return {
+      href: link(`/guides/hooks#${code.split(".")[0]}-lifecycle`),
+      title: code,
+      description: moment.description,
+      detail: "",
+    };
 
   return undefined;
 }

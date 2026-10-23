@@ -19,6 +19,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xslice"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -1147,7 +1148,7 @@ func TestListWorkflows(t *testing.T) {
 	}
 }
 
-// TestWorkflowEventPromptsAreCleanedOrRefused pins that komrad trims prompts, drops blank ones, and refuses an unknown, repeated or overlong one.
+// TestWorkflowEventPromptsAreCleanedOrRefused pins that komrad trims prompts, drops blank ones, and refuses a missing, unknown, repeated or overlong event.
 func TestWorkflowEventPromptsAreCleanedOrRefused(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -1158,38 +1159,43 @@ func TestWorkflowEventPromptsAreCleanedOrRefused(t *testing.T) {
 		{
 			name: "prompts are trimmed and blank ones dropped",
 			prompts: []workflowstore.EventPrompt{
-				{Event: " review.approved ", Prompt: "  open the pull request \n"},
-				{Event: "pull_request.behind", Prompt: "   "},
+				{Event: eventv1.Event_EVENT_REVIEW_APPROVED, Prompt: "  open the pull request \n"},
+				{Event: eventv1.Event_EVENT_PULL_REQUEST_BEHIND, Prompt: "   "},
 			},
-			want: []workflowstore.EventPrompt{{Event: "review.approved", Prompt: "open the pull request"}},
+			want: []workflowstore.EventPrompt{{Event: eventv1.Event_EVENT_REVIEW_APPROVED, Prompt: "open the pull request"}},
 		},
 		{
 			name: "a muted event is kept with no prompt",
 			prompts: []workflowstore.EventPrompt{
 				{
-					Event:  "pull_request.behind",
+					Event:  eventv1.Event_EVENT_PULL_REQUEST_BEHIND,
 					Prompt: "   ",
 					Muted:  true,
 				},
 			},
-			want: []workflowstore.EventPrompt{{Event: "pull_request.behind", Muted: true}},
+			want: []workflowstore.EventPrompt{{Event: eventv1.Event_EVENT_PULL_REQUEST_BEHIND, Muted: true}},
+		},
+		{
+			name:    "no event",
+			prompts: []workflowstore.EventPrompt{{Event: eventv1.Event_EVENT_UNSPECIFIED, Prompt: "open the pull request"}},
+			wantErr: eventprompts.ErrUnknownEventPrompt,
 		},
 		{
 			name:    "an event komrad does not send",
-			prompts: []workflowstore.EventPrompt{{Event: "review.aproved", Prompt: "open the pull request"}},
+			prompts: []workflowstore.EventPrompt{{Event: eventv1.Event(99), Prompt: "open the pull request"}},
 			wantErr: eventprompts.ErrUnknownEventPrompt,
 		},
 		{
 			name: "an event named twice",
 			prompts: []workflowstore.EventPrompt{
-				{Event: "review.approved", Prompt: "open the pull request"},
-				{Event: "review.approved", Prompt: "mark it ready"},
+				{Event: eventv1.Event_EVENT_REVIEW_APPROVED, Prompt: "open the pull request"},
+				{Event: eventv1.Event_EVENT_REVIEW_APPROVED, Prompt: "mark it ready"},
 			},
 			wantErr: eventprompts.ErrDuplicateEventPrompt,
 		},
 		{
 			name:    "a prompt past the limit",
-			prompts: []workflowstore.EventPrompt{{Event: "review.approved", Prompt: strings.Repeat("é", 501)}},
+			prompts: []workflowstore.EventPrompt{{Event: eventv1.Event_EVENT_REVIEW_APPROVED, Prompt: strings.Repeat("é", 501)}},
 			wantErr: eventprompts.ErrPromptTooLong,
 		},
 	}

@@ -1,0 +1,304 @@
+// This file is the one place komrad names its hook moments and its events. Every other proto file
+// is proto3, and this one is Edition 2026.
+//
+// Komrad spells each moment and event as a dotted name, such as agent.pre-launch or
+// pull_request.checks_failing. That spelling goes on the wire, into stored rows, into
+// KOMRAD_TRIGGER, into run log file names and into the docs, and nothing uses a second one. A
+// proto3 enum can only put its constant name, such as MOMENT_AGENT_PRE_LAUNCH, into JSON. The
+// option (pb.enumvalue.json).string changes the JSON name of one value, and it exists only from
+// Edition 2026. With it, the enums below are the definition, and validation, generated Go, the
+// API reference, CLI help and the MCP tool schema all read them.
+//
+// Edition 2026 needs release candidates today. google.golang.org/protobuf v1.37.0-rc.1 is the
+// first Go release that reads the option, in protojson and in the generated code. protoc-gen-go
+// is pinned to the same release in mise.toml, and buf 1.75.0 is the first buf that compiles
+// Edition 2026. komrad adopted the release candidates rather than wait for the final releases,
+// because the alternative is the hand-kept lists this file replaced.
+//
+// protoc-gen-connect-go does not support Edition 2026 yet, so it runs from buf.gen.connect.yaml,
+// which leaves this file out. That template says how to fold it back once connect catches up.
+//
+// To move to the final releases:
+//   1. Bump google.golang.org/protobuf in go.mod and protoc-gen-go in mise.toml to the release.
+//   2. Run mise run proto:generate and mise run gen:docs. Only the version line in each
+//      generated file should change.
+//   3. If the release renamed the option or moved its import, change it here and in
+//      lib/protoenum, which is the one Go helper that reads it.
+//   4. If Edition 2026 changed a default, such as top-level types being local unless marked
+//      export, change the declarations here to match.
+//
+// Two things to know while working here. Each enum is declared export, since Edition 2026 makes
+// top-level types local to their file. protojson also accepts the constant name and a bare number
+// on input, and nothing turns that off, but komrad only ever writes the dotted name.
+edition = "2026";
+
+package event.v1;
+
+import option "annotation/v1/label.proto";
+import option "google/protobuf/json_enumvalue_options.proto";
+
+option go_package = "komrad/proto/gen/event/v1;eventv1";
+
+// Moment is a point in the life of an agent or task at which komrad runs a script.
+export enum Moment {
+  // No moment.
+  MOMENT_UNSPECIFIED = 0;
+  MOMENT_AGENT_PROVISION = 1 [
+    (pb.enumvalue.json).string = "agent.provision",
+    (annotation.v1.label) = {
+      title: "Agent provision"
+      description: "runs the provisioner before komrad creates an agent's directory"
+    }
+  ];
+  MOMENT_AGENT_RESUME = 2 [
+    (pb.enumvalue.json).string = "agent.resume",
+    (annotation.v1.label) = {
+      title: "Agent resume"
+      description: "reruns the provisioner before komrad resumes an agent"
+    }
+  ];
+  MOMENT_AGENT_DEPROVISION = 3 [
+    (pb.enumvalue.json).string = "agent.deprovision",
+    (annotation.v1.label) = {
+      title: "Agent deprovision"
+      description: "runs the deprovisioner as komrad releases an agent's directory"
+    }
+  ];
+  MOMENT_AGENT_PRE_LAUNCH = 4 [
+    (pb.enumvalue.json).string = "agent.pre-launch",
+    (annotation.v1.label) = {
+      title: "Agent pre-launch hook"
+      description: "runs in the agent's directory before its pane opens, and a failure abandons the create"
+    }
+  ];
+  MOMENT_AGENT_POST_LAUNCH = 5 [
+    (pb.enumvalue.json).string = "agent.post-launch",
+    (annotation.v1.label) = {
+      title: "Agent post-launch hook"
+      description: "runs once the agent's pane opens"
+    }
+  ];
+  MOMENT_AGENT_PRE_RESUME = 6 [
+    (pb.enumvalue.json).string = "agent.pre-resume",
+    (annotation.v1.label) = {
+      title: "Agent pre-resume hook"
+      description: "runs in the agent's directory before a dormant agent's pane opens, and a failure refuses the resume"
+    }
+  ];
+  MOMENT_AGENT_POST_RESUME = 7 [
+    (pb.enumvalue.json).string = "agent.post-resume",
+    (annotation.v1.label) = {
+      title: "Agent post-resume hook"
+      description: "runs once a dormant agent is back in a pane"
+    }
+  ];
+  MOMENT_AGENT_PRE_ARCHIVE = 8 [
+    (pb.enumvalue.json).string = "agent.pre-archive",
+    (annotation.v1.label) = {
+      title: "Agent pre-archive hook"
+      description: "runs while the agent is still running, and a failure refuses the archive"
+    }
+  ];
+  MOMENT_AGENT_POST_ARCHIVE = 9 [
+    (pb.enumvalue.json).string = "agent.post-archive",
+    (annotation.v1.label) = {
+      title: "Agent post-archive hook"
+      description: "runs in the agent's directory after komrad closes its pane and archives it"
+    }
+  ];
+  MOMENT_AGENT_PRE_RESTORE = 10 [
+    (pb.enumvalue.json).string = "agent.pre-restore",
+    (annotation.v1.label) = {
+      title: "Agent pre-restore hook"
+      description: "runs before an archived agent's row comes back, and a failure refuses the restore"
+    }
+  ];
+  MOMENT_AGENT_POST_RESTORE = 11 [
+    (pb.enumvalue.json).string = "agent.post-restore",
+    (annotation.v1.label) = {
+      title: "Agent post-restore hook"
+      description: "runs when an archived agent's row comes back"
+    }
+  ];
+  MOMENT_AGENT_PRE_DELETE = 12 [
+    (pb.enumvalue.json).string = "agent.pre-delete",
+    (annotation.v1.label) = {
+      title: "Agent pre-delete hook"
+      description: "runs in the agent's directory as komrad deletes it, before komrad releases the worktree"
+    }
+  ];
+  MOMENT_AGENT_POST_DELETE = 13 [
+    (pb.enumvalue.json).string = "agent.post-delete",
+    (annotation.v1.label) = {
+      title: "Agent post-delete hook"
+      description: "runs once the agent and its worktree are gone"
+    }
+  ];
+  MOMENT_TASK_PRE_OPEN = 14 [
+    (pb.enumvalue.json).string = "task.pre-open",
+    (annotation.v1.label) = {
+      title: "Task pre-open hook"
+      description: "runs before a task's first live agent opens its pane, and a failure abandons the create or restore"
+    }
+  ];
+  MOMENT_TASK_POST_ARCHIVE = 15 [
+    (pb.enumvalue.json).string = "task.post-archive",
+    (annotation.v1.label) = {
+      title: "Task post-archive hook"
+      description: "runs after komrad archives a task's last live agent, and the task with it"
+    }
+  ];
+  MOMENT_TASK_PRE_DELETE = 16 [
+    (pb.enumvalue.json).string = "task.pre-delete",
+    (annotation.v1.label) = {
+      title: "Task pre-delete hook"
+      description: "runs as komrad deletes a task, before it releases the worktree, and a failure keeps the task"
+    }
+  ];
+}
+
+// Event is something komrad tells an agent about through mail.
+export enum Event {
+  // No event.
+  EVENT_UNSPECIFIED = 0;
+  EVENT_PULL_REQUEST_CHECKS_FAILING_RUNNING = 1 [
+    (pb.enumvalue.json).string = "pull_request.checks_failing_running",
+    (annotation.v1.label) = {
+      title: "Checks failing, run unfinished"
+      description: "some checks on the head failed while others still run"
+    }
+  ];
+  EVENT_PULL_REQUEST_CHECKS_FAILING = 2 [
+    (pb.enumvalue.json).string = "pull_request.checks_failing",
+    (annotation.v1.label) = {
+      title: "Checks failing"
+      description: "checks on the head failed and the run has finished"
+    }
+  ];
+  EVENT_PULL_REQUEST_CHECKS_PASSING = 3 [
+    (pb.enumvalue.json).string = "pull_request.checks_passing",
+    (annotation.v1.label) = {
+      title: "Checks passing"
+      description: "checks on the head passed and the forge would merge it"
+    }
+  ];
+  EVENT_PULL_REQUEST_CHANGES_REQUESTED = 4 [
+    (pb.enumvalue.json).string = "pull_request.changes_requested",
+    (annotation.v1.label) = {
+      title: "Changes requested on the forge"
+      description: "the forge review decision asks for changes"
+    }
+  ];
+  EVENT_PULL_REQUEST_APPROVED = 5 [
+    (pb.enumvalue.json).string = "pull_request.approved",
+    (annotation.v1.label) = {
+      title: "Approved on the forge"
+      description: "the forge review decision is approved"
+    }
+  ];
+  EVENT_PULL_REQUEST_CONFLICTING = 6 [
+    (pb.enumvalue.json).string = "pull_request.conflicting",
+    (annotation.v1.label) = {
+      title: "Conflicting"
+      description: "the branch conflicts with its base"
+    }
+  ];
+  EVENT_PULL_REQUEST_BEHIND = 7 [
+    (pb.enumvalue.json).string = "pull_request.behind",
+    (annotation.v1.label) = {
+      title: "Behind"
+      description: "the branch is behind its base"
+    }
+  ];
+  EVENT_PULL_REQUEST_MERGED = 8 [
+    (pb.enumvalue.json).string = "pull_request.merged",
+    (annotation.v1.label) = {
+      title: "Merged"
+      description: "the pull request was merged"
+    }
+  ];
+  EVENT_PULL_REQUEST_CLOSED = 9 [
+    (pb.enumvalue.json).string = "pull_request.closed",
+    (annotation.v1.label) = {
+      title: "Closed"
+      description: "the pull request was closed unmerged"
+    }
+  ];
+  EVENT_PULL_REQUEST_AUTO_MERGE_ON = 10 [
+    (pb.enumvalue.json).string = "pull_request.auto_merge_on",
+    (annotation.v1.label) = {
+      title: "Auto-merge on"
+      description: "the forge will merge it once its checks and reviews pass"
+    }
+  ];
+  EVENT_WORKTREE_REBASED = 11 [
+    (pb.enumvalue.json).string = "worktree.rebased",
+    (annotation.v1.label) = {
+      title: "Rebased"
+      description: "the worktree was rebased and its commits replayed"
+    }
+  ];
+  EVENT_WORKTREE_LANDED = 12 [
+    (pb.enumvalue.json).string = "worktree.landed",
+    (annotation.v1.label) = {
+      title: "Landed"
+      description: "the work was already in the base, so the branch moved onto it"
+    }
+  ];
+  EVENT_WORKTREE_REBASE_CONFLICTED = 13 [
+    (pb.enumvalue.json).string = "worktree.rebase_conflicted",
+    (annotation.v1.label) = {
+      title: "Rebase conflicted"
+      description: "a rebase stopped on conflicts"
+    }
+  ];
+  EVENT_DOCUMENT_WRITTEN_BY_PERSON = 14 [
+    (pb.enumvalue.json).string = "document.written_by_person",
+    (annotation.v1.label) = {
+      title: "Document written by a person"
+      description: "a person wrote or edited the agent's document"
+    }
+  ];
+  EVENT_REVIEW_APPROVED = 15 [
+    (pb.enumvalue.json).string = "review.approved",
+    (annotation.v1.label) = {
+      title: "Review approved"
+      description: "a reviewer approved the agent's work"
+    }
+  ];
+  EVENT_REVIEW_CHANGES_REQUESTED = 16 [
+    (pb.enumvalue.json).string = "review.changes_requested",
+    (annotation.v1.label) = {
+      title: "Review asks for changes"
+      description: "a reviewer asked for changes"
+    }
+  ];
+  EVENT_REVIEW_COMMENTED = 17 [
+    (pb.enumvalue.json).string = "review.commented",
+    (annotation.v1.label) = {
+      title: "Review commented"
+      description: "a reviewer released comments with no verdict either way"
+    }
+  ];
+  EVENT_REVIEW_COMMENTED_BY_PERSON = 18 [
+    (pb.enumvalue.json).string = "review.commented_by_person",
+    (annotation.v1.label) = {
+      title: "Person commented"
+      description: "a person commented on the agent's work"
+    }
+  ];
+  EVENT_REVIEW_FORGE_COMMENTED = 19 [
+    (pb.enumvalue.json).string = "review.forge_commented",
+    (annotation.v1.label) = {
+      title: "Forge comment"
+      description: "a comment from the pull request on the forge was released"
+    }
+  ];
+  EVENT_REVIEW_ANSWERED = 20 [
+    (pb.enumvalue.json).string = "review.answered",
+    (annotation.v1.label) = {
+      title: "Review answered"
+      description: "the agent under review answered in a thread, read by its reviewer"
+    }
+  ];
+}

@@ -9,7 +9,9 @@ import (
 
 	"komrad/config"
 	"komrad/internal/logread"
+	runstore "komrad/internal/store/run"
 	"komrad/lib/xptr"
+	eventv1 "komrad/proto/gen/event/v1"
 	logv1 "komrad/proto/gen/log/v1"
 	"komrad/proto/gen/log/v1/logv1komrad"
 
@@ -21,8 +23,6 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-
-	runstore "komrad/internal/store/run"
 )
 
 var (
@@ -365,19 +365,19 @@ func TestListAgentLogSources(t *testing.T) {
 	reader := &fakeLogReader{runs: []config.RunLog{
 		{
 			Number:  3,
-			Trigger: "task.pre-open",
+			Trigger: eventv1.Moment_MOMENT_TASK_PRE_OPEN,
 			Script:  "setup",
 			Path:    "/runs/a1/003-task.pre-open-setup.log",
 		},
 		{
 			Number:  2,
-			Trigger: "agent.pre-launch",
+			Trigger: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH,
 			Script:  "setup",
 			Path:    "/runs/a1/002-agent.pre-launch-setup.log",
 		},
 		{
 			Number:  1,
-			Trigger: "agent.provision",
+			Trigger: eventv1.Moment_MOMENT_AGENT_PROVISION,
 			Script:  "_worktree_setup",
 			Path:    "/runs/a1/001-agent.provision-_worktree_setup.log",
 		},
@@ -392,14 +392,14 @@ func TestListAgentLogSources(t *testing.T) {
 		{
 			Id:      "002-agent.pre-launch-setup.log",
 			Run:     xptr.Ptr[int32](2),
-			Trigger: "agent.pre-launch",
+			Trigger: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH,
 			Script:  "setup",
 			AgentId: agentID.String(),
 		},
 		{
 			Id:      "001-agent.provision-_worktree_setup.log",
 			Run:     xptr.Ptr[int32](1),
-			Trigger: "agent.provision",
+			Trigger: eventv1.Moment_MOMENT_AGENT_PROVISION,
 			Script:  "_worktree_setup",
 			AgentId: agentID.String(),
 		},
@@ -427,19 +427,19 @@ func TestListTaskLogSources(t *testing.T) {
 			runs: []runstore.Run{
 				{
 					AgentID:   otherAgentID,
-					Trigger:   "agent.pre-launch",
+					Trigger:   eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH,
 					Script:    "setup",
 					LogNumber: xptr.Ptr[int32](4),
 					Failure:   "exit status 1",
 				},
 				{
 					AgentID: agentID,
-					Trigger: "task.pre-open",
+					Trigger: eventv1.Moment_MOMENT_TASK_PRE_OPEN,
 					Script:  "unlogged",
 				},
 				{
 					AgentID:   agentID,
-					Trigger:   "task.pre-open",
+					Trigger:   eventv1.Moment_MOMENT_TASK_PRE_OPEN,
 					Script:    "setup",
 					LogNumber: xptr.Ptr[int32](7),
 				},
@@ -448,7 +448,7 @@ func TestListTaskLogSources(t *testing.T) {
 				{
 					Id:      "004-agent.pre-launch-setup.log",
 					Run:     xptr.Ptr[int32](4),
-					Trigger: "agent.pre-launch",
+					Trigger: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH,
 					Script:  "setup",
 					AgentId: otherAgentID.String(),
 					Failed:  true,
@@ -456,7 +456,7 @@ func TestListTaskLogSources(t *testing.T) {
 				{
 					Id:      "007-task.pre-open-setup.log",
 					Run:     xptr.Ptr[int32](7),
-					Trigger: "task.pre-open",
+					Trigger: eventv1.Moment_MOMENT_TASK_PRE_OPEN,
 					Script:  "setup",
 					AgentId: agentID.String(),
 				},

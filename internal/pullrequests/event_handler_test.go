@@ -16,6 +16,7 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -34,19 +35,19 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 		name       string
 		reads      []forge.MergeReadiness
 		wantLines  []string
-		wantEvents []string
+		wantEvents []eventv1.Event
 	}{
 		{
 			name:       "checks failing",
 			reads:      []forge.MergeReadiness{{Decision: forge.ReviewDecisionPending, Listing: listedStatusChecks(forge.ChecksFailing)}},
 			wantLines:  []string{"  checks: failing on abc\n"},
-			wantEvents: []string{eventprompts.PullRequestChecksFailing},
+			wantEvents: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING},
 		},
 		{
 			name:       "checks failing while others still run",
 			reads:      []forge.MergeReadiness{{Decision: forge.ReviewDecisionPending, Listing: listedStatusChecks(forge.ChecksFailingRunning)}},
 			wantLines:  []string{"  checks: failing on abc, others still running\n"},
-			wantEvents: []string{eventprompts.PullRequestChecksFailingRunning},
+			wantEvents: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING_RUNNING},
 		},
 		{
 			name: "the run finishing before the agent reads folds the early word into the settled one",
@@ -55,7 +56,7 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 				{Decision: forge.ReviewDecisionPending, Listing: listedStatusChecks(forge.ChecksFailing)},
 			},
 			wantLines:  []string{"  checks: failing on abc\n"},
-			wantEvents: []string{eventprompts.PullRequestChecksFailing},
+			wantEvents: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING},
 		},
 		{
 			name:      "an approval",
@@ -78,7 +79,7 @@ func TestAPullRequestChangeTellsTheAgentsOnItsBranch(t *testing.T) {
 				Mergeability: forge.MergeabilityClean,
 			}},
 			wantLines:  []string{"  checks: passing on abc\n", "  mergeability: clean\n"},
-			wantEvents: []string{eventprompts.PullRequestChecksPassing},
+			wantEvents: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_PASSING},
 		},
 		{
 			name: "two changes before the agent reads are one mail",
@@ -204,7 +205,7 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 		after      forge.MergeReadiness
 		afterHead  string
 		wantLines  []string
-		wantEvents []string
+		wantEvents []eventv1.Event
 	}{
 		{
 			name:   "an approval",
@@ -257,7 +258,7 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 				"New failures:\n  build: https://github.com/harrisoncramer/komrad/runs/5\n",
 				"Still failing:\n  test: https://github.com/harrisoncramer/komrad/runs/1\n",
 			},
-			wantEvents: []string{eventprompts.PullRequestChecksFailing},
+			wantEvents: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING},
 		},
 		{
 			name:   "a rerun of the failed check failing again",
@@ -270,7 +271,7 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			},
 			afterHead:  "aaa",
 			wantLines:  []string{"New failures:\n  test: https://github.com/harrisoncramer/komrad/runs/6\n"},
-			wantEvents: []string{eventprompts.PullRequestChecksFailing},
+			wantEvents: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING},
 		},
 		{
 			name: "the run finishing with no new failure after the early word was read",
@@ -287,7 +288,7 @@ func TestAPullRequestChangeAfterTheMailWasReadStartsAnother(t *testing.T) {
 			},
 			afterHead:  "aaa",
 			wantLines:  []string{"  checks: failing on aaa\n", "Still failing:\n  test: https://github.com/harrisoncramer/komrad/runs/1\n"},
-			wantEvents: []string{eventprompts.PullRequestChecksFailing},
+			wantEvents: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING},
 		},
 		{
 			name:   "the checks passing on a new head the forge blocks is not news",
@@ -404,7 +405,7 @@ func TestAPullRequestChangeRetriesAFullMailboxAlone(t *testing.T) {
 	}
 	require.Len(t, pullRequestMail, 1)
 	assert.Contains(t, pullRequestMail[0].Body, "  checks: failing on abc\n")
-	assert.Equal(t, []string{eventprompts.PullRequestChecksFailing}, pullRequestMail[0].Events, "the full mailbox noted nothing, so the retry still tells of the failure")
+	assert.Equal(t, []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING}, pullRequestMail[0].Events, "the full mailbox noted nothing, so the retry still tells of the failure")
 }
 
 // TestAMutedFailureIsToldOnceUnmuted pins that a failure muted out of the mail is still news to the agent once
@@ -412,7 +413,7 @@ func TestAPullRequestChangeRetriesAFullMailboxAlone(t *testing.T) {
 func TestAMutedFailureIsToldOnceUnmuted(t *testing.T) {
 	f := newSyncFixture(t)
 	agentID := f.agentOn(t, "a", "agent/x")
-	f.setEventPrompts(t, []workflowstore.EventPrompt{{Event: eventprompts.PullRequestChecksFailing, Muted: true}})
+	f.setEventPrompts(t, []workflowstore.EventPrompt{{Event: eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING, Muted: true}})
 	f.hold(withMergeReadiness(pullRequestAt("PR_1", "agent/x", syncNow.Add(-time.Minute)), forge.MergeReadiness{
 		Decision:     forge.ReviewDecisionPending,
 		Listing:      listedStatusChecks(forge.ChecksPending),
@@ -428,7 +429,7 @@ func TestAMutedFailureIsToldOnceUnmuted(t *testing.T) {
 
 	told := f.listMail(t, agentID)
 	require.Len(t, told, 1)
-	assert.Equal(t, []string{eventprompts.PullRequestApproved, eventprompts.PullRequestChecksFailing}, told[0].Events)
+	assert.Equal(t, []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_APPROVED, eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING}, told[0].Events)
 	assert.Contains(t, told[0].Body, "New failures:\n  test: https://github.com/harrisoncramer/komrad/runs/1\n")
 }
 

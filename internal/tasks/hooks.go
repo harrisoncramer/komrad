@@ -11,11 +11,12 @@ import (
 	"komrad/internal/scriptrun"
 	"komrad/internal/scripts"
 	"komrad/internal/store"
-	"komrad/lib/xptr"
-
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/protoenum"
+	"komrad/lib/xptr"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 )
@@ -26,7 +27,7 @@ type moment struct {
 	workflow *workflowstore.Workflow
 	task     taskstore.Task
 	actor    *agentstore.Agent
-	event    string
+	event    eventv1.Moment
 }
 
 // QueueOpening takes a place in its task's hook queue for an agent opening the task, nil when it does not open it.
@@ -80,7 +81,7 @@ func (s *TaskService) RunPreOpen(ctx context.Context, params RunPreOpenParams) e
 		workflow: params.Workflow,
 		task:     params.Task,
 		actor:    &agent,
-		event:    workflowstore.HookTaskPreOpen,
+		event:    eventv1.Moment_MOMENT_TASK_PRE_OPEN,
 	}.toHookRun().Run(ctx)
 }
 
@@ -119,9 +120,9 @@ func (s *TaskService) RunPreOpenRestored(ctx context.Context, archived []agentst
 			workflow: s.readWorkflow(ctx, task.WorkflowID),
 			task:     task,
 			actor:    actor,
-			event:    workflowstore.HookTaskPreOpen,
+			event:    eventv1.Moment_MOMENT_TASK_PRE_OPEN,
 		}.toHookRun().RunInTurn(ctx)); err != nil {
-			return fmt.Errorf("failed to run the %s hook of task %q: %w", workflowstore.HookTaskPreOpen, task.Slug, err)
+			return fmt.Errorf("failed to run the %s hook of task %q: %w", protoenum.Name(eventv1.Moment_MOMENT_TASK_PRE_OPEN), task.Slug, err)
 		}
 	}
 
@@ -136,7 +137,7 @@ func (s *TaskService) StartPostArchive(ctx context.Context, archived []taskstore
 			workflow: s.readWorkflow(ctx, task.WorkflowID),
 			task:     task,
 			actor:    findTaskActor(actors, task.ID),
-			event:    workflowstore.HookTaskPostArchive,
+			event:    eventv1.Moment_MOMENT_TASK_POST_ARCHIVE,
 		}.toHookRun().Start(ctx)
 	}
 }

@@ -8,6 +8,8 @@ import (
 
 	"komrad/internal/fail"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/protoenum"
+	eventv1 "komrad/proto/gen/event/v1"
 )
 
 const promptsHeading = "Your workflow asks the following. Where it differs from what komrad says above, do what your workflow asks."
@@ -28,19 +30,18 @@ type Prompts []workflowstore.EventPrompt
 func Normalize(prompts Prompts) (Prompts, error) {
 	kept := make(Prompts, 0, len(prompts))
 	for _, prompt := range prompts {
-		prompt.Event = strings.TrimSpace(prompt.Event)
 		prompt.Prompt = strings.TrimSpace(prompt.Prompt)
 		if prompt.Prompt == "" && !prompt.Muted {
 			continue
 		}
-		if !isKnown(prompt.Event) {
-			return nil, fmt.Errorf("%w: %q is not one of %s", ErrUnknownEventPrompt, prompt.Event, strings.Join(Names(), ", "))
+		if !slices.Contains(protoenum.Values[eventv1.Event](), prompt.Event) {
+			return nil, fmt.Errorf("%w: %s is not one of %s", ErrUnknownEventPrompt, protoenum.Name(prompt.Event), strings.Join(protoenum.Names(protoenum.Values[eventv1.Event]()), ", "))
 		}
 		if slices.ContainsFunc(kept, func(k workflowstore.EventPrompt) bool { return k.Event == prompt.Event }) {
-			return nil, fmt.Errorf("%w: %s", ErrDuplicateEventPrompt, prompt.Event)
+			return nil, fmt.Errorf("%w: %s", ErrDuplicateEventPrompt, protoenum.Name(prompt.Event))
 		}
 		if utf8.RuneCountInString(prompt.Prompt) > MaxPrompt {
-			return nil, fmt.Errorf("%w: %s runs to %d characters", ErrPromptTooLong, prompt.Event, utf8.RuneCountInString(prompt.Prompt))
+			return nil, fmt.Errorf("%w: %s runs to %d characters", ErrPromptTooLong, protoenum.Name(prompt.Event), utf8.RuneCountInString(prompt.Prompt))
 		}
 
 		kept = append(kept, prompt)
@@ -50,7 +51,7 @@ func Normalize(prompts Prompts) (Prompts, error) {
 }
 
 // Get is the prompt attached to an event, and the empty string when there is none.
-func (p Prompts) Get(event string) string {
+func (p Prompts) Get(event eventv1.Event) string {
 	for _, prompt := range p {
 		if prompt.Event == event {
 			return prompt.Prompt
@@ -61,28 +62,28 @@ func (p Prompts) Get(event string) string {
 }
 
 // isMuted says whether an event is kept from opening mail of its own.
-func (p Prompts) isMuted(event string) bool {
+func (p Prompts) isMuted(event eventv1.Event) bool {
 	return slices.ContainsFunc(p, func(prompt workflowstore.EventPrompt) bool { return prompt.Event == event && prompt.Muted })
 }
 
 // AreAllMuted says whether every one of events is muted, which is never true of no events.
-func (p Prompts) AreAllMuted(events []string) bool {
+func (p Prompts) AreAllMuted(events []eventv1.Event) bool {
 	if len(events) == 0 {
 		return false
 	}
 
-	return !slices.ContainsFunc(events, func(event string) bool { return !p.isMuted(event) })
+	return !slices.ContainsFunc(events, func(event eventv1.Event) bool { return !p.isMuted(event) })
 }
 
 // Append adds the prompts of the unmuted events to body, cutting them short to keep the whole within limit characters.
-func (p Prompts) Append(body string, events []string, limit int) string {
+func (p Prompts) Append(body string, events []eventv1.Event, limit int) string {
 	var lines []string
 	for _, event := range events {
 		if p.isMuted(event) {
 			continue
 		}
 		if prompt := p.Get(event); prompt != "" {
-			lines = append(lines, event+": "+prompt)
+			lines = append(lines, protoenum.Name(event)+": "+prompt)
 		}
 	}
 	if len(lines) == 0 {

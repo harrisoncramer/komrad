@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/assemble"
 	agentv1 "komrad/proto/gen/agent/v1"
+	eventv1 "komrad/proto/gen/event/v1"
 	taskv1 "komrad/proto/gen/task/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
@@ -77,10 +78,10 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 			DiffExclude:  []string{"proto/gen"},
 		},
 		Hooks: []*workflowv1.WorkflowHook{
-			{Event: "agent.pre-launch", Script: "install-deps"},
-			{Event: "agent.post-launch", Script: "announce"},
+			{Event: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH, Script: "install-deps"},
+			{Event: eventv1.Moment_MOMENT_AGENT_POST_LAUNCH, Script: "announce"},
 		},
-		EventPrompts: []*workflowv1.WorkflowEventPrompt{{Event: "review.approved", Prompt: "open the pull request"}, {Event: "pull_request.behind", Muted: true}},
+		EventPrompts: []*workflowv1.WorkflowEventPrompt{{Event: eventv1.Event_EVENT_REVIEW_APPROVED, Prompt: "open the pull request"}, {Event: eventv1.Event_EVENT_PULL_REQUEST_BEHIND, Muted: true}},
 	}})
 
 	require.Len(t, got, 1)
@@ -94,10 +95,10 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 		ReviewerHarness: "codex",
 		ReviewerFlags:   "--model gpt-5",
 		Hooks: []Hook{
-			{Event: "agent.pre-launch", Script: "install-deps"},
-			{Event: "agent.post-launch", Script: "announce"},
+			{Event: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH, Script: "install-deps"},
+			{Event: eventv1.Moment_MOMENT_AGENT_POST_LAUNCH, Script: "announce"},
 		},
-		EventPrompts: []EventPrompt{{Event: "review.approved", Prompt: "open the pull request"}, {Event: "pull_request.behind", Muted: true}},
+		EventPrompts: []EventPrompt{{Event: eventv1.Event_EVENT_REVIEW_APPROVED, Prompt: "open the pull request"}, {Event: eventv1.Event_EVENT_PULL_REQUEST_BEHIND, Muted: true}},
 		Worktree: WorktreeConfig{
 			Enabled:      true,
 			BaseBranch:   "develop",

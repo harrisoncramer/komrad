@@ -258,6 +258,7 @@ linters:
           list-mode: lax
           allow:
             - komrad/proto/gen/oneofs
+            - komrad/proto/gen/event/v1
           deny:
             - pkg: komrad/proto/gen
               desc: the service decides in its own types, and rendering them onto the wire is the handler's job
@@ -311,6 +312,7 @@ linters:
           list-mode: lax
           allow:
             - komrad/proto/gen/watch/v1
+            - komrad/proto/gen/event/v1
           deny:
             - pkg: komrad/internal/agents
               desc: a store holds no rules, so nothing above it belongs here

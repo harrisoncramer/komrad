@@ -3,6 +3,7 @@ package run
 import (
 	"testing"
 
+	"komrad/db/models"
 	"komrad/internal/dbtest"
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
@@ -12,6 +13,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -95,7 +97,7 @@ func TestBeginRefusesAnIdNoAgentHolds(t *testing.T) {
 
 	_, err := f.Begin(t.Context(), BeginParams{
 		AgentID: uuid.New(),
-		Trigger: "agent.post-launch",
+		Trigger: eventv1.Moment_MOMENT_AGENT_POST_LAUNCH,
 		Script:  "setup",
 	})
 
@@ -135,7 +137,7 @@ func TestFinishRecordsWhatTheRunDid(t *testing.T) {
 
 			id, err := f.Begin(t.Context(), BeginParams{
 				AgentID:   agentID,
-				Trigger:   "agent.post-launch",
+				Trigger:   eventv1.Moment_MOMENT_AGENT_POST_LAUNCH,
 				Script:    "setup",
 				LogNumber: xptr.Ptr(int32(7)),
 			})
@@ -173,7 +175,7 @@ func TestUnreadFailuresNameTheNewestRun(t *testing.T) {
 	for number := range 3 {
 		id, err := f.Begin(t.Context(), BeginParams{
 			AgentID:   agentID,
-			Trigger:   "agent.post-launch",
+			Trigger:   eventv1.Moment_MOMENT_AGENT_POST_LAUNCH,
 			Script:    "setup",
 			LogNumber: xptr.Ptr(int32(number + 1)),
 		})
@@ -192,7 +194,7 @@ func TestAbandonDropsTheRow(t *testing.T) {
 
 	id, err := f.Begin(t.Context(), BeginParams{
 		AgentID: agentID,
-		Trigger: "agent.deprovision",
+		Trigger: eventv1.Moment_MOMENT_AGENT_DEPROVISION,
 		Script:  "_worktree_cleanup",
 	})
 	require.NoError(t, err)
@@ -214,7 +216,7 @@ func TestPruneKeepsTheNewest(t *testing.T) {
 	for range 5 {
 		id, err := f.Begin(t.Context(), BeginParams{
 			AgentID: agentID,
-			Trigger: "agent.resume",
+			Trigger: eventv1.Moment_MOMENT_AGENT_RESUME,
 			Script:  "worktree",
 		})
 		require.NoError(t, err)
@@ -224,7 +226,7 @@ func TestPruneKeepsTheNewest(t *testing.T) {
 
 	kept, err := f.Begin(t.Context(), BeginParams{
 		AgentID: other,
-		Trigger: "agent.resume",
+		Trigger: eventv1.Moment_MOMENT_AGENT_RESUME,
 		Script:  "worktree",
 	})
 	require.NoError(t, err)
@@ -260,7 +262,7 @@ func (f *fixture) runIDs(t *testing.T, agentID uuid.UUID) []uuid.UUID {
 type recordParams struct {
 	agentID uuid.UUID
 	taskID  *uuid.UUID
-	trigger string
+	trigger eventv1.Moment
 	failure string
 	number  int32
 }
@@ -298,7 +300,7 @@ func (f *fixture) taskFailedRun(t *testing.T, taskID uuid.UUID) bool {
 func TestTaskRunsKeepTaskEventsOffTheAgent(t *testing.T) {
 	tests := []struct {
 		name          string
-		trigger       string
+		trigger       eventv1.Moment
 		wantAgentMark bool
 		wantTaskMark  bool
 		markAgentRead bool
@@ -306,26 +308,26 @@ func TestTaskRunsKeepTaskEventsOffTheAgent(t *testing.T) {
 	}{
 		{
 			name:          "a failed task event marks the task but not the agent that ran it",
-			trigger:       "task.pre-open",
+			trigger:       eventv1.Moment_MOMENT_TASK_PRE_OPEN,
 			wantTaskMark:  true,
 			markAgentRead: true,
 		},
 		{
 			name:         "opening a task's logs claims a failed task event",
-			trigger:      "task.post-archive",
+			trigger:      eventv1.Moment_MOMENT_TASK_POST_ARCHIVE,
 			wantTaskMark: true,
 			markTaskRead: true,
 		},
 		{
 			name:          "opening a task's logs claims a failed agent event on it too",
-			trigger:       "agent.pre-launch",
+			trigger:       eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH,
 			wantAgentMark: true,
 			wantTaskMark:  true,
 			markTaskRead:  true,
 		},
 		{
 			name:          "a failed agent event marks both the agent and its task",
-			trigger:       "agent.pre-launch",
+			trigger:       eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH,
 			wantAgentMark: true,
 			wantTaskMark:  true,
 		},
@@ -363,7 +365,7 @@ func TestTaskRunsKeepTaskEventsOffTheAgent(t *testing.T) {
 }
 
 // TestListByTask pins a task's runs holding every agent's on it, of both kinds, newest first, and
-// no other task's.
+// no other task's nor any at a moment komrad does not define.
 func TestListByTask(t *testing.T) {
 	f := open(t)
 	taskID, err := tasktest.Seed(t.Context(), f.db, f.workflow)
@@ -377,22 +379,29 @@ func TestListByTask(t *testing.T) {
 	opened := f.record(t, recordParams{
 		agentID: writer,
 		taskID:  taskID,
-		trigger: "task.pre-open",
+		trigger: eventv1.Moment_MOMENT_TASK_PRE_OPEN,
 		number:  1,
 	})
 	launched := f.record(t, recordParams{
 		agentID: reviewer,
 		taskID:  taskID,
-		trigger: "agent.pre-launch",
+		trigger: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH,
 		failure: "it failed",
 		number:  1,
 	})
 	f.record(t, recordParams{
 		agentID: elsewhere,
 		taskID:  otherTask,
-		trigger: "agent.pre-launch",
+		trigger: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH,
 		number:  1,
 	})
+	_, err = models.New(f.db).InsertAgentRun(t.Context(), models.InsertAgentRunParams{
+		AgentID: writer,
+		TaskID:  taskID,
+		Trigger: "agent.open-pr",
+		Script:  "open-pr",
+	})
+	require.NoError(t, err)
 
 	runs, err := f.ListByTask(t.Context(), *taskID)
 	require.NoError(t, err)

@@ -8,16 +8,17 @@ import (
 	"sync"
 
 	"komrad/internal/logging"
-
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/protoenum"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 )
 
 // HookRunner runs a workflow's hooks, each in its turn among those queued under the same key.
 type HookRunner interface {
-	RunHook(ctx context.Context, agent agentstore.Agent, name, event string) error
+	RunHook(ctx context.Context, agent agentstore.Agent, name string, event eventv1.Moment) error
 	AwaitHooks(ctx context.Context, key uuid.UUID) error
 	QueueHooks(key uuid.UUID) *HookTurn
 }
@@ -28,7 +29,7 @@ type HookRun struct {
 	Scripts HookRunner
 	Agent   agentstore.Agent
 	Hooks   []workflowstore.Hook
-	Event   string
+	Event   eventv1.Moment
 }
 
 // HookQueue orders the hooks queued under each key, an agent's id or a task's, one moment at a time.
@@ -163,7 +164,7 @@ func (r HookRun) Start(ctx context.Context) {
 		if err := r.Run(bg); err != nil {
 			logging.From(bg).LogAttrs(bg, slog.LevelError, "a hook failed",
 				append([]slog.Attr{
-					slog.String(logging.RunTrigger, r.Event),
+					slog.String(logging.RunTrigger, protoenum.Name(r.Event)),
 					slog.String(logging.ScriptAgentID, r.Agent.ID.String()),
 				}, logging.Err(err)...)...)
 		}
@@ -172,7 +173,7 @@ func (r HookRun) Start(ctx context.Context) {
 
 // queueKey is what a moment's hooks queue under, the task's id for a moment in a task's life and the agent's otherwise.
 func (r HookRun) queueKey() uuid.UUID {
-	if workflowstore.IsTaskEvent(r.Event) && r.Agent.TaskID != nil {
+	if workflowstore.IsTaskMoment(r.Event) && r.Agent.TaskID != nil {
 		return *r.Agent.TaskID
 	}
 
@@ -180,7 +181,7 @@ func (r HookRun) queueKey() uuid.UUID {
 }
 
 // HasHookOn reports whether a workflow hangs any script on one moment.
-func HasHookOn(hooks []workflowstore.Hook, event string) bool {
+func HasHookOn(hooks []workflowstore.Hook, event eventv1.Moment) bool {
 	return slices.ContainsFunc(hooks, func(hook workflowstore.Hook) bool { return hook.Event == event })
 }
 

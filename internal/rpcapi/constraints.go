@@ -1,6 +1,7 @@
 package rpcapi
 
 import (
+	"komrad/lib/protoenum"
 	"komrad/lib/xslice"
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
@@ -32,7 +33,7 @@ type Constraints struct {
 func GetConstraints(field protoreflect.FieldDescriptor) Constraints {
 	rules := getRules(field)
 	if !field.IsList() {
-		return valueConstraints(rules)
+		return valueConstraints(field, rules)
 	}
 
 	repeated := rules.GetRepeated()
@@ -44,15 +45,18 @@ func GetConstraints(field protoreflect.FieldDescriptor) Constraints {
 		list.MaxItems = new(repeated.GetMaxItems())
 	}
 	if repeated.HasItems() {
-		list.Items = new(valueConstraints(repeated.GetItems()))
+		list.Items = new(valueConstraints(field, repeated.GetItems()))
 	}
 
 	return list
 }
 
-func valueConstraints(rules *validate.FieldRules) Constraints {
+func valueConstraints(field protoreflect.FieldDescriptor, rules *validate.FieldRules) Constraints {
 	text := rules.GetString()
 	constraints := Constraints{Pattern: text.GetPattern(), Enum: text.GetIn(), Rules: ruleMessages(rules)}
+	if field.Kind() == protoreflect.EnumKind {
+		constraints.Enum = narrowedEnum(field)
+	}
 	if text.HasMinLen() {
 		constraints.MinLength = new(text.GetMinLen())
 	}
@@ -74,6 +78,15 @@ func valueConstraints(rules *validate.FieldRules) Constraints {
 	}
 
 	return constraints
+}
+
+// narrowedEnum returns the names of the enum values the field accepts, nil when it accepts every one.
+func narrowedEnum(field protoreflect.FieldDescriptor) []string {
+	if names := EnumNames(field); len(names) < len(protoenum.ValuesOf(field.Enum())) {
+		return names
+	}
+
+	return nil
 }
 
 // ruleSet returns the rules for the field's kind, such as its string or int32 rules, nil when it carries none.

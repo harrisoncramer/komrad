@@ -11,7 +11,9 @@ import (
 	"komrad/db"
 	"komrad/db/models"
 	"komrad/internal/store"
+	"komrad/lib/protoenum"
 	"komrad/lib/xslice"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 )
@@ -55,7 +57,7 @@ type Mail struct {
 	// SubjectID is the thing mail from komrad is about, unset on ordinary mail.
 	SubjectID *uuid.UUID
 	// Events are the events mail from komrad named, whose prompts its body carries.
-	Events    []string
+	Events    []eventv1.Event
 	ClaimedAt *time.Time
 	ExpiresAt time.Time
 	CreatedAt time.Time
@@ -115,7 +117,7 @@ type UpsertFromKomradParams struct {
 	Body      string
 	Kind      Kind
 	SubjectID uuid.UUID
-	Events    []string
+	Events    []eventv1.Event
 	Deadline  time.Duration
 }
 
@@ -128,7 +130,7 @@ func (s *MailStore) UpsertFromKomrad(ctx context.Context, params UpsertFromKomra
 		Body:           params.Body,
 		Kind:           models.MailKind(params.Kind),
 		SubjectID:      params.SubjectID,
-		Events:         orEmpty(params.Events),
+		Events:         protoenum.Names(params.Events),
 		DeadlineMicros: params.Deadline.Microseconds(),
 	})
 	if err != nil {
@@ -379,17 +381,9 @@ func fromRow(row *models.Mail) Mail {
 		Kind:        Kind(row.Kind),
 		ReplyTo:     row.ReplyTo,
 		SubjectID:   row.SubjectID,
-		Events:      row.Events,
+		Events:      protoenum.ParseKnown[eventv1.Event](row.Events),
 		ClaimedAt:   row.ClaimedAt,
 		ExpiresAt:   row.ExpiresAt,
 		CreatedAt:   row.CreatedAt,
 	}
-}
-
-func orEmpty(names []string) []string {
-	if names == nil {
-		return []string{}
-	}
-
-	return names
 }

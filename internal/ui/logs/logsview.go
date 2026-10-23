@@ -13,6 +13,7 @@ import (
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/zone"
 	"komrad/internal/view"
+	"komrad/lib/protoenum"
 	"komrad/lib/xslice"
 	logv1 "komrad/proto/gen/log/v1"
 )
@@ -64,7 +65,7 @@ func sourceLabel(source *logv1.LogSource) string {
 		return "server"
 	}
 
-	return fmt.Sprintf("%03d %s %s", source.GetRun(), source.GetTrigger(), source.GetScript())
+	return fmt.Sprintf("%03d %s %s", source.GetRun(), protoenum.Name(source.GetTrigger()), source.GetScript())
 }
 
 // block is the log rendered at the width and height of the block beside the sidebar, its lines

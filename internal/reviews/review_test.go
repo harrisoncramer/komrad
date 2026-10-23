@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"komrad/config"
-	"komrad/internal/eventprompts"
 	"komrad/internal/events/eventstest"
 	"komrad/internal/gittest"
 	"komrad/internal/jobs/internaljobs"
@@ -19,6 +18,7 @@ import (
 	"komrad/internal/storetest"
 	"komrad/internal/tasks"
 	"komrad/lib/xslice"
+	eventv1 "komrad/proto/gen/event/v1"
 	"komrad/proto/gen/oneofs"
 
 	"github.com/google/uuid"
@@ -943,7 +943,7 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 				workflow, err := fx.stores.Workflows.Get(t.Context(), fx.writer.WorkflowID)
 				require.NoError(t, err)
 				cfg := workflow.Config()
-				cfg.EventPrompts = []workflowstore.EventPrompt{{Event: eventprompts.ReviewAnswered, Muted: true}}
+				cfg.EventPrompts = []workflowstore.EventPrompt{{Event: eventv1.Event_EVENT_REVIEW_ANSWERED, Muted: true}}
 				require.NoError(t, fx.stores.Workflows.Update(t.Context(), workflow.ID, cfg))
 			}
 			opener := tt.opener(t, fx)
@@ -983,7 +983,7 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 			assert.Equal(t, mailstore.KindReviewActivity, rung[0].Kind)
 			assert.Equal(t, &fx.writer.ID, rung[0].SubjectID)
 			assert.Contains(t, rung[0].Body, "list_review_threads", "the doorbell says where to look rather than what was said")
-			assert.Equal(t, []string{eventprompts.ReviewAnswered}, rung[0].Events)
+			assert.Equal(t, []eventv1.Event{eventv1.Event_EVENT_REVIEW_ANSWERED}, rung[0].Events)
 		})
 	}
 }

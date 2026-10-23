@@ -13,11 +13,12 @@ import (
 	"komrad/config"
 	"komrad/internal/scripts"
 	"komrad/internal/store"
-	"komrad/lib/xstr"
-
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/protoenum"
+	"komrad/lib/xstr"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 )
@@ -45,7 +46,7 @@ type scriptPayload struct {
 type scriptEnvParams struct {
 	agent   agentstore.Agent
 	dir     string
-	trigger string
+	trigger eventv1.Moment
 	script  string
 }
 
@@ -165,7 +166,7 @@ func (s *ScriptService) env(ctx context.Context, params scriptEnvParams) ([]stri
 		"KOMRAD_ADDR=" + s.addr,
 		"KOMRAD_TMUX_SOCKET=" + s.socket,
 		"KOMRAD_SCRIPT_DIR=" + dir,
-		"KOMRAD_TRIGGER=" + trigger,
+		"KOMRAD_TRIGGER=" + protoenum.Name(trigger),
 		"KOMRAD_SCRIPT=" + params.script,
 		"KOMRAD_INFO_PANE=" + s.tmux.GetInfoPane(),
 		"KOMRAD_HOST_TMUX_SOCKET=" + s.tmux.GetHostSocket(),

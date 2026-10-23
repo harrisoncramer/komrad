@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"komrad/internal/eventprompts"
 	"komrad/internal/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -19,8 +19,8 @@ func TestEventsOf(t *testing.T) {
 		pullRequest pullrequeststore.PullRequest
 		checks      forge.Checks
 		read        forge.MergeReadiness
-		wantStarted []string
-		wantHolding []string
+		wantStarted []eventv1.Event
+		wantHolding []eventv1.Event
 	}{
 		{
 			name: "a move of the checks to failing starts nothing but holds it",
@@ -31,7 +31,7 @@ func TestEventsOf(t *testing.T) {
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
 			checks:      forge.ChecksFailing,
-			wantHolding: []string{eventprompts.PullRequestChecksFailing},
+			wantHolding: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING},
 		},
 		{
 			name: "and so does a failure while others still run",
@@ -42,7 +42,7 @@ func TestEventsOf(t *testing.T) {
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
 			checks:      forge.ChecksFailingRunning,
-			wantHolding: []string{eventprompts.PullRequestChecksFailingRunning},
+			wantHolding: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING_RUNNING},
 		},
 		{
 			name: "a move away starts nothing and leaves what still holds",
@@ -56,7 +56,7 @@ func TestEventsOf(t *testing.T) {
 			read: forge.MergeReadiness{
 				Mergeability: forge.MergeabilityBehind,
 			},
-			wantHolding: []string{eventprompts.PullRequestBehind},
+			wantHolding: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_BEHIND},
 		},
 		{
 			name: "checks going green while the forge blocks the merge start nothing",
@@ -79,8 +79,8 @@ func TestEventsOf(t *testing.T) {
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
 			checks:      forge.ChecksPassing,
 			read:        forge.MergeReadiness{Mergeability: forge.MergeabilityClean},
-			wantStarted: []string{eventprompts.PullRequestChecksPassing},
-			wantHolding: []string{eventprompts.PullRequestChecksPassing},
+			wantStarted: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_PASSING},
+			wantHolding: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_PASSING},
 		},
 		{
 			name: "the forge unblocking green checks starts passing",
@@ -92,8 +92,8 @@ func TestEventsOf(t *testing.T) {
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
 			checks:      forge.ChecksPassing,
 			read:        forge.MergeReadiness{Mergeability: forge.MergeabilityClean},
-			wantStarted: []string{eventprompts.PullRequestChecksPassing},
-			wantHolding: []string{eventprompts.PullRequestChecksPassing},
+			wantStarted: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_PASSING},
+			wantHolding: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_PASSING},
 		},
 		{
 			name: "the forge unblocking pending checks starts nothing",
@@ -115,8 +115,8 @@ func TestEventsOf(t *testing.T) {
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
 			read:        forge.MergeReadiness{AutoMerge: forge.AutoMerge{On: true}},
-			wantStarted: []string{eventprompts.PullRequestAutoMergeOn},
-			wantHolding: []string{eventprompts.PullRequestAutoMergeOn},
+			wantStarted: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_AUTO_MERGE_ON},
+			wantHolding: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_AUTO_MERGE_ON},
 		},
 		{
 			name: "a merge is the only event, whatever else moved",
@@ -137,8 +137,8 @@ func TestEventsOf(t *testing.T) {
 			read: forge.MergeReadiness{
 				Decision: forge.ReviewDecisionApproved,
 			},
-			wantStarted: []string{eventprompts.PullRequestMerged},
-			wantHolding: []string{eventprompts.PullRequestMerged},
+			wantStarted: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_MERGED},
+			wantHolding: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_MERGED},
 		},
 		{
 			name: "a change after the merge starts nothing and keeps the merge alone",
@@ -149,7 +149,7 @@ func TestEventsOf(t *testing.T) {
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "MERGED"},
 			checks:      forge.ChecksFailing,
-			wantHolding: []string{eventprompts.PullRequestMerged},
+			wantHolding: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_MERGED},
 		},
 		{
 			name: "and so is a close",
@@ -160,8 +160,8 @@ func TestEventsOf(t *testing.T) {
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "CLOSED"},
 			read:        forge.MergeReadiness{Mergeability: forge.MergeabilityConflicting},
-			wantStarted: []string{eventprompts.PullRequestClosed},
-			wantHolding: []string{eventprompts.PullRequestClosed},
+			wantStarted: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CLOSED},
+			wantHolding: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CLOSED},
 		},
 	}
 
@@ -185,19 +185,19 @@ func TestFailingEvent(t *testing.T) {
 		name   string
 		state  string
 		checks forge.Checks
-		want   string
+		want   eventv1.Event
 	}{
 		{
 			name:   "failing",
 			state:  "OPEN",
 			checks: forge.ChecksFailing,
-			want:   eventprompts.PullRequestChecksFailing,
+			want:   eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING,
 		},
 		{
 			name:   "failing while others still run",
 			state:  "OPEN",
 			checks: forge.ChecksFailingRunning,
-			want:   eventprompts.PullRequestChecksFailingRunning,
+			want:   eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING_RUNNING,
 		},
 		{
 			name:   "passing",

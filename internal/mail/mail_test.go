@@ -14,6 +14,7 @@ import (
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	eventv1 "komrad/proto/gen/event/v1"
 	"komrad/proto/gen/oneofs"
 
 	"github.com/google/uuid"
@@ -512,10 +513,10 @@ func TestSendFromKomradRewritesTheUnreadOne(t *testing.T) {
 // TestSendFromKomradCarriesTheWorkflowsEventPrompts pins which of the workflow's prompts mail from komrad carries as its events start and stop holding.
 func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 	const (
-		failing     = "pull_request.checks_failing"
-		behind      = "pull_request.behind"
-		approved    = "pull_request.approved"
-		conflicting = "pull_request.conflicting"
+		failing     = eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING
+		behind      = eventv1.Event_EVENT_PULL_REQUEST_BEHIND
+		approved    = eventv1.Event_EVENT_PULL_REQUEST_APPROVED
+		conflicting = eventv1.Event_EVENT_PULL_REQUEST_CONFLICTING
 	)
 
 	prompts := eventprompts.Prompts{
@@ -529,8 +530,8 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 	}
 
 	type send struct {
-		events  []string
-		holding []string
+		events  []eventv1.Event
+		holding []eventv1.Event
 		read    bool
 	}
 
@@ -538,63 +539,63 @@ func TestSendFromKomradCarriesTheWorkflowsEventPrompts(t *testing.T) {
 		name       string
 		archived   bool
 		sends      []send
-		wantEvents []string
+		wantEvents []eventv1.Event
 		wantNone   bool
 	}{
 		{
 			name:       "an event with a prompt carries it after the body",
-			sends:      []send{{events: []string{failing}}},
-			wantEvents: []string{failing},
+			sends:      []send{{events: []eventv1.Event{failing}}},
+			wantEvents: []eventv1.Event{failing},
 		},
 		{
 			name:  "an event the workflow attaches nothing to carries no section",
-			sends: []send{{events: []string{approved}}},
+			sends: []send{{events: []eventv1.Event{approved}}},
 		},
 		{
 			name: "a rewrite keeps the prompts of events started earlier that still hold",
 			sends: []send{
-				{events: []string{failing}},
-				{events: []string{behind}, holding: []string{failing, behind}},
+				{events: []eventv1.Event{failing}},
+				{events: []eventv1.Event{behind}, holding: []eventv1.Event{failing, behind}},
 			},
-			wantEvents: []string{failing, behind},
+			wantEvents: []eventv1.Event{failing, behind},
 		},
 		{
 			name: "a rewrite drops the prompt of an event that no longer holds",
 			sends: []send{
-				{events: []string{failing, behind}},
-				{holding: []string{behind}},
+				{events: []eventv1.Event{failing, behind}},
+				{holding: []eventv1.Event{behind}},
 			},
-			wantEvents: []string{behind},
+			wantEvents: []eventv1.Event{behind},
 		},
 		{
 			name: "an event still holding after the mail was read is not started again",
 			sends: []send{
-				{events: []string{failing}},
-				{read: true, holding: []string{failing}},
+				{events: []eventv1.Event{failing}},
+				{read: true, holding: []eventv1.Event{failing}},
 			},
 		},
 		{
 			name:     "a muted event opens no mail",
-			sends:    []send{{events: []string{conflicting}}},
+			sends:    []send{{events: []eventv1.Event{conflicting}}},
 			wantNone: true,
 		},
 		{
 			name: "a muted event rewrites held mail and leaves its prompt out",
 			sends: []send{
-				{events: []string{failing}},
-				{events: []string{conflicting}, holding: []string{failing, conflicting}},
+				{events: []eventv1.Event{failing}},
+				{events: []eventv1.Event{conflicting}, holding: []eventv1.Event{failing, conflicting}},
 			},
-			wantEvents: []string{failing},
+			wantEvents: []eventv1.Event{failing},
 		},
 		{
 			name:       "a muted event alongside one that is not opens mail without the muted prompt",
-			sends:      []send{{events: []string{failing, conflicting}}},
-			wantEvents: []string{failing},
+			sends:      []send{{events: []eventv1.Event{failing, conflicting}}},
+			wantEvents: []eventv1.Event{failing},
 		},
 		{
 			name:     "an archived workflow's prompts are not carried",
 			archived: true,
-			sends:    []send{{events: []string{failing}}},
+			sends:    []send{{events: []eventv1.Event{failing}}},
 		},
 	}
 
@@ -1195,14 +1196,14 @@ func TestIsDormant(t *testing.T) {
 type fakeMail struct {
 	kind   mailstore.Kind
 	body   string
-	events []string
+	events []eventv1.Event
 }
 
 func (m fakeMail) Kind() mailstore.Kind {
 	return m.kind
 }
 
-func (m fakeMail) Events() []string {
+func (m fakeMail) Events() []eventv1.Event {
 	return m.events
 }
 

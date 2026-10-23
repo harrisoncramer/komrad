@@ -13,6 +13,7 @@ import (
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
+	eventv1 "komrad/proto/gen/event/v1"
 	logv1 "komrad/proto/gen/log/v1"
 	"komrad/proto/gen/log/v1/logv1connect"
 	taskv1 "komrad/proto/gen/task/v1"
@@ -792,13 +793,13 @@ var (
 	provisionSource = &logv1.LogSource{
 		Id:      provisionRun,
 		Run:     xptr.Ptr[int32](1),
-		Trigger: "agent.provision",
+		Trigger: eventv1.Moment_MOMENT_AGENT_PROVISION,
 		Script:  "setup",
 	}
 	launchSource = &logv1.LogSource{
 		Id:      "002-agent.pre-launch-setup.log",
 		Run:     xptr.Ptr[int32](2),
-		Trigger: "agent.pre-launch",
+		Trigger: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH,
 		Script:  "setup",
 	}
 )
@@ -994,14 +995,14 @@ func taskRunSources() []*logv1.LogSource {
 		{
 			Id:      "001-task.pre-open-setup.log",
 			Run:     xptr.Ptr[int32](1),
-			Trigger: "task.pre-open",
+			Trigger: eventv1.Moment_MOMENT_TASK_PRE_OPEN,
 			Script:  "setup",
 			AgentId: "a2",
 		},
 		{
 			Id:      "001-agent.pre-launch-setup.log",
 			Run:     xptr.Ptr[int32](1),
-			Trigger: "agent.pre-launch",
+			Trigger: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH,
 			Script:  "setup",
 			AgentId: "a1",
 		},

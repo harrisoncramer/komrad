@@ -24,6 +24,10 @@ lint:
     - MESSAGE_NOT_EMPTY
     - RPC_GET_RETURNS_RESOURCE
     - FIELD_TYPE_NO_STUTTER
+  ignore_only:
+    # Each value there carries its description in its annotation.v1.label, which the reference reads.
+    COMMENT_ENUM_VALUE:
+      - proto/event/v1/event.proto
   except:
     # The watch and the terminals are streams, held open by the panel and served by hand.
     - UNARY_RPC

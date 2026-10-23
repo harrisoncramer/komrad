@@ -12,14 +12,14 @@ import (
 	"komrad/internal/logging"
 	"komrad/internal/logread"
 	"komrad/internal/rpcerr"
+	runstore "komrad/internal/store/run"
+	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/dates"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	eventv1 "komrad/proto/gen/event/v1"
 	logv1 "komrad/proto/gen/log/v1"
 	"komrad/proto/gen/log/v1/logv1komrad"
-
-	runstore "komrad/internal/store/run"
-	workflowstore "komrad/internal/store/workflow"
 
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -174,7 +174,7 @@ func (s *Handler) ReadAgentLogs(ctx context.Context, req *logv1komrad.ReadAgentL
 func (s *Handler) ListAgentLogSources(_ context.Context, req *logv1komrad.ListAgentLogSourcesRequest) (*logv1.ListAgentLogSourcesResponse, *fail.Error) {
 	agentID := req.AgentId
 	owned := xslice.Filter(s.runs.List(agentID), func(run config.RunLog) bool {
-		return !workflowstore.IsTaskEvent(run.Trigger)
+		return !workflowstore.IsTaskMoment(run.Trigger)
 	})
 	runs := xslice.Map(owned, func(run config.RunLog) *logv1.LogSource {
 		return renderRunSource(renderRunSourceParams{
@@ -217,7 +217,7 @@ func (s *Handler) ListTaskLogSources(ctx context.Context, req *logv1komrad.ListT
 type renderRunSourceParams struct {
 	agentID uuid.UUID
 	number  int
-	trigger string
+	trigger eventv1.Moment
 	script  string
 }
 

@@ -13,6 +13,9 @@ import (
 	"slices"
 	"time"
 
+	"komrad/internal/fail"
+	"komrad/lib/protoenum"
+	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	annotationv1 "komrad/proto/gen/annotation/v1"
@@ -29,8 +32,6 @@ import (
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	"komrad/proto/gen/workflow/v1/workflowv1connect"
 	worktreev1 "komrad/proto/gen/worktree/v1"
-
-	"komrad/internal/fail"
 
 	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	"github.com/google/uuid"
@@ -199,20 +200,10 @@ func ServesRole(surfaces *annotationv1.Surfaces, role annotationv1.Role) bool {
 	return slices.Contains(surfaces.GetRoles(), role)
 }
 
-// EnumNames returns the spellings of an enum's values where a caller has to name one, leaving
+// EnumNames returns the spellings of the enum values the field accepts where a caller has to name one, leaving
 // out the zero value the field already holds.
-func EnumNames(values protoreflect.EnumDescriptor) []string {
-	names := make([]string, 0, values.Values().Len())
-	for i := range values.Values().Len() {
-		value := values.Values().Get(i)
-		if value.Number() == 0 {
-			continue
-		}
-
-		names = append(names, string(value.Name()))
-	}
-
-	return names
+func EnumNames(field protoreflect.FieldDescriptor) []string {
+	return xslice.Map(protoenum.AcceptedValues(field), protoenum.NameOf)
 }
 
 // IsTimestamp reports whether the field holds a google.protobuf.Timestamp.
@@ -234,6 +225,11 @@ func IsRequired(field protoreflect.FieldDescriptor) bool {
 
 	text := rules.GetString()
 	if in := text.GetIn(); len(in) > 0 && !slices.Contains(in, "") {
+		return true
+	}
+
+	enum := rules.GetEnum()
+	if slices.Contains(enum.GetNotIn(), 0) || len(enum.GetIn()) > 0 && !slices.Contains(enum.GetIn(), 0) {
 		return true
 	}
 

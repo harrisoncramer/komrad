@@ -11,9 +11,10 @@ import (
 	"komrad/internal/scriptrun"
 	"komrad/internal/scripts"
 	"komrad/internal/store"
-
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/protoenum"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 )
@@ -22,7 +23,7 @@ type batchHooksParams struct {
 	scripts     agentScriptRunner
 	workflows   *workflowstore.WorkflowStore
 	agents      []agentstore.Agent
-	event       string
+	event       eventv1.Moment
 	skipGoneDir bool
 }
 
@@ -58,7 +59,7 @@ func runPreHooksFor(ctx context.Context, params batchHooksParams) map[uuid.UUID]
 			mu.Lock()
 			defer mu.Unlock()
 
-			refused[agent.ID] = fmt.Errorf("failed to run the %s hook of %q: %w", params.event, agent.Name, err)
+			refused[agent.ID] = fmt.Errorf("failed to run the %s hook of %q: %w", protoenum.Name(params.event), agent.Name, err)
 		})
 	}
 

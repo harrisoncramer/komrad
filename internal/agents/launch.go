@@ -26,6 +26,7 @@ import (
 	"komrad/lib/clock"
 	"komrad/lib/xptr"
 	"komrad/lib/xstr"
+	eventv1 "komrad/proto/gen/event/v1"
 	"komrad/proto/gen/oneofs"
 
 	"github.com/google/uuid"
@@ -596,7 +597,7 @@ func (c *createStart) runPreHooks(ctx context.Context, agent agentstore.Agent) e
 		Scripts: c.scripts,
 		Agent:   agent,
 		Hooks:   c.resolved.hooks,
-		Event:   workflowstore.HookAgentPreLaunch,
+		Event:   eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH,
 	}.RunInTurn(ctx)
 }
 
@@ -675,7 +676,7 @@ func (c *createStart) finish(ctx context.Context, agent agentstore.Agent) error 
 		Scripts: c.scripts,
 		Agent:   agent,
 		Hooks:   c.resolved.hooks,
-		Event:   workflowstore.HookAgentPostLaunch,
+		Event:   eventv1.Moment_MOMENT_AGENT_POST_LAUNCH,
 	}.Start(ctx)
 	c.service.watchStartup(ctx, agent)
 

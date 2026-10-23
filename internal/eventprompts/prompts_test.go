@@ -5,6 +5,8 @@ import (
 	"testing"
 	"unicode/utf8"
 
+	eventv1 "komrad/proto/gen/event/v1"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -40,11 +42,11 @@ func TestAppendCutsThePromptsToFit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			prompts := Prompts{
-				{Event: PullRequestChecksFailing, Prompt: tt.prompt},
-				{Event: PullRequestBehind, Prompt: tt.prompt},
+				{Event: eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING, Prompt: tt.prompt},
+				{Event: eventv1.Event_EVENT_PULL_REQUEST_BEHIND, Prompt: tt.prompt},
 			}
 
-			body := prompts.Append(tt.body, []string{PullRequestChecksFailing, PullRequestBehind}, maxBody)
+			body := prompts.Append(tt.body, []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING, eventv1.Event_EVENT_PULL_REQUEST_BEHIND}, maxBody)
 
 			assert.True(t, strings.HasPrefix(body, tt.body+"\n\n"+promptsHeading), "the body komrad wrote is kept whole")
 			if !tt.wantCut {

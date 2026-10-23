@@ -4,6 +4,7 @@ package workflow.v1;
 
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
+import "event/v1/event.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "pagination/v1/pagination.proto";
@@ -47,32 +48,10 @@ message Workflow {
 
 // WorkflowEventPrompt is what a workflow's agents are told to do when komrad mails them an event.
 message WorkflowEventPrompt {
-  // The event, such as `pull_request.checks_failing` or `review.approved`.
-  string event = 1 [(buf.validate.field).string = {
-    in: [
-      "pull_request.checks_failing_running",
-      "pull_request.checks_failing",
-      "pull_request.checks_passing",
-      "pull_request.changes_requested",
-      "pull_request.approved",
-      "pull_request.conflicting",
-      "pull_request.behind",
-      "pull_request.merged",
-      "pull_request.closed",
-      "pull_request.auto_merge_on",
-      "worktree.rebased",
-      "worktree.landed",
-      "worktree.rebase_conflicted",
-      "document.written_by_person",
-      "review.approved",
-      "review.changes_requested",
-      "review.commented",
-      "review.commented_by_person",
-      "review.forge_commented",
-      "review.answered",
-      "review.forge_reply_requested",
-      "review.forge_reply_decided"
-    ]
+  // The event.
+  event.v1.Event event = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
   }];
   // The text added to the mail about the event. Empty adds nothing.
   string prompt = 2 [(buf.validate.field).string.max_len = 500];
@@ -89,11 +68,15 @@ message WorkflowEventPrompts {
 
 // WorkflowHook is a hook that runs at one moment in the life of a workflow's task or agent.
 message WorkflowHook {
-  // The moment the hook runs at, such as `agent.pre-launch`, `agent.post-archive` or
-  // `task.pre-open`.
-  string event = 1 [(buf.validate.field).string = {
-    min_len: 1
-    max_len: 40
+  // The moment the hook runs at.
+  event.v1.Moment event = 1 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [
+      0,
+      1,
+      2,
+      3
+    ]
   }];
   // The hook's script, by file name in the hooks directory.
   string script = 2 [(buf.validate.field).string = {

@@ -3,6 +3,8 @@ package workflow
 import (
 	"testing"
 
+	eventv1 "komrad/proto/gen/event/v1"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -13,9 +15,9 @@ func TestEventPromptsComeBackWithEveryReader(t *testing.T) {
 	ctx := t.Context()
 
 	prompts := []EventPrompt{
-		{Event: "pull_request.checks_failing", Prompt: "fix the checks"},
-		{Event: "review.approved", Prompt: "mark the pull request ready"},
-		{Event: "pull_request.behind", Muted: true},
+		{Event: eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING, Prompt: "fix the checks"},
+		{Event: eventv1.Event_EVENT_REVIEW_APPROVED, Prompt: "mark the pull request ready"},
+		{Event: eventv1.Event_EVENT_PULL_REQUEST_BEHIND, Muted: true},
 	}
 
 	created, err := st.Create(ctx, Config{
@@ -49,16 +51,16 @@ func TestUpdateRewritesThePromptList(t *testing.T) {
 	created, err := st.Create(ctx, Config{
 		Name: "backend",
 		EventPrompts: []EventPrompt{
-			{Event: "pull_request.checks_failing", Prompt: "fix the checks"},
-			{Event: "review.approved", Prompt: "mark the pull request ready"},
+			{Event: eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING, Prompt: "fix the checks"},
+			{Event: eventv1.Event_EVENT_REVIEW_APPROVED, Prompt: "mark the pull request ready"},
 		},
 		Worktree: WorktreeConfig{BaseBranch: "main"},
 	})
 	require.NoError(t, err)
 
 	kept := []EventPrompt{
-		{Event: "worktree.rebase_conflicted", Prompt: "settle the conflict"},
-		{Event: "pull_request.checks_failing", Prompt: "read the failing job first"},
+		{Event: eventv1.Event_EVENT_WORKTREE_REBASE_CONFLICTED, Prompt: "settle the conflict"},
+		{Event: eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING, Prompt: "read the failing job first"},
 	}
 	cfg := created.Config()
 	cfg.EventPrompts = kept

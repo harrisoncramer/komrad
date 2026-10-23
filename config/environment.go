@@ -8,7 +8,10 @@ import (
 	"strconv"
 	"strings"
 
+	"komrad/lib/protoenum"
 	"komrad/lib/xslice"
+	eventv1 "komrad/proto/gen/event/v1"
+	workflowv1 "komrad/proto/gen/workflow/v1"
 
 	"github.com/google/uuid"
 )
@@ -106,48 +109,9 @@ func (e *Environment) FramesDir() string {
 	return filepath.Join(e.CacheDir, "komrad-frames")
 }
 
-// The moments a script can run at, which are what a script reads out of KOMRAD_TRIGGER and
-// what a run's log file is named after: the worktree provisioner's own three, and the moments
-// a workflow can hang a hook on.
-const (
-	TriggerAgentProvision   = "agent.provision"
-	TriggerAgentResume      = "agent.resume"
-	TriggerAgentDeprovision = "agent.deprovision"
-	HookAgentPreLaunch      = "agent.pre-launch"
-	HookAgentPostLaunch     = "agent.post-launch"
-	HookAgentPreResume      = "agent.pre-resume"
-	HookAgentPostResume     = "agent.post-resume"
-	HookAgentPreArchive     = "agent.pre-archive"
-	HookAgentPostArchive    = "agent.post-archive"
-	HookAgentPreRestore     = "agent.pre-restore"
-	HookAgentPostRestore    = "agent.post-restore"
-	HookAgentPreDelete      = "agent.pre-delete"
-	HookAgentPostDelete     = "agent.post-delete"
-	HookTaskPreOpen         = "task.pre-open"
-	HookTaskPostArchive     = "task.post-archive"
-	HookTaskPreDelete       = "task.pre-delete"
-)
-
-// runMoments is every moment by name.
-func runMoments() []string {
-	return []string{
-		TriggerAgentProvision,
-		TriggerAgentResume,
-		TriggerAgentDeprovision,
-		HookAgentPreLaunch,
-		HookAgentPostLaunch,
-		HookAgentPreResume,
-		HookAgentPostResume,
-		HookAgentPreArchive,
-		HookAgentPostArchive,
-		HookAgentPreRestore,
-		HookAgentPostRestore,
-		HookAgentPreDelete,
-		HookAgentPostDelete,
-		HookTaskPreOpen,
-		HookTaskPostArchive,
-		HookTaskPreDelete,
-	}
+// HookMoments are the moments a workflow can hang a script on, an agent's in the order they fire and then its task's.
+func HookMoments() []eventv1.Moment {
+	return protoenum.Accepted[eventv1.Moment]((&workflowv1.WorkflowHook{}).ProtoReflect().Descriptor().Fields().ByName("event"))
 }
 
 // MaxRunLogs is how many runs an agent keeps. Komrad prunes older ones as it writes new ones.
@@ -161,15 +125,15 @@ func RunLogDir(dir string, agentID uuid.UUID) string {
 // RunLog is one run of a script, as the name of the file it wrote records it.
 type RunLog struct {
 	Number  int
-	Trigger string
+	Trigger eventv1.Moment
 	Script  string
 	Path    string
 }
 
 // RunLogName is the file one run writes to. The number lets a listing sort the runs newest first
 // without reading any of them, and the name says what set the run off.
-func RunLogName(number int, trigger, script string) string {
-	return fmt.Sprintf("%03d-%s-%s.log", number, trigger, script)
+func RunLogName(number int, trigger eventv1.Moment, script string) string {
+	return fmt.Sprintf("%03d-%s-%s.log", number, protoenum.Name(trigger), script)
 }
 
 // ListRunLogs reads the runs an agent has recorded, newest first, parsing the number rather than
@@ -224,8 +188,8 @@ func parseRunLogName(name string) (*RunLog, bool) {
 
 	// A moment's name holds a hyphen of its own, so the split is against the moments there are
 	// rather than at the next hyphen along.
-	for _, moment := range runMoments() {
-		if script, found := strings.CutPrefix(rest, moment+"-"); found {
+	for _, moment := range protoenum.Values[eventv1.Moment]() {
+		if script, found := strings.CutPrefix(rest, protoenum.Name(moment)+"-"); found {
 			return &RunLog{
 				Number:  parsed,
 				Trigger: moment,
@@ -234,14 +198,5 @@ func parseRunLogName(name string) (*RunLog, bool) {
 		}
 	}
 
-	trigger, script, ok := strings.Cut(rest, "-")
-	if !ok {
-		return nil, false
-	}
-
-	return &RunLog{
-		Number:  parsed,
-		Trigger: trigger,
-		Script:  script,
-	}, true
+	return nil, false
 }

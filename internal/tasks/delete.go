@@ -10,11 +10,11 @@ import (
 	"komrad/internal/agenterr"
 	"komrad/internal/logging"
 	"komrad/internal/scriptrun"
-	"komrad/lib/xslice"
-
 	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/xslice"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 )
@@ -174,7 +174,7 @@ func (s *TaskService) runPreDelete(ctx context.Context, task taskstore.Task, flo
 		scripts:  s.scripts,
 		workflow: flow,
 		task:     task,
-		event:    workflowstore.HookTaskPreDelete,
+		event:    eventv1.Moment_MOMENT_TASK_PRE_DELETE,
 	}.toHookRun().RunInTurn(ctx)
 }
 

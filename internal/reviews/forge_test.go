@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"komrad/internal/eventprompts"
 	"komrad/internal/forge"
 	"komrad/internal/gittest"
 	"komrad/internal/reviews/history"
 	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
 	"komrad/lib/xslice"
+	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -302,7 +302,7 @@ func TestAcceptingForgeComments(t *testing.T) {
 				assert.Equal(t, mailstore.KindReviewComment, rung[0].Kind)
 				assert.Contains(t, rung[0].Body, "the person passed on a comment @mallory wrote on the forge")
 				assert.Contains(t, rung[0].Body, "use a guard")
-				assert.Equal(t, []string{eventprompts.ReviewCommentedByPerson}, rung[0].Events)
+				assert.Equal(t, []eventv1.Event{eventv1.Event_EVENT_REVIEW_COMMENTED_BY_PERSON}, rung[0].Events)
 			},
 		},
 		{
