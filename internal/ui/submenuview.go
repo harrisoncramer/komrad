@@ -22,7 +22,7 @@ import (
 func submenuLeading(parents []submenuLevel, top submenuLevel, width int) []string {
 	room := width - lipgloss.Width(frozenSubmenu(top, len(parents) > 0))
 	if top.menu.Preview != nil {
-		room -= column.Narrowest + dividerCols
+		room -= column.Narrowest + column.DividerCols
 	}
 
 	return frozenMenus(parents, room)
@@ -35,7 +35,7 @@ func frozenMenus(levels []submenuLevel, room int) []string {
 	for i := len(levels) - 1; i >= 0; i-- {
 		view := frozenSubmenu(levels[i], i > 0)
 
-		room -= lipgloss.Width(view) + dividerCols
+		room -= lipgloss.Width(view) + column.DividerCols
 		if room < 0 {
 			break
 		}

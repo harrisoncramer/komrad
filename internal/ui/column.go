@@ -8,12 +8,8 @@ import (
 	"komrad/internal/ui/screen"
 )
 
-const (
-	// dividerCols is the columns the divider between the list and the block beside it takes.
-	dividerCols = 2*gutter + 1
-	// dividerGlyph is what the divider is rendered with.
-	dividerGlyph = glyph.Divider
-)
+// dividerGlyph is what the divider is rendered with.
+const dividerGlyph = glyph.Divider
 
 // splitOf divides a window between a block and the sidebar at the width it is handed, and refuses
 // a window that cannot hold both halves.
@@ -60,7 +56,7 @@ func (m *model) sidebarColumns(in screen.Inputs) (int, column.Spec, bool) {
 	}
 
 	// Clamped so the fold and the render are at one width.
-	return min(max(sidebar-sidebarChrome, 1), m.term.width-1-dividerCols), spec, true
+	return min(max(sidebar-sidebarChrome, 1), m.term.width-1-column.DividerCols), spec, true
 }
 
 // columnGeometry is how wide each half of the window is, and how many rows the block beside the
@@ -73,7 +69,7 @@ func (m *model) columnGeometry(in screen.Inputs) column.Split {
 
 	// The whole height, with the sidebar's chrome rendered inside the sidebar and no rows reserved
 	// here.
-	return splitOf(m.term.width-dividerCols, m.term.height, sidebar, spec.Floor)
+	return splitOf(m.term.width-column.DividerCols, m.term.height, sidebar, spec.Floor)
 }
 
 // columnSplit is the window the block is actually rendered in, being the geometry with whatever
@@ -219,7 +215,7 @@ func (m *model) isOverColumn(x int) bool {
 		return false
 	}
 
-	return x-gutter >= split.Sidebar+dividerCols
+	return x-gutter >= split.Sidebar+column.DividerCols
 }
 
 // paneWidth is the column the panel renders its own list, record and legend in, which is the whole

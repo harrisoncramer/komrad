@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/errui"
 	"komrad/internal/glyph"
+	"komrad/internal/ui/column"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/zone"
@@ -173,7 +174,7 @@ func (m *model) joinedFormView() string {
 
 	width, height := m.formBox()
 
-	return joinLeading(append(leading, view), m.form.trailing(max(width-lipgloss.Width(view)-dividerCols, 1), height))
+	return joinLeading(append(leading, view), m.form.trailing(max(width-lipgloss.Width(view)-column.DividerCols, 1), height))
 }
 
 // joinLeading renders blocks side by side ahead of the form, a divider between each.

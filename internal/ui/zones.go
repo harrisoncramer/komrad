@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"komrad/internal/panes"
+	"komrad/internal/ui/column"
 	"komrad/internal/ui/zone"
 	"komrad/internal/view"
 
@@ -65,9 +66,9 @@ func (m *model) findSidebarBlocks() []sidebarBlock {
 		Width:  m.term.width,
 		Height: height,
 	}
-	column, hasColumn := zones[zoneColumn]
+	beside, hasColumn := zones[zoneColumn]
 	if hasColumn {
-		list.Width = column.Left - dividerCols
+		list.Width = beside.Left - column.DividerCols
 	}
 
 	if marked, ok := zones[zone.List]; ok {
@@ -76,7 +77,7 @@ func (m *model) findSidebarBlocks() []sidebarBlock {
 
 	block, hasBlock := zones[zone.Block]
 	if !hasBlock {
-		block, hasBlock = column, hasColumn
+		block, hasBlock = beside, hasColumn
 	}
 
 	if hasBlock && slices.Contains(stops, stopBlock) {

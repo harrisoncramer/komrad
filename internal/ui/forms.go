@@ -195,7 +195,7 @@ func (m *model) formLeading() ([]string, int) {
 
 	used := 0
 	for _, view := range views {
-		used += lipgloss.Width(view) + dividerCols
+		used += lipgloss.Width(view) + column.DividerCols
 	}
 
 	return views, used
