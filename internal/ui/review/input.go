@@ -69,23 +69,24 @@ func newInputField(params newInputFieldParams) (inputField, tea.Cmd) {
 		vim:         field.NewVim(params.Register),
 	}
 
-	return input, tea.Batch(form.Init(), input.resize(params.Width))
+	cmd := form.Init()
+	input.resize(params.Width)
+
+	return input, cmd
 }
 
 // resize tells the field how much of the sidebar it has.
-func (i inputField) resize(width int) tea.Cmd {
+func (i inputField) resize(width int) {
 	if i.form == nil {
-		return nil
+		return
 	}
 
 	width = max(width, 1)
 
-	_, cmd := i.form.Update(tea.WindowSizeMsg{
+	i.form.Update(tea.WindowSizeMsg{
 		Width:  width,
 		Height: editorHeight + i.chromeRows(width),
 	})
-
-	return cmd
 }
 
 // chromeRows is how many rows the title and the hint under it take at one width.
