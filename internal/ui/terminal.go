@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"komrad/internal/ui/layout"
+	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
@@ -14,7 +15,6 @@ import (
 const fallbackShell = "sh"
 
 var (
-	errNoAgentDir    = errors.New("the agent has no directory")
 	errNoTaskDir     = errors.New("the task has no checkout, and its workflow has no directory")
 	errNoEngineShell = errors.New("the engine is not reachable")
 )
@@ -80,7 +80,7 @@ func (m *model) openTerminal(dir string) tea.Cmd {
 
 func (m *model) checkTerminalDir(dir string) error {
 	if dir == "" {
-		return errNoAgentDir
+		return panel.ErrNoAgentDir
 	}
 
 	if m.frame.IsRemote() {
