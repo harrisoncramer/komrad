@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/store"
 	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -65,7 +66,7 @@ func TestIdempotencyKeyIsUnique(t *testing.T) {
 
 			ids := map[string]*uuid.UUID{"": nil}
 			for _, name := range []string{"requester", "other requester"} {
-				require.NoError(t, st.Create(ctx, Agent{Name: name, State: StateIdle}))
+				require.NoError(t, st.Create(ctx, Agent{Name: name, State: agentv1.AgentState_AGENT_STATE_IDLE}))
 				created, err := st.Get(ctx, name)
 				require.NoError(t, err)
 				require.NotNil(t, created)
@@ -74,14 +75,14 @@ func TestIdempotencyKeyIsUnique(t *testing.T) {
 
 			require.NoError(t, st.Create(ctx, Agent{
 				Name:               "first",
-				State:              StateIdle,
+				State:              agentv1.AgentState_AGENT_STATE_IDLE,
 				IdempotencyKey:     tt.first,
 				RequestedByAgentID: ids[tt.firstRequester],
 			}))
 
 			err := st.Create(ctx, Agent{
 				Name:               "second",
-				State:              StateIdle,
+				State:              agentv1.AgentState_AGENT_STATE_IDLE,
 				IdempotencyKey:     tt.second,
 				RequestedByAgentID: ids[tt.secondRequester],
 			})

@@ -10,6 +10,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tmuxtest"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
@@ -43,7 +44,7 @@ func TestStartOrchestratorLaunchesOne(t *testing.T) {
 	started, err := manager.orchestrator.Start(t.Context(), workflow.ID, "")
 	require.NoError(t, err)
 
-	assert.Equal(t, agentstore.RoleOrchestrator, started.Role)
+	assert.Equal(t, agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR, started.Role)
 	assert.Equal(t, workflow.ID, started.WorkflowID)
 	assert.Nil(t, started.TaskID, "it stands outside every task")
 	require.NotNil(t, started.ProvisionEnabled)
@@ -248,7 +249,7 @@ func TestStartOrchestratorReplacesOneThatNeverRan(t *testing.T) {
 
 	assert.NotEqual(t, first.ID, again.ID, "the row that never spoke is replaced rather than resumed")
 	assert.Equal(t, workflow, again.WorkflowID)
-	assert.Equal(t, agentstore.RoleOrchestrator, again.Role)
+	assert.Equal(t, agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR, again.Role)
 }
 
 // TestStartOrchestratorKeepsOneStillRunning pins that pressing the key twice does not replace

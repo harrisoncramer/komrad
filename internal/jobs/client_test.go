@@ -18,6 +18,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -176,14 +177,14 @@ func TestWorktreeDeleteClaimsWhatItQueues(t *testing.T) {
 		Name:       "live",
 		TaskID:     liveTask,
 		WorkflowID: workflow.ID,
-		State:      agentstore.StateIdle,
+		State:      agentv1.AgentState_AGENT_STATE_IDLE,
 	}
 	archived := agentstore.Agent{
 		ID:         newID(t),
 		Name:       "archived",
 		TaskID:     archivedTask,
 		WorkflowID: workflow.ID,
-		State:      agentstore.StateIdle,
+		State:      agentv1.AgentState_AGENT_STATE_IDLE,
 	}
 	require.NoError(t, stores.Agents.Create(ctx, live))
 	require.NoError(t, stores.Agents.Create(ctx, archived))
@@ -231,7 +232,7 @@ func TestAgentDeleteQueuesWhatItClaims(t *testing.T) {
 	writer := stores.SeedAgent(t, agentstore.Agent{Name: "author"})
 	stores.SeedAgent(t, agentstore.Agent{
 		Name:   "reviewer",
-		Role:   agentstore.RoleReviewer,
+		Role:   agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 		TaskID: writer.TaskID,
 	})
 	other := stores.SeedAgent(t, agentstore.Agent{Name: "other"})

@@ -6,64 +6,51 @@ import (
 
 	"komrad/internal/view"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 )
 
-// State is what an agent is doing.
-type State string
-
-const (
-	StateThinking        State = "thinking"
-	StateWaiting         State = "waiting"
-	StateIdle            State = "idle"
-	StateSettingUp       State = "setting_up"
-	StateFailedToCreate  State = "failed_to_create"
-	StateFailedToCleanup State = "failed_to_cleanup"
-	StateUncertain       State = "uncertain"
-	StateErrored         State = "errored"
-)
-
-// DoesPaneDecide reports whether reading the agent's terminal is what decides this state.
-func (s State) DoesPaneDecide() bool {
-	switch s {
-	case StateIdle, StateThinking, StateWaiting, StateUncertain, StateErrored:
+// DoesPaneDecide reports whether reading the agent's terminal is what decides the state.
+func DoesPaneDecide(state agentv1.AgentState) bool {
+	switch state {
+	case agentv1.AgentState_AGENT_STATE_IDLE, agentv1.AgentState_AGENT_STATE_THINKING, agentv1.AgentState_AGENT_STATE_WAITING, agentv1.AgentState_AGENT_STATE_UNCERTAIN, agentv1.AgentState_AGENT_STATE_ERRORED:
 		return true
-	case StateSettingUp, StateFailedToCreate, StateFailedToCleanup:
+	case agentv1.AgentState_AGENT_STATE_SETTING_UP, agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE, agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP:
 		return false
+	case agentv1.AgentState_AGENT_STATE_UNSPECIFIED:
 	}
 
 	return false
 }
 
 // IsFailed reports whether a state is one of the two an agent reaches by failing.
-func (s State) IsFailed() bool {
-	return s == StateFailedToCreate || s == StateFailedToCleanup
+func IsFailed(state agentv1.AgentState) bool {
+	return state == agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE || state == agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP
 }
 
-// role is what komrad launched an agent to do.
-type role string
-
-const (
-	RoleWriter       role = "writer"
-	RoleReviewer     role = "reviewer"
-	RoleOrchestrator role = "orchestrator"
-)
-
-// Sequence is what git has part-way through an agent's checkout, named as git's own command is.
-type Sequence string
-
-const (
-	sequenceNone       Sequence = ""
-	SequenceRebase     Sequence = "rebase"
-	sequenceApply      Sequence = "am"
-	sequenceMerge      Sequence = "merge"
-	sequenceCherryPick Sequence = "cherry-pick"
-	sequenceRevert     Sequence = "revert"
-	sequenceUnknown    Sequence = "git operation"
-)
-
 // IsInProgress reports whether anything is part-way through.
-func (s Sequence) IsInProgress() bool {
-	return s != sequenceNone
+func IsInProgress(sequence taskv1.Sequence) bool {
+	return sequence != taskv1.Sequence_SEQUENCE_NONE && sequence != taskv1.Sequence_SEQUENCE_UNSPECIFIED
+}
+
+// DescribeSequence names a sequence as git's own command is, empty when nothing is part-way through.
+func DescribeSequence(sequence taskv1.Sequence) string {
+	switch sequence {
+	case taskv1.Sequence_SEQUENCE_REBASE:
+		return "rebase"
+	case taskv1.Sequence_SEQUENCE_AM:
+		return "am"
+	case taskv1.Sequence_SEQUENCE_MERGE:
+		return "merge"
+	case taskv1.Sequence_SEQUENCE_CHERRY_PICK:
+		return "cherry-pick"
+	case taskv1.Sequence_SEQUENCE_REVERT:
+		return "revert"
+	case taskv1.Sequence_SEQUENCE_UNSPECIFIED, taskv1.Sequence_SEQUENCE_NONE:
+		return ""
+	}
+
+	return "git operation"
 }
 
 // Agent is one agent as the server listed it.
@@ -74,8 +61,8 @@ type Agent struct {
 	Cwd            string
 	Flags          string
 	Prompt         string
-	Role           role
-	State          State
+	Role           agentv1.AgentRole
+	State          agentv1.AgentState
 	StateChangedAt time.Time
 	FailureReason  string
 	TurnError      string
@@ -97,7 +84,7 @@ type Agent struct {
 
 // isCheckoutOwner reports whether the agent is the one its task's checkout was provisioned for.
 func (a Agent) isCheckoutOwner() bool {
-	return a.Role == RoleWriter && !a.ProvisionDisabled
+	return a.Role == agentv1.AgentRole_AGENT_ROLE_WRITER && !a.ProvisionDisabled
 }
 
 // AgentRow is an agent as the listing renders it: the agent, whether its pane is alive, the mail
@@ -117,10 +104,10 @@ type AgentRow struct {
 
 // DisplayState is the state a row wears, idle once the pane has gone even though the store
 // still holds whatever the agent stopped in.
-func (r AgentRow) DisplayState() State {
+func (r AgentRow) DisplayState() agentv1.AgentState {
 	state := r.Agent.State
-	if !r.Alive && state.DoesPaneDecide() && state != StateErrored {
-		return StateIdle
+	if !r.Alive && DoesPaneDecide(state) && state != agentv1.AgentState_AGENT_STATE_ERRORED {
+		return agentv1.AgentState_AGENT_STATE_IDLE
 	}
 
 	return state
@@ -130,13 +117,13 @@ func (r AgentRow) DisplayState() State {
 // the one the store holds, so an agent whose pane has gone reads as idle.
 func (r AgentRow) Status() view.Status {
 	switch r.DisplayState() {
-	case StateThinking, StateSettingUp:
+	case agentv1.AgentState_AGENT_STATE_THINKING, agentv1.AgentState_AGENT_STATE_SETTING_UP:
 		return view.StatusThinking
-	case StateWaiting, StateUncertain:
+	case agentv1.AgentState_AGENT_STATE_WAITING, agentv1.AgentState_AGENT_STATE_UNCERTAIN:
 		return view.StatusWaiting
-	case StateFailedToCreate, StateFailedToCleanup, StateErrored:
+	case agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE, agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP, agentv1.AgentState_AGENT_STATE_ERRORED:
 		return view.StatusBroken
-	case StateIdle:
+	case agentv1.AgentState_AGENT_STATE_IDLE, agentv1.AgentState_AGENT_STATE_UNSPECIFIED:
 		return view.StatusIdle
 	}
 
@@ -146,7 +133,7 @@ func (r AgentRow) Status() view.Status {
 // Process reports whether anything is running behind a row, which the state it wears cannot
 // say since an agent whose pane has gone wears the same idle as one sitting quiet.
 func (r AgentRow) Process() view.Process {
-	if !r.Alive && r.Agent.State.DoesPaneDecide() {
+	if !r.Alive && DoesPaneDecide(r.Agent.State) {
 		return view.ProcessStopped
 	}
 

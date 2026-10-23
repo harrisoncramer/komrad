@@ -40,12 +40,15 @@ func (s *TaskStore) ListWatched(ctx context.Context, keys []uuid.UUID) ([]Task, 
 		return nil, fmt.Errorf("failed to list the watched tasks: %w", err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListWatchedTasksRow) Task {
-		task := fromCountedRow(&row.Task, row.Snapshots)
+	return xslice.TryMap(rows, func(row *models.ListWatchedTasksRow) (Task, error) {
+		task, err := fromCountedRow(&row.Task, row.Snapshots)
+		if err != nil {
+			return Task{}, err
+		}
 		task.FailedRun = row.FailedRun
 		task.Documents = row.Documents
 		task.DocumentsUpdatedAt = row.DocumentsUpdatedAt
 
-		return task
-	}), nil
+		return *task, nil
+	})
 }

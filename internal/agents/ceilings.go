@@ -7,6 +7,7 @@ import (
 	"komrad/internal/agenterr"
 	agentstore "komrad/internal/store/agent"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 )
@@ -55,7 +56,7 @@ func claimRoomForRestoredReviewers(ctx context.Context, agents *agentstore.Agent
 	// The whole batch is counted against each task at once, which reviewers checked one at a time
 	// would walk past together.
 	taskIDs, want := countWantedUnder(restoring, func(agent agentstore.Agent) *uuid.UUID {
-		if agent.Role != agentstore.RoleReviewer {
+		if agent.Role != agentv1.AgentRole_AGENT_ROLE_REVIEWER {
 			return nil
 		}
 
@@ -78,7 +79,7 @@ func claimRoomForRestoredReviewers(ctx context.Context, agents *agentstore.Agent
 }
 
 func claimRoomForTask(ctx context.Context, agents *agentstore.AgentStore, maxTasks int, spawner *agentstore.Agent) error {
-	if spawner == nil || spawner.Role != agentstore.RoleOrchestrator || maxTasks <= 0 {
+	if spawner == nil || spawner.Role != agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR || maxTasks <= 0 {
 		return nil
 	}
 	if err := agents.LockSlots(ctx); err != nil {
@@ -98,7 +99,7 @@ func claimRoomForRestoredTasks(ctx context.Context, agents *agentstore.AgentStor
 	}
 
 	spawnerIDs, want := countWantedUnder(restoring, func(agent agentstore.Agent) *uuid.UUID {
-		if agent.Role != agentstore.RoleWriter {
+		if agent.Role != agentv1.AgentRole_AGENT_ROLE_WRITER {
 			return nil
 		}
 
@@ -118,7 +119,7 @@ func claimRoomForRestoredTasks(ctx context.Context, agents *agentstore.AgentStor
 	}
 
 	orchestrators := xslice.Filter(spawners, func(spawner agentstore.Agent) bool {
-		return spawner.Role == agentstore.RoleOrchestrator
+		return spawner.Role == agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR
 	})
 
 	return requireRoomForTasks(ctx, agents, maxTasks, xslice.Map(orchestrators, func(orchestrator agentstore.Agent) room {

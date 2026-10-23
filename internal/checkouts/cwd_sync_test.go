@@ -21,7 +21,9 @@ import (
 	"komrad/internal/worktrees"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	forgev1 "komrad/proto/gen/forge/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -206,15 +208,15 @@ func TestCwdSyncerSyncRecordsAStoppedSequence(t *testing.T) {
 	repo := makeCheckout(t)
 	agent := fixture.seed(t, "a", repo)
 
-	require.NoError(t, fixture.newSyncer(newSyncerParams{Heads: buildHeads(repo, git.HeadState{Branch: "topic", Sequence: git.SequenceMerge})}).Sync(t.Context()))
+	require.NoError(t, fixture.newSyncer(newSyncerParams{Heads: buildHeads(repo, git.HeadState{Branch: "topic", Sequence: taskv1.Sequence_SEQUENCE_MERGE})}).Sync(t.Context()))
 
 	got := fixture.read(t, agent.ID)
-	assert.Equal(t, taskstore.SequenceMerge, got.Sequence)
+	assert.Equal(t, taskv1.Sequence_SEQUENCE_MERGE, got.Sequence)
 	assert.Equal(t, xptr.Ptr("topic"), got.Branch)
 
 	require.NoError(t, fixture.newSyncer(newSyncerParams{Heads: buildHeads(repo, git.HeadState{Branch: "topic"})}).Sync(t.Context()))
 
-	assert.Equal(t, taskstore.SequenceNone, fixture.read(t, agent.ID).Sequence)
+	assert.Equal(t, taskv1.Sequence_SEQUENCE_NONE, fixture.read(t, agent.ID).Sequence)
 }
 
 // TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd covers komrad never asking a gone cwd for its branch.
@@ -945,13 +947,13 @@ func (f *syncFixture) release(t *testing.T, agentID uuid.UUID, sha string) {
 	review, err := f.reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
 		TaskID:     snapshot.TaskID,
 		SnapshotID: snapshot.ID,
-		AuthorKind: reviewstore.AuthorHuman,
+		AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
 	})
 	require.NoError(t, err)
 
 	_, err = f.reviews.ReleaseReview(t.Context(), reviewstore.ReleaseReviewParams{
 		ID:      review.ID,
-		Verdict: reviewstore.VerdictCommented,
+		Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED,
 	})
 	require.NoError(t, err)
 }

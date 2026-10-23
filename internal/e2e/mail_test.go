@@ -10,7 +10,6 @@ import (
 	"komrad/internal/harness"
 	"komrad/internal/komradtest"
 	"komrad/internal/mail"
-	agentstore "komrad/internal/store/agent"
 	agentv1 "komrad/proto/gen/agent/v1"
 	taskv1 "komrad/proto/gen/task/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
@@ -30,7 +29,7 @@ func TestIntegrationAgentsMailEachOther(t *testing.T) {
 	api := createAgent(t, instance, workflowID, "api")
 	migrations := createAgent(t, instance, workflowID, "migrations")
 
-	instance.Settle(migrations.GetId(), harness.ActivityIdle, agentstore.StateIdle)
+	instance.Settle(migrations.GetId(), harness.ActivityIdle, agentv1.AgentState_AGENT_STATE_IDLE)
 
 	var sentID string
 
@@ -142,14 +141,14 @@ func TestIntegrationDeliveryWaitsOutAPermissionPrompt(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("an agent on a permission prompt is never told, since the line would answer it", func(t *testing.T) {
-		instance.Settle(migrations.GetId(), harness.ActivityWaiting, agentstore.StateWaiting)
+		instance.Settle(migrations.GetId(), harness.ActivityWaiting, agentv1.AgentState_AGENT_STATE_WAITING)
 
 		assert.Equal(t, mail.DeliveryLater, instance.Deliver(migrations.GetId()))
 		assert.Empty(t, instance.Received(migrations.GetId()))
 	})
 
 	t.Run("an agent mid-turn is told at once", func(t *testing.T) {
-		instance.Settle(migrations.GetId(), harness.ActivityWorking, agentstore.StateThinking)
+		instance.Settle(migrations.GetId(), harness.ActivityWorking, agentv1.AgentState_AGENT_STATE_THINKING)
 
 		assert.Equal(t, mail.DeliverySoon, instance.Deliver(migrations.GetId()))
 
@@ -168,7 +167,7 @@ func TestIntegrationExpiredMailIsGivenUpOn(t *testing.T) {
 	api := createAgent(t, instance, workflowID, "api")
 	migrations := createAgent(t, instance, workflowID, "migrations")
 
-	instance.Settle(migrations.GetId(), harness.ActivityIdle, agentstore.StateIdle)
+	instance.Settle(migrations.GetId(), harness.ActivityIdle, agentv1.AgentState_AGENT_STATE_IDLE)
 
 	req := connect.NewRequest(&agentv1.SendMailRequest{
 		To:   &agentv1.SendMailRequest_ToAgentId{ToAgentId: migrations.GetId()},

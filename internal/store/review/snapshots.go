@@ -9,20 +9,9 @@ import (
 	"komrad/db/models"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
-)
-
-// Verdict is what a reviewer concluded about a snapshot.
-type Verdict string
-
-const (
-	// VerdictApproved is the reviewer saying this snapshot is good as it stands.
-	VerdictApproved Verdict = Verdict(models.ReviewVerdictApproved)
-	// VerdictChangesRequested is the reviewer saying the agent should keep working.
-	VerdictChangesRequested Verdict = Verdict(models.ReviewVerdictChangesRequested)
-	// VerdictCommented is notes without a conclusion either way.
-	VerdictCommented Verdict = Verdict(models.ReviewVerdictCommented)
 )
 
 // SnapshotRef is the ref a snapshot's commit is held by.
@@ -50,7 +39,7 @@ type Review struct {
 	TaskID          uuid.UUID
 	SnapshotID      uuid.UUID
 	SnapshotOrdinal int32
-	AuthorKind      AuthorKind
+	AuthorKind      agentv1.ReviewAuthorKind
 	AuthorAgentID   *uuid.UUID
 	// ExternalLogin is the forge login of whoever wrote a review on the forge, nil for one written in komrad.
 	ExternalLogin *string
@@ -59,8 +48,8 @@ type Review struct {
 	SnapshotSHA string
 	// SnapshotLandedAt is when the base branch was first seen holding the snapshot whole, nil until then.
 	SnapshotLandedAt *time.Time
-	// Verdict is what the reviewer concluded, nil while the review is still open.
-	Verdict *Verdict
+	// Verdict is what the reviewer concluded, unspecified while the review is still open.
+	Verdict agentv1.ReviewVerdict
 	// ReleasedAt is when the review was released, nil while nothing in it has reached the agent.
 	ReleasedAt *time.Time
 	// Body is what the reviewer said about the change as a whole rather than about any one line,
@@ -177,26 +166,29 @@ func (s *ReviewStore) ListSnapshots(ctx context.Context, taskID uuid.UUID) ([]Sn
 type OpenReviewParams struct {
 	TaskID        uuid.UUID
 	SnapshotID    uuid.UUID
-	AuthorKind    AuthorKind
+	AuthorKind    agentv1.ReviewAuthorKind
 	AuthorAgentID *uuid.UUID
 }
 
 // OpenReview starts a reviewer's batch against a snapshot, which a unique index allows only one
 // of at a time.
 func (s *ReviewStore) OpenReview(ctx context.Context, params OpenReviewParams) (*Review, error) {
+	authorKind, err := fromServiceToDBReviewAuthorKind(params.AuthorKind)
+	if err != nil {
+		return nil, err
+	}
+
 	row, err := s.queries.InsertReview(ctx, models.InsertReviewParams{
 		TaskID:        params.TaskID,
 		SnapshotID:    params.SnapshotID,
-		AuthorKind:    models.ReviewAuthorKind(params.AuthorKind),
+		AuthorKind:    authorKind,
 		AuthorAgentID: params.AuthorAgentID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open a review on task %q: %w", params.TaskID, err)
 	}
 
-	review := reviewFromRow(*row)
-
-	return &review, nil
+	return reviewFromRow(*row)
 }
 
 // GetReview is one review, ErrNotFound for an id that names nothing.
@@ -209,23 +201,26 @@ func (s *ReviewStore) GetReview(ctx context.Context, id uuid.UUID) (*Review, err
 		return nil, fmt.Errorf("failed to read the review %q: %w", id, err)
 	}
 
-	review := reviewFromRow(*row)
-
-	return &review, nil
+	return reviewFromRow(*row)
 }
 
 type OpenReviewOfParams struct {
 	TaskID        uuid.UUID
-	AuthorKind    AuthorKind
+	AuthorKind    agentv1.ReviewAuthorKind
 	AuthorAgentID *uuid.UUID
 }
 
 // OpenReviewOf is the review a reviewer is still writing against a task, ErrNotFound when
 // they have none open.
 func (s *ReviewStore) OpenReviewOf(ctx context.Context, params OpenReviewOfParams) (*Review, error) {
+	authorKind, err := fromServiceToDBReviewAuthorKind(params.AuthorKind)
+	if err != nil {
+		return nil, err
+	}
+
 	row, err := s.queries.GetOpenReview(ctx, models.GetOpenReviewParams{
 		TaskID:        params.TaskID,
-		AuthorKind:    models.ReviewAuthorKind(params.AuthorKind),
+		AuthorKind:    authorKind,
 		AuthorAgentID: params.AuthorAgentID,
 	})
 	if db.IsNoRows(err) {
@@ -235,9 +230,7 @@ func (s *ReviewStore) OpenReviewOf(ctx context.Context, params OpenReviewOfParam
 		return nil, fmt.Errorf("failed to read the open review on task %q: %w", params.TaskID, err)
 	}
 
-	review := reviewFromRow(*row)
-
-	return &review, nil
+	return reviewFromRow(*row)
 }
 
 // ListReviews is every review of a task, in the order their snapshots were taken.
@@ -249,11 +242,14 @@ func (s *ReviewStore) ListReviews(ctx context.Context, taskID uuid.UUID) ([]Revi
 
 	reviews := make([]Review, 0, len(rows))
 	for _, row := range rows {
-		review := reviewFromRow(row.Review)
+		review, err := reviewFromRow(row.Review)
+		if err != nil {
+			return nil, err
+		}
 		review.SnapshotOrdinal = row.SnapshotOrdinal
 		review.OpenThreads = row.OpenThreads
 
-		reviews = append(reviews, review)
+		reviews = append(reviews, *review)
 	}
 
 	return reviews, nil
@@ -271,7 +267,7 @@ func (s *ReviewStore) CountOpenComments(ctx context.Context, reviewID uuid.UUID)
 
 type ReleaseReviewParams struct {
 	ID      uuid.UUID
-	Verdict Verdict
+	Verdict agentv1.ReviewVerdict
 	// Body is what the reviewer said about the change as a whole, empty when they said nothing.
 	Body string
 	Path string
@@ -279,10 +275,15 @@ type ReleaseReviewParams struct {
 
 // ReleaseReview releases a review, stamping its verdict and the file it was written to.
 func (s *ReviewStore) ReleaseReview(ctx context.Context, params ReleaseReviewParams) (*Review, error) {
+	verdict, err := fromServiceToDBNullReviewVerdict(params.Verdict)
+	if err != nil {
+		return nil, err
+	}
+
 	row, err := s.queries.ReleaseReview(ctx, models.ReleaseReviewParams{
 		ID:      params.ID,
 		Body:    params.Body,
-		Verdict: models.NullReviewVerdict{ReviewVerdict: models.ReviewVerdict(params.Verdict), Valid: params.Verdict != ""},
+		Verdict: verdict,
 		Path:    params.Path,
 	})
 	if db.IsNoRows(err) {
@@ -292,9 +293,7 @@ func (s *ReviewStore) ReleaseReview(ctx context.Context, params ReleaseReviewPar
 		return nil, fmt.Errorf("failed to release the review %q: %w", params.ID, err)
 	}
 
-	review := reviewFromRow(*row)
-
-	return &review, nil
+	return reviewFromRow(*row)
 }
 
 // DeleteOpenReviewsBy removes the unreleased reviews these reviewers were still writing.
@@ -331,12 +330,21 @@ func snapshotFromRow(row models.ReviewSnapshot) Snapshot {
 	}
 }
 
-func reviewFromRow(row models.Review) Review {
-	review := Review{
+func reviewFromRow(row models.Review) (*Review, error) {
+	authorKind, err := fromDBToServiceReviewAuthorKind(row.AuthorKind)
+	if err != nil {
+		return nil, err
+	}
+	verdict, err := fromDBToServiceNullReviewVerdict(row.Verdict)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Review{
 		ID:            row.ID,
 		TaskID:        row.TaskID,
 		SnapshotID:    row.SnapshotID,
-		AuthorKind:    AuthorKind(row.AuthorKind),
+		AuthorKind:    authorKind,
 		AuthorAgentID: row.AuthorAgentID,
 		ExternalLogin: row.ExternalLogin,
 		ReleasedAt:    row.ReleasedAt,
@@ -344,14 +352,8 @@ func reviewFromRow(row models.Review) Review {
 		Path:          row.Path,
 		CreatedAt:     row.CreatedAt,
 		UpdatedAt:     row.UpdatedAt,
-	}
-
-	if row.Verdict.Valid {
-		verdict := Verdict(row.Verdict.ReviewVerdict)
-		review.Verdict = &verdict
-	}
-
-	return review
+		Verdict:       verdict,
+	}, nil
 }
 
 func snapshotNotFound(id uuid.UUID) error {
@@ -366,9 +368,9 @@ func reviewNotFound(id uuid.UUID) error {
 type tally struct {
 	TaskID    uuid.UUID
 	Snapshots int32
-	// Verdict is the last conclusion released about the task's work, nil when every released
-	// review only commented.
-	Verdict *Verdict
+	// Verdict is the last conclusion released about the task's work, unspecified when every
+	// released review only commented.
+	Verdict agentv1.ReviewVerdict
 	// SnapshotSHA is the snapshot that conclusion was given on, empty when there is none.
 	SnapshotSHA string
 }
@@ -380,18 +382,18 @@ func (s *ReviewStore) listTallies(ctx context.Context) ([]tally, error) {
 		return nil, fmt.Errorf("failed to count the reviewed snapshots: %w", err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListReviewTalliesRow) tally {
-		tally := tally{TaskID: row.TaskID, Snapshots: row.Snapshots}
-		if row.Verdict.Valid {
-			verdict := Verdict(row.Verdict.ReviewVerdict)
-			tally.Verdict = &verdict
+	return xslice.TryMap(rows, func(row *models.ListReviewTalliesRow) (tally, error) {
+		verdict, err := fromDBToServiceNullReviewVerdict(row.Verdict)
+		if err != nil {
+			return tally{}, err
 		}
+		tally := tally{TaskID: row.TaskID, Snapshots: row.Snapshots, Verdict: verdict}
 		if row.SnapshotSha != nil {
 			tally.SnapshotSHA = *row.SnapshotSha
 		}
 
-		return tally
-	}), nil
+		return tally, nil
+	})
 }
 
 // newestSnapshot is the commit of the newest review snapshot of a task's agents.

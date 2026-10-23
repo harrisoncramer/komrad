@@ -11,6 +11,7 @@ import "google/protobuf/empty.proto";
 import "pullrequest/v1/pullrequest.proto";
 import "schedule/v1/schedule.proto";
 import "task/v1/task.proto";
+import "watch/v1/enums.proto";
 import "workflow/v1/workflow.proto";
 import "worktree/v1/worktree.proto";
 
@@ -70,34 +71,6 @@ message Row {
     // A task, as `list_tasks` returns it.
     task.v1.Task task = 11;
   }
-}
-
-// Resource is the kind of a watched record, one value per member of `Row`.
-enum Resource {
-  // No kind was set. Komrad never sends this value.
-  RESOURCE_UNSPECIFIED = 0;
-  // An agent.
-  RESOURCE_AGENT = 1;
-  // A workflow.
-  RESOURCE_WORKFLOW = 2;
-  // A schedule.
-  RESOURCE_SCHEDULE = 3;
-  // A piece of mail.
-  RESOURCE_MAIL = 4;
-  // A pull request.
-  RESOURCE_PULL_REQUEST = 5;
-  // A repository and whether its pull requests have been read.
-  RESOURCE_REPOSITORY = 6;
-  // A review.
-  RESOURCE_REVIEW = 7;
-  // A thread.
-  RESOURCE_REVIEW_THREAD = 8;
-  // A worktree.
-  RESOURCE_WORKTREE = 9;
-  // A document type.
-  RESOURCE_DOCUMENT_TYPE = 10;
-  // A task.
-  RESOURCE_TASK = 11;
 }
 
 // Deleted names a record that is no longer watched, because it was deleted or is being deleted.

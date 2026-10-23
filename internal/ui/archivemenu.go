@@ -43,7 +43,7 @@ func (t archived) opensAgent(l panel.Listing) (*panel.Agent, error) {
 		return nil, errOpensOneAgent
 	}
 
-	if !t.resumed.State.DoesPaneDecide() {
+	if !panel.DoesPaneDecide(t.resumed.State) {
 		return nil, errNeverStarted
 	}
 

@@ -7,14 +7,20 @@ import (
 
 	"komrad/db/models"
 	"komrad/internal/store"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 )
 
 // SetStateByID records the state a reconcile pass observed, stamping when it was seen whether
 // or not the value moved, and clearing the reported reason when it did.
-func (s *AgentStore) SetStateByID(ctx context.Context, id uuid.UUID, state State) error {
-	params := models.SetAgentStateByIDParams{ID: id, State: models.AgentState(state)}
+func (s *AgentStore) SetStateByID(ctx context.Context, id uuid.UUID, state agentv1.AgentState) error {
+	stored, err := fromServiceToDBAgentState(state)
+	if err != nil {
+		return err
+	}
+
+	params := models.SetAgentStateByIDParams{ID: id, State: stored}
 	if err := s.queries.SetAgentStateByID(ctx, params); err != nil {
 		return fmt.Errorf("failed to set state for id %q: %w", id, err)
 	}

@@ -12,6 +12,7 @@ import (
 
 	"komrad/internal/forge"
 	"komrad/lib/xhttp"
+	forgev1 "komrad/proto/gen/forge/v1"
 )
 
 //go:embed mergeplan.gql
@@ -55,7 +56,7 @@ func (f *Forge) PlanMerge(ctx context.Context, address string) (*forge.MergePlan
 		Method:  projectMethod,
 		Allowed: !target.SquashReadOnly || !target.SquashOnMerge,
 	}
-	if projectMethod == forge.MergeMethodMerge {
+	if projectMethod == forgev1.MergeMethod_MERGE_METHOD_MERGE {
 		projectOption.Message = splitMessage(target.DefaultMergeCommitMessage)
 	}
 
@@ -63,7 +64,7 @@ func (f *Forge) PlanMerge(ctx context.Context, address string) (*forge.MergePlan
 		Options: []forge.MergeOption{
 			projectOption,
 			{
-				Method:  forge.MergeMethodSquash,
+				Method:  forgev1.MergeMethod_MERGE_METHOD_SQUASH,
 				Allowed: !target.SquashReadOnly || target.SquashOnMerge,
 				Message: splitMessage(target.DefaultSquashCommitMessage),
 			},
@@ -72,7 +73,7 @@ func (f *Forge) PlanMerge(ctx context.Context, address string) (*forge.MergePlan
 		HeadSHA:       target.DiffHeadSha,
 	}
 	if target.SquashOnMerge {
-		plan.DefaultMethod = forge.MergeMethodSquash
+		plan.DefaultMethod = forgev1.MergeMethod_MERGE_METHOD_SQUASH
 	}
 
 	return plan, nil
@@ -101,7 +102,7 @@ func (f *Forge) readPlanTarget(ctx context.Context, path string, number int) (*p
 
 // projectMergeMethod is how the project merges when it does not squash, read over REST since
 // GitLab's GraphQL does not say.
-func (f *Forge) projectMergeMethod(ctx context.Context, path string) (forge.MergeMethod, error) {
+func (f *Forge) projectMergeMethod(ctx context.Context, path string) (forgev1.MergeMethod, error) {
 	var project struct {
 		MergeMethod string `json:"merge_method"`
 	}
@@ -110,23 +111,23 @@ func (f *Forge) projectMergeMethod(ctx context.Context, path string) (forge.Merg
 		URL:    fmt.Sprintf("%s/projects/%s", f.client.API(), url.PathEscape(path)),
 	}, &project)
 	if errors.Is(err, forge.ErrThrottled) {
-		return "", err
+		return forgev1.MergeMethod_MERGE_METHOD_UNSPECIFIED, err
 	}
 
 	switch answer.Status {
 	case http.StatusNotFound:
-		return "", fmt.Errorf("%w: gitlab has no project %s, which is also its answer for one the credential cannot see", forge.ErrNotFound, path)
+		return forgev1.MergeMethod_MERGE_METHOD_UNSPECIFIED, fmt.Errorf("%w: gitlab has no project %s, which is also its answer for one the credential cannot see", forge.ErrNotFound, path)
 	case http.StatusForbidden:
-		return "", forge.ErrUnauthorized.Saying("gitlab will not let the credential read %s: %v", path, err)
+		return forgev1.MergeMethod_MERGE_METHOD_UNSPECIFIED, forge.ErrUnauthorized.Saying("gitlab will not let the credential read %s: %v", path, err)
 	}
 	if err != nil {
-		return "", err
+		return forgev1.MergeMethod_MERGE_METHOD_UNSPECIFIED, err
 	}
 	if project.MergeMethod == "ff" {
-		return forge.MergeMethodFastForward, nil
+		return forgev1.MergeMethod_MERGE_METHOD_FAST_FORWARD, nil
 	}
 
-	return forge.MergeMethodMerge, nil
+	return forgev1.MergeMethod_MERGE_METHOD_MERGE, nil
 }
 
 // splitMessage is a commit message split at its first line, nil for none.

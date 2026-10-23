@@ -17,7 +17,9 @@ import (
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/record"
 	"komrad/internal/ui/screen"
+	"komrad/lib/protoenum"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"charm.land/huh/v2"
 )
@@ -28,7 +30,7 @@ func taskFields(params checkoutFieldsParams, writer []record.Field) []record.Fie
 
 	directory := label.OrDash(task.Cwd)
 	if task.IsWorktreeRemoved() {
-		directory = "— (" + string(task.WorktreeRemovalReason) + ")"
+		directory = "— (" + protoenum.Name(task.WorktreeRemovalReason) + ")"
 	}
 	fields := []record.Field{{Label: "directory", Value: directory}}
 	fields = append(fields, checkoutFields(params)...)
@@ -96,8 +98,8 @@ func (a *agentsScreen) closeNotes() screen.Request {
 
 // isLiveWriter reports whether the agent is a writer still working on its task.
 func isLiveWriter(agent panel.Agent) bool {
-	return agent.ArchivedAt == nil && agent.Role == panel.RoleWriter &&
-		agent.State != panel.StateFailedToCreate
+	return agent.ArchivedAt == nil && agent.Role == agentv1.AgentRole_AGENT_ROLE_WRITER &&
+		agent.State != agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
 }
 
 // isEveryTaskHidden reports whether there are tasks and every one of them is hidden.
@@ -237,7 +239,9 @@ type chosenWork struct {
 
 // splitChosen sorts the chosen agents into the tasks whose writer is chosen and the agents left over.
 func splitChosen(l panel.Listing, chosen []panel.Agent) chosenWork {
-	writers := xslice.Filter(chosen, func(agent panel.Agent) bool { return agent.TaskID != "" && agent.Role == panel.RoleWriter })
+	writers := xslice.Filter(chosen, func(agent panel.Agent) bool {
+		return agent.TaskID != "" && agent.Role == agentv1.AgentRole_AGENT_ROLE_WRITER
+	})
 	wholeTasks := xslice.Map(xslice.UniqueBy(writers, func(agent panel.Agent) string { return agent.TaskID }), l.Tasks.FindForAgent)
 
 	whole := panel.TaskIDs(wholeTasks)

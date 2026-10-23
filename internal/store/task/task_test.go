@@ -5,10 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	documentstore "komrad/internal/store/document"
@@ -18,6 +14,12 @@ import (
 	"komrad/internal/storetest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
+	taskv1 "komrad/proto/gen/task/v1"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestCreate pins which new tasks are refused.
@@ -125,7 +127,7 @@ func TestGet(t *testing.T) {
 	orchestrator := stores.SeedAgent(t, agentstore.Agent{
 		Name:       "orchestrator",
 		WorkflowID: live.WorkflowID,
-		Role:       agentstore.RoleOrchestrator,
+		Role:       agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 	})
 
 	tests := []struct {
@@ -455,7 +457,7 @@ func TestListWatchedDocuments(t *testing.T) {
 	writer := stores.SeedAgent(t, agentstore.Agent{Name: "writer"})
 	reviewer := stores.SeedAgent(t, agentstore.Agent{
 		Name:   "reviewer",
-		Role:   agentstore.RoleReviewer,
+		Role:   agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 		TaskID: writer.TaskID,
 	})
 	elsewhere := stores.SeedAgent(t, agentstore.Agent{Name: "elsewhere"})
@@ -670,14 +672,14 @@ func TestParent(t *testing.T) {
 		{
 			name: "a block reads back",
 			write: func(t *testing.T, stores *storetest.Stores, task *taskstore.Task) {
-				require.NoError(t, stores.Tasks.SetCascadeBlocked(t.Context(), task.ID, taskstore.CascadeOrphaned))
+				require.NoError(t, stores.Tasks.SetCascadeBlocked(t.Context(), task.ID, taskv1.CascadeBlock_CASCADE_BLOCK_ORPHANED))
 			},
-			want: &taskstore.Parent{ForkPoint: "abc", Blocked: taskstore.CascadeOrphaned},
+			want: &taskstore.Parent{ForkPoint: "abc", Blocked: taskv1.CascadeBlock_CASCADE_BLOCK_ORPHANED},
 		},
 		{
 			name: "a new fork point clears what blocked the cascade",
 			write: func(t *testing.T, stores *storetest.Stores, task *taskstore.Task) {
-				require.NoError(t, stores.Tasks.SetCascadeBlocked(t.Context(), task.ID, taskstore.CascadeConflicted))
+				require.NoError(t, stores.Tasks.SetCascadeBlocked(t.Context(), task.ID, taskv1.CascadeBlock_CASCADE_BLOCK_CONFLICTED))
 				require.NoError(t, stores.Tasks.SetForkPoint(t.Context(), task.ID, "def"))
 			},
 			want: &taskstore.Parent{ForkPoint: "def"},
@@ -685,7 +687,7 @@ func TestParent(t *testing.T) {
 		{
 			name: "a new parent replaces the old one and clears its block",
 			write: func(t *testing.T, stores *storetest.Stores, task *taskstore.Task) {
-				require.NoError(t, stores.Tasks.SetCascadeBlocked(t.Context(), task.ID, taskstore.CascadeParentClosed))
+				require.NoError(t, stores.Tasks.SetCascadeBlocked(t.Context(), task.ID, taskv1.CascadeBlock_CASCADE_BLOCK_PARENT_CLOSED))
 				require.NoError(t, stores.Tasks.SetParent(t.Context(), task.ID, &taskstore.Parent{TaskID: task.Parent.TaskID, ForkPoint: "fed"}))
 			},
 			want: &taskstore.Parent{ForkPoint: "fed"},

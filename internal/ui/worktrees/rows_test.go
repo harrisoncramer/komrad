@@ -11,6 +11,7 @@ import (
 	"komrad/internal/ui/tabs"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -280,7 +281,7 @@ func TestWorktreesSnapshotReadsEveryRow(t *testing.T) {
 			Agent: panel.Agent{
 				ID:    "live",
 				Name:  "worktree-view",
-				State: panel.StateWaiting,
+				State: agentv1.AgentState_AGENT_STATE_WAITING,
 			},
 			Alive:      true,
 			UnreadMail: true,
@@ -323,49 +324,49 @@ func TestWorktreeAgentFactsOffTheWorktreeListing(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		state       panel.State
+		state       agentv1.AgentState
 		archivedAt  *time.Time
 		wantStatus  view.Status
 		wantProcess view.Process
 	}{
 		{
 			name:        "archived mid-turn",
-			state:       panel.StateThinking,
+			state:       agentv1.AgentState_AGENT_STATE_THINKING,
 			archivedAt:  &archived,
 			wantStatus:  view.StatusIdle,
 			wantProcess: view.ProcessStopped,
 		},
 		{
 			name:        "archived while waiting",
-			state:       panel.StateWaiting,
+			state:       agentv1.AgentState_AGENT_STATE_WAITING,
 			archivedAt:  &archived,
 			wantStatus:  view.StatusIdle,
 			wantProcess: view.ProcessStopped,
 		},
 		{
 			name:        "archived while unreadable",
-			state:       panel.StateUncertain,
+			state:       agentv1.AgentState_AGENT_STATE_UNCERTAIN,
 			archivedAt:  &archived,
 			wantStatus:  view.StatusIdle,
 			wantProcess: view.ProcessStopped,
 		},
 		{
 			name:        "archived idle",
-			state:       panel.StateIdle,
+			state:       agentv1.AgentState_AGENT_STATE_IDLE,
 			archivedAt:  &archived,
 			wantStatus:  view.StatusIdle,
 			wantProcess: view.ProcessStopped,
 		},
 		{
 			name:        "left behind by a failed cleanup",
-			state:       panel.StateFailedToCleanup,
+			state:       agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP,
 			archivedAt:  &archived,
 			wantStatus:  view.StatusBroken,
 			wantProcess: view.ProcessAlive,
 		},
 		{
 			name:        "not yet in the agents listing",
-			state:       panel.StateThinking,
+			state:       agentv1.AgentState_AGENT_STATE_THINKING,
 			wantStatus:  view.StatusIdle,
 			wantProcess: view.ProcessStopped,
 		},
@@ -436,12 +437,12 @@ func worktreeFixture() []panel.Worktree {
 				{
 					ID:    "live",
 					Name:  "worktree-view",
-					State: panel.StateThinking,
+					State: agentv1.AgentState_AGENT_STATE_THINKING,
 				},
 				{
 					ID:    "occ",
 					Name:  "review-607",
-					State: panel.StateIdle,
+					State: agentv1.AgentState_AGENT_STATE_IDLE,
 				},
 			},
 			Fate: panel.FateLive,
@@ -459,7 +460,7 @@ func worktreeFixture() []panel.Worktree {
 			Occupants: []panel.WorktreeAgent{{
 				ID:         "archived",
 				Name:       "review-column",
-				State:      panel.StateThinking,
+				State:      agentv1.AgentState_AGENT_STATE_THINKING,
 				ArchivedAt: &archived,
 			}},
 			Fate: panel.FateArchived,
@@ -487,7 +488,7 @@ func worktreeFixture() []panel.Worktree {
 			Occupants: []panel.WorktreeAgent{{
 				ID:         "admin",
 				Name:       "custom-cargo-fixes",
-				State:      panel.StateIdle,
+				State:      agentv1.AgentState_AGENT_STATE_IDLE,
 				ArchivedAt: &archived,
 			}},
 			Fate: panel.FateArchived,

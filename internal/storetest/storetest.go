@@ -25,6 +25,7 @@ import (
 	transcriptstore "komrad/internal/store/transcript"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/google/uuid"
@@ -110,13 +111,13 @@ func (s *Stores) SeedAgent(t *testing.T, agent agentstore.Agent) *agentstore.Age
 		agent.WorkflowID = s.SeedWorkflow(t, workflowstore.Config{Name: "workflow-for-" + agent.Name}).ID
 	}
 
-	// The state column is an enum with no member for the empty string, so a test that does not
+	// An unspecified state has no stored value, so a test that does not
 	// care which state its agent is in gets the one a fresh agent launches in.
-	if agent.State == "" {
-		agent.State = agentstore.StateIdle
+	if agent.State == agentv1.AgentState_AGENT_STATE_UNSPECIFIED {
+		agent.State = agentv1.AgentState_AGENT_STATE_IDLE
 	}
 
-	if agent.TaskID == nil && agent.Role != agentstore.RoleOrchestrator {
+	if agent.TaskID == nil && agent.Role != agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR {
 		taskID, err := s.TaskFor(t.Context(), agent)
 		require.NoError(t, err)
 		agent.TaskID = taskID

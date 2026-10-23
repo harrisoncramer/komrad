@@ -3,6 +3,7 @@ package ui
 import (
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -46,12 +47,12 @@ func (a *agentsScreen) pressEdit(in screen.Inputs, item panel.AgentRow) screen.R
 
 	if item.Alive {
 		switch agent.State {
-		case panel.StateThinking:
+		case agentv1.AgentState_AGENT_STATE_THINKING:
 			return refuse("it is writing in this worktree, so stop it before you edit")
-		case panel.StateUncertain:
+		case agentv1.AgentState_AGENT_STATE_UNCERTAIN:
 			return refuse("komrad cannot read its pane, so it may be writing in this worktree")
-		case panel.StateWaiting, panel.StateIdle, panel.StateErrored, panel.StateSettingUp,
-			panel.StateFailedToCreate, panel.StateFailedToCleanup:
+		case agentv1.AgentState_AGENT_STATE_WAITING, agentv1.AgentState_AGENT_STATE_IDLE, agentv1.AgentState_AGENT_STATE_ERRORED, agentv1.AgentState_AGENT_STATE_SETTING_UP,
+			agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE, agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP, agentv1.AgentState_AGENT_STATE_UNSPECIFIED:
 		}
 	}
 

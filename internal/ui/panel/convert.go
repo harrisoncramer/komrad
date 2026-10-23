@@ -7,7 +7,6 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	schedulev1 "komrad/proto/gen/schedule/v1"
-	taskv1 "komrad/proto/gen/task/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 )
@@ -20,8 +19,8 @@ func agentFrom(s *agentv1.Agent) Agent {
 		Cwd:               s.GetCwd(),
 		Flags:             s.GetFlags(),
 		Prompt:            s.GetPrompt(),
-		State:             stateFrom(s.GetState()),
-		Role:              roleFrom(s.GetRole()),
+		State:             s.GetState(),
+		Role:              s.GetRole(),
 		FailureReason:     s.GetFailureReason(),
 		TurnError:         s.GetTurnError(),
 		Harness:           s.GetHarness(),
@@ -69,8 +68,8 @@ func taskFrom(row assemble.TaskRow) Task {
 		Cwd:                   task.GetCwd(),
 		Branch:                task.Branch,
 		DiffStat:              task.GetDiffStat(),
-		WorktreeRemovalReason: worktreeRemovalReasonFrom(task.GetWorktreeRemovalReason()),
-		Sequence:              SequenceFrom(task.GetSequence()),
+		WorktreeRemovalReason: task.GetWorktreeRemovalReason(),
+		Sequence:              task.GetSequence(),
 		MovedSinceSnapshot:    task.GetMovedSinceSnapshot(),
 		Snapshots:             task.GetSnapshots(),
 		PullRequest:           pullRequestStandingFrom(row.PullRequest),
@@ -78,77 +77,6 @@ func taskFrom(row assemble.TaskRow) Task {
 		ReviewerComments:      row.ReviewerComments,
 		PersonComments:        row.PersonComments,
 	}
-}
-
-// stateFrom is a wire state as the panel keeps it.
-func stateFrom(state agentv1.AgentState) State {
-	switch state {
-	case agentv1.AgentState_AGENT_STATE_IDLE:
-		return StateIdle
-	case agentv1.AgentState_AGENT_STATE_THINKING:
-		return StateThinking
-	case agentv1.AgentState_AGENT_STATE_WAITING:
-		return StateWaiting
-	case agentv1.AgentState_AGENT_STATE_SETTING_UP:
-		return StateSettingUp
-	case agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE:
-		return StateFailedToCreate
-	case agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP:
-		return StateFailedToCleanup
-	case agentv1.AgentState_AGENT_STATE_ERRORED:
-		return StateErrored
-	case agentv1.AgentState_AGENT_STATE_UNCERTAIN, agentv1.AgentState_AGENT_STATE_UNSPECIFIED:
-	}
-
-	return StateUncertain
-}
-
-// roleFrom is a wire role as the panel keeps it.
-func roleFrom(wire agentv1.AgentRole) role {
-	switch wire {
-	case agentv1.AgentRole_AGENT_ROLE_WRITER:
-		return RoleWriter
-	case agentv1.AgentRole_AGENT_ROLE_REVIEWER:
-		return RoleReviewer
-	case agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR:
-		return RoleOrchestrator
-	case agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED:
-	}
-
-	return ""
-}
-
-// worktreeRemovalReasonFrom is a wire removal reason as the panel keeps it.
-func worktreeRemovalReasonFrom(reason taskv1.WorktreeRemovalReason) WorktreeRemovalReason {
-	switch reason {
-	case taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED:
-		return WorktreeDeleted
-	case taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE:
-		return WorktreeGone
-	case taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_UNSPECIFIED:
-	}
-
-	return worktreeOnDisk
-}
-
-// SequenceFrom is a wire sequence as the panel keeps it.
-func SequenceFrom(sequence taskv1.Sequence) Sequence {
-	switch sequence {
-	case taskv1.Sequence_SEQUENCE_REBASE:
-		return SequenceRebase
-	case taskv1.Sequence_SEQUENCE_AM:
-		return sequenceApply
-	case taskv1.Sequence_SEQUENCE_MERGE:
-		return sequenceMerge
-	case taskv1.Sequence_SEQUENCE_CHERRY_PICK:
-		return sequenceCherryPick
-	case taskv1.Sequence_SEQUENCE_REVERT:
-		return sequenceRevert
-	case taskv1.Sequence_SEQUENCE_UNSPECIFIED, taskv1.Sequence_SEQUENCE_NONE:
-		return sequenceNone
-	}
-
-	return sequenceUnknown
 }
 
 // agentRowsFrom is a listing of assembled rows as the panel keeps them.
@@ -351,7 +279,7 @@ func worktreeAgentFrom(a *worktreev1.WorktreeAgent) WorktreeAgent {
 	return WorktreeAgent{
 		ID:         a.GetId(),
 		Name:       a.GetName(),
-		State:      stateFrom(a.GetState()),
+		State:      a.GetState(),
 		ArchivedAt: dates.ReadPtr(a.GetArchivedAt()),
 	}
 }

@@ -16,6 +16,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/protoenum"
 	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
@@ -144,12 +145,12 @@ func (s *TaskService) StartPostArchive(ctx context.Context, archived []taskstore
 
 // isOpening reports whether an agent starting on a task opens it, which it does when no other agent on the task is live.
 func isOpening(agent agentstore.Agent, live []agentstore.Agent) bool {
-	if agent.TaskID == nil || agent.Role != agentstore.RoleWriter {
+	if agent.TaskID == nil || agent.Role != agentv1.AgentRole_AGENT_ROLE_WRITER {
 		return false
 	}
 
 	return !slices.ContainsFunc(live, func(other agentstore.Agent) bool {
-		return other.ID != agent.ID && other.State != agentstore.StateFailedToCreate
+		return other.ID != agent.ID && other.State != agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
 	})
 }
 
@@ -212,7 +213,7 @@ func findTaskActor(agents []agentstore.Agent, taskID uuid.UUID) *agentstore.Agen
 
 func rankActor(agent agentstore.Agent) int {
 	switch {
-	case agent.Role == agentstore.RoleReviewer:
+	case agent.Role == agentv1.AgentRole_AGENT_ROLE_REVIEWER:
 		return 0
 	case agent.IsProvisionerDisabled():
 		return 1

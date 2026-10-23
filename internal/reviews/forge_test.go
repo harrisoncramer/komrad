@@ -8,9 +8,9 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/gittest"
 	"komrad/internal/reviews/history"
-	mailstore "komrad/internal/store/mail"
 	reviewstore "komrad/internal/store/review"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
@@ -49,7 +49,7 @@ func TestForgeMirror(t *testing.T) {
 					ReviewID:   got.reviews[0].ID,
 					TaskID:     got.reviews[0].TaskID,
 					Ordinal:    1,
-					Verdict:    reviewstore.VerdictCommented,
+					Verdict:    agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED,
 					Comments:   1,
 					ForgeLogin: "alice",
 				}}, got.released)
@@ -166,7 +166,7 @@ func TestForgeMirror(t *testing.T) {
 			check: func(t *testing.T, got forgeMirrored) {
 				require.Len(t, got.threads, 1)
 				assert.NotNil(t, got.threads[0].ResolvedAt)
-				assert.Equal(t, reviewstore.AuthorForge, got.threads[0].ResolvedByKind)
+				assert.Equal(t, agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_FORGE, got.threads[0].ResolvedByKind)
 			},
 		},
 		{
@@ -291,7 +291,7 @@ func TestAcceptingForgeComments(t *testing.T) {
 			check: func(t *testing.T, fx *reviewFixture, got forgeMirrored) {
 				require.Len(t, got.messages, 2)
 				copied := got.messages[1]
-				assert.Equal(t, reviewstore.AuthorHuman, copied.AuthorKind)
+				assert.Equal(t, agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN, copied.AuthorKind)
 				assert.Equal(t, "use a guard", copied.Body)
 				require.NotNil(t, copied.AcceptedFrom)
 				assert.Equal(t, got.messages[0].ID, *copied.AcceptedFrom)
@@ -299,7 +299,7 @@ func TestAcceptingForgeComments(t *testing.T) {
 				rung := fx.listMail(t, fx.writer.ID)
 				require.Len(t, rung, 1)
 				assert.Equal(t, &rung[0].ID, copied.MailID)
-				assert.Equal(t, mailstore.KindReviewComment, rung[0].Kind)
+				assert.Equal(t, agentv1.MailKind_MAIL_KIND_REVIEW_COMMENT, rung[0].Kind)
 				assert.Contains(t, rung[0].Body, "the person passed on a comment @mallory wrote on the forge")
 				assert.Contains(t, rung[0].Body, "use a guard")
 				assert.Equal(t, []eventv1.Event{eventv1.Event_EVENT_REVIEW_COMMENTED_BY_PERSON}, rung[0].Events)

@@ -4,9 +4,10 @@ package pullrequest.v1;
 
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
-import "forge/v1/connection.proto";
+import "forge/v1/enums.proto";
 import "google/protobuf/timestamp.proto";
 import "pagination/v1/pagination.proto";
+import "pullrequest/v1/enums.proto";
 
 option go_package = "komrad/proto/gen/pullrequest/v1;pullrequestv1";
 
@@ -100,90 +101,6 @@ message ListPullRequestsResponse {
   repeated PullRequest pull_requests = 1;
   // The cursor for the next page. Unset on the last page.
   optional string next_page_token = 2;
-}
-
-// PullRequestState is the state of a pull request, worked out from the forge's report. A finished
-// state wins over an open one.
-enum PullRequestState {
-  // No state was recorded. No pull request has this value.
-  PULL_REQUEST_STATE_UNSPECIFIED = 0;
-  // Komrad has not read the repository yet.
-  PULL_REQUEST_STATE_UNREAD = 1;
-  // Komrad read the repository and found no pull request from the branch.
-  PULL_REQUEST_STATE_NONE = 2;
-  // Open, with no review decision that decides it.
-  PULL_REQUEST_STATE_OPEN = 3;
-  // Open, and the forge would merge it now.
-  PULL_REQUEST_STATE_APPROVED = 4;
-  // Open, with a reviewer asking for changes.
-  PULL_REQUEST_STATE_CHANGES_REQUESTED = 5;
-  // A draft, whatever its reviews say.
-  PULL_REQUEST_STATE_DRAFT = 6;
-  // Merged.
-  PULL_REQUEST_STATE_MERGED = 7;
-  // Closed without merging.
-  PULL_REQUEST_STATE_CLOSED = 8;
-  // Open, with a failing check on the head commit, whatever its reviews say.
-  PULL_REQUEST_STATE_FAILING = 9;
-  // Approved, but behind its base branch or blocked by a branch rule.
-  PULL_REQUEST_STATE_APPROVED_WAITING = 10;
-  // Open, and in conflict with its base branch, whatever its reviews say.
-  PULL_REQUEST_STATE_CONFLICTING = 11;
-  // Open, with checks running on the head commit and no reviewer asking for changes.
-  PULL_REQUEST_STATE_CHECKS_RUNNING = 12;
-  // Open, and every reviewer who asked for changes has been asked to review again.
-  PULL_REQUEST_STATE_REREVIEW_REQUESTED = 13;
-}
-
-// Mergeability is whether the forge would merge a pull request, given its base branch and branch
-// rules.
-enum Mergeability {
-  // No value was recorded.
-  MERGEABILITY_UNSPECIFIED = 0;
-  // The forge has not worked it out yet.
-  MERGEABILITY_UNKNOWN = 1;
-  // The forge would merge the pull request now.
-  MERGEABILITY_CLEAN = 2;
-  // Some checks are not passing.
-  MERGEABILITY_UNSTABLE = 3;
-  // A branch rule is not met, such as a required review.
-  MERGEABILITY_BLOCKED = 4;
-  // The base branch has commits the pull request's branch does not.
-  MERGEABILITY_BEHIND = 5;
-  // The branch is in conflict with its base branch.
-  MERGEABILITY_CONFLICTING = 6;
-}
-
-// ReviewDecision is the forge's decision on a pull request's reviews.
-enum ReviewDecision {
-  // No value was recorded.
-  REVIEW_DECISION_UNSPECIFIED = 0;
-  // The forge reports no decision.
-  REVIEW_DECISION_NONE = 1;
-  // A required review has not been given.
-  REVIEW_DECISION_PENDING = 2;
-  // The forge counts the pull request as approved.
-  REVIEW_DECISION_APPROVED = 3;
-  // A reviewer is asking for changes.
-  REVIEW_DECISION_CHANGES_REQUESTED = 4;
-  // Every reviewer who asked for changes has been asked to review again.
-  REVIEW_DECISION_REREVIEW_REQUESTED = 5;
-}
-
-// Checks is the overall state of the checks on a pull request's head commit.
-enum Checks {
-  // No value was recorded.
-  CHECKS_UNSPECIFIED = 0;
-  // The head commit has no checks.
-  CHECKS_NONE = 1;
-  // Checks are still running.
-  CHECKS_PENDING = 2;
-  // Every check passed.
-  CHECKS_PASSING = 3;
-  // At least one check failed, and every check has finished.
-  CHECKS_FAILING = 4;
-  // At least one check failed, and others are still running.
-  CHECKS_FAILING_RUNNING = 5;
 }
 
 message ListStatusChecksRequest {
@@ -342,26 +259,6 @@ message CheckLogStep {
   bool passed = 7;
 }
 
-// CheckLogState is the state of fetching a check's log.
-enum CheckLogState {
-  // No state was recorded.
-  CHECK_LOG_STATE_UNSPECIFIED = 0;
-  // The check has no log to fetch.
-  CHECK_LOG_STATE_NONE = 1;
-  // The check has not finished, or komrad has not fetched its log yet.
-  CHECK_LOG_STATE_PENDING = 2;
-  // Komrad fetched and keeps the log.
-  CHECK_LOG_STATE_FETCHED = 3;
-  // The log is larger than komrad keeps, so komrad keeps none of it.
-  CHECK_LOG_STATE_TOO_LARGE = 4;
-  // The forge never had a log for the check.
-  CHECK_LOG_STATE_MISSING = 5;
-  // The forge no longer has the log.
-  CHECK_LOG_STATE_EXPIRED = 6;
-  // Komrad stopped trying to fetch the log.
-  CHECK_LOG_STATE_FAILED = 7;
-}
-
 // StatusCheckStep is one step of a check run.
 message StatusCheckStep {
   // The step's position in the run, counting from one.
@@ -378,34 +275,6 @@ message StatusCheckStep {
   optional google.protobuf.Timestamp finished_at = 6;
   // Whether the step completed with a passing conclusion, such as success, neutral or skipped.
   bool passed = 7;
-}
-
-// StatusCheckKind is the kind of status check a forge reported.
-enum StatusCheckKind {
-  // No kind was recorded.
-  STATUS_CHECK_KIND_UNSPECIFIED = 0;
-  // A check run an app reported on the commit.
-  STATUS_CHECK_KIND_CHECK_RUN = 1;
-  // A commit status a service set on the commit.
-  STATUS_CHECK_KIND_STATUS = 2;
-  // A pipeline the forge ran for the commit.
-  STATUS_CHECK_KIND_PIPELINE = 3;
-}
-
-// StatusCheckState is how far along a status check or step is.
-enum StatusCheckState {
-  // No state was recorded.
-  STATUS_CHECK_STATE_UNSPECIFIED = 0;
-  // Waiting for a runner.
-  STATUS_CHECK_STATE_QUEUED = 1;
-  // Running now.
-  STATUS_CHECK_STATE_RUNNING = 2;
-  // Waiting on something else, such as an approval.
-  STATUS_CHECK_STATE_WAITING = 3;
-  // Finished, with the conclusion saying how.
-  STATUS_CHECK_STATE_COMPLETED = 4;
-  // Still running when komrad stopped reading the commit, which is no longer the head.
-  STATUS_CHECK_STATE_UNKNOWN = 5;
 }
 
 // PullRequestService reads the pull requests and status checks komrad has recorded from forges.

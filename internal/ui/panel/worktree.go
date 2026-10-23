@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/paint/label"
 	"komrad/lib/dates"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 )
 
@@ -35,7 +36,7 @@ type Worktree struct {
 type WorktreeAgent struct {
 	ID         string
 	Name       string
-	State      State
+	State      agentv1.AgentState
 	ArchivedAt *time.Time
 }
 

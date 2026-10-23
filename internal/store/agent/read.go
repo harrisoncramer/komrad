@@ -10,6 +10,7 @@ import (
 	"komrad/internal/store"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 )
@@ -21,7 +22,7 @@ func (s *AgentStore) List(ctx context.Context) ([]Agent, error) {
 		return nil, fmt.Errorf("failed to list agents: %w", err)
 	}
 
-	return fromRows(rows), nil
+	return fromRows(rows)
 }
 
 // Cursor pages this listing, which resumes from one row's id.
@@ -33,7 +34,7 @@ type AgentDir struct {
 	ID             uuid.UUID
 	Name           string
 	Cwd            string
-	State          State
+	State          agentv1.AgentState
 	StateChangedAt time.Time
 	ArchivedAt     *time.Time
 	DeletingAt     *time.Time
@@ -50,20 +51,25 @@ func (s *AgentStore) ListDirs(ctx context.Context) ([]AgentDir, error) {
 		return nil, fmt.Errorf("failed to list the directories agents hold: %w", err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListAgentDirsRow) AgentDir {
+	return xslice.TryMap(rows, func(row *models.ListAgentDirsRow) (AgentDir, error) {
+		state, err := fromDBToServiceAgentState(row.State)
+		if err != nil {
+			return AgentDir{}, err
+		}
+
 		return AgentDir{
 			ID:                row.ID,
 			Name:              row.Name,
 			Cwd:               row.Cwd,
-			State:             State(row.State),
+			State:             state,
 			StateChangedAt:    row.StateChangedAt,
 			ArchivedAt:        row.ArchivedAt,
 			DeletingAt:        row.DeletingAt,
 			WorkflowID:        row.WorkflowID,
 			CreatedAt:         row.CreatedAt,
 			ProvisionedTaskID: provisionedTaskIDOf(row),
-		}
-	}), nil
+		}, nil
+	})
 }
 
 // ListAll returns every agent including archived ones, newest first, for search.
@@ -73,7 +79,7 @@ func (s *AgentStore) ListAll(ctx context.Context) ([]Agent, error) {
 		return nil, fmt.Errorf("failed to list all agents: %w", err)
 	}
 
-	return fromRows(rows), nil
+	return fromRows(rows)
 }
 
 // ListForTranscriptSync returns every agent whose log can still hold turns nobody has read: the
@@ -84,7 +90,7 @@ func (s *AgentStore) ListForTranscriptSync(ctx context.Context) ([]Agent, error)
 		return nil, fmt.Errorf("failed to list agents for transcript sync: %w", err)
 	}
 
-	return fromRows(rows), nil
+	return fromRows(rows)
 }
 
 // GetInWorkflow returns a live agent by workflow and name.
@@ -100,7 +106,7 @@ func (s *AgentStore) GetInWorkflow(ctx context.Context, workflowID uuid.UUID, na
 		return nil, fmt.Errorf("failed to get agent %q in workflow %q: %w", name, workflowID, err)
 	}
 
-	return xptr.Ptr(FromRow(*row)), nil
+	return FromRow(*row)
 }
 
 // ListLiveNamed returns the live agents holding a name, across every workflow.
@@ -110,7 +116,7 @@ func (s *AgentStore) ListLiveNamed(ctx context.Context, name string) ([]Agent, e
 		return nil, fmt.Errorf("failed to list the live agents named %q: %w", name, err)
 	}
 
-	return fromRows(rows), nil
+	return fromRows(rows)
 }
 
 // GetByID returns a live or archived agent by ID.
@@ -123,7 +129,7 @@ func (s *AgentStore) GetByID(ctx context.Context, id uuid.UUID) (*Agent, error) 
 		return nil, fmt.Errorf("failed to get agent %q: %w", id, err)
 	}
 
-	return xptr.Ptr(FromRow(*row)), nil
+	return FromRow(*row)
 }
 
 // ListByID returns live and archived agents matching the given IDs.
@@ -137,7 +143,7 @@ func (s *AgentStore) ListByID(ctx context.Context, ids []uuid.UUID) ([]Agent, er
 		return nil, fmt.Errorf("failed to get %d agents: %w", len(ids), err)
 	}
 
-	return fromRows(rows), nil
+	return fromRows(rows)
 }
 
 // Exists reports whether any agent holds the given id, including archived ones.
@@ -170,7 +176,7 @@ func (s *AgentStore) ListLiveInWorkflow(ctx context.Context, workflowID uuid.UUI
 		return nil, fmt.Errorf("failed to list live agents of workflow %q: %w", workflowID, err)
 	}
 
-	return fromRows(rows), nil
+	return fromRows(rows)
 }
 
 // ListLiveOnTask returns the live agents working on a task.
@@ -180,7 +186,7 @@ func (s *AgentStore) ListLiveOnTask(ctx context.Context, taskID uuid.UUID) ([]Ag
 		return nil, fmt.Errorf("failed to list live agents of task %q: %w", taskID, err)
 	}
 
-	return fromRows(rows), nil
+	return fromRows(rows)
 }
 
 // ListOnTasks returns every agent on the tasks among taskIDs, archived ones included.
@@ -194,7 +200,7 @@ func (s *AgentStore) ListOnTasks(ctx context.Context, taskIDs []uuid.UUID) ([]Ag
 		return nil, fmt.Errorf("failed to list the agents of %d tasks: %w", len(taskIDs), err)
 	}
 
-	return fromRows(rows), nil
+	return fromRows(rows)
 }
 
 // GetTaskWriter returns the live writer of a task, ErrNotFound when it has none.
@@ -207,7 +213,7 @@ func (s *AgentStore) GetTaskWriter(ctx context.Context, taskID uuid.UUID) (*Agen
 		return nil, fmt.Errorf("failed to get the writer of task %q: %w", taskID, err)
 	}
 
-	return xptr.Ptr(FromRow(*row)), nil
+	return FromRow(*row)
 }
 
 // ListArchivedInWorkflow returns the archived agents in a workflow.
@@ -217,7 +223,7 @@ func (s *AgentStore) ListArchivedInWorkflow(ctx context.Context, workflowID uuid
 		return nil, fmt.Errorf("failed to list archived agents of workflow %q: %w", workflowID, err)
 	}
 
-	return fromRows(rows), nil
+	return fromRows(rows)
 }
 
 // ListRestorableInWorkflow returns the archived agents a workflow's restore brings back, leaving
@@ -228,7 +234,7 @@ func (s *AgentStore) ListRestorableInWorkflow(ctx context.Context, workflowID uu
 		return nil, fmt.Errorf("failed to list the restorable agents of workflow %q: %w", workflowID, err)
 	}
 
-	return fromRows(rows), nil
+	return fromRows(rows)
 }
 
 // CountLiveTasksStartedBy returns how many live tasks one agent started, counted by their writers.
@@ -266,7 +272,7 @@ func (s *AgentStore) GetWorkflowOrchestrator(ctx context.Context, workflowID uui
 }
 
 func provisionedTaskIDOf(row *models.ListAgentDirsRow) uuid.UUID {
-	if Role(row.Role) != RoleWriter || IsProvisionerDisabled(row.ProvisionEnabled) {
+	if row.Role != models.AgentRoleWriter || IsProvisionerDisabled(row.ProvisionEnabled) {
 		return uuid.Nil
 	}
 

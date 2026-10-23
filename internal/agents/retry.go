@@ -14,6 +14,8 @@ import (
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/protoenum"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 )
@@ -40,8 +42,8 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 	if agent.ArchivedAt != nil {
 		return nil, fmt.Errorf("%w: %q is archived", agenterr.ErrAgentArchived, agent.Name)
 	}
-	if agent.State != agentstore.StateFailedToCreate {
-		return nil, ErrAgentNotFailed.Saying("%q is %s, not failed_to_create", agent.Name, agent.State)
+	if agent.State != agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE {
+		return nil, ErrAgentNotFailed.Saying("%q is %s, not failed_to_create", agent.Name, protoenum.Name(agent.State))
 	}
 
 	if err := requireRoomForAgents(ctx, s.agents, s.usage.MaxAgents, 1); err != nil {
@@ -109,7 +111,7 @@ func (s *LaunchService) RetryCreate(ctx context.Context, params RetryCreateParam
 		}
 	}
 
-	agent.State = agentstore.StateSettingUp
+	agent.State = agentv1.AgentState_AGENT_STATE_SETTING_UP
 
 	return s.startInPane(ctx, *agent, resolvedLaunch{
 		harness:        hn,

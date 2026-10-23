@@ -10,6 +10,7 @@ import (
 	"komrad/internal/agents"
 	agentstore "komrad/internal/store/agent"
 	"komrad/internal/storetest"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
@@ -35,7 +36,7 @@ func TestArchiveAgentWorker(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		state        agentstore.State
+		state        agentv1.AgentState
 		age          time.Duration
 		deleted      bool
 		archiveErr   error
@@ -46,36 +47,36 @@ func TestArchiveAgentWorker(t *testing.T) {
 		{name: "a deleted agent", deleted: true},
 		{
 			name:         "a failure that might pass",
-			state:        agentstore.StateIdle,
+			state:        agentv1.AgentState_AGENT_STATE_IDLE,
 			archiveErr:   failed,
 			wantErr:      failed,
 			wantArchived: true,
 		},
 		{
 			name:         "an agent deleted as it is archived",
-			state:        agentstore.StateIdle,
+			state:        agentv1.AgentState_AGENT_STATE_IDLE,
 			archiveErr:   agenterr.ErrAgentNotFound,
 			wantArchived: true,
 		},
 		{
 			name:       "a waiting agent waited on",
-			state:      agentstore.StateWaiting,
+			state:      agentv1.AgentState_AGENT_STATE_WAITING,
 			wantSnooze: true,
 		},
 		{
 			name:       "a thinking agent waited on",
-			state:      agentstore.StateThinking,
+			state:      agentv1.AgentState_AGENT_STATE_THINKING,
 			wantSnooze: true,
 		},
 		{
 			name:         "a thinking agent archived past the limit",
-			state:        agentstore.StateThinking,
+			state:        agentv1.AgentState_AGENT_STATE_THINKING,
 			age:          archiveLimit,
 			wantArchived: true,
 		},
 		{
 			name:         "an idle agent archived",
-			state:        agentstore.StateIdle,
+			state:        agentv1.AgentState_AGENT_STATE_IDLE,
 			wantArchived: true,
 		},
 	}
@@ -89,7 +90,7 @@ func TestArchiveAgentWorker(t *testing.T) {
 					ID:    id,
 					Name:  "reviewer",
 					Cwd:   "/repo",
-					Role:  agentstore.RoleReviewer,
+					Role:  agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 					State: tt.state,
 				}).ID
 			}

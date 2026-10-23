@@ -6,7 +6,6 @@ import (
 
 	"komrad/internal/fail"
 	"komrad/internal/git"
-	"komrad/internal/rpc/render"
 	"komrad/internal/rpcerr"
 	"komrad/internal/worktrees"
 	"komrad/lib/dates"
@@ -228,7 +227,7 @@ func renderAgent(agent worktrees.Agent) *worktreev1.WorktreeAgent {
 	return &worktreev1.WorktreeAgent{
 		Id:         agent.ID.String(),
 		Name:       agent.Name,
-		State:      render.AgentStateOf(agent.State),
+		State:      agent.State,
 		ArchivedAt: dates.StampPtr(agent.ArchivedAt),
 	}
 }

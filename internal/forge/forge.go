@@ -11,6 +11,7 @@ import (
 	"komrad/lib/protoenum"
 	"komrad/lib/xhttp"
 	forgev1 "komrad/proto/gen/forge/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 // ErrNotFound says the forge has nothing at the address asked for.
@@ -94,77 +95,16 @@ func (r RateLimit) IsLow() bool {
 	return r.Known && r.Limit > 0 && r.Remaining*5 < r.Limit
 }
 
-// ReviewDecision is where a forge says a pull request's reviews stand, in komrad's own words.
-type ReviewDecision string
-
-const (
-	// ReviewDecisionNone is a forge that has said nothing about the reviews.
-	ReviewDecisionNone ReviewDecision = ""
-	// ReviewDecisionPending is a review the forge requires that nobody has given.
-	ReviewDecisionPending ReviewDecision = "pending"
-	// ReviewDecisionApproved is the forge counting the pull request as approved.
-	ReviewDecisionApproved ReviewDecision = "approved"
-	// ReviewDecisionChangesRequested is a reviewer asking for changes.
-	ReviewDecisionChangesRequested ReviewDecision = "changes_requested"
-	// ReviewDecisionRereviewRequested is every reviewer who asked for changes asked to review again.
-	ReviewDecisionRereviewRequested ReviewDecision = "rereview_requested"
-)
-
-// Checks is where the checks on a pull request's head commit stand, in komrad's own words.
-type Checks string
-
-const (
-	// ChecksNone is a commit the forge reports no checks for.
-	ChecksNone Checks = ""
-	// ChecksPending is a run the forge is still waiting on.
-	ChecksPending Checks = "pending"
-	// ChecksPassing is every check the forge counts having succeeded.
-	ChecksPassing Checks = "passing"
-	// ChecksFailing is at least one check the forge counts having failed, with the run finished.
-	ChecksFailing Checks = "failing"
-	// ChecksFailingRunning is at least one check the forge counts having failed while others still
-	// run.
-	ChecksFailingRunning Checks = "failing_running"
-)
-
-// StatusCheckKind is what a forge reported a check as.
-type StatusCheckKind string
-
-const (
-	// StatusCheckKindRun is a check run an app or workflow reported.
-	StatusCheckKindRun StatusCheckKind = "check_run"
-	// StatusCheckKindStatus is an old-style commit status.
-	StatusCheckKindStatus StatusCheckKind = "status"
-	// StatusCheckKindPipeline is a GitLab pipeline, standing as the one required check on a merge request.
-	StatusCheckKindPipeline StatusCheckKind = "pipeline"
-)
-
-// StatusCheckState is where one check stands, in komrad's own words.
-type StatusCheckState string
-
-const (
-	// StatusCheckStateQueued is a check waiting to start.
-	StatusCheckStateQueued StatusCheckState = "queued"
-	// StatusCheckStateRunning is a check that has started and not completed.
-	StatusCheckStateRunning StatusCheckState = "running"
-	// StatusCheckStateWaiting is a check that cannot start on its own, held for an approval or never reported.
-	StatusCheckStateWaiting StatusCheckState = "waiting"
-	// StatusCheckStateCompleted is a check that has finished, with a conclusion.
-	StatusCheckStateCompleted StatusCheckState = "completed"
-	// StatusCheckStateUnknown is a check on a commit that is no longer the head, which komrad stopped reading while it was still in flight.
-	StatusCheckStateUnknown StatusCheckState = "unknown"
-)
-
 // StatusCheck is one check a forge listed on a pull request's head commit.
 type StatusCheck struct {
 	// ProviderID is the forge's own identifier for the check run, commit status or pipeline.
 	ProviderID string
-	Kind       StatusCheckKind
+	Kind       pullrequestv1.StatusCheckKind
 	// Source is the workflow that ran the check, or the app when no workflow did, empty for a status.
 	Source string
 	// Name is the check's name, or a commit status's context.
 	Name  string
-	State StatusCheckState
+	State pullrequestv1.StatusCheckState
 	// Conclusion is how a completed check ended, in the forge's own word lowercased.
 	Conclusion string
 	StartedAt  *time.Time
@@ -193,7 +133,7 @@ type StatusCheckStep struct {
 	// Number is where the step falls in its check run, counting from one.
 	Number int
 	Name   string
-	State  StatusCheckState
+	State  pullrequestv1.StatusCheckState
 	// Conclusion is how a completed step ended, in the forge's own word lowercased.
 	Conclusion string
 	StartedAt  *time.Time
@@ -208,30 +148,11 @@ type StatusCheckListing struct {
 	Truncated bool
 }
 
-// Mergeability is where a forge says a pull request stands against its base and its branch
-// rules, in komrad's own words.
-type Mergeability string
-
-const (
-	// MergeabilityUnknown is a forge that has not computed the answer yet.
-	MergeabilityUnknown Mergeability = ""
-	// MergeabilityClean is a pull request the forge would merge now.
-	MergeabilityClean Mergeability = "clean"
-	// MergeabilityUnstable is a pull request whose checks are not all passing.
-	MergeabilityUnstable Mergeability = "unstable"
-	// MergeabilityBlocked is a branch rule the pull request does not yet satisfy.
-	MergeabilityBlocked Mergeability = "blocked"
-	// MergeabilityBehind is a branch the base has moved past.
-	MergeabilityBehind Mergeability = "behind"
-	// MergeabilityConflicting is a branch that no longer merges cleanly into its base.
-	MergeabilityConflicting Mergeability = "conflicting"
-)
-
 // MergeReadiness is what a forge says about one pull request's reviews, checks, mergeability and
 // auto-merge.
 type MergeReadiness struct {
-	Decision     ReviewDecision
-	Mergeability Mergeability
+	Decision     pullrequestv1.ReviewDecision
+	Mergeability pullrequestv1.Mergeability
 	AutoMerge    AutoMerge
 	// Listing is every check on the head commit, nil when the forge does not list them.
 	Listing *StatusCheckListing
@@ -360,7 +281,7 @@ type SetAutoMergeParams struct {
 	HeadSHA string
 	On      bool
 	// Method is how to merge once allowed, empty for the default method PlanMerge names.
-	Method MergeMethod
+	Method forgev1.MergeMethod
 	// Headline is the first line of the commit, nil to leave it to the forge.
 	Headline *string
 	// Body is the rest of the commit, nil to leave it to the forge.

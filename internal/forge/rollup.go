@@ -7,31 +7,34 @@ import (
 
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 // passingConclusions are the conclusions a completed check counts as passed with.
 var passingConclusions = []string{"success", "neutral", "skipped"}
 
 // RollupOf is where the checks on a head stand, counting the newest run of each and only the required ones when any is.
-func RollupOf(checks []StatusCheck) Checks {
+func RollupOf(checks []StatusCheck) pullrequestv1.Checks {
 	counted := slices.DeleteFunc(newestStatusChecks(decidingStatusChecks(checks)), func(check StatusCheck) bool {
-		return check.State == StatusCheckStateUnknown
+		return check.State == pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_UNKNOWN
 	})
 
 	failing := slices.ContainsFunc(counted, StatusCheck.IsFailing)
-	unfinished := slices.ContainsFunc(counted, func(check StatusCheck) bool { return check.State != StatusCheckStateCompleted })
+	unfinished := slices.ContainsFunc(counted, func(check StatusCheck) bool {
+		return check.State != pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED
+	})
 	switch {
 	case failing && slices.ContainsFunc(counted, StatusCheck.IsRunning):
-		return ChecksFailingRunning
+		return pullrequestv1.Checks_CHECKS_FAILING_RUNNING
 	case failing:
-		return ChecksFailing
+		return pullrequestv1.Checks_CHECKS_FAILING
 	case unfinished:
-		return ChecksPending
+		return pullrequestv1.Checks_CHECKS_PENDING
 	case len(counted) > 0:
-		return ChecksPassing
+		return pullrequestv1.Checks_CHECKS_PASSING
 	}
 
-	return ChecksNone
+	return pullrequestv1.Checks_CHECKS_NONE
 }
 
 // decidingStatusChecks is the checks that decide where a head stands, the required ones when any is and every one otherwise.
@@ -45,17 +48,17 @@ func decidingStatusChecks(checks []StatusCheck) []StatusCheck {
 
 // IsFailing says whether a check finished without passing.
 func (c StatusCheck) IsFailing() bool {
-	return c.State == StatusCheckStateCompleted && !IsPassingConclusion(c.Conclusion)
+	return c.State == pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED && !IsPassingConclusion(c.Conclusion)
 }
 
 // IsPassing says whether a check completed with a conclusion that counts as passed.
 func (c StatusCheck) IsPassing() bool {
-	return c.State == StatusCheckStateCompleted && IsPassingConclusion(c.Conclusion)
+	return c.State == pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED && IsPassingConclusion(c.Conclusion)
 }
 
 // IsPassing says whether a step completed with a conclusion that counts as passed.
 func (s StatusCheckStep) IsPassing() bool {
-	return s.State == StatusCheckStateCompleted && IsPassingConclusion(s.Conclusion)
+	return s.State == pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED && IsPassingConclusion(s.Conclusion)
 }
 
 // IsPassingConclusion says whether a completed check or step with the conclusion counts as passed.
@@ -65,7 +68,7 @@ func IsPassingConclusion(conclusion string) bool {
 
 // IsRunning says whether a check is queued or running.
 func (c StatusCheck) IsRunning() bool {
-	return c.State == StatusCheckStateQueued || c.State == StatusCheckStateRunning
+	return c.State == pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED || c.State == pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING
 }
 
 // FailedStatusChecks is the checks that decide a head and failed, counting only the newest of the checks
@@ -75,7 +78,7 @@ func FailedStatusChecks(checks []StatusCheck) []StatusCheck {
 }
 
 type statusCheckKey struct {
-	kind   StatusCheckKind
+	kind   pullrequestv1.StatusCheckKind
 	source string
 	name   string
 }

@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/record"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -13,7 +14,7 @@ import (
 func TestTaskFieldsDirectory(t *testing.T) {
 	tests := []struct {
 		name   string
-		reason panel.WorktreeRemovalReason
+		reason taskv1.WorktreeRemovalReason
 		want   string
 	}{
 		{
@@ -22,12 +23,12 @@ func TestTaskFieldsDirectory(t *testing.T) {
 		},
 		{
 			name:   "a worktree a delete removed says it was deleted",
-			reason: panel.WorktreeDeleted,
+			reason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED,
 			want:   "— (deleted)",
 		},
 		{
 			name:   "a worktree gone without a delete says it is gone",
-			reason: panel.WorktreeGone,
+			reason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE,
 			want:   "— (gone)",
 		},
 	}

@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/store"
 	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -21,28 +22,28 @@ func TestSetStateByID(t *testing.T) {
 		target    uuid.UUID
 		archived  bool
 		wantErr   error
-		wantState State
+		wantState agentv1.AgentState
 	}{
 		{
 			name:      "an id no agent holds",
 			target:    uuid.MustParse("00000000-0000-0000-0000-0000000000ff"),
 			archived:  false,
 			wantErr:   nil,
-			wantState: StateIdle,
+			wantState: agentv1.AgentState_AGENT_STATE_IDLE,
 		},
 		{
 			name:      "an archived agent",
 			target:    uuid.Nil,
 			archived:  true,
 			wantErr:   nil,
-			wantState: StateIdle,
+			wantState: agentv1.AgentState_AGENT_STATE_IDLE,
 		},
 		{
 			name:      "the agent's own id",
 			target:    uuid.Nil,
 			archived:  false,
 			wantErr:   nil,
-			wantState: StateThinking,
+			wantState: agentv1.AgentState_AGENT_STATE_THINKING,
 		},
 	}
 
@@ -51,7 +52,7 @@ func TestSetStateByID(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
+			require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: agentv1.AgentState_AGENT_STATE_IDLE}))
 			created, err := st.Get(ctx, "agent")
 			require.NoError(t, err)
 			require.NotNil(t, created)
@@ -65,9 +66,9 @@ func TestSetStateByID(t *testing.T) {
 			}
 
 			if tt.wantErr != nil {
-				require.ErrorIs(t, st.SetStateByID(ctx, target, StateThinking), tt.wantErr)
+				require.ErrorIs(t, st.SetStateByID(ctx, target, agentv1.AgentState_AGENT_STATE_THINKING), tt.wantErr)
 			} else {
-				require.NoError(t, st.SetStateByID(ctx, target, StateThinking))
+				require.NoError(t, st.SetStateByID(ctx, target, agentv1.AgentState_AGENT_STATE_THINKING))
 			}
 
 			all, err := st.ListAll(ctx)
@@ -84,18 +85,18 @@ func TestSetStateByIDStampsOnlyOnAChange(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: agentv1.AgentState_AGENT_STATE_IDLE}))
 	created, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	require.NotNil(t, created)
 
-	require.NoError(t, st.SetStateByID(ctx, created.ID, StateThinking))
+	require.NoError(t, st.SetStateByID(ctx, created.ID, agentv1.AgentState_AGENT_STATE_THINKING))
 	moved, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	require.NotNil(t, moved)
 	assert.True(t, moved.StateChangedAt.After(created.StateChangedAt), "entering a new state stamps it")
 
-	require.NoError(t, st.SetStateByID(ctx, created.ID, StateThinking))
+	require.NoError(t, st.SetStateByID(ctx, created.ID, agentv1.AgentState_AGENT_STATE_THINKING))
 	again, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	require.NotNil(t, again)
@@ -157,7 +158,7 @@ func TestSetHooksByIDRoundTrips(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: agentv1.AgentState_AGENT_STATE_IDLE}))
 	created, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	require.NotNil(t, created)
@@ -180,7 +181,7 @@ func TestAFailedTurnStandsUntilAnotherEnds(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateThinking}))
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: agentv1.AgentState_AGENT_STATE_THINKING}))
 	created, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	require.NotNil(t, created)
@@ -205,24 +206,24 @@ func TestSetStateByIDClearsTheReportedReason(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateThinking}))
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: agentv1.AgentState_AGENT_STATE_THINKING}))
 	created, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	require.NotNil(t, created)
 	require.NoError(t, st.SetReportedReason(ctx, created.ID, "Bash"))
 
-	require.NoError(t, st.SetStateByID(ctx, created.ID, StateThinking))
+	require.NoError(t, st.SetStateByID(ctx, created.ID, agentv1.AgentState_AGENT_STATE_THINKING))
 	held, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	assert.Equal(t, "Bash", held.ReportedReason, "the state it annotates has not moved")
 
-	require.NoError(t, st.SetStateByID(ctx, created.ID, StateWaiting))
+	require.NoError(t, st.SetStateByID(ctx, created.ID, agentv1.AgentState_AGENT_STATE_WAITING))
 	blocked, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	assert.Equal(t, "Bash", blocked.ReportedReason,
 		"a tool putting a dialog up is the same turn, and the dialog is what the reason names")
 
-	require.NoError(t, st.SetStateByID(ctx, created.ID, StateIdle))
+	require.NoError(t, st.SetStateByID(ctx, created.ID, agentv1.AgentState_AGENT_STATE_IDLE))
 	cleared, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	assert.Empty(t, cleared.ReportedReason)
@@ -234,7 +235,7 @@ func TestMarkSettingUpClearsTheReportedReason(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateThinking}))
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: agentv1.AgentState_AGENT_STATE_THINKING}))
 	created, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	require.NotNil(t, created)
@@ -254,7 +255,7 @@ func TestARetriedCreateDropsTheFailureReason(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateFailedToCreate}))
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE}))
 	created, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	written, err := st.SetFailureReason(ctx, created.ID, "worktree is dirty")
@@ -317,7 +318,7 @@ func TestAliveFollowsThePane(t *testing.T) {
 		{
 			name: "marking a retry setting up",
 			clear: func(ctx context.Context, st *fixture, agent Agent) error {
-				if err := st.SetStateByID(ctx, agent.ID, StateFailedToCreate); err != nil {
+				if err := st.SetStateByID(ctx, agent.ID, agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE); err != nil {
 					return err
 				}
 				_, err := st.MarkSettingUpIfFailedToCreate(ctx, agent.ID)
@@ -348,7 +349,7 @@ func TestAliveFollowsThePane(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Create(ctx, Agent{Name: "dormant", State: StateIdle}))
+			require.NoError(t, st.Create(ctx, Agent{Name: "dormant", State: agentv1.AgentState_AGENT_STATE_IDLE}))
 			dormant, err := st.Get(ctx, "dormant")
 			require.NoError(t, err)
 			assert.False(t, dormant.Alive, "a row created with no pane is dormant")
@@ -356,7 +357,7 @@ func TestAliveFollowsThePane(t *testing.T) {
 			require.NoError(t, st.Create(ctx, Agent{
 				Name:  "agent",
 				Pane:  "%1",
-				State: StateThinking,
+				State: agentv1.AgentState_AGENT_STATE_THINKING,
 			}))
 			created, err := st.Get(ctx, "agent")
 			require.NoError(t, err)
@@ -408,7 +409,7 @@ func TestSetSessionID(t *testing.T) {
 
 			require.NoError(t, f.Create(ctx, Agent{
 				Name:      "agent",
-				State:     StateIdle,
+				State:     agentv1.AgentState_AGENT_STATE_IDLE,
 				SessionID: tt.held,
 			}))
 			created, err := f.Get(ctx, "agent")

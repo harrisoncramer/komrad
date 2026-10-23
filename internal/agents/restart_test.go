@@ -12,6 +12,8 @@ import (
 	taskstore "komrad/internal/store/task"
 	"komrad/internal/tasks"
 	"komrad/internal/tmuxtest"
+	agentv1 "komrad/proto/gen/agent/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -25,7 +27,7 @@ func TestRestartAgentStartsANewConversation(t *testing.T) {
 
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
-	writer := seedRunning(t, st, tmux, "writer", "%1", agentstore.StateIdle)
+	writer := seedRunning(t, st, tmux, "writer", "%1", agentv1.AgentState_AGENT_STATE_IDLE)
 	require.NoError(t, st.Agents.SetSessionID(t.Context(), writer.ID, earlier))
 	tmux.AfterKillPane = func(string) {
 		at := time.Now()
@@ -120,7 +122,7 @@ func TestRestartAgentOntoAnotherHarnessOrFlags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			tmux := tmuxtest.NewFake()
-			writer := seedRunning(t, st, tmux, "writer", "%1", agentstore.StateIdle)
+			writer := seedRunning(t, st, tmux, "writer", "%1", agentv1.AgentState_AGENT_STATE_IDLE)
 			require.NoError(t, st.Agents.SetHarness(t.Context(), agentstore.SetHarnessParams{
 				ID:      writer.ID,
 				Harness: harnesstest.FakeID,
@@ -166,7 +168,7 @@ func TestRestartAgentGivingUpKeepsTheEarlierConversation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			tmux := tmuxtest.NewFake()
-			writer := seedRunning(t, st, tmux, "writer", "%1", agentstore.StateIdle)
+			writer := seedRunning(t, st, tmux, "writer", "%1", agentv1.AgentState_AGENT_STATE_IDLE)
 			require.NoError(t, st.Agents.SetHarness(t.Context(), agentstore.SetHarnessParams{
 				ID:        writer.ID,
 				Harness:   harnesstest.FakeID,
@@ -234,7 +236,7 @@ func TestRestartAgentRefuses(t *testing.T) {
 			archived := seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "archived writer", "%2")
 			require.NoError(t, archiveWriters(t.Context(), service.lifecycle, []uuid.UUID{archived.ID}))
 			removed := seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "removed writer", "%3")
-			require.NoError(t, st.Tasks.SetHead(t.Context(), *removed.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone}))
+			require.NoError(t, st.Tasks.SetHead(t.Context(), *removed.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE}))
 			seeded := map[string]uuid.UUID{
 				"orchestrator":    orchestrator.ID,
 				"reviewer":        seedReviewer(t, st, tmux, writer).ID,

@@ -79,15 +79,27 @@ func NewTaskStore(db store.DBTX) *TaskStore {
 }
 
 // fromCountedRow is a task row with how many snapshots were taken of its checkout.
-func fromCountedRow(row *models.Task, snapshots int32) Task {
-	task := fromRow(row)
+func fromCountedRow(row *models.Task, snapshots int32) (*Task, error) {
+	task, err := fromRow(row)
+	if err != nil {
+		return nil, err
+	}
 	task.Snapshots = snapshots
 
-	return task
+	return task, nil
 }
 
-func fromRow(row *models.Task) Task {
-	return Task{
+func fromRow(row *models.Task) (*Task, error) {
+	checkout, err := checkoutFrom(row)
+	if err != nil {
+		return nil, err
+	}
+	parent, err := parentFrom(row)
+	if err != nil && !errors.Is(err, errNoParent) {
+		return nil, err
+	}
+
+	return &Task{
 		ID:             row.ID,
 		WorkflowID:     row.WorkflowID,
 		Slug:           row.Slug,
@@ -95,15 +107,26 @@ func fromRow(row *models.Task) Task {
 		Goal:           row.Goal,
 		Notes:          row.Notes,
 		NotesUpdatedAt: row.NotesUpdatedAt,
-		Checkout:       checkoutFrom(row),
-		Parent:         parentFrom(row),
+		Checkout:       checkout,
+		Parent:         parent,
 		Hidden:         row.IsHidden,
 		ArchivedAt:     row.ArchivedAt,
 		DeletingAt:     row.DeletingAt,
 		FailureReason:  row.FailureReason,
 		CreatedAt:      row.CreatedAt,
 		UpdatedAt:      row.UpdatedAt,
-	}
+	}, nil
+}
+
+func fromRows(rows []*models.Task) ([]Task, error) {
+	return xslice.TryMap(rows, func(row *models.Task) (Task, error) {
+		task, err := fromRow(row)
+		if err != nil {
+			return Task{}, err
+		}
+
+		return *task, nil
+	})
 }
 
 type CreateParams struct {
@@ -144,9 +167,7 @@ func (s *TaskStore) Create(ctx context.Context, params CreateParams) (*Task, err
 		return nil, fmt.Errorf("failed to create task %q: %w", params.Slug, err)
 	}
 
-	created := fromRow(row)
-
-	return &created, nil
+	return fromRow(row)
 }
 
 // UpdateParams is the fields of a task to rewrite, each left as it is when nil.
@@ -183,9 +204,7 @@ func (s *TaskStore) Update(ctx context.Context, id uuid.UUID, params UpdateParam
 		return nil, fmt.Errorf("failed to update task %q: %w", id, err)
 	}
 
-	updated := fromRow(row)
-
-	return &updated, nil
+	return fromRow(row)
 }
 
 // explainUnwritten says why an update wrote no row, a task gone or being deleted or notes written since they were read.
@@ -211,9 +230,7 @@ func (s *TaskStore) Get(ctx context.Context, id uuid.UUID) (*Task, error) {
 		return nil, fmt.Errorf("failed to get task %q: %w", id, err)
 	}
 
-	got := fromCountedRow(&row.Task, row.Snapshots)
-
-	return &got, nil
+	return fromCountedRow(&row.Task, row.Snapshots)
 }
 
 // GetLinked returns the task an agent's task id names, refusing an agent on no task.
@@ -256,9 +273,7 @@ func (s *TaskStore) GetBySlug(ctx context.Context, slug string) (*Task, error) {
 		return nil, fmt.Errorf("failed to get task %q: %w", slug, err)
 	}
 
-	got := fromCountedRow(&row.Task, row.Snapshots)
-
-	return &got, nil
+	return fromCountedRow(&row.Task, row.Snapshots)
 }
 
 // List returns a workflow's live or archived tasks, the newest first.
@@ -268,7 +283,14 @@ func (s *TaskStore) List(ctx context.Context, workflowID uuid.UUID, archived boo
 		return nil, fmt.Errorf("failed to list the tasks of workflow %q: %w", workflowID, err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListTasksRow) Task { return fromCountedRow(&row.Task, row.Snapshots) }), nil
+	return xslice.TryMap(rows, func(row *models.ListTasksRow) (Task, error) {
+		task, err := fromCountedRow(&row.Task, row.Snapshots)
+		if err != nil {
+			return Task{}, err
+		}
+
+		return *task, nil
+	})
 }
 
 // Archive takes a task out of live listings, leaving one already archived as it was.
@@ -297,7 +319,7 @@ func (s *TaskStore) ArchiveIdle(ctx context.Context, ids []uuid.UUID) ([]Task, e
 		return nil, fmt.Errorf("failed to archive %d idle tasks: %w", len(ids), err)
 	}
 
-	return xslice.Map(rows, fromRow), nil
+	return fromRows(rows)
 }
 
 // Restore returns archived tasks to live listings, leaving live ones as they were.

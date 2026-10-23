@@ -141,9 +141,7 @@ func (s *TaskStore) GetUndeletedForUpdate(ctx context.Context, id uuid.UUID) (*T
 		return nil, fmt.Errorf("failed to get task %q for update: %w", id, err)
 	}
 
-	locked := fromRow(row)
-
-	return &locked, nil
+	return fromRow(row)
 }
 
 // ListUndeletedSlugs returns the slug of every task no delete has claimed, archived ones

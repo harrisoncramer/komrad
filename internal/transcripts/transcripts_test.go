@@ -12,6 +12,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	transcriptstore "komrad/internal/store/transcript"
 	"komrad/internal/storetest"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -184,7 +185,7 @@ func seedWithSessionID(t *testing.T, st *storetest.Stores, sessionID, name strin
 
 	return *st.SeedAgent(t, agentstore.Agent{
 		Name:      name,
-		State:     agentstore.StateIdle,
+		State:     agentv1.AgentState_AGENT_STATE_IDLE,
 		Harness:   "claude",
 		SessionID: sessionID,
 	})
@@ -223,7 +224,7 @@ func TestSyncReportsAnUnknownHarness(t *testing.T) {
 
 	st.SeedAgent(t, agentstore.Agent{
 		Name:      "orphan",
-		State:     agentstore.StateIdle,
+		State:     agentv1.AgentState_AGENT_STATE_IDLE,
 		Harness:   "gemini",
 		SessionID: testSessionID,
 	})
@@ -271,7 +272,7 @@ func TestSyncAdoptsSessions(t *testing.T) {
 			ctx := t.Context()
 
 			st.SeedAgent(t, agentstore.Agent{
-				Name: "adopter", State: agentstore.StateIdle, Harness: "claude", SessionID: tt.held,
+				Name: "adopter", State: agentv1.AgentState_AGENT_STATE_IDLE, Harness: "claude", SessionID: tt.held,
 			})
 
 			syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
@@ -300,7 +301,7 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 	const sessionID = "019fb3e7-2cb6-7ab3-86a0-51a670a33140"
 
 	created := st.SeedAgent(t, agentstore.Agent{
-		Name: "adopter", State: agentstore.StateIdle, Harness: "codex", Cwd: cwd,
+		Name: "adopter", State: agentv1.AgentState_AGENT_STATE_IDLE, Harness: "codex", Cwd: cwd,
 	})
 
 	dir := filepath.Join(codexHome, "sessions", "2026", "07", "30")

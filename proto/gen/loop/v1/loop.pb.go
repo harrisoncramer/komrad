@@ -24,63 +24,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Loop is a background loop komrad runs on a timer, which a caller can wake early.
-type Loop int32
-
-const (
-	// No loop was named. `WakeLoop` refuses this value.
-	Loop_LOOP_UNSPECIFIED Loop = 0
-	// Reads each live agent's checkout for its branch, head commit and changed lines.
-	Loop_LOOP_CWD_SYNC Loop = 1
-	// Reads each agent's transcript for new turns.
-	Loop_LOOP_TRANSCRIPT_SYNC Loop = 2
-	// Reads the pull requests from agents' branches.
-	Loop_LOOP_PULL_REQUEST_SYNC Loop = 3
-)
-
-// Enum value maps for Loop.
-var (
-	Loop_name = map[int32]string{
-		0: "LOOP_UNSPECIFIED",
-		1: "LOOP_CWD_SYNC",
-		2: "LOOP_TRANSCRIPT_SYNC",
-		3: "LOOP_PULL_REQUEST_SYNC",
-	}
-	Loop_value = map[string]int32{
-		"LOOP_UNSPECIFIED":       0,
-		"LOOP_CWD_SYNC":          1,
-		"LOOP_TRANSCRIPT_SYNC":   2,
-		"LOOP_PULL_REQUEST_SYNC": 3,
-	}
-)
-
-func (x Loop) Enum() *Loop {
-	p := new(Loop)
-	*p = x
-	return p
-}
-
-func (x Loop) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (Loop) Descriptor() protoreflect.EnumDescriptor {
-	return file_loop_v1_loop_proto_enumTypes[0].Descriptor()
-}
-
-func (Loop) Type() protoreflect.EnumType {
-	return &file_loop_v1_loop_proto_enumTypes[0]
-}
-
-func (x Loop) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use Loop.Descriptor instead.
-func (Loop) EnumDescriptor() ([]byte, []int) {
-	return file_loop_v1_loop_proto_rawDescGZIP(), []int{0}
-}
-
 type WakeLoopRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The loop to wake.
@@ -130,15 +73,10 @@ var File_loop_v1_loop_proto protoreflect.FileDescriptor
 
 const file_loop_v1_loop_proto_rawDesc = "" +
 	"\n" +
-	"\x12loop/v1/loop.proto\x12\aloop.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\"@\n" +
+	"\x12loop/v1/loop.proto\x12\aloop.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x13loop/v1/enums.proto\"@\n" +
 	"\x0fWakeLoopRequest\x12-\n" +
 	"\x04loop\x18\x01 \x01(\x0e2\r.loop.v1.LoopB\n" +
-	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x04loop*e\n" +
-	"\x04Loop\x12\x14\n" +
-	"\x10LOOP_UNSPECIFIED\x10\x00\x12\x11\n" +
-	"\rLOOP_CWD_SYNC\x10\x01\x12\x18\n" +
-	"\x14LOOP_TRANSCRIPT_SYNC\x10\x02\x12\x1a\n" +
-	"\x16LOOP_PULL_REQUEST_SYNC\x10\x032\x9a\x01\n" +
+	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x04loop2\x9a\x01\n" +
 	"\vLoopService\x12\x8a\x01\n" +
 	"\bWakeLoop\x12\x18.loop.v1.WakeLoopRequest\x1a\x16.google.protobuf.Empty\"L\x9a\xb5\x18EBCA client wakes a loop when the person looks at what the loop reads.\x90\x02\x02B!Z\x1fkomrad/proto/gen/loop/v1;loopv1b\x06proto3"
 
@@ -154,16 +92,15 @@ func file_loop_v1_loop_proto_rawDescGZIP() []byte {
 	return file_loop_v1_loop_proto_rawDescData
 }
 
-var file_loop_v1_loop_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_loop_v1_loop_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_loop_v1_loop_proto_goTypes = []any{
-	(Loop)(0),               // 0: loop.v1.Loop
-	(*WakeLoopRequest)(nil), // 1: loop.v1.WakeLoopRequest
+	(*WakeLoopRequest)(nil), // 0: loop.v1.WakeLoopRequest
+	(Loop)(0),               // 1: loop.v1.Loop
 	(*emptypb.Empty)(nil),   // 2: google.protobuf.Empty
 }
 var file_loop_v1_loop_proto_depIdxs = []int32{
-	0, // 0: loop.v1.WakeLoopRequest.loop:type_name -> loop.v1.Loop
-	1, // 1: loop.v1.LoopService.WakeLoop:input_type -> loop.v1.WakeLoopRequest
+	1, // 0: loop.v1.WakeLoopRequest.loop:type_name -> loop.v1.Loop
+	0, // 1: loop.v1.LoopService.WakeLoop:input_type -> loop.v1.WakeLoopRequest
 	2, // 2: loop.v1.LoopService.WakeLoop:output_type -> google.protobuf.Empty
 	2, // [2:3] is the sub-list for method output_type
 	1, // [1:2] is the sub-list for method input_type
@@ -177,19 +114,19 @@ func file_loop_v1_loop_proto_init() {
 	if File_loop_v1_loop_proto != nil {
 		return
 	}
+	file_loop_v1_enums_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_loop_v1_loop_proto_rawDesc), len(file_loop_v1_loop_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      0,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_loop_v1_loop_proto_goTypes,
 		DependencyIndexes: file_loop_v1_loop_proto_depIdxs,
-		EnumInfos:         file_loop_v1_loop_proto_enumTypes,
 		MessageInfos:      file_loop_v1_loop_proto_msgTypes,
 	}.Build()
 	File_loop_v1_loop_proto = out.File

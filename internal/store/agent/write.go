@@ -23,6 +23,15 @@ func (s *AgentStore) Create(ctx context.Context, agent Agent) error {
 		agent.ID = id
 	}
 
+	role, err := fromServiceToDBAgentRole(agent.roleOrDefault())
+	if err != nil {
+		return err
+	}
+	state, err := fromServiceToDBAgentState(agent.State)
+	if err != nil {
+		return err
+	}
+
 	if _, err := s.queries.InsertAgent(ctx, models.InsertAgentParams{
 		ID:                 agent.ID,
 		Name:               agent.Name,
@@ -30,8 +39,8 @@ func (s *AgentStore) Create(ctx context.Context, agent Agent) error {
 		Flags:              agent.Flags,
 		Prompt:             agent.Prompt,
 		PaneID:             agent.Pane,
-		Role:               models.AgentRole(agent.roleOrDefault()),
-		State:              models.AgentState(agent.State),
+		Role:               role,
+		State:              state,
 		Harness:            agent.Harness,
 		SessionID:          agent.SessionID,
 		WorkflowID:         agent.WorkflowID,
@@ -50,13 +59,18 @@ func (s *AgentStore) Create(ctx context.Context, agent Agent) error {
 
 // Update writes an agent's editable and runtime fields.
 func (s *AgentStore) Update(ctx context.Context, agent Agent) error {
+	state, err := fromServiceToDBAgentState(agent.State)
+	if err != nil {
+		return err
+	}
+
 	if err := s.queries.UpdateAgent(ctx, models.UpdateAgentParams{
 		ID:         agent.ID,
 		Cwd:        agent.Cwd,
 		Flags:      agent.Flags,
 		Prompt:     agent.Prompt,
 		PaneID:     agent.Pane,
-		State:      models.AgentState(agent.State),
+		State:      state,
 		SessionID:  agent.SessionID,
 		WorkflowID: agent.WorkflowID,
 	}); err != nil {
@@ -69,13 +83,18 @@ func (s *AgentStore) Update(ctx context.Context, agent Agent) error {
 // UpdateIfLive rewrites an agent's row as it launches, clearing the nudges on its unread mail so
 // it is told again, and reports whether it did, refusing an archived or deleted one.
 func (s *AgentStore) UpdateIfLive(ctx context.Context, agent Agent) (bool, error) {
+	state, err := fromServiceToDBAgentState(agent.State)
+	if err != nil {
+		return false, err
+	}
+
 	updated, err := s.queries.UpdateAgentIfLive(ctx, models.UpdateAgentIfLiveParams{
 		ID:         agent.ID,
 		Cwd:        agent.Cwd,
 		Flags:      agent.Flags,
 		Prompt:     agent.Prompt,
 		PaneID:     agent.Pane,
-		State:      models.AgentState(agent.State),
+		State:      state,
 		SessionID:  agent.SessionID,
 		WorkflowID: agent.WorkflowID,
 	})

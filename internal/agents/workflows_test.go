@@ -19,7 +19,9 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -466,7 +468,7 @@ func TestArchiveWorkflowKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
-	agent := seedInWorkflow(t, st, workflowID, "dormant", "", agentstore.StateIdle)
+	agent := seedInWorkflow(t, st, workflowID, "dormant", "", agentv1.AgentState_AGENT_STATE_IDLE)
 
 	agentSvc := st.agentService(agentServiceOptions{
 		tmux: tmux,
@@ -638,7 +640,7 @@ func TestRestoreWorkflow(t *testing.T) {
 			if tt.takeName {
 				require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 					Name:       "agent",
-					State:      agentstore.StateIdle,
+					State:      agentv1.AgentState_AGENT_STATE_IDLE,
 					Harness:    harnesstest.FakeID,
 					WorkflowID: id,
 				}))
@@ -796,7 +798,7 @@ func TestRestoreWorkflowRefusesTwoArchivedNamesakes(t *testing.T) {
 	for range 2 {
 		require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 			Name:       "agent",
-			State:      agentstore.StateIdle,
+			State:      agentv1.AgentState_AGENT_STATE_IDLE,
 			Harness:    harnesstest.FakeID,
 			WorkflowID: created.ID,
 		}))
@@ -956,7 +958,7 @@ func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 	require.NotNil(t, got, "the workflow the straggler is still in stays archived")
 	assert.Nil(t, got.DeletingAt, "and is given back to the archive with it")
 
-	assert.Equal(t, agentstore.StateFailedToCleanup, agentByID(t, st, agent.ID).State)
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP, agentByID(t, st, agent.ID).State)
 	assert.Empty(t, lifecycle.ranTaskDeprovisions(), "and so is the checkout of its task")
 }
 
@@ -997,7 +999,7 @@ func TestDeleteWorkflowWithoutRecordsKeepsTheWorkflow(t *testing.T) {
 	assert.NotNil(t, agentByID(t, st, agent.ID).ArchivedAt)
 	task, err := st.Tasks.Get(ctx, *agent.TaskID)
 	require.NoError(t, err)
-	assert.Equal(t, taskstore.WorktreeDeleted, task.Checkout.WorktreeRemovalReason)
+	assert.Equal(t, taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED, task.Checkout.WorktreeRemovalReason)
 	assert.Equal(t, []string{agent.Cwd}, lifecycle.ranTaskDeprovisions())
 }
 
@@ -1095,7 +1097,7 @@ func TestRestoreOfAWorkflowLeavesReviewersArchived(t *testing.T) {
 	workflows := st.workflowService(workflowServiceOptions{tmux: tmux})
 	ctx := t.Context()
 
-	writer := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
+	writer := seedRunning(t, st, tmux, "author", "%author", agentv1.AgentState_AGENT_STATE_IDLE)
 	require.NoError(t, st.Agents.Update(ctx, withCwd(writer, t.TempDir())))
 
 	reviewer, err := manager.launch.NewAgent(ctx, reviewerOf(writer, "reviewer"))

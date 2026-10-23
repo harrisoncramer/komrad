@@ -12,6 +12,7 @@ import (
 	"komrad/internal/forge"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 // statusCheckListFields is the first hundred checks on a pull request's head commit, each asked whether
@@ -185,7 +186,7 @@ func checkRunsOf(reading *forge.Reading) []*forge.StatusCheck {
 			continue
 		}
 		for i := range listing.StatusChecks {
-			if listing.StatusChecks[i].Kind == forge.StatusCheckKindRun {
+			if listing.StatusChecks[i].Kind == pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN {
 				runs = append(runs, &listing.StatusChecks[i])
 			}
 		}
@@ -247,7 +248,7 @@ func (n statusCheckNode) check() (forge.StatusCheck, bool) {
 		state, conclusion := checkRunStateOf(n.Status, n.Conclusion)
 		return forge.StatusCheck{
 			ProviderID:   n.ID,
-			Kind:         forge.StatusCheckKindRun,
+			Kind:         pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 			Source:       n.source(),
 			Name:         n.Name,
 			State:        state,
@@ -264,19 +265,19 @@ func (n statusCheckNode) check() (forge.StatusCheck, bool) {
 	case "StatusContext":
 		check := forge.StatusCheck{
 			ProviderID: n.ID,
-			Kind:       forge.StatusCheckKindStatus,
+			Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_STATUS,
 			Name:       n.Context,
 			Required:   n.IsRequired,
 			URL:        xptr.Deref(n.TargetURL),
 		}
 		switch n.State {
 		case "EXPECTED":
-			check.State = forge.StatusCheckStateWaiting
+			check.State = pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_WAITING
 		case "PENDING":
-			check.State = forge.StatusCheckStateRunning
+			check.State = pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING
 			check.StartedAt = n.CreatedAt
 		default:
-			check.State = forge.StatusCheckStateCompleted
+			check.State = pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED
 			check.Conclusion = strings.ToLower(n.State)
 			check.FinishedAt = n.CreatedAt
 		}
@@ -304,17 +305,17 @@ func (n statusCheckNode) source() string {
 
 // checkRunStateOf is a check run's status in komrad's words, with its conclusion lowercased once
 // it has completed.
-func checkRunStateOf(status string, conclusion *string) (forge.StatusCheckState, string) {
+func checkRunStateOf(status string, conclusion *string) (pullrequestv1.StatusCheckState, string) {
 	switch status {
 	case "IN_PROGRESS":
-		return forge.StatusCheckStateRunning, ""
+		return pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""
 	case "COMPLETED":
-		return forge.StatusCheckStateCompleted, strings.ToLower(xptr.Deref(conclusion))
+		return pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, strings.ToLower(xptr.Deref(conclusion))
 	case "WAITING", "REQUESTED":
-		return forge.StatusCheckStateWaiting, ""
+		return pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_WAITING, ""
 	}
 
-	return forge.StatusCheckStateQueued, ""
+	return pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED, ""
 }
 
 // checkStepNode is one step of a check run GitHub lists.

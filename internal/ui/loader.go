@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/submitting"
 	"komrad/internal/view"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -59,7 +60,7 @@ func isRowLoading(l panel.Listing, r agentRow) bool {
 
 // isAgentLoading reports whether an agent is setting up or at work, either of which turns the loader.
 func isAgentLoading(item panel.AgentRow) bool {
-	return item.Agent.State == panel.StateSettingUp || isThinking(item)
+	return item.Agent.State == agentv1.AgentState_AGENT_STATE_SETTING_UP || isThinking(item)
 }
 
 // isThinking reports whether an agent is at work behind a pane still running, which turns the

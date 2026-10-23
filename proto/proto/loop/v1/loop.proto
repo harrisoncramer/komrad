@@ -5,20 +5,9 @@ package loop.v1;
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
+import "loop/v1/enums.proto";
 
 option go_package = "komrad/proto/gen/loop/v1;loopv1";
-
-// Loop is a background loop komrad runs on a timer, which a caller can wake early.
-enum Loop {
-  // No loop was named. `WakeLoop` refuses this value.
-  LOOP_UNSPECIFIED = 0;
-  // Reads each live agent's checkout for its branch, head commit and changed lines.
-  LOOP_CWD_SYNC = 1;
-  // Reads each agent's transcript for new turns.
-  LOOP_TRANSCRIPT_SYNC = 2;
-  // Reads the pull requests from agents' branches.
-  LOOP_PULL_REQUEST_SYNC = 3;
-}
 
 message WakeLoopRequest {
   // The loop to wake.

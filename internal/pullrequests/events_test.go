@@ -7,6 +7,7 @@ import (
 	"komrad/internal/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	eventv1 "komrad/proto/gen/event/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -17,7 +18,7 @@ func TestEventsOf(t *testing.T) {
 		name        string
 		moves       []Move
 		pullRequest pullrequeststore.PullRequest
-		checks      forge.Checks
+		checks      pullrequestv1.Checks
 		read        forge.MergeReadiness
 		wantStarted []eventv1.Event
 		wantHolding []eventv1.Event
@@ -30,7 +31,7 @@ func TestEventsOf(t *testing.T) {
 				To:    "failing",
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
-			checks:      forge.ChecksFailing,
+			checks:      pullrequestv1.Checks_CHECKS_FAILING,
 			wantHolding: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING},
 		},
 		{
@@ -41,7 +42,7 @@ func TestEventsOf(t *testing.T) {
 				To:    "failing_running",
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
-			checks:      forge.ChecksFailingRunning,
+			checks:      pullrequestv1.Checks_CHECKS_FAILING_RUNNING,
 			wantHolding: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING_RUNNING},
 		},
 		{
@@ -52,9 +53,9 @@ func TestEventsOf(t *testing.T) {
 				To:    "passing",
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
-			checks:      forge.ChecksPassing,
+			checks:      pullrequestv1.Checks_CHECKS_PASSING,
 			read: forge.MergeReadiness{
-				Mergeability: forge.MergeabilityBehind,
+				Mergeability: pullrequestv1.Mergeability_MERGEABILITY_BEHIND,
 			},
 			wantHolding: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_BEHIND},
 		},
@@ -66,8 +67,8 @@ func TestEventsOf(t *testing.T) {
 				To:    "passing",
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
-			checks:      forge.ChecksPassing,
-			read:        forge.MergeReadiness{Mergeability: forge.MergeabilityBlocked},
+			checks:      pullrequestv1.Checks_CHECKS_PASSING,
+			read:        forge.MergeReadiness{Mergeability: pullrequestv1.Mergeability_MERGEABILITY_BLOCKED},
 		},
 		{
 			name: "checks going green on a mergeable pull request start passing",
@@ -77,8 +78,8 @@ func TestEventsOf(t *testing.T) {
 				To:    "passing",
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
-			checks:      forge.ChecksPassing,
-			read:        forge.MergeReadiness{Mergeability: forge.MergeabilityClean},
+			checks:      pullrequestv1.Checks_CHECKS_PASSING,
+			read:        forge.MergeReadiness{Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN},
 			wantStarted: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_PASSING},
 			wantHolding: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_PASSING},
 		},
@@ -90,8 +91,8 @@ func TestEventsOf(t *testing.T) {
 				To:    "clean",
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
-			checks:      forge.ChecksPassing,
-			read:        forge.MergeReadiness{Mergeability: forge.MergeabilityClean},
+			checks:      pullrequestv1.Checks_CHECKS_PASSING,
+			read:        forge.MergeReadiness{Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN},
 			wantStarted: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_PASSING},
 			wantHolding: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_PASSING},
 		},
@@ -103,8 +104,8 @@ func TestEventsOf(t *testing.T) {
 				To:    "clean",
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "OPEN"},
-			checks:      forge.ChecksPending,
-			read:        forge.MergeReadiness{Mergeability: forge.MergeabilityClean},
+			checks:      pullrequestv1.Checks_CHECKS_PENDING,
+			read:        forge.MergeReadiness{Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN},
 		},
 		{
 			name: "turning auto-merge on starts it",
@@ -133,9 +134,9 @@ func TestEventsOf(t *testing.T) {
 				},
 			},
 			pullRequest: pullrequeststore.PullRequest{State: "MERGED"},
-			checks:      forge.ChecksFailing,
+			checks:      pullrequestv1.Checks_CHECKS_FAILING,
 			read: forge.MergeReadiness{
-				Decision: forge.ReviewDecisionApproved,
+				Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED,
 			},
 			wantStarted: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_MERGED},
 			wantHolding: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_MERGED},
@@ -148,7 +149,7 @@ func TestEventsOf(t *testing.T) {
 				To:    "failing",
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "MERGED"},
-			checks:      forge.ChecksFailing,
+			checks:      pullrequestv1.Checks_CHECKS_FAILING,
 			wantHolding: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_MERGED},
 		},
 		{
@@ -159,7 +160,7 @@ func TestEventsOf(t *testing.T) {
 				To:    "CLOSED",
 			}},
 			pullRequest: pullrequeststore.PullRequest{State: "CLOSED"},
-			read:        forge.MergeReadiness{Mergeability: forge.MergeabilityConflicting},
+			read:        forge.MergeReadiness{Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING},
 			wantStarted: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CLOSED},
 			wantHolding: []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CLOSED},
 		},
@@ -169,7 +170,7 @@ func TestEventsOf(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			pullRequest := tt.pullRequest
 			pullRequest.MergeReadiness = forge.RememberedMergeReadiness{}.RememberRead(tt.read, pullRequest.HeadSHA, time.Time{})
-			pullRequest.MergeReadiness.Checks = forge.RememberedAnswer[forge.Checks]{Value: tt.checks, HeadSHA: pullRequest.HeadSHA}
+			pullRequest.MergeReadiness.Checks = forge.RememberedAnswer[pullrequestv1.Checks]{Value: tt.checks, HeadSHA: pullRequest.HeadSHA}
 
 			started, holding := eventsOf(Change{Moves: tt.moves}, pullRequest)
 			assert.Equal(t, tt.wantStarted, started)
@@ -184,37 +185,37 @@ func TestFailingEvent(t *testing.T) {
 	tests := []struct {
 		name   string
 		state  string
-		checks forge.Checks
+		checks pullrequestv1.Checks
 		want   eventv1.Event
 	}{
 		{
 			name:   "failing",
 			state:  "OPEN",
-			checks: forge.ChecksFailing,
+			checks: pullrequestv1.Checks_CHECKS_FAILING,
 			want:   eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING,
 		},
 		{
 			name:   "failing while others still run",
 			state:  "OPEN",
-			checks: forge.ChecksFailingRunning,
+			checks: pullrequestv1.Checks_CHECKS_FAILING_RUNNING,
 			want:   eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING_RUNNING,
 		},
 		{
 			name:   "passing",
 			state:  "OPEN",
-			checks: forge.ChecksPassing,
+			checks: pullrequestv1.Checks_CHECKS_PASSING,
 		},
 		{
 			name:   "merged",
 			state:  "MERGED",
-			checks: forge.ChecksFailing,
+			checks: pullrequestv1.Checks_CHECKS_FAILING,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			pullRequest := pullrequeststore.PullRequest{State: tt.state}
-			pullRequest.MergeReadiness.Checks = forge.RememberedAnswer[forge.Checks]{Value: tt.checks}
+			pullRequest.MergeReadiness.Checks = forge.RememberedAnswer[pullrequestv1.Checks]{Value: tt.checks}
 
 			assert.Equal(t, tt.want, failingEvent(pullRequest))
 		})

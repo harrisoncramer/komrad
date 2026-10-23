@@ -9,6 +9,7 @@ import (
 	"komrad/internal/forge"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -48,14 +49,14 @@ func TestReadBranches(t *testing.T) {
 	running, merged := reading.PullRequests[0], reading.PullRequests[1]
 	assert.Equal(t, 256538, running.Number)
 	assert.Equal(t, &forge.MergeReadiness{
-		Decision:     forge.ReviewDecisionNone,
-		Mergeability: forge.MergeabilityBlocked,
+		Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_NONE,
+		Mergeability: pullrequestv1.Mergeability_MERGEABILITY_BLOCKED,
 		AutoMerge:    forge.AutoMerge{On: true, Allowed: true},
 		Listing: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{{
 			ProviderID: "2051234567",
-			Kind:       forge.StatusCheckKindPipeline,
+			Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_PIPELINE,
 			Name:       "pipeline",
-			State:      forge.StatusCheckStateRunning,
+			State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING,
 			StartedAt:  xptr.Ptr(time.Date(2026, 9, 20, 17, 50, 0, 0, time.UTC)),
 			Required:   true,
 			URL:        "https://gitlab.com/acme/widgets/-/pipelines/2051234567",
@@ -63,14 +64,14 @@ func TestReadBranches(t *testing.T) {
 	}, running.MergeReadiness)
 	assert.Equal(t, 256531, merged.Number)
 	assert.Equal(t, &forge.MergeReadiness{
-		Decision:     forge.ReviewDecisionApproved,
-		Mergeability: forge.MergeabilityUnknown,
+		Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED,
+		Mergeability: pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN,
 		AutoMerge:    forge.AutoMerge{},
 		Listing: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{{
 			ProviderID: "2051230000",
-			Kind:       forge.StatusCheckKindPipeline,
+			Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_PIPELINE,
 			Name:       "pipeline",
-			State:      forge.StatusCheckStateCompleted,
+			State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 			Conclusion: "success",
 			StartedAt:  xptr.Ptr(time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)),
 			FinishedAt: xptr.Ptr(time.Date(2026, 9, 20, 10, 20, 0, 0, time.UTC)),

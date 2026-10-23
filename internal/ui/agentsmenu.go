@@ -8,6 +8,7 @@ import (
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 // BuildScreenMenu builds the agents list's own band, for starting a workflow, under every row.
@@ -150,7 +151,7 @@ func (a *agentsScreen) agentRowMenu(in screen.Inputs, item panel.AgentRow) menu.
 		Title:   in.Listing.AgentName(item.Agent),
 		Entries: slices.Concat(pages, own),
 	}
-	if item.Agent.Role == panel.RoleWriter {
+	if item.Agent.Role == agentv1.AgentRole_AGENT_ROLE_WRITER {
 		return band
 	}
 
@@ -159,7 +160,7 @@ func (a *agentsScreen) agentRowMenu(in screen.Inputs, item panel.AgentRow) menu.
 
 // retryEntries is the entry that relaunches an agent that failed to create, and none otherwise.
 func (a *agentsScreen) retryEntries(item panel.AgentRow) []menu.Entry {
-	if item.Agent.State != panel.StateFailedToCreate {
+	if item.Agent.State != agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE {
 		return nil
 	}
 

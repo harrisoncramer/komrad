@@ -10,6 +10,7 @@ import (
 	"komrad/internal/git"
 	forgestore "komrad/internal/store/forge"
 	reviewstore "komrad/internal/store/review"
+	agentv1 "komrad/proto/gen/agent/v1"
 	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/google/uuid"
@@ -135,13 +136,13 @@ func TestSendingForgeReply(t *testing.T) {
 		truncated bool
 		send      func(t *testing.T, fx *forgeReplyFixture) (*reviewstore.ForgeReply, error)
 		wantErr   error
-		wantState reviewstore.ForgeReplyState
+		wantState agentv1.ForgeReplyState
 		wantBody  string
 	}{
 		{
 			name:      "the person's own reply is posted straight away",
 			send:      replyOnForge,
-			wantState: reviewstore.ForgeReplySent,
+			wantState: agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT,
 			wantBody:  "done",
 		},
 		{
@@ -149,20 +150,20 @@ func TestSendingForgeReply(t *testing.T) {
 			refusal:   forge.ErrUnauthorized,
 			held:      []forge.ReviewComment{postedOnForge("komrad-bot", later)},
 			send:      replyOnForge,
-			wantState: reviewstore.ForgeReplyFailed,
+			wantState: agentv1.ForgeReplyState_FORGE_REPLY_STATE_FAILED,
 		},
 		{
 			name:      "a reply the forge answers unclearly is sent when the forge holds it",
 			refusal:   reset,
 			held:      []forge.ReviewComment{postedOnForge("komrad-bot", later)},
 			send:      replyOnForge,
-			wantState: reviewstore.ForgeReplySent,
+			wantState: agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT,
 		},
 		{
 			name:      "a reply the forge answers unclearly is failed when the forge does not hold it",
 			refusal:   reset,
 			send:      replyOnForge,
-			wantState: reviewstore.ForgeReplyFailed,
+			wantState: agentv1.ForgeReplyState_FORGE_REPLY_STATE_FAILED,
 		},
 		{
 			name:      "a reply the forge answers unclearly stays being sent when the forge answers only in part",
@@ -170,7 +171,7 @@ func TestSendingForgeReply(t *testing.T) {
 			truncated: true,
 			send:      replyOnForge,
 			wantErr:   reset,
-			wantState: reviewstore.ForgeReplySending,
+			wantState: agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENDING,
 		},
 		{
 			name: "a reply whose caller gave up is still settled from the forge",
@@ -185,7 +186,7 @@ func TestSendingForgeReply(t *testing.T) {
 					Body:     "done",
 				})
 			},
-			wantState: reviewstore.ForgeReplySent,
+			wantState: agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT,
 		},
 		{
 			name: "a failed reply is posted again on retry",
@@ -197,7 +198,7 @@ func TestSendingForgeReply(t *testing.T) {
 
 				return fx.replies.RetryForgeReply(t.Context(), failed.ID, personAuthor)
 			},
-			wantState: reviewstore.ForgeReplySent,
+			wantState: agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT,
 			wantBody:  "done",
 		},
 		{
@@ -227,7 +228,7 @@ func TestSendingForgeReply(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, tt.wantState, reply.State)
 			}
-			if tt.wantState != "" {
+			if tt.wantState != agentv1.ForgeReplyState_FORGE_REPLY_STATE_UNSPECIFIED {
 				assert.Equal(t, tt.wantState, fx.latestReply(t).State)
 			}
 
@@ -280,43 +281,43 @@ func TestReconcilingForgeReplies(t *testing.T) {
 		held      []forge.ReviewComment
 		truncated bool
 		wantErr   bool
-		wantState reviewstore.ForgeReplyState
+		wantState agentv1.ForgeReplyState
 	}{
 		{
 			name:      "a reply the forge holds from komrad is sent",
 			held:      []forge.ReviewComment{postedOnForge("komrad-bot", later)},
-			wantState: reviewstore.ForgeReplySent,
+			wantState: agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT,
 		},
 		{
 			name:      "a reply the forge does not hold is failed",
-			wantState: reviewstore.ForgeReplyFailed,
+			wantState: agentv1.ForgeReplyState_FORGE_REPLY_STATE_FAILED,
 		},
 		{
 			name:      "a reply the forge answers only part of the threads for stays being sent",
 			truncated: true,
 			wantErr:   true,
-			wantState: reviewstore.ForgeReplySending,
+			wantState: agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENDING,
 		},
 		{
 			name:      "the same words from someone else do not count",
 			held:      []forge.ReviewComment{postedOnForge("alice", later)},
-			wantState: reviewstore.ForgeReplyFailed,
+			wantState: agentv1.ForgeReplyState_FORGE_REPLY_STATE_FAILED,
 		},
 		{
 			name:      "the same words written before the posting began do not count",
 			held:      []forge.ReviewComment{postedOnForge("komrad-bot", earlier)},
-			wantState: reviewstore.ForgeReplyFailed,
+			wantState: agentv1.ForgeReplyState_FORGE_REPLY_STATE_FAILED,
 		},
 		{
 			name:      "the forge's clock running a little behind still counts",
 			held:      []forge.ReviewComment{postedOnForge("komrad-bot", behind)},
-			wantState: reviewstore.ForgeReplySent,
+			wantState: agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT,
 		},
 		{
 			name:      "a GitHub App, whose login is unknown, matches on the words alone",
 			method:    forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP,
 			held:      []forge.ReviewComment{postedOnForge("komrad[bot]", later)},
-			wantState: reviewstore.ForgeReplySent,
+			wantState: agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT,
 		},
 	}
 
@@ -345,7 +346,7 @@ func TestReconcilingForgeReplies(t *testing.T) {
 			settled, err := fx.reviews.GetForgeReply(t.Context(), reply.ID)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantState, settled.State)
-			if tt.wantState == reviewstore.ForgeReplySent {
+			if tt.wantState == agentv1.ForgeReplyState_FORGE_REPLY_STATE_SENT {
 				require.NotNil(t, settled.ForgeCommentProviderID)
 				assert.Equal(t, "c9", *settled.ForgeCommentProviderID)
 			}

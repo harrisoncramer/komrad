@@ -2,34 +2,11 @@ syntax = "proto3";
 
 package agent.v1;
 
+import "agent/v1/enums.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "komrad/proto/gen/agent/v1;agentv1";
-
-// ReviewAuthorKind is who wrote a review or comment.
-enum ReviewAuthorKind {
-  // No author was recorded.
-  REVIEW_AUTHOR_KIND_UNSPECIFIED = 0;
-  // The person.
-  REVIEW_AUTHOR_KIND_HUMAN = 1;
-  // An agent, either the writer or a reviewer.
-  REVIEW_AUTHOR_KIND_AGENT = 2;
-  // A forge user, whose comment komrad copied from the pull request.
-  REVIEW_AUTHOR_KIND_FORGE = 3;
-}
-
-// ReviewVerdict is what a review concludes about a snapshot.
-enum ReviewVerdict {
-  // No verdict. An unreleased review has this value.
-  REVIEW_VERDICT_UNSPECIFIED = 0;
-  // The snapshot is good as it stands.
-  REVIEW_VERDICT_APPROVED = 1;
-  // The writer has more to do.
-  REVIEW_VERDICT_CHANGES_REQUESTED = 2;
-  // Comments with no conclusion either way.
-  REVIEW_VERDICT_COMMENTED = 3;
-}
 
 // ReviewSnapshot is a snapshot of a task's worktree, saved as a commit, that a review is written
 // against. A snapshot never changes.
@@ -441,29 +418,12 @@ message OpenReviewHistoryResponse {
   map<string, ReviewTracedPlace> traced = 12;
 }
 
-// ReviewWidenedReason is why komrad diffed the whole change instead of the requested span.
-enum ReviewWidenedReason {
-  // No reason was recorded. No widening has this value.
-  REVIEW_WIDENED_REASON_UNSPECIFIED = 0;
-  // The snapshots the answer stands between are gone.
-  REVIEW_WIDENED_REASON_ANSWER_GONE = 1;
-  // The snapshot the comment was written on is gone.
-  REVIEW_WIDENED_REASON_COMMENT_SNAPSHOT_GONE = 2;
-  // A snapshot the range stands between is gone.
-  REVIEW_WIDENED_REASON_RANGE_SNAPSHOT_GONE = 3;
-  // The range starts on or after the snapshot it ends on.
-  REVIEW_WIDENED_REASON_RANGE_BACKWARDS = 4;
-  // The answer's older side could not be replayed across the rebase between its snapshots.
-  // `conflicts` names the paths that stopped it.
-  REVIEW_WIDENED_REASON_ANSWER_ACROSS_REBASE = 5;
-}
-
 // ReviewWidening is why komrad diffed the whole change, with the paths that conflicted when it did.
 message ReviewWidening {
   // Why the span was widened.
   ReviewWidenedReason reason = 1;
   // The paths that conflicted replaying the answer's older side. Empty unless the reason is
-  // `REVIEW_WIDENED_REASON_ANSWER_ACROSS_REBASE`.
+  // `answer_across_rebase`.
   repeated string conflicts = 2;
 }
 
@@ -616,20 +576,6 @@ message ListReviewViewedFilesRequest {
 message ListReviewViewedFilesResponse {
   // Every file marked as read in the task's diff.
   repeated ReviewViewedFile viewed = 1;
-}
-
-// ForgeReplyState is how far a reply komrad posts to the forge has got.
-enum ForgeReplyState {
-  // No state was recorded.
-  FORGE_REPLY_STATE_UNSPECIFIED = 0;
-  // Approved and waiting to be posted.
-  FORGE_REPLY_STATE_APPROVED = 1;
-  // Being posted. The forge may already have it.
-  FORGE_REPLY_STATE_SENDING = 2;
-  // Accepted by the forge.
-  FORGE_REPLY_STATE_SENT = 3;
-  // Refused by the forge on the latest attempt, waiting for the person to retry or discard it.
-  FORGE_REPLY_STATE_FAILED = 4;
 }
 
 // ForgeReply is a reply komrad posts for the person on a thread copied from the forge.

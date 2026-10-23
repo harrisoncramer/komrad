@@ -15,6 +15,9 @@ import (
 	agentstore "komrad/internal/store/agent"
 	schedulestore "komrad/internal/store/schedule"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/protoenum"
+	agentv1 "komrad/proto/gen/agent/v1"
+	schedulev1 "komrad/proto/gen/schedule/v1"
 
 	"github.com/google/uuid"
 	"github.com/robfig/cron/v3"
@@ -203,7 +206,7 @@ func (s *ScheduleService) getArchived(ctx context.Context, id uuid.UUID) (*sched
 
 // requireTarget checks that what a stored schedule fires at is still live.
 func (s *ScheduleService) requireTarget(ctx context.Context, schedule schedulestore.Schedule) error {
-	if schedule.Kind == schedulestore.KindOrchestrator {
+	if schedule.Kind == schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR {
 		_, err := s.RequireOrchestrator(ctx, *schedule.OrchestratorAgentID)
 
 		return err
@@ -255,14 +258,14 @@ func (s *ScheduleService) ListScheduleRuns(ctx context.Context, params ListSched
 // orchestrator's workflow.
 func (s *ScheduleService) resolveTarget(ctx context.Context, cfg schedulestore.Config) (schedulestore.Config, error) {
 	switch cfg.Kind {
-	case schedulestore.KindTask:
+	case schedulev1.ScheduleKind_SCHEDULE_KIND_TASK:
 		cfg.OrchestratorAgentID = nil
 		if err := s.requireWorkflow(ctx, cfg.WorkflowID); err != nil {
 			return schedulestore.Config{}, err
 		}
 
 		return cfg, nil
-	case schedulestore.KindOrchestrator:
+	case schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR:
 		if cfg.OrchestratorAgentID == nil {
 			return schedulestore.Config{}, ErrOrchestratorNotFound.Saying("an orchestrator schedule names no orchestrator")
 		}
@@ -278,9 +281,10 @@ func (s *ScheduleService) resolveTarget(ctx context.Context, cfg schedulestore.C
 		cfg.HideAgents = false
 
 		return cfg, nil
+	case schedulev1.ScheduleKind_SCHEDULE_KIND_UNSPECIFIED:
 	}
 
-	return schedulestore.Config{}, errBadKind.Saying("no schedule kind %q", cfg.Kind)
+	return schedulestore.Config{}, errBadKind.Saying("no schedule kind %v", cfg.Kind)
 }
 
 // RequireOrchestrator returns the live orchestrator an id names, or says which way it is unusable.
@@ -295,8 +299,8 @@ func (s *ScheduleService) RequireOrchestrator(ctx context.Context, id uuid.UUID)
 	if agent.ArchivedAt != nil {
 		return nil, ErrOrchestratorArchived.Saying("orchestrator %q has been archived", agent.Name)
 	}
-	if agent.Role != agentstore.RoleOrchestrator {
-		return nil, ErrNotAnOrchestrator.Saying("agent %q was launched as %s", agent.Name, agent.Role)
+	if agent.Role != agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR {
+		return nil, ErrNotAnOrchestrator.Saying("agent %q was launched as %s", agent.Name, protoenum.Name(agent.Role))
 	}
 
 	return agent, nil
@@ -329,8 +333,8 @@ func normalize(cfg schedulestore.Config) (schedulestore.Config, error) {
 	cfg.Cron = strings.TrimSpace(cfg.Cron)
 	cfg.Timezone = strings.TrimSpace(cfg.Timezone)
 	cfg.Prompt = strings.TrimSpace(cfg.Prompt)
-	if cfg.Kind == "" {
-		cfg.Kind = schedulestore.KindTask
+	if cfg.Kind == schedulev1.ScheduleKind_SCHEDULE_KIND_UNSPECIFIED {
+		cfg.Kind = schedulev1.ScheduleKind_SCHEDULE_KIND_TASK
 	}
 
 	if _, err := ParseCron(cfg.Cron, cfg.Timezone); err != nil {

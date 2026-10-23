@@ -5,8 +5,10 @@ import (
 	"time"
 
 	"komrad/internal/forge"
+	"komrad/lib/protoenum"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,10 +16,10 @@ import (
 
 var statusCheckReadAt = time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
 
-func statusCheckRun(providerID, name string, state forge.StatusCheckState, conclusion string) forge.StatusCheck {
+func statusCheckRun(providerID, name string, state pullrequestv1.StatusCheckState, conclusion string) forge.StatusCheck {
 	return forge.StatusCheck{
 		ProviderID:   providerID,
-		Kind:         forge.StatusCheckKindRun,
+		Kind:         pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 		Source:       "CI",
 		Name:         name,
 		State:        state,
@@ -44,7 +46,7 @@ func inJob(check forge.StatusCheck, jobID int64) forge.StatusCheck {
 }
 
 func statusCheckNames(reading StatusCheckReading) []string {
-	return xslice.Map(reading.StatusChecks, func(check forge.StatusCheck) string { return check.Name + ":" + string(check.State) })
+	return xslice.Map(reading.StatusChecks, func(check forge.StatusCheck) string { return check.Name + ":" + protoenum.Name(check.State) })
 }
 
 // TestSetStatusChecks covers what each read of a head commit leaves listed.
@@ -57,82 +59,82 @@ func TestSetStatusChecks(t *testing.T) {
 		{
 			name: "a read lists the checks on its head",
 			reads: []SetStatusChecksParams{
-				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", forge.StatusCheckStateRunning, ""), statusCheckRun("2", "lint", forge.StatusCheckStateQueued, "")}},
+				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""), statusCheckRun("2", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED, "")}},
 			},
-			want: []StatusCheckReading{{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("2", "lint", forge.StatusCheckStateQueued, ""), statusCheckRun("1", "test", forge.StatusCheckStateRunning, "")}}},
+			want: []StatusCheckReading{{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("2", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED, ""), statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, "")}}},
 		},
 		{
 			name: "a new head keeps the reading of the old one",
 			reads: []SetStatusChecksParams{
-				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "failure")}},
-				{HeadSHA: "c2", StatusChecks: []forge.StatusCheck{statusCheckRun("3", "test", forge.StatusCheckStateRunning, "")}},
+				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure")}},
+				{HeadSHA: "c2", StatusChecks: []forge.StatusCheck{statusCheckRun("3", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, "")}},
 			},
 			want: []StatusCheckReading{
-				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "failure")}},
-				{HeadSHA: "c2", StatusChecks: []forge.StatusCheck{statusCheckRun("3", "test", forge.StatusCheckStateRunning, "")}},
+				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure")}},
+				{HeadSHA: "c2", StatusChecks: []forge.StatusCheck{statusCheckRun("3", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, "")}},
 			},
 		},
 		{
 			name: "a later read on the same head moves its checks along",
 			reads: []SetStatusChecksParams{
-				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", forge.StatusCheckStateRunning, "")}},
-				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "success")}},
+				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, "")}},
+				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success")}},
 			},
-			want: []StatusCheckReading{{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "success")}}},
+			want: []StatusCheckReading{{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success")}}},
 		},
 		{
 			name: "a later read that moves a check to another run rewrites it",
 			reads: []SetStatusChecksParams{
-				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "success")}},
-				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{inRun(statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "success"), "CS_2")}},
+				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success")}},
+				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{inRun(statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success"), "CS_2")}},
 			},
-			want: []StatusCheckReading{{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{inRun(statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "success"), "CS_2")}}},
+			want: []StatusCheckReading{{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{inRun(statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success"), "CS_2")}}},
 		},
 		{
 			name: "a later read that gives a check its job keeps the job id",
 			reads: []SetStatusChecksParams{
-				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", forge.StatusCheckStateQueued, "")}},
-				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{inJob(statusCheckRun("1", "test", forge.StatusCheckStateRunning, ""), 42)}},
+				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED, "")}},
+				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{inJob(statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""), 42)}},
 			},
-			want: []StatusCheckReading{{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{inJob(statusCheckRun("1", "test", forge.StatusCheckStateRunning, ""), 42)}}},
+			want: []StatusCheckReading{{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{inJob(statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""), 42)}}},
 		},
 		{
 			name: "a check the forge stops listing goes",
 			reads: []SetStatusChecksParams{
-				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "failure"), statusCheckRun("2", "lint", forge.StatusCheckStateCompleted, "success")}},
-				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("4", "test", forge.StatusCheckStateRunning, ""), statusCheckRun("2", "lint", forge.StatusCheckStateCompleted, "success")}},
+				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure"), statusCheckRun("2", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success")}},
+				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("4", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""), statusCheckRun("2", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success")}},
 			},
-			want: []StatusCheckReading{{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("2", "lint", forge.StatusCheckStateCompleted, "success"), statusCheckRun("4", "test", forge.StatusCheckStateRunning, "")}}},
+			want: []StatusCheckReading{{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("2", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success"), statusCheckRun("4", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, "")}}},
 		},
 		{
 			name: "a truncated read keeps the checks it left out",
 			reads: []SetStatusChecksParams{
-				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", forge.StatusCheckStateRunning, ""), statusCheckRun("2", "lint", forge.StatusCheckStateQueued, "")}},
+				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""), statusCheckRun("2", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED, "")}},
 				{
 					HeadSHA:      "c1",
-					StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "success")},
+					StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success")},
 					Truncated:    true,
 				},
 			},
-			want: []StatusCheckReading{{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("2", "lint", forge.StatusCheckStateQueued, ""), statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "success")}}},
+			want: []StatusCheckReading{{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("2", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED, ""), statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success")}}},
 		},
 		{
 			name: "a check listed twice in one read is kept once as last listed",
 			reads: []SetStatusChecksParams{
-				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", forge.StatusCheckStateRunning, ""), statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "failure")}},
+				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""), statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure")}},
 			},
-			want: []StatusCheckReading{{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "failure")}}},
+			want: []StatusCheckReading{{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure")}}},
 		},
 		{
 			name: "a blank read keeps the checks listed before it",
 			reads: []SetStatusChecksParams{
-				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", forge.StatusCheckStateRunning, "")}},
+				{HeadSHA: "c1", StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, "")}},
 				{HeadSHA: "c1"},
 			},
 			want: []StatusCheckReading{{
 				HeadSHA:      "c1",
 				Blank:        true,
-				StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", forge.StatusCheckStateRunning, "")},
+				StatusChecks: []forge.StatusCheck{statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, "")},
 			}},
 		},
 		{
@@ -172,7 +174,7 @@ func TestSetStatusChecks(t *testing.T) {
 	}
 }
 
-func statusCheckStep(number int, name string, state forge.StatusCheckState, conclusion string) forge.StatusCheckStep {
+func statusCheckStep(number int, name string, state pullrequestv1.StatusCheckState, conclusion string) forge.StatusCheckStep {
 	return forge.StatusCheckStep{
 		Number:     number,
 		Name:       name,
@@ -196,7 +198,7 @@ func truncatedSteps(check forge.StatusCheck) forge.StatusCheck {
 
 // TestSetStatusCheckSteps covers what each read of a head commit leaves listed under each check.
 func TestSetStatusCheckSteps(t *testing.T) {
-	running := statusCheckRun("1", "test", forge.StatusCheckStateRunning, "")
+	running := statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, "")
 	tests := []struct {
 		name  string
 		reads [][]forge.StatusCheck
@@ -205,60 +207,60 @@ func TestSetStatusCheckSteps(t *testing.T) {
 		{
 			name: "a read lists the steps of each check in order",
 			reads: [][]forge.StatusCheck{{
-				withSteps(running, statusCheckStep(2, "Run tests", forge.StatusCheckStateRunning, ""), statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success")),
-				statusCheckRun("2", "lint", forge.StatusCheckStateQueued, ""),
+				withSteps(running, statusCheckStep(2, "Run tests", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""), statusCheckStep(1, "Set up job", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success")),
+				statusCheckRun("2", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED, ""),
 			}},
 			want: map[string][]forge.StatusCheckStep{
-				"1": {statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success"), statusCheckStep(2, "Run tests", forge.StatusCheckStateRunning, "")},
+				"1": {statusCheckStep(1, "Set up job", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success"), statusCheckStep(2, "Run tests", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, "")},
 			},
 		},
 		{
 			name: "a later read moves a step along",
 			reads: [][]forge.StatusCheck{
-				{withSteps(running, statusCheckStep(1, "Run tests", forge.StatusCheckStateRunning, ""))},
-				{withSteps(running, statusCheckStep(1, "Run tests", forge.StatusCheckStateCompleted, "failure"))},
+				{withSteps(running, statusCheckStep(1, "Run tests", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""))},
+				{withSteps(running, statusCheckStep(1, "Run tests", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure"))},
 			},
 			want: map[string][]forge.StatusCheckStep{
-				"1": {statusCheckStep(1, "Run tests", forge.StatusCheckStateCompleted, "failure")},
+				"1": {statusCheckStep(1, "Run tests", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure")},
 			},
 		},
 		{
 			name: "a step the forge stops listing goes",
 			reads: [][]forge.StatusCheck{
-				{withSteps(running, statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success"), statusCheckStep(2, "Run tests", forge.StatusCheckStateRunning, ""))},
-				{withSteps(running, statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success"))},
+				{withSteps(running, statusCheckStep(1, "Set up job", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success"), statusCheckStep(2, "Run tests", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""))},
+				{withSteps(running, statusCheckStep(1, "Set up job", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success"))},
 			},
 			want: map[string][]forge.StatusCheckStep{
-				"1": {statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success")},
+				"1": {statusCheckStep(1, "Set up job", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success")},
 			},
 		},
 		{
 			name: "a check whose steps were truncated keeps the steps left out",
 			reads: [][]forge.StatusCheck{
-				{withSteps(running, statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success"), statusCheckStep(2, "Run tests", forge.StatusCheckStateRunning, ""))},
-				{truncatedSteps(withSteps(running, statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success")))},
+				{withSteps(running, statusCheckStep(1, "Set up job", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success"), statusCheckStep(2, "Run tests", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""))},
+				{truncatedSteps(withSteps(running, statusCheckStep(1, "Set up job", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success")))},
 			},
 			want: map[string][]forge.StatusCheckStep{
-				"1": {statusCheckStep(1, "Set up job", forge.StatusCheckStateCompleted, "success"), statusCheckStep(2, "Run tests", forge.StatusCheckStateRunning, "")},
+				"1": {statusCheckStep(1, "Set up job", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success"), statusCheckStep(2, "Run tests", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, "")},
 			},
 		},
 		{
 			name: "a step listed twice in one read is kept once as last listed",
 			reads: [][]forge.StatusCheck{{
-				withSteps(running, statusCheckStep(1, "Run tests", forge.StatusCheckStateRunning, ""), statusCheckStep(1, "Run tests", forge.StatusCheckStateCompleted, "success")),
+				withSteps(running, statusCheckStep(1, "Run tests", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""), statusCheckStep(1, "Run tests", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success")),
 			}},
 			want: map[string][]forge.StatusCheckStep{
-				"1": {statusCheckStep(1, "Run tests", forge.StatusCheckStateCompleted, "success")},
+				"1": {statusCheckStep(1, "Run tests", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success")},
 			},
 		},
 		{
 			name: "a blank read keeps the steps listed before it",
 			reads: [][]forge.StatusCheck{
-				{withSteps(running, statusCheckStep(1, "Run tests", forge.StatusCheckStateRunning, ""))},
+				{withSteps(running, statusCheckStep(1, "Run tests", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""))},
 				nil,
 			},
 			want: map[string][]forge.StatusCheckStep{
-				"1": {statusCheckStep(1, "Run tests", forge.StatusCheckStateRunning, "")},
+				"1": {statusCheckStep(1, "Run tests", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, "")},
 			},
 		},
 	}
@@ -323,7 +325,7 @@ func TestSetStatusChecksUnchangedStampsOnlyTheReadTime(t *testing.T) {
 	params := SetStatusChecksParams{
 		PullRequestID: written.ID,
 		HeadSHA:       "c1",
-		StatusChecks:  []forge.StatusCheck{withSteps(statusCheckRun("1", "test", forge.StatusCheckStateRunning, ""), statusCheckStep(1, "Run tests", forge.StatusCheckStateRunning, "")), statusCheckRun("2", "lint", forge.StatusCheckStateQueued, "")},
+		StatusChecks:  []forge.StatusCheck{withSteps(statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""), statusCheckStep(1, "Run tests", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, "")), statusCheckRun("2", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED, "")},
 		ReadAt:        statusCheckReadAt,
 	}
 
@@ -350,7 +352,7 @@ func TestStatusChecksGoWithThePullRequest(t *testing.T) {
 	require.NoError(t, checks.SetStatusChecks(ctx, SetStatusChecksParams{
 		PullRequestID: written.ID,
 		HeadSHA:       "c1",
-		StatusChecks:  []forge.StatusCheck{withSteps(statusCheckRun("1", "test", forge.StatusCheckStateRunning, ""), statusCheckStep(1, "Run tests", forge.StatusCheckStateRunning, ""))},
+		StatusChecks:  []forge.StatusCheck{withSteps(statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""), statusCheckStep(1, "Run tests", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, ""))},
 		ReadAt:        statusCheckReadAt,
 	}))
 

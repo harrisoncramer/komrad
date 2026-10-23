@@ -1,0 +1,37 @@
+// The watch.v1 enums, in Edition 2026 so that each value's JSON name is its lowercase word.
+// event/v1/event.proto says why Edition 2026 needs release candidates.
+edition = "2026";
+
+package watch.v1;
+
+import option "google/protobuf/json_enumvalue_options.proto";
+
+option go_package = "komrad/proto/gen/watch/v1;watchv1";
+
+// Resource is the kind of a watched record, one value per member of `Row`.
+export enum Resource {
+  // No kind was set. Komrad never sends this value.
+  RESOURCE_UNSPECIFIED = 0;
+  // An agent.
+  RESOURCE_AGENT = 1 [(pb.enumvalue.json).string = "agent"];
+  // A workflow.
+  RESOURCE_WORKFLOW = 2 [(pb.enumvalue.json).string = "workflow"];
+  // A schedule.
+  RESOURCE_SCHEDULE = 3 [(pb.enumvalue.json).string = "schedule"];
+  // A piece of mail.
+  RESOURCE_MAIL = 4 [(pb.enumvalue.json).string = "mail"];
+  // A pull request.
+  RESOURCE_PULL_REQUEST = 5 [(pb.enumvalue.json).string = "pull_request"];
+  // A repository and whether its pull requests have been read.
+  RESOURCE_REPOSITORY = 6 [(pb.enumvalue.json).string = "repository"];
+  // A review.
+  RESOURCE_REVIEW = 7 [(pb.enumvalue.json).string = "review"];
+  // A thread.
+  RESOURCE_REVIEW_THREAD = 8 [(pb.enumvalue.json).string = "review_thread"];
+  // A worktree.
+  RESOURCE_WORKTREE = 9 [(pb.enumvalue.json).string = "worktree"];
+  // A document type.
+  RESOURCE_DOCUMENT_TYPE = 10 [(pb.enumvalue.json).string = "document_type"];
+  // A task.
+  RESOURCE_TASK = 11 [(pb.enumvalue.json).string = "task"];
+}

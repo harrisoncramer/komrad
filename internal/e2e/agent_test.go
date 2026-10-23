@@ -8,7 +8,6 @@ import (
 	"komrad/internal/caller"
 	"komrad/internal/harness"
 	"komrad/internal/komradtest"
-	agentstore "komrad/internal/store/agent"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	taskv1 "komrad/proto/gen/task/v1"
@@ -47,9 +46,9 @@ func TestIntegrationAgentLifecycle(t *testing.T) {
 	assert.Equal(t, agent.GetPaneId(), instance.GetOwnedPane(agent.GetId()))
 
 	t.Run("the reconciler follows what the pane shows", func(t *testing.T) {
-		instance.Settle(agent.GetId(), harness.ActivityWorking, agentstore.StateThinking)
-		instance.Settle(agent.GetId(), harness.ActivityWaiting, agentstore.StateWaiting)
-		instance.Settle(agent.GetId(), harness.ActivityIdle, agentstore.StateIdle)
+		instance.Settle(agent.GetId(), harness.ActivityWorking, agentv1.AgentState_AGENT_STATE_THINKING)
+		instance.Settle(agent.GetId(), harness.ActivityWaiting, agentv1.AgentState_AGENT_STATE_WAITING)
+		instance.Settle(agent.GetId(), harness.ActivityIdle, agentv1.AgentState_AGENT_STATE_IDLE)
 	})
 
 	t.Run("a turn an API error ended stands until the next one ends", func(t *testing.T) {
@@ -60,21 +59,21 @@ func TestIntegrationAgentLifecycle(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		instance.Settle(agent.GetId(), harness.ActivityWorking, agentstore.StateThinking)
+		instance.Settle(agent.GetId(), harness.ActivityWorking, agentv1.AgentState_AGENT_STATE_THINKING)
 		report(&agentv1.RecordReportRequest{
 			Event:     agentv1.ReportEvent_REPORT_EVENT_TURN_FAILED,
 			Hook:      "StopFailure",
 			TurnError: "Overloaded",
 		})
-		instance.Settle(agent.GetId(), harness.ActivityIdle, agentstore.StateErrored)
+		instance.Settle(agent.GetId(), harness.ActivityIdle, agentv1.AgentState_AGENT_STATE_ERRORED)
 
 		failed, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agent.GetId()}))
 		require.NoError(t, err)
 		assert.Equal(t, "Overloaded", failed.Msg.GetAgent().GetTurnError())
 
-		instance.Settle(agent.GetId(), harness.ActivityWorking, agentstore.StateThinking)
+		instance.Settle(agent.GetId(), harness.ActivityWorking, agentv1.AgentState_AGENT_STATE_THINKING)
 		report(&agentv1.RecordReportRequest{Event: agentv1.ReportEvent_REPORT_EVENT_TURN_ENDED, Hook: "Stop"})
-		instance.Settle(agent.GetId(), harness.ActivityIdle, agentstore.StateIdle)
+		instance.Settle(agent.GetId(), harness.ActivityIdle, agentv1.AgentState_AGENT_STATE_IDLE)
 
 		recovered, err := instance.Agents.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: agent.GetId()}))
 		require.NoError(t, err)

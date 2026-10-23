@@ -7,6 +7,7 @@ import (
 
 	"komrad/internal/fail"
 	reviewstore "komrad/internal/store/review"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 )
@@ -58,7 +59,7 @@ func (s *ReviewService) takeAnswerSnapshot(ctx context.Context, thread reviewsto
 // taken when the writer last read a comment in it, and the thread's own snapshot for an agent's
 // thread or one the writer has not read yet.
 func (s *ReviewService) getWrittenSnapshot(ctx context.Context, thread reviewstore.Thread) (*reviewstore.Snapshot, error) {
-	if thread.AuthorKind != reviewstore.AuthorHuman {
+	if thread.AuthorKind != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN {
 		return s.reviews.GetSnapshot(ctx, thread.SnapshotID)
 	}
 

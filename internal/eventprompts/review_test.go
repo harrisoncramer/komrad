@@ -3,7 +3,7 @@ package eventprompts
 import (
 	"testing"
 
-	reviewstore "komrad/internal/store/review"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -18,17 +18,17 @@ func TestReleasedReviewStartsTheEventForItsVerdict(t *testing.T) {
 	}{
 		{
 			name: "an approval",
-			mail: ReviewReleased{Verdict: reviewstore.VerdictApproved},
+			mail: ReviewReleased{Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED},
 			want: eventv1.Event_EVENT_REVIEW_APPROVED,
 		},
 		{
 			name: "a request for changes",
-			mail: ReviewReleased{Verdict: reviewstore.VerdictChangesRequested},
+			mail: ReviewReleased{Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED},
 			want: eventv1.Event_EVENT_REVIEW_CHANGES_REQUESTED,
 		},
 		{
 			name: "a reviewer only commenting",
-			mail: ReviewReleased{Verdict: reviewstore.VerdictCommented},
+			mail: ReviewReleased{Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED},
 			want: eventv1.Event_EVENT_REVIEW_COMMENTED,
 		},
 	}

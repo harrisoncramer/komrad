@@ -7,11 +7,13 @@ import (
 	"time"
 
 	"komrad/internal/forge"
-	mailstore "komrad/internal/store/mail"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	"komrad/lib/protoenum"
 	"komrad/lib/xsha"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 	forgev1 "komrad/proto/gen/forge/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 // PullRequestFieldName names one field of a pull request the mail lists.
@@ -47,8 +49,8 @@ type PullRequest struct {
 }
 
 // Kind is the kind the pull request mail is filed under.
-func (PullRequest) Kind() mailstore.Kind {
-	return mailstore.KindPullRequestChanged
+func (PullRequest) Kind() agentv1.MailKind {
+	return agentv1.MailKind_MAIL_KIND_PULL_REQUEST_CHANGED
 }
 
 // Events is the events the change starts.
@@ -111,7 +113,7 @@ func describe(field PullRequestField, pullRequest pullrequeststore.PullRequest) 
 		return strings.ToLower(value)
 	case field.Name == PullRequestFieldMergeability && (value == "conflicting" || value == "behind"):
 		return value + " with " + pullRequest.BaseBranch
-	case field.Name == PullRequestFieldChecks && value == string(forge.ChecksFailingRunning) && pullRequest.HeadSHA != "":
+	case field.Name == PullRequestFieldChecks && value == protoenum.Name(pullrequestv1.Checks_CHECKS_FAILING_RUNNING) && pullRequest.HeadSHA != "":
 		return "failing on " + xsha.Short(pullRequest.HeadSHA) + ", others still running"
 	case field.Name == PullRequestFieldChecks && value != "" && pullRequest.HeadSHA != "":
 		return strings.ReplaceAll(value, "_", " ") + " on " + xsha.Short(pullRequest.HeadSHA)

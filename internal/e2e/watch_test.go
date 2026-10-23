@@ -15,11 +15,6 @@ import (
 	"komrad/internal/client"
 	"komrad/internal/komradtest"
 	"komrad/internal/rpc/render"
-	"komrad/internal/storetest"
-	"komrad/lib/xptr"
-	"komrad/lib/xslice"
-	forgev1 "komrad/proto/gen/forge/v1"
-
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	pullrequeststore "komrad/internal/store/pullrequest"
@@ -28,7 +23,11 @@ import (
 	schedulestore "komrad/internal/store/schedule"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/storetest"
+	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
+	forgev1 "komrad/proto/gen/forge/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 	taskv1 "komrad/proto/gen/task/v1"
@@ -85,7 +84,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 		Name:       "reviewer",
 		WorkflowID: docs.ID,
 		TaskID:     quiet.TaskID,
-		Role:       agentstore.RoleReviewer,
+		Role:       agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 	})
 	gone := st.SeedAgent(t, agentstore.Agent{Name: "gone", WorkflowID: docs.ID})
 	_, err := st.Agents.Archive(ctx, []uuid.UUID{gone.ID})
@@ -203,7 +202,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 					NewEnd:      1,
 					QuotedLines: []string{"package main"},
 					Body:        "name the package",
-					AuthorKind:  reviewstore.AuthorHuman,
+					AuthorKind:  agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
 				})
 				require.NoError(t, err)
 			},
@@ -224,7 +223,7 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 				review, err := reviews.OpenReview(ctx, reviewstore.OpenReviewParams{
 					TaskID:        *base.TaskID,
 					SnapshotID:    snapshot.ID,
-					AuthorKind:    reviewstore.AuthorAgent,
+					AuthorKind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
 					AuthorAgentID: &api.ID,
 				})
 				require.NoError(t, err)
@@ -238,13 +237,13 @@ func TestIntegrationTheWatchAndTheStoresAgree(t *testing.T) {
 					NewEnd:        3,
 					QuotedLines:   []string{"func rename() {}"},
 					Body:          "rename this",
-					AuthorKind:    reviewstore.AuthorAgent,
+					AuthorKind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
 					AuthorAgentID: &api.ID,
 				})
 				require.NoError(t, err)
 				_, err = reviews.ReleaseReview(ctx, reviewstore.ReleaseReviewParams{
 					ID:      review.ID,
-					Verdict: reviewstore.VerdictChangesRequested,
+					Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 					Path:    "/tmp/review.md",
 				})
 				require.NoError(t, err)

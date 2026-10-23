@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	mailstore "komrad/internal/store/mail"
 	"komrad/lib/xsha"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 )
 
@@ -25,8 +25,8 @@ type CascadeRebased struct {
 }
 
 // Kind is the kind the cascade's mail is filed under.
-func (CascadeRebased) Kind() mailstore.Kind {
-	return mailstore.KindWorktreeRebased
+func (CascadeRebased) Kind() agentv1.MailKind {
+	return agentv1.MailKind_MAIL_KIND_WORKTREE_REBASED
 }
 
 // Events is the event a cascade rebase komrad could not push starts, and none once komrad pushed it.
@@ -71,8 +71,8 @@ type CascadeConflicted struct {
 }
 
 // Kind is the kind the cascade's mail is filed under.
-func (CascadeConflicted) Kind() mailstore.Kind {
-	return mailstore.KindWorktreeRebased
+func (CascadeConflicted) Kind() agentv1.MailKind {
+	return agentv1.MailKind_MAIL_KIND_WORKTREE_REBASED
 }
 
 // Events is the event a conflicted cascade rebase starts.
@@ -106,8 +106,8 @@ type ParentClosed struct {
 }
 
 // Kind is the kind the mail is filed under.
-func (ParentClosed) Kind() mailstore.Kind {
-	return mailstore.KindWorktreeRebased
+func (ParentClosed) Kind() agentv1.MailKind {
+	return agentv1.MailKind_MAIL_KIND_WORKTREE_REBASED
 }
 
 // Events is empty, since a closed parent starts no event.
@@ -131,8 +131,8 @@ type CascadeOrphaned struct {
 }
 
 // Kind is the kind the mail is filed under.
-func (CascadeOrphaned) Kind() mailstore.Kind {
-	return mailstore.KindWorktreeRebased
+func (CascadeOrphaned) Kind() agentv1.MailKind {
+	return agentv1.MailKind_MAIL_KIND_WORKTREE_REBASED
 }
 
 // Events is empty, since an orphaned child starts no event.
@@ -157,8 +157,8 @@ type RetargetRefused struct {
 }
 
 // Kind is the kind the mail is filed under.
-func (RetargetRefused) Kind() mailstore.Kind {
-	return mailstore.KindWorktreeRebased
+func (RetargetRefused) Kind() agentv1.MailKind {
+	return agentv1.MailKind_MAIL_KIND_WORKTREE_REBASED
 }
 
 // Events is empty, since a refused re-target starts no event.

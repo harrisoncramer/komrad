@@ -24,8 +24,8 @@ func Task(stored taskstore.Task) *taskv1.Task {
 		Branch:                checkout.Branch,
 		RepositoryUrl:         checkout.RepositoryURL,
 		HeadSha:               checkout.HeadSHA,
-		WorktreeRemovalReason: worktreeRemovalReasonOf(checkout.WorktreeRemovalReason),
-		Sequence:              SequenceOf(checkout.Sequence),
+		WorktreeRemovalReason: checkout.WorktreeRemovalReason,
+		Sequence:              checkout.Sequence,
 		MovedSinceSnapshot:    checkout.MovedSinceSnapshot,
 		DiffStat:              diffStatOf(checkout.DiffStat),
 		AdoptedBranch:         xptr.NonEmpty(checkout.AdoptedBranch),
@@ -50,54 +50,8 @@ func parentOf(parent *taskstore.Parent) *taskv1.Parent {
 		TaskId:        parent.TaskID.String(),
 		ForkPoint:     parent.ForkPoint,
 		PullRequestId: xptr.Deref(formatOptionalID(parent.PullRequestID)),
-		Blocked:       cascadeBlockOf(parent.Blocked),
+		Blocked:       parent.Blocked,
 	}
-}
-
-func cascadeBlockOf(block taskstore.CascadeBlock) taskv1.CascadeBlock {
-	switch block {
-	case taskstore.CascadeConflicted:
-		return taskv1.CascadeBlock_CASCADE_BLOCK_CONFLICTED
-	case taskstore.CascadeOrphaned:
-		return taskv1.CascadeBlock_CASCADE_BLOCK_ORPHANED
-	case taskstore.CascadeParentClosed:
-		return taskv1.CascadeBlock_CASCADE_BLOCK_PARENT_CLOSED
-	}
-
-	return taskv1.CascadeBlock_CASCADE_BLOCK_UNSPECIFIED
-}
-
-func worktreeRemovalReasonOf(reason taskstore.WorktreeRemovalReason) taskv1.WorktreeRemovalReason {
-	switch reason {
-	case taskstore.WorktreeOnDisk:
-		return taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_UNSPECIFIED
-	case taskstore.WorktreeDeleted:
-		return taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED
-	case taskstore.WorktreeGone:
-		return taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE
-	}
-
-	return taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_UNSPECIFIED
-}
-
-// SequenceOf is a stored sequence as the wire carries it.
-func SequenceOf(sequence taskstore.Sequence) taskv1.Sequence {
-	switch sequence {
-	case taskstore.SequenceNone:
-		return taskv1.Sequence_SEQUENCE_NONE
-	case taskstore.SequenceRebase:
-		return taskv1.Sequence_SEQUENCE_REBASE
-	case taskstore.SequenceApply:
-		return taskv1.Sequence_SEQUENCE_AM
-	case taskstore.SequenceMerge:
-		return taskv1.Sequence_SEQUENCE_MERGE
-	case taskstore.SequenceCherryPick:
-		return taskv1.Sequence_SEQUENCE_CHERRY_PICK
-	case taskstore.SequenceRevert:
-		return taskv1.Sequence_SEQUENCE_REVERT
-	}
-
-	return taskv1.Sequence_SEQUENCE_UNSPECIFIED
 }
 
 func diffStatOf(stat *taskstore.DiffStat) *taskv1.DiffStat {

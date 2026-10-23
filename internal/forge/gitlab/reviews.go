@@ -9,6 +9,7 @@ import (
 
 	"komrad/internal/forge"
 	forgev1 "komrad/proto/gen/forge/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 // reviewStateRequestedChanges is the reviewer state GitLab records when one asks for changes.
@@ -112,19 +113,19 @@ func (f *Forge) rereview(ctx context.Context, path, iid, user string) error {
 
 // decision folds the approvals into komrad's word, a change request first, then approvals
 // still owed, then an approval given.
-func (n mergeReadinessNode) decision() forge.ReviewDecision {
+func (n mergeReadinessNode) decision() pullrequestv1.ReviewDecision {
 	for _, reviewer := range n.Reviewers.Nodes {
 		if reviewer.MergeRequestInteraction != nil && reviewer.MergeRequestInteraction.ReviewState == reviewStateRequestedChanges {
-			return forge.ReviewDecisionChangesRequested
+			return pullrequestv1.ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED
 		}
 	}
 
 	switch {
 	case n.ApprovalsLeft > 0:
-		return forge.ReviewDecisionPending
+		return pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING
 	case n.ApprovedBy.Count > 0:
-		return forge.ReviewDecisionApproved
+		return pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED
 	}
 
-	return forge.ReviewDecisionNone
+	return pullrequestv1.ReviewDecision_REVIEW_DECISION_NONE
 }

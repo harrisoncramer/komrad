@@ -5,9 +5,10 @@ import (
 	"testing"
 
 	"komrad/internal/store"
-	"komrad/internal/storetest"
-
 	agentstore "komrad/internal/store/agent"
+	"komrad/internal/storetest"
+	"komrad/lib/protoenum"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,7 +23,7 @@ func openTools(t *testing.T) *dbTools {
 		Name:  "auth",
 		Pane:  "%9",
 		Cwd:   "/repo",
-		State: agentstore.StateWaiting,
+		State: agentv1.AgentState_AGENT_STATE_WAITING,
 	})
 	st.SeedTranscript(t, agent.ID, "we should update the parser")
 
@@ -205,7 +206,7 @@ SELECT i FROM n`
 			wantRows: 1,
 			check: func(t *testing.T, res *queryResult) {
 				assert.Equal(t, "auth", res.Rows[0]["name"])
-				assert.Equal(t, string(agentstore.StateWaiting), res.Rows[0]["state"])
+				assert.Equal(t, protoenum.Name(agentv1.AgentState_AGENT_STATE_WAITING), res.Rows[0]["state"])
 			},
 		},
 		{

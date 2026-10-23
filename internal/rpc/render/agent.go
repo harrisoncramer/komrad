@@ -1,13 +1,11 @@
 package render
 
 import (
+	agentstore "komrad/internal/store/agent"
+	rowstore "komrad/internal/store/row"
 	"komrad/lib/dates"
 	"komrad/lib/xptr"
 	"komrad/lib/xstr"
-
-	agentstore "komrad/internal/store/agent"
-	reviewstore "komrad/internal/store/review"
-	rowstore "komrad/internal/store/row"
 	agentv1 "komrad/proto/gen/agent/v1"
 )
 
@@ -33,8 +31,8 @@ func Agent(row rowstore.Row, options AgentOptions) *agentv1.Agent {
 		Prompt:             prompt,
 		PromptTruncated:    promptTruncated,
 		PaneId:             stored.Pane,
-		State:              AgentStateOf(stored.State),
-		Role:               agentRoleOf(stored.Role),
+		State:              stored.State,
+		Role:               stored.Role,
 		SessionId:          stored.SessionID,
 		Harness:            stored.Harness,
 		WorkflowId:         stored.WorkflowID.String(),
@@ -66,58 +64,6 @@ func WatchedAgent(row rowstore.Row) *agentv1.Agent {
 	}
 
 	return Agent(row, AgentOptions{})
-}
-
-// reviewVerdictOf is a verdict as the wire carries it.
-func reviewVerdictOf(verdict reviewstore.Verdict) agentv1.ReviewVerdict {
-	switch verdict {
-	case reviewstore.VerdictApproved:
-		return agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED
-	case reviewstore.VerdictChangesRequested:
-		return agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED
-	case reviewstore.VerdictCommented:
-		return agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED
-	default:
-		return agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED
-	}
-}
-
-// AgentStateOf is a stored state as the wire carries it.
-func AgentStateOf(state agentstore.State) agentv1.AgentState {
-	switch state {
-	case agentstore.StateIdle:
-		return agentv1.AgentState_AGENT_STATE_IDLE
-	case agentstore.StateThinking:
-		return agentv1.AgentState_AGENT_STATE_THINKING
-	case agentstore.StateWaiting:
-		return agentv1.AgentState_AGENT_STATE_WAITING
-	case agentstore.StateSettingUp:
-		return agentv1.AgentState_AGENT_STATE_SETTING_UP
-	case agentstore.StateFailedToCreate:
-		return agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
-	case agentstore.StateFailedToCleanup:
-		return agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP
-	case agentstore.StateUncertain:
-		return agentv1.AgentState_AGENT_STATE_UNCERTAIN
-	case agentstore.StateErrored:
-		return agentv1.AgentState_AGENT_STATE_ERRORED
-	}
-
-	return agentv1.AgentState_AGENT_STATE_UNSPECIFIED
-}
-
-// agentRoleOf is a stored role as the wire carries it.
-func agentRoleOf(role agentstore.Role) agentv1.AgentRole {
-	switch role {
-	case agentstore.RoleWriter:
-		return agentv1.AgentRole_AGENT_ROLE_WRITER
-	case agentstore.RoleReviewer:
-		return agentv1.AgentRole_AGENT_ROLE_REVIEWER
-	case agentstore.RoleOrchestrator:
-		return agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR
-	}
-
-	return agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED
 }
 
 func readTurnError(stored agentstore.Agent) string {

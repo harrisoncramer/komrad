@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	agentstore "komrad/internal/store/agent"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -15,7 +16,7 @@ func TestIsOpening(t *testing.T) {
 	starting := agentstore.Agent{
 		ID:     startingAgentID,
 		TaskID: &taskID,
-		Role:   agentstore.RoleWriter,
+		Role:   agentv1.AgentRole_AGENT_ROLE_WRITER,
 	}
 
 	tests := []struct {
@@ -33,18 +34,18 @@ func TestIsOpening(t *testing.T) {
 			agent: agentstore.Agent{
 				ID:     startingAgentID,
 				TaskID: &taskID,
-				Role:   agentstore.RoleReviewer,
+				Role:   agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 			},
 		},
 		{
 			name:  "another live agent holds the task open",
 			agent: starting,
-			live:  []agentstore.Agent{starting, {ID: otherAgentID, State: agentstore.StateIdle}},
+			live:  []agentstore.Agent{starting, {ID: otherAgentID, State: agentv1.AgentState_AGENT_STATE_IDLE}},
 		},
 		{
 			name:  "an agent that failed to create holds nothing open",
 			agent: starting,
-			live:  []agentstore.Agent{starting, {ID: otherAgentID, State: agentstore.StateFailedToCreate}},
+			live:  []agentstore.Agent{starting, {ID: otherAgentID, State: agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE}},
 			want:  true,
 		},
 		{

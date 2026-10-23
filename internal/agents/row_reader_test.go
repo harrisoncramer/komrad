@@ -6,10 +6,6 @@ import (
 	"time"
 
 	"komrad/internal/forge"
-	"komrad/internal/storetest"
-	"komrad/lib/xslice"
-	forgev1 "komrad/proto/gen/forge/v1"
-
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	pullrequeststore "komrad/internal/store/pullrequest"
@@ -17,6 +13,11 @@ import (
 	rowstore "komrad/internal/store/row"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/internal/storetest"
+	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
+	forgev1 "komrad/proto/gen/forge/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -78,7 +79,7 @@ func TestListSurroundings(t *testing.T) {
 	require.NoError(t, err)
 	_, err = st.PullRequests.SetMergeReadiness(ctx, pullrequeststore.SetMergeReadinessParams{
 		ID:             written.ID,
-		MergeReadiness: forge.MergeReadiness{Decision: forge.ReviewDecisionApproved},
+		MergeReadiness: forge.MergeReadiness{Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED},
 		ReadAt:         openedAt,
 	})
 	require.NoError(t, err)
@@ -171,7 +172,7 @@ func seedReview(t *testing.T, st *storetest.Stores, agentID uuid.UUID) uuid.UUID
 	review, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
 		TaskID:     snapshot.TaskID,
 		SnapshotID: snapshot.ID,
-		AuthorKind: reviewstore.AuthorHuman,
+		AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
 	})
 	require.NoError(t, err)
 
@@ -195,7 +196,7 @@ func seedThread(t *testing.T, st *storetest.Stores, reviewID uuid.UUID) uuid.UUI
 		NewEnd:      3,
 		QuotedLines: []string{"func rename() {}"},
 		Body:        "rename this",
-		AuthorKind:  reviewstore.AuthorHuman,
+		AuthorKind:  agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
 	})
 	require.NoError(t, err)
 

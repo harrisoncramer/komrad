@@ -272,6 +272,10 @@ linters:
             - komrad/proto/gen/oneofs
             - komrad/proto/gen/event/v1
             - komrad/proto/gen/forge/v1$
+            - komrad/proto/gen/agent/v1$
+            - komrad/proto/gen/pullrequest/v1$
+            - komrad/proto/gen/schedule/v1$
+            - komrad/proto/gen/task/v1$
           deny:
             - pkg: komrad/proto/gen
               desc: the service decides in its own types, and rendering them onto the wire is the handler's job
@@ -327,6 +331,10 @@ linters:
             - komrad/proto/gen/watch/v1
             - komrad/proto/gen/event/v1
             - komrad/proto/gen/forge/v1$
+            - komrad/proto/gen/agent/v1$
+            - komrad/proto/gen/pullrequest/v1$
+            - komrad/proto/gen/schedule/v1$
+            - komrad/proto/gen/task/v1$
           deny:
             - pkg: komrad/internal/agents
               desc: a store holds no rules, so nothing above it belongs here

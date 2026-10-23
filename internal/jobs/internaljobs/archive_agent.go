@@ -76,7 +76,7 @@ func (w *ArchiveAgentWorker) Work(ctx context.Context, job *river.Job[ArchiveAge
 		return fmt.Errorf("failed to look up agent %s: %w", job.Args.AgentID, err)
 	}
 
-	if agent.State.IsTurnUnfinished() && time.Since(job.CreatedAt) < archiveLimit {
+	if agentstore.IsTurnUnfinished(agent.State) && time.Since(job.CreatedAt) < archiveLimit {
 		return river.JobSnooze(archiveDelay)
 	}
 

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"komrad/internal/git"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,7 +26,7 @@ func TestIntegrationReadHeadStateReadsASettledCheckout(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "main", head.Branch)
 	assert.Equal(t, sha, head.SHA)
-	assert.Equal(t, git.SequenceNone, head.Sequence)
+	assert.Equal(t, taskv1.Sequence_SEQUENCE_NONE, head.Sequence)
 	assert.Empty(t, head.RepositoryURL)
 }
 
@@ -147,7 +148,7 @@ func TestIntegrationReadHeadStateNamesTheBranchAStoppedRebaseBelongsTo(t *testin
 
 	assert.Equal(t, "topic", head.Branch)
 	assert.Equal(t, sha, head.SHA)
-	assert.Equal(t, git.SequenceRebase, head.Sequence)
+	assert.Equal(t, taskv1.Sequence_SEQUENCE_REBASE, head.Sequence)
 }
 
 // TestIntegrationReadHeadStateCarriesNoBranchForARebaseOffADetachedHead covers what git writes into head-name
@@ -161,7 +162,7 @@ func TestIntegrationReadHeadStateCarriesNoBranchForARebaseOffADetachedHead(t *te
 	require.NoError(t, err)
 
 	assert.Empty(t, head.Branch)
-	assert.Equal(t, git.SequenceRebase, head.Sequence)
+	assert.Equal(t, taskv1.Sequence_SEQUENCE_REBASE, head.Sequence)
 }
 
 // TestIntegrationReadHeadStateReadsAStoppedMerge covers a sequence that holds the index without detaching.
@@ -175,7 +176,7 @@ func TestIntegrationReadHeadStateReadsAStoppedMerge(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "main", head.Branch)
-	assert.Equal(t, git.SequenceMerge, head.Sequence)
+	assert.Equal(t, taskv1.Sequence_SEQUENCE_MERGE, head.Sequence)
 }
 
 // TestIntegrationReadHeadStateClearsItselfWhenTheRebaseIsSettled covers the recovery nobody tells komrad about.
@@ -189,7 +190,7 @@ func TestIntegrationReadHeadStateClearsItselfWhenTheRebaseIsSettled(t *testing.T
 	require.NoError(t, err)
 
 	assert.Equal(t, "topic", head.Branch)
-	assert.Equal(t, git.SequenceNone, head.Sequence)
+	assert.Equal(t, taskv1.Sequence_SEQUENCE_NONE, head.Sequence)
 }
 
 // TestIntegrationReadHeadStateAnswersEmptyForSomewhereGitWillNotSpeakFor covers a directory that is no
@@ -202,7 +203,7 @@ func TestIntegrationReadHeadStateAnswersEmptyForSomewhereGitWillNotSpeakFor(t *t
 
 	assert.Empty(t, head.Branch)
 	assert.Empty(t, head.SHA)
-	assert.False(t, head.Sequence.IsInProgress())
+	assert.False(t, git.IsInProgress(head.Sequence))
 }
 
 // TestIntegrationReadHeadStateFailsWhenGitIsCutOff covers a read whose context ends before git answers.

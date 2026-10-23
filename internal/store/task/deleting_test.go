@@ -4,13 +4,14 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	"komrad/internal/storetest"
+	taskv1 "komrad/proto/gen/task/v1"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestClaimEmpty pins which tasks a cleanup can take, and that only one cleanup takes each.
@@ -148,7 +149,7 @@ func TestRecordWorktreeRemoved(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, removed.DeletingAt)
 	assert.Equal(t, "/tmp/worktrees/work", removed.Checkout.Cwd)
-	assert.Equal(t, taskstore.WorktreeDeleted, removed.Checkout.WorktreeRemovalReason)
+	assert.Equal(t, taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED, removed.Checkout.WorktreeRemovalReason)
 	again, err := stores.Tasks.ClaimCleanup(ctx, task.ID)
 	require.NoError(t, err)
 	assert.True(t, again, "the next delete can claim the task once more")

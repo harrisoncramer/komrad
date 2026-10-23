@@ -11,6 +11,8 @@ import (
 	schedulestore "komrad/internal/store/schedule"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
+	agentv1 "komrad/proto/gen/agent/v1"
+	schedulev1 "komrad/proto/gen/schedule/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -380,7 +382,7 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 func TestOrchestratorSchedule(t *testing.T) {
 	tests := []struct {
 		name       string
-		role       agentstore.Role
+		role       agentv1.AgentRole
 		archived   bool
 		missing    bool
 		prompt     string
@@ -389,11 +391,11 @@ func TestOrchestratorSchedule(t *testing.T) {
 	}{
 		{
 			name: "a live orchestrator",
-			role: agentstore.RoleOrchestrator,
+			role: agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 		},
 		{
 			name:       "an archived orchestrator",
-			role:       agentstore.RoleOrchestrator,
+			role:       agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 			archived:   true,
 			wantErr:    ErrOrchestratorArchived,
 			wantSaying: "lead",
@@ -405,19 +407,19 @@ func TestOrchestratorSchedule(t *testing.T) {
 		},
 		{
 			name:       "an agent that is not an orchestrator",
-			role:       agentstore.RoleWriter,
+			role:       agentv1.AgentRole_AGENT_ROLE_WRITER,
 			wantErr:    ErrNotAnOrchestrator,
 			wantSaying: "writer",
 		},
 		{
 			name:    "a prompt longer than mail holds",
-			role:    agentstore.RoleOrchestrator,
+			role:    agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 			prompt:  strings.Repeat("x", mail.MaxMailBody+1),
 			wantErr: ErrPromptTooLong,
 		},
 		{
 			name:   "a prompt whose characters fit mail though its bytes do not",
-			role:   agentstore.RoleOrchestrator,
+			role:   agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 			prompt: strings.Repeat("é", mail.MaxMailBody),
 		},
 	}
@@ -458,7 +460,7 @@ func TestOrchestratorSchedule(t *testing.T) {
 				Prompt:              prompt,
 				HideAgents:          true,
 				WorkflowID:          elsewhere,
-				Kind:                schedulestore.KindOrchestrator,
+				Kind:                schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR,
 				OrchestratorAgentID: &target,
 			}
 
@@ -482,7 +484,7 @@ func TestOrchestratorSchedule(t *testing.T) {
 
 			got, err := svc.GetSchedule(ctx, created.ID)
 			require.NoError(t, err)
-			assert.Equal(t, schedulestore.KindOrchestrator, got.Kind)
+			assert.Equal(t, schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR, got.Kind)
 			assert.Equal(t, &agent.ID, got.OrchestratorAgentID)
 			assert.Equal(t, home, got.WorkflowID, "it is filed under its orchestrator's workflow rather than the one given")
 			assert.False(t, got.HideAgents, "it launches nothing to hide")
@@ -492,11 +494,11 @@ func TestOrchestratorSchedule(t *testing.T) {
 				Cron:       "0 9 * * *",
 				Prompt:     "go",
 				WorkflowID: elsewhere,
-				Kind:       schedulestore.KindTask,
+				Kind:       schedulev1.ScheduleKind_SCHEDULE_KIND_TASK,
 			}))
 			got, err = svc.GetSchedule(ctx, created.ID)
 			require.NoError(t, err)
-			assert.Equal(t, schedulestore.KindTask, got.Kind, "an update may turn it back into a task schedule")
+			assert.Equal(t, schedulev1.ScheduleKind_SCHEDULE_KIND_TASK, got.Kind, "an update may turn it back into a task schedule")
 			assert.Nil(t, got.OrchestratorAgentID)
 			assert.Equal(t, elsewhere, got.WorkflowID)
 		})
@@ -562,10 +564,10 @@ func TestRestoreSchedule(t *testing.T) {
 			if tt.orchestrator {
 				lead = st.SeedAgent(t, agentstore.Agent{
 					Name:       "lead",
-					Role:       agentstore.RoleOrchestrator,
+					Role:       agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 					WorkflowID: workflow,
 				})
-				cfg.Kind = schedulestore.KindOrchestrator
+				cfg.Kind = schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR
 				cfg.OrchestratorAgentID = &lead.ID
 			}
 			created, err := svc.NewSchedule(ctx, cfg)

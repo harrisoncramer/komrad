@@ -6,6 +6,7 @@ import (
 	"komrad/db/testmodels"
 	"komrad/internal/store"
 	taskstore "komrad/internal/store/task"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -16,22 +17,22 @@ import (
 func TestCreateNeedsATask(t *testing.T) {
 	tests := []struct {
 		name    string
-		role    Role
+		role    agentv1.AgentRole
 		wantErr bool
 	}{
 		{
 			name:    "a writer with no task is refused",
-			role:    RoleWriter,
+			role:    agentv1.AgentRole_AGENT_ROLE_WRITER,
 			wantErr: true,
 		},
 		{
 			name:    "a reviewer with no task is refused",
-			role:    RoleReviewer,
+			role:    agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 			wantErr: true,
 		},
 		{
 			name: "an orchestrator needs none",
-			role: RoleOrchestrator,
+			role: agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 		},
 	}
 
@@ -41,7 +42,7 @@ func TestCreateNeedsATask(t *testing.T) {
 
 			err := f.AgentStore.Create(t.Context(), Agent{
 				Name:       "agent",
-				State:      StateIdle,
+				State:      agentv1.AgentState_AGENT_STATE_IDLE,
 				Role:       tt.role,
 				WorkflowID: f.defaultWorkflow,
 			})
@@ -64,8 +65,8 @@ func TestDeleteNullsSpawnedByAgentID(t *testing.T) {
 
 	require.NoError(t, f.Create(ctx, Agent{
 		Name:  "orchestrator",
-		Role:  RoleOrchestrator,
-		State: StateIdle,
+		Role:  agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
+		State: agentv1.AgentState_AGENT_STATE_IDLE,
 	}))
 	orchestrator, err := f.Get(ctx, "orchestrator")
 	require.NoError(t, err)
@@ -74,7 +75,7 @@ func TestDeleteNullsSpawnedByAgentID(t *testing.T) {
 	require.NoError(t, f.Create(ctx, Agent{
 		Name:             "writer",
 		SpawnedByAgentID: &orchestrator.ID,
-		State:            StateIdle,
+		State:            agentv1.AgentState_AGENT_STATE_IDLE,
 	}))
 	writer, err := f.Get(ctx, "writer")
 	require.NoError(t, err)
@@ -138,12 +139,12 @@ func TestRename(t *testing.T) {
 			require.NoError(t, st.Create(ctx, Agent{
 				Name:  "agent",
 				Pane:  "%1",
-				State: StateIdle,
+				State: agentv1.AgentState_AGENT_STATE_IDLE,
 			}))
 			require.NoError(t, st.Create(ctx, Agent{
 				Name:  "taken",
 				Pane:  "%2",
-				State: StateIdle,
+				State: agentv1.AgentState_AGENT_STATE_IDLE,
 			}))
 			if tt.archiveOther {
 				require.NoError(t, st.archiveByName(ctx, "taken"))
@@ -188,7 +189,7 @@ func TestDeleteInBatches(t *testing.T) {
 
 	ids := make([]uuid.UUID, 0, 3)
 	for _, name := range []string{"auth", "api", "db"} {
-		require.NoError(t, st.Create(ctx, Agent{Name: name, State: StateIdle}))
+		require.NoError(t, st.Create(ctx, Agent{Name: name, State: agentv1.AgentState_AGENT_STATE_IDLE}))
 
 		created, err := st.Get(ctx, name)
 		require.NoError(t, err)
@@ -223,8 +224,8 @@ func TestOneOrchestratorPerWorkflow(t *testing.T) {
 
 			require.NoError(t, st.Create(ctx, Agent{
 				Name:  "first",
-				State: StateIdle,
-				Role:  RoleOrchestrator,
+				State: agentv1.AgentState_AGENT_STATE_IDLE,
+				Role:  agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 			}))
 
 			if tt.archive {
@@ -237,14 +238,14 @@ func TestOneOrchestratorPerWorkflow(t *testing.T) {
 
 			err := st.Create(ctx, Agent{
 				Name:  "second",
-				State: StateIdle,
-				Role:  RoleOrchestrator,
+				State: agentv1.AgentState_AGENT_STATE_IDLE,
+				Role:  agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 			})
 			require.Error(t, err, "a workflow holds one orchestrator for life")
 			require.ErrorContains(t, err, "agents_workflow_orchestrator",
 				"the index is what refused it")
 
-			require.NoError(t, st.Create(ctx, Agent{Name: "worker", State: StateIdle}))
+			require.NoError(t, st.Create(ctx, Agent{Name: "worker", State: agentv1.AgentState_AGENT_STATE_IDLE}))
 		})
 	}
 }
@@ -261,7 +262,7 @@ func TestDeletingATaskAnAgentIsOnIsRefused(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, f.Create(ctx, Agent{
 		Name:   "worker",
-		State:  StateIdle,
+		State:  agentv1.AgentState_AGENT_STATE_IDLE,
 		TaskID: &task.ID,
 	}))
 	worker, err := f.Get(ctx, "worker")

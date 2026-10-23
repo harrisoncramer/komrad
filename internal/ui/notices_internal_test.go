@@ -4,9 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"komrad/internal/glyph"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/record"
@@ -16,6 +13,10 @@ import (
 	agentv1 "komrad/proto/gen/agent/v1"
 	forgev1 "komrad/proto/gen/forge/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	taskv1 "komrad/proto/gen/task/v1"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestAgentNotices covers what the record says about each mark a row carries, in the order a person would act on them.
@@ -35,25 +36,25 @@ func TestAgentNotices(t *testing.T) {
 			name: "a reviewer leaves its task's removed directory to its writer's row",
 			row: buildPlainReviewerRow(panel.AgentRow{Agent: panel.Agent{
 				ID:   "a2",
-				Role: panel.RoleReviewer,
+				Role: agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 			}}),
-			task: panel.Task{WorktreeRemovalReason: panel.WorktreeGone},
+			task: panel.Task{WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE},
 			want: []string{},
 		},
 		{
 			name: "a failed create",
-			row:  buildNoticeRow(panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCreate}}),
+			row:  buildNoticeRow(panel.AgentRow{Agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE}}),
 			want: []string{failedToCreateNotice},
 		},
 		{
 			name: "a failed cleanup",
-			row:  buildNoticeRow(panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCleanup}}),
+			row:  buildNoticeRow(panel.AgentRow{Agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP}}),
 			want: []string{failedToCleanupNotice},
 		},
 		{
 			name: "a turn an API error ended",
 			row: buildNoticeRow(panel.AgentRow{
-				Agent: panel.Agent{State: panel.StateErrored, TurnError: "Overloaded"},
+				Agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_ERRORED, TurnError: "Overloaded"},
 				Alive: true,
 			}),
 			want: []string{turnFailedNotice + ": Overloaded"},
@@ -61,19 +62,19 @@ func TestAgentNotices(t *testing.T) {
 		{
 			name: "a removed worktree",
 			row:  buildNoticeRow(panel.AgentRow{}),
-			task: panel.Task{WorktreeRemovalReason: panel.WorktreeGone},
+			task: panel.Task{WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE},
 			want: []string{worktreeRemovedNotice},
 		},
 		{
 			name: "a deleted worktree has nothing to say",
 			row:  buildNoticeRow(panel.AgentRow{}),
-			task: panel.Task{WorktreeRemovalReason: panel.WorktreeDeleted},
+			task: panel.Task{WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED},
 			want: []string{},
 		},
 		{
 			name: "a stopped rebase",
 			row:  buildNoticeRow(panel.AgentRow{}),
-			task: panel.Task{Sequence: panel.SequenceRebase},
+			task: panel.Task{Sequence: taskv1.Sequence_SEQUENCE_REBASE},
 			want: []string{sequenceNotice},
 		},
 		{
@@ -174,19 +175,19 @@ func TestAgentNotices(t *testing.T) {
 		},
 		{
 			name: "a failed create says where its worktree went",
-			row:  buildNoticeRow(panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCreate}}),
-			task: panel.Task{WorktreeRemovalReason: panel.WorktreeGone},
+			row:  buildNoticeRow(panel.AgentRow{Agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE}}),
+			task: panel.Task{WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE},
 			want: []string{failedToCreateNotice, worktreeRemovedNotice},
 		},
 		{
 			name: "the marks a person would act on come first",
 			row: buildNoticeRow(panel.AgentRow{
-				Agent:      panel.Agent{State: panel.StateFailedToCleanup},
+				Agent:      panel.Agent{State: agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP},
 				UnreadMail: true,
 				FailedRun:  true,
 				Documents:  1,
 			}),
-			task: panel.Task{WorktreeRemovalReason: panel.WorktreeGone},
+			task: panel.Task{WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE},
 			want: []string{failedToCleanupNotice, failedRunNotice, unreadMailNotice, worktreeRemovedNotice, documentsNotice},
 		},
 		{
@@ -205,7 +206,7 @@ func TestAgentNotices(t *testing.T) {
 				UnreadMail: true,
 			}),
 			task: panel.Task{
-				WorktreeRemovalReason: panel.WorktreeGone,
+				WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE,
 				PullRequest:           panel.PullRequestStanding{State: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_APPROVED},
 			},
 			want: []string{unreadMailNotice, "its pull request is approved and ready to merge", worktreeRemovedNotice},
@@ -241,13 +242,13 @@ func TestAgentNotices(t *testing.T) {
 		{
 			name: "an agent without a worktree still says its directory is gone",
 			row:  buildPlainRow(panel.AgentRow{Agent: panel.Agent{ID: "a1"}}),
-			task: panel.Task{WorktreeRemovalReason: panel.WorktreeGone},
+			task: panel.Task{WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE},
 			want: []string{worktreeRemovedNotice},
 		},
 		{
 			name: "an agent without a worktree still says a rebase stopped in it",
 			row:  buildPlainRow(panel.AgentRow{Agent: panel.Agent{ID: "a1"}}),
-			task: panel.Task{Sequence: panel.SequenceRebase},
+			task: panel.Task{Sequence: taskv1.Sequence_SEQUENCE_REBASE},
 			want: []string{sequenceNotice},
 		},
 		{
@@ -273,7 +274,7 @@ func TestAgentNotices(t *testing.T) {
 func TestAgentNoticesWearTheGlyphTheRowRenders(t *testing.T) {
 	item := panel.AgentRow{
 		Agent: panel.Agent{
-			State:  panel.StateWaiting,
+			State:  agentv1.AgentState_AGENT_STATE_WAITING,
 			TaskID: "t1",
 		},
 		Alive:      true,
@@ -281,7 +282,7 @@ func TestAgentNoticesWearTheGlyphTheRowRenders(t *testing.T) {
 		FailedRun:  true,
 		Documents:  3,
 	}
-	tasks := map[string]panel.Task{"t1": {Sequence: panel.SequenceRebase}}
+	tasks := map[string]panel.Task{"t1": {Sequence: taskv1.Sequence_SEQUENCE_REBASE}}
 
 	line := view.Prepare(view.Snapshot{Rows: []view.Row{snapshotRow(buildNoticeRow(item), snapshotParams{tasks: tasks})}}).Lines[0]
 
@@ -333,7 +334,7 @@ func TestAgentNoticesSpeakForEveryColumnState(t *testing.T) {
 		assert.Equal(t, want, said, "forge state %d is given %d sentences", state, said)
 	}
 
-	for _, state := range []panel.State{panel.StateFailedToCreate, panel.StateFailedToCleanup} {
+	for _, state := range []agentv1.AgentState{agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE, agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP} {
 		require.Equal(t, view.StatusBroken, panel.AgentRow{Agent: panel.Agent{State: state}}.Status(), "state %q no longer renders broken", state)
 		assert.NotEmpty(t, failureSaid[state], "state %q renders broken with no sentence", state)
 	}
@@ -341,14 +342,14 @@ func TestAgentNoticesSpeakForEveryColumnState(t *testing.T) {
 
 // TestAgentNoticesLeaveAStoppedRowToItsName covers a row whose process has gone saying so with its grey name alone.
 func TestAgentNoticesLeaveAStoppedRowToItsName(t *testing.T) {
-	stopped := buildNoticeRow(panel.AgentRow{Agent: panel.Agent{State: panel.StateIdle}})
+	stopped := buildNoticeRow(panel.AgentRow{Agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_IDLE}})
 	row := snapshotRow(stopped, snapshotParams{})
 
 	require.Equal(t, view.ProcessStopped, row.Process)
 	assert.Equal(t, view.EmphasisDim, view.Prepare(view.Snapshot{Rows: []view.Row{row}}).Lines[0].Emphasis)
 	assert.Empty(t, readNoticeTexts(agentNotices(glyph.Defaults(), "", nil, stopped)))
 
-	failed := buildNoticeRow(panel.AgentRow{Agent: panel.Agent{State: panel.StateFailedToCreate}})
+	failed := buildNoticeRow(panel.AgentRow{Agent: panel.Agent{State: agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE}})
 
 	require.Equal(t, view.ProcessAlive, snapshotRow(failed, snapshotParams{}).Process, "a failed create is not a stopped process")
 	assert.Contains(t, readNoticeTexts(agentNotices(glyph.Defaults(), "", nil, failed)), failedToCreateNotice)

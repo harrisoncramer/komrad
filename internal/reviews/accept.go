@@ -8,6 +8,7 @@ import (
 	"komrad/internal/fail"
 	"komrad/internal/store"
 	reviewstore "komrad/internal/store/review"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -47,7 +48,7 @@ func (s *ReviewService) AcceptForgeMessage(
 	if err != nil {
 		return nil, err
 	}
-	if message.AuthorKind != reviewstore.AuthorForge || !message.Held {
+	if message.AuthorKind != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_FORGE || !message.Held {
 		return nil, fmt.Errorf("%w: %q", errForgeMessageNotHeld, params.MessageID)
 	}
 

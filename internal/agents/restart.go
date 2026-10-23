@@ -13,6 +13,7 @@ import (
 	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 )
@@ -120,7 +121,7 @@ func (s *ResumeService) RestartAgent(ctx context.Context, params RestartAgentPar
 // refuseRestart turns away an agent that has no restart, or a restart the caller may not make.
 func refuseRestart(agent agentstore.Agent, byAgentID uuid.UUID) error {
 	switch {
-	case agent.Role == agentstore.RoleOrchestrator:
+	case agent.Role == agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR:
 		if byAgentID != uuid.Nil {
 			return errRestartOrchestratorByAgent.Saying("%q is a workflow's orchestrator", agent.Name)
 		}
@@ -164,7 +165,7 @@ func (s *ResumeService) findSpawner(ctx context.Context, agent agentstore.Agent)
 // buildRestartPrompt is the restarted agent's first prompt, with the note it was restarted with.
 func buildRestartPrompt(agent agentstore.Agent, note string) string {
 	prompt := restartPrompt
-	if agent.Role == agentstore.RoleOrchestrator {
+	if agent.Role == agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR {
 		prompt = orchestratorRestartPrompt
 	}
 	if note = strings.TrimSpace(note); note != "" {

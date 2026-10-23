@@ -3,23 +3,10 @@ syntax = "proto3";
 package doctor.v1;
 
 import "annotation/v1/tool.proto";
+import "doctor/v1/enums.proto";
 import "google/protobuf/empty.proto";
 
 option go_package = "komrad/proto/gen/doctor/v1;doctorv1";
-
-// Status is how a doctor check came out.
-enum Status {
-  // No status was recorded. No finding has this value.
-  STATUS_UNSPECIFIED = 0;
-  // The check passed.
-  STATUS_OK = 1;
-  // The check passed with a warning.
-  STATUS_WARN = 2;
-  // The check failed.
-  STATUS_FAIL = 3;
-  // The check was skipped because a check it needs did not pass.
-  STATUS_SKIP = 4;
-}
 
 // Finding is the result of one doctor check.
 message Finding {

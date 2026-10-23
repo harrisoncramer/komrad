@@ -19,6 +19,7 @@ import (
 	"komrad/internal/storetest"
 	"komrad/internal/tasks"
 	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 	"komrad/proto/gen/oneofs"
 
@@ -548,7 +549,7 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 			require.NoError(t, err)
 			var waiting []mailstore.Mail
 			for _, m := range held {
-				if m.Kind != mailstore.KindPlain && m.ClaimedAt == nil {
+				if m.Kind != agentv1.MailKind_MAIL_KIND_PLAIN && m.ClaimedAt == nil {
 					waiting = append(waiting, m)
 				}
 			}
@@ -563,7 +564,7 @@ func TestAPersonsWriteMailsTheAuthor(t *testing.T) {
 				return
 			}
 			require.Len(t, waiting, 1)
-			assert.Equal(t, mailstore.KindDocumentEdited, waiting[0].Kind)
+			assert.Equal(t, agentv1.MailKind_MAIL_KIND_DOCUMENT_EDITED, waiting[0].Kind)
 			assert.Equal(t, mail.KomradSenderName, waiting[0].FromName)
 			require.NotNil(t, waiting[0].SubjectID)
 			assert.Equal(t, written.ID, *waiting[0].SubjectID)

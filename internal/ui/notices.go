@@ -8,6 +8,7 @@ import (
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/record"
 	"komrad/internal/view"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 const (
@@ -24,9 +25,9 @@ const (
 
 var (
 	// failureSaid is what the status column rendered broken says about how an agent got there.
-	failureSaid = map[panel.State]string{
-		panel.StateFailedToCreate:  failedToCreateNotice,
-		panel.StateFailedToCleanup: failedToCleanupNotice,
+	failureSaid = map[agentv1.AgentState]string{
+		agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE:  failedToCreateNotice,
+		agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP: failedToCleanupNotice,
 	}
 
 	// repoSaid is what the repo column says where it stands away from its baseline.
@@ -114,7 +115,7 @@ func appendCellNotice(notices []record.Notice, glyphs glyph.Set, cell view.Cell,
 // describeFailure says how a broken agent broke.
 func describeFailure(item panel.AgentRow) string {
 	state := item.DisplayState()
-	if state != panel.StateErrored {
+	if state != agentv1.AgentState_AGENT_STATE_ERRORED {
 		return failureSaid[state]
 	}
 

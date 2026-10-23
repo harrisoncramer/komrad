@@ -7,7 +7,6 @@ import (
 	"komrad/db"
 	"komrad/db/models"
 	"komrad/internal/store"
-	"komrad/lib/xptr"
 
 	"github.com/google/uuid"
 )
@@ -35,7 +34,7 @@ func (s *AgentStore) GetByIdempotencyKey(ctx context.Context, key IdempotencyKey
 		return nil, fmt.Errorf("failed to get the agent for idempotency key %q: %w", key.Key, err)
 	}
 
-	return xptr.Ptr(FromRow(*row)), nil
+	return FromRow(*row)
 }
 
 // ReleaseIdempotencyKey takes a key back off the failed create holding it and reports whether

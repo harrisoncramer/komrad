@@ -12,9 +12,6 @@ import (
 	"testing"
 	"time"
 
-	agentv1komrad "komrad/proto/gen/agent/v1/agentv1komrad"
-	"komrad/proto/gen/oneofs"
-
 	"komrad/internal/agenterr"
 	"komrad/internal/agents"
 	"komrad/internal/caller"
@@ -25,13 +22,6 @@ import (
 	"komrad/internal/logtest"
 	"komrad/internal/rpc/render"
 	"komrad/internal/store"
-	"komrad/lib/xptr"
-	"komrad/lib/xslice"
-	agentv1 "komrad/proto/gen/agent/v1"
-	"komrad/proto/gen/agent/v1/agentv1connect"
-	paginationv1 "komrad/proto/gen/pagination/v1"
-	viewv1 "komrad/proto/gen/view/v1"
-
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
 	pullrequeststore "komrad/internal/store/pullrequest"
@@ -39,6 +29,15 @@ import (
 	rowstore "komrad/internal/store/row"
 	taskstore "komrad/internal/store/task"
 	workflowstore "komrad/internal/store/workflow"
+	"komrad/lib/xptr"
+	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
+	"komrad/proto/gen/agent/v1/agentv1connect"
+	agentv1komrad "komrad/proto/gen/agent/v1/agentv1komrad"
+	"komrad/proto/gen/oneofs"
+	paginationv1 "komrad/proto/gen/pagination/v1"
+	taskv1 "komrad/proto/gen/task/v1"
+	viewv1 "komrad/proto/gen/view/v1"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
@@ -956,7 +955,7 @@ func TestGetAgent(t *testing.T) {
 					Name:       "alpha",
 					Cwd:        "/repo",
 					Prompt:     prompt,
-					State:      agentstore.StateThinking,
+					State:      agentv1.AgentState_AGENT_STATE_THINKING,
 					CreatedAt:  created,
 					WorkflowID: workflowID,
 					TaskID:     xptr.Ptr(taskID),
@@ -1109,7 +1108,7 @@ func TestLog(t *testing.T) {
 				id = rows.seed(agentstore.Agent{
 					Name:  "alpha",
 					Cwd:   "/repo",
-					State: agentstore.StateThinking,
+					State: agentv1.AgentState_AGENT_STATE_THINKING,
 				}).ID
 			}
 
@@ -1183,7 +1182,7 @@ func (f *recordingAgentServices) spawn() *agentstore.Agent {
 		spawned := f.rows.seed(agentstore.Agent{
 			Name:  "spawned",
 			Cwd:   "/repo",
-			State: agentstore.StateIdle,
+			State: agentv1.AgentState_AGENT_STATE_IDLE,
 		})
 		f.spawnedAgent = &spawned
 	}
@@ -1565,7 +1564,7 @@ func (f *recordingAgentServices) Abort(_ context.Context, task oneofs.Task) (*ch
 	}
 
 	return &checkouts.AbortResult{
-		Sequence:  taskstore.SequenceCherryPick,
+		Sequence:  taskv1.Sequence_SEQUENCE_CHERRY_PICK,
 		Branch:    "agent/alpha",
 		ParkedRef: "refs/komrad/aborted/alpha/1",
 	}, nil

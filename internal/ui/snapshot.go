@@ -13,6 +13,7 @@ import (
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 )
 
 // snapshotParams is what the panel already holds about the agents list, handed over as plain
@@ -132,12 +133,12 @@ func snapshotRow(r agentRow, params snapshotParams) view.Row {
 	row.Documents = row.Documents && !r.underTask
 	row.Kind = snapshotKind(r, params.flat)
 	row.Nested = r.underTask
-	row.Reviewer = item.Agent.Role == panel.RoleReviewer
+	row.Reviewer = item.Agent.Role == agentv1.AgentRole_AGENT_ROLE_REVIEWER
 	row.Name = item.Agent.Name
 	row.Matches = params.matchesOf(r, item.Agent.Name)
 	row.Repo = snapshotRepo(task)
 	row.InWorkflowDir = isInWorkflowDir(item.Agent.WorkflowID, item.Agent.Cwd, params.workflowDirs)
-	if item.Agent.Role != panel.RoleReviewer {
+	if item.Agent.Role != agentv1.AgentRole_AGENT_ROLE_REVIEWER {
 		row.ReviewerComments, row.PersonComments = convertComments(task.ReviewerComments), convertComments(task.PersonComments)
 	}
 	row.Forge = snapshotForge(task.PullRequest)
@@ -222,11 +223,11 @@ func snapshotKind(r agentRow, flat bool) view.RowKind {
 // left part way in one that is.
 func snapshotRepo(task panel.Task) view.Repo {
 	switch {
-	case task.WorktreeRemovalReason == panel.WorktreeDeleted:
+	case task.WorktreeRemovalReason == taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED:
 		return view.RepoDeleted
-	case task.WorktreeRemovalReason == panel.WorktreeGone:
+	case task.WorktreeRemovalReason == taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE:
 		return view.RepoGone
-	case task.Sequence.IsInProgress():
+	case panel.IsInProgress(task.Sequence):
 		return view.RepoRebasing
 	}
 

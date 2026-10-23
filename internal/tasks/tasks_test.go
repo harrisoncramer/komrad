@@ -10,6 +10,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/oneofs"
 
 	"github.com/google/uuid"
@@ -252,7 +253,7 @@ func TestUpdateTaskNotes(t *testing.T) {
 	reviewer := stores.SeedAgent(t, agentstore.Agent{
 		Name:       "reviewer",
 		WorkflowID: workflow.ID,
-		Role:       agentstore.RoleReviewer,
+		Role:       agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 		TaskID:     &work.ID,
 	})
 	stranger := stores.SeedAgent(t, agentstore.Agent{
@@ -263,12 +264,12 @@ func TestUpdateTaskNotes(t *testing.T) {
 	orchestrator := stores.SeedAgent(t, agentstore.Agent{
 		Name:       "orchestrator",
 		WorkflowID: workflow.ID,
-		Role:       agentstore.RoleOrchestrator,
+		Role:       agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 	})
 	farOrchestrator := stores.SeedAgent(t, agentstore.Agent{
 		Name:       "far",
 		WorkflowID: elsewhere.ID,
-		Role:       agentstore.RoleOrchestrator,
+		Role:       agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 	})
 
 	tests := []struct {

@@ -4,12 +4,14 @@ import (
 	"testing"
 	"time"
 
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+
 	"github.com/stretchr/testify/assert"
 )
 
 type read struct {
 	readiness MergeReadiness
-	checks    RememberedAnswer[Checks]
+	checks    RememberedAnswer[pullrequestv1.Checks]
 	head      string
 	at        time.Time
 }
@@ -31,8 +33,8 @@ func TestRememberRead(t *testing.T) {
 	began := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
 	later := began.Add(time.Minute)
 	failing := MergeReadiness{
-		Decision:     ReviewDecisionPending,
-		Mergeability: MergeabilityUnstable,
+		Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+		Mergeability: pullrequestv1.Mergeability_MERGEABILITY_UNSTABLE,
 	}
 
 	tests := []struct {
@@ -48,8 +50,8 @@ func TestRememberRead(t *testing.T) {
 				at:        began,
 			}},
 			want: RememberedMergeReadiness{
-				Decision:          RememberedAnswer[ReviewDecision]{Value: ReviewDecisionPending},
-				Mergeability:      RememberedAnswer[Mergeability]{Value: MergeabilityUnstable, HeadSHA: "aaa"},
+				Decision:          RememberedAnswer[pullrequestv1.ReviewDecision]{Value: pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING},
+				Mergeability:      RememberedAnswer[pullrequestv1.Mergeability]{Value: pullrequestv1.Mergeability_MERGEABILITY_UNSTABLE, HeadSHA: "aaa"},
 				AutoMerge:         &AutoMerge{},
 				LatestReadHeadSHA: "aaa",
 			},
@@ -65,9 +67,9 @@ func TestRememberRead(t *testing.T) {
 				{head: "bbb", at: later},
 			},
 			want: RememberedMergeReadiness{
-				Decision: RememberedAnswer[ReviewDecision]{Value: ReviewDecisionPending, WasLatestReadBlank: true},
-				Mergeability: RememberedAnswer[Mergeability]{
-					Value:              MergeabilityUnstable,
+				Decision: RememberedAnswer[pullrequestv1.ReviewDecision]{Value: pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING, WasLatestReadBlank: true},
+				Mergeability: RememberedAnswer[pullrequestv1.Mergeability]{
+					Value:              pullrequestv1.Mergeability_MERGEABILITY_UNSTABLE,
 					HeadSHA:            "aaa",
 					WasLatestReadBlank: true,
 				},
@@ -87,16 +89,16 @@ func TestRememberRead(t *testing.T) {
 				{head: "aaa", at: later},
 				{
 					readiness: MergeReadiness{
-						Decision:     ReviewDecisionApproved,
-						Mergeability: MergeabilityClean,
+						Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED,
+						Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 					},
 					head: "aaa",
 					at:   later,
 				},
 			},
 			want: RememberedMergeReadiness{
-				Decision:          RememberedAnswer[ReviewDecision]{Value: ReviewDecisionApproved},
-				Mergeability:      RememberedAnswer[Mergeability]{Value: MergeabilityClean, HeadSHA: "aaa"},
+				Decision:          RememberedAnswer[pullrequestv1.ReviewDecision]{Value: pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED},
+				Mergeability:      RememberedAnswer[pullrequestv1.Mergeability]{Value: pullrequestv1.Mergeability_MERGEABILITY_CLEAN, HeadSHA: "aaa"},
 				AutoMerge:         &AutoMerge{},
 				LatestReadHeadSHA: "aaa",
 			},
@@ -112,8 +114,8 @@ func TestRememberRead(t *testing.T) {
 				{head: "aaa", at: later},
 			},
 			want: RememberedMergeReadiness{
-				Decision:               RememberedAnswer[ReviewDecision]{WasLatestReadBlank: true},
-				Mergeability:           RememberedAnswer[Mergeability]{WasLatestReadBlank: true},
+				Decision:               RememberedAnswer[pullrequestv1.ReviewDecision]{WasLatestReadBlank: true},
+				Mergeability:           RememberedAnswer[pullrequestv1.Mergeability]{WasLatestReadBlank: true},
 				AutoMerge:              &AutoMerge{},
 				LatestReadHeadSHA:      "aaa",
 				MergeabilityBlankSince: &began,
@@ -137,7 +139,7 @@ func TestRememberReadMergeabilityBlankSince(t *testing.T) {
 
 	began := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
 	later := began.Add(time.Minute)
-	clean := MergeReadiness{Mergeability: MergeabilityClean}
+	clean := MergeReadiness{Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN}
 
 	tests := []struct {
 		name  string
@@ -213,8 +215,8 @@ func TestListMovesSince(t *testing.T) {
 
 	at := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
 	failing := MergeReadiness{
-		Decision:     ReviewDecisionPending,
-		Mergeability: MergeabilityClean,
+		Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+		Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 	}
 
 	tests := []struct {
@@ -226,7 +228,7 @@ func TestListMovesSince(t *testing.T) {
 			name: "a first answer moves from nothing",
 			reads: []read{{
 				readiness: failing,
-				checks:    RememberedAnswer[Checks]{Value: ChecksFailing, HeadSHA: "aaa"},
+				checks:    RememberedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_FAILING, HeadSHA: "aaa"},
 				head:      "aaa",
 				at:        at,
 			}},
@@ -242,13 +244,13 @@ func TestListMovesSince(t *testing.T) {
 			reads: []read{
 				{
 					readiness: failing,
-					checks:    RememberedAnswer[Checks]{Value: ChecksFailing, HeadSHA: "aaa"},
+					checks:    RememberedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_FAILING, HeadSHA: "aaa"},
 					head:      "aaa",
 					at:        at,
 				},
 				{
-					checks: RememberedAnswer[Checks]{
-						Value:              ChecksFailing,
+					checks: RememberedAnswer[pullrequestv1.Checks]{
+						Value:              pullrequestv1.Checks_CHECKS_FAILING,
 						HeadSHA:            "aaa",
 						WasLatestReadBlank: true,
 					},
@@ -262,12 +264,12 @@ func TestListMovesSince(t *testing.T) {
 			reads: []read{
 				{
 					readiness: failing,
-					checks:    RememberedAnswer[Checks]{Value: ChecksFailing, HeadSHA: "aaa"},
+					checks:    RememberedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_FAILING, HeadSHA: "aaa"},
 					head:      "aaa",
 					at:        at,
 				},
 				{
-					checks: RememberedAnswer[Checks]{HeadSHA: "bbb", WasLatestReadBlank: true},
+					checks: RememberedAnswer[pullrequestv1.Checks]{HeadSHA: "bbb", WasLatestReadBlank: true},
 					head:   "bbb",
 					at:     at,
 				},
@@ -278,13 +280,13 @@ func TestListMovesSince(t *testing.T) {
 			reads: []read{
 				{
 					readiness: failing,
-					checks:    RememberedAnswer[Checks]{Value: ChecksFailing, HeadSHA: "aaa"},
+					checks:    RememberedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_FAILING, HeadSHA: "aaa"},
 					head:      "aaa",
 					at:        at,
 				},
 				{
 					readiness: failing,
-					checks:    RememberedAnswer[Checks]{Value: ChecksFailing, HeadSHA: "aaa"},
+					checks:    RememberedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_FAILING, HeadSHA: "aaa"},
 					head:      "aaa",
 					at:        at,
 				},
@@ -295,13 +297,13 @@ func TestListMovesSince(t *testing.T) {
 			reads: []read{
 				{
 					readiness: failing,
-					checks:    RememberedAnswer[Checks]{Value: ChecksFailing, HeadSHA: "aaa"},
+					checks:    RememberedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_FAILING, HeadSHA: "aaa"},
 					head:      "aaa",
 					at:        at,
 				},
 				{
 					readiness: failing,
-					checks:    RememberedAnswer[Checks]{Value: ChecksFailing, HeadSHA: "bbb"},
+					checks:    RememberedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_FAILING, HeadSHA: "bbb"},
 					head:      "bbb",
 					at:        at,
 				},
@@ -324,19 +326,19 @@ func TestListMovesSince(t *testing.T) {
 			reads: []read{
 				{
 					readiness: failing,
-					checks:    RememberedAnswer[Checks]{Value: ChecksFailing, HeadSHA: "aaa"},
+					checks:    RememberedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_FAILING, HeadSHA: "aaa"},
 					head:      "aaa",
 					at:        at,
 				},
 				{
-					readiness: MergeReadiness{Decision: ReviewDecisionPending},
-					checks:    RememberedAnswer[Checks]{HeadSHA: "bbb", WasLatestReadBlank: true},
+					readiness: MergeReadiness{Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING},
+					checks:    RememberedAnswer[pullrequestv1.Checks]{HeadSHA: "bbb", WasLatestReadBlank: true},
 					head:      "bbb",
 					at:        at,
 				},
 				{
 					readiness: failing,
-					checks:    RememberedAnswer[Checks]{Value: ChecksFailing, HeadSHA: "bbb"},
+					checks:    RememberedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_FAILING, HeadSHA: "bbb"},
 					head:      "bbb",
 					at:        at,
 				},
@@ -358,13 +360,13 @@ func TestListMovesSince(t *testing.T) {
 			name: "the same review decision after a blank is a move",
 			reads: []read{
 				{
-					readiness: MergeReadiness{Decision: ReviewDecisionChangesRequested},
+					readiness: MergeReadiness{Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED},
 					head:      "aaa",
 					at:        at,
 				},
 				{head: "aaa", at: at},
 				{
-					readiness: MergeReadiness{Decision: ReviewDecisionChangesRequested},
+					readiness: MergeReadiness{Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED},
 					head:      "aaa",
 					at:        at,
 				},
@@ -380,15 +382,15 @@ func TestListMovesSince(t *testing.T) {
 			reads: []read{
 				{
 					readiness: failing,
-					checks:    RememberedAnswer[Checks]{Value: ChecksFailing, HeadSHA: "aaa"},
+					checks:    RememberedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_FAILING, HeadSHA: "aaa"},
 					head:      "aaa",
 					at:        at,
 				},
 				{readiness: MergeReadiness{
-					Decision:     ReviewDecisionApproved,
-					Mergeability: MergeabilityConflicting,
+					Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED,
+					Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING,
 					AutoMerge:    AutoMerge{On: true},
-				}, checks: RememberedAnswer[Checks]{Value: ChecksPassing, HeadSHA: "aaa"}, head: "aaa", at: at},
+				}, checks: RememberedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_PASSING, HeadSHA: "aaa"}, head: "aaa", at: at},
 			},
 			want: []mergeReadinessMove{
 				{
@@ -418,15 +420,15 @@ func TestListMovesSince(t *testing.T) {
 			reads: []read{
 				{
 					readiness: failing,
-					checks:    RememberedAnswer[Checks]{Value: ChecksFailing, HeadSHA: "aaa"},
+					checks:    RememberedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_FAILING, HeadSHA: "aaa"},
 					head:      "aaa",
 					at:        at,
 				},
 				{readiness: MergeReadiness{
-					Decision:     ReviewDecisionPending,
-					Mergeability: MergeabilityClean,
+					Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING,
+					Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 					AutoMerge:    AutoMerge{Allowed: true},
-				}, checks: RememberedAnswer[Checks]{Value: ChecksFailing, HeadSHA: "aaa"}, head: "aaa", at: at},
+				}, checks: RememberedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_FAILING, HeadSHA: "aaa"}, head: "aaa", at: at},
 			},
 		},
 	}
@@ -447,9 +449,14 @@ func TestDisplayForHead(t *testing.T) {
 
 	at := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
 	failing := MergeReadiness{
-		Decision:     ReviewDecisionApproved,
-		Mergeability: MergeabilityBehind,
+		Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED,
+		Mergeability: pullrequestv1.Mergeability_MERGEABILITY_BEHIND,
 		AutoMerge:    AutoMerge{On: true, Allowed: true},
+	}
+	nothing := DisplayedMergeReadiness{
+		Decision:     displayedAnswer[pullrequestv1.ReviewDecision]{Value: pullrequestv1.ReviewDecision_REVIEW_DECISION_NONE},
+		Checks:       displayedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_NONE},
+		Mergeability: displayedAnswer[pullrequestv1.Mergeability]{Value: pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN},
 	}
 
 	tests := []struct {
@@ -461,20 +468,21 @@ func TestDisplayForHead(t *testing.T) {
 		{
 			name: "nothing read shows nothing",
 			head: "aaa",
+			want: nothing,
 		},
 		{
 			name: "an answer for the head is confirmed",
 			reads: []read{{
 				readiness: failing,
-				checks:    RememberedAnswer[Checks]{Value: ChecksFailing, HeadSHA: "aaa"},
+				checks:    RememberedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_FAILING, HeadSHA: "aaa"},
 				head:      "aaa",
 				at:        at,
 			}},
 			head: "aaa",
 			want: DisplayedMergeReadiness{
-				Decision:     displayedAnswer[ReviewDecision]{Value: ReviewDecisionApproved},
-				Checks:       displayedAnswer[Checks]{Value: ChecksFailing},
-				Mergeability: displayedAnswer[Mergeability]{Value: MergeabilityBehind},
+				Decision:     displayedAnswer[pullrequestv1.ReviewDecision]{Value: pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED},
+				Checks:       displayedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_FAILING},
+				Mergeability: displayedAnswer[pullrequestv1.Mergeability]{Value: pullrequestv1.Mergeability_MERGEABILITY_BEHIND},
 				AutoMerge:    AutoMerge{On: true, Allowed: true},
 			},
 		},
@@ -483,13 +491,13 @@ func TestDisplayForHead(t *testing.T) {
 			reads: []read{
 				{
 					readiness: failing,
-					checks:    RememberedAnswer[Checks]{Value: ChecksFailing, HeadSHA: "aaa"},
+					checks:    RememberedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_FAILING, HeadSHA: "aaa"},
 					head:      "aaa",
 					at:        at,
 				},
 				{
-					checks: RememberedAnswer[Checks]{
-						Value:              ChecksFailing,
+					checks: RememberedAnswer[pullrequestv1.Checks]{
+						Value:              pullrequestv1.Checks_CHECKS_FAILING,
 						HeadSHA:            "aaa",
 						WasLatestReadBlank: true,
 					},
@@ -499,8 +507,9 @@ func TestDisplayForHead(t *testing.T) {
 			},
 			head: "aaa",
 			want: DisplayedMergeReadiness{
-				Checks:       displayedAnswer[Checks]{Value: ChecksFailing, IsUnconfirmed: true},
-				Mergeability: displayedAnswer[Mergeability]{Value: MergeabilityBehind, IsUnconfirmed: true},
+				Decision:     displayedAnswer[pullrequestv1.ReviewDecision]{Value: pullrequestv1.ReviewDecision_REVIEW_DECISION_NONE},
+				Checks:       displayedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_FAILING, IsUnconfirmed: true},
+				Mergeability: displayedAnswer[pullrequestv1.Mergeability]{Value: pullrequestv1.Mergeability_MERGEABILITY_BEHIND, IsUnconfirmed: true},
 			},
 		},
 		{
@@ -508,17 +517,18 @@ func TestDisplayForHead(t *testing.T) {
 			reads: []read{
 				{
 					readiness: failing,
-					checks:    RememberedAnswer[Checks]{Value: ChecksFailing, HeadSHA: "aaa"},
+					checks:    RememberedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_FAILING, HeadSHA: "aaa"},
 					head:      "aaa",
 					at:        at,
 				},
 				{
-					checks: RememberedAnswer[Checks]{HeadSHA: "bbb", WasLatestReadBlank: true},
+					checks: RememberedAnswer[pullrequestv1.Checks]{HeadSHA: "bbb", WasLatestReadBlank: true},
 					head:   "bbb",
 					at:     at,
 				},
 			},
 			head: "bbb",
+			want: nothing,
 		},
 	}
 

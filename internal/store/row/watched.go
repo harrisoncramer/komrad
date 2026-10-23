@@ -35,5 +35,5 @@ func (s *RowStore) ListWatched(ctx context.Context, keys []uuid.UUID) ([]Row, er
 		return nil, fmt.Errorf("failed to list the watched agent rows: %w", err)
 	}
 
-	return fromWatched(watched), nil
+	return fromWatched(watched)
 }

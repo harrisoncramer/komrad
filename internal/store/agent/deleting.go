@@ -7,6 +7,7 @@ import (
 
 	"komrad/db/models"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 )
@@ -16,7 +17,7 @@ import (
 type Claim struct {
 	ID         uuid.UUID
 	TaskID     *uuid.UUID
-	Role       Role
+	Role       agentv1.AgentRole
 	DeletingAt time.Time
 }
 
@@ -32,9 +33,9 @@ func (s *AgentStore) MarkDeleting(ctx context.Context, ids []uuid.UUID) ([]Claim
 		return nil, fmt.Errorf("failed to claim %d agents for a delete: %w", len(ids), err)
 	}
 
-	return xslice.Map(rows, func(row *models.MarkAgentsDeletingRow) Claim {
-		return newClaim(row.ID, row.TaskID, Role(row.Role), row.DeletingAt)
-	}), nil
+	return xslice.TryMap(rows, func(row *models.MarkAgentsDeletingRow) (Claim, error) {
+		return newClaim(row.ID, row.TaskID, row.Role, row.DeletingAt)
+	})
 }
 
 // MarkArchivedDeletingByID claims the archived agents among those named whose delete has not
@@ -50,9 +51,9 @@ func (s *AgentStore) MarkArchivedDeletingByID(ctx context.Context, ids []uuid.UU
 		return nil, fmt.Errorf("failed to claim %d archived agents for a delete: %w", len(ids), err)
 	}
 
-	return xslice.Map(rows, func(row *models.MarkArchivedAgentsDeletingByIDRow) Claim {
-		return newClaim(row.ID, row.TaskID, Role(row.Role), row.DeletingAt)
-	}), nil
+	return xslice.TryMap(rows, func(row *models.MarkArchivedAgentsDeletingByIDRow) (Claim, error) {
+		return newClaim(row.ID, row.TaskID, row.Role, row.DeletingAt)
+	})
 }
 
 // ListProvisionedIDsByTask returns the agents each named task was provisioned a worktree for,
@@ -91,9 +92,9 @@ func (s *AgentStore) ListDeletingRoots(ctx context.Context) ([]Claim, error) {
 		return nil, fmt.Errorf("failed to list the agents a delete has claimed: %w", err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListDeletingRootsRow) Claim {
-		return newClaim(row.ID, row.TaskID, Role(row.Role), row.DeletingAt)
-	}), nil
+	return xslice.TryMap(rows, func(row *models.ListDeletingRootsRow) (Claim, error) {
+		return newClaim(row.ID, row.TaskID, row.Role, row.DeletingAt)
+	})
 }
 
 // ClaimRoots are the claimed agents other than a reviewer whose task's writer the same claim took,
@@ -101,17 +102,22 @@ func (s *AgentStore) ListDeletingRoots(ctx context.Context) ([]Claim, error) {
 func ClaimRoots(claims []Claim) []Claim {
 	writerClaimed := make(map[uuid.UUID]bool, len(claims))
 	for _, claim := range claims {
-		if claim.Role == RoleWriter && claim.TaskID != nil {
+		if claim.Role == agentv1.AgentRole_AGENT_ROLE_WRITER && claim.TaskID != nil {
 			writerClaimed[*claim.TaskID] = true
 		}
 	}
 
 	return xslice.Filter(claims, func(claim Claim) bool {
-		return claim.Role != RoleReviewer || claim.TaskID == nil || !writerClaimed[*claim.TaskID]
+		return claim.Role != agentv1.AgentRole_AGENT_ROLE_REVIEWER || claim.TaskID == nil || !writerClaimed[*claim.TaskID]
 	})
 }
 
-func newClaim(id uuid.UUID, taskID *uuid.UUID, role Role, deletingAt *time.Time) Claim {
+func newClaim(id uuid.UUID, taskID *uuid.UUID, stored models.AgentRole, deletingAt *time.Time) (Claim, error) {
+	role, err := fromDBToServiceAgentRole(stored)
+	if err != nil {
+		return Claim{}, err
+	}
+
 	claim := Claim{
 		ID:     id,
 		TaskID: taskID,
@@ -121,5 +127,5 @@ func newClaim(id uuid.UUID, taskID *uuid.UUID, role Role, deletingAt *time.Time)
 		claim.DeletingAt = *deletingAt
 	}
 
-	return claim
+	return claim, nil
 }

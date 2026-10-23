@@ -16,6 +16,7 @@ import (
 	"komrad/internal/ui/tabs"
 	"komrad/internal/vim"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 // agentsDeps is what the agents screens are given at launch.
@@ -111,7 +112,7 @@ func (r agentRow) paneItem() (panel.AgentRow, bool) {
 // isFolded reports whether an agent is rendered on its workflow's own row rather than on one of its
 // own.
 func isFolded(params treeRowsParams, it panel.AgentRow) bool {
-	return params.foldOrchestrators && it.Agent.Role == panel.RoleOrchestrator
+	return params.foldOrchestrators && it.Agent.Role == agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR
 }
 
 type treeRowsParams struct {
@@ -304,7 +305,7 @@ func taskHeader(gathered []agentRow, tasks panel.Tasks) agentRow {
 		task:   &task,
 	}
 	for _, row := range gathered {
-		if row.item.Agent.Role == panel.RoleWriter {
+		if row.item.Agent.Role == agentv1.AgentRole_AGENT_ROLE_WRITER {
 			header.item = row.item
 		}
 	}
@@ -467,7 +468,7 @@ func (a *agentsScreen) Resting(in screen.Inputs) (panel.AgentRow, bool) {
 	}
 
 	item, held := r.paneItem()
-	if !held || a.isShowingNotes(r) || item.Alive || item.Agent.State == panel.StateSettingUp || item.Agent.State.IsFailed() {
+	if !held || a.isShowingNotes(r) || item.Alive || item.Agent.State == agentv1.AgentState_AGENT_STATE_SETTING_UP || panel.IsFailed(item.Agent.State) {
 		return panel.AgentRow{}, false
 	}
 

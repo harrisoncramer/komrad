@@ -1,6 +1,13 @@
 package forge
 
-import "time"
+import (
+	"time"
+
+	"komrad/lib/protoenum"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
+
+	"google.golang.org/protobuf/reflect/protoreflect"
+)
 
 // mergeReadinessField is one part of a pull request's merge readiness whose move is reported.
 type mergeReadinessField string
@@ -31,7 +38,7 @@ type mergeReadinessMove struct {
 
 // RememberedAnswer is what komrad remembers of one part of a pull request's merge readiness.
 type RememberedAnswer[T comparable] struct {
-	// Value is the last answer the forge gave that was not blank.
+	// Value is the last answer the forge gave that was not blank, unspecified before the first.
 	Value T
 	// HeadSHA is the head Value was read for, empty for a part that belongs to the whole pull request.
 	HeadSHA string
@@ -41,9 +48,9 @@ type RememberedAnswer[T comparable] struct {
 
 // RememberedMergeReadiness is what komrad remembers of a pull request's merge readiness across its reads.
 type RememberedMergeReadiness struct {
-	Decision     RememberedAnswer[ReviewDecision]
-	Checks       RememberedAnswer[Checks]
-	Mergeability RememberedAnswer[Mergeability]
+	Decision     RememberedAnswer[pullrequestv1.ReviewDecision]
+	Checks       RememberedAnswer[pullrequestv1.Checks]
+	Mergeability RememberedAnswer[pullrequestv1.Mergeability]
 	// AutoMerge is the latest auto-merge read, nil before the first.
 	AutoMerge *AutoMerge
 	// LatestReadHeadSHA is the head the latest read was for.
@@ -55,15 +62,15 @@ type RememberedMergeReadiness struct {
 // RememberRead takes a read of head made at a moment into what komrad remembers, leaving the checks to their rows.
 func (rs RememberedMergeReadiness) RememberRead(read MergeReadiness, head string, at time.Time) RememberedMergeReadiness {
 	next := RememberedMergeReadiness{
-		Decision:          rememberAnswer(rs.Decision, read.Decision, ""),
+		Decision:          rememberAnswer(rs.Decision, read.Decision, pullrequestv1.ReviewDecision_REVIEW_DECISION_NONE, ""),
 		Checks:            rs.Checks,
-		Mergeability:      rememberAnswer(rs.Mergeability, read.Mergeability, head),
+		Mergeability:      rememberAnswer(rs.Mergeability, read.Mergeability, pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN, head),
 		AutoMerge:         &read.AutoMerge,
 		LatestReadHeadSHA: head,
 	}
 
 	switch {
-	case read.Mergeability != MergeabilityUnknown:
+	case !isBlank(read.Mergeability, pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN):
 	case rs.MergeabilityBlankSince != nil && rs.LatestReadHeadSHA == head:
 		next.MergeabilityBlankSince = rs.MergeabilityBlankSince
 	default:
@@ -73,9 +80,8 @@ func (rs RememberedMergeReadiness) RememberRead(read MergeReadiness, head string
 	return next
 }
 
-func rememberAnswer[T comparable](answer RememberedAnswer[T], read T, head string) RememberedAnswer[T] {
-	var blank T
-	if read == blank {
+func rememberAnswer[T comparable](answer RememberedAnswer[T], read, blank T, head string) RememberedAnswer[T] {
+	if isBlank(read, blank) {
 		answer.WasLatestReadBlank = true
 
 		return answer
@@ -84,28 +90,35 @@ func rememberAnswer[T comparable](answer RememberedAnswer[T], read T, head strin
 	return RememberedAnswer[T]{Value: read, HeadSHA: head}
 }
 
+// isBlank says whether the forge gave no answer, either unspecified or the blank it reports.
+func isBlank[T comparable](value, blank T) bool {
+	var unspecified T
+
+	return value == unspecified || value == blank
+}
+
 // ListMovesSince lists every part of the merge readiness that moved since before.
 func (rs RememberedMergeReadiness) ListMovesSince(before RememberedMergeReadiness) []mergeReadinessMove {
 	var moves []mergeReadinessMove
 	if rs.Decision.Value != before.Decision.Value || isBackAfterBlank(before.Decision, rs.Decision) {
 		moves = append(moves, mergeReadinessMove{
 			Field: MergeReadinessFieldDecision,
-			From:  string(before.Decision.Value),
-			To:    string(rs.Decision.Value),
+			From:  DescribeDecision(before.Decision.Value),
+			To:    DescribeDecision(rs.Decision.Value),
 		})
 	}
 	if !rs.Checks.WasLatestReadBlank && (rs.Checks.Value != before.Checks.Value || isOnNewHead(before.Checks, rs.Checks)) {
 		moves = append(moves, mergeReadinessMove{
 			Field: MergeReadinessFieldChecks,
-			From:  string(before.Checks.Value),
-			To:    string(rs.Checks.Value),
+			From:  DescribeChecks(before.Checks.Value),
+			To:    DescribeChecks(rs.Checks.Value),
 		})
 	}
 	if !rs.Mergeability.WasLatestReadBlank && (rs.Mergeability.Value != before.Mergeability.Value || isOnNewHead(before.Mergeability, rs.Mergeability)) {
 		moves = append(moves, mergeReadinessMove{
 			Field: MergeReadinessFieldMergeability,
-			From:  string(before.Mergeability.Value),
-			To:    string(rs.Mergeability.Value),
+			From:  DescribeMergeability(before.Mergeability.Value),
+			To:    DescribeMergeability(rs.Mergeability.Value),
 		})
 	}
 	if from, to := DescribeAutoMerge(before.AutoMerge), DescribeAutoMerge(rs.AutoMerge); from != to {
@@ -125,8 +138,34 @@ func isOnNewHead[T comparable](before, after RememberedAnswer[T]) bool {
 }
 
 // isBackAfterBlank says whether the decision was read again after a blank read.
-func isBackAfterBlank(before, after RememberedAnswer[ReviewDecision]) bool {
+func isBackAfterBlank(before, after RememberedAnswer[pullrequestv1.ReviewDecision]) bool {
 	return before.WasLatestReadBlank && !after.WasLatestReadBlank
+}
+
+// DescribeDecision is the review decision in the words a move carries, empty when the forge said nothing.
+func DescribeDecision(decision pullrequestv1.ReviewDecision) string {
+	return describeAnswer(decision, pullrequestv1.ReviewDecision_REVIEW_DECISION_NONE)
+}
+
+// DescribeChecks is where the checks stand in the words a move carries, empty when the forge reports none.
+func DescribeChecks(checks pullrequestv1.Checks) string {
+	return describeAnswer(checks, pullrequestv1.Checks_CHECKS_NONE)
+}
+
+// DescribeMergeability is the mergeability in the words a move carries, empty while the forge has not computed it.
+func DescribeMergeability(mergeability pullrequestv1.Mergeability) string {
+	return describeAnswer(mergeability, pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN)
+}
+
+func describeAnswer[T interface {
+	comparable
+	protoreflect.Enum
+}](value, blank T) string {
+	if isBlank(value, blank) {
+		return ""
+	}
+
+	return protoenum.Name(value)
 }
 
 // DescribeAutoMerge says whether auto-merge is on in the words a move carries, empty before it was read.
@@ -151,9 +190,9 @@ type displayedAnswer[T comparable] struct {
 
 // DisplayedMergeReadiness is a pull request's merge readiness as komrad shows it for one head.
 type DisplayedMergeReadiness struct {
-	Decision     displayedAnswer[ReviewDecision]
-	Checks       displayedAnswer[Checks]
-	Mergeability displayedAnswer[Mergeability]
+	Decision     displayedAnswer[pullrequestv1.ReviewDecision]
+	Checks       displayedAnswer[pullrequestv1.Checks]
+	Mergeability displayedAnswer[pullrequestv1.Mergeability]
 	AutoMerge    AutoMerge
 }
 
@@ -161,8 +200,8 @@ type DisplayedMergeReadiness struct {
 func (rs RememberedMergeReadiness) DisplayForHead(head string) DisplayedMergeReadiness {
 	displayed := DisplayedMergeReadiness{
 		Decision:     displayLatestDecision(rs.Decision),
-		Checks:       displayAnswerForHead(rs.Checks, head),
-		Mergeability: displayAnswerForHead(rs.Mergeability, head),
+		Checks:       displayAnswerForHead(rs.Checks, pullrequestv1.Checks_CHECKS_NONE, head),
+		Mergeability: displayAnswerForHead(rs.Mergeability, pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN, head),
 	}
 	if rs.AutoMerge != nil {
 		displayed.AutoMerge = *rs.AutoMerge
@@ -171,18 +210,17 @@ func (rs RememberedMergeReadiness) DisplayForHead(head string) DisplayedMergeRea
 	return displayed
 }
 
-func displayLatestDecision(answer RememberedAnswer[ReviewDecision]) displayedAnswer[ReviewDecision] {
-	if answer.WasLatestReadBlank {
-		return displayedAnswer[ReviewDecision]{}
+func displayLatestDecision(answer RememberedAnswer[pullrequestv1.ReviewDecision]) displayedAnswer[pullrequestv1.ReviewDecision] {
+	if answer.WasLatestReadBlank || isBlank(answer.Value, pullrequestv1.ReviewDecision_REVIEW_DECISION_NONE) {
+		return displayedAnswer[pullrequestv1.ReviewDecision]{Value: pullrequestv1.ReviewDecision_REVIEW_DECISION_NONE}
 	}
 
-	return displayedAnswer[ReviewDecision]{Value: answer.Value}
+	return displayedAnswer[pullrequestv1.ReviewDecision]{Value: answer.Value}
 }
 
-func displayAnswerForHead[T comparable](answer RememberedAnswer[T], head string) displayedAnswer[T] {
-	var blank T
-	if answer.Value == blank || head != "" && answer.HeadSHA != head {
-		return displayedAnswer[T]{}
+func displayAnswerForHead[T comparable](answer RememberedAnswer[T], blank T, head string) displayedAnswer[T] {
+	if isBlank(answer.Value, blank) || head != "" && answer.HeadSHA != head {
+		return displayedAnswer[T]{Value: blank}
 	}
 
 	return displayedAnswer[T]{Value: answer.Value, IsUnconfirmed: answer.WasLatestReadBlank}

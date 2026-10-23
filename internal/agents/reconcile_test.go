@@ -15,6 +15,7 @@ import (
 	schedulestore "komrad/internal/store/schedule"
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -26,123 +27,123 @@ import (
 func TestReconcileSinglePass(t *testing.T) {
 	tests := []struct {
 		name      string
-		fromState agentstore.State
+		fromState agentv1.AgentState
 		pane      *string
 		owned     bool
 		command   string
 		frame     string
-		want      agentstore.State
+		want      agentv1.AgentState
 	}{
 		{
 			name:      "a pane that is not the agent's settles thinking to idle",
-			fromState: agentstore.StateThinking,
+			fromState: agentv1.AgentState_AGENT_STATE_THINKING,
 			owned:     false,
-			want:      agentstore.StateIdle,
+			want:      agentv1.AgentState_AGENT_STATE_IDLE,
 		},
 		{
 			name:      "a pane that is not the agent's settles waiting to idle",
-			fromState: agentstore.StateWaiting,
+			fromState: agentv1.AgentState_AGENT_STATE_WAITING,
 			owned:     false,
-			want:      agentstore.StateIdle,
+			want:      agentv1.AgentState_AGENT_STATE_IDLE,
 		},
 		{
 			name:      "a pane that is not the agent's leaves idle untouched",
-			fromState: agentstore.StateIdle,
+			fromState: agentv1.AgentState_AGENT_STATE_IDLE,
 			owned:     false,
-			want:      agentstore.StateIdle,
+			want:      agentv1.AgentState_AGENT_STATE_IDLE,
 		},
 		{
 			name:      "empty capture is inconclusive",
-			fromState: agentstore.StateThinking,
+			fromState: agentv1.AgentState_AGENT_STATE_THINKING,
 			owned:     true,
 			frame:     "",
-			want:      agentstore.StateThinking,
+			want:      agentv1.AgentState_AGENT_STATE_THINKING,
 		},
 		{
 			name:      "idle frame does not demote in one pass",
-			fromState: agentstore.StateThinking,
+			fromState: agentv1.AgentState_AGENT_STATE_THINKING,
 			owned:     true,
 			frame:     harnesstest.FrameIdle,
-			want:      agentstore.StateThinking,
+			want:      agentv1.AgentState_AGENT_STATE_THINKING,
 		},
 		{
 			name:      "idle frame leaves idle untouched",
-			fromState: agentstore.StateIdle,
+			fromState: agentv1.AgentState_AGENT_STATE_IDLE,
 			owned:     true,
 			frame:     harnesstest.FrameIdle,
-			want:      agentstore.StateIdle,
+			want:      agentv1.AgentState_AGENT_STATE_IDLE,
 		},
 		{
 			name:      "waiting frame moves thinking to waiting",
-			fromState: agentstore.StateThinking,
+			fromState: agentv1.AgentState_AGENT_STATE_THINKING,
 			owned:     true,
 			frame:     harnesstest.FrameWaiting,
-			want:      agentstore.StateWaiting,
+			want:      agentv1.AgentState_AGENT_STATE_WAITING,
 		},
 		{
 			name:      "work promotes idle to thinking",
-			fromState: agentstore.StateIdle,
+			fromState: agentv1.AgentState_AGENT_STATE_IDLE,
 			owned:     true,
 			frame:     harnesstest.FrameWorking,
-			want:      agentstore.StateThinking,
+			want:      agentv1.AgentState_AGENT_STATE_THINKING,
 		},
 		{
 			name:      "work keeps thinking",
-			fromState: agentstore.StateThinking,
+			fromState: agentv1.AgentState_AGENT_STATE_THINKING,
 			owned:     true,
 			frame:     harnesstest.FrameWorking,
-			want:      agentstore.StateThinking,
+			want:      agentv1.AgentState_AGENT_STATE_THINKING,
 		},
 		{
 			name:      "a pane back at its shell does not demote in one pass, since a launch looks the same",
-			fromState: agentstore.StateThinking,
+			fromState: agentv1.AgentState_AGENT_STATE_THINKING,
 			owned:     true,
 			command:   "zsh",
 			frame:     harnesstest.FrameWorking,
-			want:      agentstore.StateThinking,
+			want:      agentv1.AgentState_AGENT_STATE_THINKING,
 		},
 		{
 			name:      "a foreground program komrad does not recognise is taken for the CLI",
-			fromState: agentstore.StateIdle,
+			fromState: agentv1.AgentState_AGENT_STATE_IDLE,
 			owned:     true,
 			command:   "2.1.241",
 			frame:     harnesstest.FrameWorking,
-			want:      agentstore.StateThinking,
+			want:      agentv1.AgentState_AGENT_STATE_THINKING,
 		},
 		{
 			name:      "a relaunched CLI at its input box is idle in one pass",
-			fromState: agentstore.StateSettingUp,
+			fromState: agentv1.AgentState_AGENT_STATE_SETTING_UP,
 			owned:     true,
 			frame:     harnesstest.FrameIdle,
-			want:      agentstore.StateIdle,
+			want:      agentv1.AgentState_AGENT_STATE_IDLE,
 		},
 		{
 			name:      "a relaunched CLI already at work is thinking",
-			fromState: agentstore.StateSettingUp,
+			fromState: agentv1.AgentState_AGENT_STATE_SETTING_UP,
 			owned:     true,
 			frame:     harnesstest.FrameWorking,
-			want:      agentstore.StateThinking,
+			want:      agentv1.AgentState_AGENT_STATE_THINKING,
 		},
 		{
 			name:      "a relaunched CLI that has drawn nothing yet is still setting up",
-			fromState: agentstore.StateSettingUp,
+			fromState: agentv1.AgentState_AGENT_STATE_SETTING_UP,
 			owned:     true,
 			frame:     "",
-			want:      agentstore.StateSettingUp,
+			want:      agentv1.AgentState_AGENT_STATE_SETTING_UP,
 		},
 		{
 			name:      "a relaunch whose pane went before its CLI came up settles to idle",
-			fromState: agentstore.StateSettingUp,
+			fromState: agentv1.AgentState_AGENT_STATE_SETTING_UP,
 			owned:     false,
-			want:      agentstore.StateIdle,
+			want:      agentv1.AgentState_AGENT_STATE_IDLE,
 		},
 		{
 			name:      "a setup with no pane recorded is left to its launch",
-			fromState: agentstore.StateSettingUp,
+			fromState: agentv1.AgentState_AGENT_STATE_SETTING_UP,
 			pane:      xptr.Ptr(""),
 			owned:     true,
 			frame:     harnesstest.FrameIdle,
-			want:      agentstore.StateSettingUp,
+			want:      agentv1.AgentState_AGENT_STATE_SETTING_UP,
 		},
 	}
 
@@ -178,7 +179,7 @@ func TestReconcileSinglePass(t *testing.T) {
 // was watching can still be argued about afterwards.
 func TestReconcileRecordsTheFrameItRead(t *testing.T) {
 	st := newStore(t)
-	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_IDLE)
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -203,7 +204,7 @@ func TestReconcileRecordsTheFrameItRead(t *testing.T) {
 // whose pane komrad cannot read.
 func TestReconcileRecordsAnUnrecognizedFrameDisputingAnIdleAgent(t *testing.T) {
 	st := newStore(t)
-	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_IDLE)
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -226,7 +227,7 @@ func TestReconcileRecordsAnUnrecognizedFrameDisputingAnIdleAgent(t *testing.T) {
 // already drawn as uncertain, which nothing about the pane disputes.
 func TestReconcileRecordsAnUnrecognizedFrameAgreeingWithAnUncertainAgent(t *testing.T) {
 	st := newStore(t)
-	agent := seed(t, st, "agent", "%1", agentstore.StateUncertain)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_UNCERTAIN)
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -248,7 +249,7 @@ func TestReconcileRecordsAnUnrecognizedFrameAgreeingWithAnUncertainAgent(t *test
 // panel still shows as working.
 func TestReconcileRecordsAnUnrecognizedFrameDisputingAThinkingAgent(t *testing.T) {
 	st := newStore(t)
-	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -270,7 +271,7 @@ func TestReconcileRecordsAnUnrecognizedFrameDisputingAThinkingAgent(t *testing.T
 // has been asked for and the reconciler holds none.
 func TestReconcileWithoutARecorderRecordsNothing(t *testing.T) {
 	st := newStore(t)
-	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_IDLE)
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -315,7 +316,7 @@ func TestReconcileForgetsAnAbandonedPane(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			ctx := t.Context()
-			agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+			agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 
 			tmux := tmuxtest.NewFake()
 			tmux.Owners["%1"] = other
@@ -335,7 +336,7 @@ func TestReconcileForgetsAnAbandonedPane(t *testing.T) {
 			require.NoError(t, rec.Reconcile(ctx))
 
 			after := agentByID(t, st, agent.ID)
-			assert.Equal(t, agentstore.StateIdle, after.State)
+			assert.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, after.State)
 			assert.Empty(t, after.Pane, "the agent stops claiming a pane it is not running in")
 			assert.Equal(t, tt.wantStamp, tmux.Owners["%1"])
 			assert.Equal(t, tt.wantKilled, tmux.KilledPanes)
@@ -352,7 +353,7 @@ func waitOutTheShellGrace(rec *Reconciler) {
 func TestReconcileWaitsOutALaunch(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_IDLE)
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -375,7 +376,7 @@ func TestReconcileWaitsOutALaunch(t *testing.T) {
 	require.NoError(t, rec.Reconcile(ctx))
 
 	after := agentByID(t, st, agent.ID)
-	assert.Equal(t, agentstore.StateThinking, after.State)
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, after.State)
 	assert.Equal(t, "%1", after.Pane)
 	assert.Equal(t, agent.ID, tmux.Owners["%1"], "the stamp is left where the launcher put it")
 }
@@ -388,34 +389,34 @@ func TestReconcileOverPasses(t *testing.T) {
 		name              string
 		passes            []string
 		archiveBeforeLast bool
-		wantAfterFirst    agentstore.State
-		wantBeforeLast    agentstore.State
-		want              agentstore.State
+		wantAfterFirst    agentv1.AgentState
+		wantBeforeLast    agentv1.AgentState
+		want              agentv1.AgentState
 		wantMisses        *int
 	}{
 		{
 			name:           "an idle pane only demotes once the misses run out",
 			passes:         repeatFrame(harnesstest.FrameIdle, reconcileMisses),
-			wantBeforeLast: agentstore.StateThinking,
-			want:           agentstore.StateIdle,
+			wantBeforeLast: agentv1.AgentState_AGENT_STATE_THINKING,
+			want:           agentv1.AgentState_AGENT_STATE_IDLE,
 		},
 		{
 			name:       "a busy pass clears the accrued misses, so a trailing idle one cannot demote",
 			passes:     []string{harnesstest.FrameIdle, harnesstest.FrameWorking, harnesstest.FrameIdle},
-			want:       agentstore.StateThinking,
+			want:       agentv1.AgentState_AGENT_STATE_THINKING,
 			wantMisses: xptr.Ptr(1),
 		},
 		{
 			name:           "a prompt moves it to waiting, and answering lets it settle to idle",
 			passes:         append([]string{harnesstest.FrameWaiting}, repeatFrame(harnesstest.FrameIdle, reconcileMisses)...),
-			wantAfterFirst: agentstore.StateWaiting,
-			want:           agentstore.StateIdle,
+			wantAfterFirst: agentv1.AgentState_AGENT_STATE_WAITING,
+			want:           agentv1.AgentState_AGENT_STATE_IDLE,
 		},
 		{
 			name:           "a prompt somebody is typing into is still a finished turn",
 			passes:         repeatFrame(harnesstest.FrameComposing, reconcileMisses),
-			wantBeforeLast: agentstore.StateThinking,
-			want:           agentstore.StateIdle,
+			wantBeforeLast: agentv1.AgentState_AGENT_STATE_THINKING,
+			want:           agentv1.AgentState_AGENT_STATE_IDLE,
 		},
 		{
 			name:              "an agent that leaves the listing has its misses reaped",
@@ -428,7 +429,7 @@ func TestReconcileOverPasses(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+			agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 
 			tmux := tmuxtest.NewFake()
 			tmux.Owners["%1"] = agent.ID
@@ -453,10 +454,10 @@ func TestReconcileOverPasses(t *testing.T) {
 				if tt.archiveBeforeLast && last {
 					break
 				}
-				if i == 0 && tt.wantAfterFirst != "" {
+				if i == 0 && tt.wantAfterFirst != agentv1.AgentState_AGENT_STATE_UNSPECIFIED {
 					assert.Equal(t, tt.wantAfterFirst, stateOf(t, st, "agent"))
 				}
-				if !last && tt.wantBeforeLast != "" {
+				if !last && tt.wantBeforeLast != agentv1.AgentState_AGENT_STATE_UNSPECIFIED {
 					assert.Equal(t, tt.wantBeforeLast, stateOf(t, st, "agent"), "must survive pass %d", i)
 				}
 			}
@@ -492,7 +493,7 @@ func TestReconcileLeavesAnUnknownHarnessAlone(t *testing.T) {
 	require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 		Name:    "orphan",
 		Pane:    "%1",
-		State:   agentstore.StateThinking,
+		State:   agentv1.AgentState_AGENT_STATE_THINKING,
 		Harness: "gemini",
 	}))
 	agent, err := st.Get(ctx, "orphan")
@@ -511,7 +512,7 @@ func TestReconcileLeavesAnUnknownHarnessAlone(t *testing.T) {
 		require.NoError(t, rec.Reconcile(ctx))
 	}
 
-	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "orphan"))
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, stateOf(t, st, "orphan"))
 	assert.Empty(t, rec.tally.tracked, "an unread frame is not an idle observation")
 }
 
@@ -525,44 +526,44 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 		frames           []string
 		clockStep        time.Duration
 		backdateSeen     time.Duration
-		want             agentstore.State
+		want             agentv1.AgentState
 		wantMisses       int
 	}{
 		{
 			name:             "a boundary already on the row when the reconciler starts does not settle an idle frame",
 			endedBeforeStart: true,
 			frames:           []string{harnesstest.FrameIdle},
-			want:             agentstore.StateThinking,
+			want:             agentv1.AgentState_AGENT_STATE_THINKING,
 			wantMisses:       1,
 		},
 		{
 			name:   "a boundary against a frame still showing work does not move it",
 			frames: []string{harnesstest.FrameWorking},
-			want:   agentstore.StateThinking,
+			want:   agentv1.AgentState_AGENT_STATE_THINKING,
 		},
 		{
 			name:       "a boundary older than the grace does not settle a later idle frame",
 			frames:     []string{harnesstest.FrameWorking, harnesstest.FrameIdle},
 			clockStep:  turnEndGrace,
-			want:       agentstore.StateThinking,
+			want:       agentv1.AgentState_AGENT_STATE_THINKING,
 			wantMisses: 1,
 		},
 		{
 			name:   "a boundary against an idle frame skips the miss counter",
 			frames: []string{harnesstest.FrameIdle},
-			want:   agentstore.StateIdle,
+			want:   agentv1.AgentState_AGENT_STATE_IDLE,
 		},
 		{
 			name:      "a boundary outlasts a frame still showing work until the idle frame comes",
 			frames:    []string{harnesstest.FrameWorking, harnesstest.FrameIdle},
 			clockStep: 2 * time.Second,
-			want:      agentstore.StateIdle,
+			want:      agentv1.AgentState_AGENT_STATE_IDLE,
 		},
 		{
 			name:         "a boundary outlasts a working frame that rewrites the state seen time",
 			frames:       []string{harnesstest.FrameWorking, harnesstest.FrameIdle},
 			backdateSeen: stateSeenCoalesce + time.Minute,
-			want:         agentstore.StateIdle,
+			want:         agentv1.AgentState_AGENT_STATE_IDLE,
 		},
 	}
 
@@ -570,7 +571,7 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			ctx := t.Context()
-			agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+			agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 			if tt.backdateSeen > 0 {
 				backdateStateSeen(t, st, agent.ID, tt.backdateSeen)
 			}
@@ -606,9 +607,9 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 func TestReconcileTurnBoundaryOlderThanTheLastStateChangeDoesNothing(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_IDLE)
 	require.NoError(t, st.Agents.SetTurnEnded(ctx, agent.ID))
-	require.NoError(t, st.Agents.SetStateByID(ctx, agent.ID, agentstore.StateThinking))
+	require.NoError(t, st.Agents.SetStateByID(ctx, agent.ID, agentv1.AgentState_AGENT_STATE_THINKING))
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -621,7 +622,7 @@ func TestReconcileTurnBoundaryOlderThanTheLastStateChangeDoesNothing(t *testing.
 	})
 
 	require.NoError(t, rec.Reconcile(ctx))
-	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"), "a stale boundary is not licence to skip a miss")
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, stateOf(t, st, "agent"), "a stale boundary is not licence to skip a miss")
 	assert.Equal(t, 1, rec.tally.read(agent.ID).misses, "the pass still counted as an ordinary miss")
 }
 
@@ -631,7 +632,7 @@ func TestReconcileTurnBoundaryOlderThanTheLastStateChangeDoesNothing(t *testing.
 func TestReconcileUnrecognizedFrameSettlesUncertainWhenStatic(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -644,11 +645,11 @@ func TestReconcileUnrecognizedFrameSettlesUncertainWhenStatic(t *testing.T) {
 	})
 	for range reconcileMisses - 1 {
 		require.NoError(t, rec.Reconcile(ctx))
-		assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"))
+		assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, stateOf(t, st, "agent"))
 	}
 
 	require.NoError(t, rec.Reconcile(ctx))
-	assert.Equal(t, agentstore.StateUncertain, stateOf(t, st, "agent"))
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_UNCERTAIN, stateOf(t, st, "agent"))
 }
 
 // TestReconcileUnrecognizedFrameThatKeepsChangingHolds pins that a frame nothing recognizes
@@ -656,7 +657,7 @@ func TestReconcileUnrecognizedFrameSettlesUncertainWhenStatic(t *testing.T) {
 func TestReconcileUnrecognizedFrameThatKeepsChangingHolds(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -673,7 +674,7 @@ func TestReconcileUnrecognizedFrameThatKeepsChangingHolds(t *testing.T) {
 	for i := 1; i <= reconcileMisses+2; i++ {
 		tmux.Captures["%1"] = fmt.Sprintf("%s-%d", harnesstest.FrameUnrecognized, i)
 		require.NoError(t, rec.Reconcile(ctx))
-		assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"))
+		assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, stateOf(t, st, "agent"))
 		assert.Zero(t, rec.tally.read(agent.ID).misses)
 	}
 }
@@ -683,7 +684,7 @@ func TestReconcileUnrecognizedFrameThatKeepsChangingHolds(t *testing.T) {
 func TestReconcileMissesAccrueRatherThanRestartOnceTheHoldIsCapped(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -705,13 +706,13 @@ func TestReconcileMissesAccrueRatherThanRestartOnceTheHoldIsCapped(t *testing.T)
 	for i := 1; i < reconcileMisses; i++ {
 		tmux.Captures["%1"] = fmt.Sprintf("%s-%d", harnesstest.FrameUnrecognized, unrecognizedHoldLimit+i)
 		require.NoError(t, rec.Reconcile(ctx))
-		assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"),
+		assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, stateOf(t, st, "agent"),
 			"a still-changing frame past the cap must not restart the hold")
 	}
 
 	tmux.Captures["%1"] = fmt.Sprintf("%s-%d", harnesstest.FrameUnrecognized, unrecognizedHoldLimit+reconcileMisses)
 	require.NoError(t, rec.Reconcile(ctx))
-	assert.Equal(t, agentstore.StateUncertain, stateOf(t, st, "agent"),
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_UNCERTAIN, stateOf(t, st, "agent"),
 		"the accrued misses, not a restarted hold, are what finally demote it")
 }
 
@@ -720,7 +721,7 @@ func TestReconcileMissesAccrueRatherThanRestartOnceTheHoldIsCapped(t *testing.T)
 func TestReconcileCountsUnrecognizedFrames(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -746,7 +747,7 @@ func TestReconcileWithoutTmux(t *testing.T) {
 	require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 		Name:  "busy",
 		Pane:  "%1",
-		State: agentstore.StateThinking,
+		State: agentv1.AgentState_AGENT_STATE_THINKING,
 	}))
 	agent, err := st.Get(ctx, "busy")
 	require.NoError(t, err)
@@ -765,7 +766,7 @@ func TestReconcileWithoutTmux(t *testing.T) {
 
 	after := agentByID(t, st, agent.ID)
 	assert.Equal(t, "%1", after.Pane, "the pane is kept, since nothing said it was gone")
-	assert.Equal(t, agentstore.StateThinking, after.State, "and the state stands")
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, after.State, "and the state stands")
 }
 
 // TestReconcileStampsWhatItConfirmed pins that only a pass which read the frame moves the
@@ -773,7 +774,7 @@ func TestReconcileWithoutTmux(t *testing.T) {
 func TestReconcileStampsWhatItConfirmed(t *testing.T) {
 	tests := []struct {
 		name          string
-		state         agentstore.State
+		state         agentv1.AgentState
 		harness       string
 		passes        int
 		frame         string
@@ -799,7 +800,7 @@ func TestReconcileStampsWhatItConfirmed(t *testing.T) {
 		},
 		{
 			name:          "an idle frame on an agent already idle confirms the state",
-			state:         agentstore.StateIdle,
+			state:         agentv1.AgentState_AGENT_STATE_IDLE,
 			passes:        1,
 			frame:         harnesstest.FrameIdle,
 			wantConfirmed: true,
@@ -827,7 +828,7 @@ func TestReconcileStampsWhatItConfirmed(t *testing.T) {
 			require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 				Name:    "agent",
 				Pane:    "%1",
-				State:   cmp.Or(tt.state, agentstore.StateThinking),
+				State:   cmp.Or(tt.state, agentv1.AgentState_AGENT_STATE_THINKING),
 				Harness: tt.harness,
 			}))
 			agent, err := st.Get(ctx, "agent")
@@ -867,7 +868,7 @@ func TestReconcileStampsWhatItConfirmed(t *testing.T) {
 func TestReconcileCoalescesTheConfirmationStamp(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -914,13 +915,13 @@ func TestReconcileLeavesARowAResumeHasMovedOn(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			ctx := t.Context()
-			agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+			agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 
 			tmux := tmuxtest.NewFake()
 
 			resumed := agent
 			resumed.Pane = tt.pane
-			resumed.State = agentstore.StateIdle
+			resumed.State = agentv1.AgentState_AGENT_STATE_IDLE
 
 			tmux.AfterGetPanes = func() {
 				require.NoError(t, tmux.SetPaneOwner(tt.pane, agent.ID))
@@ -946,7 +947,7 @@ func TestReconcileLeavesARowAResumeHasMovedOn(t *testing.T) {
 func TestReconcileSettlesOnASourceThatReadsNoScreen(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -962,7 +963,7 @@ func TestReconcileSettlesOnASourceThatReadsNoScreen(t *testing.T) {
 		require.NoError(t, rec.Reconcile(ctx))
 	}
 
-	assert.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, stateOf(t, st, "agent"))
 	assert.Empty(t, recorder.recorded, "a source with no frame has nothing to record")
 }
 
@@ -971,7 +972,7 @@ func TestReconcileSettlesOnASourceThatReadsNoScreen(t *testing.T) {
 func TestReconcileLeavesAnAgentAloneWhenTheObserverHasNothingToSay(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -987,7 +988,7 @@ func TestReconcileLeavesAnAgentAloneWhenTheObserverHasNothingToSay(t *testing.T)
 		require.NoError(t, rec.Reconcile(ctx))
 	}
 
-	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"))
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, stateOf(t, st, "agent"))
 	assert.Empty(t, recorder.recorded)
 }
 
@@ -996,7 +997,7 @@ func TestReconcileLeavesAnAgentAloneWhenTheObserverHasNothingToSay(t *testing.T)
 func TestReconcileLeavesAnAgentAloneWhenTheObserverFails(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -1011,7 +1012,7 @@ func TestReconcileLeavesAnAgentAloneWhenTheObserverFails(t *testing.T) {
 		require.NoError(t, rec.Reconcile(ctx))
 	}
 
-	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"))
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, stateOf(t, st, "agent"))
 }
 
 // TestReconcileStampsTheTurnItSettled pins that the pane stamps the turn end when no hook
@@ -1019,7 +1020,7 @@ func TestReconcileLeavesAnAgentAloneWhenTheObserverFails(t *testing.T) {
 func TestReconcileStampsTheTurnItSettled(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -1035,7 +1036,7 @@ func TestReconcileStampsTheTurnItSettled(t *testing.T) {
 		require.NoError(t, rec.Reconcile(ctx))
 	}
 
-	require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
+	require.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, stateOf(t, st, "agent"))
 	assert.NotNil(t, agentByID(t, st, agent.ID).Turn.EndedAt, "the settled turn is stamped")
 }
 
@@ -1045,7 +1046,7 @@ func TestReconcileStampsTheTurnItSettled(t *testing.T) {
 func TestReconcileLeavesTheStampToTheHookWhenItReported(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -1062,7 +1063,7 @@ func TestReconcileLeavesTheStampToTheHookWhenItReported(t *testing.T) {
 
 	require.NoError(t, rec.Reconcile(ctx))
 
-	require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
+	require.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, stateOf(t, st, "agent"))
 	assert.Equal(t, reported, agentByID(t, st, agent.ID).Turn.EndedAt, "the reconciler leaves this path to the hook")
 }
 
@@ -1072,7 +1073,7 @@ func TestReconcileLeavesTheStampToTheHookWhenItReported(t *testing.T) {
 func TestReconcileUnrecognizedFrameTakesAnIdleAgentToUncertain(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_IDLE)
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -1087,7 +1088,7 @@ func TestReconcileUnrecognizedFrameTakesAnIdleAgentToUncertain(t *testing.T) {
 		require.NoError(t, rec.Reconcile(ctx))
 	}
 
-	assert.Equal(t, agentstore.StateUncertain, stateOf(t, st, "agent"))
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_UNCERTAIN, stateOf(t, st, "agent"))
 }
 
 // TestReconcileStampsNoTurnForAFrameItCouldNotRead pins that settling uncertain raises no unread
@@ -1095,7 +1096,7 @@ func TestReconcileUnrecognizedFrameTakesAnIdleAgentToUncertain(t *testing.T) {
 func TestReconcileStampsNoTurnForAFrameItCouldNotRead(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -1110,7 +1111,7 @@ func TestReconcileStampsNoTurnForAFrameItCouldNotRead(t *testing.T) {
 		require.NoError(t, rec.Reconcile(ctx))
 	}
 
-	require.Equal(t, agentstore.StateUncertain, stateOf(t, st, "agent"))
+	require.Equal(t, agentv1.AgentState_AGENT_STATE_UNCERTAIN, stateOf(t, st, "agent"))
 	assert.Nil(t, agentByID(t, st, agent.ID).Turn.EndedAt)
 }
 
@@ -1119,7 +1120,7 @@ func TestReconcileStampsNoTurnForAFrameItCouldNotRead(t *testing.T) {
 func TestReconcileLeavesUncertainOnceTheFrameReadsAgain(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	agent := seed(t, st, "agent", "%1", agentstore.StateUncertain)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_UNCERTAIN)
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -1132,13 +1133,13 @@ func TestReconcileLeavesUncertainOnceTheFrameReadsAgain(t *testing.T) {
 	})
 	require.NoError(t, rec.Reconcile(ctx))
 
-	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"))
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, stateOf(t, st, "agent"))
 }
 
 // TestReconcileStampsNoTurnForARelaunchComingUp pins that the idle a resumed CLI comes up at skips the miss debounce.
 func TestReconcileStampsNoTurnForARelaunchComingUp(t *testing.T) {
 	st := newStore(t)
-	agent := seed(t, st, "agent", "%1", agentstore.StateSettingUp)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_SETTING_UP)
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -1151,7 +1152,7 @@ func TestReconcileStampsNoTurnForARelaunchComingUp(t *testing.T) {
 	})
 	require.NoError(t, rec.Reconcile(t.Context()))
 
-	require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
+	require.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, stateOf(t, st, "agent"))
 	assert.Nil(t, agentByID(t, st, agent.ID).Turn.EndedAt)
 }
 
@@ -1160,7 +1161,7 @@ func TestReconcileStampsNoTurnForARelaunchComingUp(t *testing.T) {
 func TestReconcileStampsNoTurnForAPaneItForgot(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 
 	tmux := tmuxtest.NewFake()
 
@@ -1174,7 +1175,7 @@ func TestReconcileStampsNoTurnForAPaneItForgot(t *testing.T) {
 		require.NoError(t, rec.Reconcile(ctx))
 	}
 
-	require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
+	require.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, stateOf(t, st, "agent"))
 	assert.Nil(t, agentByID(t, st, agent.ID).Turn.EndedAt, "a lost pane is an interruption, not a turn end")
 }
 
@@ -1184,7 +1185,7 @@ func TestReconcileStampsNoTurnForAPaneItForgot(t *testing.T) {
 func TestReconcileTurnBoundaryDoesNotShortcutIntoUncertain(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 
 	tmux := tmuxtest.NewFake()
 	tmux.Owners["%1"] = agent.ID
@@ -1200,14 +1201,14 @@ func TestReconcileTurnBoundaryDoesNotShortcutIntoUncertain(t *testing.T) {
 	require.NoError(t, st.Agents.SetTurnEnded(ctx, agent.ID))
 
 	require.NoError(t, rec.Reconcile(ctx))
-	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"),
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, stateOf(t, st, "agent"),
 		"a reported turn end is no evidence for a frame komrad could not read")
 
 	for range reconcileMisses - 1 {
 		require.NoError(t, rec.Reconcile(ctx))
 	}
 
-	assert.Equal(t, agentstore.StateUncertain, stateOf(t, st, "agent"),
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_UNCERTAIN, stateOf(t, st, "agent"),
 		"the misses still take it there, they are only no longer skipped")
 }
 
@@ -1219,19 +1220,19 @@ func TestReconcileMissesOnlyCountTowardsTheStateTheyWereEarnedFor(t *testing.T) 
 		name    string
 		earned  string
 		spentOn string
-		want    agentstore.State
+		want    agentv1.AgentState
 	}{
 		{
 			name:    "frames komrad could not read do not pay for declaring the agent idle",
 			earned:  harnesstest.FrameUnrecognized,
 			spentOn: harnesstest.FrameIdle,
-			want:    agentstore.StateIdle,
+			want:    agentv1.AgentState_AGENT_STATE_IDLE,
 		},
 		{
 			name:    "and clean idle readings do not pay for declaring it uncertain",
 			earned:  harnesstest.FrameIdle,
 			spentOn: harnesstest.FrameUnrecognized,
-			want:    agentstore.StateUncertain,
+			want:    agentv1.AgentState_AGENT_STATE_UNCERTAIN,
 		},
 	}
 
@@ -1239,7 +1240,7 @@ func TestReconcileMissesOnlyCountTowardsTheStateTheyWereEarnedFor(t *testing.T) 
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			ctx := t.Context()
-			agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+			agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 
 			tmux := tmuxtest.NewFake()
 			tmux.Owners["%1"] = agent.ID
@@ -1254,11 +1255,11 @@ func TestReconcileMissesOnlyCountTowardsTheStateTheyWereEarnedFor(t *testing.T) 
 			for range reconcileMisses - 1 {
 				require.NoError(t, rec.Reconcile(ctx))
 			}
-			require.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"))
+			require.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, stateOf(t, st, "agent"))
 
 			tmux.Captures["%1"] = tt.spentOn
 			require.NoError(t, rec.Reconcile(ctx))
-			assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"),
+			assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, stateOf(t, st, "agent"),
 				"one reading of its own is not the stretch a change is debounced behind")
 			assert.Nil(t, agentByID(t, st, agent.ID).Turn.EndedAt,
 				"and nothing has finished a turn on the strength of it either")
@@ -1279,31 +1280,31 @@ func TestReconcileMissesOnlyCountTowardsTheStateTheyWereEarnedFor(t *testing.T) 
 func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
 	tests := []struct {
 		name  string
-		state agentstore.State
+		state agentv1.AgentState
 		frame string
 		want  int64
 	}{
 		{
 			name:  "a run that never started leaves the schedule free to fire",
-			state: agentstore.StateIdle,
+			state: agentv1.AgentState_AGENT_STATE_IDLE,
 			frame: harnesstest.FrameIdle,
 			want:  0,
 		},
 		{
 			name:  "a run still working holds the next tick off",
-			state: agentstore.StateThinking,
+			state: agentv1.AgentState_AGENT_STATE_THINKING,
 			frame: harnesstest.FrameWorking,
 			want:  1,
 		},
 		{
 			name:  "so does one waiting on an answer, which is work still owed",
-			state: agentstore.StateIdle,
+			state: agentv1.AgentState_AGENT_STATE_IDLE,
 			frame: harnesstest.FrameWaiting,
 			want:  1,
 		},
 		{
 			name:  "a run that finished does not",
-			state: agentstore.StateIdle,
+			state: agentv1.AgentState_AGENT_STATE_IDLE,
 			frame: harnesstest.FrameIdle,
 			want:  0,
 		},
@@ -1365,7 +1366,7 @@ func (c *countingStates) SetAlive(ctx context.Context, ids []uuid.UUID, alive bo
 func TestReconcileWritesLivenessAgainstTheRow(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
-	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
+	agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_IDLE)
 	require.True(t, agent.Alive, "a row written with a pane is alive")
 
 	tmux := tmuxtest.NewFake()
@@ -1421,10 +1422,10 @@ func TestReconcileReturnsAHoldWhenTheListingComesBack(t *testing.T) {
 	for i := range 5 {
 		name := fmt.Sprintf("agent-%d", i)
 		pane := "%" + name
-		board = append(board, seedRunning(t, st, tmux, name, pane, agentstore.StateThinking))
+		board = append(board, seedRunning(t, st, tmux, name, pane, agentv1.AgentState_AGENT_STATE_THINKING))
 		tmux.Captures[pane] = harnesstest.FrameWorking
 	}
-	board = append(board, seedRunning(t, st, tmux, "quiet", "%quiet", agentstore.StateThinking))
+	board = append(board, seedRunning(t, st, tmux, "quiet", "%quiet", agentv1.AgentState_AGENT_STATE_THINKING))
 
 	rec := NewReconciler(NewReconcilerParams{
 		Panes:    tmux,
@@ -1455,79 +1456,79 @@ func TestReconcileReturnsAHoldWhenTheListingComesBack(t *testing.T) {
 func TestReconcileFailedTurn(t *testing.T) {
 	tests := []struct {
 		name   string
-		state  agentstore.State
+		state  agentv1.AgentState
 		before func(t *testing.T, st *testStore, id uuid.UUID)
 		frame  string
 		passes int
-		want   agentstore.State
+		want   agentv1.AgentState
 	}{
 		{
 			name:  "a failure from a turn before the one the pane just finished",
-			state: agentstore.StateErrored,
+			state: agentv1.AgentState_AGENT_STATE_ERRORED,
 			before: func(t *testing.T, st *testStore, id uuid.UUID) {
-				require.NoError(t, st.Agents.SetStateByID(t.Context(), id, agentstore.StateThinking))
+				require.NoError(t, st.Agents.SetStateByID(t.Context(), id, agentv1.AgentState_AGENT_STATE_THINKING))
 			},
 			frame:  harnesstest.FrameIdle,
 			passes: reconcileMisses,
-			want:   agentstore.StateIdle,
+			want:   agentv1.AgentState_AGENT_STATE_IDLE,
 		},
 		{
 			name:  "a failure a later turn ending cleared",
-			state: agentstore.StateThinking,
+			state: agentv1.AgentState_AGENT_STATE_THINKING,
 			before: func(t *testing.T, st *testStore, id uuid.UUID) {
 				require.NoError(t, st.Agents.SetTurnEnded(t.Context(), id))
 			},
 			frame:  harnesstest.FrameIdle,
 			passes: reconcileMisses,
-			want:   agentstore.StateIdle,
+			want:   agentv1.AgentState_AGENT_STATE_IDLE,
 		},
 		{
 			name:   "a failed turn on an agent a resume wrote idle",
-			state:  agentstore.StateIdle,
+			state:  agentv1.AgentState_AGENT_STATE_IDLE,
 			frame:  harnesstest.FrameIdle,
 			passes: 1,
-			want:   agentstore.StateErrored,
+			want:   agentv1.AgentState_AGENT_STATE_ERRORED,
 		},
 		{
 			name:   "a failed turn on an agent that passed through uncertain",
-			state:  agentstore.StateUncertain,
+			state:  agentv1.AgentState_AGENT_STATE_UNCERTAIN,
 			frame:  harnesstest.FrameIdle,
 			passes: 1,
-			want:   agentstore.StateErrored,
+			want:   agentv1.AgentState_AGENT_STATE_ERRORED,
 		},
 		{
 			name:   "an errored agent given a new turn",
-			state:  agentstore.StateErrored,
+			state:  agentv1.AgentState_AGENT_STATE_ERRORED,
 			frame:  harnesstest.FrameWorking,
 			passes: 1,
-			want:   agentstore.StateThinking,
+			want:   agentv1.AgentState_AGENT_STATE_THINKING,
 		},
 		{
 			name:   "an errored agent put a dialog up",
-			state:  agentstore.StateErrored,
+			state:  agentv1.AgentState_AGENT_STATE_ERRORED,
 			frame:  harnesstest.FrameWaiting,
 			passes: 1,
-			want:   agentstore.StateWaiting,
+			want:   agentv1.AgentState_AGENT_STATE_WAITING,
 		},
 		{
 			name:   "a failed turn whose pane went",
-			state:  agentstore.StateThinking,
+			state:  agentv1.AgentState_AGENT_STATE_THINKING,
 			passes: listingsBeforePaneGone,
-			want:   agentstore.StateErrored,
+			want:   agentv1.AgentState_AGENT_STATE_ERRORED,
 		},
 		{
 			name:   "an errored agent someone started typing to",
-			state:  agentstore.StateErrored,
+			state:  agentv1.AgentState_AGENT_STATE_ERRORED,
 			frame:  harnesstest.FrameComposing,
 			passes: 1,
-			want:   agentstore.StateErrored,
+			want:   agentv1.AgentState_AGENT_STATE_ERRORED,
 		},
 		{
 			name:   "a failed turn whose pane came to rest",
-			state:  agentstore.StateThinking,
+			state:  agentv1.AgentState_AGENT_STATE_THINKING,
 			frame:  harnesstest.FrameIdle,
 			passes: 1,
-			want:   agentstore.StateErrored,
+			want:   agentv1.AgentState_AGENT_STATE_ERRORED,
 		},
 	}
 
@@ -1535,9 +1536,9 @@ func TestReconcileFailedTurn(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			ctx := t.Context()
-			agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+			agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 			require.NoError(t, st.Agents.SetTurnFailed(ctx, agent.ID, "Overloaded"))
-			if tt.state != agentstore.StateThinking {
+			if tt.state != agentv1.AgentState_AGENT_STATE_THINKING {
 				require.NoError(t, st.Agents.SetStateByID(ctx, agent.ID, tt.state))
 			}
 			if tt.before != nil {

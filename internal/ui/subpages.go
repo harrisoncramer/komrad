@@ -10,6 +10,7 @@ import (
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 )
 
 // subpage is one entry of the subpages menu.
@@ -71,7 +72,7 @@ func subpageEntries(l panel.Listing, bindings config.Keybindings, item panel.Age
 // agentSubpages is the subpages an agent has, less an orchestrator's work and an archived agent's review.
 func agentSubpages(agent panel.Agent) []subpage {
 	switch {
-	case agent.Role == panel.RoleOrchestrator:
+	case agent.Role == agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR:
 		return []subpage{subpageLogs, subpageTerminal}
 	case agent.ArchivedAt != nil:
 		return []subpage{subpageLogs, subpageChecks, subpageTerminal}
@@ -107,7 +108,7 @@ func (p subpage) entry(l panel.Listing, bindings config.Keybindings, openedFrom 
 // reviewRefusal is why an agent's work cannot be reviewed, nil when it can.
 func reviewRefusal(l panel.Listing, agent panel.Agent) error {
 	switch {
-	case agent.Role == panel.RoleReviewer:
+	case agent.Role == agentv1.AgentRole_AGENT_ROLE_REVIEWER:
 		return errReviewReviewer
 	case !l.IsReviewable(agent):
 		return panel.ErrNoCheckout

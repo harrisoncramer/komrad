@@ -11,6 +11,7 @@ import (
 	"komrad/internal/ui/screen"
 	"komrad/internal/view"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
@@ -74,28 +75,32 @@ var triageRules = []triageRule{
 		tier:  tierNeedsYou,
 		kind:  kindPerson,
 		clock: clockState,
-		is:    func(s triageSubject) bool { return s.item.DisplayState() == panel.StateWaiting },
+		is:    func(s triageSubject) bool { return s.item.DisplayState() == agentv1.AgentState_AGENT_STATE_WAITING },
 	},
 	{
 		name:  "errored",
 		tier:  tierBroken,
 		kind:  kindAgent,
 		clock: clockState,
-		is:    func(s triageSubject) bool { return s.item.DisplayState() == panel.StateErrored },
+		is:    func(s triageSubject) bool { return s.item.DisplayState() == agentv1.AgentState_AGENT_STATE_ERRORED },
 	},
 	{
 		name:  "launch failed",
 		tier:  tierBroken,
 		kind:  kindPerson,
 		clock: clockState,
-		is:    func(s triageSubject) bool { return s.item.Agent.State == panel.StateFailedToCreate },
+		is: func(s triageSubject) bool {
+			return s.item.Agent.State == agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE
+		},
 	},
 	{
 		name:  "cleanup failed",
 		tier:  tierBroken,
 		kind:  kindPerson,
 		clock: clockState,
-		is:    func(s triageSubject) bool { return s.item.Agent.State == panel.StateFailedToCleanup },
+		is: func(s triageSubject) bool {
+			return s.item.Agent.State == agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP
+		},
 	},
 	{
 		name:  "script failed",
@@ -110,7 +115,7 @@ var triageRules = []triageRule{
 		kind:  kindAgent,
 		clock: clockSeen,
 		is: func(s triageSubject) bool {
-			return s.task.Sequence.IsInProgress() && s.item.Agent.Role == panel.RoleWriter
+			return panel.IsInProgress(s.task.Sequence) && s.item.Agent.Role == agentv1.AgentRole_AGENT_ROLE_WRITER
 		},
 	},
 	{
@@ -186,7 +191,7 @@ func (z *triageZone) refresh(agents []panel.AgentRow, tasks panel.Tasks, now tim
 
 		was, wasQueued := z.entries[id]
 		// An agent komrad cannot read stays where it was.
-		if item.DisplayState() == panel.StateUncertain {
+		if item.DisplayState() == agentv1.AgentState_AGENT_STATE_UNCERTAIN {
 			if wasQueued {
 				entries[id] = was
 			}
@@ -425,7 +430,7 @@ func isAgentOnIt(item panel.AgentRow, task panel.Task) bool {
 	//
 	// TODO(@harrisoncramer): Mail the agent never reads keeps it out of triage for as long as it
 	// sits there unread.
-	if item.DisplayState() == panel.StateThinking {
+	if item.DisplayState() == agentv1.AgentState_AGENT_STATE_THINKING {
 		return true
 	}
 
@@ -469,8 +474,8 @@ func isFinishedWriter(s triageSubject) bool {
 	agent := s.item.Agent
 
 	return s.item.Alive &&
-		s.item.DisplayState() == panel.StateIdle &&
-		agent.Role == panel.RoleWriter &&
+		s.item.DisplayState() == agentv1.AgentState_AGENT_STATE_IDLE &&
+		agent.Role == agentv1.AgentRole_AGENT_ROLE_WRITER &&
 		!s.hasThinkingReviewer &&
 		s.task.PullRequest.State != pullrequestv1.PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED
 }
@@ -479,7 +484,7 @@ func isFinishedWriter(s triageSubject) bool {
 func findThinkingWriters(agents []panel.AgentRow, writers map[string]panel.AgentRow) map[string]bool {
 	thinking := make(map[string]bool)
 	for _, item := range agents {
-		if writer, ok := panel.FindWriter(item, writers); ok && item.DisplayState() == panel.StateThinking {
+		if writer, ok := panel.FindWriter(item, writers); ok && item.DisplayState() == agentv1.AgentState_AGENT_STATE_THINKING {
 			thinking[writer.Agent.ID] = true
 		}
 	}
@@ -694,10 +699,10 @@ func triageRows(params snapshotParams) []view.Row {
 	for _, r := range queue.zone {
 		row := params.renaming.RenderedOver(snapshotRow(r, params))
 		row.Kind = view.KindAgent
-		if r.item.Agent.Role == panel.RoleOrchestrator {
+		if r.item.Agent.Role == agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR {
 			row.Name = r.workflow.Name
 		}
-		if !r.underTask && r.item.Agent.Role == panel.RoleWriter {
+		if !r.underTask && r.item.Agent.Role == agentv1.AgentRole_AGENT_ROLE_WRITER {
 			row.Workflow = r.workflow.Name
 		}
 		rows = append(rows, row)

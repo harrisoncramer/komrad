@@ -11,6 +11,7 @@ import (
 	rowstore "komrad/internal/store/row"
 	runstore "komrad/internal/store/run"
 	"komrad/internal/waketest"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
@@ -52,8 +53,8 @@ func TestRowWriterRefusals(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			workflowID := seedWorkflow(t, st)
-			alpha := seedInWorkflow(t, st, workflowID, "alpha", "", agentstore.StateIdle)
-			seedInWorkflow(t, st, workflowID, "beta", "", agentstore.StateIdle)
+			alpha := seedInWorkflow(t, st, workflowID, "alpha", "", agentv1.AgentState_AGENT_STATE_IDLE)
+			seedInWorkflow(t, st, workflowID, "beta", "", agentv1.AgentState_AGENT_STATE_IDLE)
 			writer := newRowWriter(st).writer
 
 			require.ErrorIs(t, tt.write(t.Context(), writer, alpha), tt.wantErr)
@@ -91,7 +92,7 @@ func TestRowWriterWrites(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			alpha := seed(t, st, "alpha", "", agentstore.StateIdle)
+			alpha := seed(t, st, "alpha", "", agentv1.AgentState_AGENT_STATE_IDLE)
 			failed, err := st.Runs.Begin(t.Context(), runstore.BeginParams{
 				AgentID: alpha.ID,
 				Trigger: eventv1.Moment_MOMENT_AGENT_POST_LAUNCH,
@@ -162,7 +163,7 @@ func TestRecordReport(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			alpha := seed(t, st, "alpha", "", agentstore.StateThinking)
+			alpha := seed(t, st, "alpha", "", agentv1.AgentState_AGENT_STATE_THINKING)
 			require.NoError(t, st.Agents.SetReportedReason(t.Context(), alpha.ID, "Read"))
 			fixture := newRowWriter(st)
 

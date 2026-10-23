@@ -12,20 +12,9 @@ import (
 	"komrad/internal/store"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
-)
-
-// AuthorKind is who wrote a message.
-type AuthorKind string
-
-const (
-	// AuthorHuman is the person reviewing.
-	AuthorHuman AuthorKind = AuthorKind(models.ReviewAuthorKindHuman)
-	// AuthorAgent is the agent whose diff the review covers.
-	AuthorAgent AuthorKind = AuthorKind(models.ReviewAuthorKindAgent)
-	// AuthorForge is someone commenting on the pull request on the forge.
-	AuthorForge AuthorKind = AuthorKind(models.ReviewAuthorKindForge)
 )
 
 // Thread is one conversation pinned to a place in a task's diff.
@@ -37,7 +26,7 @@ type Thread struct {
 	// belongs to no review.
 	ReviewID *uuid.UUID
 	// AuthorKind is who opened the thread.
-	AuthorKind AuthorKind
+	AuthorKind agentv1.ReviewAuthorKind
 	// AuthorAgentID is the agent that opened the thread, nil when a person or a forge user did.
 	AuthorAgentID *uuid.UUID
 	// SnapshotID is the snapshot the thread's line numbers were measured against.
@@ -58,7 +47,7 @@ type Thread struct {
 	HumanReadAt         *time.Time
 
 	// ResolvedByKind is whether a person or an agent settled the thread, empty while nobody has.
-	ResolvedByKind AuthorKind
+	ResolvedByKind agentv1.ReviewAuthorKind
 	// ResolvedByAgentID is the agent that settled it, nil for a person or an unsettled thread.
 	ResolvedByAgentID *uuid.UUID
 	// ResolvedAt is when the thread was settled, nil while it is still owed an
@@ -73,7 +62,7 @@ type Thread struct {
 type Message struct {
 	ID            uuid.UUID
 	ThreadID      uuid.UUID
-	AuthorKind    AuthorKind
+	AuthorKind    agentv1.ReviewAuthorKind
 	AuthorAgentID *uuid.UUID
 	Body          string
 
@@ -144,7 +133,7 @@ type CreateThreadParams struct {
 	NewEnd        int32
 	QuotedLines   []string
 	Body          string
-	AuthorKind    AuthorKind
+	AuthorKind    agentv1.ReviewAuthorKind
 	AuthorAgentID *uuid.UUID
 	// External is the forge comment the first message is copied from, nil for one written in komrad.
 	External *External
@@ -157,6 +146,11 @@ type CreateThreadParams struct {
 // CreateThread pins a conversation to a place in a diff and writes its first message in one
 // statement.
 func (s *ReviewStore) CreateThread(ctx context.Context, params CreateThreadParams) (*OpenedThread, error) {
+	storedKind, err := fromServiceToDBReviewAuthorKind(params.AuthorKind)
+	if err != nil {
+		return nil, err
+	}
+
 	row, err := s.queries.InsertReviewThreadWithMessage(ctx, models.InsertReviewThreadWithMessageParams{
 		TaskID:         params.TaskID,
 		ReviewID:       params.ReviewID,
@@ -169,7 +163,7 @@ func (s *ReviewStore) CreateThread(ctx context.Context, params CreateThreadParam
 		NewStart:       params.NewStart,
 		NewEnd:         params.NewEnd,
 		QuotedLines:    lines(params.QuotedLines),
-		AuthorKind:     models.ReviewAuthorKind(params.AuthorKind),
+		AuthorKind:     storedKind,
 		AuthorAgentID:  params.AuthorAgentID,
 		Body:           params.Body,
 		ExternalLogin:  externalLogin(params.External),
@@ -182,12 +176,21 @@ func (s *ReviewStore) CreateThread(ctx context.Context, params CreateThreadParam
 		return nil, fmt.Errorf("failed to open a review thread on %q: %w", params.FilePath, err)
 	}
 
+	authorKind, err := fromDBToServiceReviewAuthorKind(row.AuthorKind)
+	if err != nil {
+		return nil, err
+	}
+	resolvedBy, err := fromDBToServiceNullReviewAuthorKind(row.ResolvedByKind)
+	if err != nil {
+		return nil, err
+	}
+
 	return &OpenedThread{
 		Thread: Thread{
 			ID:                  row.ID,
 			TaskID:              row.TaskID,
 			ReviewID:            row.ReviewID,
-			AuthorKind:          AuthorKind(row.AuthorKind),
+			AuthorKind:          authorKind,
 			AuthorAgentID:       row.AuthorAgentID,
 			SnapshotID:          row.SnapshotID,
 			BaseSHA:             row.BaseSha,
@@ -200,7 +203,7 @@ func (s *ReviewStore) CreateThread(ctx context.Context, params CreateThreadParam
 			LastAgentActivityAt: row.LastAgentActivityAt,
 			HumanReadAt:         row.HumanReadAt,
 			ResolvedAt:          row.ResolvedAt,
-			ResolvedByKind:      AuthorKind(row.ResolvedByKind.ReviewAuthorKind),
+			ResolvedByKind:      resolvedBy,
 			ResolvedByAgentID:   row.ResolvedByAgentID,
 			ForgeThreadID:       row.ForgeThreadID,
 			CreatedAt:           row.CreatedAt,
@@ -219,11 +222,20 @@ func (s *ReviewStore) ListThreads(ctx context.Context, taskID uuid.UUID) ([]Thre
 
 	threads := make([]Thread, 0, len(rows))
 	for _, row := range rows {
+		authorKind, err := fromDBToServiceReviewAuthorKind(row.AuthorKind)
+		if err != nil {
+			return nil, err
+		}
+		resolvedBy, err := fromDBToServiceNullReviewAuthorKind(row.ResolvedByKind)
+		if err != nil {
+			return nil, err
+		}
+
 		thread := Thread{
 			ID:                  row.ID,
 			TaskID:              row.TaskID,
 			ReviewID:            row.ReviewID,
-			AuthorKind:          AuthorKind(row.AuthorKind),
+			AuthorKind:          authorKind,
 			AuthorAgentID:       row.AuthorAgentID,
 			SnapshotID:          row.SnapshotID,
 			BaseSHA:             row.BaseSha,
@@ -238,7 +250,7 @@ func (s *ReviewStore) ListThreads(ctx context.Context, taskID uuid.UUID) ([]Thre
 			LastAgentActivityAt: row.LastAgentActivityAt,
 			HumanReadAt:         row.HumanReadAt,
 			ResolvedAt:          row.ResolvedAt,
-			ResolvedByKind:      AuthorKind(row.ResolvedByKind.ReviewAuthorKind),
+			ResolvedByKind:      resolvedBy,
 			ResolvedByAgentID:   row.ResolvedByAgentID,
 			CreatedAt:           row.CreatedAt,
 			UpdatedAt:           row.UpdatedAt,
@@ -264,9 +276,7 @@ func (s *ReviewStore) GetThread(ctx context.Context, id uuid.UUID) (*Thread, err
 		return nil, fmt.Errorf("failed to read the review thread %q: %w", id, err)
 	}
 
-	thread := threadFromRow(*row)
-
-	return &thread, nil
+	return threadFromRow(*row)
 }
 
 // MarkThreadRead stamps the person's read column from the agent's activity column.
@@ -279,9 +289,7 @@ func (s *ReviewStore) MarkThreadRead(ctx context.Context, id uuid.UUID) (*Thread
 		return nil, fmt.Errorf("failed to mark the review thread %q read: %w", id, err)
 	}
 
-	thread := threadFromRow(*row)
-
-	return &thread, nil
+	return threadFromRow(*row)
 }
 
 // SetThreadResolvedParams names the thread to settle or reopen, and who does it.
@@ -290,17 +298,22 @@ type SetThreadResolvedParams struct {
 	Resolved bool
 	// ByKind is whether a person or an agent settled it, which reopening clears along with the
 	// rest.
-	ByKind AuthorKind
+	ByKind agentv1.ReviewAuthorKind
 	// ByAgentID is the agent that settled it, nil for a person.
 	ByAgentID *uuid.UUID
 }
 
 // SetThreadResolved settles a thread or reopens it, recording who did.
 func (s *ReviewStore) SetThreadResolved(ctx context.Context, params SetThreadResolvedParams) (*Thread, error) {
+	resolvedBy, err := fromServiceToDBNullReviewAuthorKind(params.ByKind)
+	if err != nil {
+		return nil, err
+	}
+
 	row, err := s.queries.SetReviewThreadResolved(ctx, models.SetReviewThreadResolvedParams{
 		ID:                params.ID,
 		Resolved:          params.Resolved,
-		ResolvedByKind:    models.NullReviewAuthorKind{ReviewAuthorKind: models.ReviewAuthorKind(params.ByKind), Valid: params.ByKind != ""},
+		ResolvedByKind:    resolvedBy,
 		ResolvedByAgentID: params.ByAgentID,
 	})
 	if db.IsNoRows(err) {
@@ -310,9 +323,7 @@ func (s *ReviewStore) SetThreadResolved(ctx context.Context, params SetThreadRes
 		return nil, fmt.Errorf("failed to settle the review thread %q: %w", params.ID, err)
 	}
 
-	thread := threadFromRow(*row)
-
-	return &thread, nil
+	return threadFromRow(*row)
 }
 
 type CreateMessageParams struct {
@@ -322,7 +333,7 @@ type CreateMessageParams struct {
 	// SnapshotID is the snapshot a reply says answers the thread.
 	SnapshotID *uuid.UUID
 	Suggestion []string
-	AuthorKind AuthorKind
+	AuthorKind agentv1.ReviewAuthorKind
 	// AuthorAgentID links to the agent that wrote it, and is cleared when that agent is deleted.
 	AuthorAgentID *uuid.UUID
 	Body          string
@@ -337,12 +348,17 @@ type CreateMessageParams struct {
 // CreateMessage writes a message into a thread and moves the writer's activity stamp in one
 // statement.
 func (s *ReviewStore) CreateMessage(ctx context.Context, params CreateMessageParams) (*Message, error) {
+	storedKind, err := fromServiceToDBReviewAuthorKind(params.AuthorKind)
+	if err != nil {
+		return nil, err
+	}
+
 	row, err := s.queries.InsertReviewMessage(ctx, models.InsertReviewMessageParams{
 		ThreadID:       params.ThreadID,
 		ReviewID:       params.ReviewID,
 		SnapshotID:     params.SnapshotID,
 		Suggestion:     lines(params.Suggestion),
-		AuthorKind:     models.ReviewAuthorKind(params.AuthorKind),
+		AuthorKind:     storedKind,
 		AuthorAgentID:  params.AuthorAgentID,
 		Body:           params.Body,
 		ExternalLogin:  externalLogin(params.External),
@@ -355,9 +371,7 @@ func (s *ReviewStore) CreateMessage(ctx context.Context, params CreateMessagePar
 		return nil, fmt.Errorf("failed to write a message in the review thread %q: %w", params.ThreadID, err)
 	}
 
-	message := messageFromRow(models.ReviewMessage(*row))
-
-	return &message, nil
+	return messageFromRow(models.ReviewMessage(*row))
 }
 
 // UpdateMessage rewrites a message and moves its author's activity stamp with it.
@@ -374,9 +388,7 @@ func (s *ReviewStore) UpdateMessage(ctx context.Context, id uuid.UUID, body stri
 		return nil, fmt.Errorf("failed to rewrite the review message %q: %w", id, err)
 	}
 
-	message := messageFromRow(models.ReviewMessage(*row))
-
-	return &message, nil
+	return messageFromRow(models.ReviewMessage(*row))
 }
 
 // GetMessage is one message, ErrNotFound for an id that names nothing.
@@ -389,9 +401,7 @@ func (s *ReviewStore) GetMessage(ctx context.Context, id uuid.UUID) (*Message, e
 		return nil, fmt.Errorf("failed to read the review message %q: %w", id, err)
 	}
 
-	message := messageFromRow(*row)
-
-	return &message, nil
+	return messageFromRow(*row)
 }
 
 // SetMessageMail records the mail that carried a person's comment to the writer.
@@ -419,7 +429,14 @@ func (s *ReviewStore) MarkMessagesRead(ctx context.Context, mailIDs []uuid.UUID,
 		return nil, fmt.Errorf("failed to mark the comments of %d mail read: %w", len(mailIDs), err)
 	}
 
-	return xslice.Map(rows, func(row *models.ReviewMessage) Message { return messageFromRow(*row) }), nil
+	return xslice.TryMap(rows, func(row *models.ReviewMessage) (Message, error) {
+		message, err := messageFromRow(*row)
+		if err != nil {
+			return Message{}, err
+		}
+
+		return *message, nil
+	})
 }
 
 // ListMessages is every message in the given threads, oldest first within each.
@@ -433,7 +450,17 @@ func (s *ReviewStore) ListMessages(ctx context.Context, threadIDs []uuid.UUID) (
 		return nil, fmt.Errorf("failed to list the messages of %d review thread(s): %w", len(threadIDs), err)
 	}
 
-	messages := xslice.Map(rows, func(row *models.ListReviewMessagesOfThreadsRow) Message { return messageOfThreadFromRow(*row) })
+	messages, err := xslice.TryMap(rows, func(row *models.ListReviewMessagesOfThreadsRow) (Message, error) {
+		message, err := messageOfThreadFromRow(*row)
+		if err != nil {
+			return Message{}, err
+		}
+
+		return *message, nil
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	return holdThreads(messages), nil
 }
@@ -454,7 +481,7 @@ func holdThreads(messages []Message) []Message {
 
 	for i, message := range messages {
 		root := roots[message.ThreadID]
-		if !root.Held || accepted[root.ID] || message.AuthorKind == AuthorAgent {
+		if !root.Held || accepted[root.ID] || message.AuthorKind == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT {
 			continue
 		}
 		messages[i].Held = true
@@ -530,12 +557,21 @@ func viewedFileFromRow(row models.ReviewViewedFile) ViewedFile {
 	}
 }
 
-func threadFromRow(row models.ReviewThread) Thread {
-	return Thread{
+func threadFromRow(row models.ReviewThread) (*Thread, error) {
+	authorKind, err := fromDBToServiceReviewAuthorKind(row.AuthorKind)
+	if err != nil {
+		return nil, err
+	}
+	resolvedBy, err := fromDBToServiceNullReviewAuthorKind(row.ResolvedByKind)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Thread{
 		ID:                  row.ID,
 		TaskID:              row.TaskID,
 		ReviewID:            row.ReviewID,
-		AuthorKind:          AuthorKind(row.AuthorKind),
+		AuthorKind:          authorKind,
 		AuthorAgentID:       row.AuthorAgentID,
 		SnapshotID:          row.SnapshotID,
 		BaseSHA:             row.BaseSha,
@@ -548,30 +584,38 @@ func threadFromRow(row models.ReviewThread) Thread {
 		LastAgentActivityAt: row.LastAgentActivityAt,
 		HumanReadAt:         row.HumanReadAt,
 		ResolvedAt:          row.ResolvedAt,
-		ResolvedByKind:      AuthorKind(row.ResolvedByKind.ReviewAuthorKind),
+		ResolvedByKind:      resolvedBy,
 		ResolvedByAgentID:   row.ResolvedByAgentID,
 		ForgeThreadID:       row.ForgeThreadID,
 		CreatedAt:           row.CreatedAt,
 		UpdatedAt:           row.UpdatedAt,
-	}
+	}, nil
 }
 
 // messageOfThreadFromRow is a listed message with the release time of the review it went out with.
-func messageOfThreadFromRow(row models.ListReviewMessagesOfThreadsRow) Message {
-	message := messageFromRow(row.ReviewMessage)
+func messageOfThreadFromRow(row models.ListReviewMessagesOfThreadsRow) (*Message, error) {
+	message, err := messageFromRow(row.ReviewMessage)
+	if err != nil {
+		return nil, err
+	}
 	message.ReviewReleasedAt = row.ReviewReleasedAt
 
-	return message
+	return message, nil
 }
 
-func messageFromRow(row models.ReviewMessage) Message {
-	return Message{
+func messageFromRow(row models.ReviewMessage) (*Message, error) {
+	authorKind, err := fromDBToServiceReviewAuthorKind(row.AuthorKind)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Message{
 		ID:             row.ID,
 		ThreadID:       row.ThreadID,
 		ReviewID:       row.ReviewID,
 		SnapshotID:     row.SnapshotID,
 		Suggestion:     row.Suggestion,
-		AuthorKind:     AuthorKind(row.AuthorKind),
+		AuthorKind:     authorKind,
 		AuthorAgentID:  row.AuthorAgentID,
 		Body:           row.Body,
 		External:       externalOf(row.ExternalLogin, row.ForgeCommentID, row.ForgeEditedAt),
@@ -582,7 +626,7 @@ func messageFromRow(row models.ReviewMessage) Message {
 		ReadSnapshotID: row.ReadSnapshotID,
 		CreatedAt:      row.CreatedAt,
 		UpdatedAt:      row.UpdatedAt,
-	}
+	}, nil
 }
 
 // lines turns a nil slice into the empty array a text[] column expects.

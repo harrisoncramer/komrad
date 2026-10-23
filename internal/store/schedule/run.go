@@ -7,6 +7,7 @@ import (
 
 	"komrad/db/models"
 	"komrad/lib/xslice"
+	schedulev1 "komrad/proto/gen/schedule/v1"
 
 	"github.com/google/uuid"
 )
@@ -24,7 +25,7 @@ type RunOccurrence struct {
 
 // RunOutcome is how an attempt at a firing ended.
 type RunOutcome struct {
-	State   RunState
+	State   schedulev1.ScheduleRunState
 	Message string
 }
 
@@ -51,8 +52,13 @@ func (s *ScheduleStore) StartRun(ctx context.Context, params StartRunParams) err
 
 // FinishRun records how an attempt at a firing ended and drops the schedule's oldest runs.
 func (s *ScheduleStore) FinishRun(ctx context.Context, occurrence RunOccurrence, outcome RunOutcome) error {
-	err := s.queries.FinishScheduleRun(ctx, models.FinishScheduleRunParams{
-		State:        string(outcome.State),
+	state, err := fromServiceToDBScheduleRunState(outcome.State)
+	if err != nil {
+		return err
+	}
+
+	err = s.queries.FinishScheduleRun(ctx, models.FinishScheduleRunParams{
+		State:        state,
 		Message:      outcome.Message,
 		ScheduleID:   occurrence.ScheduleID,
 		ScheduledFor: occurrence.ScheduledFor,
@@ -76,9 +82,14 @@ func (s *ScheduleStore) ListRuns(ctx context.Context, scheduleID uuid.UUID, limi
 		return nil, fmt.Errorf("failed to list the runs of schedule %q: %w", scheduleID, err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListScheduleRunsRow) Run {
-		return runFromRow(row.ScheduleRun)
-	}), nil
+	return xslice.TryMap(rows, func(row *models.ListScheduleRunsRow) (Run, error) {
+		run, err := runFromRow(row.ScheduleRun)
+		if err != nil {
+			return Run{}, err
+		}
+
+		return *run, nil
+	})
 }
 
 func (s *ScheduleStore) attachRuns(ctx context.Context, schedules []Schedule, perSchedule int) ([]Schedule, error) {
@@ -98,7 +109,11 @@ func (s *ScheduleStore) attachRuns(ctx context.Context, schedules []Schedule, pe
 
 	recent := map[uuid.UUID][]Run{}
 	for _, row := range rows {
-		recent[row.ScheduleRun.ScheduleID] = append(recent[row.ScheduleRun.ScheduleID], runFromRow(row.ScheduleRun))
+		run, err := runFromRow(row.ScheduleRun)
+		if err != nil {
+			return nil, err
+		}
+		recent[row.ScheduleRun.ScheduleID] = append(recent[row.ScheduleRun.ScheduleID], *run)
 	}
 
 	for i := range schedules {
@@ -114,14 +129,19 @@ func (s *ScheduleStore) attachRuns(ctx context.Context, schedules []Schedule, pe
 	return schedules, nil
 }
 
-func runFromRow(row models.ScheduleRun) Run {
-	return Run{
+func runFromRow(row models.ScheduleRun) (*Run, error) {
+	state, err := fromDBToServiceScheduleRunState(row.State)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Run{
 		ID:           row.ID,
 		ScheduledFor: row.ScheduledFor,
-		State:        RunState(row.State),
+		State:        state,
 		Attempt:      int(row.Attempt),
 		MaxAttempts:  int(row.MaxAttempts),
 		FinalizedAt:  row.FinalizedAt,
 		Message:      row.Message,
-	}
+	}, nil
 }

@@ -18,6 +18,7 @@ import (
 	"komrad/internal/view"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -310,7 +311,7 @@ func isTargetOnDeletedList(l panel.Listing, target screen.Target) bool {
 }
 
 func isTaskOnDeletedList(task panel.Task) bool {
-	return task.ArchivedAt != nil && task.WorktreeRemovalReason == panel.WorktreeDeleted
+	return task.ArchivedAt != nil && task.WorktreeRemovalReason == taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED
 }
 
 // isWorkflowOnDeletedList reports whether an archived workflow has a task and the worktree of
@@ -325,7 +326,7 @@ func isWorkflowOnDeletedList(l panel.Listing, workflowID string) bool {
 		if task.WorkflowID != workflowID {
 			continue
 		}
-		if task.WorktreeRemovalReason != panel.WorktreeDeleted {
+		if task.WorktreeRemovalReason != taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED {
 			return false
 		}
 		hasTask = true

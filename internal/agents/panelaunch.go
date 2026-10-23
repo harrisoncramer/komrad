@@ -11,10 +11,11 @@ import (
 	"komrad/config"
 	"komrad/internal/harness"
 	"komrad/internal/logging"
-	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	"komrad/internal/tmux"
+	"komrad/lib/protoenum"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 )
@@ -118,9 +119,9 @@ func (l *Launcher) appendedSystemPrompt(ctx context.Context, params launchParams
 // roleBriefing is what an agent is told about the job it was launched to do.
 func roleBriefing(params launchParams) string {
 	switch {
-	case params.Role == agentstore.RoleOrchestrator:
+	case params.Role == agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR:
 		return orchestratorDoc
-	case params.Role == agentstore.RoleReviewer:
+	case params.Role == agentv1.AgentRole_AGENT_ROLE_REVIEWER:
 		return reviewerDoc
 	case params.OwnsCheckout:
 		return writerDoc
@@ -159,7 +160,7 @@ func taskBriefing(task *taskstore.Task) string {
 
 // spawningBriefing is what an agent is told about launching agents of its own.
 func spawningBriefing(params launchParams) string {
-	if params.Role != agentstore.RoleWriter {
+	if params.Role != agentv1.AgentRole_AGENT_ROLE_WRITER {
 		return ""
 	}
 
@@ -168,7 +169,7 @@ func spawningBriefing(params launchParams) string {
 
 // contextBriefing is what an agent is told about the workflow context coming after it.
 func contextBriefing(params launchParams) string {
-	if params.Role != agentstore.RoleOrchestrator || strings.TrimSpace(params.WorkflowContext) == "" {
+	if params.Role != agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR || strings.TrimSpace(params.WorkflowContext) == "" {
 		return ""
 	}
 
@@ -215,17 +216,18 @@ func (l *Launcher) toolsDir(ctx context.Context) string {
 	return dir
 }
 
-func (l *Launcher) getAutoCompaction(role agentstore.Role) int {
+func (l *Launcher) getAutoCompaction(role agentv1.AgentRole) int {
 	switch role {
-	case agentstore.RoleReviewer:
+	case agentv1.AgentRole_AGENT_ROLE_REVIEWER:
 		return l.usage.Reviewer.AutoCompaction
-	case agentstore.RoleOrchestrator:
+	case agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR:
 		return l.usage.Orchestrator.AutoCompaction
-	case agentstore.RoleWriter:
+	case agentv1.AgentRole_AGENT_ROLE_WRITER:
 		return l.usage.Writer.AutoCompaction
-	default:
-		return 0
+	case agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED:
 	}
+
+	return 0
 }
 
 type launchParams struct {
@@ -238,7 +240,7 @@ type launchParams struct {
 	AgentID          uuid.UUID
 	SpawnedByAgentID uuid.UUID
 	SpawnedByName    string
-	Role             agentstore.Role
+	Role             agentv1.AgentRole
 	Task             *taskstore.Task
 
 	// OwnsCheckout is whether the agent is its task's writer, which separates an agent writing a
@@ -249,8 +251,8 @@ type launchParams struct {
 
 func (l *Launcher) launch(ctx context.Context, h harness.Harness, params launchParams) ([]string, error) {
 	role := params.Role
-	if role == "" {
-		role = agentstore.RoleWriter
+	if role == agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED {
+		role = agentv1.AgentRole_AGENT_ROLE_WRITER
 	}
 
 	if err := harness.CheckVersion(ctx, h); err != nil {
@@ -275,7 +277,7 @@ func (l *Launcher) launch(ctx context.Context, h harness.Harness, params launchP
 		CacheDir:       l.cacheDir,
 		HookCommand:    l.binPath,
 		Resume:         params.Resume,
-		Role:           string(role),
+		Role:           protoenum.Name(role),
 		AutoCompaction: l.getAutoCompaction(role),
 	})
 	if err != nil {

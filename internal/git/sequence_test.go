@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"komrad/internal/git"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,24 +20,24 @@ func TestIntegrationReadSequence(t *testing.T) {
 	type testCase struct {
 		name  string
 		build func(t *testing.T) string
-		want  git.Sequence
+		want  taskv1.Sequence
 	}
 
 	tests := []testCase{
 		{
 			name:  "a rebase replaying a merge reads as the rebase rather than the merge it wrote",
 			build: stoppedRebaseOfAMerge,
-			want:  git.SequenceRebase,
+			want:  taskv1.Sequence_SEQUENCE_REBASE,
 		},
 		{
 			name:  "a rebase on the apply backend reads as a rebase",
 			build: stoppedApplyRebase,
-			want:  git.SequenceRebase,
+			want:  taskv1.Sequence_SEQUENCE_REBASE,
 		},
 		{
 			name:  "a stopped am reads as an am",
 			build: stoppedApply,
-			want:  git.SequenceApply,
+			want:  taskv1.Sequence_SEQUENCE_AM,
 		},
 		{
 			name: "a multi-commit cherry-pick between its picks reads as a cherry-pick",
@@ -45,7 +46,7 @@ func TestIntegrationReadSequence(t *testing.T) {
 
 				return restingPicks(t, "cherry-pick")
 			},
-			want: git.SequenceCherryPick,
+			want: taskv1.Sequence_SEQUENCE_CHERRY_PICK,
 		},
 		{
 			name: "a multi-commit revert between its picks reads as a revert",
@@ -54,7 +55,7 @@ func TestIntegrationReadSequence(t *testing.T) {
 
 				return restingPicks(t, "revert")
 			},
-			want: git.SequenceRevert,
+			want: taskv1.Sequence_SEQUENCE_REVERT,
 		},
 		{
 			name: "a stopped merge reads as a merge",
@@ -66,7 +67,7 @@ func TestIntegrationReadSequence(t *testing.T) {
 
 				return dir
 			},
-			want: git.SequenceMerge,
+			want: taskv1.Sequence_SEQUENCE_MERGE,
 		},
 		{
 			name: "a stopped rebase reads as a rebase",
@@ -75,12 +76,12 @@ func TestIntegrationReadSequence(t *testing.T) {
 
 				return stoppedRebase(t)
 			},
-			want: git.SequenceRebase,
+			want: taskv1.Sequence_SEQUENCE_REBASE,
 		},
 		{
 			name:  "a settled checkout has nothing in progress",
 			build: newRepo,
-			want:  git.SequenceNone,
+			want:  taskv1.Sequence_SEQUENCE_NONE,
 		},
 	}
 

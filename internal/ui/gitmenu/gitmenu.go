@@ -207,7 +207,7 @@ func pushRefusal(l panel.Listing, task panel.Task) error {
 	if err := worktreeRefusal(l, task); err != nil {
 		return err
 	}
-	if task.Sequence.IsInProgress() {
+	if panel.IsInProgress(task.Sequence) {
 		return errPushInProgress
 	}
 
@@ -230,7 +230,7 @@ func abortRefusal(l panel.Listing, task panel.Task) error {
 	if err := worktreeRefusal(l, task); err != nil {
 		return err
 	}
-	if !task.Sequence.IsInProgress() {
+	if !panel.IsInProgress(task.Sequence) {
 		return errAbortNothing
 	}
 
@@ -239,11 +239,11 @@ func abortRefusal(l panel.Listing, task panel.Task) error {
 
 // abortLabel names the abort entry for what it would undo.
 func abortLabel(task panel.Task) string {
-	if !task.Sequence.IsInProgress() {
+	if !panel.IsInProgress(task.Sequence) {
 		return "abort"
 	}
 
-	return "abort " + string(task.Sequence)
+	return "abort " + panel.DescribeSequence(task.Sequence)
 }
 
 // pullRequestRefusal is why a task has no current pull request.

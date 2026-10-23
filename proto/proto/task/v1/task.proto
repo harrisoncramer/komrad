@@ -7,48 +7,9 @@ import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "rules/v1/rules.proto";
+import "task/v1/enums.proto";
 
 option go_package = "komrad/proto/gen/task/v1;taskv1";
-
-// Sequence is a git operation stopped part way in a task's checkout.
-enum Sequence {
-  // No value was recorded. No task has this value.
-  SEQUENCE_UNSPECIFIED = 0;
-  // No git operation is stopped part way.
-  SEQUENCE_NONE = 1;
-  // A rebase stopped on a commit it could not replay.
-  SEQUENCE_REBASE = 2;
-  // A `git am` stopped on a patch it could not apply.
-  SEQUENCE_AM = 3;
-  // A merge stopped on conflicts.
-  SEQUENCE_MERGE = 4;
-  // A cherry-pick stopped on conflicts or paused between commits.
-  SEQUENCE_CHERRY_PICK = 5;
-  // A revert stopped on conflicts or paused between commits.
-  SEQUENCE_REVERT = 6;
-}
-
-// CascadeBlock is why the cascade cannot rebase a child onto its parent.
-enum CascadeBlock {
-  // Nothing blocks the cascade.
-  CASCADE_BLOCK_UNSPECIFIED = 0;
-  // Rebasing the child's own commits onto its parent stopped on conflicts.
-  CASCADE_BLOCK_CONFLICTED = 1;
-  // The child is orphaned: its branch holds neither its fork point nor any of its parent's own commits.
-  CASCADE_BLOCK_ORPHANED = 2;
-  // The parent's pull request closed without merging.
-  CASCADE_BLOCK_PARENT_CLOSED = 3;
-}
-
-// WorktreeRemovalReason is why a task's worktree is no longer on disk.
-enum WorktreeRemovalReason {
-  // The worktree is on disk, or the task has none.
-  WORKTREE_REMOVAL_REASON_UNSPECIFIED = 0;
-  // A delete removed the worktree. Komrad never makes it again.
-  WORKTREE_REMOVAL_REASON_DELETED = 1;
-  // Komrad found the worktree's directory gone without a delete.
-  WORKTREE_REMOVAL_REASON_GONE = 2;
-}
 
 // DiffStat counts the lines a checkout adds and removes, committed or not.
 message DiffStat {

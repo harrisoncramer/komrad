@@ -4107,7 +4107,7 @@
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "How much of each agent to return. `VIEW_FULL` returns every prompt in full and can make a very large response."
+          "description": "How much of each agent to return. `full` returns every prompt in full and can make a very large response."
         }
       ],
       "oneofs": []
@@ -5082,7 +5082,7 @@
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "The state of the current pull request. `UNREAD` means komrad has not read the repository yet, and `NONE` means the branch has no pull request, or the checkout has moved past a finished one."
+          "description": "The state of the current pull request. `unread` means komrad has not read the repository yet, and `none` means the branch has no pull request, or the checkout has moved past a finished one."
         },
         {
           "name": "number",
@@ -5093,7 +5093,7 @@
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "The current pull request's number. Unset for `UNREAD` and `NONE`."
+          "description": "The current pull request's number. Unset for `unread` and `none`."
         },
         {
           "name": "url",
@@ -5104,7 +5104,7 @@
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "The current pull request's web address. Unset for `UNREAD` and `NONE`."
+          "description": "The current pull request's web address. Unset for `unread` and `none`."
         },
         {
           "name": "title",
@@ -5115,7 +5115,7 @@
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "The current pull request's title. Unset for `UNREAD` and `NONE`."
+          "description": "The current pull request's title. Unset for `unread` and `none`."
         },
         {
           "name": "merge_readiness",
@@ -5126,7 +5126,7 @@
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "Whether the forge would merge the current pull request. Unspecified for `UNREAD` and `NONE`."
+          "description": "Whether the forge would merge the current pull request. Unspecified for `unread` and `none`."
         },
         {
           "name": "head_sha",
@@ -5137,7 +5137,7 @@
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "The commit at the head of the current pull request on the forge. Unset for `UNREAD` and `NONE`."
+          "description": "The commit at the head of the current pull request on the forge. Unset for `unread` and `none`."
         },
         {
           "name": "forge",
@@ -5148,7 +5148,7 @@
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "The kind of forge the current pull request is on. Unspecified for `UNREAD` and `NONE`."
+          "description": "The kind of forge the current pull request is on. Unspecified for `unread` and `none`."
         }
       ],
       "oneofs": []
@@ -12449,7 +12449,7 @@
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "The worktree inside this one. Empty unless the reason is `REFUSAL_REASON_NESTS_WORKTREE`."
+          "description": "The worktree inside this one. Empty unless the reason is `nests_worktree`."
         },
         {
           "name": "error",
@@ -12767,15 +12767,15 @@
       "description": "AgentRole is what an agent was launched to do.",
       "values": [
         {
-          "name": "AGENT_ROLE_REVIEWER",
+          "name": "reviewer",
           "description": "An agent on a task that reads the writer's change and gives a review."
         },
         {
-          "name": "AGENT_ROLE_ORCHESTRATOR",
+          "name": "orchestrator",
           "description": "The one agent per workflow that hands work out across its tasks."
         },
         {
-          "name": "AGENT_ROLE_WRITER",
+          "name": "writer",
           "description": "The one agent on a task that changes its checkout."
         }
       ]
@@ -12785,35 +12785,35 @@
       "description": "AgentState is what komrad last read an agent to be doing, from the end of its pane.",
       "values": [
         {
-          "name": "AGENT_STATE_IDLE",
+          "name": "idle",
           "description": "The CLI is at rest with nothing typed."
         },
         {
-          "name": "AGENT_STATE_THINKING",
+          "name": "thinking",
           "description": "The CLI is working on a turn."
         },
         {
-          "name": "AGENT_STATE_WAITING",
+          "name": "waiting",
           "description": "The CLI is waiting for the person to answer a selection."
         },
         {
-          "name": "AGENT_STATE_SETTING_UP",
+          "name": "setting_up",
           "description": "The agent is launching and has no pane to read yet."
         },
         {
-          "name": "AGENT_STATE_FAILED_TO_CREATE",
+          "name": "failed_to_create",
           "description": "The launch failed. `retry_agent` launches the agent again."
         },
         {
-          "name": "AGENT_STATE_FAILED_TO_CLEANUP",
+          "name": "failed_to_cleanup",
           "description": "A delete failed to clean up after the agent. `failure_reason` says why."
         },
         {
-          "name": "AGENT_STATE_UNCERTAIN",
+          "name": "uncertain",
           "description": "The pane could be read, but its end showed no known state."
         },
         {
-          "name": "AGENT_STATE_ERRORED",
+          "name": "errored",
           "description": "The CLI is at rest after an API error ended the last turn. `turn_error` names the error."
         }
       ]
@@ -12823,19 +12823,19 @@
       "description": "ForgeReplyState is how far a reply komrad posts to the forge has got.",
       "values": [
         {
-          "name": "FORGE_REPLY_STATE_APPROVED",
+          "name": "approved",
           "description": "Approved and waiting to be posted."
         },
         {
-          "name": "FORGE_REPLY_STATE_SENDING",
+          "name": "sending",
           "description": "Being posted. The forge may already have it."
         },
         {
-          "name": "FORGE_REPLY_STATE_SENT",
+          "name": "sent",
           "description": "Accepted by the forge."
         },
         {
-          "name": "FORGE_REPLY_STATE_FAILED",
+          "name": "failed",
           "description": "Refused by the forge on the latest attempt, waiting for the person to retry or discard it."
         }
       ]
@@ -12845,11 +12845,11 @@
       "description": "MailDirection is whether a listing returns the mail an agent received or sent.",
       "values": [
         {
-          "name": "MAIL_DIRECTION_RECEIVED",
+          "name": "received",
           "description": "The mail sent to the agent."
         },
         {
-          "name": "MAIL_DIRECTION_SENT",
+          "name": "sent",
           "description": "The mail the agent sent."
         }
       ]
@@ -12859,39 +12859,39 @@
       "description": "MailKind is who wrote a piece of mail and why.",
       "values": [
         {
-          "name": "MAIL_KIND_PLAIN",
+          "name": "plain",
           "description": "Mail from an agent or the person."
         },
         {
-          "name": "MAIL_KIND_REVIEW_ACTIVITY",
+          "name": "review_activity",
           "description": "From komrad: a review changed. The mail names the file the review was written to."
         },
         {
-          "name": "MAIL_KIND_EXCHANGE_CAPPED",
+          "name": "exchange_capped",
           "description": "From komrad: the agent and one other agent have used up their mail limit with each other."
         },
         {
-          "name": "MAIL_KIND_DOCUMENT_EDITED",
+          "name": "document_edited",
           "description": "From komrad: the person wrote or edited one of the agent's documents."
         },
         {
-          "name": "MAIL_KIND_PULL_REQUEST_CHANGED",
+          "name": "pull_request_changed",
           "description": "From komrad: a pull request on the agent's branch changed on the forge."
         },
         {
-          "name": "MAIL_KIND_WORKTREE_REBASED",
+          "name": "worktree_rebased",
           "description": "From komrad: komrad rebased the agent's worktree, or tried to."
         },
         {
-          "name": "MAIL_KIND_WORKTREE_PUSHED",
+          "name": "worktree_pushed",
           "description": "From komrad: the agent's branch was force-pushed to origin."
         },
         {
-          "name": "MAIL_KIND_WORKTREE_ABORTED",
+          "name": "worktree_aborted",
           "description": "From komrad: the sequence stopped in the agent's worktree was aborted."
         },
         {
-          "name": "MAIL_KIND_REVIEW_COMMENT",
+          "name": "review_comment",
           "description": "From komrad: the person commented on the agent's work. The mail carries the comment."
         }
       ]
@@ -12901,15 +12901,15 @@
       "description": "ReviewAuthorKind is who wrote a review or comment.",
       "values": [
         {
-          "name": "REVIEW_AUTHOR_KIND_HUMAN",
+          "name": "human",
           "description": "The person."
         },
         {
-          "name": "REVIEW_AUTHOR_KIND_AGENT",
+          "name": "agent",
           "description": "An agent, either the writer or a reviewer."
         },
         {
-          "name": "REVIEW_AUTHOR_KIND_FORGE",
+          "name": "forge",
           "description": "A forge user, whose comment komrad copied from the pull request."
         }
       ]
@@ -12919,15 +12919,15 @@
       "description": "ReviewVerdict is what a review concludes about a snapshot.",
       "values": [
         {
-          "name": "REVIEW_VERDICT_APPROVED",
+          "name": "approved",
           "description": "The snapshot is good as it stands."
         },
         {
-          "name": "REVIEW_VERDICT_CHANGES_REQUESTED",
+          "name": "changes_requested",
           "description": "The writer has more to do."
         },
         {
-          "name": "REVIEW_VERDICT_COMMENTED",
+          "name": "commented",
           "description": "Comments with no conclusion either way."
         }
       ]
@@ -12937,19 +12937,19 @@
       "description": "Status is how a doctor check came out.",
       "values": [
         {
-          "name": "STATUS_OK",
+          "name": "ok",
           "description": "The check passed."
         },
         {
-          "name": "STATUS_WARN",
+          "name": "warn",
           "description": "The check passed with a warning."
         },
         {
-          "name": "STATUS_FAIL",
+          "name": "fail",
           "description": "The check failed."
         },
         {
-          "name": "STATUS_SKIP",
+          "name": "skip",
           "description": "The check was skipped because a check it needs did not pass."
         }
       ]
@@ -13147,19 +13147,19 @@
       "description": "MergeMethod is how a pull request's commits land on its base branch.",
       "values": [
         {
-          "name": "MERGE_METHOD_MERGE",
+          "name": "merge",
           "description": "The commits land under a merge commit."
         },
         {
-          "name": "MERGE_METHOD_SQUASH",
+          "name": "squash",
           "description": "The commits land as one new commit."
         },
         {
-          "name": "MERGE_METHOD_REBASE",
+          "name": "rebase",
           "description": "The commits are replayed onto the base branch one by one."
         },
         {
-          "name": "MERGE_METHOD_FAST_FORWARD",
+          "name": "fast_forward",
           "description": "The base branch moves to the head commit, with no commit of its own."
         }
       ]
@@ -13187,23 +13187,23 @@
       "description": "Checks is the overall state of the checks on a pull request's head commit.",
       "values": [
         {
-          "name": "CHECKS_NONE",
+          "name": "none",
           "description": "The head commit has no checks."
         },
         {
-          "name": "CHECKS_PENDING",
+          "name": "pending",
           "description": "Checks are still running."
         },
         {
-          "name": "CHECKS_PASSING",
+          "name": "passing",
           "description": "Every check passed."
         },
         {
-          "name": "CHECKS_FAILING",
+          "name": "failing",
           "description": "At least one check failed, and every check has finished."
         },
         {
-          "name": "CHECKS_FAILING_RUNNING",
+          "name": "failing_running",
           "description": "At least one check failed, and others are still running."
         }
       ]
@@ -13213,27 +13213,27 @@
       "description": "Mergeability is whether the forge would merge a pull request, given its base branch and branch rules.",
       "values": [
         {
-          "name": "MERGEABILITY_UNKNOWN",
+          "name": "unknown",
           "description": "The forge has not worked it out yet."
         },
         {
-          "name": "MERGEABILITY_CLEAN",
+          "name": "clean",
           "description": "The forge would merge the pull request now."
         },
         {
-          "name": "MERGEABILITY_UNSTABLE",
+          "name": "unstable",
           "description": "Some checks are not passing."
         },
         {
-          "name": "MERGEABILITY_BLOCKED",
+          "name": "blocked",
           "description": "A branch rule is not met, such as a required review."
         },
         {
-          "name": "MERGEABILITY_BEHIND",
+          "name": "behind",
           "description": "The base branch has commits the pull request's branch does not."
         },
         {
-          "name": "MERGEABILITY_CONFLICTING",
+          "name": "conflicting",
           "description": "The branch is in conflict with its base branch."
         }
       ]
@@ -13243,55 +13243,55 @@
       "description": "PullRequestState is the state of a pull request, worked out from the forge's report. A finished state wins over an open one.",
       "values": [
         {
-          "name": "PULL_REQUEST_STATE_UNREAD",
+          "name": "unread",
           "description": "Komrad has not read the repository yet."
         },
         {
-          "name": "PULL_REQUEST_STATE_NONE",
+          "name": "none",
           "description": "Komrad read the repository and found no pull request from the branch."
         },
         {
-          "name": "PULL_REQUEST_STATE_OPEN",
+          "name": "open",
           "description": "Open, with no review decision that decides it."
         },
         {
-          "name": "PULL_REQUEST_STATE_APPROVED",
+          "name": "approved",
           "description": "Open, and the forge would merge it now."
         },
         {
-          "name": "PULL_REQUEST_STATE_CHANGES_REQUESTED",
+          "name": "changes_requested",
           "description": "Open, with a reviewer asking for changes."
         },
         {
-          "name": "PULL_REQUEST_STATE_DRAFT",
+          "name": "draft",
           "description": "A draft, whatever its reviews say."
         },
         {
-          "name": "PULL_REQUEST_STATE_MERGED",
+          "name": "merged",
           "description": "Merged."
         },
         {
-          "name": "PULL_REQUEST_STATE_CLOSED",
+          "name": "closed",
           "description": "Closed without merging."
         },
         {
-          "name": "PULL_REQUEST_STATE_FAILING",
+          "name": "failing",
           "description": "Open, with a failing check on the head commit, whatever its reviews say."
         },
         {
-          "name": "PULL_REQUEST_STATE_APPROVED_WAITING",
+          "name": "approved_waiting",
           "description": "Approved, but behind its base branch or blocked by a branch rule."
         },
         {
-          "name": "PULL_REQUEST_STATE_CONFLICTING",
+          "name": "conflicting",
           "description": "Open, and in conflict with its base branch, whatever its reviews say."
         },
         {
-          "name": "PULL_REQUEST_STATE_CHECKS_RUNNING",
+          "name": "checks_running",
           "description": "Open, with checks running on the head commit and no reviewer asking for changes."
         },
         {
-          "name": "PULL_REQUEST_STATE_REREVIEW_REQUESTED",
+          "name": "rereview_requested",
           "description": "Open, and every reviewer who asked for changes has been asked to review again."
         }
       ]
@@ -13301,23 +13301,23 @@
       "description": "ReviewDecision is the forge's decision on a pull request's reviews.",
       "values": [
         {
-          "name": "REVIEW_DECISION_NONE",
+          "name": "none",
           "description": "The forge reports no decision."
         },
         {
-          "name": "REVIEW_DECISION_PENDING",
+          "name": "pending",
           "description": "A required review has not been given."
         },
         {
-          "name": "REVIEW_DECISION_APPROVED",
+          "name": "approved",
           "description": "The forge counts the pull request as approved."
         },
         {
-          "name": "REVIEW_DECISION_CHANGES_REQUESTED",
+          "name": "changes_requested",
           "description": "A reviewer is asking for changes."
         },
         {
-          "name": "REVIEW_DECISION_REREVIEW_REQUESTED",
+          "name": "rereview_requested",
           "description": "Every reviewer who asked for changes has been asked to review again."
         }
       ]
@@ -13327,11 +13327,11 @@
       "description": "ScheduleKind is what a schedule does each time its cron expression matches.",
       "values": [
         {
-          "name": "SCHEDULE_KIND_ORCHESTRATOR",
+          "name": "orchestrator",
           "description": "Mails the prompt to a running orchestrator."
         },
         {
-          "name": "SCHEDULE_KIND_TASK",
+          "name": "task",
           "description": "Creates a task in the workflow and launches its writer with the prompt."
         }
       ]
@@ -13341,35 +13341,35 @@
       "description": "ScheduleRunState is the state of one schedule run.",
       "values": [
         {
-          "name": "SCHEDULE_RUN_STATE_AVAILABLE",
+          "name": "available",
           "description": "Waiting to start."
         },
         {
-          "name": "SCHEDULE_RUN_STATE_PENDING",
+          "name": "pending",
           "description": "Held back until something releases the run."
         },
         {
-          "name": "SCHEDULE_RUN_STATE_SCHEDULED",
+          "name": "scheduled",
           "description": "Waiting for a later time to start."
         },
         {
-          "name": "SCHEDULE_RUN_STATE_RUNNING",
+          "name": "running",
           "description": "Running now."
         },
         {
-          "name": "SCHEDULE_RUN_STATE_RETRYABLE",
+          "name": "retryable",
           "description": "Failed an attempt and waiting to try again."
         },
         {
-          "name": "SCHEDULE_RUN_STATE_COMPLETED",
+          "name": "completed",
           "description": "Launched the run's agent or sent the run's mail."
         },
         {
-          "name": "SCHEDULE_RUN_STATE_CANCELLED",
+          "name": "cancelled",
           "description": "Skipped, with the reason in the run's message."
         },
         {
-          "name": "SCHEDULE_RUN_STATE_DISCARDED",
+          "name": "discarded",
           "description": "Out of attempts, with the last error in the run's message."
         }
       ]
@@ -13379,15 +13379,15 @@
       "description": "CascadeBlock is why the cascade cannot rebase a child onto its parent.",
       "values": [
         {
-          "name": "CASCADE_BLOCK_CONFLICTED",
+          "name": "conflicted",
           "description": "Rebasing the child's own commits onto its parent stopped on conflicts."
         },
         {
-          "name": "CASCADE_BLOCK_ORPHANED",
+          "name": "orphaned",
           "description": "The child is orphaned: its branch holds neither its fork point nor any of its parent's own commits."
         },
         {
-          "name": "CASCADE_BLOCK_PARENT_CLOSED",
+          "name": "parent_closed",
           "description": "The parent's pull request closed without merging."
         }
       ]
@@ -13397,27 +13397,27 @@
       "description": "Sequence is a git operation stopped part way in a task's checkout.",
       "values": [
         {
-          "name": "SEQUENCE_NONE",
+          "name": "none",
           "description": "No git operation is stopped part way."
         },
         {
-          "name": "SEQUENCE_REBASE",
+          "name": "rebase",
           "description": "A rebase stopped on a commit it could not replay."
         },
         {
-          "name": "SEQUENCE_AM",
+          "name": "am",
           "description": "A `git am` stopped on a patch it could not apply."
         },
         {
-          "name": "SEQUENCE_MERGE",
+          "name": "merge",
           "description": "A merge stopped on conflicts."
         },
         {
-          "name": "SEQUENCE_CHERRY_PICK",
+          "name": "cherry_pick",
           "description": "A cherry-pick stopped on conflicts or paused between commits."
         },
         {
-          "name": "SEQUENCE_REVERT",
+          "name": "revert",
           "description": "A revert stopped on conflicts or paused between commits."
         }
       ]
@@ -13427,11 +13427,11 @@
       "description": "WorktreeRemovalReason is why a task's worktree is no longer on disk.",
       "values": [
         {
-          "name": "WORKTREE_REMOVAL_REASON_DELETED",
+          "name": "deleted",
           "description": "A delete removed the worktree. Komrad never makes it again."
         },
         {
-          "name": "WORKTREE_REMOVAL_REASON_GONE",
+          "name": "gone",
           "description": "Komrad found the worktree's directory gone without a delete."
         }
       ]
@@ -13441,11 +13441,11 @@
       "description": "View is how much of each record a listing returns.",
       "values": [
         {
-          "name": "VIEW_SUMMARY",
+          "name": "summary",
           "description": "Long text is cut to its opening, and each record says which fields were cut."
         },
         {
-          "name": "VIEW_FULL",
+          "name": "full",
           "description": "Every field in full, however long."
         }
       ]
@@ -13455,51 +13455,51 @@
       "description": "RefusalReason is why komrad kept a worktree it was asked to remove.",
       "values": [
         {
-          "name": "REFUSAL_REASON_OUTSIDE",
+          "name": "outside",
           "description": "The path is not under the worktree directories."
         },
         {
-          "name": "REFUSAL_REASON_UNLISTED",
+          "name": "unlisted",
           "description": "The listing of the worktree directories does not hold the path."
         },
         {
-          "name": "REFUSAL_REASON_TASK_HOLDS",
+          "name": "task_holds",
           "description": "The task `task_slug` names owns the worktree. Deleting the task removes it."
         },
         {
-          "name": "REFUSAL_REASON_TASK_LIVE",
+          "name": "task_live",
           "description": "The task `task_slug` names is live. Archiving it comes before deleting its worktree."
         },
         {
-          "name": "REFUSAL_REASON_TASK_DELETING",
+          "name": "task_deleting",
           "description": "The task `task_slug` names is being deleted, which removes the worktree."
         },
         {
-          "name": "REFUSAL_REASON_AGENT_INSIDE",
+          "name": "agent_inside",
           "description": "The agent `agent_name` names is working in the worktree."
         },
         {
-          "name": "REFUSAL_REASON_AGENT_BENEATH",
+          "name": "agent_beneath",
           "description": "The agent `agent_name` names is working somewhere under the worktree."
         },
         {
-          "name": "REFUSAL_REASON_NESTS_WORKTREE",
+          "name": "nests_worktree",
           "description": "The worktree `nested_dir` names sits inside this one. Removing that worktree comes first."
         },
         {
-          "name": "REFUSAL_REASON_UNRESOLVED",
+          "name": "unresolved",
           "description": "Komrad could not resolve the path. `error` says why."
         },
         {
-          "name": "REFUSAL_REASON_LIST_FAILED",
+          "name": "list_failed",
           "description": "Git could not list the worktrees of the worktree's repository. `error` says why."
         },
         {
-          "name": "REFUSAL_REASON_UNLOCK_FAILED",
+          "name": "unlock_failed",
           "description": "Git could not unlock the worktree. `error` says why."
         },
         {
-          "name": "REFUSAL_REASON_REMOVE_FAILED",
+          "name": "remove_failed",
           "description": "Komrad could not remove the worktree's directory. `error` says why."
         }
       ]
@@ -13509,19 +13509,19 @@
       "description": "WorktreeFate is what removes a worktree directory.",
       "values": [
         {
-          "name": "WORKTREE_FATE_UNOWNED",
+          "name": "unowned",
           "description": "No task owns the directory. `remove_unowned_worktrees` removes it."
         },
         {
-          "name": "WORKTREE_FATE_ARCHIVED",
+          "name": "archived",
           "description": "The directory's task is archived. Deleting the task removes it."
         },
         {
-          "name": "WORKTREE_FATE_LIVE",
+          "name": "live",
           "description": "The directory's task is live. Nothing removes it."
         },
         {
-          "name": "WORKTREE_FATE_DELETING",
+          "name": "deleting",
           "description": "The directory's task is being deleted, which removes the directory."
         }
       ]

@@ -12,6 +12,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
@@ -82,7 +83,7 @@ func (f *fixture) seedAgentOn(t *testing.T, taskID *uuid.UUID) uuid.UUID {
 		ID:         id,
 		Name:       "agent-" + id.String(),
 		Cwd:        "/repo",
-		State:      agentstore.StateIdle,
+		State:      agentv1.AgentState_AGENT_STATE_IDLE,
 		WorkflowID: f.workflow,
 	}))
 

@@ -68,7 +68,7 @@ func (c *Client) ReadTreeState(ctx context.Context, dir string) (TreeState, erro
 	if err != nil {
 		return TreeState{}, err
 	}
-	state.InProgress = sequence.IsInProgress()
+	state.InProgress = IsInProgress(sequence)
 
 	refreshIndex(ctx, dir)
 
@@ -408,7 +408,7 @@ func runRebase(ctx context.Context, dir, ref string, args ...string) error {
 	if stateErr != nil {
 		return fmt.Errorf("failed to rebase onto %s in %q: %w (and its state could not be read: %w)", ref, dir, err, stateErr)
 	}
-	if stopped.IsInProgress() {
+	if IsInProgress(stopped) {
 		return fmt.Errorf("%w onto %s", ErrRebaseConflicted, ref)
 	}
 
@@ -459,5 +459,5 @@ func (c *Client) IsSequenceInProgress(ctx context.Context, dir string) (bool, er
 		return false, err
 	}
 
-	return sequence.IsInProgress(), nil
+	return IsInProgress(sequence), nil
 }

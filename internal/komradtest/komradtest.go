@@ -36,12 +36,12 @@ import (
 	"komrad/internal/logging"
 	"komrad/internal/mail"
 	"komrad/internal/server"
-	agentstore "komrad/internal/store/agent"
 	"komrad/internal/storetest"
 	"komrad/internal/tmux"
 	"komrad/internal/tmuxtest"
 	"komrad/lib/clock"
 	"komrad/lib/xhttp"
+	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/config/v1/configv1connect"
 	"komrad/proto/gen/doctor/v1/doctorv1connect"
@@ -372,7 +372,7 @@ func (i *Instance) MeasureWorktrees() {
 
 // Settle moves an agent to an activity and reconciles until the store agrees, so a test says
 // where an agent ends up rather than how many passes that takes.
-func (i *Instance) Settle(agentID string, activity harness.Activity, want agentstore.State) {
+func (i *Instance) Settle(agentID string, activity harness.Activity, want agentv1.AgentState) {
 	i.t.Helper()
 
 	require.NoError(i.t, i.Harness.SetActivity(uuid.MustParse(agentID), activity))

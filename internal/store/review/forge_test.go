@@ -9,6 +9,7 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 	taskstore "komrad/internal/store/task"
 	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
 	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/google/uuid"
@@ -43,21 +44,21 @@ func (st *fixture) seedHeldThread(t *testing.T, rootHeld, replyHeld bool) heldTh
 		NewEnd:      41,
 		QuotedLines: []string{"+\tdoThing()"},
 		Body:        "root",
-		AuthorKind:  AuthorForge,
+		AuthorKind:  agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_FORGE,
 		Held:        rootHeld,
 	})
 	require.NoError(t, err)
 	_, err = st.CreateMessage(ctx, CreateMessageParams{
 		ThreadID:   thread.ID,
 		ReviewID:   &replier.ID,
-		AuthorKind: AuthorForge,
+		AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_FORGE,
 		Body:       "reply",
 		Held:       replyHeld,
 	})
 	require.NoError(t, err)
 	_, err = st.CreateMessage(ctx, CreateMessageParams{
 		ThreadID:      thread.ID,
-		AuthorKind:    AuthorAgent,
+		AuthorKind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
 		AuthorAgentID: &agentID,
 		Body:          "answer",
 	})
@@ -144,7 +145,7 @@ func TestHeldForgeThreadHiddenFromReader(t *testing.T) {
 		NewEnd:      41,
 		QuotedLines: []string{"+\tdoThing()"},
 		Body:        "root",
-		AuthorKind:  AuthorForge,
+		AuthorKind:  agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_FORGE,
 		Held:        true,
 	})
 	require.NoError(t, err)
@@ -185,7 +186,7 @@ func TestListForgeMirrorTargets(t *testing.T) {
 				st.takeSnapshot(t, agentID, "tree-one")
 				st.seedAgentLike(t, agentstore.Agent{
 					Name:   "reviewer",
-					Role:   agentstore.RoleReviewer,
+					Role:   agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 					TaskID: xptr.Ptr(st.taskOf(t, agentID)),
 				})
 			},

@@ -8,41 +8,10 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "pagination/v1/pagination.proto";
 import "rules/v1/rules.proto";
+import "schedule/v1/enums.proto";
 import "view/v1/view.proto";
 
 option go_package = "komrad/proto/gen/schedule/v1;schedulev1";
-
-// ScheduleRunState is the state of one schedule run.
-enum ScheduleRunState {
-  // No state was recorded. No run has this value.
-  SCHEDULE_RUN_STATE_UNSPECIFIED = 0;
-  // Waiting to start.
-  SCHEDULE_RUN_STATE_AVAILABLE = 1;
-  // Held back until something releases the run.
-  SCHEDULE_RUN_STATE_PENDING = 2;
-  // Waiting for a later time to start.
-  SCHEDULE_RUN_STATE_SCHEDULED = 3;
-  // Running now.
-  SCHEDULE_RUN_STATE_RUNNING = 4;
-  // Failed an attempt and waiting to try again.
-  SCHEDULE_RUN_STATE_RETRYABLE = 5;
-  // Launched the run's agent or sent the run's mail.
-  SCHEDULE_RUN_STATE_COMPLETED = 6;
-  // Skipped, with the reason in the run's message.
-  SCHEDULE_RUN_STATE_CANCELLED = 7;
-  // Out of attempts, with the last error in the run's message.
-  SCHEDULE_RUN_STATE_DISCARDED = 8;
-}
-
-// ScheduleKind is what a schedule does each time its cron expression matches.
-enum ScheduleKind {
-  // No kind was recorded. No schedule has this value.
-  SCHEDULE_KIND_UNSPECIFIED = 0;
-  // Mails the prompt to a running orchestrator.
-  SCHEDULE_KIND_ORCHESTRATOR = 1;
-  // Creates a task in the workflow and launches its writer with the prompt.
-  SCHEDULE_KIND_TASK = 2;
-}
 
 // ScheduleRun is one time a schedule's cron expression matched, with its state.
 message ScheduleRun {

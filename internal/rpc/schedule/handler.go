@@ -11,12 +11,11 @@ import (
 	"komrad/internal/rpcerr"
 	"komrad/internal/rpcpage"
 	"komrad/internal/schedules"
+	schedulestore "komrad/internal/store/schedule"
 	"komrad/lib/xslice"
 	"komrad/proto/gen/oneofs"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 	"komrad/proto/gen/schedule/v1/schedulev1komrad"
-
-	schedulestore "komrad/internal/store/schedule"
 
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -189,13 +188,13 @@ func configFrom(req *schedulev1komrad.CreateScheduleRequest) schedulestore.Confi
 // withTarget sets what a schedule fires at from whichever of the request's targets the caller gave.
 func withTarget(cfg schedulestore.Config, target oneofs.Target) schedulestore.Config {
 	if target.OrchestratorAgentId != nil {
-		cfg.Kind = schedulestore.KindOrchestrator
+		cfg.Kind = schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR
 		cfg.OrchestratorAgentID = target.OrchestratorAgentId
 
 		return cfg
 	}
 
-	cfg.Kind = schedulestore.KindTask
+	cfg.Kind = schedulev1.ScheduleKind_SCHEDULE_KIND_TASK
 	if target.WorkflowId != nil {
 		cfg.WorkflowID = *target.WorkflowId
 	}

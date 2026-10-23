@@ -1,0 +1,23 @@
+// The doctor.v1 enums, in Edition 2026 so that each value's JSON name is its lowercase word.
+// event/v1/event.proto says why Edition 2026 needs release candidates.
+edition = "2026";
+
+package doctor.v1;
+
+import option "google/protobuf/json_enumvalue_options.proto";
+
+option go_package = "komrad/proto/gen/doctor/v1;doctorv1";
+
+// Status is how a doctor check came out.
+export enum Status {
+  // No status was recorded. No finding has this value.
+  STATUS_UNSPECIFIED = 0;
+  // The check passed.
+  STATUS_OK = 1 [(pb.enumvalue.json).string = "ok"];
+  // The check passed with a warning.
+  STATUS_WARN = 2 [(pb.enumvalue.json).string = "warn"];
+  // The check failed.
+  STATUS_FAIL = 3 [(pb.enumvalue.json).string = "fail"];
+  // The check was skipped because a check it needs did not pass.
+  STATUS_SKIP = 4 [(pb.enumvalue.json).string = "skip"];
+}

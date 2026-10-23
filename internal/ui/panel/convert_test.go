@@ -32,7 +32,7 @@ func TestTaskFromCarriesTheCheckout(t *testing.T) {
 	assert.Equal(t, branch, *converted.Branch)
 	assert.Equal(t, int32(3), converted.DiffStat.GetAdded())
 	assert.Equal(t, int32(1), converted.DiffStat.GetRemoved())
-	assert.Equal(t, WorktreeGone, converted.WorktreeRemovalReason)
+	assert.Equal(t, taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE, converted.WorktreeRemovalReason)
 	assert.Equal(t, int32(2), converted.Snapshots)
 }
 
@@ -108,44 +108,6 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 			DiffExclude:  []string{"proto/gen"},
 		},
 	}, got[0])
-}
-
-// TestStateFromReadsEveryWireState pins each wire state to the one the panel keeps, and every
-// value the wire can carry to one of them.
-func TestStateFromReadsEveryWireState(t *testing.T) {
-	t.Parallel()
-
-	states := map[agentv1.AgentState]State{
-		agentv1.AgentState_AGENT_STATE_UNSPECIFIED:       StateUncertain,
-		agentv1.AgentState_AGENT_STATE_IDLE:              StateIdle,
-		agentv1.AgentState_AGENT_STATE_THINKING:          StateThinking,
-		agentv1.AgentState_AGENT_STATE_WAITING:           StateWaiting,
-		agentv1.AgentState_AGENT_STATE_SETTING_UP:        StateSettingUp,
-		agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE:  StateFailedToCreate,
-		agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP: StateFailedToCleanup,
-		agentv1.AgentState_AGENT_STATE_UNCERTAIN:         StateUncertain,
-		agentv1.AgentState_AGENT_STATE_ERRORED:           StateErrored,
-	}
-	assert.Len(t, states, len(agentv1.AgentState_name), "every wire state is answered for")
-	for wire, want := range states {
-		assert.Equal(t, want, stateFrom(wire), wire.String())
-	}
-}
-
-// TestRoleFromReadsEveryWireRole pins each wire role to the one the panel keeps.
-func TestRoleFromReadsEveryWireRole(t *testing.T) {
-	t.Parallel()
-
-	roles := map[agentv1.AgentRole]role{
-		agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED:  "",
-		agentv1.AgentRole_AGENT_ROLE_WRITER:       RoleWriter,
-		agentv1.AgentRole_AGENT_ROLE_REVIEWER:     RoleReviewer,
-		agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR: RoleOrchestrator,
-	}
-	assert.Len(t, roles, len(agentv1.AgentRole_name), "every wire role is answered for")
-	for wire, want := range roles {
-		assert.Equal(t, want, roleFrom(wire), wire.String())
-	}
 }
 
 // TestWorktreeFateIsReadOffTheWire covers each fate the server names landing on the item, and

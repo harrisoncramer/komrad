@@ -1,13 +1,13 @@
 package eventprompts
 
 import (
-	mailstore "komrad/internal/store/mail"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 )
 
 // Mail is what komrad writes an agent about one thing that happened.
 type Mail interface {
-	Kind() mailstore.Kind
+	Kind() agentv1.MailKind
 	Events() []eventv1.Event
 	Body() string
 }

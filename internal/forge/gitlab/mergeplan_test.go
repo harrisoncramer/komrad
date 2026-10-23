@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"komrad/internal/forge"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -57,10 +58,10 @@ func TestPlanMerge(t *testing.T) {
 			},
 			want: &forge.MergePlan{
 				Options: []forge.MergeOption{
-					{Method: forge.MergeMethodMerge, Allowed: true, Message: mergeMessage},
-					{Method: forge.MergeMethodSquash, Allowed: true, Message: squashMessage},
+					{Method: forgev1.MergeMethod_MERGE_METHOD_MERGE, Allowed: true, Message: mergeMessage},
+					{Method: forgev1.MergeMethod_MERGE_METHOD_SQUASH, Allowed: true, Message: squashMessage},
 				},
-				DefaultMethod: forge.MergeMethodMerge,
+				DefaultMethod: forgev1.MergeMethod_MERGE_METHOD_MERGE,
 				HeadSHA:       "abc123",
 			},
 		},
@@ -72,10 +73,10 @@ func TestPlanMerge(t *testing.T) {
 			},
 			want: &forge.MergePlan{
 				Options: []forge.MergeOption{
-					{Method: forge.MergeMethodMerge, Message: mergeMessage},
-					{Method: forge.MergeMethodSquash, Allowed: true, Message: squashMessage},
+					{Method: forgev1.MergeMethod_MERGE_METHOD_MERGE, Message: mergeMessage},
+					{Method: forgev1.MergeMethod_MERGE_METHOD_SQUASH, Allowed: true, Message: squashMessage},
 				},
-				DefaultMethod: forge.MergeMethodSquash,
+				DefaultMethod: forgev1.MergeMethod_MERGE_METHOD_SQUASH,
 				HeadSHA:       "abc123",
 			},
 		},
@@ -87,10 +88,10 @@ func TestPlanMerge(t *testing.T) {
 			},
 			want: &forge.MergePlan{
 				Options: []forge.MergeOption{
-					{Method: forge.MergeMethodFastForward, Allowed: true},
-					{Method: forge.MergeMethodSquash, Message: squashMessage},
+					{Method: forgev1.MergeMethod_MERGE_METHOD_FAST_FORWARD, Allowed: true},
+					{Method: forgev1.MergeMethod_MERGE_METHOD_SQUASH, Message: squashMessage},
 				},
-				DefaultMethod: forge.MergeMethodFastForward,
+				DefaultMethod: forgev1.MergeMethod_MERGE_METHOD_FAST_FORWARD,
 				HeadSHA:       "abc123",
 			},
 		},

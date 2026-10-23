@@ -12,6 +12,7 @@ import (
 	"komrad/internal/logging"
 	taskstore "komrad/internal/store/task"
 	"komrad/proto/gen/oneofs"
+	taskv1 "komrad/proto/gen/task/v1"
 )
 
 // ErrAbortNothing says nothing is part-way through the checkout.
@@ -19,7 +20,7 @@ var ErrAbortNothing = fail.Precondition("nothing is part-way through in this wor
 
 // AbortResult is what an abort did.
 type AbortResult struct {
-	Sequence taskstore.Sequence `json:"sequence"`
+	Sequence taskv1.Sequence `json:"sequence"`
 	// Command is the git command that ran the sequence.
 	Command string `json:"command"`
 	// Branch is where the checkout stands once the sequence is undone, empty when detached.
@@ -75,8 +76,8 @@ func (s *Service) abort(ctx context.Context, target checkoutTarget) (*AbortResul
 	}
 
 	result := &AbortResult{
-		Sequence:  sequenceOf(sequence),
-		Command:   sequence.GetCommand(),
+		Sequence:  sequence,
+		Command:   git.GetCommand(sequence),
 		ParkedRef: buildParkRef(parkAbort, target.task.ID),
 		Ours:      ours,
 	}
@@ -105,13 +106,13 @@ func (s *Service) abort(ctx context.Context, target checkoutTarget) (*AbortResul
 }
 
 // readSequence is what is part-way through the checkout, refusing one with nothing.
-func (s *Service) readSequence(ctx context.Context, dir string) (git.Sequence, error) {
+func (s *Service) readSequence(ctx context.Context, dir string) (taskv1.Sequence, error) {
 	sequence, err := s.git.ReadSequence(ctx, dir)
 	if err != nil {
-		return git.SequenceNone, err
+		return taskv1.Sequence_SEQUENCE_NONE, err
 	}
-	if !sequence.IsInProgress() {
-		return git.SequenceNone, ErrAbortNothing
+	if !git.IsInProgress(sequence) {
+		return taskv1.Sequence_SEQUENCE_NONE, ErrAbortNothing
 	}
 
 	return sequence, nil
@@ -119,8 +120,8 @@ func (s *Service) readSequence(ctx context.Context, dir string) (git.Sequence, e
 
 // isOwnRebase reports whether the sequence is the rebase komrad started and left stopped on
 // conflicts, which is the one the writer was told to wait on.
-func (s *Service) isOwnRebase(ctx context.Context, target checkoutTarget, sequence git.Sequence) (bool, error) {
-	if sequence != git.SequenceRebase {
+func (s *Service) isOwnRebase(ctx context.Context, target checkoutTarget, sequence taskv1.Sequence) (bool, error) {
+	if sequence != taskv1.Sequence_SEQUENCE_REBASE {
 		return false, nil
 	}
 
@@ -150,7 +151,7 @@ func (s *Service) isOwnRebase(ctx context.Context, target checkoutTarget, sequen
 
 // recordAborted clears the sequence on the task ahead of the checkout sync.
 func (s *Service) recordAborted(ctx context.Context, task taskstore.Task) {
-	if err := s.tasks.SetSequence(ctx, task.ID, taskstore.SequenceNone); err != nil {
+	if err := s.tasks.SetSequence(ctx, task.ID, taskv1.Sequence_SEQUENCE_NONE); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record that a task's sequence was aborted",
 			append([]slog.Attr{slog.String(logging.TaskID, task.ID.String())}, logging.Err(err)...)...)
 	}

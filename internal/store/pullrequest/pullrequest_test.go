@@ -13,7 +13,9 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	forgev1 "komrad/proto/gen/forge/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -60,7 +62,7 @@ func (h *harness) createAgent(t *testing.T, workflowID uuid.UUID, name, reposito
 		TaskID:     taskID,
 		Name:       name,
 		Pane:       "%1",
-		State:      agentstore.StateIdle,
+		State:      agentv1.AgentState_AGENT_STATE_IDLE,
 		WorkflowID: workflowID,
 	}))
 	created, err := h.agents.GetInWorkflow(ctx, workflowID, name)
@@ -410,7 +412,7 @@ func TestListRecipients(t *testing.T) {
 		TaskID:     &task,
 		Name:       "writer",
 		Pane:       "%2",
-		State:      agentstore.StateIdle,
+		State:      agentv1.AgentState_AGENT_STATE_IDLE,
 		WorkflowID: workflow,
 	}))
 	writer, err := h.agents.GetInWorkflow(ctx, workflow, "writer")
@@ -419,23 +421,23 @@ func TestListRecipients(t *testing.T) {
 		TaskID:     &task,
 		Name:       "top-level-reviewer",
 		Pane:       "%4",
-		State:      agentstore.StateIdle,
+		State:      agentv1.AgentState_AGENT_STATE_IDLE,
 		WorkflowID: workflow,
-		Role:       agentstore.RoleReviewer,
+		Role:       agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 	}))
 	require.NoError(t, h.agents.Create(ctx, agentstore.Agent{
 		TaskID:     &task,
 		Name:       "failed",
 		Pane:       "%5",
-		State:      agentstore.StateFailedToCreate,
+		State:      agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
 		WorkflowID: workflow,
 	}))
 	require.NoError(t, h.agents.Create(ctx, agentstore.Agent{
 		TaskID:     &task,
 		Name:       "reviewer",
-		Role:       agentstore.RoleReviewer,
+		Role:       agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 		Pane:       "%3",
-		State:      agentstore.StateIdle,
+		State:      agentv1.AgentState_AGENT_STATE_IDLE,
 		WorkflowID: workflow,
 	}))
 
@@ -447,34 +449,34 @@ func TestListRecipients(t *testing.T) {
 	assert.Equal(t, []uuid.UUID{writer.ID}, recipients, "only the task's live writer on the branch is told")
 }
 
-var failedTest = statusCheckRun("1", "test", forge.StatusCheckStateCompleted, "failure")
+var failedTest = statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure")
 
 // TestSetMergeReadinessRemembersWhatEveryReadLeaves covers the remembered merge readiness reading back from the row as it was after each read.
 func TestSetMergeReadinessRemembersWhatEveryReadLeaves(t *testing.T) {
 	began := time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
 	failing := forge.MergeReadiness{
-		Decision:     forge.ReviewDecisionChangesRequested,
+		Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED,
 		Listing:      &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{failedTest}},
-		Mergeability: forge.MergeabilityUnstable,
+		Mergeability: pullrequestv1.Mergeability_MERGEABILITY_UNSTABLE,
 		AutoMerge:    forge.AutoMerge{On: true, Allowed: true},
 	}
 	passing := forge.MergeReadiness{
-		Decision:     forge.ReviewDecisionApproved,
-		Listing:      &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{statusCheckRun("2", "test", forge.StatusCheckStateCompleted, "success")}},
-		Mergeability: forge.MergeabilityClean,
+		Decision:     pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED,
+		Listing:      &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{statusCheckRun("2", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success")}},
+		Mergeability: pullrequestv1.Mergeability_MERGEABILITY_CLEAN,
 		AutoMerge:    forge.AutoMerge{Allowed: true},
 	}
 	blank := forge.MergeReadiness{Listing: &forge.StatusCheckListing{}}
-	failingOnABC := forge.RememberedAnswer[forge.Checks]{Value: forge.ChecksFailing, HeadSHA: "abc"}
-	unconfirmedOnABC := forge.RememberedAnswer[forge.Checks]{
-		Value:              forge.ChecksFailing,
+	failingOnABC := forge.RememberedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_FAILING, HeadSHA: "abc"}
+	unconfirmedOnABC := forge.RememberedAnswer[pullrequestv1.Checks]{
+		Value:              pullrequestv1.Checks_CHECKS_FAILING,
 		HeadSHA:            "abc",
 		WasLatestReadBlank: true,
 	}
 	type mergeReadinessRead struct {
 		readiness  forge.MergeReadiness
 		head       string
-		wantChecks forge.RememberedAnswer[forge.Checks]
+		wantChecks forge.RememberedAnswer[pullrequestv1.Checks]
 	}
 	type setMergeReadinessTest struct {
 		name  string
@@ -488,7 +490,7 @@ func TestSetMergeReadinessRemembersWhatEveryReadLeaves(t *testing.T) {
 				{
 					readiness:  blank,
 					head:       "abc",
-					wantChecks: forge.RememberedAnswer[forge.Checks]{HeadSHA: "abc", WasLatestReadBlank: true},
+					wantChecks: forge.RememberedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_NONE, HeadSHA: "abc", WasLatestReadBlank: true},
 				},
 				{
 					readiness:  failing,
@@ -506,7 +508,7 @@ func TestSetMergeReadinessRemembersWhatEveryReadLeaves(t *testing.T) {
 					wantChecks: failingOnABC,
 				},
 				{
-					readiness:  forge.MergeReadiness{Decision: forge.ReviewDecisionApproved},
+					readiness:  forge.MergeReadiness{Decision: pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED},
 					head:       "def",
 					wantChecks: failingOnABC,
 				},
@@ -543,7 +545,7 @@ func TestSetMergeReadinessRemembersWhatEveryReadLeaves(t *testing.T) {
 				{
 					readiness:  blank,
 					head:       "def",
-					wantChecks: forge.RememberedAnswer[forge.Checks]{HeadSHA: "def", WasLatestReadBlank: true},
+					wantChecks: forge.RememberedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_NONE, HeadSHA: "def", WasLatestReadBlank: true},
 				},
 			},
 		},
@@ -563,7 +565,7 @@ func TestSetMergeReadinessRemembersWhatEveryReadLeaves(t *testing.T) {
 				{
 					readiness:  passing,
 					head:       "def",
-					wantChecks: forge.RememberedAnswer[forge.Checks]{Value: forge.ChecksPassing, HeadSHA: "def"},
+					wantChecks: forge.RememberedAnswer[pullrequestv1.Checks]{Value: pullrequestv1.Checks_CHECKS_PASSING, HeadSHA: "def"},
 				},
 			},
 		},
@@ -610,7 +612,7 @@ func TestSetMergeReadinessHandsBackTheHeadStatusChecks(t *testing.T) {
 	ctx := t.Context()
 	written, err := h.Upsert(ctx, openPullRequest("PR_1", 1, "agent/x"))
 	require.NoError(t, err)
-	lint := statusCheckRun("2", "lint", forge.StatusCheckStateRunning, "")
+	lint := statusCheckRun("2", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, "")
 
 	_, err = h.SetMergeReadiness(ctx, SetMergeReadinessParams{
 		ID:             written.ID,
@@ -636,9 +638,9 @@ func TestSetMergeReadinessHandsBackTheHeadStatusChecks(t *testing.T) {
 // TestHeadStatusChecksAreTheHeadsReading covers a pull request's checks coming from the reading of its head, whatever
 // head was read after it.
 func TestHeadStatusChecksAreTheHeadsReading(t *testing.T) {
-	onHead := statusCheckRun("1", "test", forge.StatusCheckStateRunning, "")
-	onOld := statusCheckRun("2", "test", forge.StatusCheckStateCompleted, "cancelled")
-	onNew := statusCheckRun("3", "test", forge.StatusCheckStateCompleted, "failure")
+	onHead := statusCheckRun("1", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING, "")
+	onOld := statusCheckRun("2", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "cancelled")
+	onNew := statusCheckRun("3", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure")
 	checksOn := map[string]forge.StatusCheck{"abc": onHead, "old": onOld, "new": onNew}
 
 	tests := []struct {
@@ -684,9 +686,9 @@ func TestHeadStatusChecksAreTheHeadsReading(t *testing.T) {
 // TestSetMergeReadinessSaysWhenAFailureIsNew covers a read saying whether it found a failed check the reading before
 // it did not hold.
 func TestSetMergeReadinessSaysWhenAFailureIsNew(t *testing.T) {
-	failedLint := statusCheckRun("2", "lint", forge.StatusCheckStateCompleted, "failure")
+	failedLint := statusCheckRun("2", "lint", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "failure")
 	rerunTest := finishedAt(failedTest, statusCheckReadAt)
-	passedTest := statusCheckRun("3", "test", forge.StatusCheckStateCompleted, "success")
+	passedTest := statusCheckRun("3", "test", pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED, "success")
 	type read struct {
 		head   string
 		checks []forge.StatusCheck

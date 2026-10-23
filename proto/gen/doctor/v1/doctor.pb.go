@@ -23,67 +23,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Status is how a doctor check came out.
-type Status int32
-
-const (
-	// No status was recorded. No finding has this value.
-	Status_STATUS_UNSPECIFIED Status = 0
-	// The check passed.
-	Status_STATUS_OK Status = 1
-	// The check passed with a warning.
-	Status_STATUS_WARN Status = 2
-	// The check failed.
-	Status_STATUS_FAIL Status = 3
-	// The check was skipped because a check it needs did not pass.
-	Status_STATUS_SKIP Status = 4
-)
-
-// Enum value maps for Status.
-var (
-	Status_name = map[int32]string{
-		0: "STATUS_UNSPECIFIED",
-		1: "STATUS_OK",
-		2: "STATUS_WARN",
-		3: "STATUS_FAIL",
-		4: "STATUS_SKIP",
-	}
-	Status_value = map[string]int32{
-		"STATUS_UNSPECIFIED": 0,
-		"STATUS_OK":          1,
-		"STATUS_WARN":        2,
-		"STATUS_FAIL":        3,
-		"STATUS_SKIP":        4,
-	}
-)
-
-func (x Status) Enum() *Status {
-	p := new(Status)
-	*p = x
-	return p
-}
-
-func (x Status) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (Status) Descriptor() protoreflect.EnumDescriptor {
-	return file_doctor_v1_doctor_proto_enumTypes[0].Descriptor()
-}
-
-func (Status) Type() protoreflect.EnumType {
-	return &file_doctor_v1_doctor_proto_enumTypes[0]
-}
-
-func (x Status) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use Status.Descriptor instead.
-func (Status) EnumDescriptor() ([]byte, []int) {
-	return file_doctor_v1_doctor_proto_rawDescGZIP(), []int{0}
-}
-
 // Finding is the result of one doctor check.
 type Finding struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -333,7 +272,7 @@ var File_doctor_v1_doctor_proto protoreflect.FileDescriptor
 
 const file_doctor_v1_doctor_proto_rawDesc = "" +
 	"\n" +
-	"\x16doctor/v1/doctor.proto\x12\tdoctor.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xbe\x01\n" +
+	"\x16doctor/v1/doctor.proto\x12\tdoctor.v1\x1a\x18annotation/v1/tool.proto\x1a\x15doctor/v1/enums.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xbe\x01\n" +
 	"\aFinding\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12)\n" +
@@ -351,13 +290,7 @@ const file_doctor_v1_doctor_proto_rawDesc = "" +
 	"\ahealthy\x18\x06 \x01(\bR\ahealthy\"q\n" +
 	"\x11RunDoctorResponse\x12.\n" +
 	"\bfindings\x18\x01 \x03(\v2\x12.doctor.v1.FindingR\bfindings\x12,\n" +
-	"\asummary\x18\x02 \x01(\v2\x12.doctor.v1.SummaryR\asummary*b\n" +
-	"\x06Status\x12\x16\n" +
-	"\x12STATUS_UNSPECIFIED\x10\x00\x12\r\n" +
-	"\tSTATUS_OK\x10\x01\x12\x0f\n" +
-	"\vSTATUS_WARN\x10\x02\x12\x0f\n" +
-	"\vSTATUS_FAIL\x10\x03\x12\x0f\n" +
-	"\vSTATUS_SKIP\x10\x042\x8b\x02\n" +
+	"\asummary\x18\x02 \x01(\v2\x12.doctor.v1.SummaryR\asummary2\x8b\x02\n" +
 	"\rDoctorService\x12\xf9\x01\n" +
 	"\tRunDoctor\x12\x16.google.protobuf.Empty\x1a\x1c.doctor.v1.RunDoctorResponse\"\xb5\x01\x9a\xb5\x18\xad\x01\b\x01\x10\x01\x1a\n" +
 	"run_doctor\"\x97\x01Check whether the machine the server runs on can run agents. The checks cover tmux, the config, the CLIs, hooks, worktree directories and the database.:\x01\x02\x90\x02\x01B%Z#komrad/proto/gen/doctor/v1;doctorv1b\x06proto3"
@@ -374,21 +307,20 @@ func file_doctor_v1_doctor_proto_rawDescGZIP() []byte {
 	return file_doctor_v1_doctor_proto_rawDescData
 }
 
-var file_doctor_v1_doctor_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_doctor_v1_doctor_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_doctor_v1_doctor_proto_goTypes = []any{
-	(Status)(0),               // 0: doctor.v1.Status
-	(*Finding)(nil),           // 1: doctor.v1.Finding
-	(*Summary)(nil),           // 2: doctor.v1.Summary
-	(*RunDoctorResponse)(nil), // 3: doctor.v1.RunDoctorResponse
+	(*Finding)(nil),           // 0: doctor.v1.Finding
+	(*Summary)(nil),           // 1: doctor.v1.Summary
+	(*RunDoctorResponse)(nil), // 2: doctor.v1.RunDoctorResponse
+	(Status)(0),               // 3: doctor.v1.Status
 	(*emptypb.Empty)(nil),     // 4: google.protobuf.Empty
 }
 var file_doctor_v1_doctor_proto_depIdxs = []int32{
-	0, // 0: doctor.v1.Finding.status:type_name -> doctor.v1.Status
-	1, // 1: doctor.v1.RunDoctorResponse.findings:type_name -> doctor.v1.Finding
-	2, // 2: doctor.v1.RunDoctorResponse.summary:type_name -> doctor.v1.Summary
+	3, // 0: doctor.v1.Finding.status:type_name -> doctor.v1.Status
+	0, // 1: doctor.v1.RunDoctorResponse.findings:type_name -> doctor.v1.Finding
+	1, // 2: doctor.v1.RunDoctorResponse.summary:type_name -> doctor.v1.Summary
 	4, // 3: doctor.v1.DoctorService.RunDoctor:input_type -> google.protobuf.Empty
-	3, // 4: doctor.v1.DoctorService.RunDoctor:output_type -> doctor.v1.RunDoctorResponse
+	2, // 4: doctor.v1.DoctorService.RunDoctor:output_type -> doctor.v1.RunDoctorResponse
 	4, // [4:5] is the sub-list for method output_type
 	3, // [3:4] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
@@ -401,19 +333,19 @@ func file_doctor_v1_doctor_proto_init() {
 	if File_doctor_v1_doctor_proto != nil {
 		return
 	}
+	file_doctor_v1_enums_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_doctor_v1_doctor_proto_rawDesc), len(file_doctor_v1_doctor_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      0,
 			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_doctor_v1_doctor_proto_goTypes,
 		DependencyIndexes: file_doctor_v1_doctor_proto_depIdxs,
-		EnumInfos:         file_doctor_v1_doctor_proto_enumTypes,
 		MessageInfos:      file_doctor_v1_doctor_proto_msgTypes,
 	}.Build()
 	File_doctor_v1_doctor_proto = out.File

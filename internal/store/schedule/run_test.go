@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"komrad/lib/xslice"
+	schedulev1 "komrad/proto/gen/schedule/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +23,7 @@ type firing struct {
 
 type wantRun struct {
 	hour      int
-	state     RunState
+	state     schedulev1.ScheduleRunState
 	attempt   int
 	finalized bool
 	message   string
@@ -46,14 +47,14 @@ func TestListRuns(t *testing.T) {
 				{
 					attempt: 1,
 					outcome: &RunOutcome{
-						State:   RunStateRetryable,
+						State:   schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_RETRYABLE,
 						Message: "no server running",
 					},
 				},
 			},
 			want: []wantRun{
 				{
-					state:   RunStateRetryable,
+					state:   schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_RETRYABLE,
 					attempt: 1,
 					message: "no server running",
 				},
@@ -65,7 +66,7 @@ func TestListRuns(t *testing.T) {
 				{
 					attempt: 1,
 					outcome: &RunOutcome{
-						State:   RunStateRetryable,
+						State:   schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_RETRYABLE,
 						Message: "no server running",
 					},
 				},
@@ -75,7 +76,7 @@ func TestListRuns(t *testing.T) {
 			},
 			want: []wantRun{
 				{
-					state:   RunStateRunning,
+					state:   schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_RUNNING,
 					attempt: 2,
 					message: "no server running",
 				},
@@ -87,14 +88,14 @@ func TestListRuns(t *testing.T) {
 				{
 					attempt: 1,
 					outcome: &RunOutcome{
-						State:   RunStateCancelled,
+						State:   schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_CANCELLED,
 						Message: "schedule is paused",
 					},
 				},
 			},
 			want: []wantRun{
 				{
-					state:     RunStateCancelled,
+					state:     schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_CANCELLED,
 					attempt:   1,
 					finalized: true,
 					message:   "schedule is paused",
@@ -106,12 +107,12 @@ func TestListRuns(t *testing.T) {
 			firings: []firing{
 				{
 					attempt: 1,
-					outcome: &RunOutcome{State: RunStateCompleted},
+					outcome: &RunOutcome{State: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED},
 				},
 				{
 					hour:    1,
 					attempt: 1,
-					outcome: &RunOutcome{State: RunStateCompleted},
+					outcome: &RunOutcome{State: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED},
 				},
 				{
 					hour:    2,
@@ -122,12 +123,12 @@ func TestListRuns(t *testing.T) {
 			want: []wantRun{
 				{
 					hour:    2,
-					state:   RunStateRunning,
+					state:   schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_RUNNING,
 					attempt: 1,
 				},
 				{
 					hour:      1,
-					state:     RunStateCompleted,
+					state:     schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED,
 					attempt:   1,
 					finalized: true,
 				},
@@ -198,7 +199,7 @@ func TestFinishRunPrunesTheOldestRuns(t *testing.T) {
 			scheduleID: created.ID,
 			hour:       hour,
 			attempt:    1,
-			outcome:    &RunOutcome{State: RunStateCompleted},
+			outcome:    &RunOutcome{State: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED},
 		})
 	}
 
@@ -264,7 +265,7 @@ func TestRunsRideOnTheSchedule(t *testing.T) {
 					scheduleID: fired.ID,
 					hour:       hour,
 					attempt:    1,
-					outcome:    &RunOutcome{State: RunStateCompleted},
+					outcome:    &RunOutcome{State: schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_COMPLETED},
 				})
 			}
 

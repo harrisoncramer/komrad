@@ -16,6 +16,7 @@ import (
 	"komrad/internal/storetest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -46,7 +47,7 @@ func TestListReadsADirectoryWithoutGit(t *testing.T) {
 	assert.NotNil(t, tree.Task.ArchivedAt)
 	require.Len(t, tree.Occupants, 1)
 	assert.Equal(t, "first", tree.Occupants[0].Name)
-	assert.Equal(t, agentstore.StateIdle, tree.Occupants[0].State)
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, tree.Occupants[0].State)
 	assert.NotNil(t, tree.Occupants[0].ArchivedAt)
 	assert.Equal(t, []string{fixture.shared}, listing.Dirs)
 	assert.Empty(t, listing.UnreadableDirs)

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"komrad/internal/git"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,7 +21,7 @@ func TestIntegrationAbortSequence(t *testing.T) {
 	type testCase struct {
 		name     string
 		build    func(t *testing.T) string
-		sequence git.Sequence
+		sequence taskv1.Sequence
 		lock     bool
 		wantErr  error
 	}
@@ -33,7 +34,7 @@ func TestIntegrationAbortSequence(t *testing.T) {
 
 				return stoppedRebase(t)
 			},
-			sequence: git.SequenceRebase,
+			sequence: taskv1.Sequence_SEQUENCE_REBASE,
 			lock:     true,
 			wantErr:  git.ErrIndexLocked,
 		},
@@ -44,17 +45,17 @@ func TestIntegrationAbortSequence(t *testing.T) {
 
 				return stoppedRebase(t)
 			},
-			sequence: git.SequenceRebase,
+			sequence: taskv1.Sequence_SEQUENCE_REBASE,
 		},
 		{
 			name:     "a rebase replaying a merge",
 			build:    stoppedRebaseOfAMerge,
-			sequence: git.SequenceRebase,
+			sequence: taskv1.Sequence_SEQUENCE_REBASE,
 		},
 		{
 			name:     "a stopped am",
 			build:    stoppedApply,
-			sequence: git.SequenceApply,
+			sequence: taskv1.Sequence_SEQUENCE_AM,
 		},
 		{
 			name: "a stopped merge",
@@ -66,7 +67,7 @@ func TestIntegrationAbortSequence(t *testing.T) {
 
 				return dir
 			},
-			sequence: git.SequenceMerge,
+			sequence: taskv1.Sequence_SEQUENCE_MERGE,
 		},
 		{
 			name: "a multi-commit cherry-pick between its picks",
@@ -75,7 +76,7 @@ func TestIntegrationAbortSequence(t *testing.T) {
 
 				return restingPicks(t, "cherry-pick")
 			},
-			sequence: git.SequenceCherryPick,
+			sequence: taskv1.Sequence_SEQUENCE_CHERRY_PICK,
 		},
 		{
 			name: "a multi-commit revert between its picks",
@@ -84,7 +85,7 @@ func TestIntegrationAbortSequence(t *testing.T) {
 
 				return restingPicks(t, "revert")
 			},
-			sequence: git.SequenceRevert,
+			sequence: taskv1.Sequence_SEQUENCE_REVERT,
 		},
 	}
 
@@ -110,7 +111,7 @@ func TestIntegrationAbortSequence(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(t, git.SequenceNone, left)
+			assert.Equal(t, taskv1.Sequence_SEQUENCE_NONE, left)
 		})
 	}
 }

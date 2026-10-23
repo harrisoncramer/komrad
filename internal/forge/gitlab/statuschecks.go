@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"komrad/internal/forge"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 // The pipeline statuses GitLab documents.
@@ -68,7 +69,7 @@ func (n mergeRequestNode) listing() *forge.StatusCheckListing {
 	pipeline := n.HeadPipeline
 	check := forge.StatusCheck{
 		ProviderID: strings.TrimPrefix(pipeline.ID, "gid://gitlab/Ci::Pipeline/"),
-		Kind:       forge.StatusCheckKindPipeline,
+		Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_PIPELINE,
 		Name:       "pipeline",
 		StartedAt:  pipeline.StartedAt,
 		Required:   true,
@@ -76,13 +77,13 @@ func (n mergeRequestNode) listing() *forge.StatusCheckListing {
 	}
 	switch pipeline.Status {
 	case pipelineSuccess, pipelineFailed, pipelineCanceled, pipelineCanceling:
-		check.State = forge.StatusCheckStateCompleted
+		check.State = pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED
 		check.Conclusion = strings.ToLower(pipeline.Status)
 		check.FinishedAt = pipeline.FinishedAt
 	case pipelineRunning, pipelineWaitingForCallback:
-		check.State = forge.StatusCheckStateRunning
+		check.State = pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING
 	case pipelineCreated, pipelineWaitingForResource, pipelinePreparing, pipelinePending, pipelineScheduled:
-		check.State = forge.StatusCheckStateQueued
+		check.State = pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED
 	default:
 		return listing
 	}

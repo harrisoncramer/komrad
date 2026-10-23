@@ -4,10 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"komrad/internal/store"
 	agentstore "komrad/internal/store/agent"
 	documentstore "komrad/internal/store/document"
@@ -15,6 +11,11 @@ import (
 	"komrad/internal/storetest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestCreate pins which names a new document may take.
@@ -137,7 +138,7 @@ func TestCreateRecordsTheAuthorsTask(t *testing.T) {
 	stores := storetest.Open(t)
 	ctx := t.Context()
 	worker := stores.SeedAgent(t, agentstore.Agent{Name: "worker"})
-	orchestrator := stores.SeedAgent(t, agentstore.Agent{Name: "orchestrator", Role: agentstore.RoleOrchestrator})
+	orchestrator := stores.SeedAgent(t, agentstore.Agent{Name: "orchestrator", Role: agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR})
 
 	tests := []struct {
 		name     string
@@ -351,7 +352,7 @@ func TestList(t *testing.T) {
 	leaving := stores.SeedAgent(t, agentstore.Agent{Name: "leaving"})
 	reviewer := stores.SeedAgent(t, agentstore.Agent{
 		Name:   "reviewer",
-		Role:   agentstore.RoleReviewer,
+		Role:   agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 		TaskID: author.TaskID,
 	})
 

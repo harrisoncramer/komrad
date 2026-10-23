@@ -9,6 +9,7 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/google/uuid"
 )
@@ -70,7 +71,11 @@ func setStatusChecks(ctx context.Context, queries *models.Queries, params SetSta
 	}
 
 	checks := xslice.LastBy(params.StatusChecks, providerIDOf)
-	if err := queries.UpsertStatusChecks(ctx, statusCheckRows(readingID, checks)).Close(); err != nil {
+	checkRows, err := statusCheckRows(readingID, checks)
+	if err != nil {
+		return err
+	}
+	if err := queries.UpsertStatusChecks(ctx, checkRows).Close(); err != nil {
 		return fmt.Errorf("failed to write the checks listed on %s: %w", params.HeadSHA, err)
 	}
 
@@ -97,7 +102,10 @@ func setStatusChecks(ctx context.Context, queries *models.Queries, params SetSta
 // and removes the steps no longer listed on checks whose steps were listed whole.
 func setStatusCheckSteps(ctx context.Context, queries *models.Queries, readingID uuid.UUID, params SetStatusChecksParams) error {
 	headSHA := params.HeadSHA
-	listed := statusCheckStepRows(readingID, params.StatusChecks)
+	listed, err := statusCheckStepRows(readingID, params.StatusChecks)
+	if err != nil {
+		return err
+	}
 	if err := queries.UpsertStatusCheckSteps(ctx, listed).Close(); err != nil {
 		return fmt.Errorf("failed to write the check steps listed on %s: %w", headSHA, err)
 	}
@@ -193,10 +201,14 @@ func withStatusChecks(ctx context.Context, queries *models.Queries, rows []*mode
 
 	byCheck := map[uuid.UUID][]forge.StatusCheckStep{}
 	for _, row := range steps {
+		state, err := fromDBToServiceStatusCheckState(row.State)
+		if err != nil {
+			return nil, err
+		}
 		byCheck[row.CheckID] = append(byCheck[row.CheckID], forge.StatusCheckStep{
 			Number:     int(row.Number),
 			Name:       row.Name,
-			State:      forge.StatusCheckState(row.State),
+			State:      state,
 			Conclusion: row.Conclusion,
 			StartedAt:  row.StartedAt,
 			FinishedAt: row.FinishedAt,
@@ -209,13 +221,21 @@ func withStatusChecks(ctx context.Context, queries *models.Queries, rows []*mode
 		if checkIDs[row.ReadingID] == nil {
 			checkIDs[row.ReadingID] = map[string]uuid.UUID{}
 		}
+		kind, err := fromDBToServiceStatusCheckKind(row.Kind)
+		if err != nil {
+			return nil, err
+		}
+		state, err := fromDBToServiceStatusCheckState(row.State)
+		if err != nil {
+			return nil, err
+		}
 		checkIDs[row.ReadingID][row.ProviderID] = row.ID
 		byReading[row.ReadingID] = append(byReading[row.ReadingID], forge.StatusCheck{
 			ProviderID:   row.ProviderID,
-			Kind:         forge.StatusCheckKind(row.Kind),
+			Kind:         kind,
 			Source:       row.Source,
 			Name:         row.Name,
-			State:        forge.StatusCheckState(row.State),
+			State:        state,
 			Conclusion:   row.Conclusion,
 			StartedAt:    row.StartedAt,
 			FinishedAt:   row.FinishedAt,
@@ -242,9 +262,13 @@ func withStatusChecks(ctx context.Context, queries *models.Queries, rows []*mode
 	}), nil
 }
 
-// rememberedChecksOf is where the checks on the latest read head stand, rolled up from its rows.
-func rememberedChecksOf(reading StatusCheckReading) forge.RememberedAnswer[forge.Checks] {
-	return forge.RememberedAnswer[forge.Checks]{
+// rememberedChecksOf is where the checks on the latest read head stand, rolled up from its rows, and unspecified before any read.
+func rememberedChecksOf(reading StatusCheckReading) forge.RememberedAnswer[pullrequestv1.Checks] {
+	if reading.HeadSHA == "" {
+		return forge.RememberedAnswer[pullrequestv1.Checks]{}
+	}
+
+	return forge.RememberedAnswer[pullrequestv1.Checks]{
 		Value:              forge.RollupOf(reading.StatusChecks),
 		HeadSHA:            reading.HeadSHA,
 		WasLatestReadBlank: reading.Blank,
@@ -252,15 +276,24 @@ func rememberedChecksOf(reading StatusCheckReading) forge.RememberedAnswer[forge
 }
 
 // statusCheckRows is each check as a row of the reading.
-func statusCheckRows(readingID uuid.UUID, checks []forge.StatusCheck) []models.UpsertStatusChecksParams {
-	return xslice.Map(checks, func(check forge.StatusCheck) models.UpsertStatusChecksParams {
+func statusCheckRows(readingID uuid.UUID, checks []forge.StatusCheck) ([]models.UpsertStatusChecksParams, error) {
+	return xslice.TryMap(checks, func(check forge.StatusCheck) (models.UpsertStatusChecksParams, error) {
+		kind, err := fromServiceToDBStatusCheckKind(check.Kind)
+		if err != nil {
+			return models.UpsertStatusChecksParams{}, err
+		}
+		state, err := fromServiceToDBStatusCheckState(check.State)
+		if err != nil {
+			return models.UpsertStatusChecksParams{}, err
+		}
+
 		return models.UpsertStatusChecksParams{
 			ReadingID:    readingID,
 			ProviderID:   check.ProviderID,
-			Kind:         string(check.Kind),
+			Kind:         kind,
 			Source:       check.Source,
 			Name:         check.Name,
-			State:        string(check.State),
+			State:        state,
 			Conclusion:   check.Conclusion,
 			StartedAt:    check.StartedAt,
 			FinishedAt:   check.FinishedAt,
@@ -270,7 +303,7 @@ func statusCheckRows(readingID uuid.UUID, checks []forge.StatusCheck) []models.U
 			RunEvent:     check.RunEvent,
 			RunStartedAt: check.RunStartedAt,
 			JobID:        check.JobID,
-		}
+		}, nil
 	})
 }
 
@@ -281,24 +314,33 @@ func providerIDOf(check forge.StatusCheck) string {
 
 // statusCheckStepRows is every step of the checks as a row of the reading, each step of a check listed once,
 // the last listing of a number winning.
-func statusCheckStepRows(readingID uuid.UUID, checks []forge.StatusCheck) []models.UpsertStatusCheckStepsParams {
+func statusCheckStepRows(readingID uuid.UUID, checks []forge.StatusCheck) ([]models.UpsertStatusCheckStepsParams, error) {
 	rows := []models.UpsertStatusCheckStepsParams{}
 	for _, check := range checks {
-		rows = append(rows, xslice.Map(xslice.LastBy(check.Steps, numberOf), func(step forge.StatusCheckStep) models.UpsertStatusCheckStepsParams {
+		stepRows, err := xslice.TryMap(xslice.LastBy(check.Steps, numberOf), func(step forge.StatusCheckStep) (models.UpsertStatusCheckStepsParams, error) {
+			state, err := fromServiceToDBStatusCheckState(step.State)
+			if err != nil {
+				return models.UpsertStatusCheckStepsParams{}, err
+			}
+
 			return models.UpsertStatusCheckStepsParams{
 				ReadingID:  readingID,
 				ProviderID: check.ProviderID,
 				Number:     int32(step.Number),
 				Name:       step.Name,
-				State:      string(step.State),
+				State:      state,
 				Conclusion: step.Conclusion,
 				StartedAt:  step.StartedAt,
 				FinishedAt: step.FinishedAt,
-			}
-		})...)
+			}, nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		rows = append(rows, stepRows...)
 	}
 
-	return rows
+	return rows, nil
 }
 
 // numberOf is the step's number on its check run.

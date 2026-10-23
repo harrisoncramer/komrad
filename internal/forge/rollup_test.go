@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"komrad/lib/xptr"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -16,128 +17,128 @@ func TestRollupOf(t *testing.T) {
 
 	passed := StatusCheck{
 		Name:       "test",
-		State:      StatusCheckStateCompleted,
+		State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 		Conclusion: "success",
 	}
 	failed := StatusCheck{
 		Name:       "lint",
-		State:      StatusCheckStateCompleted,
+		State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 		Conclusion: "failure",
 	}
-	running := StatusCheck{Name: "e2e", State: StatusCheckStateRunning}
+	running := StatusCheck{Name: "e2e", State: pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING}
 
 	tests := []struct {
 		name   string
 		checks []StatusCheck
-		want   Checks
+		want   pullrequestv1.Checks
 	}{
 		{
 			name: "no checks is none",
-			want: ChecksNone,
+			want: pullrequestv1.Checks_CHECKS_NONE,
 		},
 		{
 			name: "every check passed is passing",
 			checks: []StatusCheck{passed, {
 				Name:       "docs",
-				State:      StatusCheckStateCompleted,
+				State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 				Conclusion: "skipped",
 			}, {
 				Name:       "scan",
-				State:      StatusCheckStateCompleted,
+				State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 				Conclusion: "neutral",
 			}},
-			want: ChecksPassing,
+			want: pullrequestv1.Checks_CHECKS_PASSING,
 		},
 		{
 			name:   "a check finished without passing is failing",
 			checks: []StatusCheck{passed, failed},
-			want:   ChecksFailing,
+			want:   pullrequestv1.Checks_CHECKS_FAILING,
 		},
 		{
 			name: "a cancelled check is failing",
 			checks: []StatusCheck{{
 				Name:       "test",
-				State:      StatusCheckStateCompleted,
+				State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 				Conclusion: "cancelled",
 			}},
-			want: ChecksFailing,
+			want: pullrequestv1.Checks_CHECKS_FAILING,
 		},
 		{
 			name:   "a failed check with another running is failing while running",
 			checks: []StatusCheck{failed, running},
-			want:   ChecksFailingRunning,
+			want:   pullrequestv1.Checks_CHECKS_FAILING_RUNNING,
 		},
 		{
 			name:   "a failed check with another queued is failing while running",
-			checks: []StatusCheck{failed, {Name: "e2e", State: StatusCheckStateQueued}},
-			want:   ChecksFailingRunning,
+			checks: []StatusCheck{failed, {Name: "e2e", State: pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED}},
+			want:   pullrequestv1.Checks_CHECKS_FAILING_RUNNING,
 		},
 		{
 			name:   "a failed check with another waiting is failing",
-			checks: []StatusCheck{failed, {Name: "deploy", State: StatusCheckStateWaiting}},
-			want:   ChecksFailing,
+			checks: []StatusCheck{failed, {Name: "deploy", State: pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_WAITING}},
+			want:   pullrequestv1.Checks_CHECKS_FAILING,
 		},
 		{
 			name:   "a check not finished with none failed is pending",
 			checks: []StatusCheck{passed, running},
-			want:   ChecksPending,
+			want:   pullrequestv1.Checks_CHECKS_PENDING,
 		},
 		{
 			name:   "a check waiting with none failed is pending",
-			checks: []StatusCheck{passed, {Name: "deploy", State: StatusCheckStateWaiting}},
-			want:   ChecksPending,
+			checks: []StatusCheck{passed, {Name: "deploy", State: pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_WAITING}},
+			want:   pullrequestv1.Checks_CHECKS_PENDING,
 		},
 		{
 			name:   "a check komrad stopped reading beside one passed is passing",
-			checks: []StatusCheck{passed, {Name: "e2e", State: StatusCheckStateUnknown}},
-			want:   ChecksPassing,
+			checks: []StatusCheck{passed, {Name: "e2e", State: pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_UNKNOWN}},
+			want:   pullrequestv1.Checks_CHECKS_PASSING,
 		},
 		{
 			name:   "only checks komrad stopped reading is none",
-			checks: []StatusCheck{{Name: "e2e", State: StatusCheckStateUnknown}},
-			want:   ChecksNone,
+			checks: []StatusCheck{{Name: "e2e", State: pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_UNKNOWN}},
+			want:   pullrequestv1.Checks_CHECKS_NONE,
 		},
 		{
 			name: "an optional check failing beside required ones passing is passing",
 			checks: []StatusCheck{{
 				Name:       "test",
-				State:      StatusCheckStateCompleted,
+				State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 				Conclusion: "success",
 				Required:   true,
 			}, failed},
-			want: ChecksPassing,
+			want: pullrequestv1.Checks_CHECKS_PASSING,
 		},
 		{
 			name: "an optional check running beside a required one failing is failing",
 			checks: []StatusCheck{{
 				Name:       "lint",
-				State:      StatusCheckStateCompleted,
+				State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 				Conclusion: "failure",
 				Required:   true,
 			}, running},
-			want: ChecksFailing,
+			want: pullrequestv1.Checks_CHECKS_FAILING,
 		},
 		{
 			name: "a failed check passing on a later run is passing",
 			checks: []StatusCheck{{
 				Name:       "lint",
-				State:      StatusCheckStateCompleted,
+				State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 				Conclusion: "failure",
 			}, passed, {
 				Name:       "lint",
-				State:      StatusCheckStateCompleted,
+				State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 				Conclusion: "success",
 			}},
-			want: ChecksPassing,
+			want: pullrequestv1.Checks_CHECKS_PASSING,
 		},
 		{
 			name: "a passed check failing on a later run is failing",
 			checks: []StatusCheck{passed, {
 				Name:       "test",
-				State:      StatusCheckStateCompleted,
+				State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 				Conclusion: "failure",
 			}},
-			want: ChecksFailing,
+			want: pullrequestv1.Checks_CHECKS_FAILING,
 		},
 	}
 	for _, tt := range tests {
@@ -169,41 +170,41 @@ func TestFailedStatusChecks(t *testing.T) {
 
 	failed := StatusCheck{
 		ProviderID: "1",
-		Kind:       StatusCheckKindRun,
+		Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 		Source:     "ci",
 		Name:       "lint",
-		State:      StatusCheckStateCompleted,
+		State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 		Conclusion: "failure",
 	}
 	rerunPassed := StatusCheck{
 		ProviderID: "2",
-		Kind:       StatusCheckKindRun,
+		Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 		Source:     "ci",
 		Name:       "lint",
-		State:      StatusCheckStateCompleted,
+		State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 		Conclusion: "success",
 	}
 	otherWorkflow := StatusCheck{
 		ProviderID: "3",
-		Kind:       StatusCheckKindRun,
+		Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 		Source:     "release",
 		Name:       "lint",
-		State:      StatusCheckStateCompleted,
+		State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 		Conclusion: "failure",
 	}
 	requiredPassed := StatusCheck{
 		ProviderID: "4",
-		Kind:       StatusCheckKindRun,
+		Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 		Source:     "ci",
 		Name:       "test",
-		State:      StatusCheckStateCompleted,
+		State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 		Conclusion: "success",
 		Required:   true,
 	}
 	running := StatusCheck{
 		ProviderID: "5",
 		Name:       "e2e",
-		State:      StatusCheckStateRunning,
+		State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING,
 	}
 
 	tests := []struct {

@@ -21,6 +21,7 @@ import (
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	"komrad/lib/xstr"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 )
@@ -185,7 +186,7 @@ func (s *AdoptService) agentOnBranch(ctx context.Context, workflowID uuid.UUID, 
 	}
 
 	working := xslice.Filter(agents, func(agent agentstore.Agent) bool {
-		return agent.WorkflowID == workflowID && agent.Role == agentstore.RoleWriter && isWorking(agent)
+		return agent.WorkflowID == workflowID && agent.Role == agentv1.AgentRole_AGENT_ROLE_WRITER && isWorking(agent)
 	})
 	found, err := s.tasks.ListTasksByID(ctx, agentstore.TaskIDs(working))
 	if err != nil {
@@ -216,7 +217,7 @@ func isAdopted(task taskstore.Task, branch string) bool {
 // isWorking reports whether an agent is still working, which rules out a create that never
 // launched and an archived one.
 func isWorking(agent agentstore.Agent) bool {
-	return agent.State != agentstore.StateFailedToCreate && agent.ArchivedAt == nil
+	return agent.State != agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE && agent.ArchivedAt == nil
 }
 
 // agentIn returns the agent other than a reviewer whose cwd is a directory, archived ones included.
@@ -227,7 +228,7 @@ func (s *AdoptService) agentIn(ctx context.Context, dir string) (*agentstore.Age
 	}
 
 	for _, agent := range agents {
-		if agent.Role == agentstore.RoleReviewer {
+		if agent.Role == agentv1.AgentRole_AGENT_ROLE_REVIEWER {
 			continue
 		}
 

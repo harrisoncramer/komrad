@@ -8,13 +8,12 @@ import (
 
 	"komrad/internal/rpc/render"
 	"komrad/internal/schedules"
+	schedulestore "komrad/internal/store/schedule"
 	"komrad/lib/xptr"
 	paginationv1 "komrad/proto/gen/pagination/v1"
 	schedulev1 "komrad/proto/gen/schedule/v1"
 	"komrad/proto/gen/schedule/v1/schedulev1komrad"
 	viewv1 "komrad/proto/gen/view/v1"
-
-	schedulestore "komrad/internal/store/schedule"
 
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
@@ -145,7 +144,7 @@ func TestScheduleWritesPassDown(t *testing.T) {
 		HideAgents: true,
 		Prompt:     "check CI",
 		WorkflowID: uuid.MustParse("01a0d228-0000-7000-8000-0000000000ff"),
-		Kind:       schedulestore.KindTask,
+		Kind:       schedulev1.ScheduleKind_SCHEDULE_KIND_TASK,
 	}
 	orchestratorID := uuid.MustParse("01a0d228-0000-7000-8000-0000000000aa")
 	mailing := schedulestore.Config{
@@ -154,7 +153,7 @@ func TestScheduleWritesPassDown(t *testing.T) {
 		Timezone:            cfg.Timezone,
 		Enabled:             cfg.Enabled,
 		Prompt:              cfg.Prompt,
-		Kind:                schedulestore.KindOrchestrator,
+		Kind:                schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR,
 		OrchestratorAgentID: &orchestratorID,
 	}
 
@@ -411,7 +410,7 @@ func TestListScheduleRuns(t *testing.T) {
 	run := schedulestore.Run{
 		ID:           7,
 		ScheduledFor: time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC),
-		State:        schedulestore.RunStateCancelled,
+		State:        schedulev1.ScheduleRunState_SCHEDULE_RUN_STATE_CANCELLED,
 		Attempt:      1,
 		MaxAttempts:  5,
 		Message:      "schedule is paused",

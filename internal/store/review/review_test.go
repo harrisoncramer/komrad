@@ -14,6 +14,7 @@ import (
 	"komrad/internal/storetest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/google/uuid"
@@ -36,7 +37,7 @@ type fixture struct {
 // empty, and otherwise a reviewer's review with that verdict.
 type tallyRelease struct {
 	tree    string
-	verdict Verdict
+	verdict agentv1.ReviewVerdict
 }
 
 // liveReviewerSeed is the writer and the reviewer on its task in a test of live reviewers.
@@ -77,7 +78,7 @@ func TestAnAuthorHoldsOneOpenReviewAtATime(t *testing.T) {
 	_, err := st.OpenReview(ctx, OpenReviewParams{
 		TaskID:        st.taskOf(t, agentID),
 		SnapshotID:    snapshot.ID,
-		AuthorKind:    AuthorAgent,
+		AuthorKind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
 		AuthorAgentID: &reviewerID,
 	})
 	require.Error(t, err, "a reviewer cannot write two reviews of one agent at once")
@@ -86,7 +87,7 @@ func TestAnAuthorHoldsOneOpenReviewAtATime(t *testing.T) {
 	_, err = st.OpenReview(ctx, OpenReviewParams{
 		TaskID:        st.taskOf(t, agentID),
 		SnapshotID:    snapshot.ID,
-		AuthorKind:    AuthorAgent,
+		AuthorKind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
 		AuthorAgentID: &other,
 	})
 	require.NoError(t, err, "another reviewer reviewing the same snapshot is a review of its own")
@@ -108,7 +109,7 @@ func TestReleasingAReviewCarriesEveryCommentInIt(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "the agent's answer is in no batch")
 
-	st.releaseReview(t, review, VerdictChangesRequested)
+	st.releaseReview(t, review, agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED)
 
 	assert.NotNil(t, st.messageBy(t, first.ID, reviewerID).ReviewReleasedAt)
 	assert.NotNil(t, st.messageBy(t, second.ID, reviewerID).ReviewReleasedAt)
@@ -128,13 +129,13 @@ func TestAThreadWithNoReviewIsListed(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, threads, 1)
 	assert.Nil(t, threads[0].ReviewID)
-	assert.Equal(t, AuthorHuman, threads[0].AuthorKind)
+	assert.Equal(t, agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN, threads[0].AuthorKind)
 	assert.Equal(t, snapshot.ID, threads[0].SnapshotID)
 
 	got, err := st.GetThread(ctx, opened.ID)
 	require.NoError(t, err)
 	assert.Nil(t, got.ReviewID)
-	assert.Equal(t, AuthorHuman, got.AuthorKind)
+	assert.Equal(t, agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN, got.AuthorKind)
 }
 
 // TestReadingTheMailStampsTheComment pins that the comments a mail carried are stamped read once,
@@ -436,11 +437,11 @@ func TestWritingInASettledThread(t *testing.T) {
 			writer := CreateMessageParams{
 				ThreadID:      thread.ID,
 				Body:          "one more thing",
-				AuthorKind:    AuthorHuman,
+				AuthorKind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
 				AuthorAgentID: agentIDs[tt.writer],
 			}
 			if writer.AuthorAgentID != nil {
-				writer.AuthorKind = AuthorAgent
+				writer.AuthorKind = agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT
 			}
 
 			said, err := st.CreateMessage(ctx, writer)
@@ -511,7 +512,7 @@ func TestAnAnswerCarryingASnapshotSettlesTheThread(t *testing.T) {
 			if tt.byReviewer {
 				review := st.openReviewBy(t, snapshot, st.seedReviewer(t, workerID))
 				thread = st.openThread(t, review, "this needs a nil check")
-				st.releaseReview(t, review, VerdictChangesRequested)
+				st.releaseReview(t, review, agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED)
 			} else {
 				thread = st.comment(t, snapshot, "this needs a nil check")
 			}
@@ -524,7 +525,7 @@ func TestAnAnswerCarryingASnapshotSettlesTheThread(t *testing.T) {
 			answer, err := st.CreateMessage(ctx, CreateMessageParams{
 				ThreadID:      thread.ID,
 				SnapshotID:    snapshotID,
-				AuthorKind:    AuthorAgent,
+				AuthorKind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
 				AuthorAgentID: &workerID,
 				Body:          "added the check",
 			})
@@ -534,7 +535,7 @@ func TestAnAnswerCarryingASnapshotSettlesTheThread(t *testing.T) {
 			if tt.followUp {
 				_, err := st.CreateMessage(ctx, CreateMessageParams{
 					ThreadID:      thread.ID,
-					AuthorKind:    AuthorAgent,
+					AuthorKind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
 					AuthorAgentID: &workerID,
 					Body:          "also renamed the helper",
 				})
@@ -545,7 +546,7 @@ func TestAnAnswerCarryingASnapshotSettlesTheThread(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantSettled, got.ResolvedAt != nil)
 			if tt.wantSettled {
-				assert.Equal(t, AuthorAgent, got.ResolvedByKind)
+				assert.Equal(t, agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT, got.ResolvedByKind)
 				assert.Equal(t, &workerID, got.ResolvedByAgentID)
 			}
 		})
@@ -566,7 +567,7 @@ func TestASuggestionIsCarriedWithTheComment(t *testing.T) {
 		NewEnd:     41,
 		Body:       "guard this",
 		Suggestion: []string{"if thing == nil {", "\treturn nil", "}"},
-		AuthorKind: AuthorHuman,
+		AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
 	})
 	require.NoError(t, err)
 
@@ -603,17 +604,17 @@ func TestListTallies(t *testing.T) {
 			releases: []tallyRelease{
 				{
 					tree:    "tree-one",
-					verdict: VerdictChangesRequested,
+					verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 				},
 				{
 					tree:    "tree-two",
-					verdict: VerdictChangesRequested,
+					verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 				},
 			},
 			openOn: "tree-three",
 			wantTally: &tally{
 				Snapshots:   2,
-				Verdict:     xptr.Ptr(VerdictChangesRequested),
+				Verdict:     agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 				SnapshotSHA: "snapshot-tree-two",
 			},
 		},
@@ -625,12 +626,12 @@ func TestListTallies(t *testing.T) {
 				},
 				{
 					tree:    "tree-one",
-					verdict: VerdictChangesRequested,
+					verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 				},
 			},
 			wantTally: &tally{
 				Snapshots:   1,
-				Verdict:     xptr.Ptr(VerdictChangesRequested),
+				Verdict:     agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 				SnapshotSHA: "snapshot-tree-one",
 			},
 		},
@@ -639,16 +640,16 @@ func TestListTallies(t *testing.T) {
 			releases: []tallyRelease{
 				{
 					tree:    "tree-one",
-					verdict: VerdictChangesRequested,
+					verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 				},
 				{
 					tree:    "tree-two",
-					verdict: VerdictApproved,
+					verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
 				},
 			},
 			wantTally: &tally{
 				Snapshots:   2,
-				Verdict:     xptr.Ptr(VerdictApproved),
+				Verdict:     agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
 				SnapshotSHA: "snapshot-tree-two",
 			},
 		},
@@ -657,7 +658,7 @@ func TestListTallies(t *testing.T) {
 			releases: []tallyRelease{
 				{
 					tree:    "tree-one",
-					verdict: VerdictApproved,
+					verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
 				},
 				{
 					tree: "tree-two",
@@ -665,7 +666,7 @@ func TestListTallies(t *testing.T) {
 			},
 			wantTally: &tally{
 				Snapshots:   2,
-				Verdict:     xptr.Ptr(VerdictApproved),
+				Verdict:     agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
 				SnapshotSHA: "snapshot-tree-one",
 			},
 		},
@@ -682,7 +683,7 @@ func TestListTallies(t *testing.T) {
 				if snapshots[released.tree] == nil {
 					snapshots[released.tree] = st.takeSnapshot(t, agentID, released.tree)
 				}
-				if released.verdict == "" {
+				if released.verdict == agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED {
 					st.comment(t, snapshots[released.tree], "a note")
 
 					continue
@@ -848,7 +849,7 @@ func TestTheOpenReviewIsTheOneStillBeingWritten(t *testing.T) {
 	reviewerID := st.seedReviewer(t, agentID)
 	author := OpenReviewOfParams{
 		TaskID:        st.taskOf(t, agentID),
-		AuthorKind:    AuthorAgent,
+		AuthorKind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
 		AuthorAgentID: &reviewerID,
 	}
 
@@ -861,7 +862,7 @@ func TestTheOpenReviewIsTheOneStillBeingWritten(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, review.ID, held.ID)
 
-	st.releaseReview(t, review, VerdictCommented)
+	st.releaseReview(t, review, agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED)
 
 	_, err = st.OpenReviewOf(ctx, author)
 	require.ErrorIs(t, err, store.ErrNotFound, "a batch that has gone is not still being written")
@@ -875,7 +876,7 @@ func TestDeletingAnAuthorsOpenReviewsLeavesWhatTheyReleased(t *testing.T) {
 	reviewer := st.seedAgent(t, "reviewer")
 
 	released := st.openReviewBy(t, st.takeSnapshot(t, agentID, "tree-one"), reviewer)
-	st.releaseReview(t, released, VerdictChangesRequested)
+	st.releaseReview(t, released, agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED)
 	draft := st.openReviewBy(t, st.takeSnapshot(t, agentID, "tree-two"), reviewer)
 
 	require.NoError(t, st.DeleteOpenReviewsBy(ctx, []uuid.UUID{reviewer}))
@@ -898,14 +899,14 @@ func TestLiveReviewers(t *testing.T) {
 		{
 			name: "a reviewer that approved",
 			leave: func(t *testing.T, st *fixture, seeded liveReviewerSeed) {
-				st.releaseReview(t, st.openReviewBy(t, st.takeSnapshot(t, seeded.writerID, "tree-one"), seeded.reviewerID), VerdictChangesRequested)
-				st.releaseReview(t, st.openReviewBy(t, st.takeSnapshot(t, seeded.writerID, "tree-two"), seeded.reviewerID), VerdictApproved)
+				st.releaseReview(t, st.openReviewBy(t, st.takeSnapshot(t, seeded.writerID, "tree-one"), seeded.reviewerID), agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED)
+				st.releaseReview(t, st.openReviewBy(t, st.takeSnapshot(t, seeded.writerID, "tree-two"), seeded.reviewerID), agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED)
 			},
 		},
 		{
 			name: "a reviewer whose setup failed",
 			leave: func(t *testing.T, st *fixture, seeded liveReviewerSeed) {
-				require.NoError(t, st.agents.SetStateByID(t.Context(), seeded.reviewerID, agentstore.StateFailedToCreate))
+				require.NoError(t, st.agents.SetStateByID(t.Context(), seeded.reviewerID, agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE))
 			},
 		},
 		{
@@ -916,7 +917,7 @@ func TestLiveReviewers(t *testing.T) {
 		{
 			name: "a reviewer that asked for changes",
 			leave: func(t *testing.T, st *fixture, seeded liveReviewerSeed) {
-				st.releaseReview(t, st.openReviewBy(t, st.takeSnapshot(t, seeded.writerID, "tree-one"), seeded.reviewerID), VerdictChangesRequested)
+				st.releaseReview(t, st.openReviewBy(t, st.takeSnapshot(t, seeded.writerID, "tree-one"), seeded.reviewerID), agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED)
 			},
 			wantLive: true,
 		},
@@ -961,7 +962,7 @@ func TestLiveReviewersAreOldestFirst(t *testing.T) {
 	taskID := st.taskOf(t, writerID)
 	second := st.seedAgentLike(t, agentstore.Agent{
 		Name:   "writer-second-reviewer",
-		Role:   agentstore.RoleReviewer,
+		Role:   agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 		TaskID: &taskID,
 	})
 
@@ -982,7 +983,7 @@ func TestAReviewCountsWhatIsStillOwedAnAnswer(t *testing.T) {
 
 	first := st.openThread(t, review, "this needs a nil check")
 	second := st.openThread(t, review, "and this reads the flag twice")
-	st.releaseReview(t, review, VerdictChangesRequested)
+	st.releaseReview(t, review, agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED)
 
 	listed = st.findListedReview(t, review)
 	assert.Equal(t, int32(2), listed.OpenThreads, "both comments are owed an answer")
@@ -1038,7 +1039,7 @@ func (st *fixture) seedReviewer(t *testing.T, writerID uuid.UUID) uuid.UUID {
 
 	return st.seedAgentLike(t, agentstore.Agent{
 		Name:   writer.Name + "-reviewer",
-		Role:   agentstore.RoleReviewer,
+		Role:   agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 		TaskID: &taskID,
 	})
 }
@@ -1046,7 +1047,7 @@ func (st *fixture) seedReviewer(t *testing.T, writerID uuid.UUID) uuid.UUID {
 func (st *fixture) seedAgentLike(t *testing.T, agent agentstore.Agent) uuid.UUID {
 	t.Helper()
 
-	agent.State = agentstore.StateIdle
+	agent.State = agentv1.AgentState_AGENT_STATE_IDLE
 	agent.WorkflowID = st.workflow
 
 	return st.stores.SeedAgent(t, agent).ID
@@ -1094,7 +1095,7 @@ func (st *fixture) openReviewBy(t *testing.T, snapshot *Snapshot, reviewerID uui
 	review, err := st.OpenReview(t.Context(), OpenReviewParams{
 		TaskID:        snapshot.TaskID,
 		SnapshotID:    snapshot.ID,
-		AuthorKind:    AuthorAgent,
+		AuthorKind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
 		AuthorAgentID: &reviewerID,
 	})
 	require.NoError(t, err)
@@ -1115,7 +1116,7 @@ func (st *fixture) comment(t *testing.T, snapshot *Snapshot, body string) *Threa
 		NewEnd:      41,
 		QuotedLines: []string{"+\tdoThing()"},
 		Body:        body,
-		AuthorKind:  AuthorHuman,
+		AuthorKind:  agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, thread)
@@ -1131,7 +1132,7 @@ func (st *fixture) mailComment(t *testing.T, thread *Thread) uuid.UUID {
 	sent, err := st.mail.Send(t.Context(), mailstore.SendParams{
 		ToAgentID: st.writerOf(t, thread.TaskID),
 		Body:      "this needs a nil check",
-		Kind:      mailstore.KindReviewComment,
+		Kind:      agentv1.MailKind_MAIL_KIND_REVIEW_COMMENT,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, sent)
@@ -1175,7 +1176,7 @@ func (st *fixture) openThread(t *testing.T, review *Review, body string) *Thread
 		NewEnd:        41,
 		QuotedLines:   []string{"+\tdoThing()"},
 		Body:          body,
-		AuthorKind:    AuthorAgent,
+		AuthorKind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
 		AuthorAgentID: review.AuthorAgentID,
 	})
 	require.NoError(t, err)
@@ -1190,7 +1191,7 @@ func (st *fixture) writeAnswer(t *testing.T, thread *Thread) *Message {
 
 	answer, err := st.CreateMessage(t.Context(), CreateMessageParams{
 		ThreadID:      thread.ID,
-		AuthorKind:    AuthorAgent,
+		AuthorKind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
 		AuthorAgentID: xptr.Ptr(st.writerOf(t, thread.TaskID)),
 		Body:          "done",
 	})
@@ -1203,9 +1204,9 @@ func (st *fixture) writeAnswer(t *testing.T, thread *Thread) *Message {
 func (st *fixture) settle(t *testing.T, thread *Thread, agentID *uuid.UUID) {
 	t.Helper()
 
-	byKind := AuthorHuman
+	byKind := agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN
 	if agentID != nil {
-		byKind = AuthorAgent
+		byKind = agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT
 	}
 
 	_, err := st.SetThreadResolved(t.Context(), SetThreadResolvedParams{
@@ -1218,7 +1219,7 @@ func (st *fixture) settle(t *testing.T, thread *Thread, agentID *uuid.UUID) {
 }
 
 // releaseReview lets a reviewer agent's review go.
-func (st *fixture) releaseReview(t *testing.T, review *Review, verdict Verdict) {
+func (st *fixture) releaseReview(t *testing.T, review *Review, verdict agentv1.ReviewVerdict) {
 	t.Helper()
 
 	_, err := st.ReleaseReview(t.Context(), ReleaseReviewParams{

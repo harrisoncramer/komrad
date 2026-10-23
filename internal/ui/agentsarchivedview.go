@@ -51,7 +51,7 @@ func (a *archivedAgents) docRows(in screen.Inputs, width int) []string {
 
 // archiveDocument is what the panel renders beside an archived agent's row.
 func archiveDocument(agent panel.Agent) string {
-	if agent.State.IsFailed() {
+	if panel.IsFailed(agent.State) {
 		return failedPlaceholder(agent)
 	}
 

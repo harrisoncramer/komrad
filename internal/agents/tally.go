@@ -6,6 +6,7 @@ import (
 	"time"
 
 	agentstore "komrad/internal/store/agent"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 )
@@ -37,7 +38,7 @@ type tally struct {
 type trackedAgent struct {
 	misses int
 	// missesToward is the state the current run of misses is evidence for.
-	missesToward      agentstore.State
+	missesToward      agentv1.AgentState
 	listingsMissing   int
 	shellSince        time.Time
 	turnEnd           time.Time
@@ -116,7 +117,7 @@ func (t *tally) hasFreshTurnEnd(agent agentstore.Agent) bool {
 	return entry.turnEnd.Equal(*agent.Turn.EndedAt) && t.now().Sub(entry.turnEndSeen) < turnEndGrace
 }
 
-func (t *tally) recordMiss(agentID uuid.UUID, state agentstore.State) int {
+func (t *tally) recordMiss(agentID uuid.UUID, state agentv1.AgentState) int {
 	misses := 0
 	t.update(agentID, func(entry *trackedAgent) {
 		if entry.missesToward != state {
@@ -133,7 +134,7 @@ func (t *tally) recordMiss(agentID uuid.UUID, state agentstore.State) int {
 func (t *tally) clearMisses(agentID uuid.UUID) {
 	t.updateExisting(agentID, func(entry *trackedAgent) {
 		entry.misses = 0
-		entry.missesToward = ""
+		entry.missesToward = agentv1.AgentState_AGENT_STATE_UNSPECIFIED
 	})
 }
 
@@ -142,7 +143,7 @@ func (t *tally) clearMisses(agentID uuid.UUID) {
 func (t *tally) clearDebounce(agentID uuid.UUID) {
 	t.updateExisting(agentID, func(entry *trackedAgent) {
 		entry.misses = 0
-		entry.missesToward = ""
+		entry.missesToward = agentv1.AgentState_AGENT_STATE_UNSPECIFIED
 		entry.listingsMissing = 0
 		entry.shellSince = time.Time{}
 		entry.unrecognizedHolds = 0

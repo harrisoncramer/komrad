@@ -1,0 +1,150 @@
+// The agent.v1 enums, in Edition 2026 so that each value's JSON name is its lowercase word.
+// event/v1/event.proto says why Edition 2026 needs release candidates.
+edition = "2026";
+
+package agent.v1;
+
+import option "google/protobuf/json_enumvalue_options.proto";
+
+option go_package = "komrad/proto/gen/agent/v1;agentv1";
+
+// ReviewAuthorKind is who wrote a review or comment.
+export enum ReviewAuthorKind {
+  // No author was recorded.
+  REVIEW_AUTHOR_KIND_UNSPECIFIED = 0;
+  // The person.
+  REVIEW_AUTHOR_KIND_HUMAN = 1 [(pb.enumvalue.json).string = "human"];
+  // An agent, either the writer or a reviewer.
+  REVIEW_AUTHOR_KIND_AGENT = 2 [(pb.enumvalue.json).string = "agent"];
+  // A forge user, whose comment komrad copied from the pull request.
+  REVIEW_AUTHOR_KIND_FORGE = 3 [(pb.enumvalue.json).string = "forge"];
+}
+
+// ReviewVerdict is what a review concludes about a snapshot.
+export enum ReviewVerdict {
+  // No verdict. An unreleased review has this value.
+  REVIEW_VERDICT_UNSPECIFIED = 0;
+  // The snapshot is good as it stands.
+  REVIEW_VERDICT_APPROVED = 1 [(pb.enumvalue.json).string = "approved"];
+  // The writer has more to do.
+  REVIEW_VERDICT_CHANGES_REQUESTED = 2 [(pb.enumvalue.json).string = "changes_requested"];
+  // Comments with no conclusion either way.
+  REVIEW_VERDICT_COMMENTED = 3 [(pb.enumvalue.json).string = "commented"];
+}
+
+// ReviewWidenedReason is why komrad diffed the whole change instead of the requested span.
+export enum ReviewWidenedReason {
+  // No reason was recorded. No widening has this value.
+  REVIEW_WIDENED_REASON_UNSPECIFIED = 0;
+  // The snapshots the answer stands between are gone.
+  REVIEW_WIDENED_REASON_ANSWER_GONE = 1 [(pb.enumvalue.json).string = "answer_gone"];
+  // The snapshot the comment was written on is gone.
+  REVIEW_WIDENED_REASON_COMMENT_SNAPSHOT_GONE = 2 [(pb.enumvalue.json).string = "comment_snapshot_gone"];
+  // A snapshot the range stands between is gone.
+  REVIEW_WIDENED_REASON_RANGE_SNAPSHOT_GONE = 3 [(pb.enumvalue.json).string = "range_snapshot_gone"];
+  // The range starts on or after the snapshot it ends on.
+  REVIEW_WIDENED_REASON_RANGE_BACKWARDS = 4 [(pb.enumvalue.json).string = "range_backwards"];
+  // The answer's older side could not be replayed across the rebase between its snapshots.
+  // `conflicts` names the paths that stopped it.
+  REVIEW_WIDENED_REASON_ANSWER_ACROSS_REBASE = 5 [(pb.enumvalue.json).string = "answer_across_rebase"];
+}
+
+// ForgeReplyState is how far a reply komrad posts to the forge has got.
+export enum ForgeReplyState {
+  // No state was recorded.
+  FORGE_REPLY_STATE_UNSPECIFIED = 0;
+  // Approved and waiting to be posted.
+  FORGE_REPLY_STATE_APPROVED = 1 [(pb.enumvalue.json).string = "approved"];
+  // Being posted. The forge may already have it.
+  FORGE_REPLY_STATE_SENDING = 2 [(pb.enumvalue.json).string = "sending"];
+  // Accepted by the forge.
+  FORGE_REPLY_STATE_SENT = 3 [(pb.enumvalue.json).string = "sent"];
+  // Refused by the forge on the latest attempt, waiting for the person to retry or discard it.
+  FORGE_REPLY_STATE_FAILED = 4 [(pb.enumvalue.json).string = "failed"];
+}
+
+// AgentState is what komrad last read an agent to be doing, from the end of its pane.
+export enum AgentState {
+  // No state was recorded. No agent has this state.
+  AGENT_STATE_UNSPECIFIED = 0;
+  // The CLI is at rest with nothing typed.
+  AGENT_STATE_IDLE = 1 [(pb.enumvalue.json).string = "idle"];
+  // The CLI is working on a turn.
+  AGENT_STATE_THINKING = 2 [(pb.enumvalue.json).string = "thinking"];
+  // The CLI is waiting for the person to answer a selection.
+  AGENT_STATE_WAITING = 3 [(pb.enumvalue.json).string = "waiting"];
+  // The agent is launching and has no pane to read yet.
+  AGENT_STATE_SETTING_UP = 4 [(pb.enumvalue.json).string = "setting_up"];
+  // The launch failed. `retry_agent` launches the agent again.
+  AGENT_STATE_FAILED_TO_CREATE = 5 [(pb.enumvalue.json).string = "failed_to_create"];
+  // A delete failed to clean up after the agent. `failure_reason` says why.
+  AGENT_STATE_FAILED_TO_CLEANUP = 6 [(pb.enumvalue.json).string = "failed_to_cleanup"];
+  // The pane could be read, but its end showed no known state.
+  AGENT_STATE_UNCERTAIN = 7 [(pb.enumvalue.json).string = "uncertain"];
+  // The CLI is at rest after an API error ended the last turn. `turn_error` names the error.
+  AGENT_STATE_ERRORED = 8 [(pb.enumvalue.json).string = "errored"];
+}
+
+// AgentRole is what an agent was launched to do.
+export enum AgentRole {
+  // No role was recorded. No agent has this role.
+  AGENT_ROLE_UNSPECIFIED = 0;
+  // An agent on a task that reads the writer's change and gives a review.
+  AGENT_ROLE_REVIEWER = 1 [(pb.enumvalue.json).string = "reviewer"];
+  // The one agent per workflow that hands work out across its tasks.
+  AGENT_ROLE_ORCHESTRATOR = 2 [(pb.enumvalue.json).string = "orchestrator"];
+  // The one agent on a task that changes its checkout.
+  AGENT_ROLE_WRITER = 3 [(pb.enumvalue.json).string = "writer"];
+}
+
+// ReportEvent is what a CLI hook reported about an agent, whichever CLI ran it.
+export enum ReportEvent {
+  // No event was reported. `RecordReport` refuses this value.
+  REPORT_EVENT_UNSPECIFIED = 0;
+  // A turn ended on its own.
+  REPORT_EVENT_TURN_ENDED = 1 [(pb.enumvalue.json).string = "turn_ended"];
+  // An API error ended a turn.
+  REPORT_EVENT_TURN_FAILED = 2 [(pb.enumvalue.json).string = "turn_failed"];
+  // A tool call is about to run.
+  REPORT_EVENT_TOOL_STARTED = 3 [(pb.enumvalue.json).string = "tool_started"];
+  // A tool call returned or failed.
+  REPORT_EVENT_TOOL_FINISHED = 4 [(pb.enumvalue.json).string = "tool_finished"];
+  // A tool call is waiting for the person to allow it.
+  REPORT_EVENT_APPROVAL_WANTED = 5 [(pb.enumvalue.json).string = "approval_wanted"];
+  // The conversation was just compacted.
+  REPORT_EVENT_COMPACTED = 6 [(pb.enumvalue.json).string = "compacted"];
+}
+
+// MailKind is who wrote a piece of mail and why.
+export enum MailKind {
+  // No kind was recorded.
+  MAIL_KIND_UNSPECIFIED = 0;
+  // Mail from an agent or the person.
+  MAIL_KIND_PLAIN = 1 [(pb.enumvalue.json).string = "plain"];
+  // From komrad: a review changed. The mail names the file the review was written to.
+  MAIL_KIND_REVIEW_ACTIVITY = 2 [(pb.enumvalue.json).string = "review_activity"];
+  // From komrad: the agent and one other agent have used up their mail limit with each other.
+  MAIL_KIND_EXCHANGE_CAPPED = 3 [(pb.enumvalue.json).string = "exchange_capped"];
+  // From komrad: the person wrote or edited one of the agent's documents.
+  MAIL_KIND_DOCUMENT_EDITED = 4 [(pb.enumvalue.json).string = "document_edited"];
+  // From komrad: a pull request on the agent's branch changed on the forge.
+  MAIL_KIND_PULL_REQUEST_CHANGED = 5 [(pb.enumvalue.json).string = "pull_request_changed"];
+  // From komrad: komrad rebased the agent's worktree, or tried to.
+  MAIL_KIND_WORKTREE_REBASED = 6 [(pb.enumvalue.json).string = "worktree_rebased"];
+  // From komrad: the agent's branch was force-pushed to origin.
+  MAIL_KIND_WORKTREE_PUSHED = 7 [(pb.enumvalue.json).string = "worktree_pushed"];
+  // From komrad: the sequence stopped in the agent's worktree was aborted.
+  MAIL_KIND_WORKTREE_ABORTED = 8 [(pb.enumvalue.json).string = "worktree_aborted"];
+  // From komrad: the person commented on the agent's work. The mail carries the comment.
+  MAIL_KIND_REVIEW_COMMENT = 9 [(pb.enumvalue.json).string = "review_comment"];
+}
+
+// MailDirection is whether a listing returns the mail an agent received or sent.
+export enum MailDirection {
+  // No direction was chosen. Treated as `received`.
+  MAIL_DIRECTION_UNSPECIFIED = 0;
+  // The mail sent to the agent.
+  MAIL_DIRECTION_RECEIVED = 1 [(pb.enumvalue.json).string = "received"];
+  // The mail the agent sent.
+  MAIL_DIRECTION_SENT = 2 [(pb.enumvalue.json).string = "sent"];
+}

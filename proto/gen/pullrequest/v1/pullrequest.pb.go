@@ -26,499 +26,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// PullRequestState is the state of a pull request, worked out from the forge's report. A finished
-// state wins over an open one.
-type PullRequestState int32
-
-const (
-	// No state was recorded. No pull request has this value.
-	PullRequestState_PULL_REQUEST_STATE_UNSPECIFIED PullRequestState = 0
-	// Komrad has not read the repository yet.
-	PullRequestState_PULL_REQUEST_STATE_UNREAD PullRequestState = 1
-	// Komrad read the repository and found no pull request from the branch.
-	PullRequestState_PULL_REQUEST_STATE_NONE PullRequestState = 2
-	// Open, with no review decision that decides it.
-	PullRequestState_PULL_REQUEST_STATE_OPEN PullRequestState = 3
-	// Open, and the forge would merge it now.
-	PullRequestState_PULL_REQUEST_STATE_APPROVED PullRequestState = 4
-	// Open, with a reviewer asking for changes.
-	PullRequestState_PULL_REQUEST_STATE_CHANGES_REQUESTED PullRequestState = 5
-	// A draft, whatever its reviews say.
-	PullRequestState_PULL_REQUEST_STATE_DRAFT PullRequestState = 6
-	// Merged.
-	PullRequestState_PULL_REQUEST_STATE_MERGED PullRequestState = 7
-	// Closed without merging.
-	PullRequestState_PULL_REQUEST_STATE_CLOSED PullRequestState = 8
-	// Open, with a failing check on the head commit, whatever its reviews say.
-	PullRequestState_PULL_REQUEST_STATE_FAILING PullRequestState = 9
-	// Approved, but behind its base branch or blocked by a branch rule.
-	PullRequestState_PULL_REQUEST_STATE_APPROVED_WAITING PullRequestState = 10
-	// Open, and in conflict with its base branch, whatever its reviews say.
-	PullRequestState_PULL_REQUEST_STATE_CONFLICTING PullRequestState = 11
-	// Open, with checks running on the head commit and no reviewer asking for changes.
-	PullRequestState_PULL_REQUEST_STATE_CHECKS_RUNNING PullRequestState = 12
-	// Open, and every reviewer who asked for changes has been asked to review again.
-	PullRequestState_PULL_REQUEST_STATE_REREVIEW_REQUESTED PullRequestState = 13
-)
-
-// Enum value maps for PullRequestState.
-var (
-	PullRequestState_name = map[int32]string{
-		0:  "PULL_REQUEST_STATE_UNSPECIFIED",
-		1:  "PULL_REQUEST_STATE_UNREAD",
-		2:  "PULL_REQUEST_STATE_NONE",
-		3:  "PULL_REQUEST_STATE_OPEN",
-		4:  "PULL_REQUEST_STATE_APPROVED",
-		5:  "PULL_REQUEST_STATE_CHANGES_REQUESTED",
-		6:  "PULL_REQUEST_STATE_DRAFT",
-		7:  "PULL_REQUEST_STATE_MERGED",
-		8:  "PULL_REQUEST_STATE_CLOSED",
-		9:  "PULL_REQUEST_STATE_FAILING",
-		10: "PULL_REQUEST_STATE_APPROVED_WAITING",
-		11: "PULL_REQUEST_STATE_CONFLICTING",
-		12: "PULL_REQUEST_STATE_CHECKS_RUNNING",
-		13: "PULL_REQUEST_STATE_REREVIEW_REQUESTED",
-	}
-	PullRequestState_value = map[string]int32{
-		"PULL_REQUEST_STATE_UNSPECIFIED":        0,
-		"PULL_REQUEST_STATE_UNREAD":             1,
-		"PULL_REQUEST_STATE_NONE":               2,
-		"PULL_REQUEST_STATE_OPEN":               3,
-		"PULL_REQUEST_STATE_APPROVED":           4,
-		"PULL_REQUEST_STATE_CHANGES_REQUESTED":  5,
-		"PULL_REQUEST_STATE_DRAFT":              6,
-		"PULL_REQUEST_STATE_MERGED":             7,
-		"PULL_REQUEST_STATE_CLOSED":             8,
-		"PULL_REQUEST_STATE_FAILING":            9,
-		"PULL_REQUEST_STATE_APPROVED_WAITING":   10,
-		"PULL_REQUEST_STATE_CONFLICTING":        11,
-		"PULL_REQUEST_STATE_CHECKS_RUNNING":     12,
-		"PULL_REQUEST_STATE_REREVIEW_REQUESTED": 13,
-	}
-)
-
-func (x PullRequestState) Enum() *PullRequestState {
-	p := new(PullRequestState)
-	*p = x
-	return p
-}
-
-func (x PullRequestState) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (PullRequestState) Descriptor() protoreflect.EnumDescriptor {
-	return file_pullrequest_v1_pullrequest_proto_enumTypes[0].Descriptor()
-}
-
-func (PullRequestState) Type() protoreflect.EnumType {
-	return &file_pullrequest_v1_pullrequest_proto_enumTypes[0]
-}
-
-func (x PullRequestState) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use PullRequestState.Descriptor instead.
-func (PullRequestState) EnumDescriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{0}
-}
-
-// Mergeability is whether the forge would merge a pull request, given its base branch and branch
-// rules.
-type Mergeability int32
-
-const (
-	// No value was recorded.
-	Mergeability_MERGEABILITY_UNSPECIFIED Mergeability = 0
-	// The forge has not worked it out yet.
-	Mergeability_MERGEABILITY_UNKNOWN Mergeability = 1
-	// The forge would merge the pull request now.
-	Mergeability_MERGEABILITY_CLEAN Mergeability = 2
-	// Some checks are not passing.
-	Mergeability_MERGEABILITY_UNSTABLE Mergeability = 3
-	// A branch rule is not met, such as a required review.
-	Mergeability_MERGEABILITY_BLOCKED Mergeability = 4
-	// The base branch has commits the pull request's branch does not.
-	Mergeability_MERGEABILITY_BEHIND Mergeability = 5
-	// The branch is in conflict with its base branch.
-	Mergeability_MERGEABILITY_CONFLICTING Mergeability = 6
-)
-
-// Enum value maps for Mergeability.
-var (
-	Mergeability_name = map[int32]string{
-		0: "MERGEABILITY_UNSPECIFIED",
-		1: "MERGEABILITY_UNKNOWN",
-		2: "MERGEABILITY_CLEAN",
-		3: "MERGEABILITY_UNSTABLE",
-		4: "MERGEABILITY_BLOCKED",
-		5: "MERGEABILITY_BEHIND",
-		6: "MERGEABILITY_CONFLICTING",
-	}
-	Mergeability_value = map[string]int32{
-		"MERGEABILITY_UNSPECIFIED": 0,
-		"MERGEABILITY_UNKNOWN":     1,
-		"MERGEABILITY_CLEAN":       2,
-		"MERGEABILITY_UNSTABLE":    3,
-		"MERGEABILITY_BLOCKED":     4,
-		"MERGEABILITY_BEHIND":      5,
-		"MERGEABILITY_CONFLICTING": 6,
-	}
-)
-
-func (x Mergeability) Enum() *Mergeability {
-	p := new(Mergeability)
-	*p = x
-	return p
-}
-
-func (x Mergeability) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (Mergeability) Descriptor() protoreflect.EnumDescriptor {
-	return file_pullrequest_v1_pullrequest_proto_enumTypes[1].Descriptor()
-}
-
-func (Mergeability) Type() protoreflect.EnumType {
-	return &file_pullrequest_v1_pullrequest_proto_enumTypes[1]
-}
-
-func (x Mergeability) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use Mergeability.Descriptor instead.
-func (Mergeability) EnumDescriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{1}
-}
-
-// ReviewDecision is the forge's decision on a pull request's reviews.
-type ReviewDecision int32
-
-const (
-	// No value was recorded.
-	ReviewDecision_REVIEW_DECISION_UNSPECIFIED ReviewDecision = 0
-	// The forge reports no decision.
-	ReviewDecision_REVIEW_DECISION_NONE ReviewDecision = 1
-	// A required review has not been given.
-	ReviewDecision_REVIEW_DECISION_PENDING ReviewDecision = 2
-	// The forge counts the pull request as approved.
-	ReviewDecision_REVIEW_DECISION_APPROVED ReviewDecision = 3
-	// A reviewer is asking for changes.
-	ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED ReviewDecision = 4
-	// Every reviewer who asked for changes has been asked to review again.
-	ReviewDecision_REVIEW_DECISION_REREVIEW_REQUESTED ReviewDecision = 5
-)
-
-// Enum value maps for ReviewDecision.
-var (
-	ReviewDecision_name = map[int32]string{
-		0: "REVIEW_DECISION_UNSPECIFIED",
-		1: "REVIEW_DECISION_NONE",
-		2: "REVIEW_DECISION_PENDING",
-		3: "REVIEW_DECISION_APPROVED",
-		4: "REVIEW_DECISION_CHANGES_REQUESTED",
-		5: "REVIEW_DECISION_REREVIEW_REQUESTED",
-	}
-	ReviewDecision_value = map[string]int32{
-		"REVIEW_DECISION_UNSPECIFIED":        0,
-		"REVIEW_DECISION_NONE":               1,
-		"REVIEW_DECISION_PENDING":            2,
-		"REVIEW_DECISION_APPROVED":           3,
-		"REVIEW_DECISION_CHANGES_REQUESTED":  4,
-		"REVIEW_DECISION_REREVIEW_REQUESTED": 5,
-	}
-)
-
-func (x ReviewDecision) Enum() *ReviewDecision {
-	p := new(ReviewDecision)
-	*p = x
-	return p
-}
-
-func (x ReviewDecision) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (ReviewDecision) Descriptor() protoreflect.EnumDescriptor {
-	return file_pullrequest_v1_pullrequest_proto_enumTypes[2].Descriptor()
-}
-
-func (ReviewDecision) Type() protoreflect.EnumType {
-	return &file_pullrequest_v1_pullrequest_proto_enumTypes[2]
-}
-
-func (x ReviewDecision) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use ReviewDecision.Descriptor instead.
-func (ReviewDecision) EnumDescriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{2}
-}
-
-// Checks is the overall state of the checks on a pull request's head commit.
-type Checks int32
-
-const (
-	// No value was recorded.
-	Checks_CHECKS_UNSPECIFIED Checks = 0
-	// The head commit has no checks.
-	Checks_CHECKS_NONE Checks = 1
-	// Checks are still running.
-	Checks_CHECKS_PENDING Checks = 2
-	// Every check passed.
-	Checks_CHECKS_PASSING Checks = 3
-	// At least one check failed, and every check has finished.
-	Checks_CHECKS_FAILING Checks = 4
-	// At least one check failed, and others are still running.
-	Checks_CHECKS_FAILING_RUNNING Checks = 5
-)
-
-// Enum value maps for Checks.
-var (
-	Checks_name = map[int32]string{
-		0: "CHECKS_UNSPECIFIED",
-		1: "CHECKS_NONE",
-		2: "CHECKS_PENDING",
-		3: "CHECKS_PASSING",
-		4: "CHECKS_FAILING",
-		5: "CHECKS_FAILING_RUNNING",
-	}
-	Checks_value = map[string]int32{
-		"CHECKS_UNSPECIFIED":     0,
-		"CHECKS_NONE":            1,
-		"CHECKS_PENDING":         2,
-		"CHECKS_PASSING":         3,
-		"CHECKS_FAILING":         4,
-		"CHECKS_FAILING_RUNNING": 5,
-	}
-)
-
-func (x Checks) Enum() *Checks {
-	p := new(Checks)
-	*p = x
-	return p
-}
-
-func (x Checks) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (Checks) Descriptor() protoreflect.EnumDescriptor {
-	return file_pullrequest_v1_pullrequest_proto_enumTypes[3].Descriptor()
-}
-
-func (Checks) Type() protoreflect.EnumType {
-	return &file_pullrequest_v1_pullrequest_proto_enumTypes[3]
-}
-
-func (x Checks) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use Checks.Descriptor instead.
-func (Checks) EnumDescriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{3}
-}
-
-// CheckLogState is the state of fetching a check's log.
-type CheckLogState int32
-
-const (
-	// No state was recorded.
-	CheckLogState_CHECK_LOG_STATE_UNSPECIFIED CheckLogState = 0
-	// The check has no log to fetch.
-	CheckLogState_CHECK_LOG_STATE_NONE CheckLogState = 1
-	// The check has not finished, or komrad has not fetched its log yet.
-	CheckLogState_CHECK_LOG_STATE_PENDING CheckLogState = 2
-	// Komrad fetched and keeps the log.
-	CheckLogState_CHECK_LOG_STATE_FETCHED CheckLogState = 3
-	// The log is larger than komrad keeps, so komrad keeps none of it.
-	CheckLogState_CHECK_LOG_STATE_TOO_LARGE CheckLogState = 4
-	// The forge never had a log for the check.
-	CheckLogState_CHECK_LOG_STATE_MISSING CheckLogState = 5
-	// The forge no longer has the log.
-	CheckLogState_CHECK_LOG_STATE_EXPIRED CheckLogState = 6
-	// Komrad stopped trying to fetch the log.
-	CheckLogState_CHECK_LOG_STATE_FAILED CheckLogState = 7
-)
-
-// Enum value maps for CheckLogState.
-var (
-	CheckLogState_name = map[int32]string{
-		0: "CHECK_LOG_STATE_UNSPECIFIED",
-		1: "CHECK_LOG_STATE_NONE",
-		2: "CHECK_LOG_STATE_PENDING",
-		3: "CHECK_LOG_STATE_FETCHED",
-		4: "CHECK_LOG_STATE_TOO_LARGE",
-		5: "CHECK_LOG_STATE_MISSING",
-		6: "CHECK_LOG_STATE_EXPIRED",
-		7: "CHECK_LOG_STATE_FAILED",
-	}
-	CheckLogState_value = map[string]int32{
-		"CHECK_LOG_STATE_UNSPECIFIED": 0,
-		"CHECK_LOG_STATE_NONE":        1,
-		"CHECK_LOG_STATE_PENDING":     2,
-		"CHECK_LOG_STATE_FETCHED":     3,
-		"CHECK_LOG_STATE_TOO_LARGE":   4,
-		"CHECK_LOG_STATE_MISSING":     5,
-		"CHECK_LOG_STATE_EXPIRED":     6,
-		"CHECK_LOG_STATE_FAILED":      7,
-	}
-)
-
-func (x CheckLogState) Enum() *CheckLogState {
-	p := new(CheckLogState)
-	*p = x
-	return p
-}
-
-func (x CheckLogState) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (CheckLogState) Descriptor() protoreflect.EnumDescriptor {
-	return file_pullrequest_v1_pullrequest_proto_enumTypes[4].Descriptor()
-}
-
-func (CheckLogState) Type() protoreflect.EnumType {
-	return &file_pullrequest_v1_pullrequest_proto_enumTypes[4]
-}
-
-func (x CheckLogState) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use CheckLogState.Descriptor instead.
-func (CheckLogState) EnumDescriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{4}
-}
-
-// StatusCheckKind is the kind of status check a forge reported.
-type StatusCheckKind int32
-
-const (
-	// No kind was recorded.
-	StatusCheckKind_STATUS_CHECK_KIND_UNSPECIFIED StatusCheckKind = 0
-	// A check run an app reported on the commit.
-	StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN StatusCheckKind = 1
-	// A commit status a service set on the commit.
-	StatusCheckKind_STATUS_CHECK_KIND_STATUS StatusCheckKind = 2
-	// A pipeline the forge ran for the commit.
-	StatusCheckKind_STATUS_CHECK_KIND_PIPELINE StatusCheckKind = 3
-)
-
-// Enum value maps for StatusCheckKind.
-var (
-	StatusCheckKind_name = map[int32]string{
-		0: "STATUS_CHECK_KIND_UNSPECIFIED",
-		1: "STATUS_CHECK_KIND_CHECK_RUN",
-		2: "STATUS_CHECK_KIND_STATUS",
-		3: "STATUS_CHECK_KIND_PIPELINE",
-	}
-	StatusCheckKind_value = map[string]int32{
-		"STATUS_CHECK_KIND_UNSPECIFIED": 0,
-		"STATUS_CHECK_KIND_CHECK_RUN":   1,
-		"STATUS_CHECK_KIND_STATUS":      2,
-		"STATUS_CHECK_KIND_PIPELINE":    3,
-	}
-)
-
-func (x StatusCheckKind) Enum() *StatusCheckKind {
-	p := new(StatusCheckKind)
-	*p = x
-	return p
-}
-
-func (x StatusCheckKind) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (StatusCheckKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_pullrequest_v1_pullrequest_proto_enumTypes[5].Descriptor()
-}
-
-func (StatusCheckKind) Type() protoreflect.EnumType {
-	return &file_pullrequest_v1_pullrequest_proto_enumTypes[5]
-}
-
-func (x StatusCheckKind) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use StatusCheckKind.Descriptor instead.
-func (StatusCheckKind) EnumDescriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{5}
-}
-
-// StatusCheckState is how far along a status check or step is.
-type StatusCheckState int32
-
-const (
-	// No state was recorded.
-	StatusCheckState_STATUS_CHECK_STATE_UNSPECIFIED StatusCheckState = 0
-	// Waiting for a runner.
-	StatusCheckState_STATUS_CHECK_STATE_QUEUED StatusCheckState = 1
-	// Running now.
-	StatusCheckState_STATUS_CHECK_STATE_RUNNING StatusCheckState = 2
-	// Waiting on something else, such as an approval.
-	StatusCheckState_STATUS_CHECK_STATE_WAITING StatusCheckState = 3
-	// Finished, with the conclusion saying how.
-	StatusCheckState_STATUS_CHECK_STATE_COMPLETED StatusCheckState = 4
-	// Still running when komrad stopped reading the commit, which is no longer the head.
-	StatusCheckState_STATUS_CHECK_STATE_UNKNOWN StatusCheckState = 5
-)
-
-// Enum value maps for StatusCheckState.
-var (
-	StatusCheckState_name = map[int32]string{
-		0: "STATUS_CHECK_STATE_UNSPECIFIED",
-		1: "STATUS_CHECK_STATE_QUEUED",
-		2: "STATUS_CHECK_STATE_RUNNING",
-		3: "STATUS_CHECK_STATE_WAITING",
-		4: "STATUS_CHECK_STATE_COMPLETED",
-		5: "STATUS_CHECK_STATE_UNKNOWN",
-	}
-	StatusCheckState_value = map[string]int32{
-		"STATUS_CHECK_STATE_UNSPECIFIED": 0,
-		"STATUS_CHECK_STATE_QUEUED":      1,
-		"STATUS_CHECK_STATE_RUNNING":     2,
-		"STATUS_CHECK_STATE_WAITING":     3,
-		"STATUS_CHECK_STATE_COMPLETED":   4,
-		"STATUS_CHECK_STATE_UNKNOWN":     5,
-	}
-)
-
-func (x StatusCheckState) Enum() *StatusCheckState {
-	p := new(StatusCheckState)
-	*p = x
-	return p
-}
-
-func (x StatusCheckState) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (StatusCheckState) Descriptor() protoreflect.EnumDescriptor {
-	return file_pullrequest_v1_pullrequest_proto_enumTypes[6].Descriptor()
-}
-
-func (StatusCheckState) Type() protoreflect.EnumType {
-	return &file_pullrequest_v1_pullrequest_proto_enumTypes[6]
-}
-
-func (x StatusCheckState) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use StatusCheckState.Descriptor instead.
-func (StatusCheckState) EnumDescriptor() ([]byte, []int) {
-	return file_pullrequest_v1_pullrequest_proto_rawDescGZIP(), []int{6}
-}
-
 type ListPullRequestsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The repository the pull requests merge into, as a git remote or a web address.
@@ -1991,7 +1498,7 @@ var File_pullrequest_v1_pullrequest_proto protoreflect.FileDescriptor
 
 const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
-	" pullrequest/v1/pullrequest.proto\x12\x0epullrequest.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x19forge/v1/connection.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\"\xc6\x01\n" +
+	" pullrequest/v1/pullrequest.proto\x12\x0epullrequest.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x14forge/v1/enums.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\x1a\x1apullrequest/v1/enums.proto\"\xc6\x01\n" +
 	"\x17ListPullRequestsRequest\x121\n" +
 	"\x0erepository_url\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\rrepositoryUrl\x12)\n" +
@@ -2147,66 +1654,7 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"finishedAt\x88\x01\x01\x12\x16\n" +
 	"\x06passed\x18\a \x01(\bR\x06passedB\r\n" +
 	"\v_started_atB\x0e\n" +
-	"\f_finished_at*\xf5\x03\n" +
-	"\x10PullRequestState\x12\"\n" +
-	"\x1ePULL_REQUEST_STATE_UNSPECIFIED\x10\x00\x12\x1d\n" +
-	"\x19PULL_REQUEST_STATE_UNREAD\x10\x01\x12\x1b\n" +
-	"\x17PULL_REQUEST_STATE_NONE\x10\x02\x12\x1b\n" +
-	"\x17PULL_REQUEST_STATE_OPEN\x10\x03\x12\x1f\n" +
-	"\x1bPULL_REQUEST_STATE_APPROVED\x10\x04\x12(\n" +
-	"$PULL_REQUEST_STATE_CHANGES_REQUESTED\x10\x05\x12\x1c\n" +
-	"\x18PULL_REQUEST_STATE_DRAFT\x10\x06\x12\x1d\n" +
-	"\x19PULL_REQUEST_STATE_MERGED\x10\a\x12\x1d\n" +
-	"\x19PULL_REQUEST_STATE_CLOSED\x10\b\x12\x1e\n" +
-	"\x1aPULL_REQUEST_STATE_FAILING\x10\t\x12'\n" +
-	"#PULL_REQUEST_STATE_APPROVED_WAITING\x10\n" +
-	"\x12\"\n" +
-	"\x1ePULL_REQUEST_STATE_CONFLICTING\x10\v\x12%\n" +
-	"!PULL_REQUEST_STATE_CHECKS_RUNNING\x10\f\x12)\n" +
-	"%PULL_REQUEST_STATE_REREVIEW_REQUESTED\x10\r*\xca\x01\n" +
-	"\fMergeability\x12\x1c\n" +
-	"\x18MERGEABILITY_UNSPECIFIED\x10\x00\x12\x18\n" +
-	"\x14MERGEABILITY_UNKNOWN\x10\x01\x12\x16\n" +
-	"\x12MERGEABILITY_CLEAN\x10\x02\x12\x19\n" +
-	"\x15MERGEABILITY_UNSTABLE\x10\x03\x12\x18\n" +
-	"\x14MERGEABILITY_BLOCKED\x10\x04\x12\x17\n" +
-	"\x13MERGEABILITY_BEHIND\x10\x05\x12\x1c\n" +
-	"\x18MERGEABILITY_CONFLICTING\x10\x06*\xd5\x01\n" +
-	"\x0eReviewDecision\x12\x1f\n" +
-	"\x1bREVIEW_DECISION_UNSPECIFIED\x10\x00\x12\x18\n" +
-	"\x14REVIEW_DECISION_NONE\x10\x01\x12\x1b\n" +
-	"\x17REVIEW_DECISION_PENDING\x10\x02\x12\x1c\n" +
-	"\x18REVIEW_DECISION_APPROVED\x10\x03\x12%\n" +
-	"!REVIEW_DECISION_CHANGES_REQUESTED\x10\x04\x12&\n" +
-	"\"REVIEW_DECISION_REREVIEW_REQUESTED\x10\x05*\x89\x01\n" +
-	"\x06Checks\x12\x16\n" +
-	"\x12CHECKS_UNSPECIFIED\x10\x00\x12\x0f\n" +
-	"\vCHECKS_NONE\x10\x01\x12\x12\n" +
-	"\x0eCHECKS_PENDING\x10\x02\x12\x12\n" +
-	"\x0eCHECKS_PASSING\x10\x03\x12\x12\n" +
-	"\x0eCHECKS_FAILING\x10\x04\x12\x1a\n" +
-	"\x16CHECKS_FAILING_RUNNING\x10\x05*\xf9\x01\n" +
-	"\rCheckLogState\x12\x1f\n" +
-	"\x1bCHECK_LOG_STATE_UNSPECIFIED\x10\x00\x12\x18\n" +
-	"\x14CHECK_LOG_STATE_NONE\x10\x01\x12\x1b\n" +
-	"\x17CHECK_LOG_STATE_PENDING\x10\x02\x12\x1b\n" +
-	"\x17CHECK_LOG_STATE_FETCHED\x10\x03\x12\x1d\n" +
-	"\x19CHECK_LOG_STATE_TOO_LARGE\x10\x04\x12\x1b\n" +
-	"\x17CHECK_LOG_STATE_MISSING\x10\x05\x12\x1b\n" +
-	"\x17CHECK_LOG_STATE_EXPIRED\x10\x06\x12\x1a\n" +
-	"\x16CHECK_LOG_STATE_FAILED\x10\a*\x93\x01\n" +
-	"\x0fStatusCheckKind\x12!\n" +
-	"\x1dSTATUS_CHECK_KIND_UNSPECIFIED\x10\x00\x12\x1f\n" +
-	"\x1bSTATUS_CHECK_KIND_CHECK_RUN\x10\x01\x12\x1c\n" +
-	"\x18STATUS_CHECK_KIND_STATUS\x10\x02\x12\x1e\n" +
-	"\x1aSTATUS_CHECK_KIND_PIPELINE\x10\x03*\xd7\x01\n" +
-	"\x10StatusCheckState\x12\"\n" +
-	"\x1eSTATUS_CHECK_STATE_UNSPECIFIED\x10\x00\x12\x1d\n" +
-	"\x19STATUS_CHECK_STATE_QUEUED\x10\x01\x12\x1e\n" +
-	"\x1aSTATUS_CHECK_STATE_RUNNING\x10\x02\x12\x1e\n" +
-	"\x1aSTATUS_CHECK_STATE_WAITING\x10\x03\x12 \n" +
-	"\x1cSTATUS_CHECK_STATE_COMPLETED\x10\x04\x12\x1e\n" +
-	"\x1aSTATUS_CHECK_STATE_UNKNOWN\x10\x052\xe9\x06\n" +
+	"\f_finished_at2\xe9\x06\n" +
 	"\x12PullRequestService\x12\xc5\x02\n" +
 	"\x10ListPullRequests\x12'.pullrequest.v1.ListPullRequestsRequest\x1a(.pullrequest.v1.ListPullRequestsResponse\"\xdd\x01\x9a\xb5\x18\xd5\x01\b\x01\x10\x01\x1a\x12list_pull_requests\"\xb6\x01List the pull requests komrad has recorded for a repository, open ones first. A repository with no live agent may be out of date. `list_forge_pull_requests` reads the forge directly.:\x02\x03\x02\x90\x02\x01\x12\xee\x01\n" +
 	"\x10ListStatusChecks\x12'.pullrequest.v1.ListStatusChecksRequest\x1a(.pullrequest.v1.ListStatusChecksResponse\"\x86\x01\x9a\xb5\x18\x7fB}Only the person reads each status check, and an agent reads the checks' state from `merge_readiness` on `list_pull_requests`.\x90\x02\x01\x12\x85\x01\n" +
@@ -2225,78 +1673,77 @@ func file_pullrequest_v1_pullrequest_proto_rawDescGZIP() []byte {
 	return file_pullrequest_v1_pullrequest_proto_rawDescData
 }
 
-var file_pullrequest_v1_pullrequest_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
 var file_pullrequest_v1_pullrequest_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_pullrequest_v1_pullrequest_proto_goTypes = []any{
-	(PullRequestState)(0),            // 0: pullrequest.v1.PullRequestState
-	(Mergeability)(0),                // 1: pullrequest.v1.Mergeability
-	(ReviewDecision)(0),              // 2: pullrequest.v1.ReviewDecision
-	(Checks)(0),                      // 3: pullrequest.v1.Checks
-	(CheckLogState)(0),               // 4: pullrequest.v1.CheckLogState
-	(StatusCheckKind)(0),             // 5: pullrequest.v1.StatusCheckKind
-	(StatusCheckState)(0),            // 6: pullrequest.v1.StatusCheckState
-	(*ListPullRequestsRequest)(nil),  // 7: pullrequest.v1.ListPullRequestsRequest
-	(*PullRequest)(nil),              // 8: pullrequest.v1.PullRequest
-	(*MergeReadiness)(nil),           // 9: pullrequest.v1.MergeReadiness
-	(*Repository)(nil),               // 10: pullrequest.v1.Repository
-	(*ListPullRequestsResponse)(nil), // 11: pullrequest.v1.ListPullRequestsResponse
-	(*ListStatusChecksRequest)(nil),  // 12: pullrequest.v1.ListStatusChecksRequest
-	(*ListStatusChecksResponse)(nil), // 13: pullrequest.v1.ListStatusChecksResponse
-	(*ReadCheckLogRequest)(nil),      // 14: pullrequest.v1.ReadCheckLogRequest
-	(*ReadCheckLogResponse)(nil),     // 15: pullrequest.v1.ReadCheckLogResponse
-	(*CheckLogLine)(nil),             // 16: pullrequest.v1.CheckLogLine
-	(*SearchCheckLogsRequest)(nil),   // 17: pullrequest.v1.SearchCheckLogsRequest
-	(*SearchCheckLogsResponse)(nil),  // 18: pullrequest.v1.SearchCheckLogsResponse
-	(*CheckLogHit)(nil),              // 19: pullrequest.v1.CheckLogHit
-	(*StatusCheckReading)(nil),       // 20: pullrequest.v1.StatusCheckReading
-	(*StatusCheck)(nil),              // 21: pullrequest.v1.StatusCheck
-	(*CheckLog)(nil),                 // 22: pullrequest.v1.CheckLog
-	(*CheckLogStep)(nil),             // 23: pullrequest.v1.CheckLogStep
-	(*StatusCheckStep)(nil),          // 24: pullrequest.v1.StatusCheckStep
-	(*v1.Pagination)(nil),            // 25: pagination.v1.Pagination
-	(v11.Kind)(0),                    // 26: forge.v1.Kind
-	(*timestamppb.Timestamp)(nil),    // 27: google.protobuf.Timestamp
+	(*ListPullRequestsRequest)(nil),  // 0: pullrequest.v1.ListPullRequestsRequest
+	(*PullRequest)(nil),              // 1: pullrequest.v1.PullRequest
+	(*MergeReadiness)(nil),           // 2: pullrequest.v1.MergeReadiness
+	(*Repository)(nil),               // 3: pullrequest.v1.Repository
+	(*ListPullRequestsResponse)(nil), // 4: pullrequest.v1.ListPullRequestsResponse
+	(*ListStatusChecksRequest)(nil),  // 5: pullrequest.v1.ListStatusChecksRequest
+	(*ListStatusChecksResponse)(nil), // 6: pullrequest.v1.ListStatusChecksResponse
+	(*ReadCheckLogRequest)(nil),      // 7: pullrequest.v1.ReadCheckLogRequest
+	(*ReadCheckLogResponse)(nil),     // 8: pullrequest.v1.ReadCheckLogResponse
+	(*CheckLogLine)(nil),             // 9: pullrequest.v1.CheckLogLine
+	(*SearchCheckLogsRequest)(nil),   // 10: pullrequest.v1.SearchCheckLogsRequest
+	(*SearchCheckLogsResponse)(nil),  // 11: pullrequest.v1.SearchCheckLogsResponse
+	(*CheckLogHit)(nil),              // 12: pullrequest.v1.CheckLogHit
+	(*StatusCheckReading)(nil),       // 13: pullrequest.v1.StatusCheckReading
+	(*StatusCheck)(nil),              // 14: pullrequest.v1.StatusCheck
+	(*CheckLog)(nil),                 // 15: pullrequest.v1.CheckLog
+	(*CheckLogStep)(nil),             // 16: pullrequest.v1.CheckLogStep
+	(*StatusCheckStep)(nil),          // 17: pullrequest.v1.StatusCheckStep
+	(*v1.Pagination)(nil),            // 18: pagination.v1.Pagination
+	(v11.Kind)(0),                    // 19: forge.v1.Kind
+	(PullRequestState)(0),            // 20: pullrequest.v1.PullRequestState
+	(*timestamppb.Timestamp)(nil),    // 21: google.protobuf.Timestamp
+	(ReviewDecision)(0),              // 22: pullrequest.v1.ReviewDecision
+	(Checks)(0),                      // 23: pullrequest.v1.Checks
+	(Mergeability)(0),                // 24: pullrequest.v1.Mergeability
+	(StatusCheckKind)(0),             // 25: pullrequest.v1.StatusCheckKind
+	(StatusCheckState)(0),            // 26: pullrequest.v1.StatusCheckState
+	(CheckLogState)(0),               // 27: pullrequest.v1.CheckLogState
 }
 var file_pullrequest_v1_pullrequest_proto_depIdxs = []int32{
-	25, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
-	26, // 1: pullrequest.v1.PullRequest.forge:type_name -> forge.v1.Kind
-	0,  // 2: pullrequest.v1.PullRequest.state:type_name -> pullrequest.v1.PullRequestState
-	27, // 3: pullrequest.v1.PullRequest.opened_at:type_name -> google.protobuf.Timestamp
-	27, // 4: pullrequest.v1.PullRequest.changed_at:type_name -> google.protobuf.Timestamp
-	27, // 5: pullrequest.v1.PullRequest.merged_at:type_name -> google.protobuf.Timestamp
-	27, // 6: pullrequest.v1.PullRequest.closed_at:type_name -> google.protobuf.Timestamp
-	9,  // 7: pullrequest.v1.PullRequest.merge_readiness:type_name -> pullrequest.v1.MergeReadiness
-	2,  // 8: pullrequest.v1.MergeReadiness.decision:type_name -> pullrequest.v1.ReviewDecision
-	3,  // 9: pullrequest.v1.MergeReadiness.checks:type_name -> pullrequest.v1.Checks
-	1,  // 10: pullrequest.v1.MergeReadiness.mergeability:type_name -> pullrequest.v1.Mergeability
-	8,  // 11: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
-	20, // 12: pullrequest.v1.ListStatusChecksResponse.readings:type_name -> pullrequest.v1.StatusCheckReading
-	16, // 13: pullrequest.v1.ReadCheckLogResponse.lines:type_name -> pullrequest.v1.CheckLogLine
-	19, // 14: pullrequest.v1.SearchCheckLogsResponse.hits:type_name -> pullrequest.v1.CheckLogHit
-	27, // 15: pullrequest.v1.StatusCheckReading.first_read_at:type_name -> google.protobuf.Timestamp
-	27, // 16: pullrequest.v1.StatusCheckReading.read_at:type_name -> google.protobuf.Timestamp
-	21, // 17: pullrequest.v1.StatusCheckReading.status_checks:type_name -> pullrequest.v1.StatusCheck
-	5,  // 18: pullrequest.v1.StatusCheck.kind:type_name -> pullrequest.v1.StatusCheckKind
-	6,  // 19: pullrequest.v1.StatusCheck.state:type_name -> pullrequest.v1.StatusCheckState
-	27, // 20: pullrequest.v1.StatusCheck.started_at:type_name -> google.protobuf.Timestamp
-	27, // 21: pullrequest.v1.StatusCheck.finished_at:type_name -> google.protobuf.Timestamp
-	24, // 22: pullrequest.v1.StatusCheck.steps:type_name -> pullrequest.v1.StatusCheckStep
-	27, // 23: pullrequest.v1.StatusCheck.run_started_at:type_name -> google.protobuf.Timestamp
-	22, // 24: pullrequest.v1.StatusCheck.log:type_name -> pullrequest.v1.CheckLog
-	4,  // 25: pullrequest.v1.CheckLog.state:type_name -> pullrequest.v1.CheckLogState
-	27, // 26: pullrequest.v1.CheckLog.fetched_at:type_name -> google.protobuf.Timestamp
-	23, // 27: pullrequest.v1.CheckLog.steps:type_name -> pullrequest.v1.CheckLogStep
-	6,  // 28: pullrequest.v1.StatusCheckStep.state:type_name -> pullrequest.v1.StatusCheckState
-	27, // 29: pullrequest.v1.StatusCheckStep.started_at:type_name -> google.protobuf.Timestamp
-	27, // 30: pullrequest.v1.StatusCheckStep.finished_at:type_name -> google.protobuf.Timestamp
-	7,  // 31: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
-	12, // 32: pullrequest.v1.PullRequestService.ListStatusChecks:input_type -> pullrequest.v1.ListStatusChecksRequest
-	14, // 33: pullrequest.v1.PullRequestService.ReadCheckLog:input_type -> pullrequest.v1.ReadCheckLogRequest
-	17, // 34: pullrequest.v1.PullRequestService.SearchCheckLogs:input_type -> pullrequest.v1.SearchCheckLogsRequest
-	11, // 35: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
-	13, // 36: pullrequest.v1.PullRequestService.ListStatusChecks:output_type -> pullrequest.v1.ListStatusChecksResponse
-	15, // 37: pullrequest.v1.PullRequestService.ReadCheckLog:output_type -> pullrequest.v1.ReadCheckLogResponse
-	18, // 38: pullrequest.v1.PullRequestService.SearchCheckLogs:output_type -> pullrequest.v1.SearchCheckLogsResponse
+	18, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
+	19, // 1: pullrequest.v1.PullRequest.forge:type_name -> forge.v1.Kind
+	20, // 2: pullrequest.v1.PullRequest.state:type_name -> pullrequest.v1.PullRequestState
+	21, // 3: pullrequest.v1.PullRequest.opened_at:type_name -> google.protobuf.Timestamp
+	21, // 4: pullrequest.v1.PullRequest.changed_at:type_name -> google.protobuf.Timestamp
+	21, // 5: pullrequest.v1.PullRequest.merged_at:type_name -> google.protobuf.Timestamp
+	21, // 6: pullrequest.v1.PullRequest.closed_at:type_name -> google.protobuf.Timestamp
+	2,  // 7: pullrequest.v1.PullRequest.merge_readiness:type_name -> pullrequest.v1.MergeReadiness
+	22, // 8: pullrequest.v1.MergeReadiness.decision:type_name -> pullrequest.v1.ReviewDecision
+	23, // 9: pullrequest.v1.MergeReadiness.checks:type_name -> pullrequest.v1.Checks
+	24, // 10: pullrequest.v1.MergeReadiness.mergeability:type_name -> pullrequest.v1.Mergeability
+	1,  // 11: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
+	13, // 12: pullrequest.v1.ListStatusChecksResponse.readings:type_name -> pullrequest.v1.StatusCheckReading
+	9,  // 13: pullrequest.v1.ReadCheckLogResponse.lines:type_name -> pullrequest.v1.CheckLogLine
+	12, // 14: pullrequest.v1.SearchCheckLogsResponse.hits:type_name -> pullrequest.v1.CheckLogHit
+	21, // 15: pullrequest.v1.StatusCheckReading.first_read_at:type_name -> google.protobuf.Timestamp
+	21, // 16: pullrequest.v1.StatusCheckReading.read_at:type_name -> google.protobuf.Timestamp
+	14, // 17: pullrequest.v1.StatusCheckReading.status_checks:type_name -> pullrequest.v1.StatusCheck
+	25, // 18: pullrequest.v1.StatusCheck.kind:type_name -> pullrequest.v1.StatusCheckKind
+	26, // 19: pullrequest.v1.StatusCheck.state:type_name -> pullrequest.v1.StatusCheckState
+	21, // 20: pullrequest.v1.StatusCheck.started_at:type_name -> google.protobuf.Timestamp
+	21, // 21: pullrequest.v1.StatusCheck.finished_at:type_name -> google.protobuf.Timestamp
+	17, // 22: pullrequest.v1.StatusCheck.steps:type_name -> pullrequest.v1.StatusCheckStep
+	21, // 23: pullrequest.v1.StatusCheck.run_started_at:type_name -> google.protobuf.Timestamp
+	15, // 24: pullrequest.v1.StatusCheck.log:type_name -> pullrequest.v1.CheckLog
+	27, // 25: pullrequest.v1.CheckLog.state:type_name -> pullrequest.v1.CheckLogState
+	21, // 26: pullrequest.v1.CheckLog.fetched_at:type_name -> google.protobuf.Timestamp
+	16, // 27: pullrequest.v1.CheckLog.steps:type_name -> pullrequest.v1.CheckLogStep
+	26, // 28: pullrequest.v1.StatusCheckStep.state:type_name -> pullrequest.v1.StatusCheckState
+	21, // 29: pullrequest.v1.StatusCheckStep.started_at:type_name -> google.protobuf.Timestamp
+	21, // 30: pullrequest.v1.StatusCheckStep.finished_at:type_name -> google.protobuf.Timestamp
+	0,  // 31: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
+	5,  // 32: pullrequest.v1.PullRequestService.ListStatusChecks:input_type -> pullrequest.v1.ListStatusChecksRequest
+	7,  // 33: pullrequest.v1.PullRequestService.ReadCheckLog:input_type -> pullrequest.v1.ReadCheckLogRequest
+	10, // 34: pullrequest.v1.PullRequestService.SearchCheckLogs:input_type -> pullrequest.v1.SearchCheckLogsRequest
+	4,  // 35: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
+	6,  // 36: pullrequest.v1.PullRequestService.ListStatusChecks:output_type -> pullrequest.v1.ListStatusChecksResponse
+	8,  // 37: pullrequest.v1.PullRequestService.ReadCheckLog:output_type -> pullrequest.v1.ReadCheckLogResponse
+	11, // 38: pullrequest.v1.PullRequestService.SearchCheckLogs:output_type -> pullrequest.v1.SearchCheckLogsResponse
 	35, // [35:39] is the sub-list for method output_type
 	31, // [31:35] is the sub-list for method input_type
 	31, // [31:31] is the sub-list for extension type_name
@@ -2309,6 +1756,7 @@ func file_pullrequest_v1_pullrequest_proto_init() {
 	if File_pullrequest_v1_pullrequest_proto != nil {
 		return
 	}
+	file_pullrequest_v1_enums_proto_init()
 	file_pullrequest_v1_pullrequest_proto_msgTypes[0].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[1].OneofWrappers = []any{}
 	file_pullrequest_v1_pullrequest_proto_msgTypes[4].OneofWrappers = []any{}
@@ -2321,14 +1769,13 @@ func file_pullrequest_v1_pullrequest_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pullrequest_v1_pullrequest_proto_rawDesc), len(file_pullrequest_v1_pullrequest_proto_rawDesc)),
-			NumEnums:      7,
+			NumEnums:      0,
 			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_pullrequest_v1_pullrequest_proto_goTypes,
 		DependencyIndexes: file_pullrequest_v1_pullrequest_proto_depIdxs,
-		EnumInfos:         file_pullrequest_v1_pullrequest_proto_enumTypes,
 		MessageInfos:      file_pullrequest_v1_pullrequest_proto_msgTypes,
 	}.Build()
 	File_pullrequest_v1_pullrequest_proto = out.File

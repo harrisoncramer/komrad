@@ -8,6 +8,8 @@ import (
 
 	"komrad/internal/forge"
 	"komrad/lib/xptr"
+	forgev1 "komrad/proto/gen/forge/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -54,7 +56,7 @@ func TestMerge(t *testing.T) {
 		{
 			name: "the merge request is squashed with the message asked for at the head the person saw",
 			params: forge.MergeParams{
-				Method:   forge.MergeMethodSquash,
+				Method:   forgev1.MergeMethod_MERGE_METHOD_SQUASH,
 				Headline: xptr.Ptr("Land the fix"),
 				Body:     xptr.Ptr("Merges stop failing."),
 				HeadSHA:  "abc123",
@@ -65,7 +67,7 @@ func TestMerge(t *testing.T) {
 		{
 			name: "the merge request is merged unsquashed with an empty body",
 			params: forge.MergeParams{
-				Method:   forge.MergeMethodMerge,
+				Method:   forgev1.MergeMethod_MERGE_METHOD_MERGE,
 				Headline: xptr.Ptr("Land the fix"),
 				Body:     xptr.Ptr(""),
 			},
@@ -75,7 +77,7 @@ func TestMerge(t *testing.T) {
 		{
 			name: "a headline alone keeps the body gitlab would write",
 			params: forge.MergeParams{
-				Method:   forge.MergeMethodMerge,
+				Method:   forgev1.MergeMethod_MERGE_METHOD_MERGE,
 				Headline: xptr.Ptr("Land the fix"),
 			},
 			answers: map[string]answer{"MergePlan": planned, path + "/merge": accepted},
@@ -87,7 +89,7 @@ func TestMerge(t *testing.T) {
 		{
 			name: "a body alone keeps the headline gitlab would write",
 			params: forge.MergeParams{
-				Method: forge.MergeMethodSquash,
+				Method: forgev1.MergeMethod_MERGE_METHOD_SQUASH,
 				Body:   xptr.Ptr("Merges stop failing."),
 			},
 			answers:  map[string]answer{"MergePlan": planned, path + "/merge": accepted},
@@ -207,34 +209,34 @@ func TestMergeabilityFolds(t *testing.T) {
 	tests := []struct {
 		state  string
 		status string
-		want   forge.Mergeability
+		want   pullrequestv1.Mergeability
 	}{
-		{status: "MERGEABLE", want: forge.MergeabilityClean},
-		{status: "CI_MUST_PASS", want: forge.MergeabilityUnstable},
-		{status: "CI_STILL_RUNNING", want: forge.MergeabilityUnstable},
-		{status: "COMMITS_STATUS", want: forge.MergeabilityBlocked},
-		{status: "NEED_REBASE", want: forge.MergeabilityBehind},
-		{status: "CONFLICT", want: forge.MergeabilityConflicting},
-		{status: "UNCHECKED", want: forge.MergeabilityUnknown},
-		{status: "CHECKING", want: forge.MergeabilityUnknown},
-		{status: "PREPARING", want: forge.MergeabilityUnknown},
-		{status: "APPROVALS_SYNCING", want: forge.MergeabilityUnknown},
-		{status: "", want: forge.MergeabilityUnknown},
-		{status: "NOT_APPROVED", want: forge.MergeabilityBlocked},
-		{status: "DISCUSSIONS_NOT_RESOLVED", want: forge.MergeabilityBlocked},
-		{status: "DRAFT_STATUS", want: forge.MergeabilityBlocked},
-		{status: "BLOCKED_STATUS", want: forge.MergeabilityBlocked},
-		{status: "POLICIES_DENIED", want: forge.MergeabilityBlocked},
-		{status: "REQUESTED_CHANGES", want: forge.MergeabilityBlocked},
+		{status: "MERGEABLE", want: pullrequestv1.Mergeability_MERGEABILITY_CLEAN},
+		{status: "CI_MUST_PASS", want: pullrequestv1.Mergeability_MERGEABILITY_UNSTABLE},
+		{status: "CI_STILL_RUNNING", want: pullrequestv1.Mergeability_MERGEABILITY_UNSTABLE},
+		{status: "COMMITS_STATUS", want: pullrequestv1.Mergeability_MERGEABILITY_BLOCKED},
+		{status: "NEED_REBASE", want: pullrequestv1.Mergeability_MERGEABILITY_BEHIND},
+		{status: "CONFLICT", want: pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING},
+		{status: "UNCHECKED", want: pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN},
+		{status: "CHECKING", want: pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN},
+		{status: "PREPARING", want: pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN},
+		{status: "APPROVALS_SYNCING", want: pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN},
+		{status: "", want: pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN},
+		{status: "NOT_APPROVED", want: pullrequestv1.Mergeability_MERGEABILITY_BLOCKED},
+		{status: "DISCUSSIONS_NOT_RESOLVED", want: pullrequestv1.Mergeability_MERGEABILITY_BLOCKED},
+		{status: "DRAFT_STATUS", want: pullrequestv1.Mergeability_MERGEABILITY_BLOCKED},
+		{status: "BLOCKED_STATUS", want: pullrequestv1.Mergeability_MERGEABILITY_BLOCKED},
+		{status: "POLICIES_DENIED", want: pullrequestv1.Mergeability_MERGEABILITY_BLOCKED},
+		{status: "REQUESTED_CHANGES", want: pullrequestv1.Mergeability_MERGEABILITY_BLOCKED},
 		{
 			state:  "merged",
 			status: "MERGEABLE",
-			want:   forge.MergeabilityUnknown,
+			want:   pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN,
 		},
 		{
 			state:  "closed",
 			status: "NOT_OPEN",
-			want:   forge.MergeabilityUnknown,
+			want:   pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN,
 		},
 	}
 	for _, tt := range tests {

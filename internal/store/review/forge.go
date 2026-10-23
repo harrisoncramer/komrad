@@ -7,6 +7,7 @@ import (
 
 	"komrad/db/models"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 )
@@ -30,9 +31,7 @@ func (s *ReviewStore) OpenForgeReview(ctx context.Context, params OpenForgeRevie
 		return nil, fmt.Errorf("failed to open a forge review on task %q: %w", params.TaskID, err)
 	}
 
-	review := reviewFromRow(*row)
-
-	return &review, nil
+	return reviewFromRow(*row)
 }
 
 // UpdateForgeMessageParams is a forge comment's edit.
@@ -77,7 +76,7 @@ type ForgeMirrored struct {
 	ThreadID       uuid.UUID
 	ForgeThreadID  uuid.UUID
 	ResolvedAt     *time.Time
-	ResolvedByKind AuthorKind
+	ResolvedByKind agentv1.ReviewAuthorKind
 	// ForgeResolved is whether the forge said the thread was resolved as of the last sync.
 	ForgeResolved bool
 	// MessageID is nil on a thread whose forge comments have all been deleted.
@@ -93,18 +92,23 @@ func (s *ReviewStore) ListForgeMirrored(ctx context.Context, taskID uuid.UUID) (
 		return nil, fmt.Errorf("failed to list the forge comments mirrored onto task %q: %w", taskID, err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListForgeMirroredMessagesRow) ForgeMirrored {
+	return xslice.TryMap(rows, func(row *models.ListForgeMirroredMessagesRow) (ForgeMirrored, error) {
+		resolvedBy, err := fromDBToServiceNullReviewAuthorKind(row.ResolvedByKind)
+		if err != nil {
+			return ForgeMirrored{}, err
+		}
+
 		return ForgeMirrored{
 			ThreadID:       row.ThreadID,
 			ForgeThreadID:  row.ForgeThreadID,
 			ResolvedAt:     row.ResolvedAt,
-			ResolvedByKind: AuthorKind(row.ResolvedByKind.ReviewAuthorKind),
+			ResolvedByKind: resolvedBy,
 			ForgeResolved:  row.ForgeResolved,
 			MessageID:      row.MessageID,
 			ForgeCommentID: row.ForgeCommentID,
 			ForgeEditedAt:  row.ForgeEditedAt,
-		}
-	}), nil
+		}, nil
+	})
 }
 
 // ForgeMirrorTarget is a task on a pull request that receives mirrored forge comments.

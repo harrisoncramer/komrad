@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"komrad/internal/harnesstest"
-	agentstore "komrad/internal/store/agent"
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/tmuxtest"
 	"komrad/lib/clock/clocktest"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,7 +21,7 @@ func TestNewAgentWatchesTheCLIStartUp(t *testing.T) {
 		name       string
 		exited     bool
 		screen     string
-		wantState  agentstore.State
+		wantState  agentv1.AgentState
 		wantReason string
 		wantKilled []string
 		wantPolls  int32
@@ -32,7 +32,7 @@ func TestNewAgentWatchesTheCLIStartUp(t *testing.T) {
 			name:       "a CLI that exits while starting",
 			exited:     true,
 			screen:     "\x1b[31mError: the argument '--dangerously-bypass-approvals-and-sandbox' cannot be used multiple times\x1b[0m\n\nuser@host ~ %\n",
-			wantState:  agentstore.StateFailedToCreate,
+			wantState:  agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
 			wantReason: "the CLI exited while starting: Error: the argument '--dangerously-bypass-approvals-and-sandbox' cannot be used multiple times user@host ~ %",
 			wantKilled: []string{"%agent"},
 			wantPolls:  1,
@@ -41,7 +41,7 @@ func TestNewAgentWatchesTheCLIStartUp(t *testing.T) {
 			name:      "a CLI that keeps running",
 			exited:    false,
 			screen:    "ready\n",
-			wantState: agentstore.StateIdle,
+			wantState: agentv1.AgentState_AGENT_STATE_IDLE,
 			wantPolls: startupPolls,
 		},
 	}

@@ -13,9 +13,9 @@ import (
 	"komrad/internal/harnesstest"
 	"komrad/internal/logging"
 	"komrad/internal/logtest"
-	agentstore "komrad/internal/store/agent"
 	taskstore "komrad/internal/store/task"
 	"komrad/internal/tmuxtest"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -150,23 +150,23 @@ func TestLaunchPassesWhatThePanelKnows(t *testing.T) {
 func TestLaunchCompactsAtTheRolesPoint(t *testing.T) {
 	tests := []struct {
 		name string
-		role agentstore.Role
+		role agentv1.AgentRole
 		want int
 	}{
 		{
 			name: "a writer",
-			role: agentstore.RoleWriter,
+			role: agentv1.AgentRole_AGENT_ROLE_WRITER,
 			want: 250000,
 		},
 		{name: "an agent created without naming a role", want: 250000},
 		{
 			name: "an orchestrator",
-			role: agentstore.RoleOrchestrator,
+			role: agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 			want: 150000,
 		},
 		{
 			name: "a role the config leaves to the CLI",
-			role: agentstore.RoleReviewer,
+			role: agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 			want: 0,
 		},
 	}
@@ -448,27 +448,27 @@ func TestRoleBriefing(t *testing.T) {
 	}{
 		{
 			name:   "an orchestrator stands behind a workflow",
-			params: launchParams{Role: agentstore.RoleOrchestrator},
+			params: launchParams{Role: agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR},
 			want:   orchestratorDoc,
 		},
 		{
 			name:   "an orchestrator owning a checkout is still an orchestrator",
-			params: launchParams{Role: agentstore.RoleOrchestrator, OwnsCheckout: true},
+			params: launchParams{Role: agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR, OwnsCheckout: true},
 			want:   orchestratorDoc,
 		},
 		{
 			name:   "a reviewer reads somebody else's work",
-			params: launchParams{Role: agentstore.RoleReviewer},
+			params: launchParams{Role: agentv1.AgentRole_AGENT_ROLE_REVIEWER},
 			want:   reviewerDoc,
 		},
 		{
 			name:   "an agent holding its own checkout gets it read",
-			params: launchParams{Role: agentstore.RoleWriter, OwnsCheckout: true},
+			params: launchParams{Role: agentv1.AgentRole_AGENT_ROLE_WRITER, OwnsCheckout: true},
 			want:   writerDoc,
 		},
 		{
 			name:   "an agent holding no checkout is told nothing of the three",
-			params: launchParams{Role: agentstore.RoleWriter},
+			params: launchParams{Role: agentv1.AgentRole_AGENT_ROLE_WRITER},
 			want:   "",
 		},
 	}
@@ -489,22 +489,22 @@ func TestSpawningBriefing(t *testing.T) {
 	}{
 		{
 			name:   "a writer holding its own checkout spawns",
-			params: launchParams{Role: agentstore.RoleWriter, OwnsCheckout: true},
+			params: launchParams{Role: agentv1.AgentRole_AGENT_ROLE_WRITER, OwnsCheckout: true},
 			want:   spawningDoc,
 		},
 		{
 			name:   "a writer holding no checkout still spawns",
-			params: launchParams{Role: agentstore.RoleWriter},
+			params: launchParams{Role: agentv1.AgentRole_AGENT_ROLE_WRITER},
 			want:   spawningDoc,
 		},
 		{
 			name:   "a reviewer sends new work to its task's writer",
-			params: launchParams{Role: agentstore.RoleReviewer},
+			params: launchParams{Role: agentv1.AgentRole_AGENT_ROLE_REVIEWER},
 			want:   "",
 		},
 		{
 			name:   "an orchestrator has spawning rules of its own",
-			params: launchParams{Role: agentstore.RoleOrchestrator},
+			params: launchParams{Role: agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR},
 			want:   "",
 		},
 	}
@@ -528,7 +528,7 @@ func TestContextBriefing(t *testing.T) {
 		{
 			name: "an orchestrator is told whose job the context describes",
 			params: launchParams{
-				Role:            agentstore.RoleOrchestrator,
+				Role:            agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 				WorkflowContext: "the writer lands work on a branch",
 			},
 			wantDoc:  orchestratorContextDoc,
@@ -536,12 +536,12 @@ func TestContextBriefing(t *testing.T) {
 		},
 		{
 			name:   "an orchestrator in a workflow with no context is told nothing",
-			params: launchParams{Role: agentstore.RoleOrchestrator},
+			params: launchParams{Role: agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR},
 		},
 		{
 			name: "every other role reads the context unframed",
 			params: launchParams{
-				Role:            agentstore.RoleWriter,
+				Role:            agentv1.AgentRole_AGENT_ROLE_WRITER,
 				WorkflowContext: "the writer lands work on a branch",
 			},
 			wantLast: true,

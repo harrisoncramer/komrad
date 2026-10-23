@@ -23,6 +23,8 @@ import (
 	"komrad/internal/tasks"
 	"komrad/internal/tmuxtest"
 	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -96,7 +98,7 @@ func TestResumeDir(t *testing.T) {
 func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	const sessionID = "0f0b6f2c-6f8f-4a0e-9c2f-2a8f9d0a1b22"
 
-	cut := func(t *testing.T, state agentstore.State, session string) (*testAgents, *testStore, *harnesstest.Fake, agentstore.Agent) {
+	cut := func(t *testing.T, state agentv1.AgentState, session string) (*testAgents, *testStore, *harnesstest.Fake, agentstore.Agent) {
 		t.Helper()
 
 		st := newStore(t)
@@ -121,17 +123,17 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	}
 
 	t.Run("a pane that goes while its agent is thinking leaves the turn recorded as cut off", func(t *testing.T) {
-		_, st, _, agent := cut(t, agentstore.StateThinking, sessionID)
+		_, st, _, agent := cut(t, agentv1.AgentState_AGENT_STATE_THINKING, sessionID)
 		assert.NotNil(t, agentByID(t, st, agent.ID).InterruptedAt)
 	})
 
 	t.Run("a pane that goes while its agent is idle leaves nothing to pick back up", func(t *testing.T) {
-		_, st, _, agent := cut(t, agentstore.StateIdle, sessionID)
+		_, st, _, agent := cut(t, agentv1.AgentState_AGENT_STATE_IDLE, sessionID)
 		assert.Nil(t, agentByID(t, st, agent.ID).InterruptedAt)
 	})
 
 	t.Run("the resume opens with the ask, and does not carry it into a later one", func(t *testing.T) {
-		service, st, fakeHarness, agent := cut(t, agentstore.StateThinking, sessionID)
+		service, st, fakeHarness, agent := cut(t, agentv1.AgentState_AGENT_STATE_THINKING, sessionID)
 
 		_, err := service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 		require.NoError(t, err)
@@ -141,7 +143,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	})
 
 	t.Run("a pane that goes while its agent waits on a person leaves the turn recorded as cut off", func(t *testing.T) {
-		_, st, _, agent := cut(t, agentstore.StateWaiting, sessionID)
+		_, st, _, agent := cut(t, agentv1.AgentState_AGENT_STATE_WAITING, sessionID)
 		assert.NotNil(t, agentByID(t, st, agent.ID).InterruptedAt,
 			"an unanswered tool call is no more finished than a turn still being thought about")
 	})
@@ -149,18 +151,18 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	t.Run("an agent archived mid-turn is settled by the archive and asked again once restored", func(t *testing.T) {
 		st := newStore(t)
 		tmux := tmuxtest.NewFake()
-		agent := seedRunning(t, st, tmux, "cut", "%1", agentstore.StateThinking)
+		agent := seedRunning(t, st, tmux, "cut", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 		require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, sessionID))
 		service, fakeHarness := newManagerWithHarness(tmux, st, "")
 
 		require.NoError(t, archiveWriters(t.Context(), service.lifecycle, []uuid.UUID{agent.ID}))
 		archived := agentByID(t, st, agent.ID)
-		assert.Equal(t, agentstore.StateIdle, archived.State, "no reconcile pass visits an archived row, so the archive settles it")
+		assert.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, archived.State, "no reconcile pass visits an archived row, so the archive settles it")
 		require.NotNil(t, archived.InterruptedAt)
 
 		_, err := service.lifecycle.RestoreAgents(t.Context(), []uuid.UUID{agent.ID})
 		require.NoError(t, err)
-		assert.Equal(t, agentstore.StateIdle, agentByID(t, st, agent.ID).State, "the restore brings back a settled row")
+		assert.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, agentByID(t, st, agent.ID).State, "the restore brings back a settled row")
 
 		_, err = service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 		require.NoError(t, err)
@@ -171,7 +173,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	// What `mise run restart` does: the tmux server goes whole and komrad's own server goes
 	// with it, so no reconcile pass ever watches the panes go and the store is left holding
 	// a turn that is already over.
-	unwatched := func(t *testing.T, state agentstore.State) (*testAgents, *testStore, *harnesstest.Fake, agentstore.Agent) {
+	unwatched := func(t *testing.T, state agentv1.AgentState) (*testAgents, *testStore, *harnesstest.Fake, agentstore.Agent) {
 		t.Helper()
 
 		st := newStore(t)
@@ -184,7 +186,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	}
 
 	t.Run("a turn the store still has running is asked for again even if nothing recorded it as cut off", func(t *testing.T) {
-		service, _, fakeHarness, agent := unwatched(t, agentstore.StateThinking)
+		service, _, fakeHarness, agent := unwatched(t, agentv1.AgentState_AGENT_STATE_THINKING)
 
 		_, err := service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 		require.NoError(t, err)
@@ -193,7 +195,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	})
 
 	t.Run("a turn left waiting on a person is asked for again even if nothing recorded it as cut off", func(t *testing.T) {
-		service, _, fakeHarness, agent := unwatched(t, agentstore.StateWaiting)
+		service, _, fakeHarness, agent := unwatched(t, agentv1.AgentState_AGENT_STATE_WAITING)
 
 		_, err := service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 		require.NoError(t, err)
@@ -202,7 +204,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	})
 
 	t.Run("a relaunch that fails leaves the turn for the resume after it", func(t *testing.T) {
-		service, st, fakeHarness, agent := unwatched(t, agentstore.StateThinking)
+		service, st, fakeHarness, agent := unwatched(t, agentv1.AgentState_AGENT_STATE_THINKING)
 		fakeHarness.CommandErr = errors.New("no")
 
 		_, err := service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
@@ -212,7 +214,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	})
 
 	t.Run("an agent that finished its turn resumes without being told anything", func(t *testing.T) {
-		service, _, fakeHarness, agent := cut(t, agentstore.StateIdle, sessionID)
+		service, _, fakeHarness, agent := cut(t, agentv1.AgentState_AGENT_STATE_IDLE, sessionID)
 
 		_, err := service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 		require.NoError(t, err)
@@ -221,7 +223,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	})
 
 	t.Run("an agent with no conversation to reopen is not asked about a turn it cannot read", func(t *testing.T) {
-		service, st, fakeHarness, agent := cut(t, agentstore.StateThinking, "")
+		service, st, fakeHarness, agent := cut(t, agentv1.AgentState_AGENT_STATE_THINKING, "")
 
 		_, err := service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 		require.NoError(t, err)
@@ -233,7 +235,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	})
 
 	t.Run("a turn cut off before its conversation was named is not asked about after a fresh one is", func(t *testing.T) {
-		service, st, fakeHarness, agent := cut(t, agentstore.StateThinking, "")
+		service, st, fakeHarness, agent := cut(t, agentv1.AgentState_AGENT_STATE_THINKING, "")
 
 		_, err := service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 		require.NoError(t, err)
@@ -244,7 +246,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		// panel adopts that id as the agent's own.
 		const learned = "9a1c7f10-2b3d-4e5f-8a9b-0c1d2e3f4a5b"
 		require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, learned))
-		require.NoError(t, st.Agents.SetStateByID(t.Context(), agent.ID, agentstore.StateIdle))
+		require.NoError(t, st.Agents.SetStateByID(t.Context(), agent.ID, agentv1.AgentState_AGENT_STATE_IDLE))
 
 		tmux := tmuxtest.NewFake()
 		rec := NewReconciler(NewReconcilerParams{
@@ -271,7 +273,7 @@ func TestATurnCutOffWithNoTmuxServerIsAskedForAgain(t *testing.T) {
 
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
-	agent := seed(t, st, "cut", "%1", agentstore.StateThinking)
+	agent := seed(t, st, "cut", "%1", agentv1.AgentState_AGENT_STATE_THINKING)
 	require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, sessionID))
 
 	service, fakeHarness := newManagerWithHarness(tmux, st, "")
@@ -287,7 +289,7 @@ func TestATurnCutOffWithNoTmuxServerIsAskedForAgain(t *testing.T) {
 
 	stored := agentByID(t, st, agent.ID)
 	require.Nil(t, stored.InterruptedAt, "no pass could look at a pane, so nothing recorded the turn")
-	require.Equal(t, agentstore.StateThinking, stored.State)
+	require.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, stored.State)
 
 	_, err := service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 	require.NoError(t, err)
@@ -326,7 +328,7 @@ func TestAResumeThatGivesUpPutsTheStateBack(t *testing.T) {
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
-	agent := seedInWorkflow(t, st, workflowID, "cut", "", agentstore.StateThinking)
+	agent := seedInWorkflow(t, st, workflowID, "cut", "", agentv1.AgentState_AGENT_STATE_THINKING)
 
 	lifecycle := &fakeLifecycle{resumeErr: errors.New("git worktree add: already checked out")}
 	require.NoError(t, st.Workflows.Update(ctx, workflowID, workflowstore.Config{
@@ -340,7 +342,7 @@ func TestAResumeThatGivesUpPutsTheStateBack(t *testing.T) {
 	_, err := manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: agent.ID})
 	require.Error(t, err)
 
-	assert.Equal(t, agentstore.StateThinking, agentByID(t, st, agent.ID).State,
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, agentByID(t, st, agent.ID).State,
 		"a resume that gave up leaves the row reading as it found it")
 }
 
@@ -352,7 +354,7 @@ func TestASecondResumeOpensNoSecondWindow(t *testing.T) {
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
-	agent := seedInWorkflow(t, st, workflowID, "dormant", "", agentstore.StateIdle)
+	agent := seedInWorkflow(t, st, workflowID, "dormant", "", agentv1.AgentState_AGENT_STATE_IDLE)
 
 	// The second resume arrives while the first is part-way through.
 	arrived := make(chan struct{})
@@ -393,7 +395,7 @@ func TestAResumeIsClaimableAgainAfterOneFinishes(t *testing.T) {
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
-	agent := seedInWorkflow(t, st, workflowID, "dormant", "", agentstore.StateIdle)
+	agent := seedInWorkflow(t, st, workflowID, "dormant", "", agentv1.AgentState_AGENT_STATE_IDLE)
 
 	manager := newManager(tmux, st)
 
@@ -421,7 +423,7 @@ func TestAnArchiveBeforeTheMarkStopsTheResume(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	agent := seedInWorkflow(t, st, created.ID, "agent", "", agentstore.StateIdle)
+	agent := seedInWorkflow(t, st, created.ID, "agent", "", agentv1.AgentState_AGENT_STATE_IDLE)
 
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, &fakeLifecycle{})
 	var once sync.Once
@@ -458,7 +460,7 @@ func TestAnArchiveAfterTheMarkStopsTheResume(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	agent := seedInWorkflow(t, st, created.ID, "cut", "", agentstore.StateIdle)
+	agent := seedInWorkflow(t, st, created.ID, "cut", "", agentv1.AgentState_AGENT_STATE_IDLE)
 
 	fakeHarness := &harnesstest.Fake{}
 	lifecycle := &blockingLifecycle{entered: make(chan struct{}), release: make(chan struct{})}
@@ -472,7 +474,7 @@ func TestAnArchiveAfterTheMarkStopsTheResume(t *testing.T) {
 
 	<-lifecycle.entered
 
-	require.Equal(t, agentstore.StateSettingUp, agentByID(t, st, agent.ID).State)
+	require.Equal(t, agentv1.AgentState_AGENT_STATE_SETTING_UP, agentByID(t, st, agent.ID).State)
 	require.NoError(t, archiveWriters(ctx, manager.lifecycle, []uuid.UUID{agent.ID}))
 
 	close(lifecycle.release)
@@ -486,7 +488,7 @@ func TestAnArchiveAfterTheMarkStopsTheResume(t *testing.T) {
 	after := agentByID(t, st, agent.ID)
 	require.NotNil(t, after.ArchivedAt, "the archive really did land")
 	assert.Empty(t, after.Pane, "the resume wrote no pane onto the archived row")
-	assert.Equal(t, agentstore.StateIdle, after.State, "and the row reads as the resume found it rather than mid-setup")
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, after.State, "and the row reads as the resume found it rather than mid-setup")
 	assert.Len(t, tmux.KilledPanes, 1, "the pane the resume opened goes with the resume that lost")
 	assert.Empty(t, fakeHarness.Launches, "and no CLI was launched into a pane no listing shows")
 
@@ -509,7 +511,7 @@ func TestADeleteAfterTheMarkStopsTheResume(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	agent := seedInWorkflow(t, st, created.ID, "cut", "", agentstore.StateIdle)
+	agent := seedInWorkflow(t, st, created.ID, "cut", "", agentv1.AgentState_AGENT_STATE_IDLE)
 
 	fakeHarness := &harnesstest.Fake{}
 	lifecycle := &blockingLifecycle{entered: make(chan struct{}), release: make(chan struct{})}
@@ -523,7 +525,7 @@ func TestADeleteAfterTheMarkStopsTheResume(t *testing.T) {
 
 	<-lifecycle.entered
 
-	require.Equal(t, agentstore.StateSettingUp, agentByID(t, st, agent.ID).State)
+	require.Equal(t, agentv1.AgentState_AGENT_STATE_SETTING_UP, agentByID(t, st, agent.ID).State)
 	require.NoError(t, manager.lifecycle.deleteNow(ctx, []uuid.UUID{agent.ID}))
 
 	close(lifecycle.release)
@@ -550,7 +552,7 @@ func TestAResumeThatFailsOnItsLastWritePutsBackWhatItFound(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 
 	workflowID := seedWorkflow(t, st)
-	agent := seedInWorkflow(t, st, workflowID, "cut", "", agentstore.StateThinking)
+	agent := seedInWorkflow(t, st, workflowID, "cut", "", agentv1.AgentState_AGENT_STATE_THINKING)
 	require.NoError(t, st.Agents.SetInterruptedAtByID(ctx, agent.ID, xptr.Ptr(time.Now())))
 
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, &fakeLifecycle{})
@@ -560,7 +562,7 @@ func TestAResumeThatFailsOnItsLastWritePutsBackWhatItFound(t *testing.T) {
 	require.ErrorContains(t, err, "failed to resume agent", "the write that failed is the last one")
 
 	after := agentByID(t, st, agent.ID)
-	assert.Equal(t, agentstore.StateThinking, after.State, "the row reads as the resume found it")
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, after.State, "the row reads as the resume found it")
 	assert.Empty(t, after.Pane)
 	assert.Len(t, tmux.KilledPanes, 1, "the window it opened goes with it")
 }
@@ -617,7 +619,7 @@ func TestResumeRunsTheProvisioner(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			agent := seedInWorkflow(t, st, created.ID, "auth", "%0", agentstore.StateIdle)
+			agent := seedInWorkflow(t, st, created.ID, "auth", "%0", agentv1.AgentState_AGENT_STATE_IDLE)
 			agent.Cwd = recorded
 			require.NoError(t, st.Agents.Update(ctx, agent))
 
@@ -656,7 +658,7 @@ func TestResumeWithoutAProvisionerFiresNothing(t *testing.T) {
 	lifecycle := &fakeLifecycle{}
 	manager := st.agentServiceWithLifecycle(tmux, harnesstest.Registry{Harness: &harnesstest.Fake{}}, lifecycle)
 
-	agent := seed(t, st, "auth", "%0", agentstore.StateIdle)
+	agent := seed(t, st, "auth", "%0", agentv1.AgentState_AGENT_STATE_IDLE)
 
 	_, err := manager.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 
@@ -691,13 +693,13 @@ func TestResumeGivesBackThePaneItOpened(t *testing.T) {
 			manager := newManager(tmux, st)
 			ctx := t.Context()
 
-			agent := seed(t, st, "auth", "", agentstore.StateThinking)
+			agent := seed(t, st, "auth", "", agentv1.AgentState_AGENT_STATE_THINKING)
 
 			_, err := manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: agent.ID})
 
 			require.Error(t, err)
 			assert.Equal(t, []string{"%auth"}, tmux.KilledPanes, "the window it opened is taken away")
-			assert.Equal(t, agentstore.StateThinking, agentByID(t, st, agent.ID).State,
+			assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, agentByID(t, st, agent.ID).State,
 				"and the row is left reading as the resume found it")
 			assert.NotNil(t, agentByID(t, st, agent.ID).InterruptedAt, "and the cut turn is kept for the next resume")
 		})
@@ -719,7 +721,7 @@ func TestResumeAfterARefusedRelaunchGetsThrough(t *testing.T) {
 	})
 	ctx := t.Context()
 
-	agent := seed(t, st, "auth", "", agentstore.StateThinking)
+	agent := seed(t, st, "auth", "", agentv1.AgentState_AGENT_STATE_THINKING)
 	require.NoError(t, st.Agents.SetHooksByID(ctx, agent.ID, []string{"Stop"}))
 
 	_, err := manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: agent.ID})
@@ -732,7 +734,7 @@ func TestResumeAfterARefusedRelaunchGetsThrough(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Len(t, harness.Launches, 2, "the second resume reaches the CLI rather than reporting a pane that is already running")
-	assert.Equal(t, agentstore.StateSettingUp, resumed.State)
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_SETTING_UP, resumed.State)
 	assert.Equal(t, []string{"PreToolUse", "Stop"}, agentByID(t, st, agent.ID).Hooks, "the hooks the relaunch installed")
 }
 
@@ -751,8 +753,8 @@ func TestResumeCompactsAtItsRolesPoint(t *testing.T) {
 		},
 	})
 
-	agent := seed(t, st, "auth", "", agentstore.StateThinking)
-	require.Equal(t, agentstore.RoleWriter, agent.Role)
+	agent := seed(t, st, "auth", "", agentv1.AgentState_AGENT_STATE_THINKING)
+	require.Equal(t, agentv1.AgentRole_AGENT_ROLE_WRITER, agent.Role)
 
 	_, err := manager.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: agent.ID})
 
@@ -768,7 +770,7 @@ func TestResumeRefusesArchived(t *testing.T) {
 	manager := newManager(tmux, st)
 	ctx := t.Context()
 
-	archived := seed(t, st, "archived", "%0", agentstore.StateIdle)
+	archived := seed(t, st, "archived", "%0", agentv1.AgentState_AGENT_STATE_IDLE)
 	require.NoError(t, st.SoftDelete(ctx, "archived"))
 
 	_, err := manager.resume.ResumeAgent(ctx, ResumeAgentParams{ID: archived.ID})
@@ -783,9 +785,9 @@ func TestResumeRefusesARemovedWorktree(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	service, fakeHarness := newManagerWithHarness(tmux, st, "")
-	writer := seed(t, st, "writer", "%0", agentstore.StateIdle)
+	writer := seed(t, st, "writer", "%0", agentv1.AgentState_AGENT_STATE_IDLE)
 	require.NotNil(t, writer.TaskID)
-	require.NoError(t, st.Tasks.SetHead(t.Context(), *writer.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone}))
+	require.NoError(t, st.Tasks.SetHead(t.Context(), *writer.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE}))
 
 	_, err := service.resume.ResumeAgent(t.Context(), ResumeAgentParams{ID: writer.ID})
 
@@ -799,7 +801,7 @@ func TestResumeHoldsTheCheckoutForItsLaunch(t *testing.T) {
 	tmux := tmuxtest.NewFake()
 	st := newStore(t)
 	harness := &harnesstest.Fake{}
-	agent := seed(t, st, "auth", "", agentstore.StateThinking)
+	agent := seed(t, st, "auth", "", agentv1.AgentState_AGENT_STATE_THINKING)
 	agent.Cwd = t.TempDir()
 	require.NoError(t, st.Agents.Update(t.Context(), agent))
 	locks := checkouts.NewTreeLocks()
@@ -830,15 +832,15 @@ func TestResumeLeavesAHeldCheckoutToItsWriter(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
 	harness := &harnesstest.Fake{}
-	writer := seed(t, st, "auth", "", agentstore.StateIdle)
+	writer := seed(t, st, "auth", "", agentv1.AgentState_AGENT_STATE_IDLE)
 	writer.Cwd = t.TempDir()
 	require.NoError(t, st.Agents.Update(ctx, writer))
 	require.NoError(t, st.createAgent(ctx, agentstore.Agent{
 		Name:             "reviewer",
-		State:            agentstore.StateIdle,
+		State:            agentv1.AgentState_AGENT_STATE_IDLE,
 		Cwd:              writer.Cwd,
 		WorkflowID:       writer.WorkflowID,
-		Role:             agentstore.RoleReviewer,
+		Role:             agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 		TaskID:           writer.TaskID,
 		ProvisionEnabled: xptr.Ptr(false),
 	}))
@@ -927,7 +929,7 @@ func TestResumeAgentHoldsAnAgentToItsTaskAndOrchestrator(t *testing.T) {
 				"writer":                     writer.ID,
 				"reviewer":                   seedReviewer(t, st, tmux, writer).ID,
 				"writer on another task":     seedRunningIn(t, st, tmux, orchestrator.WorkflowID, "billing", "%2").ID,
-				"writer in another workflow": seedRunning(t, st, tmux, "api", "%3", agentstore.StateIdle).ID,
+				"writer in another workflow": seedRunning(t, st, tmux, "api", "%3", agentv1.AgentState_AGENT_STATE_IDLE).ID,
 			}
 
 			_, err := manager.resume.ResumeAgent(t.Context(), ResumeAgentParams{
@@ -957,7 +959,7 @@ func TestResumeRefusesUnknownHarness(t *testing.T) {
 
 	require.NoError(t, st.createAgent(t.Context(), agentstore.Agent{
 		Name:      "dormant",
-		State:     agentstore.StateIdle,
+		State:     agentv1.AgentState_AGENT_STATE_IDLE,
 		Harness:   "gemini",
 		SessionID: "sess-1",
 	}))

@@ -5,8 +5,9 @@ import (
 	"fmt"
 
 	"komrad/db/models"
+	"komrad/internal/fail"
 	"komrad/lib/xptr"
-	"komrad/lib/xslice"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/google/uuid"
 )
@@ -19,33 +20,28 @@ type Parent struct {
 	ForkPoint string
 	// PullRequestID is the parent's pull request, empty until the parent has one.
 	PullRequestID *uuid.UUID
-	// Blocked is why the cascade cannot rebase the child, empty while nothing blocks it.
-	Blocked CascadeBlock
+	// Blocked is why the cascade cannot rebase the child, unspecified while nothing blocks it.
+	Blocked taskv1.CascadeBlock
 }
 
-// CascadeBlock is why the cascade cannot rebase a child onto its parent.
-type CascadeBlock string
+// errNoParent is a task row that depends on no other task.
+var errNoParent = fail.NotFound("the task has no parent")
 
-const (
-	// CascadeConflicted is a rebase onto the parent that stopped on conflicts.
-	CascadeConflicted CascadeBlock = "conflicts"
-	// CascadeOrphaned is a child whose branch holds neither its fork point nor any of its parent's own commits.
-	CascadeOrphaned CascadeBlock = "orphaned"
-	// CascadeParentClosed is a parent whose pull request closed without merging.
-	CascadeParentClosed CascadeBlock = "closed"
-)
-
-func parentFrom(row *models.Task) *Parent {
+func parentFrom(row *models.Task) (*Parent, error) {
 	if row.ParentTaskID == nil {
-		return nil
+		return nil, errNoParent
+	}
+	blocked, err := fromDBToServiceCascadeBlock(row.CascadeBlocked)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Parent{
 		TaskID:        *row.ParentTaskID,
 		ForkPoint:     xptr.Deref(row.ForkPoint),
 		PullRequestID: row.ParentPullRequestID,
-		Blocked:       CascadeBlock(xptr.Deref(row.CascadeBlocked)),
-	}
+		Blocked:       blocked,
+	}, nil
 }
 
 // SetParent replaces a task's parent, or clears it with nil.
@@ -110,7 +106,7 @@ func (s *TaskStore) ListChildren(ctx context.Context) ([]Task, error) {
 		return nil, fmt.Errorf("failed to list the child tasks: %w", err)
 	}
 
-	return xslice.Map(rows, fromRow), nil
+	return fromRows(rows)
 }
 
 // ListChildrenOf returns the undeleted children of any of ids, archived or not.
@@ -124,14 +120,23 @@ func (s *TaskStore) ListChildrenOf(ctx context.Context, ids []uuid.UUID) ([]Task
 		return nil, fmt.Errorf("failed to list the children of %d tasks: %w", len(ids), err)
 	}
 
-	return xslice.Map(rows, fromRow), nil
+	return fromRows(rows)
 }
 
-// SetCascadeBlocked records why the cascade cannot rebase a child, or clears it with an empty block.
-func (s *TaskStore) SetCascadeBlocked(ctx context.Context, id uuid.UUID, block CascadeBlock) error {
+// SetCascadeBlocked records why the cascade cannot rebase a child, or clears it with an unspecified block.
+func (s *TaskStore) SetCascadeBlocked(ctx context.Context, id uuid.UUID, block taskv1.CascadeBlock) error {
+	var stored *string
+	if block != taskv1.CascadeBlock_CASCADE_BLOCK_UNSPECIFIED {
+		text, err := fromServiceToDBCascadeBlock(block)
+		if err != nil {
+			return err
+		}
+		stored = &text
+	}
+
 	if err := s.queries.SetTaskCascadeBlocked(ctx, models.SetTaskCascadeBlockedParams{
 		ID:             id,
-		CascadeBlocked: xptr.NonEmpty(string(block)),
+		CascadeBlocked: stored,
 	}); err != nil {
 		return fmt.Errorf("failed to set what blocks the cascade of task %q: %w", id, err)
 	}

@@ -21,8 +21,10 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/internal/storetest"
 	"komrad/lib/clock"
+	"komrad/lib/protoenum"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
@@ -204,7 +206,7 @@ func TestScriptPayload(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(values["KOMRAD_AGENT"]), &payload))
 
 	assert.Equal(t, "auth", payload.Name)
-	assert.Equal(t, string(agentstore.StateWaiting), payload.State)
+	assert.Equal(t, protoenum.Name(agentv1.AgentState_AGENT_STATE_WAITING), payload.State)
 	assert.True(t, payload.Alive, "the pane still belongs to this agent")
 	assert.Equal(t, "%9", payload.Pane)
 	assert.Equal(t, "backend", payload.Workflow, "the workflow reads as its name, not the id a script cannot use")
@@ -359,12 +361,12 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 func TestTaskEnvOnlyWhenTheAgentWorksOnOne(t *testing.T) {
 	tests := []struct {
 		name     string
-		role     agentstore.Role
+		role     agentv1.AgentRole
 		wantSlug string
 	}{
 		{
 			name: "an orchestrator, on no task, carries neither key",
-			role: agentstore.RoleOrchestrator,
+			role: agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR,
 		},
 		{
 			name:     "an agent on a task carries its id and slug",
@@ -1747,7 +1749,7 @@ func fixtureAgent() agentstore.Agent {
 	return agentstore.Agent{
 		ID:        fixtureAgentID,
 		Name:      "auth",
-		State:     agentstore.StateWaiting,
+		State:     agentv1.AgentState_AGENT_STATE_WAITING,
 		Cwd:       "/repo",
 		Harness:   "claude",
 		SessionID: "sess-1",

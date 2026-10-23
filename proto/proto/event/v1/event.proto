@@ -21,7 +21,7 @@
 //   2. Run mise run proto:generate and mise run gen:docs. Only the version line in each
 //      generated file should change.
 //   3. If the release renamed the option or moved its import, change it here, in
-//      forge/v1/connection.proto and in lib/protoenum, which is the one Go helper that reads it.
+//      every enums.proto and in lib/protoenum, which is the one Go helper that reads it.
 //   4. If Edition 2026 changed a default, such as top-level types being local unless marked
 //      export, change the declarations here to match.
 //

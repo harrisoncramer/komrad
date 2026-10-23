@@ -10,7 +10,10 @@ import (
 
 	"komrad/internal/forge"
 	"komrad/internal/forge/graphql"
+	"komrad/lib/protoenum"
 	"komrad/lib/xhttp"
+	forgev1 "komrad/proto/gen/forge/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 // Merge accepts the merge request, squashed or not as asked, or the way the project is set to
@@ -94,27 +97,27 @@ func (f *Forge) mergeRefusal(ctx context.Context, endpoint string, said string) 
 
 // mergeability is the detailed merge status in komrad's words, unknown once the merge request
 // has merged or closed.
-func (n mergeRequestNode) mergeability() forge.Mergeability {
+func (n mergeRequestNode) mergeability() pullrequestv1.Mergeability {
 	if n.State == "merged" || n.State == "closed" {
-		return forge.MergeabilityUnknown
+		return pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN
 	}
 
 	switch n.DetailedMergeStatus {
 	case "":
-		return forge.MergeabilityUnknown
+		return pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN
 	case "MERGEABLE":
-		return forge.MergeabilityClean
+		return pullrequestv1.Mergeability_MERGEABILITY_CLEAN
 	case "CI_MUST_PASS", "CI_STILL_RUNNING":
-		return forge.MergeabilityUnstable
+		return pullrequestv1.Mergeability_MERGEABILITY_UNSTABLE
 	case "NEED_REBASE":
-		return forge.MergeabilityBehind
+		return pullrequestv1.Mergeability_MERGEABILITY_BEHIND
 	case "CONFLICT":
-		return forge.MergeabilityConflicting
+		return pullrequestv1.Mergeability_MERGEABILITY_CONFLICTING
 	case "UNCHECKED", "CHECKING", "PREPARING", "APPROVALS_SYNCING":
-		return forge.MergeabilityUnknown
+		return pullrequestv1.Mergeability_MERGEABILITY_UNKNOWN
 	}
 
-	return forge.MergeabilityBlocked
+	return pullrequestv1.Mergeability_MERGEABILITY_BLOCKED
 }
 
 // joinMessage is a commit message as one text, its headline apart from its body by a blank line.
@@ -131,13 +134,13 @@ func joinMessage(message forge.CommitMessage) string {
 func (f *Forge) mergeBody(ctx context.Context, path string, number int, params forge.MergeParams) (map[string]any, error) {
 	body := map[string]any{}
 	switch params.Method {
-	case "":
-	case forge.MergeMethodSquash:
+	case forgev1.MergeMethod_MERGE_METHOD_UNSPECIFIED:
+	case forgev1.MergeMethod_MERGE_METHOD_SQUASH:
 		body["squash"] = true
-	case forge.MergeMethodMerge, forge.MergeMethodFastForward:
+	case forgev1.MergeMethod_MERGE_METHOD_MERGE, forgev1.MergeMethod_MERGE_METHOD_FAST_FORWARD:
 		body["squash"] = false
-	case forge.MergeMethodRebase:
-		return nil, forge.ErrNoMergeMethod.Saying("gitlab cannot merge by %s", params.Method)
+	case forgev1.MergeMethod_MERGE_METHOD_REBASE:
+		return nil, forge.ErrNoMergeMethod.Saying("gitlab cannot merge by %s", protoenum.Name(params.Method))
 	}
 
 	message, err := f.commitMessage(ctx, path, number, params)
@@ -146,7 +149,7 @@ func (f *Forge) mergeBody(ctx context.Context, path string, number int, params f
 	}
 	if message != "" {
 		field := "merge_commit_message"
-		if params.Method == forge.MergeMethodSquash {
+		if params.Method == forgev1.MergeMethod_MERGE_METHOD_SQUASH {
 			field = "squash_commit_message"
 		}
 		body[field] = message
@@ -173,7 +176,7 @@ func (f *Forge) commitMessage(ctx context.Context, path string, number int, para
 		}
 
 		written := target.DefaultMergeCommitMessage
-		if params.Method == forge.MergeMethodSquash {
+		if params.Method == forgev1.MergeMethod_MERGE_METHOD_SQUASH {
 			written = target.DefaultSquashCommitMessage
 		}
 		if split := splitMessage(written); split != nil {

@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/forge"
 	"komrad/lib/xptr"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -130,37 +131,37 @@ func TestReadBranchesStatusCheckListing(t *testing.T) {
 			want: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{
 				{
 					ProviderID:     "CR_1",
-					Kind:           forge.StatusCheckKindRun,
+					Kind:           pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 					Name:           "test",
-					State:          forge.StatusCheckStateRunning,
+					State:          pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING,
 					StartedAt:      xptr.Ptr(time.Date(2026, 9, 20, 11, 0, 0, 0, time.UTC)),
 					StepsTruncated: true,
 				},
 				{
 					ProviderID: "SC_1",
-					Kind:       forge.StatusCheckKindStatus,
+					Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_STATUS,
 					Name:       "ci/legacy",
-					State:      forge.StatusCheckStateRunning,
+					State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING,
 					StartedAt:  xptr.Ptr(time.Date(2026, 9, 20, 11, 1, 0, 0, time.UTC)),
 				},
 				{
 					ProviderID: "SC_2",
-					Kind:       forge.StatusCheckKindStatus,
+					Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_STATUS,
 					Name:       "ci/deploy",
-					State:      forge.StatusCheckStateWaiting,
+					State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_WAITING,
 				},
 				{
 					ProviderID:     "CR_2",
-					Kind:           forge.StatusCheckKindRun,
+					Kind:           pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 					Name:           "deploy",
-					State:          forge.StatusCheckStateWaiting,
+					State:          pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_WAITING,
 					StepsTruncated: true,
 				},
 				{
 					ProviderID:     "CR_3",
-					Kind:           forge.StatusCheckKindRun,
+					Kind:           pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 					Name:           "lint",
-					State:          forge.StatusCheckStateQueued,
+					State:          pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED,
 					StepsTruncated: true,
 				},
 			}},
@@ -197,9 +198,9 @@ func TestReadBranchesStatusCheckListing(t *testing.T) {
 }`),
 			want: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{{
 				ProviderID:     "CR_1",
-				Kind:           forge.StatusCheckKindRun,
+				Kind:           pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 				Name:           "test",
-				State:          forge.StatusCheckStateQueued,
+				State:          pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED,
 				StepsTruncated: true,
 			}}, Truncated: true},
 		},
@@ -283,14 +284,14 @@ func TestReadBranchesStatusCheckListing(t *testing.T) {
 			want: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{
 				{
 					ProviderID: "CR_1",
-					Kind:       forge.StatusCheckKindRun,
+					Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 					Name:       "test",
-					State:      forge.StatusCheckStateRunning,
+					State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING,
 					Steps: []forge.StatusCheckStep{
 						{
 							Number:     1,
 							Name:       "Set up job",
-							State:      forge.StatusCheckStateCompleted,
+							State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_COMPLETED,
 							Conclusion: "success",
 							StartedAt:  xptr.Ptr(time.Date(2026, 9, 20, 11, 0, 0, 0, time.UTC)),
 							FinishedAt: xptr.Ptr(time.Date(2026, 9, 20, 11, 0, 5, 0, time.UTC)),
@@ -298,7 +299,7 @@ func TestReadBranchesStatusCheckListing(t *testing.T) {
 						{
 							Number:    2,
 							Name:      "Run tests",
-							State:     forge.StatusCheckStateRunning,
+							State:     pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_RUNNING,
 							StartedAt: xptr.Ptr(time.Date(2026, 9, 20, 11, 0, 5, 0, time.UTC)),
 						},
 					},
@@ -306,15 +307,15 @@ func TestReadBranchesStatusCheckListing(t *testing.T) {
 				},
 				{
 					ProviderID: "CR_2",
-					Kind:       forge.StatusCheckKindRun,
+					Kind:       pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 					Name:       "lint",
-					State:      forge.StatusCheckStateQueued,
+					State:      pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED,
 				},
 				{
 					ProviderID:     "CR_3",
-					Kind:           forge.StatusCheckKindRun,
+					Kind:           pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 					Name:           "build",
-					State:          forge.StatusCheckStateQueued,
+					State:          pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED,
 					StepsTruncated: true,
 				},
 			}},
@@ -356,9 +357,9 @@ func TestReadBranchesStatusCheckListing(t *testing.T) {
 }`,
 			want: &forge.StatusCheckListing{StatusChecks: []forge.StatusCheck{{
 				ProviderID:     "CR_1",
-				Kind:           forge.StatusCheckKindRun,
+				Kind:           pullrequestv1.StatusCheckKind_STATUS_CHECK_KIND_CHECK_RUN,
 				Name:           "test",
-				State:          forge.StatusCheckStateQueued,
+				State:          pullrequestv1.StatusCheckState_STATUS_CHECK_STATE_QUEUED,
 				StepsTruncated: true,
 			}}},
 		},

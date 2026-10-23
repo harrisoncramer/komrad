@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"komrad/internal/komradtest"
-	agentstore "komrad/internal/store/agent"
 	"komrad/lib/protoenum"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -110,7 +109,7 @@ func TestIntegrationAFailedPreDeleteHoldsTheDelete(t *testing.T) {
 			return
 		}
 
-		assert.Equal(c, agentstore.StateFailedToCleanup, agent.State)
+		assert.Equal(c, agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP, agent.State)
 	}, 10*time.Second, 10*time.Millisecond)
 
 	assert.DirExists(t, tree, "the directory the next attempt needs is left where it was")

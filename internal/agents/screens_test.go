@@ -6,10 +6,9 @@ import (
 	"komrad/internal/harness/pane"
 	"komrad/internal/harnesstest"
 	"komrad/internal/store"
-	"komrad/internal/tmuxtest"
-
-	agentstore "komrad/internal/store/agent"
 	screenstore "komrad/internal/store/screen"
+	"komrad/internal/tmuxtest"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -71,7 +70,7 @@ func TestReconcileKeepsTheScreenAnAgentRestsOn(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
+			agent := seed(t, st, "agent", "%1", agentv1.AgentState_AGENT_STATE_IDLE)
 
 			tmux := tmuxtest.NewFake()
 			tmux.Owners["%1"] = agent.ID
@@ -135,7 +134,7 @@ func TestArchiveSavesTheScreen(t *testing.T) {
 			tmux := tmuxtest.NewFake()
 			manager := newManager(tmux, st)
 
-			agent := seed(t, st, "target", "%1", agentstore.StateIdle)
+			agent := seed(t, st, "target", "%1", agentv1.AgentState_AGENT_STATE_IDLE)
 			if tt.owned {
 				require.NoError(t, tmux.SetPaneOwner("%1", agent.ID))
 			}
@@ -163,7 +162,7 @@ func TestArchiveWorkflowSavesItsAgentsScreens(t *testing.T) {
 	st := newStore(t)
 	tmux := tmuxtest.NewFake()
 
-	agent := seedRunning(t, st, tmux, "inside", "%1", agentstore.StateIdle)
+	agent := seedRunning(t, st, tmux, "inside", "%1", agentv1.AgentState_AGENT_STATE_IDLE)
 	tmux.Screens["%1"] = "❯ inside"
 	tmux.Sizes["%1"] = tmuxtest.Size{Width: 80, Height: 24}
 

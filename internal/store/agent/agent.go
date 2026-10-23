@@ -9,6 +9,7 @@ import (
 	"komrad/db/models"
 	"komrad/internal/store"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 )
@@ -16,55 +17,24 @@ import (
 // stateSeenBound is how long a reading of an agent's state stands before it is unconfirmed.
 const stateSeenBound = 2 * time.Minute
 
-// State is what an agent is doing.
-type State string
-
-const (
-	StateThinking        State = State(models.AgentStateThinking)
-	StateWaiting         State = State(models.AgentStateWaiting)
-	StateIdle            State = State(models.AgentStateIdle)
-	StateSettingUp       State = State(models.AgentStateSettingUp)
-	StateFailedToCreate  State = State(models.AgentStateFailedToCreate)
-	StateFailedToCleanup State = State(models.AgentStateFailedToCleanup)
-	StateUncertain       State = State(models.AgentStateUncertain)
-	StateErrored         State = State(models.AgentStateErrored)
-)
-
 // DoesPaneDecide reports whether reading the agent's terminal is what decides this state.
-func (s State) DoesPaneDecide() bool {
-	// Written without a default so a ninth state has to be answered for here rather than
-	// falling in with whichever answer the existing eight happen to share.
-	switch s {
-	case StateIdle, StateThinking, StateWaiting, StateUncertain, StateErrored:
+func DoesPaneDecide(state agentv1.AgentState) bool {
+	switch state {
+	case agentv1.AgentState_AGENT_STATE_IDLE, agentv1.AgentState_AGENT_STATE_THINKING, agentv1.AgentState_AGENT_STATE_WAITING,
+		agentv1.AgentState_AGENT_STATE_UNCERTAIN, agentv1.AgentState_AGENT_STATE_ERRORED:
 		return true
-	case StateSettingUp, StateFailedToCreate, StateFailedToCleanup:
+	case agentv1.AgentState_AGENT_STATE_SETTING_UP, agentv1.AgentState_AGENT_STATE_FAILED_TO_CREATE,
+		agentv1.AgentState_AGENT_STATE_FAILED_TO_CLEANUP, agentv1.AgentState_AGENT_STATE_UNSPECIFIED:
 		return false
 	}
 
 	return false
 }
 
-// IsFailed reports whether a state is one of the two an agent reaches by failing.
-func (s State) IsFailed() bool {
-	return s == StateFailedToCreate || s == StateFailedToCleanup
-}
-
 // IsTurnUnfinished reports whether a state leaves a turn part-way through.
-func (s State) IsTurnUnfinished() bool {
-	return s == StateThinking || s == StateWaiting
+func IsTurnUnfinished(state agentv1.AgentState) bool {
+	return state == agentv1.AgentState_AGENT_STATE_THINKING || state == agentv1.AgentState_AGENT_STATE_WAITING
 }
-
-// Role is what an agent was launched to do.
-type Role string
-
-const (
-	RoleWriter       Role = Role(models.AgentRoleWriter)
-	RoleReviewer     Role = Role(models.AgentRoleReviewer)
-	RoleOrchestrator Role = Role(models.AgentRoleOrchestrator)
-)
-
-// Roles is every role an agent may hold.
-var Roles = []Role{RoleWriter, RoleReviewer, RoleOrchestrator}
 
 type Agent struct {
 	ID    uuid.UUID
@@ -78,8 +48,8 @@ type Agent struct {
 	Prompt           string
 
 	// Role is what the agent was launched to do, and decides which review briefing it is sent.
-	Role           Role
-	State          State
+	Role           agentv1.AgentRole
+	State          agentv1.AgentState
 	StateChangedAt time.Time
 	StateSeenAt    time.Time
 	Turn           Turn
@@ -147,13 +117,13 @@ func (a Agent) IsProvisionerDisabled() bool {
 
 // IsWriter reports whether the agent is its task's writer.
 func (a Agent) IsWriter() bool {
-	return a.Role == RoleWriter
+	return a.Role == agentv1.AgentRole_AGENT_ROLE_WRITER
 }
 
 // roleOrDefault is the agent's role, or the writer's when it names none.
-func (a Agent) roleOrDefault() Role {
-	if a.Role == "" {
-		return RoleWriter
+func (a Agent) roleOrDefault() agentv1.AgentRole {
+	if a.Role == agentv1.AgentRole_AGENT_ROLE_UNSPECIFIED {
+		return agentv1.AgentRole_AGENT_ROLE_WRITER
 	}
 
 	return a.Role
@@ -194,9 +164,14 @@ type AgentPane struct {
 }
 
 // fromRows is the agents the stored rows describe, in the order given.
-func fromRows(rows []*models.Agent) []Agent {
-	return xslice.Map(rows, func(row *models.Agent) Agent {
-		return FromRow(*row)
+func fromRows(rows []*models.Agent) ([]Agent, error) {
+	return xslice.TryMap(rows, func(row *models.Agent) (Agent, error) {
+		agent, err := FromRow(*row)
+		if err != nil {
+			return Agent{}, err
+		}
+
+		return *agent, nil
 	})
 }
 
@@ -215,8 +190,17 @@ func TaskIDs(agents []Agent) []uuid.UUID {
 }
 
 // FromRow is the agent one stored row describes.
-func FromRow(agent models.Agent) Agent {
-	return Agent{
+func FromRow(agent models.Agent) (*Agent, error) {
+	role, err := fromDBToServiceAgentRole(agent.Role)
+	if err != nil {
+		return nil, err
+	}
+	state, err := fromDBToServiceAgentState(agent.State)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Agent{
 		ID:               agent.ID,
 		Name:             agent.Name,
 		Pane:             agent.PaneID,
@@ -224,8 +208,8 @@ func FromRow(agent models.Agent) Agent {
 		Flags:            agent.Flags,
 		ProvisionEnabled: agent.ProvisionEnabled,
 		Prompt:           agent.Prompt,
-		Role:             Role(agent.Role),
-		State:            State(agent.State),
+		Role:             role,
+		State:            state,
 		StateChangedAt:   agent.StateChangedAt,
 		StateSeenAt:      agent.StateSeenAt,
 		Turn: Turn{
@@ -251,5 +235,5 @@ func FromRow(agent models.Agent) Agent {
 		InterruptedAt:      agent.InterruptedAt,
 		Alive:              agent.Alive,
 		Hooks:              agent.Hooks,
-	}
+	}, nil
 }

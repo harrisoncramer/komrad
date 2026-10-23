@@ -235,7 +235,7 @@ func (r *Screen) Dispatches() []keys.Table {
 // its pane is running, held for your editor or not.
 func (r Screen) writerPane(in screen.Inputs) (panel.AgentRow, bool) {
 	item, ok := r.agentRow(in)
-	if !ok || !item.Alive || item.Agent.Pane == "" || item.Agent.State == panel.StateSettingUp || item.Agent.State.IsFailed() {
+	if !ok || !item.Alive || item.Agent.Pane == "" || item.Agent.State == agentv1.AgentState_AGENT_STATE_SETTING_UP || panel.IsFailed(item.Agent.State) {
 		return panel.AgentRow{}, false
 	}
 

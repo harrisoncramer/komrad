@@ -29,95 +29,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Resource is the kind of a watched record, one value per member of `Row`.
-type Resource int32
-
-const (
-	// No kind was set. Komrad never sends this value.
-	Resource_RESOURCE_UNSPECIFIED Resource = 0
-	// An agent.
-	Resource_RESOURCE_AGENT Resource = 1
-	// A workflow.
-	Resource_RESOURCE_WORKFLOW Resource = 2
-	// A schedule.
-	Resource_RESOURCE_SCHEDULE Resource = 3
-	// A piece of mail.
-	Resource_RESOURCE_MAIL Resource = 4
-	// A pull request.
-	Resource_RESOURCE_PULL_REQUEST Resource = 5
-	// A repository and whether its pull requests have been read.
-	Resource_RESOURCE_REPOSITORY Resource = 6
-	// A review.
-	Resource_RESOURCE_REVIEW Resource = 7
-	// A thread.
-	Resource_RESOURCE_REVIEW_THREAD Resource = 8
-	// A worktree.
-	Resource_RESOURCE_WORKTREE Resource = 9
-	// A document type.
-	Resource_RESOURCE_DOCUMENT_TYPE Resource = 10
-	// A task.
-	Resource_RESOURCE_TASK Resource = 11
-)
-
-// Enum value maps for Resource.
-var (
-	Resource_name = map[int32]string{
-		0:  "RESOURCE_UNSPECIFIED",
-		1:  "RESOURCE_AGENT",
-		2:  "RESOURCE_WORKFLOW",
-		3:  "RESOURCE_SCHEDULE",
-		4:  "RESOURCE_MAIL",
-		5:  "RESOURCE_PULL_REQUEST",
-		6:  "RESOURCE_REPOSITORY",
-		7:  "RESOURCE_REVIEW",
-		8:  "RESOURCE_REVIEW_THREAD",
-		9:  "RESOURCE_WORKTREE",
-		10: "RESOURCE_DOCUMENT_TYPE",
-		11: "RESOURCE_TASK",
-	}
-	Resource_value = map[string]int32{
-		"RESOURCE_UNSPECIFIED":   0,
-		"RESOURCE_AGENT":         1,
-		"RESOURCE_WORKFLOW":      2,
-		"RESOURCE_SCHEDULE":      3,
-		"RESOURCE_MAIL":          4,
-		"RESOURCE_PULL_REQUEST":  5,
-		"RESOURCE_REPOSITORY":    6,
-		"RESOURCE_REVIEW":        7,
-		"RESOURCE_REVIEW_THREAD": 8,
-		"RESOURCE_WORKTREE":      9,
-		"RESOURCE_DOCUMENT_TYPE": 10,
-		"RESOURCE_TASK":          11,
-	}
-)
-
-func (x Resource) Enum() *Resource {
-	p := new(Resource)
-	*p = x
-	return p
-}
-
-func (x Resource) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (Resource) Descriptor() protoreflect.EnumDescriptor {
-	return file_watch_v1_watch_proto_enumTypes[0].Descriptor()
-}
-
-func (Resource) Type() protoreflect.EnumType {
-	return &file_watch_v1_watch_proto_enumTypes[0]
-}
-
-func (x Resource) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use Resource.Descriptor instead.
-func (Resource) EnumDescriptor() ([]byte, []int) {
-	return file_watch_v1_watch_proto_rawDescGZIP(), []int{0}
-}
-
 // WatchEvent is one message on a watch stream: the snapshot, a batch of changes, or a heartbeat.
 type WatchEvent struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -622,7 +533,7 @@ var File_watch_v1_watch_proto protoreflect.FileDescriptor
 
 const file_watch_v1_watch_proto_rawDesc = "" +
 	"\n" +
-	"\x14watch/v1/watch.proto\x12\bwatch.v1\x1a\x14agent/v1/agent.proto\x1a\x17agent/v1/document.proto\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x1aschedule/v1/schedule.proto\x1a\x12task/v1/task.proto\x1a\x1aworkflow/v1/workflow.proto\x1a\x1aworktree/v1/worktree.proto\"\xae\x01\n" +
+	"\x14watch/v1/watch.proto\x12\bwatch.v1\x1a\x14agent/v1/agent.proto\x1a\x17agent/v1/document.proto\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a pullrequest/v1/pullrequest.proto\x1a\x1aschedule/v1/schedule.proto\x1a\x12task/v1/task.proto\x1a\x14watch/v1/enums.proto\x1a\x1aworkflow/v1/workflow.proto\x1a\x1aworktree/v1/worktree.proto\"\xae\x01\n" +
 	"\n" +
 	"WatchEvent\x120\n" +
 	"\bsnapshot\x18\x01 \x01(\v2\x12.watch.v1.SnapshotH\x00R\bsnapshot\x12-\n" +
@@ -652,21 +563,7 @@ const file_watch_v1_watch_proto_rawDesc = "" +
 	"\x03row\"K\n" +
 	"\aDeleted\x12.\n" +
 	"\bresource\x18\x01 \x01(\x0e2\x12.watch.v1.ResourceR\bresource\x12\x10\n" +
-	"\x03key\x18\x02 \x01(\tR\x03key*\xa4\x02\n" +
-	"\bResource\x12\x18\n" +
-	"\x14RESOURCE_UNSPECIFIED\x10\x00\x12\x12\n" +
-	"\x0eRESOURCE_AGENT\x10\x01\x12\x15\n" +
-	"\x11RESOURCE_WORKFLOW\x10\x02\x12\x15\n" +
-	"\x11RESOURCE_SCHEDULE\x10\x03\x12\x11\n" +
-	"\rRESOURCE_MAIL\x10\x04\x12\x19\n" +
-	"\x15RESOURCE_PULL_REQUEST\x10\x05\x12\x17\n" +
-	"\x13RESOURCE_REPOSITORY\x10\x06\x12\x13\n" +
-	"\x0fRESOURCE_REVIEW\x10\a\x12\x1a\n" +
-	"\x16RESOURCE_REVIEW_THREAD\x10\b\x12\x15\n" +
-	"\x11RESOURCE_WORKTREE\x10\t\x12\x1a\n" +
-	"\x16RESOURCE_DOCUMENT_TYPE\x10\n" +
-	"\x12\x11\n" +
-	"\rRESOURCE_TASK\x10\v2\xba\x01\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key2\xba\x01\n" +
 	"\fWatchService\x12\xa9\x01\n" +
 	"\x05Watch\x12\x16.google.protobuf.Empty\x1a\x14.watch.v1.WatchEvent\"p\x9a\xb5\x18iBgA stream held open by a long-running client, where an agent or a script calls the list methods instead.\x90\x02\x010\x01B#Z!komrad/proto/gen/watch/v1;watchv1b\x06proto3"
 
@@ -682,49 +579,48 @@ func file_watch_v1_watch_proto_rawDescGZIP() []byte {
 	return file_watch_v1_watch_proto_rawDescData
 }
 
-var file_watch_v1_watch_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_watch_v1_watch_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_watch_v1_watch_proto_goTypes = []any{
-	(Resource)(0),               // 0: watch.v1.Resource
-	(*WatchEvent)(nil),          // 1: watch.v1.WatchEvent
-	(*Snapshot)(nil),            // 2: watch.v1.Snapshot
-	(*Changes)(nil),             // 3: watch.v1.Changes
-	(*Row)(nil),                 // 4: watch.v1.Row
-	(*Deleted)(nil),             // 5: watch.v1.Deleted
-	(*emptypb.Empty)(nil),       // 6: google.protobuf.Empty
-	(*v1.Agent)(nil),            // 7: agent.v1.Agent
-	(*v11.Workflow)(nil),        // 8: workflow.v1.Workflow
-	(*v12.Schedule)(nil),        // 9: schedule.v1.Schedule
-	(*v1.Mail)(nil),             // 10: agent.v1.Mail
-	(*v13.PullRequest)(nil),     // 11: pullrequest.v1.PullRequest
-	(*v13.Repository)(nil),      // 12: pullrequest.v1.Repository
-	(*v1.WatchedReview)(nil),    // 13: agent.v1.WatchedReview
-	(*v1.ReviewThread)(nil),     // 14: agent.v1.ReviewThread
-	(*v14.WatchedWorktree)(nil), // 15: worktree.v1.WatchedWorktree
-	(*v1.DocumentType)(nil),     // 16: agent.v1.DocumentType
-	(*v15.Task)(nil),            // 17: task.v1.Task
+	(*WatchEvent)(nil),          // 0: watch.v1.WatchEvent
+	(*Snapshot)(nil),            // 1: watch.v1.Snapshot
+	(*Changes)(nil),             // 2: watch.v1.Changes
+	(*Row)(nil),                 // 3: watch.v1.Row
+	(*Deleted)(nil),             // 4: watch.v1.Deleted
+	(*emptypb.Empty)(nil),       // 5: google.protobuf.Empty
+	(*v1.Agent)(nil),            // 6: agent.v1.Agent
+	(*v11.Workflow)(nil),        // 7: workflow.v1.Workflow
+	(*v12.Schedule)(nil),        // 8: schedule.v1.Schedule
+	(*v1.Mail)(nil),             // 9: agent.v1.Mail
+	(*v13.PullRequest)(nil),     // 10: pullrequest.v1.PullRequest
+	(*v13.Repository)(nil),      // 11: pullrequest.v1.Repository
+	(*v1.WatchedReview)(nil),    // 12: agent.v1.WatchedReview
+	(*v1.ReviewThread)(nil),     // 13: agent.v1.ReviewThread
+	(*v14.WatchedWorktree)(nil), // 14: worktree.v1.WatchedWorktree
+	(*v1.DocumentType)(nil),     // 15: agent.v1.DocumentType
+	(*v15.Task)(nil),            // 16: task.v1.Task
+	(Resource)(0),               // 17: watch.v1.Resource
 }
 var file_watch_v1_watch_proto_depIdxs = []int32{
-	2,  // 0: watch.v1.WatchEvent.snapshot:type_name -> watch.v1.Snapshot
-	3,  // 1: watch.v1.WatchEvent.changes:type_name -> watch.v1.Changes
-	6,  // 2: watch.v1.WatchEvent.heartbeat:type_name -> google.protobuf.Empty
-	4,  // 3: watch.v1.Snapshot.rows:type_name -> watch.v1.Row
-	4,  // 4: watch.v1.Changes.puts:type_name -> watch.v1.Row
-	5,  // 5: watch.v1.Changes.deleted:type_name -> watch.v1.Deleted
-	7,  // 6: watch.v1.Row.agent:type_name -> agent.v1.Agent
-	8,  // 7: watch.v1.Row.workflow:type_name -> workflow.v1.Workflow
-	9,  // 8: watch.v1.Row.schedule:type_name -> schedule.v1.Schedule
-	10, // 9: watch.v1.Row.mail:type_name -> agent.v1.Mail
-	11, // 10: watch.v1.Row.pull_request:type_name -> pullrequest.v1.PullRequest
-	12, // 11: watch.v1.Row.repository:type_name -> pullrequest.v1.Repository
-	13, // 12: watch.v1.Row.review:type_name -> agent.v1.WatchedReview
-	14, // 13: watch.v1.Row.review_thread:type_name -> agent.v1.ReviewThread
-	15, // 14: watch.v1.Row.worktree:type_name -> worktree.v1.WatchedWorktree
-	16, // 15: watch.v1.Row.document_type:type_name -> agent.v1.DocumentType
-	17, // 16: watch.v1.Row.task:type_name -> task.v1.Task
-	0,  // 17: watch.v1.Deleted.resource:type_name -> watch.v1.Resource
-	6,  // 18: watch.v1.WatchService.Watch:input_type -> google.protobuf.Empty
-	1,  // 19: watch.v1.WatchService.Watch:output_type -> watch.v1.WatchEvent
+	1,  // 0: watch.v1.WatchEvent.snapshot:type_name -> watch.v1.Snapshot
+	2,  // 1: watch.v1.WatchEvent.changes:type_name -> watch.v1.Changes
+	5,  // 2: watch.v1.WatchEvent.heartbeat:type_name -> google.protobuf.Empty
+	3,  // 3: watch.v1.Snapshot.rows:type_name -> watch.v1.Row
+	3,  // 4: watch.v1.Changes.puts:type_name -> watch.v1.Row
+	4,  // 5: watch.v1.Changes.deleted:type_name -> watch.v1.Deleted
+	6,  // 6: watch.v1.Row.agent:type_name -> agent.v1.Agent
+	7,  // 7: watch.v1.Row.workflow:type_name -> workflow.v1.Workflow
+	8,  // 8: watch.v1.Row.schedule:type_name -> schedule.v1.Schedule
+	9,  // 9: watch.v1.Row.mail:type_name -> agent.v1.Mail
+	10, // 10: watch.v1.Row.pull_request:type_name -> pullrequest.v1.PullRequest
+	11, // 11: watch.v1.Row.repository:type_name -> pullrequest.v1.Repository
+	12, // 12: watch.v1.Row.review:type_name -> agent.v1.WatchedReview
+	13, // 13: watch.v1.Row.review_thread:type_name -> agent.v1.ReviewThread
+	14, // 14: watch.v1.Row.worktree:type_name -> worktree.v1.WatchedWorktree
+	15, // 15: watch.v1.Row.document_type:type_name -> agent.v1.DocumentType
+	16, // 16: watch.v1.Row.task:type_name -> task.v1.Task
+	17, // 17: watch.v1.Deleted.resource:type_name -> watch.v1.Resource
+	5,  // 18: watch.v1.WatchService.Watch:input_type -> google.protobuf.Empty
+	0,  // 19: watch.v1.WatchService.Watch:output_type -> watch.v1.WatchEvent
 	19, // [19:20] is the sub-list for method output_type
 	18, // [18:19] is the sub-list for method input_type
 	18, // [18:18] is the sub-list for extension type_name
@@ -737,6 +633,7 @@ func file_watch_v1_watch_proto_init() {
 	if File_watch_v1_watch_proto != nil {
 		return
 	}
+	file_watch_v1_enums_proto_init()
 	file_watch_v1_watch_proto_msgTypes[0].OneofWrappers = []any{
 		(*WatchEvent_Snapshot)(nil),
 		(*WatchEvent_Changes)(nil),
@@ -760,14 +657,13 @@ func file_watch_v1_watch_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_watch_v1_watch_proto_rawDesc), len(file_watch_v1_watch_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      0,
 			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_watch_v1_watch_proto_goTypes,
 		DependencyIndexes: file_watch_v1_watch_proto_depIdxs,
-		EnumInfos:         file_watch_v1_watch_proto_enumTypes,
 		MessageInfos:      file_watch_v1_watch_proto_msgTypes,
 	}.Build()
 	File_watch_v1_watch_proto = out.File

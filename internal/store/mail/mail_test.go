@@ -12,6 +12,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 
 	"github.com/google/uuid"
@@ -530,7 +531,7 @@ func seedAgent(t *testing.T, st *fixture, name string) uuid.UUID {
 	require.NoError(t, st.agents.Create(ctx, agentstore.Agent{
 		TaskID:     taskID,
 		Name:       name,
-		State:      agentstore.StateIdle,
+		State:      agentv1.AgentState_AGENT_STATE_IDLE,
 		WorkflowID: st.workflow,
 	}))
 	got, err := st.agents.GetInWorkflow(ctx, st.workflow, name)
@@ -543,7 +544,7 @@ func seedAgent(t *testing.T, st *fixture, name string) uuid.UUID {
 // TestKomradMailIsOnePerSubject pins that a recipient holds one unread mail from komrad per kind and subject.
 func TestKomradMailIsOnePerSubject(t *testing.T) {
 	type write struct {
-		kind    Kind
+		kind    agentv1.MailKind
 		subject string
 		body    string
 	}
@@ -556,25 +557,25 @@ func TestKomradMailIsOnePerSubject(t *testing.T) {
 	}{
 		{
 			name:       "a second mail about the same subject rewrites the first",
-			writes:     []write{{KindDocumentEdited, "one", "version 1"}, {KindDocumentEdited, "one", "version 2"}},
+			writes:     []write{{agentv1.MailKind_MAIL_KIND_DOCUMENT_EDITED, "one", "version 1"}, {agentv1.MailKind_MAIL_KIND_DOCUMENT_EDITED, "one", "version 2"}},
 			wantRows:   1,
 			wantBodies: []string{"version 2"},
 		},
 		{
 			name:       "mail about another subject waits beside it",
-			writes:     []write{{KindDocumentEdited, "one", "first"}, {KindDocumentEdited, "other", "second"}},
+			writes:     []write{{agentv1.MailKind_MAIL_KIND_DOCUMENT_EDITED, "one", "first"}, {agentv1.MailKind_MAIL_KIND_DOCUMENT_EDITED, "other", "second"}},
 			wantRows:   2,
 			wantBodies: []string{"first", "second"},
 		},
 		{
 			name:       "mail of another kind about the same subject waits beside it",
-			writes:     []write{{KindExchangeCapped, "one", "capped"}, {KindReviewActivity, "one", "reviewed"}},
+			writes:     []write{{agentv1.MailKind_MAIL_KIND_EXCHANGE_CAPPED, "one", "capped"}, {agentv1.MailKind_MAIL_KIND_REVIEW_ACTIVITY, "one", "reviewed"}},
 			wantRows:   2,
 			wantBodies: []string{"capped", "reviewed"},
 		},
 		{
 			name:       "mail after the first was read is new",
-			writes:     []write{{KindDocumentEdited, "one", "read"}, {KindDocumentEdited, "one", "unread"}},
+			writes:     []write{{agentv1.MailKind_MAIL_KIND_DOCUMENT_EDITED, "one", "read"}, {agentv1.MailKind_MAIL_KIND_DOCUMENT_EDITED, "one", "unread"}},
 			claimFirst: true,
 			wantRows:   1,
 			wantBodies: []string{"unread"},
@@ -622,20 +623,20 @@ func TestGetUnreadAboutFindsOnlyUnreadMail(t *testing.T) {
 	recipient := seedAgent(t, st, "recipient")
 	subject := uuid.New()
 
-	_, err := st.GetUnreadAbout(ctx, recipient, KindPullRequestChanged, subject)
+	_, err := st.GetUnreadAbout(ctx, recipient, agentv1.MailKind_MAIL_KIND_PULL_REQUEST_CHANGED, subject)
 	require.ErrorIs(t, err, store.ErrNotFound)
 
 	written, err := st.UpsertFromKomrad(ctx, UpsertFromKomradParams{
 		FromName:  "komrad",
 		ToAgentID: recipient,
 		Body:      "checks failing",
-		Kind:      KindPullRequestChanged,
+		Kind:      agentv1.MailKind_MAIL_KIND_PULL_REQUEST_CHANGED,
 		SubjectID: subject,
 		Deadline:  time.Hour,
 	})
 	require.NoError(t, err)
 
-	found, err := st.GetUnreadAbout(ctx, recipient, KindPullRequestChanged, subject)
+	found, err := st.GetUnreadAbout(ctx, recipient, agentv1.MailKind_MAIL_KIND_PULL_REQUEST_CHANGED, subject)
 	require.NoError(t, err)
 	assert.Equal(t, written.ID, found.ID)
 	require.NotNil(t, found.SubjectID)
@@ -643,7 +644,7 @@ func TestGetUnreadAboutFindsOnlyUnreadMail(t *testing.T) {
 
 	_, err = st.claim(ctx, recipient, 10)
 	require.NoError(t, err)
-	_, err = st.GetUnreadAbout(ctx, recipient, KindPullRequestChanged, subject)
+	_, err = st.GetUnreadAbout(ctx, recipient, agentv1.MailKind_MAIL_KIND_PULL_REQUEST_CHANGED, subject)
 	require.ErrorIs(t, err, store.ErrNotFound, "read mail is not unread")
 }
 
@@ -658,7 +659,7 @@ func TestUnreadMailHeldForRewriteIsNotClaimed(t *testing.T) {
 		FromName:  "komrad",
 		ToAgentID: recipient,
 		Body:      "checks failing",
-		Kind:      KindPullRequestChanged,
+		Kind:      agentv1.MailKind_MAIL_KIND_PULL_REQUEST_CHANGED,
 		SubjectID: subject,
 		Deadline:  time.Hour,
 	})
@@ -668,7 +669,7 @@ func TestUnreadMailHeldForRewriteIsNotClaimed(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	_, err = NewMailStore(tx).GetUnreadAbout(ctx, recipient, KindPullRequestChanged, subject)
+	_, err = NewMailStore(tx).GetUnreadAbout(ctx, recipient, agentv1.MailKind_MAIL_KIND_PULL_REQUEST_CHANGED, subject)
 	require.NoError(t, err)
 
 	claimed, err := st.claim(ctx, recipient, 10)
@@ -679,7 +680,7 @@ func TestUnreadMailHeldForRewriteIsNotClaimed(t *testing.T) {
 		FromName:  "komrad",
 		ToAgentID: recipient,
 		Body:      "checks passing",
-		Kind:      KindPullRequestChanged,
+		Kind:      agentv1.MailKind_MAIL_KIND_PULL_REQUEST_CHANGED,
 		SubjectID: subject,
 		Deadline:  time.Hour,
 	})
@@ -723,7 +724,7 @@ func TestExpiredKomradMailComesBackWhenRewritten(t *testing.T) {
 		FromName:  "komrad",
 		ToAgentID: recipient,
 		Body:      "one",
-		Kind:      KindReviewActivity,
+		Kind:      agentv1.MailKind_MAIL_KIND_REVIEW_ACTIVITY,
 		SubjectID: subject,
 		Deadline:  -time.Hour,
 	})
@@ -742,7 +743,7 @@ func TestExpiredKomradMailComesBackWhenRewritten(t *testing.T) {
 			FromName:  "komrad",
 			ToAgentID: recipient,
 			Body:      "two",
-			Kind:      KindReviewActivity,
+			Kind:      agentv1.MailKind_MAIL_KIND_REVIEW_ACTIVITY,
 			SubjectID: subject,
 			Deadline:  time.Hour,
 		})
@@ -753,7 +754,7 @@ func TestExpiredKomradMailComesBackWhenRewritten(t *testing.T) {
 			FromName:  "komrad",
 			ToAgentID: recipient,
 			Body:      "one",
-			Kind:      KindReviewActivity,
+			Kind:      agentv1.MailKind_MAIL_KIND_REVIEW_ACTIVITY,
 			SubjectID: subject,
 			Deadline:  -time.Hour,
 		})
@@ -764,7 +765,7 @@ func TestExpiredKomradMailComesBackWhenRewritten(t *testing.T) {
 		FromName:  "komrad",
 		ToAgentID: recipient,
 		Body:      "last",
-		Kind:      KindReviewActivity,
+		Kind:      agentv1.MailKind_MAIL_KIND_REVIEW_ACTIVITY,
 		SubjectID: subject,
 		Deadline:  time.Hour,
 	})
@@ -785,7 +786,7 @@ func TestCountExchangedSpansThreadsAndDirections(t *testing.T) {
 	reviewer := seedAgent(t, st, "reviewer")
 	stranger := seedAgent(t, st, "stranger")
 
-	send := func(from *uuid.UUID, to uuid.UUID, kind Kind) *Mail {
+	send := func(from *uuid.UUID, to uuid.UUID, kind agentv1.MailKind) *Mail {
 		t.Helper()
 		sent, err := st.Send(ctx, SendParams{
 			FromAgentID: from,
@@ -799,21 +800,21 @@ func TestCountExchangedSpansThreadsAndDirections(t *testing.T) {
 		return sent
 	}
 
-	opening := send(&reviewer, author, KindPlain)
+	opening := send(&reviewer, author, agentv1.MailKind_MAIL_KIND_PLAIN)
 	reply, err := st.Send(ctx, SendParams{
 		FromAgentID: &author,
 		ToAgentID:   reviewer,
 		Body:        "fixed",
-		Kind:        KindPlain,
+		Kind:        agentv1.MailKind_MAIL_KIND_PLAIN,
 		ReplyTo:     &opening.ID,
 		Deadline:    time.Hour,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, reply)
 
-	send(&reviewer, author, KindPlain)
-	send(nil, author, KindExchangeCapped)
-	send(&stranger, author, KindPlain)
+	send(&reviewer, author, agentv1.MailKind_MAIL_KIND_PLAIN)
+	send(nil, author, agentv1.MailKind_MAIL_KIND_EXCHANGE_CAPPED)
+	send(&stranger, author, agentv1.MailKind_MAIL_KIND_PLAIN)
 
 	exchanged, err := st.CountExchanged(ctx, author, reviewer)
 	require.NoError(t, err)
@@ -835,28 +836,28 @@ func TestExistsReadAboutCountsOnlyReadMail(t *testing.T) {
 		FromName:  "komrad",
 		ToAgentID: recipient,
 		Body:      "written",
-		Kind:      KindDocumentEdited,
+		Kind:      agentv1.MailKind_MAIL_KIND_DOCUMENT_EDITED,
 		SubjectID: subject,
 		Deadline:  time.Hour,
 	})
 	require.NoError(t, err)
 
-	read, err := st.ExistsReadAbout(ctx, recipient, KindDocumentEdited, subject)
+	read, err := st.ExistsReadAbout(ctx, recipient, agentv1.MailKind_MAIL_KIND_DOCUMENT_EDITED, subject)
 	require.NoError(t, err)
 	assert.False(t, read, "unread mail is not read")
 
 	_, err = st.claim(ctx, recipient, 10)
 	require.NoError(t, err)
 
-	read, err = st.ExistsReadAbout(ctx, recipient, KindDocumentEdited, subject)
+	read, err = st.ExistsReadAbout(ctx, recipient, agentv1.MailKind_MAIL_KIND_DOCUMENT_EDITED, subject)
 	require.NoError(t, err)
 	assert.True(t, read)
 
-	read, err = st.ExistsReadAbout(ctx, recipient, KindPullRequestChanged, subject)
+	read, err = st.ExistsReadAbout(ctx, recipient, agentv1.MailKind_MAIL_KIND_PULL_REQUEST_CHANGED, subject)
 	require.NoError(t, err)
 	assert.False(t, read, "mail of another kind is not about this")
 
-	read, err = st.ExistsReadAbout(ctx, recipient, KindDocumentEdited, uuid.New())
+	read, err = st.ExistsReadAbout(ctx, recipient, agentv1.MailKind_MAIL_KIND_DOCUMENT_EDITED, uuid.New())
 	require.NoError(t, err)
 	assert.False(t, read, "mail about another subject is not about this")
 }
@@ -874,7 +875,7 @@ func TestUpsertFromKomradRewritesTheEvents(t *testing.T) {
 			FromName:  "komrad",
 			ToAgentID: recipient,
 			Body:      "pull request changed",
-			Kind:      KindPullRequestChanged,
+			Kind:      agentv1.MailKind_MAIL_KIND_PULL_REQUEST_CHANGED,
 			SubjectID: subject,
 			Events:    events,
 			Deadline:  time.Hour,
@@ -887,12 +888,12 @@ func TestUpsertFromKomradRewritesTheEvents(t *testing.T) {
 	assert.Empty(t, upsert(nil).Events, "mail naming no event stores none")
 
 	upsert([]eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING, eventv1.Event_EVENT_PULL_REQUEST_BEHIND})
-	found, err := st.GetUnreadAbout(ctx, recipient, KindPullRequestChanged, subject)
+	found, err := st.GetUnreadAbout(ctx, recipient, agentv1.MailKind_MAIL_KIND_PULL_REQUEST_CHANGED, subject)
 	require.NoError(t, err)
 	assert.Equal(t, []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_CHECKS_FAILING, eventv1.Event_EVENT_PULL_REQUEST_BEHIND}, found.Events)
 
 	upsert([]eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_BEHIND})
-	found, err = st.GetUnreadAbout(ctx, recipient, KindPullRequestChanged, subject)
+	found, err = st.GetUnreadAbout(ctx, recipient, agentv1.MailKind_MAIL_KIND_PULL_REQUEST_CHANGED, subject)
 	require.NoError(t, err)
 	assert.Equal(t, []eventv1.Event{eventv1.Event_EVENT_PULL_REQUEST_BEHIND}, found.Events, "a rewrite replaces the events rather than adding to them")
 }
@@ -966,7 +967,7 @@ func TestClaimNudge(t *testing.T) {
 						FromName:  "komrad",
 						ToAgentID: recipient,
 						Body:      "pull request changed",
-						Kind:      KindPullRequestChanged,
+						Kind:      agentv1.MailKind_MAIL_KIND_PULL_REQUEST_CHANGED,
 						SubjectID: uuid.New(),
 						Deadline:  time.Hour,
 					})

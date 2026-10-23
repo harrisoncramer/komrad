@@ -19,6 +19,7 @@ import (
 	reviewstore "komrad/internal/store/review"
 	taskstore "komrad/internal/store/task"
 	"komrad/lib/xptr"
+	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/oneofs"
 
 	"github.com/google/uuid"
@@ -335,7 +336,7 @@ func (s *ReviewService) requireNotReviewedAlready(
 	params reviewstore.OpenReviewOfParams,
 	snapshot reviewstore.Snapshot,
 ) error {
-	if params.AuthorKind != reviewstore.AuthorAgent {
+	if params.AuthorKind != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT {
 		return nil
 	}
 
@@ -374,7 +375,7 @@ func (s *ReviewService) requireEntitled(
 	if err != nil {
 		return err
 	}
-	if agent.Role != agentstore.RoleReviewer {
+	if agent.Role != agentv1.AgentRole_AGENT_ROLE_REVIEWER {
 		return ErrReviewOwnWork
 	}
 
@@ -473,7 +474,7 @@ type ReleaseReviewParams struct {
 	// Task names the task the review is of, left empty for the caller's own.
 	Task oneofs.Task
 	// Verdict is what the reviewing agent concluded.
-	Verdict reviewstore.Verdict
+	Verdict agentv1.ReviewVerdict
 	// Body is what the reviewer says about the change as a whole rather than about any one line,
 	// empty when they said nothing.
 	Body   string
@@ -497,7 +498,7 @@ func (s *ReviewService) ReleaseReview(
 		return nil, err
 	}
 
-	if params.Verdict == "" {
+	if params.Verdict == agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED {
 		return nil, errReviewVerdictMissing
 	}
 
@@ -508,7 +509,7 @@ func (s *ReviewService) ReleaseReview(
 		AuthorAgentID: params.Author.AgentID,
 	})
 	if errors.Is(err, store.ErrNotFound) {
-		if params.Verdict == reviewstore.VerdictCommented {
+		if params.Verdict == agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED {
 			return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, task.Slug)
 		}
 
@@ -531,7 +532,7 @@ func (s *ReviewService) ReleaseReview(
 	tally := tallyBatch(open.ID, threads)
 	// Notes with no conclusion have to say something, whether pinned to a line, a reply in an
 	// earlier thread, or about the work as a whole.
-	if comments == 0 && tally.Replies == 0 && strings.TrimSpace(params.Body) == "" && params.Verdict == reviewstore.VerdictCommented {
+	if comments == 0 && tally.Replies == 0 && strings.TrimSpace(params.Body) == "" && params.Verdict == agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED {
 		return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, task.Slug)
 	}
 
@@ -629,7 +630,7 @@ func (s *ReviewService) listBatchThreads(ctx context.Context, reviewID uuid.UUID
 		return nil, err
 	}
 
-	all, err := s.listThreads(ctx, review.TaskID, ReviewAuthor{Kind: reviewstore.AuthorHuman})
+	all, err := s.listThreads(ctx, review.TaskID, ReviewAuthor{Kind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN})
 	if err != nil {
 		return nil, err
 	}
@@ -733,7 +734,7 @@ type writeReviewParams struct {
 	Task     taskstore.Task
 	Snapshot reviewstore.Snapshot
 	Review   reviewstore.Review
-	Verdict  reviewstore.Verdict
+	Verdict  agentv1.ReviewVerdict
 	Body     string
 	Threads  []ReviewThreadInContext
 }

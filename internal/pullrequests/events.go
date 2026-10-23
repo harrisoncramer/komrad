@@ -5,7 +5,9 @@ import (
 
 	"komrad/internal/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	"komrad/lib/protoenum"
 	eventv1 "komrad/proto/gen/event/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 var eventOf = map[field]map[string]eventv1.Event{
@@ -82,16 +84,16 @@ func failingEvent(pullRequest pullrequeststore.PullRequest) eventv1.Event {
 
 // passing says whether the checks pass on a pull request the forge would merge.
 func passing(values map[field]string) bool {
-	return values[fieldChecks] == string(forge.ChecksPassing) && values[fieldMergeability] == string(forge.MergeabilityClean)
+	return values[fieldChecks] == protoenum.Name(pullrequestv1.Checks_CHECKS_PASSING) && values[fieldMergeability] == protoenum.Name(pullrequestv1.Mergeability_MERGEABILITY_CLEAN)
 }
 
 // turnsPassing says whether a move is one of the two that can leave a pull request passing.
 func turnsPassing(move Move) bool {
-	return move.Field == fieldChecks && move.To == string(forge.ChecksPassing) ||
-		move.Field == fieldMergeability && move.To == string(forge.MergeabilityClean)
+	return move.Field == fieldChecks && move.To == protoenum.Name(pullrequestv1.Checks_CHECKS_PASSING) ||
+		move.Field == fieldMergeability && move.To == protoenum.Name(pullrequestv1.Mergeability_MERGEABILITY_CLEAN)
 }
 
 // finishesFailing says whether a move is the run finishing on checks that were failing while others still ran.
 func finishesFailing(move Move) bool {
-	return move.Field == fieldChecks && move.From == string(forge.ChecksFailingRunning) && move.To == string(forge.ChecksFailing)
+	return move.Field == fieldChecks && move.From == protoenum.Name(pullrequestv1.Checks_CHECKS_FAILING_RUNNING) && move.To == protoenum.Name(pullrequestv1.Checks_CHECKS_FAILING)
 }

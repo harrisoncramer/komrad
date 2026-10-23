@@ -16,6 +16,7 @@ import (
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
 	forgev1 "komrad/proto/gen/forge/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/google/uuid"
 )
@@ -253,7 +254,10 @@ func (s *PullRequestStore) SetMergeReadiness(ctx context.Context, params SetMerg
 	if err != nil {
 		return nil, err
 	}
-	before := rememberedMergeReadinessOf(row, readBefore[params.ID])
+	before, err := rememberedMergeReadinessOf(row, readBefore[params.ID])
+	if err != nil {
+		return nil, err
+	}
 
 	if listing := params.MergeReadiness.Listing; listing != nil {
 		if err := setStatusChecks(ctx, s.queries, SetStatusChecksParams{
@@ -273,12 +277,16 @@ func (s *PullRequestStore) SetMergeReadiness(ctx context.Context, params SetMerg
 	}
 	after := before.RememberRead(params.MergeReadiness, params.HeadSHA, params.ReadAt)
 	after.Checks = rememberedChecksOf(readAfter[params.ID])
-	if err := s.queries.WriteMergeReadiness(ctx, toWriteMergeReadiness(params.ID, after)); err != nil {
+	write, err := toWriteMergeReadiness(params.ID, after)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.queries.WriteMergeReadiness(ctx, *write); err != nil {
 		return nil, fmt.Errorf("failed to record the merge readiness of pull request %s: %w", params.ID, err)
 	}
 
 	return &MergeReadinessChange{
-		Before:           before,
+		Before:           *before,
 		After:            after,
 		HeadStatusChecks: readAfter[params.ID].StatusChecks,
 		NewFailure:       hasNewFailure(readBefore[params.ID], readAfter[params.ID]),
@@ -369,6 +377,10 @@ func fromRow(row *models.PullRequest, checks StatusCheckReading) (*PullRequest, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to read pull request %q: %w", row.ID, err)
 	}
+	readiness, err := rememberedMergeReadinessOf(row, checks)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read pull request %q: %w", row.ID, err)
+	}
 
 	return &PullRequest{
 		ID:                row.ID,
@@ -393,21 +405,30 @@ func fromRow(row *models.PullRequest, checks StatusCheckReading) (*PullRequest, 
 		MergedAt:          row.MergedAt,
 		ClosedAt:          row.ClosedAt,
 		FirstSeenAt:       row.FirstSeenAt,
-		MergeReadiness:    rememberedMergeReadinessOf(row, checks),
+		MergeReadiness:    *readiness,
 		HeadStatusChecks:  checks.StatusChecks,
 	}, nil
 }
 
-func rememberedMergeReadinessOf(row *models.PullRequest, checks StatusCheckReading) forge.RememberedMergeReadiness {
+func rememberedMergeReadinessOf(row *models.PullRequest, checks StatusCheckReading) (*forge.RememberedMergeReadiness, error) {
+	decision, err := knownValueOf(row.KnownDecision, fromDBToServiceReviewDecision)
+	if err != nil {
+		return nil, err
+	}
+	mergeability, err := knownValueOf(row.KnownMergeability, fromDBToServiceMergeability)
+	if err != nil {
+		return nil, err
+	}
+
 	wasRead := row.LatestHeadSha != nil
-	readiness := forge.RememberedMergeReadiness{
-		Decision: forge.RememberedAnswer[forge.ReviewDecision]{
-			Value:              forge.ReviewDecision(xptr.Deref(row.KnownDecision)),
+	readiness := &forge.RememberedMergeReadiness{
+		Decision: forge.RememberedAnswer[pullrequestv1.ReviewDecision]{
+			Value:              decision,
 			WasLatestReadBlank: wasRead && row.LatestDecision == nil,
 		},
 		Checks: rememberedChecksOf(checks),
-		Mergeability: forge.RememberedAnswer[forge.Mergeability]{
-			Value:              forge.Mergeability(xptr.Deref(row.KnownMergeability)),
+		Mergeability: forge.RememberedAnswer[pullrequestv1.Mergeability]{
+			Value:              mergeability,
 			HeadSHA:            xptr.Deref(row.KnownMergeabilitySha),
 			WasLatestReadBlank: wasRead && row.LatestMergeability == nil,
 		},
@@ -418,34 +439,61 @@ func rememberedMergeReadinessOf(row *models.PullRequest, checks StatusCheckReadi
 		readiness.AutoMerge = &forge.AutoMerge{On: *row.AutoMerge, Allowed: row.AutoMergeable}
 	}
 
-	return readiness
+	return readiness, nil
 }
 
-func toWriteMergeReadiness(id uuid.UUID, readiness forge.RememberedMergeReadiness) models.WriteMergeReadinessParams {
-	params := models.WriteMergeReadinessParams{
+func toWriteMergeReadiness(id uuid.UUID, readiness forge.RememberedMergeReadiness) (*models.WriteMergeReadinessParams, error) {
+	var knownDecision *string
+	if readiness.Decision.Value != pullrequestv1.ReviewDecision_REVIEW_DECISION_UNSPECIFIED {
+		text, err := fromServiceToDBReviewDecision(readiness.Decision.Value)
+		if err != nil {
+			return nil, err
+		}
+		knownDecision = &text
+	}
+	var knownMergeability *string
+	if readiness.Mergeability.Value != pullrequestv1.Mergeability_MERGEABILITY_UNSPECIFIED {
+		text, err := fromServiceToDBMergeability(readiness.Mergeability.Value)
+		if err != nil {
+			return nil, err
+		}
+		knownMergeability = &text
+	}
+
+	params := &models.WriteMergeReadinessParams{
 		ID:                     id,
-		LatestDecision:         latestReadOf(readiness.Decision),
-		LatestMergeability:     latestReadOf(readiness.Mergeability),
+		LatestDecision:         latestReadOf(readiness.Decision.WasLatestReadBlank, knownDecision),
+		LatestMergeability:     latestReadOf(readiness.Mergeability.WasLatestReadBlank, knownMergeability),
 		LatestHeadSha:          &readiness.LatestReadHeadSHA,
-		KnownMergeability:      xptr.NonEmpty(string(readiness.Mergeability.Value)),
+		KnownMergeability:      knownMergeability,
 		KnownMergeabilitySha:   xptr.NonEmpty(readiness.Mergeability.HeadSHA),
 		MergeabilityBlankSince: readiness.MergeabilityBlankSince,
-		KnownDecision:          xptr.NonEmpty(string(readiness.Decision.Value)),
+		KnownDecision:          knownDecision,
 	}
 	if readiness.AutoMerge != nil {
 		params.AutoMerge = &readiness.AutoMerge.On
 		params.AutoMergeable = readiness.AutoMerge.Allowed
 	}
 
-	return params
+	return params, nil
 }
 
-func latestReadOf[T ~string](answer forge.RememberedAnswer[T]) *string {
-	if answer.WasLatestReadBlank {
+func latestReadOf(wasBlank bool, known *string) *string {
+	if wasBlank {
 		return nil
 	}
 
-	return xptr.NonEmpty(string(answer.Value))
+	return known
+}
+
+func knownValueOf[T any](known *string, fromDB func(string) (T, error)) (T, error) {
+	if known == nil {
+		var unspecified T
+
+		return unspecified, nil
+	}
+
+	return fromDB(*known)
 }
 
 // GetByID is one stored pull request, or ErrNotFound.

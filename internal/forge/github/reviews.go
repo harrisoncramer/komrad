@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/forge"
 	forgev1 "komrad/proto/gen/forge/v1"
+	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
 
 //go:embed rereviewtarget.gql
@@ -78,21 +79,21 @@ func (f *Forge) RequestRereview(ctx context.Context, address string) error {
 }
 
 // reviewDecisionOf is GitHub's reviewDecision in komrad's words, none for a null.
-func reviewDecisionOf(decision *string) forge.ReviewDecision {
+func reviewDecisionOf(decision *string) pullrequestv1.ReviewDecision {
 	if decision == nil {
-		return forge.ReviewDecisionNone
+		return pullrequestv1.ReviewDecision_REVIEW_DECISION_NONE
 	}
 
 	switch *decision {
 	case "APPROVED":
-		return forge.ReviewDecisionApproved
+		return pullrequestv1.ReviewDecision_REVIEW_DECISION_APPROVED
 	case "CHANGES_REQUESTED":
-		return forge.ReviewDecisionChangesRequested
+		return pullrequestv1.ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED
 	case "REVIEW_REQUIRED":
-		return forge.ReviewDecisionPending
+		return pullrequestv1.ReviewDecision_REVIEW_DECISION_PENDING
 	}
 
-	return forge.ReviewDecisionNone
+	return pullrequestv1.ReviewDecision_REVIEW_DECISION_NONE
 }
 
 // opinionNode is one reviewer's latest approval or change request.
@@ -109,9 +110,9 @@ type actorNode struct {
 
 // decision is GitHub's review decision, read as a re-review requested once every user whose
 // latest verdict asks for changes has received a new review request.
-func (n mergeReadinessNode) decision() forge.ReviewDecision {
+func (n mergeReadinessNode) decision() pullrequestv1.ReviewDecision {
 	decision := reviewDecisionOf(n.ReviewDecision)
-	if decision != forge.ReviewDecisionChangesRequested {
+	if decision != pullrequestv1.ReviewDecision_REVIEW_DECISION_CHANGES_REQUESTED {
 		return decision
 	}
 
@@ -136,7 +137,7 @@ func (n mergeReadinessNode) decision() forge.ReviewDecision {
 		return decision
 	}
 
-	return forge.ReviewDecisionRereviewRequested
+	return pullrequestv1.ReviewDecision_REVIEW_DECISION_REREVIEW_REQUESTED
 }
 
 // changeRequesters is the users whose latest verdict asks for changes.

@@ -124,7 +124,7 @@ as "$agent" add-review-message --thread-id "$bytes" --addressed \
 reviewer="$(as "$agent" request-review --flags "--model haiku" --title text-truncate-review \
 	--prompt "Reply with the single word ready. The review is written for you, so leave any mail you are sent unread and do nothing else." --compact | jq -r '.reviewer.id')"
 comment "$reviewer" "$spec" "it('cuts a long string and marks it'" "Add a case with a wide character, such as a CJK string, since measuring columns is what the fix is for." >/dev/null
-as "$reviewer" release-review --task-id "$task" --verdict REVIEW_VERDICT_CHANGES_REQUESTED \
+as "$reviewer" release-review --task-id "$task" --verdict changes_requested \
 	--body "The fix reads right. One test is missing." >/dev/null
 
 news="$(comment "" "$text" "--- Truncates {s}" "New public API wants a line in runtime/doc/news.txt too.")"

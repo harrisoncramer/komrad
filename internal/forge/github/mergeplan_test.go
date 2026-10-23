@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"komrad/internal/forge"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -75,23 +76,23 @@ func TestPlanMerge(t *testing.T) {
 			want: &forge.MergePlan{
 				Options: []forge.MergeOption{
 					{
-						Method: forge.MergeMethodMerge,
+						Method: forgev1.MergeMethod_MERGE_METHOD_MERGE,
 						Message: &forge.CommitMessage{
 							Headline: "Merge pull request #742 from harrisoncramer/fix-merge",
 							Body:     "Merge by an allowed method",
 						},
 					},
 					{
-						Method:  forge.MergeMethodSquash,
+						Method:  forgev1.MergeMethod_MERGE_METHOD_SQUASH,
 						Allowed: true,
 						Message: &forge.CommitMessage{
 							Headline: "Merge by an allowed method (#742)",
 							Body:     "* Read the branch rules\n\nRulesets narrow the methods.\n\n* Pick an allowed method",
 						},
 					},
-					{Method: forge.MergeMethodRebase},
+					{Method: forgev1.MergeMethod_MERGE_METHOD_REBASE},
 				},
-				DefaultMethod: forge.MergeMethodSquash,
+				DefaultMethod: forgev1.MergeMethod_MERGE_METHOD_SQUASH,
 				HeadSHA:       "abc123",
 			},
 		},

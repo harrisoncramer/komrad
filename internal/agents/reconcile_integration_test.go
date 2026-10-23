@@ -10,6 +10,7 @@ import (
 	"komrad/internal/harness/pane"
 	agentstore "komrad/internal/store/agent"
 	"komrad/internal/tmuxtest"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,31 +30,31 @@ func TestIntegrationReconcileAgainstRealTmux(t *testing.T) {
 	})
 
 	busyPane := it.Spawn("busy", `sh -c 'printf "\033[H· Cooking… (3s · down 1k tokens)\n"; exec cat'`)
-	seedRunning(t, st, cli, "busy", busyPane, agentstore.StateIdle)
+	seedRunning(t, st, cli, "busy", busyPane, agentv1.AgentState_AGENT_STATE_IDLE)
 	it.WaitForFrame(busyPane, "Cooking…")
 
 	idlePane := it.Spawn("idle", `sh -c 'printf "\033[H───────\n❯ \n───────\n-- INSERT --\n"; exec cat'`)
-	seedRunning(t, st, cli, "idle", idlePane, agentstore.StateThinking)
+	seedRunning(t, st, cli, "idle", idlePane, agentv1.AgentState_AGENT_STATE_THINKING)
 	it.WaitForFrame(idlePane, "INSERT")
 
 	unreadablePane := it.Spawn("unreadable", `sh -c 'printf "\033[Hsomething else has the screen\n"; exec cat'`)
-	seedRunning(t, st, cli, "unreadable", unreadablePane, agentstore.StateThinking)
+	seedRunning(t, st, cli, "unreadable", unreadablePane, agentv1.AgentState_AGENT_STATE_THINKING)
 	it.WaitForFrame(unreadablePane, "something else")
 
 	waitPane := it.Spawn("wait", `sh -c 'printf "\033[HPick one\n❯ 1. A\n  2. B\nEnter to select · Esc to cancel\n"; exec cat'`)
-	seedRunning(t, st, cli, "wait", waitPane, agentstore.StateThinking)
+	seedRunning(t, st, cli, "wait", waitPane, agentv1.AgentState_AGENT_STATE_THINKING)
 	it.WaitForFrame(waitPane, "Enter to select")
 
 	deadPane := it.Spawn("dead", "sleep 300")
-	seedRunning(t, st, cli, "dead", deadPane, agentstore.StateThinking)
+	seedRunning(t, st, cli, "dead", deadPane, agentv1.AgentState_AGENT_STATE_THINKING)
 	it.Kill("dead")
 
 	exitedPane := it.Spawn("exited", `sh -c 'printf "\033[H❯ ready\n"; exec sh'`)
-	exited := seedRunning(t, st, cli, "exited", exitedPane, agentstore.StateThinking)
+	exited := seedRunning(t, st, cli, "exited", exitedPane, agentv1.AgentState_AGENT_STATE_THINKING)
 	it.WaitForFrame(exitedPane, "ready")
 
 	squatPane := it.Spawn("squat", `sh -c 'printf "\033[H· Cooking… (3s · down 1k tokens)\n"; exec cat'`)
-	squatter := seed(t, st, "squat", squatPane, agentstore.StateThinking)
+	squatter := seed(t, st, "squat", squatPane, agentv1.AgentState_AGENT_STATE_THINKING)
 	it.WaitForFrame(squatPane, "Cooking…")
 
 	for range reconcileMisses {
@@ -63,15 +64,15 @@ func TestIntegrationReconcileAgainstRealTmux(t *testing.T) {
 	waitOutTheShellGrace(rec)
 	require.NoError(t, rec.Reconcile(ctx))
 
-	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "busy"), "the busy agent")
-	assert.Equal(t, agentstore.StateIdle, stateOf(t, st, "idle"), "the idle agent")
-	assert.Equal(t, agentstore.StateWaiting, stateOf(t, st, "wait"), "the waiting agent")
-	assert.Equal(t, agentstore.StateUncertain, stateOf(t, st, "unreadable"), "the agent whose pane nothing recognises")
-	assert.Equal(t, agentstore.StateIdle, stateOf(t, st, "dead"), "the dead agent")
-	assert.Equal(t, agentstore.StateIdle, stateOf(t, st, "squat"), "the agent holding another pane's id")
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, stateOf(t, st, "busy"), "the busy agent")
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, stateOf(t, st, "idle"), "the idle agent")
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_WAITING, stateOf(t, st, "wait"), "the waiting agent")
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_UNCERTAIN, stateOf(t, st, "unreadable"), "the agent whose pane nothing recognises")
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, stateOf(t, st, "dead"), "the dead agent")
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, stateOf(t, st, "squat"), "the agent holding another pane's id")
 	assert.Empty(t, agentByID(t, st, squatter.ID).Pane, "the agent holding another pane's id drops the claim")
 
-	assert.Equal(t, agentstore.StateIdle, stateOf(t, st, "exited"), "the agent whose CLI exited")
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, stateOf(t, st, "exited"), "the agent whose CLI exited")
 	assert.Empty(t, agentByID(t, st, exited.ID).Pane, "the agent whose CLI exited forgets its pane")
 	assert.False(t, cli.IsPaneAlive(exitedPane), "the shell's pane is closed")
 }
@@ -102,7 +103,7 @@ func TestIntegrationReconcileHoldsAPaneOneListingLeftOut(t *testing.T) {
 	for _, agent := range board {
 		held := agentByID(t, st, agent.ID)
 		assert.Equal(t, agent.Pane, held.Pane, "%s keeps its pane", agent.Name)
-		assert.Equal(t, agentstore.StateThinking, held.State, "%s stays thinking", agent.Name)
+		assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, held.State, "%s stays thinking", agent.Name)
 		assert.Nil(t, held.InterruptedAt, "%s records no interruption", agent.Name)
 	}
 
@@ -111,7 +112,7 @@ func TestIntegrationReconcileHoldsAPaneOneListingLeftOut(t *testing.T) {
 	for _, agent := range board {
 		after := agentByID(t, st, agent.ID)
 		assert.Empty(t, after.Pane, "%s forgets its pane", agent.Name)
-		assert.Equal(t, agentstore.StateIdle, after.State, "%s falls idle", agent.Name)
+		assert.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, after.State, "%s falls idle", agent.Name)
 		assert.NotNil(t, after.InterruptedAt, "%s records its unfinished turn as interrupted", agent.Name)
 	}
 }
@@ -165,12 +166,12 @@ func TestIntegrationReconcileForgetsAPaneThatStaysGone(t *testing.T) {
 
 	after := agentByID(t, st, gone.ID)
 	assert.Empty(t, after.Pane, "the agent that exited forgets its pane")
-	assert.Equal(t, agentstore.StateIdle, after.State, "the agent that exited falls idle")
+	assert.Equal(t, agentv1.AgentState_AGENT_STATE_IDLE, after.State, "the agent that exited falls idle")
 
 	for _, agent := range board[1:] {
 		still := agentByID(t, st, agent.ID)
 		assert.Equal(t, agent.Pane, still.Pane, "%s keeps its pane", agent.Name)
-		assert.Equal(t, agentstore.StateThinking, still.State, "%s stays thinking", agent.Name)
+		assert.Equal(t, agentv1.AgentState_AGENT_STATE_THINKING, still.State, "%s stays thinking", agent.Name)
 	}
 }
 
@@ -182,7 +183,7 @@ func seedBoard(t *testing.T, it *tmuxtest.Server, st *testStore, count int) []ag
 	for i := range count {
 		name := fmt.Sprintf("agent-%d", i)
 		spawned := it.Spawn(name, `sh -c 'printf "\033[H· Cooking… (3s · down 1k tokens)\n"; exec cat'`)
-		board = append(board, seedRunning(t, st, it.Client(), name, spawned, agentstore.StateThinking))
+		board = append(board, seedRunning(t, st, it.Client(), name, spawned, agentv1.AgentState_AGENT_STATE_THINKING))
 		it.WaitForFrame(spawned, "Cooking…")
 	}
 

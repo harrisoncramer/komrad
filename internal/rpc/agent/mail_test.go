@@ -12,14 +12,13 @@ import (
 	"komrad/internal/logtest"
 	"komrad/internal/mail"
 	"komrad/internal/rpc/render"
+	agentstore "komrad/internal/store/agent"
+	mailstore "komrad/internal/store/mail"
 	"komrad/lib/xptr"
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1komrad"
 	"komrad/proto/gen/oneofs"
 	paginationv1 "komrad/proto/gen/pagination/v1"
-
-	agentstore "komrad/internal/store/agent"
-	mailstore "komrad/internal/store/mail"
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
@@ -74,7 +73,7 @@ func (f *fakeMailer) SendMail(_ context.Context, params mail.SendMailParams) (*m
 		ToAgentID:   params.ToAgentID,
 		Body:        params.Body,
 		ReplyTo:     params.ReplyTo,
-		Kind:        mailstore.KindPlain,
+		Kind:        agentv1.MailKind_MAIL_KIND_PLAIN,
 		CreatedAt:   time.Date(2026, time.September, 24, 9, 0, 0, 0, time.UTC),
 		ExpiresAt:   time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC),
 	}
@@ -270,7 +269,7 @@ func TestSendMail(t *testing.T) {
 		ID:    betaID,
 		Name:  "beta",
 		Pane:  "%beta",
-		State: agentstore.StateIdle,
+		State: agentv1.AgentState_AGENT_STATE_IDLE,
 	}}
 	svc := newMailHandler(mailer)
 

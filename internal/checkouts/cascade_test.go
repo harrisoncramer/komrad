@@ -13,6 +13,8 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 	taskstore "komrad/internal/store/task"
 	"komrad/internal/storetest"
+	agentv1 "komrad/proto/gen/agent/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -64,7 +66,7 @@ func TestCascade(t *testing.T) {
 		},
 		{
 			name:   "a writer part way through a turn is left to finish it",
-			writer: agentstore.Agent{Pane: "%1", State: agentstore.StateThinking},
+			writer: agentstore.Agent{Pane: "%1", State: agentv1.AgentState_AGENT_STATE_THINKING},
 			mover: func(parentBranch string) *gittest.Mover {
 				return newChildGit(parentBranch, "newtip")
 			},
@@ -72,7 +74,7 @@ func TestCascade(t *testing.T) {
 		},
 		{
 			name:   "a writer part way through a turn on a branch holding neither commit is not orphaned",
-			writer: agentstore.Agent{Pane: "%1", State: agentstore.StateThinking},
+			writer: agentstore.Agent{Pane: "%1", State: agentv1.AgentState_AGENT_STATE_THINKING},
 			mover: func(parentBranch string) *gittest.Mover {
 				mover := newChildGit(parentBranch, "newtip")
 				mover.Holds = nil
@@ -99,7 +101,7 @@ func TestCascade(t *testing.T) {
 
 				return mover
 			},
-			wantParent: &taskstore.Parent{ForkPoint: "oldtip", Blocked: taskstore.CascadeOrphaned},
+			wantParent: &taskstore.Parent{ForkPoint: "oldtip", Blocked: taskv1.CascadeBlock_CASCADE_BLOCK_ORPHANED},
 			wantMail:   "Your branch no longer holds oldtip, the commit of parent your own commits sat on",
 		},
 		{
@@ -112,13 +114,13 @@ func TestCascade(t *testing.T) {
 
 				return mover
 			},
-			wantParent: &taskstore.Parent{ForkPoint: "oldtip", Blocked: taskstore.CascadeOrphaned},
+			wantParent: &taskstore.Parent{ForkPoint: "oldtip", Blocked: taskv1.CascadeBlock_CASCADE_BLOCK_ORPHANED},
 			wantMail:   "Your branch no longer holds oldtip, the commit of parent your own commits sat on",
 		},
 		{
 			name: "an orphaned child is told once",
 			seed: func(t *testing.T, fixture *rebaseFixture, seeded taskOnParent) {
-				require.NoError(t, fixture.stores.Tasks.SetCascadeBlocked(t.Context(), seeded.task, taskstore.CascadeOrphaned))
+				require.NoError(t, fixture.stores.Tasks.SetCascadeBlocked(t.Context(), seeded.task, taskv1.CascadeBlock_CASCADE_BLOCK_ORPHANED))
 			},
 			mover: func(parentBranch string) *gittest.Mover {
 				mover := newChildGit(parentBranch, "newtip")
@@ -126,7 +128,7 @@ func TestCascade(t *testing.T) {
 
 				return mover
 			},
-			wantParent: &taskstore.Parent{ForkPoint: "oldtip", Blocked: taskstore.CascadeOrphaned},
+			wantParent: &taskstore.Parent{ForkPoint: "oldtip", Blocked: taskv1.CascadeBlock_CASCADE_BLOCK_ORPHANED},
 		},
 		{
 			name: "a branch rebased by hand onto a newer commit of its parent takes that commit as its fork point",
@@ -145,7 +147,7 @@ func TestCascade(t *testing.T) {
 		{
 			name: "an orphaned child whose branch comes to hold a newer commit of its parent is carried again",
 			seed: func(t *testing.T, fixture *rebaseFixture, seeded taskOnParent) {
-				require.NoError(t, fixture.stores.Tasks.SetCascadeBlocked(t.Context(), seeded.task, taskstore.CascadeOrphaned))
+				require.NoError(t, fixture.stores.Tasks.SetCascadeBlocked(t.Context(), seeded.task, taskv1.CascadeBlock_CASCADE_BLOCK_ORPHANED))
 			},
 			mover: func(parentBranch string) *gittest.Mover {
 				mover := newChildGit(parentBranch, "newtip")
@@ -191,19 +193,19 @@ func TestCascade(t *testing.T) {
 
 				return mover
 			},
-			wantParent: &taskstore.Parent{ForkPoint: "oldtip", Blocked: taskstore.CascadeConflicted},
+			wantParent: &taskstore.Parent{ForkPoint: "oldtip", Blocked: taskv1.CascadeBlock_CASCADE_BLOCK_CONFLICTED},
 			wantCalls:  []string{"park", "rebaseOnto", "abort rebase"},
 			wantMail:   "conflicts in greet.go. Your branch is as it was. Run\ngit rebase --onto newtip oldtip",
 		},
 		{
 			name: "a child whose rebase conflicted is not rebased again",
 			seed: func(t *testing.T, fixture *rebaseFixture, seeded taskOnParent) {
-				require.NoError(t, fixture.stores.Tasks.SetCascadeBlocked(t.Context(), seeded.task, taskstore.CascadeConflicted))
+				require.NoError(t, fixture.stores.Tasks.SetCascadeBlocked(t.Context(), seeded.task, taskv1.CascadeBlock_CASCADE_BLOCK_CONFLICTED))
 			},
 			mover: func(parentBranch string) *gittest.Mover {
 				return newChildGit(parentBranch, "newtip")
 			},
-			wantParent: &taskstore.Parent{ForkPoint: "oldtip", Blocked: taskstore.CascadeConflicted},
+			wantParent: &taskstore.Parent{ForkPoint: "oldtip", Blocked: taskv1.CascadeBlock_CASCADE_BLOCK_CONFLICTED},
 		},
 		{
 			name: "a parent pull request closed without merging blocks the child and tells the writer",
@@ -213,7 +215,7 @@ func TestCascade(t *testing.T) {
 			mover: func(parentBranch string) *gittest.Mover {
 				return newChildGit(parentBranch, "newtip")
 			},
-			wantParent: &taskstore.Parent{ForkPoint: "oldtip", Blocked: taskstore.CascadeParentClosed},
+			wantParent: &taskstore.Parent{ForkPoint: "oldtip", Blocked: taskv1.CascadeBlock_CASCADE_BLOCK_PARENT_CLOSED},
 			wantMail:   "The pull request of parent, the task yours depends on, closed without merging",
 		},
 		{
@@ -233,7 +235,7 @@ func TestCascade(t *testing.T) {
 		{
 			name: "a child whose rebase conflicted takes the parent's newest commit as its fork point once its branch holds it",
 			seed: func(t *testing.T, fixture *rebaseFixture, seeded taskOnParent) {
-				require.NoError(t, fixture.stores.Tasks.SetCascadeBlocked(t.Context(), seeded.task, taskstore.CascadeConflicted))
+				require.NoError(t, fixture.stores.Tasks.SetCascadeBlocked(t.Context(), seeded.task, taskv1.CascadeBlock_CASCADE_BLOCK_CONFLICTED))
 			},
 			mover: func(parentBranch string) *gittest.Mover {
 				mover := newChildGit(parentBranch, "newtip")
@@ -548,7 +550,7 @@ func TestCascadeOrphansABranchThatAbortedARetarget(t *testing.T) {
 	got, err := fixture.stores.Tasks.Get(t.Context(), seeded.task)
 	require.NoError(t, err)
 	require.NotNil(t, got.Parent)
-	assert.Equal(t, taskstore.CascadeOrphaned, got.Parent.Blocked)
+	assert.Equal(t, taskv1.CascadeBlock_CASCADE_BLOCK_ORPHANED, got.Parent.Blocked)
 }
 
 // TestCascadeSettlesAChildWhosePullRequestMergedIntoItsParent covers a task merged into its
@@ -648,7 +650,7 @@ func (f *rebaseFixture) seedTaskOnParent(t *testing.T, writer agentstore.Agent) 
 	t.Helper()
 
 	parent := f.stores.SeedTask(t, taskstore.CreateParams{WorkflowID: f.workflowID, Slug: "parent"})
-	writer.Role = agentstore.RoleWriter
+	writer.Role = agentv1.AgentRole_AGENT_ROLE_WRITER
 	seeded := f.seedPushable(t, writer, "")
 	require.NoError(t, f.stores.Tasks.SetParent(t.Context(), *seeded.TaskID, &taskstore.Parent{TaskID: parent.ID, ForkPoint: "oldtip"}))
 

@@ -11,6 +11,7 @@ import (
 	"komrad/internal/ui/paint/label"
 	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 )
 
 // Listing is what the screens render: the resources the watch has delivered, and the live and
@@ -109,7 +110,7 @@ func (l Listing) AnyAgent(id string) (AgentRow, bool) {
 
 // AgentName is what an agent is called in the panel, its workflow's name for an orchestrator.
 func (l Listing) AgentName(agent Agent) string {
-	if agent.Role == RoleOrchestrator {
+	if agent.Role == agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR {
 		return l.WorkflowName(agent.WorkflowID)
 	}
 
@@ -119,7 +120,7 @@ func (l Listing) AgentName(agent Agent) string {
 // AgentCount is how many live agents a workflow holds, its orchestrator left out.
 func (l Listing) AgentCount(workflowID string) int {
 	return xslice.Count(l.Agents, func(it AgentRow) bool {
-		return it.Agent.WorkflowID == workflowID && it.Agent.Role != RoleOrchestrator
+		return it.Agent.WorkflowID == workflowID && it.Agent.Role != agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR
 	})
 }
 
@@ -144,7 +145,7 @@ func (l Listing) AgentsOf(workflowID string) []Agent {
 func (l Listing) LiveOrchestrators() []Agent {
 	var orchestrators []Agent
 	for _, row := range l.Agents {
-		if row.Agent.Role == RoleOrchestrator {
+		if row.Agent.Role == agentv1.AgentRole_AGENT_ROLE_ORCHESTRATOR {
 			orchestrators = append(orchestrators, row.Agent)
 		}
 	}
@@ -230,7 +231,7 @@ func (l Listing) AgentsOnTasks(tasks []Task) []Agent {
 // FindTaskWriter is the task's writer, when the listing holds it.
 func (l Listing) FindTaskWriter(task Task) (AgentRow, bool) {
 	onTask := l.taskAgents(task)
-	at := slices.IndexFunc(onTask, func(item AgentRow) bool { return item.Agent.Role == RoleWriter })
+	at := slices.IndexFunc(onTask, func(item AgentRow) bool { return item.Agent.Role == agentv1.AgentRole_AGENT_ROLE_WRITER })
 	if at < 0 {
 		return AgentRow{}, false
 	}
@@ -255,7 +256,7 @@ func (l Listing) HasOwnWorktree(task Task) bool {
 
 // hasWorktreeToDelete reports whether komrad cut a worktree for a task that no delete has removed yet.
 func (l Listing) hasWorktreeToDelete(task Task) bool {
-	if task.Cwd == "" || task.WorktreeRemovalReason == WorktreeDeleted {
+	if task.Cwd == "" || task.WorktreeRemovalReason == taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED {
 		return false
 	}
 
@@ -276,7 +277,7 @@ func (l Listing) HasAnyWorktreeToDelete(tasks []Task) bool {
 
 // IsReviewable reports whether an agent has work of its own to read.
 func (l Listing) IsReviewable(agent Agent) bool {
-	return l.ReviewDir(agent) != "" && agent.Role != RoleReviewer
+	return l.ReviewDir(agent) != "" && agent.Role != agentv1.AgentRole_AGENT_ROLE_REVIEWER
 }
 
 // ReviewDir is the checkout an agent's review reads, its workflow's once the task's worktree is removed,
@@ -302,7 +303,7 @@ func (l Listing) DocumentTypeNames() []string {
 func WritersByTask(agents []AgentRow) map[string]AgentRow {
 	writers := make(map[string]AgentRow)
 	for _, item := range agents {
-		if item.Agent.Role == RoleWriter && item.Agent.TaskID != "" {
+		if item.Agent.Role == agentv1.AgentRole_AGENT_ROLE_WRITER && item.Agent.TaskID != "" {
 			writers[item.Agent.TaskID] = item
 		}
 	}
@@ -312,7 +313,7 @@ func WritersByTask(agents []AgentRow) map[string]AgentRow {
 
 // FindWriter is the writer of a reviewer's task, when it is among the writers.
 func FindWriter(item AgentRow, writers map[string]AgentRow) (AgentRow, bool) {
-	if item.Agent.Role != RoleReviewer {
+	if item.Agent.Role != agentv1.AgentRole_AGENT_ROLE_REVIEWER {
 		return AgentRow{}, false
 	}
 	writer, ok := writers[item.Agent.TaskID]

@@ -21,7 +21,7 @@ func TestStrictJSONUnmarshal(t *testing.T) {
 	}{
 		{
 			name:    "the name of an enum value",
-			payload: `{"direction":"MAIL_DIRECTION_SENT"}`,
+			payload: `{"direction":"sent"}`,
 			want:    agentv1.MailDirection_MAIL_DIRECTION_SENT,
 		},
 		{
@@ -41,7 +41,7 @@ func TestStrictJSONUnmarshal(t *testing.T) {
 		},
 		{
 			name:    "a field the schema does not have",
-			payload: `{"directoin":"MAIL_DIRECTION_SENT"}`,
+			payload: `{"directoin":"sent"}`,
 			wantErr: true,
 		},
 		{

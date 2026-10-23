@@ -18,8 +18,10 @@ import (
 	"komrad/internal/storetest"
 	"komrad/internal/tasks"
 	"komrad/lib/xslice"
+	agentv1 "komrad/proto/gen/agent/v1"
 	eventv1 "komrad/proto/gen/event/v1"
 	"komrad/proto/gen/oneofs"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/google/uuid"
 	"github.com/riverqueue/river"
@@ -34,7 +36,7 @@ const (
 	baseSnapshot   = "0000000000000000000000000000000000000000"
 )
 
-var personAuthor = ReviewAuthor{Kind: reviewstore.AuthorHuman}
+var personAuthor = ReviewAuthor{Kind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN}
 
 // reviewFixture is a writer with snapshot one taken, its reviewer, and the writer of another task.
 type reviewFixture struct {
@@ -100,7 +102,7 @@ func TestReviewEntitlement(t *testing.T) {
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
 					Task:    taskByID(*fx.writer.TaskID),
-					Verdict: reviewstore.VerdictApproved,
+					Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
 					Author:  newAgentAuthor(fx.writer),
 				})
 
@@ -224,7 +226,7 @@ func TestReviewEntitlement(t *testing.T) {
 			name: "an unrelated agent reading a released review",
 			call: func(t *testing.T, fx *reviewFixture) error {
 				fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
-				released := fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictChangesRequested)
+				released := fx.releaseReview(t, newAgentAuthor(fx.reviewer), agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED)
 				_, err := fx.service.GetReview(t.Context(), released.Review.ID, newAgentAuthor(fx.otherWriter))
 
 				return err
@@ -305,7 +307,7 @@ func TestReviewEntitlement(t *testing.T) {
 		{
 			name: "taking a snapshot of a task whose worktree was removed",
 			call: func(t *testing.T, fx *reviewFixture) error {
-				require.NoError(t, fx.stores.Tasks.SetHead(t.Context(), *fx.writer.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone}))
+				require.NoError(t, fx.stores.Tasks.SetHead(t.Context(), *fx.writer.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE}))
 				_, err := fx.service.TakeSnapshot(t.Context(), taskByID(*fx.writer.TaskID), personAuthor)
 
 				return err
@@ -330,7 +332,7 @@ func TestReviewEntitlement(t *testing.T) {
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
 					Task:    taskByID(*fx.writer.TaskID),
-					Verdict: reviewstore.VerdictCommented,
+					Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED,
 					Author:  newAgentAuthor(fx.reviewer),
 				})
 
@@ -356,7 +358,7 @@ func TestReviewEntitlement(t *testing.T) {
 			call: func(t *testing.T, fx *reviewFixture) error {
 				_, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
 					Task:    taskByID(*fx.writer.TaskID),
-					Verdict: reviewstore.VerdictApproved,
+					Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
 					Author:  personAuthor,
 				})
 
@@ -646,7 +648,7 @@ func TestASecondReview(t *testing.T) {
 			name: "the reviewer on a snapshot it has reviewed",
 			write: func(t *testing.T, fx *reviewFixture) error {
 				fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
-				fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictChangesRequested)
+				fx.releaseReview(t, newAgentAuthor(fx.reviewer), agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED)
 
 				return fx.tryComment(t, newAgentAuthor(fx.reviewer), "")
 			},
@@ -657,10 +659,10 @@ func TestASecondReview(t *testing.T) {
 			write: func(t *testing.T, fx *reviewFixture) error {
 				reviewer := newAgentAuthor(fx.reviewer)
 				fx.writeComment(t, reviewer, "this needs a nil check")
-				fx.releaseReview(t, reviewer, reviewstore.VerdictChangesRequested)
+				fx.releaseReview(t, reviewer, agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED)
 				fx.advanceTree(t)
 				fx.writeComment(t, reviewer, "and this one")
-				fx.releaseReview(t, reviewer, reviewstore.VerdictChangesRequested)
+				fx.releaseReview(t, reviewer, agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED)
 
 				return fx.tryComment(t, reviewer, firstSnapshot)
 			},
@@ -741,7 +743,7 @@ func TestASecondReview(t *testing.T) {
 			write: func(t *testing.T, fx *reviewFixture) error {
 				reviewer := newAgentAuthor(fx.reviewer)
 				fx.writeComment(t, reviewer, "this needs a nil check")
-				fx.releaseReview(t, reviewer, reviewstore.VerdictChangesRequested)
+				fx.releaseReview(t, reviewer, agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED)
 				fx.advanceTree(t)
 
 				return fx.tryComment(t, reviewer, "")
@@ -772,7 +774,7 @@ func TestSetReviewThreadResolved(t *testing.T) {
 		name         string
 		settler      func(fx *reviewFixture) ReviewAuthor
 		reopen       bool
-		wantKind     reviewstore.AuthorKind
+		wantKind     agentv1.ReviewAuthorKind
 		wantSettler  func(fx *reviewFixture) *uuid.UUID
 		wantResolved bool
 	}{
@@ -791,7 +793,7 @@ func TestSetReviewThreadResolved(t *testing.T) {
 			settler: func(*reviewFixture) ReviewAuthor {
 				return personAuthor
 			},
-			wantKind: reviewstore.AuthorHuman,
+			wantKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
 			wantSettler: func(*reviewFixture) *uuid.UUID {
 				return nil
 			},
@@ -802,7 +804,7 @@ func TestSetReviewThreadResolved(t *testing.T) {
 			settler: func(fx *reviewFixture) ReviewAuthor {
 				return newAgentAuthor(fx.reviewer)
 			},
-			wantKind: reviewstore.AuthorAgent,
+			wantKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
 			wantSettler: func(fx *reviewFixture) *uuid.UUID {
 				return &fx.reviewer.ID
 			},
@@ -814,7 +816,7 @@ func TestSetReviewThreadResolved(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fx := newReviewFixture(t)
 			written := fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
-			fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictChangesRequested)
+			fx.releaseReview(t, newAgentAuthor(fx.reviewer), agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED)
 
 			settled := fx.settle(t, written.Thread.ID, tt.settler(fx))
 			if tt.reopen {
@@ -925,7 +927,7 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 					Name:       "second-reviewer",
 					Cwd:        "/tree",
 					WorkflowID: fx.writer.WorkflowID,
-					Role:       agentstore.RoleReviewer,
+					Role:       agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 					TaskID:     fx.writer.TaskID,
 				})
 			},
@@ -953,7 +955,7 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 			}
 			written := fx.writeComment(t, opening, "this needs a nil check")
 			if opener != nil {
-				fx.releaseReview(t, opening, reviewstore.VerdictChangesRequested)
+				fx.releaseReview(t, opening, agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED)
 			}
 
 			_, err := fx.service.AddReviewMessage(t.Context(), AddReviewMessageParams{
@@ -980,7 +982,7 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 
 			rung := fx.listMail(t, opener.ID)
 			require.Len(t, rung, 1)
-			assert.Equal(t, mailstore.KindReviewActivity, rung[0].Kind)
+			assert.Equal(t, agentv1.MailKind_MAIL_KIND_REVIEW_ACTIVITY, rung[0].Kind)
 			assert.Equal(t, &fx.writer.ID, rung[0].SubjectID)
 			assert.Contains(t, rung[0].Body, "list_review_threads", "the doorbell says where to look rather than what was said")
 			assert.Equal(t, []eventv1.Event{eventv1.Event_EVENT_REVIEW_ANSWERED}, rung[0].Events)
@@ -992,7 +994,7 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 func TestAnsweringAReviewSeveralTimesLeavesOneMail(t *testing.T) {
 	fx := newReviewFixture(t)
 	written := fx.writeComment(t, newAgentAuthor(fx.reviewer), "this needs a nil check")
-	fx.releaseReview(t, newAgentAuthor(fx.reviewer), reviewstore.VerdictChangesRequested)
+	fx.releaseReview(t, newAgentAuthor(fx.reviewer), agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED)
 
 	for range 3 {
 		fx.writeAnswer(t, written.Thread.ID)
@@ -1032,7 +1034,7 @@ func newReviewFixtureReleasing(t *testing.T, params NewReleasedHandlerParams) *r
 		Name:       "reviewer",
 		Cwd:        "/tree",
 		WorkflowID: writer.WorkflowID,
-		Role:       agentstore.RoleReviewer,
+		Role:       agentv1.AgentRole_AGENT_ROLE_REVIEWER,
 		TaskID:     writer.TaskID,
 	})
 	otherWriter := stores.SeedAgent(t, agentstore.Agent{
@@ -1078,7 +1080,7 @@ func newReviewFixtureReleasing(t *testing.T, params NewReleasedHandlerParams) *r
 
 func newAgentAuthor(agent *agentstore.Agent) ReviewAuthor {
 	return ReviewAuthor{
-		Kind:    reviewstore.AuthorAgent,
+		Kind:    agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
 		AgentID: &agent.ID,
 	}
 }
@@ -1138,7 +1140,7 @@ func (fx *reviewFixture) tryComment(t *testing.T, author ReviewAuthor, snapshot 
 	return err
 }
 
-func (fx *reviewFixture) releaseReview(t *testing.T, author ReviewAuthor, verdict reviewstore.Verdict) *ReleaseReviewResult {
+func (fx *reviewFixture) releaseReview(t *testing.T, author ReviewAuthor, verdict agentv1.ReviewVerdict) *ReleaseReviewResult {
 	t.Helper()
 
 	released, err := fx.service.ReleaseReview(t.Context(), ReleaseReviewParams{
@@ -1198,7 +1200,7 @@ func (fx *reviewFixture) removeWorktree(t *testing.T, dir string) {
 	cfg := workflow.Config()
 	cfg.Cwd = dir
 	require.NoError(t, fx.stores.Workflows.Update(t.Context(), workflow.ID, cfg))
-	require.NoError(t, fx.stores.Tasks.SetHead(t.Context(), *fx.writer.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskstore.WorktreeGone}))
+	require.NoError(t, fx.stores.Tasks.SetHead(t.Context(), *fx.writer.TaskID, taskstore.SetHeadParams{WorktreeRemovalReason: taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE}))
 }
 
 // listMail is every piece of mail addressed to an agent, oldest first.

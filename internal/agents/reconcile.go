@@ -11,6 +11,8 @@ import (
 	"komrad/internal/logging"
 	agentstore "komrad/internal/store/agent"
 	"komrad/internal/tmux"
+	"komrad/lib/protoenum"
+	agentv1 "komrad/proto/gen/agent/v1"
 
 	"github.com/google/uuid"
 )
@@ -27,7 +29,7 @@ type frameRecorder interface {
 
 type agentStateReadWriter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
-	SetStateByID(ctx context.Context, id uuid.UUID, state agentstore.State) error
+	SetStateByID(ctx context.Context, id uuid.UUID, state agentv1.AgentState) error
 	SetTurnEnded(ctx context.Context, id uuid.UUID) error
 	ForgetPane(ctx context.Context, params agentstore.ForgetPaneParams) (bool, error)
 	SetAlive(ctx context.Context, ids []uuid.UUID, alive bool) error
@@ -135,7 +137,7 @@ func (r *Reconciler) setAlive(ctx context.Context, ids []uuid.UUID, alive bool) 
 }
 
 func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent, pane tmux.PaneStatus, inListing bool) {
-	if !agent.State.DoesPaneDecide() && !isRelaunching(agent) {
+	if !agentstore.DoesPaneDecide(agent.State) && !isRelaunching(agent) {
 		return
 	}
 	r.tally.observeTurnEnd(agent)
@@ -183,25 +185,25 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 
 	switch activity {
 	case harness.ActivityWorking:
-		r.apply(ctx, agent, agentstore.StateThinking)
+		r.apply(ctx, agent, agentv1.AgentState_AGENT_STATE_THINKING)
 	case harness.ActivityWaiting:
-		r.apply(ctx, agent, agentstore.StateWaiting)
+		r.apply(ctx, agent, agentv1.AgentState_AGENT_STATE_WAITING)
 	case harness.ActivityUnknown:
 
 	case harness.ActivityIdle, harness.ActivityComposing:
 		if isTurnFailureStanding(agent) {
-			r.apply(ctx, agent, agentstore.StateErrored)
+			r.apply(ctx, agent, agentv1.AgentState_AGENT_STATE_ERRORED)
 
 			break
 		}
 
-		if agent.State == agentstore.StateSettingUp || agent.State == agentstore.StateIdle {
-			r.apply(ctx, agent, agentstore.StateIdle)
+		if agent.State == agentv1.AgentState_AGENT_STATE_SETTING_UP || agent.State == agentv1.AgentState_AGENT_STATE_IDLE {
+			r.apply(ctx, agent, agentv1.AgentState_AGENT_STATE_IDLE)
 
 			break
 		}
 
-		r.settle(ctx, agent, agentstore.StateIdle)
+		r.settle(ctx, agent, agentv1.AgentState_AGENT_STATE_IDLE)
 
 	case harness.ActivityUnrecognized:
 		r.observeUnrecognized(ctx, agent, observed.Frame)
@@ -209,7 +211,7 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 }
 
 func isRelaunching(agent agentstore.Agent) bool {
-	return agent.State == agentstore.StateSettingUp && agent.Pane != ""
+	return agent.State == agentv1.AgentState_AGENT_STATE_SETTING_UP && agent.Pane != ""
 }
 
 // recordFrame keeps the capture a reading was taken from, marking the ones that dispute the
@@ -234,17 +236,17 @@ func (r *Reconciler) recordFrame(ctx context.Context, agent agentstore.Agent, fr
 
 // doesReadingDispute reports whether a reading would leave an agent somewhere other than the
 // state on record.
-func doesReadingDispute(activity harness.Activity, state agentstore.State) bool {
+func doesReadingDispute(activity harness.Activity, state agentv1.AgentState) bool {
 	switch activity {
 	case harness.ActivityWorking:
-		return state != agentstore.StateThinking
+		return state != agentv1.AgentState_AGENT_STATE_THINKING
 	case harness.ActivityWaiting:
-		return state != agentstore.StateWaiting
+		return state != agentv1.AgentState_AGENT_STATE_WAITING
 
 	case harness.ActivityIdle, harness.ActivityComposing:
-		return state != agentstore.StateIdle && state != agentstore.StateErrored
+		return state != agentv1.AgentState_AGENT_STATE_IDLE && state != agentv1.AgentState_AGENT_STATE_ERRORED
 	case harness.ActivityUnrecognized:
-		return state != agentstore.StateUncertain
+		return state != agentv1.AgentState_AGENT_STATE_UNCERTAIN
 
 	// A frame nothing could be read from leaves the agent where it was.
 	case harness.ActivityUnknown:
@@ -255,12 +257,12 @@ func doesReadingDispute(activity harness.Activity, state agentstore.State) bool 
 }
 
 // decideRestingState decides where an agent whose pane stopped moving lands.
-func decideRestingState(agent agentstore.Agent) agentstore.State {
+func decideRestingState(agent agentstore.Agent) agentv1.AgentState {
 	if isTurnFailureStanding(agent) {
-		return agentstore.StateErrored
+		return agentv1.AgentState_AGENT_STATE_ERRORED
 	}
 
-	return agentstore.StateIdle
+	return agentv1.AgentState_AGENT_STATE_IDLE
 }
 
 // isTurnFailureStanding reports whether the failed turn on record is the one the pane came to rest from.
@@ -269,12 +271,12 @@ func isTurnFailureStanding(agent agentstore.Agent) bool {
 		return false
 	}
 
-	return !agent.State.IsTurnUnfinished() || !agent.Turn.FailedAt.Before(agent.StateChangedAt)
+	return !agentstore.IsTurnUnfinished(agent.State) || !agent.Turn.FailedAt.Before(agent.StateChangedAt)
 }
 
 // settle moves an agent to where a frame that has stopped moving lands, taking either the
 // agent's own CLI reporting its turn ended or enough passes in a row reading the same thing.
-func (r *Reconciler) settle(ctx context.Context, agent agentstore.Agent, state agentstore.State) {
+func (r *Reconciler) settle(ctx context.Context, agent agentstore.Agent, state agentv1.AgentState) {
 	if agent.State == state {
 		r.tally.clearMisses(agent.ID)
 
@@ -283,7 +285,7 @@ func (r *Reconciler) settle(ctx context.Context, agent agentstore.Agent, state a
 
 	// A reported turn end says the agent finished, so it may only hurry along idle, never the
 	// state that says komrad could not tell either way.
-	if state == agentstore.StateIdle && r.tally.hasFreshTurnEnd(agent) {
+	if state == agentv1.AgentState_AGENT_STATE_IDLE && r.tally.hasFreshTurnEnd(agent) {
 		r.apply(ctx, agent, state)
 
 		return
@@ -294,7 +296,7 @@ func (r *Reconciler) settle(ctx context.Context, agent agentstore.Agent, state a
 	}
 
 	// A frame komrad could not read is no evidence that a turn ended.
-	if state == agentstore.StateIdle {
+	if state == agentv1.AgentState_AGENT_STATE_IDLE {
 		r.stampTurnEnd(ctx, agent)
 	}
 }
@@ -321,7 +323,7 @@ func (r *Reconciler) observeUnrecognized(ctx context.Context, agent agentstore.A
 		return
 	}
 
-	r.settle(ctx, agent, agentstore.StateUncertain)
+	r.settle(ctx, agent, agentv1.AgentState_AGENT_STATE_UNCERTAIN)
 }
 
 // forget drops the pane an agent is no longer running in and reports whether the row it was
@@ -338,7 +340,7 @@ func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bo
 	// A pane that goes part-way through a turn took that turn with it, and nothing brings it
 	// back, so the resume has to be told to ask for it again.
 	var interrupted *time.Time
-	if agent.State.IsTurnUnfinished() {
+	if agentstore.IsTurnUnfinished(agent.State) {
 		at := r.tally.now()
 		interrupted = &at
 	}
@@ -360,7 +362,7 @@ func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bo
 }
 
 // apply writes the state a pass settled on and reports whether the store took it.
-func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state agentstore.State) bool {
+func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state agentv1.AgentState) bool {
 	r.tally.clearDebounce(agent.ID)
 	if agent.State == state && r.tally.now().Sub(agent.StateSeenAt) < stateSeenCoalesce {
 		return false
@@ -370,7 +372,7 @@ func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state ag
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to write an agent's reconciled state",
 			append([]slog.Attr{
 				slog.String(logging.AgentID, agent.ID.String()),
-				slog.String(logging.AgentState, string(state)),
+				slog.String(logging.AgentState, protoenum.Name(state)),
 			}, logging.Err(err)...)...)
 
 		return false
