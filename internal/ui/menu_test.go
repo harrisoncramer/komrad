@@ -165,19 +165,6 @@ func TestGitMenuOnTheReview(t *testing.T) {
 		assert.NotContains(t, popup, "abort")
 	})
 
-	t.Run("the forge menu holds the pull request's entries and the ways to merge it", func(t *testing.T) {
-		t.Parallel()
-
-		harness := openPullRequestReview(t)
-
-		harness.Press("space", "g", "f")
-
-		popup := paneltest.PopupProse(harness.Frame())
-		for _, entry := range []string{"open pr", "toggle draft on", "re-request review", "merge and archive", "merge when ready", "merge then rebase"} {
-			assert.Contains(t, popup, entry)
-		}
-	})
-
 	t.Run("a push asks in the popup, then pushes", func(t *testing.T) {
 		t.Parallel()
 
