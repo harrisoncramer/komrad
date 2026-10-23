@@ -68,11 +68,6 @@ func (r reviewScreen) placeThread(in screen.Inputs, chrome screen.Chrome, body s
 	return placePopup(r.popupAnchor(in), r.measurePopupStage(in, chrome), len(splitPopupRows(body))+2)
 }
 
-// isPopupForm reports whether the form stands in the review's popup rather than in a column of its own.
-func (m *model) isPopupForm() bool {
-	return m.form.isOpening() && m.screen == screen.Review && !m.review.edit.atEditor && !m.isMessagesFocused()
-}
-
 // MeasurePopup is the columns inside the popup over the review and the rows inside the tallest popup
 // it has room for beside the cursor.
 func (r reviewScreen) MeasurePopup(in screen.Inputs, chrome screen.Chrome) (width, height int) {

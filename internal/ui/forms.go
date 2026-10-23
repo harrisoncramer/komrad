@@ -182,6 +182,11 @@ func (m *model) formArea() (width, height int) {
 	return m.term.width, m.term.height
 }
 
+// isPopupForm reports whether the form stands in the review's popup rather than in a column of its own.
+func (m *model) isPopupForm() bool {
+	return m.form.isOpening() && m.screen == screen.Review && !m.review.edit.atEditor && !m.isMessagesFocused()
+}
+
 // formLeading is what the form renders to its left, and the columns that takes with its dividers.
 func (m *model) formLeading() ([]string, int) {
 	if m.form.leading == nil {
