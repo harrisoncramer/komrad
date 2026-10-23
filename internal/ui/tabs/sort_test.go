@@ -11,10 +11,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestSortRowsOrdersByTheColumn covers the rows without the value sitting at the bottom
+// TestSortOrdersByTheColumn covers the rows without the value sitting at the bottom
 // whichever way the arrow points, the comparator reversed for the down arrow, equal values
 // and the bottom rows both falling to the tiebreak, and a column every row carries.
-func TestSortRowsOrdersByTheColumn(t *testing.T) {
+func TestSortOrdersByTheColumn(t *testing.T) {
 	tests := []struct {
 		name  string
 		order tabs.Order
@@ -55,9 +55,9 @@ func TestSortRowsOrdersByTheColumn(t *testing.T) {
 	}
 }
 
-// TestSortRowsIsStable covers rows the column and the tiebreak both leave equal keeping the
+// TestSortIsStable covers rows the column and the tiebreak both leave equal keeping the
 // order they came in, in either direction.
-func TestSortRowsIsStable(t *testing.T) {
+func TestSortIsStable(t *testing.T) {
 	tests := []struct {
 		name      string
 		direction tabs.Direction
@@ -103,18 +103,18 @@ func TestSortRowsIsStable(t *testing.T) {
 	}
 }
 
-// TestTabOptionsOfKeepsTheTable covers the strip's tabs coming out of the column table in its
+// TestOptionsOfKeepsTheTable covers the strip's tabs coming out of the column table in its
 // order, with its ids and labels.
-func TestTabOptionsOfKeepsTheTable(t *testing.T) {
+func TestOptionsOfKeepsTheTable(t *testing.T) {
 	assert.Equal(t, []tabs.Option{
 		{ID: "value", Label: "value"},
 		{ID: "name", Label: "name"},
 	}, tabs.OptionsOf(sortFixtureColumns()))
 }
 
-// TestStripOrderReadsTheState covers the order naming the chosen column and its direction, and
+// TestOrderReadsTheState covers the order naming the chosen column and its direction, and
 // a chosen id the strip does not hold falling back to the strip's fallback.
-func TestStripOrderReadsTheState(t *testing.T) {
+func TestOrderReadsTheState(t *testing.T) {
 	tests := []struct {
 		name  string
 		state tabs.State

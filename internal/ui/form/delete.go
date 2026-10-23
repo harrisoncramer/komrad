@@ -26,8 +26,8 @@ const (
 
 var errNothingChosen = errors.New("check what to delete, or go back")
 
-// Delete is a delete confirm that says what the worktrees the delete takes still hold.
-type Delete struct {
+// DeleteConfirm is a delete confirm that says what the worktrees the delete takes still hold.
+type DeleteConfirm struct {
 	Title           string
 	Warning         string
 	Dirs            []string
@@ -36,9 +36,16 @@ type Delete struct {
 	Values *DeleteValues
 }
 
+// DeleteValues is what a delete form offers to take, and what the person has checked.
+type DeleteValues struct {
+	// offersWorktree is whether the delete has a worktree komrad cut to take.
+	offersWorktree bool
+	chosen         []string
+}
+
 // Open reads each worktree afresh and puts the confirm on screen, sending what write asks for
 // once it is answered yes.
-func (c Delete) Open(in screen.Inputs, write func(Inputs) screen.Request) screen.Request {
+func (c DeleteConfirm) Open(in screen.Inputs, write func(Inputs) screen.Request) screen.Request {
 	confirmed := c.StartsConfirmed
 
 	var requests screen.Batch
@@ -73,6 +80,43 @@ func (c Delete) Open(in screen.Inputs, write func(Inputs) screen.Request) screen
 		ClosesOnRefusal: true,
 		Worktrees:       c.Dirs,
 	}})
+}
+
+// NewDeleteValues starts on the worktree alone, or on the records where there is no worktree to take.
+func NewDeleteValues(offersWorktree bool) *DeleteValues {
+	if offersWorktree {
+		return &DeleteValues{offersWorktree: true, chosen: []string{chooseWorktree}}
+	}
+
+	return &DeleteValues{chosen: []string{chooseRecords}}
+}
+
+// DeletesRecords reports whether the person checked the records.
+func (v *DeleteValues) DeletesRecords() bool {
+	return slices.Contains(v.chosen, chooseRecords)
+}
+
+// check refuses a delete that takes nothing.
+func (v *DeleteValues) check() error {
+	if len(v.chosen) == 0 {
+		return errNothingChosen
+	}
+
+	return nil
+}
+
+// form asks what the delete takes above the confirm that runs it.
+func (v *DeleteValues) form(keys config.FixedKeys, title string, confirm *huh.Confirm) (*huh.Form, []string) {
+	var options []huh.Option[string]
+	if v.offersWorktree {
+		options = append(options, huh.NewOption("worktree", chooseWorktree))
+	}
+	options = append(options, huh.NewOption("records", chooseRecords))
+
+	return titledOf(keys, title,
+		huh.NewMultiSelect[string]().Key(deleteKey).Options(options...).Value(&v.chosen),
+		confirm,
+	)
 }
 
 // describeStanding says what is uncommitted and unpushed in the worktrees, as git last answered for each.
@@ -176,48 +220,4 @@ func writeUncommittedFiles(b *strings.Builder, files []string) {
 	if hidden := len(files) - uncommittedFilesShown; hidden > 0 {
 		fmt.Fprintf(b, "\n  and %d more", hidden)
 	}
-}
-
-// DeleteValues is what a delete form offers to take, and what the person has checked.
-type DeleteValues struct {
-	// offersWorktree is whether the delete has a worktree komrad cut to take.
-	offersWorktree bool
-	chosen         []string
-}
-
-// NewDeleteValues starts on the worktree alone, or on the records where there is no worktree to take.
-func NewDeleteValues(offersWorktree bool) *DeleteValues {
-	if offersWorktree {
-		return &DeleteValues{offersWorktree: true, chosen: []string{chooseWorktree}}
-	}
-
-	return &DeleteValues{chosen: []string{chooseRecords}}
-}
-
-// DeletesRecords reports whether the person checked the records.
-func (v *DeleteValues) DeletesRecords() bool {
-	return slices.Contains(v.chosen, chooseRecords)
-}
-
-// check refuses a delete that takes nothing.
-func (v *DeleteValues) check() error {
-	if len(v.chosen) == 0 {
-		return errNothingChosen
-	}
-
-	return nil
-}
-
-// form asks what the delete takes above the confirm that runs it.
-func (v *DeleteValues) form(keys config.FixedKeys, title string, confirm *huh.Confirm) (*huh.Form, []string) {
-	var options []huh.Option[string]
-	if v.offersWorktree {
-		options = append(options, huh.NewOption("worktree", chooseWorktree))
-	}
-	options = append(options, huh.NewOption("records", chooseRecords))
-
-	return titledOf(keys, title,
-		huh.NewMultiSelect[string]().Key(deleteKey).Options(options...).Value(&v.chosen),
-		confirm,
-	)
 }

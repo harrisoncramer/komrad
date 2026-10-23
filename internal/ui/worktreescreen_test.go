@@ -28,7 +28,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// TestWorktreesOpen covers what the screen holds on when it opens.
+// TestWorktreesOpen covers the window and the title the screen opens with.
 func TestWorktreesOpen(t *testing.T) {
 	t.Parallel()
 

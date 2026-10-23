@@ -99,7 +99,7 @@ func (a Clients) ConfirmDeleteTasks(in screen.Inputs, tasks []panel.Task) screen
 		warning = fmt.Sprintf("Komrad archives %s first.", label.Count(agentCount, "live agent", "live agents"))
 	}
 
-	confirm := form.Delete{
+	confirm := form.DeleteConfirm{
 		Title:           "Delete " + panel.DescribeTasks(tasks) + "?",
 		Warning:         warning,
 		Dirs:            panel.TaskDirs(tasks),

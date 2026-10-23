@@ -11,7 +11,7 @@ import (
 )
 
 // deleteWorktreesConfirm asks before the remover takes the directories no task answers for.
-func deleteWorktreesConfirm(deletion worktreeDeletion) form.Delete {
+func deleteWorktreesConfirm(deletion worktreeDeletion) form.DeleteConfirm {
 	count := deletion.count()
 	subject := label.Count(count, "worktree", "worktrees")
 	warning := fmt.Sprintf("Komrad deletes %d directories that no agent uses and leaves every branch alone.", count)
@@ -20,7 +20,7 @@ func deleteWorktreesConfirm(deletion worktreeDeletion) form.Delete {
 		warning = "Komrad deletes the directory, which no agent uses, and leaves its branch alone."
 	}
 
-	return form.Delete{
+	return form.DeleteConfirm{
 		Title:   fmt.Sprintf("Delete %s?", subject),
 		Warning: warning,
 		Dirs:    deletion.dirs(),
@@ -28,7 +28,7 @@ func deleteWorktreesConfirm(deletion worktreeDeletion) form.Delete {
 }
 
 // deleteMixedConfirm asks before task checkouts and other directories are deleted together.
-func deleteMixedConfirm(deletion worktreeDeletion, agentCount int) form.Delete {
+func deleteMixedConfirm(deletion worktreeDeletion, agentCount int) form.DeleteConfirm {
 	lines := []string{
 		"Komrad deletes the directories no agent uses and leaves every branch alone.",
 	}
@@ -36,7 +36,7 @@ func deleteMixedConfirm(deletion worktreeDeletion, agentCount int) form.Delete {
 		lines = append(lines, "It archives "+label.Count(agentCount, "live agent", "live agents")+" first.")
 	}
 
-	return form.Delete{
+	return form.DeleteConfirm{
 		Title:   fmt.Sprintf("Delete %s?", label.Count(deletion.chosen(), "worktree", "worktrees")),
 		Warning: strings.Join(lines, " "),
 		Dirs:    slices.Concat(deletion.dirs(), panel.TaskDirs(deletion.tasks)),
