@@ -125,22 +125,24 @@ func TestDocumentsOpen(t *testing.T) {
 			Version:   1,
 			UpdatedAt: timestamppb.New(time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)),
 		})
-		agentOn := func(id, name, taskID, slug string, role agentv1.AgentRole, minute int) *agentv1.Agent {
+		fixLogin := &taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login", Title: "Fix login"}
+		solo := &taskv1.Task{Id: "t2", WorkflowId: "w1", Slug: "fix-login-2", Title: "Solo"}
+		agentOn := func(id, name string, task *taskv1.Task, role agentv1.AgentRole, minute int) *agentv1.Agent {
 			agent := paneltest.Agent(id, name, "w1")
 			agent.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 12, minute, 0, 0, time.UTC))
 			agent.Role = role
-			agent.TaskId = xptr.Ptr(taskID)
-			agent.TaskSlug = xptr.Ptr(slug)
+			agent.TaskId = xptr.Ptr(task.GetId())
+			agent.TaskSlug = xptr.Ptr(task.GetSlug())
 
 			return agent
 		}
 		harness := paneltest.OpenAgents(t,
 			paneltest.Workflow("w1", "komrad"),
-			&taskv1.Task{Id: "t1", WorkflowId: "w1", Slug: "fix-login", Title: "Fix login"},
-			&taskv1.Task{Id: "t2", WorkflowId: "w1", Slug: "fix-login-2", Title: "Solo"},
-			agentOn("a1", "author", "t1", "fix-login", agentv1.AgentRole_AGENT_ROLE_WRITER, 0),
-			agentOn("a2", "follow-up", "t1", "fix-login", agentv1.AgentRole_AGENT_ROLE_REVIEWER, 5),
-			agentOn("a3", "loner", "t2", "fix-login-2", agentv1.AgentRole_AGENT_ROLE_WRITER, 10),
+			fixLogin,
+			solo,
+			agentOn("a1", "author", fixLogin, agentv1.AgentRole_AGENT_ROLE_WRITER, 0),
+			agentOn("a2", "follow-up", fixLogin, agentv1.AgentRole_AGENT_ROLE_REVIEWER, 5),
+			agentOn("a3", "loner", solo, agentv1.AgentRole_AGENT_ROLE_WRITER, 10),
 		)
 		docs.answer(harness)
 		harness.Press("j")
