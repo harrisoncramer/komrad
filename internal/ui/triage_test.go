@@ -14,6 +14,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -133,6 +134,8 @@ func TestTriageHeight(t *testing.T) {
 	}
 
 	want := findTreeLine(openTriage(t, 4, buildTriage()[:2]...).Frame())
+	require.GreaterOrEqual(t, want, 0)
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openTriage(t, 4, tt.rows...)
@@ -657,5 +660,5 @@ func buildAnswered() []proto.Message {
 
 // findTreeLine is the line of the frame the tree's workflow is rendered on.
 func findTreeLine(frame string) int {
-	return slices.IndexFunc(paneltest.SplitLines(frame), func(line string) bool { return strings.Contains(line, "│ backend") })
+	return slices.IndexFunc(paneltest.SplitLines(frame), func(line string) bool { return strings.HasPrefix(strings.TrimSpace(line), "backend") })
 }
