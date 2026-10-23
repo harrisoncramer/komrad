@@ -6,6 +6,6 @@
 // function in it takes a model or reads the store. A screen decides what to render, and paint
 // decides how it looks.
 //
-// Every package under internal/ui may import paint, and so do a few packages outside the panel,
-// such as the cli and setup packages. Paint imports nothing under internal/ui.
+// Any package under internal/ui may import paint. A few packages outside the panel import it too,
+// such as the cli and setup packages. The package imports nothing under internal/ui.
 package paint
