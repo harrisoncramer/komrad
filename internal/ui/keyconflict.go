@@ -34,11 +34,7 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		{name: "rebase", keys: keys.Git.Rebase},
 		{name: "push", keys: keys.Git.Push},
 		{name: "abort", keys: keys.Git.Abort},
-		{name: "open_pull_request", keys: keys.Git.OpenPullRequest},
-		{name: "copy_pull_request_url", keys: keys.Git.CopyPullRequestURL},
-		{name: "toggle_draft", keys: keys.Git.ToggleDraft},
-		{name: "request_rereview", keys: keys.Git.RequestRereview},
-		{name: "merge", keys: keys.Git.Merge},
+		{name: "forge", keys: keys.Git.Forge},
 	}); err != nil {
 		return err
 	}
@@ -124,11 +120,15 @@ func ValidateKeybindings(keys config.Keybindings) error {
 		return err
 	}
 
-	if err := validateSubmenuKeys("merge menu", []submenuKeys{
-		{name: "merge", keys: keys.Merge.Merge},
-		{name: "merge_archive", keys: keys.Merge.MergeArchive},
-		{name: "auto_merge", keys: keys.Merge.AutoMerge},
-		{name: "merge_rebase", keys: keys.Merge.MergeRebase},
+	if err := validateSubmenuKeys("forge menu", []submenuKeys{
+		{name: "open_pull_request", keys: keys.Forge.OpenPullRequest},
+		{name: "copy_pull_request_url", keys: keys.Forge.CopyPullRequestURL},
+		{name: "toggle_draft", keys: keys.Forge.ToggleDraft},
+		{name: "request_rereview", keys: keys.Forge.RequestRereview},
+		{name: "merge", keys: keys.Forge.Merge},
+		{name: "merge_archive", keys: keys.Forge.MergeArchive},
+		{name: "auto_merge", keys: keys.Forge.AutoMerge},
+		{name: "merge_rebase", keys: keys.Forge.MergeRebase},
 	}); err != nil {
 		return err
 	}

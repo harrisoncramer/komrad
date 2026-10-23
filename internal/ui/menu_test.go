@@ -150,7 +150,7 @@ func TestMenu(t *testing.T) {
 func TestGitMenuOnTheReview(t *testing.T) {
 	t.Parallel()
 
-	t.Run("the menu holds the pull request's entries and none that rewrite the worktree", func(t *testing.T) {
+	t.Run("the menu holds push and the forge menu and none that rewrite the worktree", func(t *testing.T) {
 		t.Parallel()
 
 		harness := openPullRequestReview(t)
@@ -159,12 +159,23 @@ func TestGitMenuOnTheReview(t *testing.T) {
 
 		popup := paneltest.PopupProse(harness.Frame())
 		assert.Contains(t, popup, "push")
-		assert.Contains(t, popup, "toggle draft on")
-		assert.Contains(t, popup, "re-request review")
-		assert.Contains(t, popup, "merge pr")
+		assert.Contains(t, popup, "forge")
 		assert.NotContains(t, popup, "rebase")
 		assert.NotContains(t, popup, "pick fork point")
 		assert.NotContains(t, popup, "abort")
+	})
+
+	t.Run("the forge menu holds the pull request's entries and the ways to merge it", func(t *testing.T) {
+		t.Parallel()
+
+		harness := openPullRequestReview(t)
+
+		harness.Press("space", "g", "f")
+
+		popup := paneltest.PopupProse(harness.Frame())
+		for _, entry := range []string{"open pr", "toggle draft on", "re-request review", "merge and archive", "merge when ready", "merge then rebase"} {
+			assert.Contains(t, popup, entry)
+		}
 	})
 
 	t.Run("a push asks in the popup, then pushes", func(t *testing.T) {

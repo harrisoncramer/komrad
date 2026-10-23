@@ -14,7 +14,7 @@ import (
 	"charm.land/huh/v2"
 )
 
-// mergeChoice is one entry of the merge menu.
+// mergeChoice is one of the forge menu's merge entries.
 type mergeChoice int
 
 const (
@@ -37,45 +37,42 @@ type mergePlannedMsg struct {
 	err    error
 }
 
-// mergeMenu is the ways to merge a task's pull request, opened from the git menu.
-func (g Menus) mergeMenu(l panel.Listing, task panel.Task) menu.Menu {
+// mergeEntries are the forge menu's ways to merge a task's pull request.
+func (g Menus) mergeEntries(l panel.Listing, task panel.Task) []menu.Entry {
 	taskID := task.ID
 	refused := openPullRequestRefusal(task) != nil
 	run := func(choice mergeChoice) func(screen.Inputs) screen.Request {
 		return func(in screen.Inputs) screen.Request { return g.runMerge(in, taskID, choice) }
 	}
 
-	return menu.Menu{
-		Title: "merge",
-		Entries: []menu.Entry{
-			{
-				Label:     "merge",
-				Keys:      g.deps.Keys.Merge.Merge,
-				IsDimmed:  refused,
-				AfterPick: menu.KeepOpenWhileWriting,
-				Pick:      run(mergeChoiceMerge),
-			},
-			{
-				Label:     "merge and archive",
-				Keys:      g.deps.Keys.Merge.MergeArchive,
-				IsDimmed:  refused || task.ArchivedAt != nil,
-				AfterPick: menu.KeepOpenWhileWriting,
-				Pick:      run(mergeChoiceMergeArchive),
-			},
-			{
-				Label:     autoMergeLabel(task),
-				Keys:      g.deps.Keys.Merge.AutoMerge,
-				IsDimmed:  autoMergeRefusal(task) != nil,
-				AfterPick: menu.KeepOpenWhileWriting,
-				Pick:      run(mergeChoiceAutoMerge),
-			},
-			{
-				Label:     "merge then rebase",
-				Keys:      g.deps.Keys.Merge.MergeRebase,
-				IsDimmed:  mergeRebaseRefusal(l, task) != nil,
-				AfterPick: menu.KeepOpenWhileWriting,
-				Pick:      run(mergeChoiceMergeRebase),
-			},
+	return []menu.Entry{
+		{
+			Label:     "merge",
+			Keys:      g.deps.Keys.Forge.Merge,
+			IsDimmed:  refused,
+			AfterPick: menu.KeepOpenWhileWriting,
+			Pick:      run(mergeChoiceMerge),
+		},
+		{
+			Label:     "merge and archive",
+			Keys:      g.deps.Keys.Forge.MergeArchive,
+			IsDimmed:  refused || task.ArchivedAt != nil,
+			AfterPick: menu.KeepOpenWhileWriting,
+			Pick:      run(mergeChoiceMergeArchive),
+		},
+		{
+			Label:     autoMergeLabel(task),
+			Keys:      g.deps.Keys.Forge.AutoMerge,
+			IsDimmed:  autoMergeRefusal(task) != nil,
+			AfterPick: menu.KeepOpenWhileWriting,
+			Pick:      run(mergeChoiceAutoMerge),
+		},
+		{
+			Label:     "merge then rebase",
+			Keys:      g.deps.Keys.Forge.MergeRebase,
+			IsDimmed:  mergeRebaseRefusal(l, task) != nil,
+			AfterPick: menu.KeepOpenWhileWriting,
+			Pick:      run(mergeChoiceMergeRebase),
 		},
 	}
 }
@@ -188,7 +185,7 @@ func mergeOptionOf(plan *forgev1.PlanForgePullRequestMergeResponse, method forge
 	return nil
 }
 
-// mergeWrite is the write that does what the merge menu entry asked for, the way the form says.
+// mergeWrite is the write that does what the merge entry asked for, the way the form says.
 func (g Menus) mergeWrite(task panel.Task, choice mergeChoice, params api.MergeParams) screen.Write {
 	switch choice {
 	case mergeChoiceAutoMerge:

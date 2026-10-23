@@ -10,7 +10,7 @@ import (
 
 var errNoAutoMerge = errors.New("the forge refused to queue it, so merge it now if nothing is left to wait for, or check that the repository allows auto-merge")
 
-// autoMergeLabel is the merge menu entry that turns auto-merge on or off, naming which way it goes.
+// autoMergeLabel is the forge menu entry that turns auto-merge on or off, naming which way it goes.
 func autoMergeLabel(task panel.Task) string {
 	if task.PullRequest.MergeReadiness.AutoMerge {
 		return "cancel auto-merge"

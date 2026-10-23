@@ -16,7 +16,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// gitChoice is one entry of the git menu.
+// gitChoice is one entry of the git or forge menu.
 type gitChoice int
 
 const (
@@ -53,7 +53,7 @@ func New(deps Deps) Menus {
 	return Menus{deps: deps}
 }
 
-// Menus builds the git menu and the merge menu it nests.
+// Menus builds the git menu and the forge menu it nests.
 type Menus struct {
 	deps Deps
 }
@@ -109,20 +109,21 @@ func (g Menus) Git(l panel.Listing, task panel.Task) menu.Menu {
 
 	return menu.Menu{
 		Title:   "git",
-		Entries: slices.Concat(worktreeEntries, g.pullRequestEntries(l, task)),
+		Entries: slices.Concat(worktreeEntries, g.branchEntries(l, task)),
 	}
 }
 
-// PullRequestGit is the git menu holding only a task's pull request entries.
+// PullRequestGit is the git menu holding only a task's push and its forge menu.
 func (g Menus) PullRequestGit(l panel.Listing, task panel.Task) menu.Menu {
 	return menu.Menu{
 		Title:   "git",
-		Entries: g.pullRequestEntries(l, task),
+		Entries: g.branchEntries(l, task),
 	}
 }
 
-// pullRequestEntries are the git menu's entries that push a task's branch or act on its pull request.
-func (g Menus) pullRequestEntries(l panel.Listing, task panel.Task) []menu.Entry {
+// branchEntries are the git menu's entries that push a task's branch or open the forge menu on its
+// pull request.
+func (g Menus) branchEntries(l panel.Listing, task panel.Task) []menu.Entry {
 	return []menu.Entry{
 		{
 			Label:     "push",
@@ -131,36 +132,48 @@ func (g Menus) pullRequestEntries(l panel.Listing, task panel.Task) []menu.Entry
 			AfterPick: menu.KeepOpenWhileWriting,
 			Pick:      g.gitWrite(task.ID, gitChoicePush),
 		},
-		{
-			Label:     "open " + task.PullRequest.Abbrev(),
-			Keys:      g.deps.Keys.Git.OpenPullRequest,
-			IsDimmed:  task.PullRequest.URL == "",
-			AfterPick: menu.KeepOpenWhileWriting,
-			Pick:      g.gitWrite(task.ID, gitChoiceOpenPullRequest),
-		},
-		{
-			Label:     "copy " + task.PullRequest.Abbrev() + " url",
-			Keys:      g.deps.Keys.Git.CopyPullRequestURL,
-			IsDimmed:  task.PullRequest.URL == "",
-			AfterPick: menu.KeepOpenWhileWriting,
-			Pick:      g.gitWrite(task.ID, gitChoiceCopyPullRequestURL),
-		},
-		{
-			Label:     draftLabel(task),
-			Keys:      g.deps.Keys.Git.ToggleDraft,
-			IsDimmed:  openPullRequestRefusal(task) != nil,
-			AfterPick: menu.KeepOpenWhileWriting,
-			Pick:      g.gitWrite(task.ID, gitChoiceToggleDraft),
-		},
-		{
-			Label:     "re-request review",
-			Keys:      g.deps.Keys.Git.RequestRereview,
-			IsDimmed:  rereviewRefusal(task) != nil,
-			AfterPick: menu.KeepOpenWhileWriting,
-			Pick:      g.gitWrite(task.ID, gitChoiceRequestRereview),
-		},
-		menu.Nested("merge "+task.PullRequest.Abbrev(), g.deps.Keys.Git.Merge, g.mergeMenu(l, task)),
+		menu.Nested("forge", g.deps.Keys.Git.Forge, g.forgeMenu(l, task)),
 	}
+}
+
+// forgeMenu is the actions on a task's pull request, opened from the git menu, with the ways to
+// merge it under a rule.
+func (g Menus) forgeMenu(l panel.Listing, task panel.Task) menu.Menu {
+	pullRequest := menu.Menu{
+		Title: "forge",
+		Entries: []menu.Entry{
+			{
+				Label:     "open " + task.PullRequest.Abbrev(),
+				Keys:      g.deps.Keys.Forge.OpenPullRequest,
+				IsDimmed:  task.PullRequest.URL == "",
+				AfterPick: menu.KeepOpenWhileWriting,
+				Pick:      g.gitWrite(task.ID, gitChoiceOpenPullRequest),
+			},
+			{
+				Label:     "copy " + task.PullRequest.Abbrev() + " url",
+				Keys:      g.deps.Keys.Forge.CopyPullRequestURL,
+				IsDimmed:  task.PullRequest.URL == "",
+				AfterPick: menu.KeepOpenWhileWriting,
+				Pick:      g.gitWrite(task.ID, gitChoiceCopyPullRequestURL),
+			},
+			{
+				Label:     draftLabel(task),
+				Keys:      g.deps.Keys.Forge.ToggleDraft,
+				IsDimmed:  openPullRequestRefusal(task) != nil,
+				AfterPick: menu.KeepOpenWhileWriting,
+				Pick:      g.gitWrite(task.ID, gitChoiceToggleDraft),
+			},
+			{
+				Label:     "re-request review",
+				Keys:      g.deps.Keys.Forge.RequestRereview,
+				IsDimmed:  rereviewRefusal(task) != nil,
+				AfterPick: menu.KeepOpenWhileWriting,
+				Pick:      g.gitWrite(task.ID, gitChoiceRequestRereview),
+			},
+		},
+	}
+
+	return menu.Join(pullRequest, menu.Menu{Entries: g.mergeEntries(l, task)})
 }
 
 // gitWrite is the write a git menu entry makes on a task.
