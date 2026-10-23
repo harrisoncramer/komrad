@@ -305,7 +305,13 @@ func startReviewed(t *testing.T, params paneltest.Params) (*paneltest.Panel, *re
 	harness := paneltest.Start(t, params)
 	harness.AnswerWorktreeReads()
 	harness.Answer(agentv1connect.AgentServiceOpenReviewHistoryProcedure, paneltest.AnswerWith(&agentv1.OpenReviewHistoryResponse{
-		Snapshot: &agentv1.ReviewSnapshot{Id: "snapshot-1", TaskId: "t1", Ordinal: 1, BaseSha: gittest.BaseSHA, Sha: gittest.SnapshotSHA},
+		Snapshot: &agentv1.ReviewSnapshot{
+			Id:      "snapshot-1",
+			TaskId:  "t1",
+			Ordinal: 1,
+			BaseSha: gittest.BaseSHA,
+			Sha:     gittest.SnapshotSHA,
+		},
 		Resolved: &agentv1.ReviewResolvedSpan{BaseSha: gittest.BaseSHA, HeadSha: gittest.SnapshotSHA},
 	}))
 	harness.Answer(agentv1connect.AgentServiceListReviewViewedFilesProcedure, paneltest.AnswerWith(&agentv1.ListReviewViewedFilesResponse{}))
