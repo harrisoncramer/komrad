@@ -113,7 +113,7 @@ func (a *Screen) taskTerminalEntry(dir string) menu.Entry {
 
 		return screen.Batch{form.Close{}, screen.OpenTerminal{Dir: dir}}
 	})
-	entry.Off = dir == ""
+	entry.IsDimmed = dir == ""
 
 	return entry
 }
@@ -136,7 +136,7 @@ func (a *Screen) taskReviewEntry(in screen.Inputs, writer panel.Agent) menu.Entr
 
 		return screen.Open{Screen: screen.Review, Target: screen.Target{AgentID: writer.ID}}
 	})
-	entry.Off = !in.Listing.IsReviewable(writer)
+	entry.IsDimmed = !in.Listing.IsReviewable(writer)
 
 	return entry
 }
@@ -189,7 +189,7 @@ func (a *Screen) snoozeEntries(in screen.Inputs, item panel.AgentRow) []menu.Ent
 	return []menu.Entry{{
 		Label:     label,
 		Keys:      a.deps.Keys.Menu.Snooze,
-		AfterPick: menu.Hold,
+		AfterPick: menu.KeepOpenWhileWriting,
 		Pick:      func(in screen.Inputs) screen.Request { return a.toggleSnooze(in, key) },
 	}}
 }

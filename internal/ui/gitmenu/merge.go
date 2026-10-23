@@ -51,29 +51,29 @@ func (g Menus) mergeMenu(l panel.Listing, task panel.Task) menu.Menu {
 			{
 				Label:     "merge",
 				Keys:      g.deps.Keys.Merge.Merge,
-				Off:       refused,
-				AfterPick: menu.Hold,
+				IsDimmed:       refused,
+				AfterPick: menu.KeepOpenWhileWriting,
 				Pick:      run(mergeChoiceMerge),
 			},
 			{
 				Label:     "merge and archive",
 				Keys:      g.deps.Keys.Merge.MergeArchive,
-				Off:       refused || task.ArchivedAt != nil,
-				AfterPick: menu.Hold,
+				IsDimmed:       refused || task.ArchivedAt != nil,
+				AfterPick: menu.KeepOpenWhileWriting,
 				Pick:      run(mergeChoiceMergeArchive),
 			},
 			{
 				Label:     autoMergeLabel(task),
 				Keys:      g.deps.Keys.Merge.AutoMerge,
-				Off:       autoMergeRefusal(task) != nil,
-				AfterPick: menu.Hold,
+				IsDimmed:       autoMergeRefusal(task) != nil,
+				AfterPick: menu.KeepOpenWhileWriting,
 				Pick:      run(mergeChoiceAutoMerge),
 			},
 			{
 				Label:     "merge then rebase",
 				Keys:      g.deps.Keys.Merge.MergeRebase,
-				Off:       mergeRebaseRefusal(l, task) != nil,
-				AfterPick: menu.Hold,
+				IsDimmed:       mergeRebaseRefusal(l, task) != nil,
+				AfterPick: menu.KeepOpenWhileWriting,
 				Pick:      run(mergeChoiceMergeRebase),
 			},
 		},
@@ -167,7 +167,7 @@ func (g Menus) openMergeForm(task panel.Task, choice mergeChoice, plan *forgev1.
 
 			return g.mergeWrite(task, choice, *params)
 		},
-		Narrow:          true,
+		CanUseNarrowestWidth:          true,
 		ClosesOnRefusal: true,
 	}}
 }

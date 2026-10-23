@@ -39,7 +39,7 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 			Build: func(form.Inputs) (*huh.Form, []string) {
 				return submenuForm(level, len(parents) > 0, fixedKeys()), nil
 			},
-			Narrow:          true,
+			CanUseNarrowestWidth:          true,
 			ClosesOnRefusal: true,
 		},
 		isMenu: true,
@@ -57,7 +57,7 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 			}
 
 			entry := level.menu.Entries[*level.choice]
-			if entry.OffSaid != "" {
+			if entry.RefusalReason != "" {
 				return nil
 			}
 
@@ -78,7 +78,7 @@ func submenuState(parents []submenuLevel, level submenuLevel) formState {
 			switch entry.AfterPick {
 			case menu.CloseBeforePick:
 				m.leaveForm()
-			case menu.Hold:
+			case menu.KeepOpenWhileWriting:
 				return holdSubmit(func(m *model) tea.Cmd { return m.apply(entry.Pick(m.inputs())) })(m)
 			}
 

@@ -72,7 +72,7 @@ func (d *Screen) BuildScreenMenu(in screen.Inputs, _ menu.NestedMenuBuilder) (me
 			{
 				Label: "new document",
 				Keys:  d.deps.Keys.DocumentMenu.New,
-				Off:   d.editing != nil || !named,
+				IsDimmed:   d.editing != nil || !named,
 				Pick:  d.pressNew,
 			},
 		},
@@ -103,13 +103,13 @@ func (d *Screen) documentMenu(in screen.Inputs, nest menu.NestedMenuBuilder) (me
 			{
 				Label: "rename",
 				Keys:  d.deps.Keys.DocumentMenu.Rename,
-				Off:   !hovered || d.editing != nil,
+				IsDimmed:   !hovered || d.editing != nil,
 				Pick:  d.openRename,
 			},
 			{
 				Label: "delete",
 				Keys:  d.deps.Keys.DocumentMenu.Delete,
-				Off:   !hovered || d.editing != nil,
+				IsDimmed:   !hovered || d.editing != nil,
 				Form:  func() form.Form { return d.deleteForm([]document{item}) },
 			},
 		},
@@ -134,7 +134,7 @@ func (d *Screen) chosenMenu(in screen.Inputs) (menu.Menu, bool) {
 			{
 				Label: "delete all",
 				Keys:  d.deps.Keys.DocumentMenu.Delete,
-				Off:   d.editing != nil,
+				IsDimmed:   d.editing != nil,
 				Form:  func() form.Form { return d.deleteForm(chosen) },
 			},
 		},

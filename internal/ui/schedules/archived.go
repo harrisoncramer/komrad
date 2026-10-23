@@ -186,8 +186,8 @@ func (a Archive) archiveMenu(schedule panel.Schedule) menu.Menu {
 			{
 				Label:     "restore and open",
 				Keys:      bindings.RestoreOpen,
-				Off:       true,
-				AfterPick: menu.Hold,
+				IsDimmed:       true,
+				AfterPick: menu.KeepOpenWhileWriting,
 				Pick: func(screen.Inputs) screen.Request {
 					return screen.Report{Summary: "Could not restore and open " + schedule.Name, Err: errOpensOneAgent}
 				},
@@ -226,7 +226,7 @@ func confirmDelete(clients api.Clients, schedule panel.Schedule) screen.Request 
 				Write:          func(c api.Clients) error { return c.DeleteSchedule(schedule.ID) },
 			})
 		},
-		Narrow:          true,
+		CanUseNarrowestWidth:          true,
 		ClosesOnRefusal: true,
 	}}
 }

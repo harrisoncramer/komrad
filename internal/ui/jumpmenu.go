@@ -27,7 +27,7 @@ func (m *model) Jump(fromScreen screen.ID, to screen.Target) menu.Menu {
 
 				return m.enterArchived(target)
 			})
-			agent.Off = !found
+			agent.IsDimmed = !found
 			entries = append(entries, agent)
 		}
 	}
@@ -35,14 +35,14 @@ func (m *model) Jump(fromScreen screen.ID, to screen.Target) menu.Menu {
 		worktree := menu.Leaving("worktree", m.keys.JumpMenu.Worktree, func(screen.Inputs) screen.Request {
 			return screen.Open{Screen: screen.Worktrees, Target: target}
 		})
-		worktree.Off = !slices.ContainsFunc(m.listing.Worktrees, func(w panel.Worktree) bool { return w.HoldsAgent(agentID) })
+		worktree.IsDimmed = !slices.ContainsFunc(m.listing.Worktrees, func(w panel.Worktree) bool { return w.HoldsAgent(agentID) })
 		entries = append(entries, worktree)
 	}
 	if fromScreen != screen.Documents {
 		documents := menu.Leaving("documents", m.keys.JumpMenu.Documents, func(screen.Inputs) screen.Request {
 			return screen.Open{Screen: screen.Documents, Target: target}
 		})
-		documents.Off = !found
+		documents.IsDimmed = !found
 		entries = append(entries, documents)
 	}
 
@@ -63,7 +63,7 @@ func taskJumpEntry(m *model, task panel.Task) menu.Entry {
 
 		return m.enterLive(target)
 	})
-	entry.Off = !found
+	entry.IsDimmed = !found
 
 	return entry
 }

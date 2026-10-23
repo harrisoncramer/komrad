@@ -107,7 +107,7 @@ func (g Menus) openConfirm(op operation, buildForm confirmForm) screen.Request {
 
 			return g.operationWrite(op)
 		},
-		Narrow:          true,
+		CanUseNarrowestWidth:          true,
 		ClosesOnRefusal: true,
 	}}
 }

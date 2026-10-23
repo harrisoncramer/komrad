@@ -48,7 +48,7 @@ func (a *Screen) restartEntries(in screen.Inputs, task panel.Task) []menu.Entry 
 
 		return a.openRestart(restartTarget{agent: *writer, on: task.Slug, briefing: "the task's notes"})
 	})
-	entry.Off = refusal != nil
+	entry.IsDimmed = refusal != nil
 
 	return []menu.Entry{entry}
 }

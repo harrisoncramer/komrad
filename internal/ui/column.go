@@ -108,7 +108,7 @@ func (m *model) columnOf(in screen.Inputs) column.Spec {
 	}
 
 	if m.form.isOpening() && !m.isPopupForm() {
-		return formColumn(m.form.Narrow)
+		return formColumn(m.form.CanUseNarrowestWidth)
 	}
 
 	spec := m.active().Column(in)

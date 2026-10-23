@@ -76,7 +76,7 @@ func (c DeleteConfirm) Open(in screen.Inputs, write func(Inputs) screen.Request)
 
 			return write(submitted)
 		},
-		Narrow:             true,
+		CanUseNarrowestWidth:             true,
 		ClosesOnRefusal:    true,
 		DescribedWorktrees: c.Dirs,
 	}})

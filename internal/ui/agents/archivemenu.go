@@ -79,8 +79,8 @@ func archiveMenu(in screen.Inputs, bindings config.Keybindings, clients api.Clie
 			{
 				Label:     "restore and open",
 				Keys:      bindings.ArchiveMenu.RestoreOpen,
-				Off:       err != nil,
-				AfterPick: menu.Hold,
+				IsDimmed:       err != nil,
+				AfterPick: menu.KeepOpenWhileWriting,
 				Pick:      func(in screen.Inputs) screen.Request { return restoreAndOpen(in.Listing, clients, target) },
 			},
 			menu.DrawnOff(menu.Leaving(remove, bindings.ArchiveMenu.Delete, func(in screen.Inputs) screen.Request {
@@ -153,7 +153,7 @@ func (a *Screen) agentArchiveMenu(agent panel.Agent) menu.Menu {
 	return liveArchiveMenu(menu.Entry{
 		Label:     "archive this agent",
 		Keys:      a.deps.Keys.ArchiveMenu.Archive,
-		AfterPick: menu.Hold,
+		AfterPick: menu.KeepOpenWhileWriting,
 		Pick:      func(screen.Inputs) screen.Request { return a.archiveAgents([]panel.Agent{agent}) },
 	})
 }
@@ -162,7 +162,7 @@ func (a *Screen) workflowArchiveMenu(workflow panel.Workflow) menu.Menu {
 	return liveArchiveMenu(menu.Entry{
 		Label:     "archive with its agents",
 		Keys:      a.deps.Keys.ArchiveMenu.Archive,
-		AfterPick: menu.Hold,
+		AfterPick: menu.KeepOpenWhileWriting,
 		Pick:      func(in screen.Inputs) screen.Request { return a.archiveWorkflow(in, workflow) },
 	})
 }
@@ -175,7 +175,7 @@ func (a *Screen) taskArchiveMenu(task panel.Task) menu.Menu {
 		menu.Entry{
 			Label:     "archive with its agents",
 			Keys:      a.deps.Keys.ArchiveMenu.Archive,
-			AfterPick: menu.Hold,
+			AfterPick: menu.KeepOpenWhileWriting,
 			Pick: func(in screen.Inputs) screen.Request {
 				return a.deps.Clients.ArchiveTasksWrite(tasks, in.Listing.AgentsOnTasks(tasks))
 			},
@@ -193,7 +193,7 @@ func (a *Screen) chosenArchiveMenu(work chosenWork) menu.Menu {
 		menu.Entry{
 			Label:     "archive all",
 			Keys:      a.deps.Keys.ArchiveMenu.Archive,
-			AfterPick: menu.Hold,
+			AfterPick: menu.KeepOpenWhileWriting,
 			Pick:      func(in screen.Inputs) screen.Request { return a.archiveChosenAgents(in, work) },
 		},
 		menu.DrawnOff(menu.Leaving("archive and delete all for good", a.deps.Keys.ArchiveMenu.Delete, func(in screen.Inputs) screen.Request {

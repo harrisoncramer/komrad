@@ -29,7 +29,7 @@ func (a *Screen) hideEntry(tasks []panel.Task) menu.Entry {
 		return menu.Entry{
 			Label: "hide",
 			Keys:  a.deps.Keys.HideMenu.Hide,
-			Off:   true,
+			IsDimmed:   true,
 		}
 	}
 

@@ -12,7 +12,7 @@ import (
 const Cancel = -1
 
 // divider is a rule between two bands of entries.
-var divider = Entry{Off: true, IsDivider: true}
+var divider = Entry{IsDimmed: true, IsDivider: true}
 
 // Menu is a short list beside the list it opened over, with the cursor and each entry's own key
 // picking an entry.
@@ -37,18 +37,18 @@ type after int
 const (
 	// CloseBeforePick takes the menu down before the pick runs.
 	CloseBeforePick after = iota
-	// Hold keeps the menu up while a write the pick began is in flight.
-	Hold
+	// KeepOpenWhileWriting keeps the menu up while a write the pick began is in flight.
+	KeepOpenWhileWriting
 )
 
 // Entry is one row of a menu.
 type Entry struct {
 	Label string
 	Keys  []string
-	// Off says the entry would do nothing here.
-	Off bool
-	// OffSaid is why the entry would do nothing here, drawn under it.
-	OffSaid string
+	// IsDimmed says the entry is drawn gray, out of reach of clicks and the first cursor stop.
+	IsDimmed bool
+	// RefusalReason is why a pick of the entry is refused here, drawn under it.
+	RefusalReason string
 	// IsDivider says the row is a rule between two bands of entries.
 	IsDivider bool
 	// Submenu is the menu the entry opens to the right of its own.
@@ -82,7 +82,7 @@ func (m Menu) IsList() bool {
 // FirstOn is the first entry that would do something, Cancel when none would.
 func (m Menu) FirstOn() int {
 	for i, entry := range m.Entries {
-		if !entry.Off {
+		if !entry.IsDimmed {
 			return i
 		}
 	}
@@ -95,7 +95,7 @@ func Nested(label string, keys []string, menu Menu) Entry {
 	return Entry{
 		Label:   label,
 		Keys:    keys,
-		Off:     !menu.IsList() && menu.FirstOn() == Cancel,
+		IsDimmed:     !menu.IsList() && menu.FirstOn() == Cancel,
 		Submenu: &menu,
 	}
 }
@@ -123,7 +123,7 @@ func DrawnOff(entry Entry, said string) Entry {
 		return entry
 	}
 
-	entry.Off, entry.OffSaid = true, said
+	entry.IsDimmed, entry.RefusalReason = true, said
 
 	return entry
 }
@@ -135,5 +135,5 @@ func Leaving(label string, keys []string, pick func(screen.Inputs) screen.Reques
 
 // Holding is an entry that keeps the menu up while a write pick began is in flight.
 func Holding(label string, keys []string, pick func(screen.Inputs) screen.Request) Entry {
-	return Entry{Label: label, Keys: keys, Pick: pick, AfterPick: Hold}
+	return Entry{Label: label, Keys: keys, Pick: pick, AfterPick: KeepOpenWhileWriting}
 }

@@ -40,7 +40,7 @@ func subformState(top form.Form, sub form.Subform, rendered []string) formState 
 		},
 		Submit:          top.Submit,
 		Editable:        sub.Editable,
-		Narrow:          top.Narrow,
+		CanUseNarrowestWidth:          top.CanUseNarrowestWidth,
 		ClosesOnRefusal: top.ClosesOnRefusal,
 	})
 	state.leading = func(_, height int) []string {

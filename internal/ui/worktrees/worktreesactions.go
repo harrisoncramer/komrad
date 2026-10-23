@@ -271,7 +271,7 @@ func (w *Screen) BuildScreenMenu(in screen.Inputs, _ menu.NestedMenuBuilder) (me
 	clearAll := menu.Leaving("delete unused worktrees", w.deps.Keys.ArchiveMenu.Clear, func(in screen.Inputs) screen.Request {
 		return w.confirmDeleteWorktrees(in, clearable)
 	})
-	clearAll.Off = clearable.isEmpty()
+	clearAll.IsDimmed = clearable.isEmpty()
 
 	return menu.Menu{
 		Title:   "worktrees",

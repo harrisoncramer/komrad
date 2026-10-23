@@ -35,8 +35,8 @@ type Form struct {
 	Editable []Editable
 	// Subforms are the sets of fields the list under the top fields opens, each on its own.
 	Subforms []Subform
-	// Narrow says the form reads in a list's column rather than a form's.
-	Narrow bool
+	// CanUseNarrowestWidth says the form may shrink to the narrowest column width.
+	CanUseNarrowestWidth bool
 	// ClosesOnRefusal says a refused write takes the form down rather than leaving it to be fixed.
 	ClosesOnRefusal bool
 	// DescribedWorktrees are the directories the form describes, and it renders again as each is read.
@@ -53,15 +53,15 @@ type Editable struct {
 type Subform struct {
 	Key   string
 	Title string
-	// Off says the subform has nothing to ask, nil for never.
-	Off      func() bool
+	// IsRefused says enter refuses the subform, which has nothing to ask, nil for never.
+	IsRefused      func() bool
 	Fields   func(Inputs) []huh.Field
 	Editable []Editable
 }
 
 // IsOff reports whether the subform has nothing to ask.
 func (s Subform) IsOff() bool {
-	return s.Off != nil && s.Off()
+	return s.IsRefused != nil && s.IsRefused()
 }
 
 // SubformList is the field listing the subforms, which a form with subforms puts under its top fields.
