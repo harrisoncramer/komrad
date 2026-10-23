@@ -1,4 +1,4 @@
-import { anchor, api, commandBySlug, commandHref, config, escape, inline, referencedTypes } from ".";
+import { anchor, api, commandBySlug, commandHref, config, escape, inline, referencedTypes, typeName } from ".";
 import { link } from "../site";
 import type { Field, Section, Setting } from "./types";
 
@@ -48,7 +48,7 @@ const fieldRef = (message: string, field: Field, href: string): Ref => ({
   href,
   title: `${message.split(".").pop() ?? message}.${field.name}`,
   description: field.description,
-  detail: `${field.type}${field.repeated ? "[]" : ""}`,
+  detail: typeName(field),
 });
 
 export function fieldOf(message: string, name: string): Ref {

@@ -1,7 +1,7 @@
 ---
 import Heading from "./Heading.astro";
 import Required from "./Required.astro";
-import { anchor, api, prose } from "../../reference";
+import { anchor, api, prose, typeName } from "../../reference";
 import { codeLink } from "../../reference/refs";
 import { describeConstraints } from "../../reference/constraints";
 import type { Field, Message, Oneof } from "../../reference/types";
@@ -16,7 +16,6 @@ type Row = { field: Field; member: boolean } | { oneof: Oneof };
 const { name, message } = Astro.props;
 const id = anchor(name);
 const tone = (type: string) => (/int|fixed|float|double/.test(type) ? "number" : type);
-const typeName = (field: Field) => (field.repeated && !field.map ? `${field.type}[]` : field.type);
 const rules = (field: Field) => describeConstraints(field.constraints, field.required);
 const inMessage = codeLink({ messages: [name] });
 const forField = (field: Field) => codeLink({ messages: [name], enum: api.enums[field.ref] ? field.ref : undefined });

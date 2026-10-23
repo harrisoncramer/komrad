@@ -2,7 +2,7 @@ import apiData from "../data/api.json";
 import cliData from "../data/cli.json";
 import configData from "../data/config.json";
 import { link } from "../site";
-import type { API, Command, Message, Section } from "./types";
+import type { API, Command, Field, Message, Section } from "./types";
 
 export const api = apiData as API;
 export const commands = cliData as Command[];
@@ -49,6 +49,8 @@ export function referencedTypes(roots: string[]) {
 }
 
 export const anchor = (name: string) => name.replaceAll(".", "-");
+
+export const typeName = (field: Field) => (field.repeated ? `${field.type}[]` : field.type);
 
 export const escape = (text: string) =>
   text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
