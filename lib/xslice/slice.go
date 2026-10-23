@@ -1,4 +1,3 @@
-// Package xslice holds small generic slice helpers.
 package xslice
 
 // Map applies f to every element of in, returning the results in order.

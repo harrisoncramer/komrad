@@ -1,4 +1,3 @@
-// Package xuuid holds helpers for uuids.
 package xuuid
 
 import "github.com/google/uuid"

@@ -1,4 +1,3 @@
-// Package xpath holds small filesystem path helpers.
 package xpath
 
 import "path/filepath"

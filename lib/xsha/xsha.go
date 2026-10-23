@@ -1,4 +1,3 @@
-// Package xsha holds helpers for commit hashes.
 package xsha
 
 // shortLength is how much of a commit hash a record names one by.

@@ -1,4 +1,3 @@
-// Package xhttp holds the one shape of HTTP call komrad makes to a JSON API.
 package xhttp
 
 import (

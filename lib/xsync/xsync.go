@@ -1,4 +1,3 @@
-// Package xsync holds small helpers for waiting on goroutines.
 package xsync
 
 import "time"

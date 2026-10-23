@@ -1,4 +1,3 @@
-// Package xfile holds small file helpers.
 package xfile
 
 import (

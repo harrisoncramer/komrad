@@ -1,4 +1,3 @@
-// Package protoenum reads the JSON names and labels komrad's proto enum values carry.
 package protoenum
 
 import (

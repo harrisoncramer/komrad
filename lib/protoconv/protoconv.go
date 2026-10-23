@@ -1,5 +1,3 @@
-// Package protoconv converts the protobuf values protovalidate rules describe into the Go types
-// they stand for, accepting exactly what each rule accepts.
 package protoconv
 
 import (
