@@ -1,6 +1,8 @@
 package gitmenu
 
 import (
+	"errors"
+
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
@@ -9,6 +11,15 @@ import (
 // isDraft says whether the task's pull request is a draft.
 func isDraft(task panel.Task) bool {
 	return task.PullRequest.State == pullrequestv1.PullRequestState_PULL_REQUEST_STATE_DRAFT
+}
+
+// draftRefusal says why a draft pull request cannot merge yet, nil when it is not a draft.
+func draftRefusal(task panel.Task) error {
+	if !isDraft(task) {
+		return nil
+	}
+
+	return errors.New(task.PullRequest.Describe("is a draft, so mark it ready first"))
 }
 
 // draftLabel is the forge menu entry that toggles the draft, naming which way it goes.
