@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"strings"
 
 	"komrad/config"
 	"komrad/internal/ui/api"
@@ -311,82 +310,4 @@ func retryAgentForm(fixed config.FixedKeys, values *retryFormValues) (*huh.Form,
 		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 	)
-}
-
-// rebaseForm asks before a worktree is brought up to date, saying what will happen to the
-// branch and to the files.
-func rebaseForm(plan rebasePlan) gitConfirmForm {
-	return func(fixed config.FixedKeys) (*huh.Form, *bool) {
-		return form.Confirm(
-			"Bring the worktree of "+plan.name+" up to date?",
-			rebaseDescription(plan),
-			rebaseAffirmative(plan),
-			fixed,
-		)
-	}
-}
-
-// rebaseDescription says what the operation will do, in the order somebody deciding needs it:
-// what happens to the branch, then what happens to the files, then what might go wrong.
-func rebaseDescription(plan rebasePlan) string {
-	lines := []string{}
-
-	// A dirty worktree never reaches here.
-	switch {
-	case plan.replay == 0 && plan.landed == 0:
-		lines = append(lines, fmt.Sprintf("This branch has no commits of its own. Komrad moves it to %s.", plan.baseRef))
-	case plan.replay == 0:
-		lines = append(lines, fmt.Sprintf("The base already holds every commit on this branch. Komrad moves the branch to %s "+
-			"and drops %s from it.", plan.baseRef, label.Count(plan.landed, "commit", "commits")))
-	default:
-		lines = append(lines, fmt.Sprintf("Komrad replays the branch's %s onto %s.",
-			label.Count(plan.replay, "commit", "commits"), plan.baseRef))
-		if plan.landed > 0 {
-			lines = append(lines, fmt.Sprintf("It drops %d more that the base already holds.", plan.landed))
-		}
-	}
-
-	lines = append(lines, "The worktree's files change, but komrad keeps every untracked file. Komrad saves a copy of "+
-		"the worktree first, so you can get it back.")
-
-	if warning := rebaseWarning(plan); warning != "" {
-		lines = append(lines, warning)
-	}
-
-	return strings.Join(lines, " ")
-}
-
-// rebaseAffirmative names the button for what will actually run.
-func rebaseAffirmative(plan rebasePlan) string {
-	if plan.replay == 0 {
-		return "Move"
-	}
-
-	return "Rebase"
-}
-
-// rebaseWarning is the trouble a rebase would run into that the description cannot say from
-// the commit counts alone.
-func rebaseWarning(plan rebasePlan) string {
-	warnings := []string{}
-
-	// The landed commits are not warned about here.
-	if plan.merges > 0 {
-		warnings = append(warnings, fmt.Sprintf("A rebase throws away %s and replays what they settled.",
-			label.Count(plan.merges, "merge commit", "merge commits")))
-	}
-	if len(plan.conflictPaths) > 0 {
-		warnings = append(warnings, "Both sides changed "+namedPaths(plan.conflictPaths, 3)+".")
-	}
-
-	return strings.Join(warnings, " ")
-}
-
-// namedPaths is a few paths read out.
-func namedPaths(paths []string, most int) string {
-	if len(paths) <= most {
-		return strings.Join(paths, ", ")
-	}
-
-	return fmt.Sprintf("%s and %d more", strings.Join(paths[:most], ", "), len(paths)-most)
 }

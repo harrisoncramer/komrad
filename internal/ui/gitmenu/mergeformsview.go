@@ -1,4 +1,4 @@
-package ui
+package gitmenu
 
 import (
 	"komrad/internal/ui/paint"

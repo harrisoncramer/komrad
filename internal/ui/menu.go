@@ -93,6 +93,16 @@ func (a *agentsScreen) BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.M
 	return a.agentRowMenu(in, item), true
 }
 
+// Git is the git actions on a task's checkout and pull request.
+func (m *model) Git(task panel.Task) menu.Menu {
+	return m.git.Git(m.listing, task)
+}
+
+// PullRequestGit is the git menu holding only a task's pull request entries.
+func (m *model) PullRequestGit(task panel.Task) menu.Menu {
+	return m.git.PullRequestGit(m.listing, task)
+}
+
 // rowMenu is a band titled for a row that has no entries of its own.
 func rowMenu(name string) menu.Menu {
 	return menu.Menu{

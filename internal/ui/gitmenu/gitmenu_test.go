@@ -1,4 +1,4 @@
-package ui_test
+package gitmenu_test
 
 import (
 	"context"
@@ -140,42 +140,6 @@ func TestGitMenu(t *testing.T) {
 
 		assert.Contains(t, harness.ReadMessages(), "the task the menu was opened on has left the list")
 		harness.AssertSentTo(agentv1connect.AgentServicePlanRebaseProcedure)
-	})
-}
-
-// TestGitMenuOnTheReview covers the git menu the review's own menu opens in its popup.
-func TestGitMenuOnTheReview(t *testing.T) {
-	t.Run("the menu holds the pull request's entries and none that rewrite the worktree", func(t *testing.T) {
-		harness := openReview(t, newPullRequestReviewServer(t))
-
-		harness.Press("space", "g")
-
-		popup := paneltest.PopupProse(harness.Frame())
-		assert.Contains(t, popup, "push")
-		assert.Contains(t, popup, "toggle draft on")
-		assert.Contains(t, popup, "re-request review")
-		assert.Contains(t, popup, "merge pr")
-		assert.NotContains(t, popup, "rebase")
-		assert.NotContains(t, popup, "pick fork point")
-		assert.NotContains(t, popup, "abort")
-	})
-
-	t.Run("a push asks in the popup, then pushes", func(t *testing.T) {
-		harness := openReview(t, newPullRequestReviewServer(t))
-		planned := &agentv1.PlanPushResponse{Branch: "agent/auth", Commits: 2}
-		harness.Answer(agentv1connect.AgentServicePlanPushProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-			return connect.NewResponse(planned), nil
-		})
-		answerPushed(harness, planned)
-
-		harness.Press("space", "g", "p")
-
-		require.Contains(t, paneltest.PopupProse(harness.Frame()), "Komrad pushes 2 commits")
-
-		harness.Press("y")
-
-		harness.AssertSentTo(agentv1connect.AgentServicePushWorktreeProcedure, &agentv1.PushWorktreeRequest{Task: &agentv1.PushWorktreeRequest_TaskId{TaskId: "t1"}})
-		assert.Contains(t, harness.ReadMessages(), "auth: pushed agent/auth")
 	})
 }
 
@@ -850,6 +814,30 @@ func TestGitMenuAborts(t *testing.T) {
 	}
 }
 
+// TestGitMenuPicksAForkPoint covers an orphaned task naming the commit its own commits begin on.
+func TestGitMenuPicksAForkPoint(t *testing.T) {
+	t.Parallel()
+
+	parent := paneltest.Agent("a0", "web", "w1")
+	rows := append(buildGitAgent(), parent, paneltest.TaskOf(parent))
+	rows[2].(*taskv1.Task).Parent = &taskv1.Parent{TaskId: "task-a0", Blocked: taskv1.CascadeBlock_CASCADE_BLOCK_ORPHANED}
+
+	harness := paneltest.OpenAgents(t, rows...)
+	harness.MoveToRow("task-a1")
+
+	harness.Press("space", "g", "s")
+
+	require.Contains(t, harness.Frame(), `Fork point of "task-a1" on task-a0`)
+
+	harness.Type("abc1234")
+	harness.Press("enter")
+
+	harness.AssertSentTo(agentv1connect.AgentServicePickForkPointProcedure, &agentv1.PickForkPointRequest{
+		Task:   &agentv1.PickForkPointRequest_TaskId{TaskId: "task-a1"},
+		Commit: "abc1234",
+	})
+}
+
 // TestGitMenuTogglesDraft covers the entry naming which way it goes and flipping the draft.
 func TestGitMenuTogglesDraft(t *testing.T) {
 	t.Parallel()
@@ -1032,6 +1020,7 @@ func TestGitMenuCopiesThePullRequestURL(t *testing.T) {
 
 const (
 	gitMenuEntry   = "rebase with base"
+	repositoryURL  = "https://github.com/harrisoncramer/komrad"
 	pullRequestURL = "https://github.com/harrisoncramer/komrad/pull/740"
 )
 
@@ -1069,7 +1058,10 @@ func openGitMenu(t *testing.T, rows ...proto.Message) *paneltest.Panel {
 }
 
 func buildGitAgent() []proto.Message {
-	agent, task := newBranchAgent("a1", "api", "agent/a1")
+	agent := paneltest.Agent("a1", "api", "w1")
+	task := paneltest.TaskOf(agent)
+	task.RepositoryUrl = xptr.Ptr(repositoryURL)
+	task.Branch = xptr.Ptr("agent/a1")
 	agent.Cwd = "/trees/a1"
 	task.Cwd = xptr.Ptr("/trees/a1")
 	task.HeadSha = xptr.Ptr("new")

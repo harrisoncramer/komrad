@@ -1,4 +1,4 @@
-package ui
+package gitmenu
 
 import (
 	"komrad/internal/ui/panel"
@@ -22,12 +22,12 @@ func draftLabel(task panel.Task) string {
 
 // toggleDraft asks the forge to flip whether the task's pull request is a draft, or says why it
 // cannot.
-func (m *model) toggleDraft(task panel.Task) screen.Request {
+func (g Menus) toggleDraft(task panel.Task) screen.Request {
 	if err := openPullRequestRefusal(task); err != nil {
 		return screen.Report{Summary: "Could not change the " + task.PullRequest.Noun() + " of " + task.Slug, Err: err}
 	}
 
-	clients := m.api
+	clients := g.deps.Clients
 	standing, draft := task.PullRequest, !isDraft(task)
 	doing, said := "marking "+standing.Ref()+" ready", " is ready for review"
 	if draft {
