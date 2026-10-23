@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"komrad/internal/gittest"
 	"komrad/internal/ui"
 	"komrad/internal/ui/paneltest"
 	agentv1 "komrad/proto/gen/agent/v1"
@@ -55,18 +54,6 @@ func TestVimEditing(t *testing.T) {
 
 		harness.Press("ctrl+[")
 		assert.NotContains(t, harness.Frame(), "Brief")
-	})
-
-	t.Run("ctrl+[ counts as esc in the review box", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
-
-		harness.Press("space", "c")
-		harness.Type("gone")
-		harness.Press("ctrl+[")
-		assert.Contains(t, harness.Frame(), "  Comment")
-
-		harness.Press("ctrl+[")
-		assert.NotContains(t, harness.Frame(), "  Comment")
 	})
 
 	t.Run("an edit made in normal mode is what the form sends", func(t *testing.T) {
@@ -143,39 +130,6 @@ func TestVimEditing(t *testing.T) {
 		assert.Equal(t, "shared notes", update.GetContext())
 	})
 
-	t.Run("a comment edited in normal mode is what the review posts", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
-
-		harness.Press("space", "c")
-		harness.Type("still here")
-		harness.Press("esc", "b", "d", "w", "enter")
-
-		harness.AssertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
-			Task:        &agentv1.CreateReviewThreadRequest_TaskId{TaskId: "t1"},
-			FilePath:    gittest.File,
-			OldStart:    1,
-			OldEnd:      1,
-			NewStart:    1,
-			NewEnd:      1,
-			QuotedLines: []string{" package greet"},
-			Body:        "still",
-			BaseSha:     gittest.BaseSHA,
-			SnapshotSha: gittest.SnapshotSHA,
-		})
-	})
-
-	t.Run("a normal-mode edit in the review box is rendered at once", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
-
-		harness.Press("space", "c")
-		harness.Type("still here")
-		harness.Press("esc", "b", "d", "w")
-
-		frame := harness.Frame()
-		assert.Contains(t, frame, "still")
-		assert.NotContains(t, frame, "still here")
-	})
-
 	t.Run("a normal-mode edit in a form is rendered at once", func(t *testing.T) {
 		harness := openVimForms(t)
 
@@ -184,27 +138,6 @@ func TestVimEditing(t *testing.T) {
 		frame := harness.Frame()
 		assert.Contains(t, frame, "still")
 		assert.NotContains(t, frame, "still here")
-	})
-
-	t.Run("a comment brought back from the editor still takes vim keys", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
-
-		harness.WriteInEditor("still here\n")
-		harness.Press("space", "c", "ctrl+e")
-		harness.Press("esc", "b", "d", "w", "enter")
-
-		harness.AssertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
-			Task:        &agentv1.CreateReviewThreadRequest_TaskId{TaskId: "t1"},
-			FilePath:    gittest.File,
-			OldStart:    1,
-			OldEnd:      1,
-			NewStart:    1,
-			NewEnd:      1,
-			QuotedLines: []string{" package greet"},
-			Body:        "still",
-			BaseSha:     gittest.BaseSHA,
-			SnapshotSha: gittest.SnapshotSHA,
-		})
 	})
 }
 
@@ -372,16 +305,6 @@ func TestVimEditingBadge(t *testing.T) {
 			assert.Contains(t, harness.Frame(), tt.want)
 		})
 	}
-
-	t.Run("the review comment box is in edit mode", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
-
-		harness.Press("space", "c")
-		assert.Contains(t, harness.Frame(), "  EDIT  ")
-
-		harness.Press("esc")
-		assert.Contains(t, harness.Frame(), " NORMAL ")
-	})
 }
 
 func openVimForms(t *testing.T) *paneltest.Panel {

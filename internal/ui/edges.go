@@ -1,6 +1,9 @@
 package ui
 
-import "komrad/internal/ui/screen"
+import (
+	"komrad/internal/ui/column"
+	"komrad/internal/ui/screen"
+)
 
 // edgeStep is how many columns one press of an edge key moves the edge.
 const edgeStep = 4
@@ -48,7 +51,7 @@ func (m *model) edgeFloor() int {
 		return 1
 	}
 
-	return m.columnOf(m.inputs()).Floor + dividerCols
+	return m.columnOf(m.inputs()).Floor + column.DividerCols
 }
 
 // atRegion is the region holding the keys.

@@ -12,6 +12,9 @@ import (
 // ErrNoWorkflow refuses a form that needs a workflow when none exists.
 var ErrNoWorkflow = errors.New("every agent belongs to a workflow, so create one first")
 
+// ErrNoCheckout refuses the review of an agent with no checkout of its own.
+var ErrNoCheckout = errors.New("this agent has no checkout of its own to read")
+
 // Workflow is one workflow as the server listed it.
 type Workflow struct {
 	ID              string

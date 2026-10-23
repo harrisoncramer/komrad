@@ -64,7 +64,7 @@ func (w frozenWindow) renderPicker(targets []pickTarget) string {
 		)
 	}
 
-	return compose(width, height, layers)
+	return paint.Compose(width, height, layers)
 }
 
 func measureBounds(shown []panes.Rect) (left, top, width, height int) {
@@ -86,13 +86,6 @@ func (w frozenWindow) renderLabelLayer(rect panes.Rect, left, top int) *lipgloss
 		X(rect.Left - left + w.labelEnd - lipgloss.Width(label)).
 		Y(rect.Top - top + rect.Height - 1).
 		Z(3)
-}
-
-func compose(width, height int, layers []*lipgloss.Layer) string {
-	canvas := lipgloss.NewCanvas(width, height)
-	canvas.Compose(lipgloss.NewCompositor(layers...))
-
-	return canvas.Render()
 }
 
 // fitScreen is a captured screen cut to its pane's rows, with its tabs spent as the spaces tmux

@@ -123,13 +123,13 @@ func (m *model) clickerOf(name zone.Name) (clicker, bool) {
 		return m.stopClicker(stopRecord, requestClick(func(m *model, key string, nth int) screen.Request {
 			return m.detailsList().Click(m.inputs(), key, nth)
 		})), true
-	case zoneList:
+	case zone.List:
 		if lister, ok := m.active().(activeLister); ok {
 			return m.listClicker(lister.ActiveList()), true
 		}
 	case zoneSide:
 		return m.stopClicker(stopBlock, popupClick(popupHost.ClickSide)), true
-	case zoneColumn, zoneBlock:
+	case zoneColumn, zone.Block:
 	}
 
 	return nil, false

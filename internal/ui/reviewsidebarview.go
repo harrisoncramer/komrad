@@ -4,8 +4,10 @@ import (
 	"strings"
 
 	"komrad/internal/glyph"
+	"komrad/internal/ui/layout"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/screen"
+	"komrad/internal/ui/zone"
 
 	"github.com/charmbracelet/x/ansi"
 )
@@ -24,7 +26,7 @@ func (r reviewScreen) sideView(in screen.Inputs, lines int) string {
 		return ""
 	}
 
-	width := lineWidthOf(in.Room.Width)
+	width := layout.LineWidth(in.Room.Width)
 	focused := r.IsBlockFocused(in)
 	rows := make([]string, 0, len(sideRows))
 	keys := make([]string, 0, len(sideRows))
@@ -42,7 +44,7 @@ func (r reviewScreen) sideView(in screen.Inputs, lines int) string {
 	if in.Room.Marks {
 		for at, row := range rows {
 			if sideRows[at].kind.isStop() {
-				rows[at] = markKeyedSpan(zoneSide, keys[at], row)
+				rows[at] = zone.MarkSpan(zoneSide, keys[at], row)
 			}
 		}
 	}

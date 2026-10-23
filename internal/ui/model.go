@@ -291,7 +291,6 @@ type model struct {
 	messages        messagesState
 	detailsHeight   float64
 	listing         panel.Listing
-	reactors        []worldReactor
 	agents          agentsScreen
 	schedules       schedules.Screen
 	worktrees       worktrees.Screen
@@ -524,9 +523,8 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 			Clients: clients,
 			Top:     top,
 		}),
-		warm:     newWarmupState(),
-		loading:  loadingState{style: cmp.Or(deps.Loader, loader.Braille)},
-		reactors: newWorldReactors(),
+		warm:    newWarmupState(),
+		loading: loadingState{style: cmp.Or(deps.Loader, loader.Braille)},
 	}
 
 	if m.clip == nil {

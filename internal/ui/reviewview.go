@@ -8,6 +8,7 @@ import (
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/layout"
 	"komrad/internal/ui/legend"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/paint/label"
@@ -58,7 +59,7 @@ func (r reviewScreen) View(in screen.Inputs, chrome screen.Chrome) string {
 	band := r.bandView(in)
 	diff := band + r.diffView(in, split)
 	if in.Room.Marks {
-		diff = zone.MarkBlock(zoneList, diff, split.Column)
+		diff = zone.MarkBlock(zone.List, diff, split.Column)
 	}
 
 	return r.overlayThread(in, chrome, chrome.Join(split, r.sidebarView(in, chrome), diff))
@@ -67,13 +68,13 @@ func (r reviewScreen) View(in screen.Inputs, chrome screen.Chrome) string {
 // sidebarView is the sidebar rendered as one half of a split, trimmed so the two halves are the same
 // height.
 func (r reviewScreen) sidebarView(in screen.Inputs, chrome screen.Chrome) string {
-	layout := r.layoutSidebar(in, chrome)
-	block := layout.block()
+	sidebar := r.layoutSidebar(in, chrome)
+	block := sidebar.block()
 	if in.Room.Marks {
-		block = zone.MarkBlock(zoneBlock, block, lineWidthOf(in.Room.Width))
+		block = zone.MarkBlock(zone.Block, block, layout.LineWidth(in.Room.Width))
 	}
 
-	return strings.TrimRight(r.renderSidebar(layout, block), "\n")
+	return strings.TrimRight(r.renderSidebar(sidebar, block), "\n")
 }
 
 // overlayThread renders the popup over an area, and leaves the area alone where the popup has
@@ -251,11 +252,11 @@ func (r reviewScreen) notesView(in screen.Inputs) string {
 	}
 
 	if notice := r.notice; notice != "" {
-		return "\n" + reviewNote(lineWidthOf(in.Room.Width), paint.Panel.Style(reviewNoticeTone), notice)
+		return "\n" + reviewNote(layout.LineWidth(in.Room.Width), paint.Panel.Style(reviewNoticeTone), notice)
 	}
 
 	if since := r.diff.since; since != "" && r.diff.spec.isWholeChange() {
-		return "\n" + reviewNote(lineWidthOf(in.Room.Width), paint.Panel.Style(paint.ToneMuted), since)
+		return "\n" + reviewNote(layout.LineWidth(in.Room.Width), paint.Panel.Style(paint.ToneMuted), since)
 	}
 
 	return ""
@@ -496,7 +497,7 @@ func (r reviewScreen) changeView(in screen.Inputs, fold int) string {
 		rows = []string{joinViews(r.agentName, stat)}
 	}
 
-	width := lineWidthOf(in.Room.Width)
+	width := layout.LineWidth(in.Room.Width)
 
 	var out strings.Builder
 	for _, row := range rows {

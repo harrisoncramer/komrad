@@ -76,14 +76,13 @@ func (m *model) applyWatch(batch client.WatchBatch) tea.Cmd {
 }
 
 func (m *model) takeWatch(batch client.WatchBatch) tea.Cmd {
-	var changed assemble.Changed
-
 	var reread tea.Cmd
 	if m.unreachable != nil {
 		reread = m.readEngineBuildCmd()
 	}
 
-	listed := m.withListing(func(l *panel.Listing) {
+	listed := m.withListing(func(l *panel.Listing) assemble.Changed {
+		var changed assemble.Changed
 		for _, event := range batch {
 			if _, snapshot := event.GetEvent().(*watchv1.WatchEvent_Snapshot); snapshot {
 				m.reportUnreachable(nil)
@@ -93,9 +92,11 @@ func (m *model) takeWatch(batch client.WatchBatch) tea.Cmd {
 		}
 
 		l.Assemble(m.clock.Now())
+
+		return changed
 	})
 
-	return tea.Batch(listed, m.react(changed), reread)
+	return tea.Batch(listed, reread)
 }
 
 // applyWatchLost says the server is gone until the next stream's snapshot says otherwise, and

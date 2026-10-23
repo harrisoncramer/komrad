@@ -45,14 +45,14 @@ func (m *model) docBlock(in screen.Inputs, split column.Split) []string {
 		rendered[i] = m.markRow(zoneDoc, split.Column, strconv.Itoa(i), rendered[i])
 	}
 
-	window := docWindow{
-		rows:    rendered,
-		top:     r.Top,
-		markers: true,
+	window := reader.Page{
+		Rows:    rendered,
+		Top:     r.Top,
+		Markers: true,
 	}
 	if r.tail {
-		window.top = len(rendered)
+		window.Top = len(rendered)
 	}
 
-	return append(head, strings.Split(window.view(height), "\n")...)
+	return append(head, strings.Split(window.View(height), "\n")...)
 }

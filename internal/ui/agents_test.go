@@ -655,7 +655,7 @@ func TestAgentsRecordFocus(t *testing.T) {
 			Y:      y,
 			Button: tea.MouseWheelDown,
 		})
-		harness.Advance(wheelFrame)
+		harness.Advance(paneltest.WheelFrame)
 
 		frame := harness.Frame()
 		assert.Regexp(t, `^directory\s+/repo$`, paneltest.RecordCursor(frame))
@@ -755,7 +755,7 @@ func TestAgentsRecordCopy(t *testing.T) {
 		harness.Press("ctrl+g")
 		settleFlash(harness)
 		refused := harness.Frame()
-		require.Contains(t, readEngineLine(refused), "✗ 1")
+		require.Contains(t, paneltest.EngineLine(refused), "✗ 1")
 
 		harness.SetClipboardErr(nil)
 		harness.Press("y")
@@ -1696,7 +1696,7 @@ func TestAgentsEdit(t *testing.T) {
 	})
 
 	t.Run("on an engine elsewhere the edit key opens the worktree there, through its ssh host", func(t *testing.T) {
-		harness := paneltest.OpenAgentsWith(t, paneltest.Params{Settings: remoteEditSettings(t, "nvim")}, paneltest.Workflow("w1", "backend"), newEditable())
+		harness := paneltest.OpenAgentsWith(t, paneltest.Params{Settings: paneltest.RemoteEditSettings(t, "nvim")}, paneltest.Workflow("w1", "backend"), newEditable())
 
 		harness.Press("space", "e")
 
@@ -1706,7 +1706,7 @@ func TestAgentsEdit(t *testing.T) {
 	})
 
 	t.Run("on an engine elsewhere an editor that cannot reach it opens nothing", func(t *testing.T) {
-		harness := paneltest.OpenAgentsWith(t, paneltest.Params{Settings: remoteEditSettings(t, "subl")}, paneltest.Workflow("w1", "backend"), newEditable())
+		harness := paneltest.OpenAgentsWith(t, paneltest.Params{Settings: paneltest.RemoteEditSettings(t, "subl")}, paneltest.Workflow("w1", "backend"), newEditable())
 
 		harness.Press("space", "e")
 

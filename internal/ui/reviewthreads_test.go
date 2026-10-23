@@ -9,9 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestReviewWorldReactorFollowsWhatTheReviewRenders pins which batches the review reads the world
-// again for.
-func TestReviewWorldReactorFollowsWhatTheReviewRenders(t *testing.T) {
+// TestDoesMoveReview covers which batches the review reads the world again for.
+func TestDoesMoveReview(t *testing.T) {
 	tests := []struct {
 		name    string
 		changed assemble.Changed

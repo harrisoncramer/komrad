@@ -127,7 +127,7 @@ func taskDir(task panel.Task, workflow panel.Workflow) string {
 func (a *agentsScreen) taskReviewEntry(in screen.Inputs, writer panel.Agent) menu.Entry {
 	entry := menu.Leaving("review", a.deps.keys.Menu.Review, func(in screen.Inputs) screen.Request {
 		if !in.Listing.IsReviewable(writer) {
-			return refuseSubpage("Could not open the review of "+in.Listing.Tasks.FindForAgent(writer).Slug, errReviewNoCheckout)
+			return refuseSubpage("Could not open the review of "+in.Listing.Tasks.FindForAgent(writer).Slug, panel.ErrNoCheckout)
 		}
 
 		return screen.Open{Screen: screen.Review, Target: screen.Target{AgentID: writer.ID}}

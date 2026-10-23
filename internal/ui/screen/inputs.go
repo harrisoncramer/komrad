@@ -1,6 +1,9 @@
 package screen
 
-import "komrad/internal/ui/panel"
+import (
+	"komrad/internal/assemble"
+	"komrad/internal/ui/panel"
+)
 
 // Inputs is what the root hands a screen each time it asks the screen something.
 type Inputs struct {
@@ -14,7 +17,8 @@ type Inputs struct {
 
 // Relisted tells every screen the listing changed, carrying the listing it replaced.
 type Relisted struct {
-	Was panel.Listing
+	Was     panel.Listing
+	Changed assemble.Changed
 }
 
 // Before is the inputs as they stood before the listing changed.

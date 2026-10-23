@@ -3,6 +3,7 @@ package ui
 import (
 	"slices"
 
+	"komrad/internal/ui/keys"
 	"komrad/internal/ui/screen"
 )
 
@@ -76,6 +77,6 @@ func (r reviewScreen) movedNotice(in screen.Inputs) screen.Note {
 		Kind:    screen.Warning,
 		Key:     "moved:" + r.agentID + ":" + moved,
 		Summary: "the worktree has moved",
-		Detail:  menuChordLabel(r.deps.keys, r.deps.keys.Review.Reload) + " to catch up",
+		Detail:  keys.MenuChordLabel(r.deps.keys, r.deps.keys.Review.Reload) + " to catch up",
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 
+	"komrad/internal/ui/layout"
 	"komrad/internal/ui/list"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/record"
@@ -173,16 +174,7 @@ func (m *model) detailsSnapshot(fields []detailsRow, cursor, pane int) view.Snap
 }
 
 func (m *model) lineWidth() int {
-	return lineWidthOf(m.paneWidth())
-}
-
-// lineWidthOf is the column a line of prose wraps at, in a pane of the width given.
-func lineWidthOf(pane int) int {
-	if pane <= 0 {
-		return nameWidth
-	}
-
-	return pane
+	return layout.LineWidth(m.paneWidth())
 }
 
 func labelColumn(fields []record.Field) int {

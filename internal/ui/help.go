@@ -4,11 +4,9 @@ import (
 	"slices"
 	"strings"
 
-	"komrad/config"
 	"komrad/internal/ui/filter"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/legend"
-	"komrad/lib/xslice"
 
 	"charm.land/bubbles/v2/key"
 )
@@ -96,11 +94,6 @@ func (m *model) fullGlobalHelp() []key.Binding {
 	}
 
 	return append(full, m.messagesBinding(), binding([]string{leaderKey + " " + edgeLeftKey, leaderKey + " " + edgeRightKey}, "resize"), binding([]string{leaderKey}, "leader"))
-}
-
-// menuChordLabel is the presses that reach an entry through the menu, spaced apart.
-func menuChordLabel(k config.Keybindings, entries ...[]string) string {
-	return strings.Join(xslice.Map(slices.Concat([][]string{k.Menu.Open}, entries), keys.Label), " ")
 }
 
 // helpOf is a screen's legend built from its table.

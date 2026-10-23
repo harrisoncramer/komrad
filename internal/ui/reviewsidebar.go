@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"komrad/internal/ui/diffview"
+	"komrad/internal/ui/layout"
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
@@ -184,7 +185,7 @@ func stackRow(tasks panel.Tasks, task panel.Task, kind sideKind, depth int) side
 	if task.PullRequest.Number > 0 {
 		row.note = task.PullRequest.Ref()
 	}
-	if said := cascadeBlockSaid(task.Parent.GetBlocked(), tasks[task.Parent.GetTaskId()].Slug); said != "" {
+	if said := tasks.CascadeBlockSaid(task.Parent); said != "" {
 		row.note = strings.TrimSpace(row.note + " " + said)
 	}
 
@@ -341,7 +342,7 @@ func (r reviewScreen) descriptionRows(in screen.Inputs) []sideRow {
 		rows = append(rows, sideRow{sideCursor: sideCursor{kind: sideDescriptionLine, id: "author"}, text: "@" + pullRequest.Author})
 	}
 
-	width := lineWidthOf(in.Room.Width) - len(sideMarkBlank) - len(descriptionIndent)
+	width := layout.LineWidth(in.Room.Width) - len(sideMarkBlank) - len(descriptionIndent)
 	for at, line := range pullRequestBodyRows(pullRequest.Body, width) {
 		rows = append(rows, sideRow{sideCursor: sideCursor{kind: sideDescriptionLine, id: strconv.Itoa(at)}, text: line})
 	}
@@ -481,7 +482,7 @@ func (r reviewScreen) stackedOffSaid(in screen.Inputs, taskID string) string {
 	case !ok || writer.Agent.ArchivedAt != nil:
 		return "its writer is archived"
 	case !in.Listing.IsReviewable(writer.Agent):
-		return errReviewNoCheckout.Error()
+		return panel.ErrNoCheckout.Error()
 	}
 
 	return ""

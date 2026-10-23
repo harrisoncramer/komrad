@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 
+	"komrad/internal/ui/column"
 	"komrad/internal/ui/diffview"
 	"komrad/internal/ui/paint"
 	"komrad/internal/ui/screen"
@@ -16,7 +17,7 @@ func (r reviewScreen) popupAnchor(in screen.Inputs) popupAnchor {
 		return popupAnchor{right: in.Room.Width}
 	}
 
-	return popupAnchor{right: split.Sidebar + dividerCols + diffview.GutterWidth, codeOnRight: true}
+	return popupAnchor{right: split.Sidebar + column.DividerCols + diffview.GutterWidth, codeOnRight: true}
 }
 
 // measurePopupInner is the room inside the popup over the review.

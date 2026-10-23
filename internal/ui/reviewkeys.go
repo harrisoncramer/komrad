@@ -93,7 +93,7 @@ func (r *reviewScreen) refuseExpand() string {
 		return ""
 	}
 
-	return "that file is folded away" + separated + menuChordLabel(r.deps.keys, r.deps.keys.Review.ToggleViewed) + " to open it"
+	return "that file is folded away" + separated + keys.MenuChordLabel(r.deps.keys, r.deps.keys.Review.ToggleViewed) + " to open it"
 }
 
 // diffWindow is the window that renders the diff, zero-sized without a split.

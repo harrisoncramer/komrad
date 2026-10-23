@@ -157,3 +157,20 @@ func DescribeTasks(tasks []Task) string {
 
 	return fmt.Sprintf("%d tasks", len(tasks))
 }
+
+// CascadeBlockSaid is what blocks a child's cascade on its parent in words, empty while nothing
+// blocks it.
+func (t Tasks) CascadeBlockSaid(parent *taskv1.Parent) string {
+	slug := t[parent.GetTaskId()].Slug
+	switch parent.GetBlocked() {
+	case taskv1.CascadeBlock_CASCADE_BLOCK_CONFLICTED:
+		return "behind " + slug + ", conflicts"
+	case taskv1.CascadeBlock_CASCADE_BLOCK_ORPHANED:
+		return "orphaned from " + slug
+	case taskv1.CascadeBlock_CASCADE_BLOCK_PARENT_CLOSED:
+		return "on " + slug + ", closed unmerged"
+	case taskv1.CascadeBlock_CASCADE_BLOCK_UNSPECIFIED:
+	}
+
+	return ""
+}

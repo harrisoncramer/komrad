@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -50,24 +49,6 @@ func TestReviewOpen(t *testing.T) {
 		assert.Contains(t, harness.ReadMessages(), "no change against the base branch")
 	})
 
-	t.Run("a task's row opens the review of its task", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.task.Slug = "login-fix"
-		harness := paneltest.Start(t, paneltest.Params{
-			Width:  reviewWidth,
-			Height: reviewHeight,
-			Git:    server.repo,
-		})
-		server.serve(harness)
-		harness.Watch(server.buildSnapshot())
-		require.Contains(t, paneltest.HoveredRow(harness.Frame()), "login-fix")
-
-		harness.Press("space", "r")
-
-		assert.True(t, isBeside(harness))
-		harness.AssertSentTo(agentv1connect.AgentServiceOpenReviewHistoryProcedure, &agentv1.OpenReviewHistoryRequest{Task: &agentv1.OpenReviewHistoryRequest_TaskId{TaskId: "t1"}})
-	})
-
 	t.Run("an agent whose worktree was removed opens from its workflow's directory", func(t *testing.T) {
 		server := newReviewServer(t)
 		server.task.WorktreeRemovalReason = taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE
@@ -78,28 +59,6 @@ func TestReviewOpen(t *testing.T) {
 
 		assert.True(t, isBeside(harness))
 		assert.Contains(t, paneltest.Stage(harness.Frame()), "greet.go")
-	})
-
-	t.Run("an agent whose worktree was removed in a workflow with no directory is not opened", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.task.WorktreeRemovalReason = taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE
-		server.task.Snapshots = 1
-
-		harness := openReview(t, server)
-
-		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
-		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceOpenReviewHistoryProcedure))
-	})
-
-	t.Run("an agent whose worktree was removed with no snapshot is not opened", func(t *testing.T) {
-		server := newReviewServer(t)
-		server.task.WorktreeRemovalReason = taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_GONE
-		server.workflow.Cwd = server.repo.Root
-
-		harness := openReview(t, server)
-
-		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
-		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceOpenReviewHistoryProcedure))
 	})
 
 	t.Run("an agent part way through a rebase opens on its newest snapshot", func(t *testing.T) {
@@ -332,7 +291,7 @@ func TestReviewCursor(t *testing.T) {
 	t.Run("the wheel over the diff turns the cursor", func(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
-		wheelOver(harness, paneltest.DefaultWidth-1)
+		harness.WheelOver(paneltest.DefaultWidth - 1)
 
 		assert.Equal(t, "greet.go:4 (removed)", paneltest.ReviewCursor(harness.Frame()))
 	})
@@ -342,7 +301,7 @@ func TestReviewCursor(t *testing.T) {
 		harness.Press("space", "c")
 		harness.Type("still here")
 
-		wheelOver(harness, paneltest.DefaultWidth-1)
+		harness.WheelOver(paneltest.DefaultWidth - 1)
 		harness.Press("enter")
 
 		harness.AssertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
@@ -1017,7 +976,7 @@ func TestReviewSearch(t *testing.T) {
 		harness := openReview(t, newReviewServer(t))
 
 		harness.Press("n")
-		assert.Contains(t, readEngineLine(harness.Frame()), "nothing to search for yet")
+		assert.Contains(t, paneltest.EngineLine(harness.Frame()), "nothing to search for yet")
 
 		harness.Press("/")
 		harness.Type("wallaby")
@@ -1025,7 +984,7 @@ func TestReviewSearch(t *testing.T) {
 
 		frame := harness.Frame()
 		assert.Contains(t, paneltest.Stage(frame), "/ wallaby")
-		assert.Contains(t, readEngineLine(frame), "no matches")
+		assert.Contains(t, paneltest.EngineLine(frame), "no matches")
 	})
 
 	t.Run("the prompt takes every key typed", func(t *testing.T) {
@@ -1314,7 +1273,7 @@ func TestReviewOfAnArchivedAgent(t *testing.T) {
 	frame := harness.Frame()
 	assert.NotContains(t, frame, "reply in this thread")
 
-	assert.Contains(t, readEngineLine(frame), "this agent is archived")
+	assert.Contains(t, paneltest.EngineLine(frame), "this agent is archived")
 	harness.Watch(server.buildSnapshot())
 	harness.Press("space", "R")
 	assert.Equal(t, 1, strings.Count(harness.ReadMessages(), "this agent is archived"))
@@ -1447,7 +1406,7 @@ func TestReviewReload(t *testing.T) {
 
 		frame := harness.Frame()
 		assert.NotContains(t, frame, "written by the agent")
-		assert.Contains(t, readEngineLine(frame), "the worktree has moved")
+		assert.Contains(t, paneltest.EngineLine(frame), "the worktree has moved")
 		assert.Len(t, harness.Sent(agentv1connect.AgentServiceOpenReviewHistoryProcedure), 1)
 
 		harness.Press("space", "R")
@@ -1476,7 +1435,7 @@ func TestReviewReload(t *testing.T) {
 		server.repo.Wrote(newSnapshotWrittenOver())
 		server.task.MovedSinceSnapshot = gittest.SnapshotSHA
 		harness.Watch(server.buildSnapshot())
-		require.Contains(t, readEngineLine(harness.Frame()), "the worktree has moved")
+		require.Contains(t, paneltest.EngineLine(harness.Frame()), "the worktree has moved")
 
 		harness.Press("space", "R")
 
@@ -1561,7 +1520,7 @@ func TestReviewOwnComments(t *testing.T) {
 		harness.Press("u", "u")
 		frame := harness.Frame()
 		assert.Contains(t, paneltest.PopupProse(frame), "the third open comment")
-		assert.Contains(t, readEngineLine(frame), "comment")
+		assert.Contains(t, paneltest.EngineLine(frame), "comment")
 	})
 
 	t.Run("the place row counts the open comment the cursor is on", func(t *testing.T) {
@@ -1666,7 +1625,7 @@ func TestReviewExpand(t *testing.T) {
 
 		harness.Press("space", "E")
 
-		assert.Contains(t, readEngineLine(harness.Frame()), "no more of that file")
+		assert.Contains(t, paneltest.EngineLine(harness.Frame()), "no more of that file")
 	})
 
 	t.Run("a folded file refuses and says so", func(t *testing.T) {
@@ -1676,7 +1635,7 @@ func TestReviewExpand(t *testing.T) {
 
 		frame := harness.Frame()
 		assert.NotContains(t, frame, "func Four()")
-		assert.Contains(t, readEngineLine(frame), "folded away")
+		assert.Contains(t, paneltest.EngineLine(frame), "folded away")
 	})
 
 	t.Run("a line only the expansion renders takes a comment", func(t *testing.T) {
@@ -1774,7 +1733,7 @@ func TestReviewSnapshots(t *testing.T) {
 
 		harness.Press("n")
 		frame := harness.Frame()
-		assert.Contains(t, readEngineLine(frame), "nothing to search for yet")
+		assert.Contains(t, paneltest.EngineLine(frame), "nothing to search for yet")
 		assert.Contains(t, paneltest.SidebarProse(frame), "1 file changed since you last reviewed")
 	})
 
@@ -1789,7 +1748,7 @@ func TestReviewSnapshots(t *testing.T) {
 		frame := harness.Frame()
 		assert.True(t, isBeside(harness))
 		assert.Contains(t, paneltest.StageText(frame), "greet.go")
-		assert.Contains(t, readEngineLine(frame), "nothing written")
+		assert.Contains(t, paneltest.EngineLine(frame), "nothing written")
 	})
 
 	t.Run("the newest snapshot takes a comment measured from the snapshot reviewed before", func(t *testing.T) {
@@ -1977,6 +1936,82 @@ func TestReviewComposer(t *testing.T) {
 		assert.NotContains(t, frame, "  Comment")
 		assert.Contains(t, harness.ReadMessages(), "put the cursor on a line of the diff")
 	})
+
+	t.Run("ctrl+[ counts as esc in the review box", func(t *testing.T) {
+		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
+
+		harness.Press("space", "c")
+		harness.Type("gone")
+		harness.Press("ctrl+[")
+		assert.Contains(t, harness.Frame(), "  Comment")
+
+		harness.Press("ctrl+[")
+		assert.NotContains(t, harness.Frame(), "  Comment")
+	})
+
+	t.Run("a comment edited in normal mode is what the review posts", func(t *testing.T) {
+		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
+
+		harness.Press("space", "c")
+		harness.Type("still here")
+		harness.Press("esc", "b", "d", "w", "enter")
+
+		harness.AssertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
+			Task:        &agentv1.CreateReviewThreadRequest_TaskId{TaskId: "t1"},
+			FilePath:    gittest.File,
+			OldStart:    1,
+			OldEnd:      1,
+			NewStart:    1,
+			NewEnd:      1,
+			QuotedLines: []string{" package greet"},
+			Body:        "still",
+			BaseSha:     gittest.BaseSHA,
+			SnapshotSha: gittest.SnapshotSHA,
+		})
+	})
+
+	t.Run("a normal-mode edit in the review box is rendered at once", func(t *testing.T) {
+		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
+
+		harness.Press("space", "c")
+		harness.Type("still here")
+		harness.Press("esc", "b", "d", "w")
+
+		frame := harness.Frame()
+		assert.Contains(t, frame, "still")
+		assert.NotContains(t, frame, "still here")
+	})
+
+	t.Run("a comment brought back from the editor still takes vim keys", func(t *testing.T) {
+		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
+
+		harness.WriteInEditor("still here\n")
+		harness.Press("space", "c", "ctrl+e")
+		harness.Press("esc", "b", "d", "w", "enter")
+
+		harness.AssertSentTo(agentv1connect.AgentServiceCreateReviewThreadProcedure, &agentv1.CreateReviewThreadRequest{
+			Task:        &agentv1.CreateReviewThreadRequest_TaskId{TaskId: "t1"},
+			FilePath:    gittest.File,
+			OldStart:    1,
+			OldEnd:      1,
+			NewStart:    1,
+			NewEnd:      1,
+			QuotedLines: []string{" package greet"},
+			Body:        "still",
+			BaseSha:     gittest.BaseSHA,
+			SnapshotSha: gittest.SnapshotSHA,
+		})
+	})
+
+	t.Run("the review comment box is in edit mode", func(t *testing.T) {
+		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
+
+		harness.Press("space", "c")
+		assert.Contains(t, harness.Frame(), "  EDIT  ")
+
+		harness.Press("esc")
+		assert.Contains(t, harness.Frame(), " NORMAL ")
+	})
 }
 
 // TestReviewEdit covers the reader opening an editor over the agent's worktree.
@@ -2096,7 +2131,7 @@ func TestReviewEdit(t *testing.T) {
 		require.Contains(t, harness.Frame(), "editing greet.go")
 		swaps, respawns := harness.Tmux().Swaps(), len(harness.Tmux().Respawns())
 
-		wheelOver(harness, paneltest.DefaultWidth-1)
+		harness.WheelOver(paneltest.DefaultWidth - 1)
 		harness.Press(paneltest.Rest)
 		harness.Advance(time.Second)
 
@@ -2119,7 +2154,7 @@ func TestReviewEdit(t *testing.T) {
 
 	t.Run("on an engine elsewhere the editor runs there, through its ssh host", func(t *testing.T) {
 		server := newReviewServer(t)
-		harness := openReviewAt(t, server, paneltest.Params{Settings: remoteEditSettings(t, "/opt/homebrew/bin/nvim")})
+		harness := openReviewAt(t, server, paneltest.Params{Settings: paneltest.RemoteEditSettings(t, "/opt/homebrew/bin/nvim")})
 
 		harness.Press("space", "e")
 
@@ -2130,7 +2165,7 @@ func TestReviewEdit(t *testing.T) {
 	})
 
 	t.Run("on an engine elsewhere an editor that cannot reach it opens nothing", func(t *testing.T) {
-		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: remoteEditSettings(t, "goland")})
+		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: paneltest.RemoteEditSettings(t, "goland")})
 
 		harness.Press("space", "e")
 
@@ -2139,7 +2174,7 @@ func TestReviewEdit(t *testing.T) {
 	})
 
 	t.Run("on an engine elsewhere an editor with a window of its own needs the ssh hosts included", func(t *testing.T) {
-		settings := remoteEditSettings(t, "code")
+		settings := paneltest.RemoteEditSettings(t, "code")
 		settings.IsSSHIncluded = false
 		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: settings})
 
@@ -2150,7 +2185,7 @@ func TestReviewEdit(t *testing.T) {
 	})
 
 	t.Run("on an engine elsewhere with no ssh host written the editor opens nothing", func(t *testing.T) {
-		settings := remoteEditSettings(t, "nvim")
+		settings := paneltest.RemoteEditSettings(t, "nvim")
 		settings.SSHConfig = filepath.Join(t.TempDir(), "missing.conf")
 		harness := openReviewAt(t, newReviewServer(t), paneltest.Params{Settings: settings})
 
@@ -2876,15 +2911,6 @@ func historyThreadOf(thread *agentv1.ReviewThread) history.Thread {
 		NewStart:   thread.GetNewStart(),
 		NewEnd:     thread.GetNewEnd(),
 	}
-}
-
-func remoteEditSettings(t *testing.T, editor string) ui.PanelSettings {
-	t.Helper()
-
-	config := filepath.Join(t.TempDir(), "komrad-remote.conf")
-	require.NoError(t, os.WriteFile(config, []byte("Host komrad-remote\n"), 0o600))
-
-	return ui.PanelSettings{Editor: editor, SSHHost: "komrad-remote", SSHConfig: config, IsSSHIncluded: true}
 }
 
 func newWholeChangeThread(snapshotID string, ordinal int32, at time.Time) *agentv1.ReviewThread {

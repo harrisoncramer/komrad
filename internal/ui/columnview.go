@@ -73,7 +73,7 @@ func renderDividerRow(fromLeft, fromRight bool) string {
 // docColumnView is the first screenful of the block beside the list, with a marker under it
 // counting what is past it.
 func (m *model) docColumnView(split column.Split) string {
-	return m.columnDoc(m.inputs(), split).view(split.Rows)
+	return m.columnDoc(m.inputs(), split).View(split.Rows)
 }
 
 // fitColumn squares a block off at a width.

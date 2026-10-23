@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"komrad/internal/ui/paneltest"
 	workflowv1 "komrad/proto/gen/workflow/v1"
@@ -52,7 +51,7 @@ func TestWheelScrollsTheHalfUnderTheMouse(t *testing.T) {
 				before := harness.Frame()
 				require.Contains(t, before, "context line 0")
 
-				wheelOver(harness, paneltest.DefaultWidth-1)
+				harness.WheelOver(paneltest.DefaultWidth - 1)
 
 				frame := harness.Frame()
 				assert.NotContains(t, paneltest.Stage(frame), "context line 0")
@@ -62,7 +61,7 @@ func TestWheelScrollsTheHalfUnderTheMouse(t *testing.T) {
 			t.Run("over the block it hands the block the keys", func(t *testing.T) {
 				harness := tt.open(t)
 				before := harness.Frame()
-				wheelOver(harness, paneltest.DefaultWidth-1)
+				harness.WheelOver(paneltest.DefaultWidth - 1)
 
 				harness.Press("G")
 
@@ -74,8 +73,8 @@ func TestWheelScrollsTheHalfUnderTheMouse(t *testing.T) {
 			t.Run("the block opens at its top again on another row", func(t *testing.T) {
 				harness := tt.open(t)
 				top := paneltest.Stage(harness.Frame())
-				wheelOver(harness, paneltest.DefaultWidth-1)
-				wheelOver(harness, 1)
+				harness.WheelOver(paneltest.DefaultWidth - 1)
+				harness.WheelOver(1)
 
 				harness.Press("k")
 
@@ -85,14 +84,14 @@ func TestWheelScrollsTheHalfUnderTheMouse(t *testing.T) {
 			t.Run("turns the filter added up scroll the block as far as the same turns one by one", func(t *testing.T) {
 				paced := tt.open(t)
 				for range 5 {
-					wheelOver(paced, paneltest.DefaultWidth-1)
+					paced.WheelOver(paneltest.DefaultWidth - 1)
 				}
 
 				harness := tt.open(t)
 				for range 5 {
 					harness.Send(tea.MouseWheelMsg{X: paneltest.DefaultWidth - 1, Y: 5, Button: tea.MouseWheelDown})
 				}
-				harness.Advance(wheelFrame)
+				harness.Advance(paneltest.WheelFrame)
 
 				assert.Equal(t, paneltest.Stage(paced.Frame()), paneltest.Stage(harness.Frame()))
 			})
@@ -101,24 +100,13 @@ func TestWheelScrollsTheHalfUnderTheMouse(t *testing.T) {
 				harness := tt.open(t)
 				before := harness.Frame()
 
-				wheelOver(harness, 1)
+				harness.WheelOver(1)
 
 				frame := harness.Frame()
 				assert.NotEqual(t, paneltest.HoveredRow(before), paneltest.HoveredRow(frame))
 			})
 		})
 	}
-}
-
-const wheelFrame = 20 * time.Millisecond
-
-func wheelOver(harness *paneltest.Panel, x int) {
-	harness.Send(tea.MouseWheelMsg{
-		X:      x,
-		Y:      5,
-		Button: tea.MouseWheelDown,
-	})
-	harness.Advance(wheelFrame)
 }
 
 func withLongContext(workflow *workflowv1.Workflow) *workflowv1.Workflow {

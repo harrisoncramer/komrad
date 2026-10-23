@@ -3,7 +3,6 @@ package ui_test
 import (
 	"context"
 	"errors"
-	"strings"
 	"sync"
 	"testing"
 
@@ -40,7 +39,7 @@ func TestEngineLine(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := openCrowded(t, paneltest.Params{SidebarWidth: tt.width, EngineStatus: newFakeEngine().on(tt.engine)})
 
-			assert.Equal(t, tt.want, readEngineLine(harness.Frame()))
+			assert.Equal(t, tt.want, paneltest.EngineLine(harness.Frame()))
 		})
 	}
 }
@@ -102,14 +101,4 @@ func (f *fakeEngine) on(name string) ui.EngineStatus {
 			return f.build, true
 		},
 	}
-}
-
-func readEngineLine(frame string) string {
-	return readEngineRow(frame, 1)
-}
-
-func readEngineRow(frame string, row int) string {
-	line, _, _ := strings.Cut(paneltest.SplitLines(frame)[row], "│")
-
-	return strings.TrimSpace(line)
 }

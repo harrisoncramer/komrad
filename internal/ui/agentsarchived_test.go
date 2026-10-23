@@ -321,7 +321,7 @@ func TestArchivedAgentsReportsRefusedWrites(t *testing.T) {
 
 			harness.Press(append(tt.press, paneltest.WidenListPresses...)...)
 
-			assert.Contains(t, readEngineLine(harness.Frame()), tt.wantSummary)
+			assert.Contains(t, paneltest.EngineLine(harness.Frame()), tt.wantSummary)
 			assert.Contains(t, harness.ReadMessages(), "no such agent")
 		})
 	}

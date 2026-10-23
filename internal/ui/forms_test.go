@@ -438,7 +438,7 @@ func TestFormsInFlight(t *testing.T) {
 		harness.Watch(paneltest.Puts(paneltest.Agent("a2", "check-ci", "w1")))
 
 		frame := harness.Frame()
-		assert.Equal(t, "\uf444 local", readEngineLine(frame), "nothing is reported")
+		assert.Equal(t, "\uf444 local", paneltest.EngineLine(frame), "nothing is reported")
 		assert.Equal(t, "└─ author", paneltest.HoveredRow(frame), "the cursor stays where the reader left it")
 	})
 
