@@ -253,7 +253,7 @@ func TestFilterNarrow(t *testing.T) {
 		{
 			name:        "a matching task keeps its reviewers",
 			from:        "backend",
-			press:       slices.Concat([]string{"/", "tab"}, spellKeys("^task-auth$"), []string{"enter"}),
+			press:       slices.Concat([]string{"/", "tab"}, strings.Split("^task-auth$", ""), []string{"enter"}),
 			wantRows:    []string{"backend", "└─ task-auth", "   └─ " + reviewerMark + "api"},
 			wantHovered: "backend",
 			wantSearch:  "▽ ^task-auth$",
@@ -261,7 +261,7 @@ func TestFilterNarrow(t *testing.T) {
 		{
 			name:        "a qualifier the writer holds for keeps its task",
 			from:        "backend",
-			press:       slices.Concat([]string{"/", "tab"}, spellKeys("agent:auth is:writer"), []string{"enter"}),
+			press:       slices.Concat([]string{"/", "tab"}, strings.Split("agent:auth is:writer", ""), []string{"enter"}),
 			wantRows:    []string{"backend", "└─ task-auth", "   └─ " + reviewerMark + "api"},
 			wantHovered: "backend",
 			wantSearch:  "▽ agent:auth is:writer",
@@ -309,7 +309,7 @@ func TestFilterNarrow(t *testing.T) {
 		{
 			name:        "a qualifier narrows to the rows it holds for",
 			from:        "backend",
-			press:       slices.Concat([]string{"/", "tab"}, spellKeys("workflow:front"), []string{"enter"}),
+			press:       slices.Concat([]string{"/", "tab"}, strings.Split("workflow:front", ""), []string{"enter"}),
 			wantRows:    []string{"frontend", "└─ ui"},
 			wantHovered: "frontend",
 			wantSearch:  "▽ workflow:front",
@@ -317,7 +317,7 @@ func TestFilterNarrow(t *testing.T) {
 		{
 			name:        "a qualifier and a pattern must both hold",
 			from:        "backend",
-			press:       slices.Concat([]string{"/", "tab"}, spellKeys("workflow:back db"), []string{"enter"}),
+			press:       slices.Concat([]string{"/", "tab"}, strings.Split("workflow:back db", ""), []string{"enter"}),
 			wantRows:    []string{"backend", "└─ db"},
 			wantHovered: "backend",
 			wantSearch:  "▽ workflow:back db",
@@ -325,7 +325,7 @@ func TestFilterNarrow(t *testing.T) {
 		{
 			name:        "an unknown qualifier is a problem on the line and takes nothing off",
 			from:        "backend",
-			press:       slices.Concat([]string{"/", "tab"}, spellKeys("colour:red"), []string{"enter"}),
+			press:       slices.Concat([]string{"/", "tab"}, strings.Split("colour:red", ""), []string{"enter"}),
 			wantRows:    filterableRows,
 			wantHovered: "backend",
 			wantSearch:  "▽ colour:red  colour: is not a qualifier her",
@@ -333,7 +333,7 @@ func TestFilterNarrow(t *testing.T) {
 		{
 			name:        "a role the agents never take is a problem on the line",
 			from:        "backend",
-			press:       slices.Concat([]string{"/", "tab"}, spellKeys("is:boss db"), []string{"enter"}),
+			press:       slices.Concat([]string{"/", "tab"}, strings.Split("is:boss db", ""), []string{"enter"}),
 			wantRows:    filterableRows,
 			wantHovered: "backend",
 			wantSearch:  "▽ is:boss db  is:boss is not one of writer,",
@@ -368,9 +368,9 @@ func TestFilterSays(t *testing.T) {
 		harness := openFilterable(t, "backend")
 		harness.Refuse(agentv1connect.AgentServiceSearchTranscriptsProcedure, connect.NewError(connect.CodeInvalidArgument, errors.New("no search")))
 
-		harness.Press(slices.Concat([]string{"/", "tab"}, spellKeys("says:x"))...)
+		harness.Press(slices.Concat([]string{"/", "tab"}, strings.Split("says:x", ""))...)
 		harness.Advance(time.Second)
-		harness.Press(slices.Concat(spellKeys(" d"), []string{"enter"})...)
+		harness.Press(slices.Concat(strings.Split(" d", ""), []string{"enter"})...)
 
 		frame := harness.Frame()
 		assert.Equal(t, filterableRows, paneltest.ListRows(frame))
@@ -423,7 +423,7 @@ func TestFilterSays(t *testing.T) {
 					return connect.NewResponse(&agentv1.GetTranscriptResponse{Content: content}), nil
 				})
 
-				harness.Press(slices.Concat([]string{"/"}, spellKeys("says:xylophone"), []string{"enter"})...)
+				harness.Press(slices.Concat([]string{"/"}, strings.Split("says:xylophone", ""), []string{"enter"})...)
 				harness.Advance(time.Second)
 
 				frame := harness.Frame()
@@ -458,11 +458,11 @@ func TestFilterSays(t *testing.T) {
 			return connect.NewResponse(&agentv1.GetTranscriptResponse{Content: content}), nil
 		})
 
-		harness.Press(slices.Concat([]string{"/"}, spellKeys("says:xylophone"))...)
+		harness.Press(slices.Concat([]string{"/"}, strings.Split("says:xylophone", ""))...)
 		harness.Advance(time.Second)
 		require.Contains(t, paneltest.JoinProse(paneltest.Stage(harness.Frame())), first)
 
-		harness.Press(slices.Concat(slices.Repeat([]string{"backspace"}, len("xylophone")), spellKeys("zither"), []string{"enter"})...)
+		harness.Press(slices.Concat(slices.Repeat([]string{"backspace"}, len("xylophone")), strings.Split("zither", ""), []string{"enter"})...)
 		harness.Advance(time.Second)
 
 		frame := harness.Frame()
@@ -490,7 +490,7 @@ func TestFilterSays(t *testing.T) {
 					return connect.NewResponse(&agentv1.SearchTranscriptsResponse{Matches: []*agentv1.SearchHit{{AgentId: "db", Snippet: "\x02xylophone\x03"}}}), nil
 				})
 				harness.Press("j")
-				harness.Press(slices.Concat([]string{"/"}, spellKeys("says:xylophone"))...)
+				harness.Press(slices.Concat([]string{"/"}, strings.Split("says:xylophone", ""))...)
 				harness.Advance(time.Second)
 				require.Equal(t, "└─ db", paneltest.HoveredRow(harness.Frame()))
 				require.True(t, harness.Tmux().IsZoomed(), "the turns it said hold the window")
@@ -509,12 +509,12 @@ func TestFilterSays(t *testing.T) {
 	}{
 		{
 			name:        "a says: answer walks a cursor left where the search put it onto the match",
-			press:       slices.Concat([]string{"/"}, spellKeys("says:x"), []string{"enter"}),
+			press:       slices.Concat([]string{"/"}, strings.Split("says:x", ""), []string{"enter"}),
 			wantHovered: "└─ db",
 		},
 		{
 			name:        "a says: answer leaves a cursor moved while it was asked",
-			press:       slices.Concat([]string{"/"}, spellKeys("says:x"), []string{"enter", "j"}),
+			press:       slices.Concat([]string{"/"}, strings.Split("says:x", ""), []string{"enter", "j"}),
 			wantHovered: "├─ task-auth",
 		},
 	}
@@ -704,7 +704,7 @@ func TestFilterWorktreeHeader(t *testing.T) {
 	header := paneltest.BelowViews(harness.Frame())[5]
 	require.Contains(t, header, "2.0M")
 
-	harness.Press(slices.Concat([]string{"/", "tab"}, spellKeys("worktree-view"), []string{"enter", "k"})...)
+	harness.Press(slices.Concat([]string{"/", "tab"}, strings.Split("worktree-view", ""), []string{"enter", "k"})...)
 
 	frame := harness.Frame()
 	assert.NotContains(t, frame, "agent/other", "the filter took the other worktree away")

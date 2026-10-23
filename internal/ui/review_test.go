@@ -47,7 +47,7 @@ func TestReviewOpen(t *testing.T) {
 		frame := harness.Frame()
 		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
 		assert.Contains(t, frame, "Nothing to review in auth")
-		assert.Contains(t, readOpenMessages(harness), "no change against the base branch")
+		assert.Contains(t, harness.ReadMessages(), "no change against the base branch")
 	})
 
 	t.Run("a task's row opens the review of its task", func(t *testing.T) {
@@ -123,7 +123,7 @@ func TestReviewOpen(t *testing.T) {
 		frame := harness.Frame()
 		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
 		assert.Contains(t, frame, "Could not read the diff of")
-		assert.Contains(t, readOpenMessages(harness), gittest.ErrNoGit.Error())
+		assert.Contains(t, harness.ReadMessages(), gittest.ErrNoGit.Error())
 	})
 
 	t.Run("a running agent stays on the stage beside the diff", func(t *testing.T) {
@@ -1317,7 +1317,7 @@ func TestReviewOfAnArchivedAgent(t *testing.T) {
 	assert.Contains(t, readEngineLine(frame), "this agent is archived")
 	harness.Watch(server.buildSnapshot())
 	harness.Press("space", "R")
-	assert.Equal(t, 1, strings.Count(readOpenMessages(harness), "this agent is archived"))
+	assert.Equal(t, 1, strings.Count(harness.ReadMessages(), "this agent is archived"))
 	harness.Press("ctrl+g")
 
 	harness.Press("space")
@@ -1433,7 +1433,7 @@ func TestReviewReload(t *testing.T) {
 
 		frame := harness.Frame()
 		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
-		assert.Contains(t, readOpenMessages(harness), "excluded from the diff")
+		assert.Contains(t, harness.ReadMessages(), "excluded from the diff")
 		assert.NotContains(t, frame, "Nothing to review")
 	})
 
@@ -1453,7 +1453,7 @@ func TestReviewReload(t *testing.T) {
 		harness.Press("space", "R")
 
 		assert.Contains(t, harness.Frame(), "written by the agent")
-		assert.NotContains(t, readOpenMessages(harness), "the worktree has moved")
+		assert.NotContains(t, harness.ReadMessages(), "the worktree has moved")
 		assert.Len(t, harness.Sent(agentv1connect.AgentServiceOpenReviewHistoryProcedure), 2)
 	})
 
@@ -1464,7 +1464,7 @@ func TestReviewReload(t *testing.T) {
 		server.task.MovedSinceSnapshot = "commit-of-another-snapshot"
 		harness.Watch(server.buildSnapshot())
 
-		assert.NotContains(t, readOpenMessages(harness), "the worktree has moved")
+		assert.NotContains(t, harness.ReadMessages(), "the worktree has moved")
 		assert.Len(t, harness.Sent(agentv1connect.AgentServiceOpenReviewHistoryProcedure), 1)
 	})
 
@@ -1481,7 +1481,7 @@ func TestReviewReload(t *testing.T) {
 		harness.Press("space", "R")
 
 		assert.Contains(t, harness.Frame(), "written by the agent")
-		assert.NotContains(t, readOpenMessages(harness), "the worktree has moved")
+		assert.NotContains(t, harness.ReadMessages(), "the worktree has moved")
 	})
 
 	t.Run("the history failing to read fails the load", func(t *testing.T) {
@@ -1491,7 +1491,7 @@ func TestReviewReload(t *testing.T) {
 		harness := openReview(t, server)
 
 		assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
-		assert.Contains(t, readOpenMessages(harness), "the server went away")
+		assert.Contains(t, harness.ReadMessages(), "the server went away")
 	})
 
 	t.Run("a move while the editor is open raises nothing", func(t *testing.T) {
@@ -1504,7 +1504,7 @@ func TestReviewReload(t *testing.T) {
 		server.task.MovedSinceSnapshot = gittest.SnapshotSHA
 		harness.Watch(server.buildSnapshot())
 
-		assert.NotContains(t, readOpenMessages(harness), "the worktree has moved")
+		assert.NotContains(t, harness.ReadMessages(), "the worktree has moved")
 	})
 }
 
@@ -1612,7 +1612,7 @@ func TestReviewOwnComments(t *testing.T) {
 
 				harness.Press(tt.keys...)
 
-				sidebar := readOpenMessages(harness)
+				sidebar := harness.ReadMessages()
 				assert.Contains(t, sidebar, tt.want)
 				if tt.absent != "" {
 					assert.NotContains(t, sidebar, tt.absent)
@@ -1975,7 +1975,7 @@ func TestReviewComposer(t *testing.T) {
 
 		frame := harness.Frame()
 		assert.NotContains(t, frame, "  Comment")
-		assert.Contains(t, readOpenMessages(harness), "put the cursor on a line of the diff")
+		assert.Contains(t, harness.ReadMessages(), "put the cursor on a line of the diff")
 	})
 }
 
@@ -2006,7 +2006,7 @@ func TestReviewEdit(t *testing.T) {
 
 		harness.Press("space", "e")
 
-		assert.Contains(t, readOpenMessages(harness), "stop it before you edit")
+		assert.Contains(t, harness.ReadMessages(), "stop it before you edit")
 		assert.NotContains(t, harness.Frame(), "editing")
 	})
 
@@ -2041,7 +2041,7 @@ func TestReviewEdit(t *testing.T) {
 
 		harness.Press("space", "e")
 
-		assert.Contains(t, readOpenMessages(harness), "cannot read this agent's pane")
+		assert.Contains(t, harness.ReadMessages(), "cannot read this agent's pane")
 	})
 
 	t.Run("a dormant agent's worktree opens whatever it stopped in", func(t *testing.T) {
@@ -2070,7 +2070,7 @@ func TestReviewEdit(t *testing.T) {
 		harness.Press("enter", "space", "e")
 
 		frame := harness.Frame()
-		assert.Contains(t, readOpenMessages(harness), "deleted")
+		assert.Contains(t, harness.ReadMessages(), "deleted")
 		assert.NotContains(t, frame, "editing ·")
 	})
 
@@ -2229,7 +2229,7 @@ func TestReviewEdit(t *testing.T) {
 		assert.NotContains(t, harness.Frame(), "written by the agent")
 
 		harness.Press("space", "e")
-		assert.Contains(t, readOpenMessages(harness), "stop it before you edit")
+		assert.Contains(t, harness.ReadMessages(), "stop it before you edit")
 		assert.NotContains(t, harness.Frame(), "editing greet.go")
 	})
 }

@@ -357,9 +357,3 @@ func readPaneTally(frame string) string {
 
 	return ""
 }
-
-func readOpenMessages(harness *paneltest.Panel) string {
-	harness.Press("ctrl+g")
-
-	return paneltest.JoinProse(paneltest.Stage(harness.Frame()))
-}

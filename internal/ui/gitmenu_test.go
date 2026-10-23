@@ -138,7 +138,7 @@ func TestGitMenu(t *testing.T) {
 
 		harness.Press("r")
 
-		assert.Contains(t, readOpenMessages(harness), "the task the menu was opened on has left the list")
+		assert.Contains(t, harness.ReadMessages(), "the task the menu was opened on has left the list")
 		harness.AssertSentTo(agentv1connect.AgentServicePlanRebaseProcedure)
 	})
 }
@@ -175,7 +175,7 @@ func TestGitMenuOnTheReview(t *testing.T) {
 		harness.Press("y")
 
 		harness.AssertSentTo(agentv1connect.AgentServicePushWorktreeProcedure, &agentv1.PushWorktreeRequest{Task: &agentv1.PushWorktreeRequest_TaskId{TaskId: "t1"}})
-		assert.Contains(t, readOpenMessages(harness), "auth: pushed agent/auth")
+		assert.Contains(t, harness.ReadMessages(), "auth: pushed agent/auth")
 	})
 }
 
@@ -296,7 +296,7 @@ func TestGitMenuRefusals(t *testing.T) {
 			harness.Press(tt.press...)
 
 			assert.NotContains(t, harness.Frame(), gitMenuEntry)
-			assert.Contains(t, readOpenMessages(harness), tt.wantRefusal)
+			assert.Contains(t, harness.ReadMessages(), tt.wantRefusal)
 		})
 	}
 }
@@ -375,7 +375,7 @@ func TestGitMenuMerges(t *testing.T) {
 			harness.AssertSentTo(taskv1connect.TaskServiceArchiveTaskProcedure, tt.wantArchive...)
 			assert.NotContains(t, harness.Frame(), "merge and archive")
 			if tt.wantMessage != "" {
-				assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
+				assert.Contains(t, harness.ReadMessages(), tt.wantMessage)
 			}
 		})
 	}
@@ -431,7 +431,7 @@ func TestGitMenuMergesThenRebases(t *testing.T) {
 			harness.AssertSentTo(agentv1connect.AgentServiceRebaseWorktreeProcedure, tt.wantRebases...)
 			harness.AssertSentTo(agentv1connect.AgentServicePlanRebaseProcedure)
 			assert.NotContains(t, harness.Frame(), "merge then rebase")
-			messages := readOpenMessages(harness)
+			messages := harness.ReadMessages()
 			for _, want := range tt.wantMessages {
 				assert.Contains(t, messages, want)
 			}
@@ -509,7 +509,7 @@ func TestGitMenuMergesWhenReady(t *testing.T) {
 			frame := harness.Frame()
 			assert.NotContains(t, frame, tt.wantLabel)
 			assert.NotContains(t, frame, "Merge #740 when ready")
-			assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
+			assert.Contains(t, harness.ReadMessages(), tt.wantMessage)
 		})
 	}
 }
@@ -553,7 +553,7 @@ func TestGitMenuMergeForm(t *testing.T) {
 		},
 		{
 			name:  "an edited headline goes with the merge without the body",
-			press: slices.Concat([]string{"tab"}, spellKeys(" now"), []string{"enter"}),
+			press: slices.Concat([]string{"tab"}, strings.Split(" now", ""), []string{"enter"}),
 			wantMerges: []proto.Message{&forgev1.MergeForgePullRequestRequest{
 				Url:      pullRequestURL,
 				Method:   forgev1.MergeMethod_MERGE_METHOD_SQUASH,
@@ -572,7 +572,7 @@ func TestGitMenuMergeForm(t *testing.T) {
 		},
 		{
 			name:  "an edited body goes with the merge without the headline",
-			press: slices.Concat([]string{"tab", "tab"}, spellKeys(" Twice."), []string{"enter"}),
+			press: slices.Concat([]string{"tab", "tab"}, strings.Split(" Twice.", ""), []string{"enter"}),
 			wantMerges: []proto.Message{&forgev1.MergeForgePullRequestRequest{
 				Url:     pullRequestURL,
 				Method:  forgev1.MergeMethod_MERGE_METHOD_SQUASH,
@@ -613,7 +613,7 @@ func TestGitMenuMergeForm(t *testing.T) {
 		harness.Press("m", "m")
 
 		assert.NotContains(t, harness.Frame(), "Merge #740")
-		assert.Contains(t, readOpenMessages(harness), "github is down")
+		assert.Contains(t, harness.ReadMessages(), "github is down")
 		harness.AssertSentTo(forgev1connect.ForgeServiceMergeForgePullRequestProcedure)
 	})
 }
@@ -763,7 +763,7 @@ func TestGitMenuPushes(t *testing.T) {
 			harness.AssertSentTo(agentv1connect.AgentServicePushWorktreeProcedure, tt.wantPushes...)
 			assert.NotContains(t, harness.Frame(), "Push the branch of")
 			if tt.wantMessage != "" {
-				assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
+				assert.Contains(t, harness.ReadMessages(), tt.wantMessage)
 			}
 		})
 	}
@@ -844,7 +844,7 @@ func TestGitMenuAborts(t *testing.T) {
 			harness.AssertSentTo(agentv1connect.AgentServiceAbortSequenceProcedure, tt.wantAborts...)
 			assert.NotContains(t, harness.Frame(), "Abort the "+noun+" in")
 			if tt.wantMessage != "" {
-				assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
+				assert.Contains(t, harness.ReadMessages(), tt.wantMessage)
 			}
 		})
 	}
@@ -904,7 +904,7 @@ func TestGitMenuTogglesDraft(t *testing.T) {
 
 			harness.AssertSentTo(forgev1connect.ForgeServiceSetForgePullRequestDraftProcedure, tt.wantSent)
 			assert.NotContains(t, harness.Frame(), gitMenuEntry)
-			assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
+			assert.Contains(t, harness.ReadMessages(), tt.wantMessage)
 		})
 	}
 }
@@ -966,7 +966,7 @@ func TestGitMenuRequestsRereview(t *testing.T) {
 			harness.AssertSentTo(forgev1connect.ForgeServiceRequestForgePullRequestRereviewProcedure, tt.wantSent...)
 			if tt.wantMessage != "" {
 				assert.NotContains(t, harness.Frame(), gitMenuEntry)
-				assert.Contains(t, readOpenMessages(harness), tt.wantMessage)
+				assert.Contains(t, harness.ReadMessages(), tt.wantMessage)
 			}
 		})
 	}

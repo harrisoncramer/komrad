@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"komrad/internal/glyph"
+	"komrad/internal/ui/paint"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 
@@ -281,6 +282,25 @@ func RawListRow(frame, name string) string {
 	}
 
 	return ""
+}
+
+// FindRawLine is the first styled line of the frame whose text the pattern matches.
+func FindRawLine(frame string, pattern *regexp.Regexp) string {
+	for _, line := range SplitLines(frame) {
+		if pattern.MatchString(ansi.Strip(line)) {
+			return line
+		}
+	}
+
+	return ""
+}
+
+// OffEntry matches a submenu entry as it is rendered when there is nothing behind it, gray with
+// its key right-aligned.
+func OffEntry(label, key string) *regexp.Regexp {
+	gray, _, _ := strings.Cut(paint.Panel.Style(paint.ToneMuted).Render("x"), "x")
+
+	return regexp.MustCompile(regexp.QuoteMeta(gray+label) + " +" + regexp.QuoteMeta(key))
 }
 
 // Record is the lines of the record the frame renders between its first two rules.

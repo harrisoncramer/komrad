@@ -131,7 +131,7 @@ func TestReviewJump(t *testing.T) {
 		harness.Press("t", "space", "J")
 
 		frame := harness.Frame()
-		assert.Contains(t, readOpenMessages(harness), "the snapshot this comment was written on is gone")
+		assert.Contains(t, harness.ReadMessages(), "the snapshot this comment was written on is gone")
 		assert.Contains(t, paneltest.StageText(frame), "where the task starts ▸ snapshot 2")
 	})
 

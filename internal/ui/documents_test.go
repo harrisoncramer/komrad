@@ -329,7 +329,7 @@ func TestDocumentsFilter(t *testing.T) {
 			harness.Press("tab", "tab")
 			harness.Advance(time.Second)
 
-			harness.Press(slices.Concat([]string{"/", "tab"}, spellKeys(tt.query), []string{"enter"})...)
+			harness.Press(slices.Concat([]string{"/", "tab"}, strings.Split(tt.query, ""), []string{"enter"})...)
 
 			frame := harness.Frame()
 			rows := strings.Join(paneltest.ListRows(frame), "\n")
@@ -362,7 +362,7 @@ func TestDocumentsSays(t *testing.T) {
 	marked := regexp.MustCompile(`\x1b\[[0-9;]*mTuesday`)
 	picked := regexp.MustCompile(`38;5;208mRollout report`)
 
-	harness.Press(slices.Concat([]string{"esc", "/", "tab"}, spellKeys("says:tuesday"))...)
+	harness.Press(slices.Concat([]string{"esc", "/", "tab"}, strings.Split("says:tuesday", ""))...)
 	harness.Advance(time.Second)
 	harness.Press("enter")
 	harness.Advance(time.Second)
@@ -371,13 +371,13 @@ func TestDocumentsSays(t *testing.T) {
 	assert.Equal(t, []string{`"tuesday"`}, asked)
 	assert.Equal(t, []string{"Rollout report"}, paneltest.ListRows(frame))
 	assert.Equal(t, "▽ says:tuesday", paneltest.Search(frame))
-	assert.Regexp(t, marked, findRawLine(harness.RawFrame(), line), "the word found is lit in the document")
+	assert.Regexp(t, marked, paneltest.FindRawLine(harness.RawFrame(), line), "the word found is lit in the document")
 	assert.Regexp(t, picked, paneltest.RawListRow(harness.RawFrame(), "Rollout report"), "the document found is lit in the list")
 
 	harness.Press("/", "esc")
 	harness.Advance(time.Second)
 
-	assert.NotRegexp(t, marked, findRawLine(harness.RawFrame(), line), "the word is dark once the qualifier is gone")
+	assert.NotRegexp(t, marked, paneltest.FindRawLine(harness.RawFrame(), line), "the word is dark once the qualifier is gone")
 	assert.NotRegexp(t, picked, paneltest.RawListRow(harness.RawFrame(), "Rollout report"), "the document is dark once the qualifier is gone")
 }
 
@@ -710,14 +710,14 @@ func TestDocumentsMenu(t *testing.T) {
 			},
 			presses: []string{"space", "e", "space"},
 			wantOn:  []*regexp.Regexp{regexp.MustCompile(`close editor +e`)},
-			wantOff: []*regexp.Regexp{readOffEntry("rename", "r"), readOffEntry("new document", "c")},
+			wantOff: []*regexp.Regexp{paneltest.OffEntry("rename", "r"), paneltest.OffEntry("new document", "c")},
 		},
 		{
 			name:    "every agent's documents have no agent to write a new one for",
 			open:    openEveryDocument,
 			presses: []string{"space"},
 			wantOn:  []*regexp.Regexp{regexp.MustCompile(`edit +e`)},
-			wantOff: []*regexp.Regexp{readOffEntry("new document", "c")},
+			wantOff: []*regexp.Regexp{paneltest.OffEntry("new document", "c")},
 		},
 	}
 
@@ -902,7 +902,7 @@ func TestDocumentsHistory(t *testing.T) {
 				assert.NotContains(t, stage, wantNot)
 			}
 			if tt.note != "" {
-				assert.Contains(t, readOpenMessages(harness), tt.note)
+				assert.Contains(t, harness.ReadMessages(), tt.note)
 			}
 		})
 	}
@@ -1026,18 +1026,18 @@ func TestDocumentsReadingCursor(t *testing.T) {
 	bar := paint.BackgroundSequence(paint.Panel.Background(paint.ShadeSelection))
 
 	assert.NotEqual(t, "/", strings.TrimSpace(paneltest.Stage(harness.Frame())[0]), "the search waits for the document to hold the keys")
-	unfocused := findRawLine(harness.RawFrame(), line)
+	unfocused := paneltest.FindRawLine(harness.RawFrame(), line)
 	require.NotEmpty(t, unfocused)
 	assert.NotContains(t, unfocused, bar)
 
 	harness.Press("pick:block", "G")
 	assert.Equal(t, "/", strings.TrimSpace(paneltest.Stage(harness.Frame())[0]), "the search stands over the focused document")
-	focused := findRawLine(harness.RawFrame(), line)
+	focused := paneltest.FindRawLine(harness.RawFrame(), line)
 	require.NotEmpty(t, focused)
 	assert.Contains(t, focused, bar, "the cursor is rendered as a bar on the line it moved to")
 
 	harness.Press("/", "w", "a", "r", "m", "enter")
-	found := findRawLine(harness.RawFrame(), line)
+	found := paneltest.FindRawLine(harness.RawFrame(), line)
 	require.NotEmpty(t, found)
 	assert.NotEqual(t, focused, found, "the hit is painted")
 	hit := strings.Index(found, "warm")
@@ -1094,16 +1094,16 @@ func TestDocumentsDiffCursor(t *testing.T) {
 
 	harness.Press("<")
 	harness.Advance(time.Second)
-	dim := findRawLine(harness.RawFrame(), heading)
+	dim := paneltest.FindRawLine(harness.RawFrame(), heading)
 	require.NotEmpty(t, dim)
 
 	harness.Press("pick:block")
-	live := findRawLine(harness.RawFrame(), heading)
+	live := paneltest.FindRawLine(harness.RawFrame(), heading)
 	require.NotEmpty(t, live)
 	assert.NotEqual(t, dim, live, "focusing the diff lights the cursor")
 
 	harness.Press("j")
-	plain := findRawLine(harness.RawFrame(), heading)
+	plain := paneltest.FindRawLine(harness.RawFrame(), heading)
 	require.NotEmpty(t, plain)
 	assert.NotEqual(t, live, plain, "the cursor leaves the line it stood on")
 	assert.NotEqual(t, dim, plain)

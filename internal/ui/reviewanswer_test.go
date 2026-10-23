@@ -143,7 +143,7 @@ func TestReviewAnswer(t *testing.T) {
 		harness.Press("t", "space", "a")
 
 		frame := harness.Frame()
-		assert.Contains(t, readOpenMessages(harness), "the answer can't be compared across the rebase, conflicts in greet.go, second.go")
+		assert.Contains(t, harness.ReadMessages(), "the answer can't be compared across the rebase, conflicts in greet.go, second.go")
 		assert.Contains(t, paneltest.StageText(frame), "where the task starts ▸ snapshot 2")
 		require.Contains(t, paneltest.SidebarProse(frame), "2 files, +4 -1")
 	})

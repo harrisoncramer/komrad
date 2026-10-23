@@ -195,7 +195,7 @@ func TestTerminal(t *testing.T) {
 		harness := openTerminal(t, remote, newStagedShellAgent(""))
 
 		harness.Press("space")
-		require.Regexp(t, readOffEntry("terminal", "t"), harness.RawFrame())
+		require.Regexp(t, paneltest.OffEntry("terminal", "t"), harness.RawFrame())
 		harness.Press("t")
 
 		assert.Empty(t, readShellDirs(harness))

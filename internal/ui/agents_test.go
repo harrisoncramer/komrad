@@ -2,7 +2,6 @@ package ui_test
 
 import (
 	"errors"
-	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -27,7 +26,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"connectrpc.com/connect"
-	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -211,7 +209,7 @@ func TestAgentsShowHidden(t *testing.T) {
 
 		harness.Press("v", "j", "j", "j", "v", "space", "h")
 
-		assert.Regexp(t, readOffEntry("hide", "h"), harness.RawFrame())
+		assert.Regexp(t, paneltest.OffEntry("hide", "h"), harness.RawFrame())
 	})
 
 	tests := []struct {
@@ -423,21 +421,21 @@ func TestAgentsResume(t *testing.T) {
 		answerResume(harness)
 
 		harness.Press("j", "enter")
-		require.NotContains(t, readOpenMessages(harness), "old is back up", "the write landing says nothing yet")
+		require.NotContains(t, harness.ReadMessages(), "old is back up", "the write landing says nothing yet")
 
 		settingUp := newRunning()
 		settingUp.State = agentv1.AgentState_AGENT_STATE_SETTING_UP
 		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "api"), settingUp))
-		require.NotContains(t, readOpenMessages(harness), "old is back up", "a CLI still starting is not back up")
+		require.NotContains(t, harness.ReadMessages(), "old is back up", "a CLI still starting is not back up")
 		require.Contains(t, harness.Frame(), "Its CLI is coming up in a new pane.")
 
 		settledBeforeAlive := newRunning()
 		settledBeforeAlive.Alive = xptr.Ptr(false)
 		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "api"), settledBeforeAlive))
-		require.NotContains(t, readOpenMessages(harness), "old is back up", "an idle row not yet alive is not back up")
+		require.NotContains(t, harness.ReadMessages(), "old is back up", "an idle row not yet alive is not back up")
 
 		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "api"), newRunning()))
-		assert.Contains(t, readOpenMessages(harness), "old is back up")
+		assert.Contains(t, harness.ReadMessages(), "old is back up")
 	})
 
 	t.Run("a resume whose pane went before its CLI came up is never said to be back up", func(t *testing.T) {
@@ -454,7 +452,7 @@ func TestAgentsResume(t *testing.T) {
 		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "api"), newDormant("old")))
 		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "api"), newRunning()))
 
-		assert.NotContains(t, readOpenMessages(harness), "old is back up")
+		assert.NotContains(t, harness.ReadMessages(), "old is back up")
 	})
 
 	t.Run("a refused resume never says the agent is back up", func(t *testing.T) {
@@ -468,7 +466,7 @@ func TestAgentsResume(t *testing.T) {
 		harness.Press("j", "enter")
 		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "api"), newRunning()))
 
-		assert.NotContains(t, readOpenMessages(harness), "old is back up")
+		assert.NotContains(t, harness.ReadMessages(), "old is back up")
 	})
 }
 
@@ -751,7 +749,7 @@ func TestAgentsRecordCopy(t *testing.T) {
 
 		harness.Press("pick:record", "y")
 		harness.Advance(time.Second)
-		opened := readOpenMessages(harness)
+		opened := harness.ReadMessages()
 		require.Contains(t, opened, "Could not copy")
 		require.Contains(t, opened, "no clipboard utility found")
 		harness.Press("ctrl+g")
@@ -1876,7 +1874,7 @@ func TestAgentsOrchestrator(t *testing.T) {
 			return connect.NewResponse(&agentv1.RestartAgentResponse{Agent: paneltest.Orchestrator()}), nil
 		})
 
-		harness.Press(slices.Concat([]string{"space", "o"}, spellKeys("start fresh"), []string{"enter"})...)
+		harness.Press(slices.Concat([]string{"space", "o"}, strings.Split("start fresh", ""), []string{"enter"})...)
 
 		harness.AssertSentTo(agentv1connect.AgentServiceRestartAgentProcedure, &agentv1.RestartAgentRequest{
 			Id:      "o1",
@@ -2021,7 +2019,7 @@ func TestAgentsReviewers(t *testing.T) {
 
 		harness.Press("j", "space", "g")
 
-		assert.NotRegexp(t, readOffEntry("rebase with base", "r"), harness.RawFrame())
+		assert.NotRegexp(t, paneltest.OffEntry("rebase with base", "r"), harness.RawFrame())
 	})
 }
 
@@ -2363,16 +2361,6 @@ func newAgentOnHiddenTask(id, name string) []proto.Message {
 	task.Hidden = true
 
 	return []proto.Message{agent, task}
-}
-
-func findRawLine(frame string, pattern *regexp.Regexp) string {
-	for _, line := range paneltest.SplitLines(frame) {
-		if pattern.MatchString(ansi.Strip(line)) {
-			return line
-		}
-	}
-
-	return ""
 }
 
 func openCopyRecord(t *testing.T) *paneltest.Panel {

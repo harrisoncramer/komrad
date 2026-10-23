@@ -109,7 +109,7 @@ func TestReviewForgeReplyRefused(t *testing.T) {
 			harness.Press(tt.keys...)
 
 			assert.NotContains(t, paneltest.PopupProse(harness.Frame()), "reply on the forge")
-			messages := readOpenMessages(harness)
+			messages := harness.ReadMessages()
 			assert.Contains(t, messages, "rate limited")
 			assert.NotContains(t, messages, "reply posting")
 		})

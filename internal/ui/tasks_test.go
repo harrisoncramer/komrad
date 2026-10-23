@@ -44,7 +44,7 @@ func TestTasksTree(t *testing.T) {
 	t.Run("the task qualifier keeps the task and the agents on it", func(t *testing.T) {
 		harness := paneltest.OpenAgents(t, buildTasks()...)
 
-		harness.Press(slices.Concat([]string{"/", "tab"}, spellKeys("task:fix"), []string{"enter"})...)
+		harness.Press(slices.Concat([]string{"/", "tab"}, strings.Split("task:fix", ""), []string{"enter"})...)
 
 		assert.Equal(t, []string{"komrad", "└─ fix-login", "   └─ " + reviewerMark + "follow-up"}, paneltest.ListRows(harness.Frame()))
 	})
@@ -215,7 +215,7 @@ func TestTasksTree(t *testing.T) {
 
 				harness.Press("c")
 				assert.Contains(t, harness.Frame(), tt.form)
-				harness.Press(slices.Concat(spellKeys("review it"), []string{"enter"})...)
+				harness.Press(slices.Concat(strings.Split("review it", ""), []string{"enter"})...)
 
 				harness.AssertSentTo(agentv1connect.AgentServiceCreateAgentProcedure, tt.want)
 			})
@@ -271,7 +271,7 @@ func TestTasksRow(t *testing.T) {
 	t.Run("r renames the task's slug", func(t *testing.T) {
 		harness := paneltest.OpenAgents(t, buildTasks()...)
 
-		harness.Press(slices.Concat([]string{"j", "r"}, spellKeys("-v2"), []string{"enter"})...)
+		harness.Press(slices.Concat([]string{"j", "r"}, strings.Split("-v2", ""), []string{"enter"})...)
 
 		harness.AssertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure, &taskv1.UpdateTaskRequest{Task: &taskv1.UpdateTaskRequest_TaskId{TaskId: "t1"}, Slug: xptr.Ptr("fix-login-v2")})
 	})
@@ -289,7 +289,7 @@ func TestTasksRow(t *testing.T) {
 		harness := paneltest.OpenAgents(t, buildTasks()...)
 
 		harness.WriteInEditor("Logins work.\n")
-		harness.Press(slices.Concat([]string{"j", "space", "E"}, spellKeys(" now"), []string{"tab", "ctrl+e"})...)
+		harness.Press(slices.Concat([]string{"j", "space", "E"}, strings.Split(" now", ""), []string{"tab", "ctrl+e"})...)
 		harness.Press("enter")
 
 		harness.AssertSentTo(taskv1connect.TaskServiceUpdateTaskProcedure, &taskv1.UpdateTaskRequest{
@@ -345,7 +345,7 @@ func TestTasksRow(t *testing.T) {
 
 		harness.Press("space", "o")
 
-		assert.Contains(t, readOpenMessages(harness), "writer never started, so retry it")
+		assert.Contains(t, harness.ReadMessages(), "writer never started, so retry it")
 		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceRestartAgentProcedure))
 	})
 
@@ -355,7 +355,7 @@ func TestTasksRow(t *testing.T) {
 			return connect.NewResponse(&agentv1.RestartAgentResponse{Agent: &agentv1.Agent{Id: "a1"}}), nil
 		})
 
-		harness.Press(slices.Concat([]string{"space", "o"}, spellKeys("finish the cookie fix"), []string{"enter"})...)
+		harness.Press(slices.Concat([]string{"space", "o"}, strings.Split("finish the cookie fix", ""), []string{"enter"})...)
 
 		harness.AssertSentTo(agentv1connect.AgentServiceRestartAgentProcedure, &agentv1.RestartAgentRequest{
 			Id:      "a1",
@@ -371,7 +371,7 @@ func TestTasksRow(t *testing.T) {
 			return connect.NewResponse(&agentv1.RestartAgentResponse{Agent: &agentv1.Agent{Id: "a1"}}), nil
 		})
 
-		harness.Press(slices.Concat([]string{"space", "o", "tab", "ctrl+u"}, spellKeys("codex"), []string{"tab", "ctrl+u"}, spellKeys("--model o3"), []string{"enter"})...)
+		harness.Press(slices.Concat([]string{"space", "o", "tab", "ctrl+u"}, strings.Split("codex", ""), []string{"tab", "ctrl+u"}, strings.Split("--model o3", ""), []string{"enter"})...)
 
 		harness.AssertSentTo(agentv1connect.AgentServiceRestartAgentProcedure, &agentv1.RestartAgentRequest{
 			Id:      "a1",
@@ -448,7 +448,7 @@ func TestTasksRow(t *testing.T) {
 		harness.Answer(agentv1connect.AgentServiceSearchTranscriptsProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
 			return connect.NewResponse(&agentv1.SearchTranscriptsResponse{Matches: []*agentv1.SearchHit{{AgentId: "a1", Snippet: "\x02cookie\x03"}}}), nil
 		})
-		harness.Press(slices.Concat([]string{"/"}, spellKeys("says:cookie"), []string{"enter"})...)
+		harness.Press(slices.Concat([]string{"/"}, strings.Split("says:cookie", ""), []string{"enter"})...)
 		harness.Advance(time.Second)
 		require.Contains(t, paneltest.HoveredRow(harness.Frame()), "fix-login")
 
