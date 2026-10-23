@@ -78,7 +78,7 @@ export const refLink = (target: Ref, inner: string) =>
   (target.detail ? `<span class="ref-detail">${escape(target.detail)}</span>` : "") +
   `</span></a>`;
 
-export type Scope = {
+type Scope = {
   messages?: string[];
   enum?: string;
 };
