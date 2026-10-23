@@ -178,9 +178,9 @@ func TestArchivedAgentsMenu(t *testing.T) {
 			frame := harness.Frame()
 			assert.Equal(t, tt.wantScreen, paneltest.Screen(harness.Frame()))
 			if tt.wantFrame == "" {
-				assert.NotContains(t, readFormProse(frame), deleteTitle)
+				assert.NotContains(t, paneltest.StageProse(frame), deleteTitle)
 			} else {
-				assert.Contains(t, readFormProse(frame), tt.wantFrame)
+				assert.Contains(t, paneltest.StageProse(frame), tt.wantFrame)
 			}
 			harness.AssertSent(tt.wantSent...)
 		})
@@ -263,13 +263,13 @@ func TestArchivedAgentsPrompts(t *testing.T) {
 
 			harness.Press(tt.press...)
 			if tt.gone != nil {
-				require.Contains(t, readFormProse(harness.Frame()), deleteTitle, "the prompt waits for the row to leave")
+				require.Contains(t, paneltest.StageProse(harness.Frame()), deleteTitle, "the prompt waits for the row to leave")
 				harness.Watch(tt.gone)
 			}
 
 			frame := harness.Frame()
 			assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()), "the prompt returns to the archived agents it was opened from")
-			assert.NotContains(t, readFormProse(frame), deleteTitle, "the prompt is down")
+			assert.NotContains(t, paneltest.StageProse(frame), deleteTitle, "the prompt is down")
 			harness.AssertSent(tt.wantSent...)
 		})
 	}
@@ -1030,7 +1030,7 @@ func TestArchivedAgentsKinds(t *testing.T) {
 func TestArchivedAgentsLastScreen(t *testing.T) {
 	t.Run("the saved screen is asked for once the cursor rests and rendered under the document", func(t *testing.T) {
 		harness := openArchivedAgents(t, buildOneArchivedAgent()...)
-		answerLastScreens(harness, map[string]string{"a1": "❯ ship the refactor\n⏺ the refactor is merged"})
+		harness.AnswerLastScreens(map[string]string{"a1": "❯ ship the refactor\n⏺ the refactor is merged"})
 
 		harness.Press("j")
 		assert.Empty(t, harness.Sent(agentv1connect.AgentServiceGetLastScreenProcedure), "nothing is asked while the cursor moves")
@@ -1067,7 +1067,7 @@ func TestArchivedAgentsLastScreen(t *testing.T) {
 
 	t.Run("an agent with no saved screen says so", func(t *testing.T) {
 		harness := openArchivedAgents(t, buildOneArchivedAgent()...)
-		answerLastScreens(harness, nil)
+		harness.AnswerLastScreens(nil)
 
 		harness.Press("j")
 		harness.Advance(time.Second)
@@ -1077,7 +1077,7 @@ func TestArchivedAgentsLastScreen(t *testing.T) {
 
 	t.Run("a refused read says why", func(t *testing.T) {
 		harness := openArchivedAgents(t, buildOneArchivedAgent()...)
-		harness.Answer(agentv1connect.AgentServiceGetLastScreenProcedure, refuseWith(connect.CodeInternal, "screens exploded"))
+		harness.Answer(agentv1connect.AgentServiceGetLastScreenProcedure, paneltest.RefuseWith(connect.CodeInternal, "screens exploded"))
 
 		harness.Press("j")
 		harness.Advance(time.Second)
@@ -1101,7 +1101,7 @@ func TestArchivedAgentsLastScreen(t *testing.T) {
 			newArchivedAgent("a1", "api-refactor", "w1"),
 			newArchivedAgent("a2", "billing", "w1"),
 		)
-		answerLastScreens(harness, map[string]string{
+		harness.AnswerLastScreens(map[string]string{
 			"a1": "words from api-refactor",
 			"a2": "words from billing",
 		})
@@ -1124,7 +1124,7 @@ func TestArchivedAgentsLastScreen(t *testing.T) {
 			newArchivedAgent("a1", "api-refactor", "w1"),
 			newArchivedAgent("a2", "billing", "w1"),
 		)
-		answerLastScreens(harness, map[string]string{
+		harness.AnswerLastScreens(map[string]string{
 			"a1": "words from api-refactor",
 			"a2": "words from billing",
 		})
@@ -1147,7 +1147,7 @@ func TestArchivedAgentsLastScreen(t *testing.T) {
 			newArchivedAgent("a1", "api-refactor", "w1"),
 			newArchivedAgent("a2", "billing", "w1"),
 		)
-		answerLastScreens(harness, nil)
+		harness.AnswerLastScreens(nil)
 		harness.Press("j")
 		harness.Advance(time.Second)
 
@@ -1201,7 +1201,7 @@ func TestArchivedAgentsReading(t *testing.T) {
 				newArchivedAgent("a1", "api-refactor", "w1"),
 				newArchivedAgent("a2", "billing", "w1"),
 			)
-			answerLastScreens(harness, map[string]string{"a1": screen, "a2": screen})
+			harness.AnswerLastScreens(map[string]string{"a1": screen, "a2": screen})
 			harness.Press("j")
 			harness.Advance(time.Second)
 
@@ -1221,7 +1221,7 @@ func TestArchivedAgentsReading(t *testing.T) {
 		stopped := newDormant("sleepy")
 		stopped.Id = "d1"
 		harness := paneltest.Start(t, paneltest.Params{})
-		answerLastScreens(harness, map[string]string{"a1": screen, "a2": screen})
+		harness.AnswerLastScreens(map[string]string{"a1": screen, "a2": screen})
 		harness.Watch(paneltest.Snapshot(
 			paneltest.Workflow("w1", "backend"),
 			stopped,
@@ -1290,25 +1290,6 @@ func newArchivedAgentAt(name string, at time.Time) *agentv1.Agent {
 	agent.ArchivedAt = dates.Stamp(at)
 
 	return agent
-}
-
-// answerLastScreens answers each agent's saved screen at 80x24, and not found for any other.
-func answerLastScreens(harness *paneltest.Panel, screens map[string]string) {
-	harness.Answer(agentv1connect.AgentServiceGetLastScreenProcedure, func(req connect.AnyRequest) (connect.AnyResponse, error) {
-		read, _ := req.Any().(*agentv1.GetLastScreenRequest)
-
-		frame, ok := screens[read.GetAgentId()]
-		if !ok {
-			return nil, connect.NewError(connect.CodeNotFound, errors.New("no saved screen"))
-		}
-
-		return connect.NewResponse(&agentv1.GetLastScreenResponse{
-			Frame:      frame,
-			Width:      80,
-			Height:     24,
-			CapturedAt: timestamppb.New(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)),
-		}), nil
-	})
 }
 
 func requireLastScreenFor(t *testing.T, harness *paneltest.Panel, agentIDs ...string) {

@@ -2,6 +2,7 @@ package paneltest
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -47,6 +48,20 @@ type Request struct {
 
 // AnswerFunc answers a request the panel sent in the server's place.
 type AnswerFunc func(req connect.AnyRequest) (connect.AnyResponse, error)
+
+// AnswerWith answers every request with msg.
+func AnswerWith[T any](msg *T) AnswerFunc {
+	return func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(msg), nil
+	}
+}
+
+// RefuseWith refuses every request with code, giving reason.
+func RefuseWith(code connect.Code, reason string) AnswerFunc {
+	return func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return nil, connect.NewError(code, errors.New(reason))
+	}
+}
 
 type recorder struct {
 	mu      sync.Mutex
