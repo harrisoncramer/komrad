@@ -70,7 +70,7 @@ func recordFields(in screen.Inputs, item panel.Worktree) []record.Field {
 		record.Field{Label: "branch", Value: label.OrDash(item.Branch)},
 		record.Field{Label: "repository", Value: label.OrDash(label.Path(item.RepoDir, homeDir()))},
 	)
-	read := in.Inspections[item.Dir]
+	read := in.WorktreeInspections[item.Dir]
 	if read.IsAnswered && read.Err != nil {
 		fields = append(fields, record.Field{Label: "worktree", Value: "could not read: " + errui.GetReason(read.Err)})
 	}
@@ -175,7 +175,7 @@ func (w *Screen) gitDoc(in screen.Inputs) string {
 		return paint.DocumentMarkdown(label.Path(row.repo, homeDir()), fmt.Sprintf("_%s_", label.Count(w.countUnder(row.repo), "worktree", "worktrees")), "", "")
 	}
 
-	read, ok := in.Inspections[row.item.Dir]
+	read, ok := in.WorktreeInspections[row.item.Dir]
 	switch {
 	case !ok || !read.IsAnswered:
 		return paint.DocumentMarkdown(row.name(), "_"+row.item.Dir+"_", "_reading the directory…_", "")

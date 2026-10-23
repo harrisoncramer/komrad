@@ -43,7 +43,7 @@ func (w *Screen) reconcileRename(in screen.Inputs) {
 func (w *Screen) updateRename(msg tea.Msg) screen.Request {
 	switch w.renaming.Take(msg, w.deps.Register) {
 	case field.NameGone:
-		return screen.NewNote(screen.Warning, w.renaming.GoneWarning())
+		return screen.NewPostMessage(screen.Warning, w.renaming.GoneWarning())
 	case field.NameHidden:
 		return screen.Hide{}
 	case field.NameCancelled:
@@ -69,10 +69,10 @@ func (w *Screen) saveRename() screen.Request {
 	id := w.renaming.schedule.ID
 
 	return w.deps.Clients.RenameWrite(api.RenameWriteParams{
-		Doing:   "renaming " + w.renaming.Was(),
-		Summary: fmt.Sprintf("Could not rename schedule %q", w.renaming.Was()),
-		Row:     w.renaming.Key(),
-		Write:   func(a api.Clients) error { return a.UpdateSchedule(id, renamed) },
+		Doing:          "renaming " + w.renaming.Was(),
+		FailureSummary: fmt.Sprintf("Could not rename schedule %q", w.renaming.Was()),
+		Row:            w.renaming.Key(),
+		Write:          func(a api.Clients) error { return a.UpdateSchedule(id, renamed) },
 	})
 }
 

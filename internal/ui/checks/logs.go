@@ -108,12 +108,12 @@ func (c Logs) Enter(in screen.Inputs, target screen.Target) screen.Request {
 	if target.AgentID != "" {
 		*c.logs = logs{
 			agentID:    target.AgentID,
-			openedFrom: target.OpenedFrom,
+			openedFrom: target.OpenedFromScreen,
 		}
 	}
 	c.generation, c.reads, c.placed, c.placedTop = generation, map[string]*logRead{}, 0, 0
 
-	return screen.Batch{screen.Cmd(c.checks.listCmd(in)), screen.Cmd(c.readsCmd(in))}
+	return screen.Batch{screen.RunCmd(c.checks.listCmd(in)), screen.RunCmd(c.readsCmd(in))}
 }
 
 // LeaveScreen ends the visit's reads.
@@ -140,8 +140,8 @@ func (c Logs) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 		return c.applyRead(in, msg), true
 	case listedMsg:
 		return c.applyListed(in, msg), true
-	case screen.Relisted:
-		return screen.Cmd(c.checks.listCmd(in)), true
+	case screen.ListingChanged:
+		return screen.RunCmd(c.checks.listCmd(in)), true
 	}
 
 	return nil, false
@@ -153,12 +153,12 @@ func (c Logs) applyListed(in screen.Inputs, msg listedMsg) screen.Request {
 		return nil
 	}
 
-	requests := screen.Batch{c.reanchor(in), screen.Cmd(c.readsCmd(in))}
+	requests := screen.Batch{c.reanchor(in), screen.RunCmd(c.readsCmd(in))}
 	if !msg.headRead {
 		return requests
 	}
 
-	return append(requests, screen.Cmd(c.checks.listCmd(in)))
+	return append(requests, screen.RunCmd(c.checks.listCmd(in)))
 }
 
 func (c Logs) list() keys.ScreenList[logRow] {
@@ -217,13 +217,13 @@ func (c Logs) anchor(in screen.Inputs) screen.Request {
 		c.placed, c.placedTop = line, top
 	}
 
-	return screen.PlaceDoc{Line: line, Top: top}
+	return screen.PlaceDocumentReader{CursorLine: line, TopLine: top}
 }
 
 // reanchor keeps the hovered row's header in view as the document changes above it, unless the reader has moved or scrolled off it.
 func (c Logs) reanchor(in screen.Inputs) screen.Request {
 	doc := in.Room.DocumentReader
-	if !in.Up || doc.Held || doc.CursorLine != c.placed || doc.TopLine != c.placedTop {
+	if !in.IsActive || doc.Held || doc.CursorLine != c.placed || doc.TopLine != c.placedTop {
 		return nil
 	}
 
@@ -262,7 +262,7 @@ func (c Logs) StepKind(in screen.Inputs, delta int) screen.Request {
 	stepped := c.checks.StepKind(in, delta)
 	placed := c.list().Place(in, hovered)
 
-	return screen.Batch{stepped, placed, c.reanchor(in), screen.Cmd(c.readsCmd(in))}
+	return screen.Batch{stepped, placed, c.reanchor(in), screen.RunCmd(c.readsCmd(in))}
 }
 
 func (c Logs) listActions(in screen.Inputs) keys.Spec[Logs] {
@@ -393,7 +393,7 @@ func (c Logs) keepDoc(width int) logsRendered {
 
 // readsCmd starts reading the log of each shown check that has one kept and is not read yet.
 func (c Logs) readsCmd(in screen.Inputs) tea.Cmd {
-	if !in.Up || c.reads == nil {
+	if !in.IsActive || c.reads == nil {
 		return nil
 	}
 
@@ -451,5 +451,5 @@ func (c Logs) applyRead(in screen.Inputs, msg logReadMsg) screen.Request {
 		next = c.readCmd(msg.checkID, int32(len(read.lines))+1, total)
 	}
 
-	return screen.Batch{c.reanchor(in), screen.Cmd(next)}
+	return screen.Batch{c.reanchor(in), screen.RunCmd(next)}
 }

@@ -27,7 +27,7 @@ func (a Archive) table(in screen.Inputs) []keys.Action[Archive] {
 			ID:   actionArchiveBack,
 			Keys: keys.FixedBack,
 			When: browsing,
-			Nav:  func(Archive, string) screen.Request { return screen.PickView{} },
+			Nav:  func(Archive, string) screen.Request { return screen.FocusViewSwitcher{} },
 		},
 		keys.Action[Archive]{
 			ID:     actionArchiveRename,

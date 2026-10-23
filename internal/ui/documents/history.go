@@ -80,7 +80,7 @@ func (d *Screen) stepNewer(in screen.Inputs) screen.Request {
 		if d.focus {
 			d.focus = false
 
-			return screen.FocusDoc{}
+			return screen.FocusDocument{}
 		}
 
 		return nil
@@ -274,7 +274,7 @@ func (d *Screen) applyVersionsListed(in screen.Inputs, msg versionsListedMsg) sc
 
 	h.versions, h.at = msg.versions, 0
 
-	return screen.Cmd(d.readHistoryCmd(in))
+	return screen.RunCmd(d.readHistoryCmd(in))
 }
 
 func (d *Screen) applyVersionRead(msg versionReadMsg) {

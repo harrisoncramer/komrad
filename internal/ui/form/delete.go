@@ -50,14 +50,14 @@ func (c DeleteConfirm) Open(in screen.Inputs, write func(Inputs) screen.Request)
 
 	var requests screen.Batch
 	for _, dir := range c.Dirs {
-		if !in.Inspections[dir].IsSettled() {
-			requests = append(requests, screen.Inspect{Dir: dir})
+		if !in.WorktreeInspections[dir].IsSettled() {
+			requests = append(requests, screen.InspectWorktree{Dir: dir})
 		}
 	}
 
 	return append(requests, Open{Form: Form{
 		Build: func(in Inputs) (*huh.Form, []string) {
-			confirm := confirmField(&confirmed, strings.TrimSpace(c.Warning+describeStanding(in.Inspections, c.Dirs)), "Delete")
+			confirm := confirmField(&confirmed, strings.TrimSpace(c.Warning+describeStanding(in.WorktreeInspections, c.Dirs)), "Delete")
 			if c.Values == nil {
 				return Of(config.Fixed(), confirm.Title(c.Title))
 			}

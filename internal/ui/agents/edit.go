@@ -34,11 +34,11 @@ func (a *Screen) pressEdit(in screen.Inputs, item panel.AgentRow) screen.Request
 	}
 
 	agent := item.Agent
-	refuse := func(reason string) screen.Note {
-		return screen.Note{
-			Kind:    screen.Error,
-			Summary: "could not edit " + agent.Name,
-			Detail:  reason,
+	refuse := func(reason string) screen.PostMessage {
+		return screen.PostMessage{
+			MessageKind: screen.Error,
+			Summary:     "could not edit " + agent.Name,
+			Detail:      reason,
 		}
 	}
 
@@ -95,10 +95,10 @@ func (a *Screen) applyEditorStaged(staged agentEditorStaged) screen.Request {
 	a.editing = nil
 
 	return screen.Batch{
-		screen.Note{
-			Kind:    screen.Error,
-			Summary: "could not edit " + edit.agent.Name,
-			Detail:  "there is no room beside the sidebar for an editor",
+		screen.PostMessage{
+			MessageKind: screen.Error,
+			Summary:     "could not edit " + edit.agent.Name,
+			Detail:      "there is no room beside the sidebar for an editor",
 		},
 		screen.Restage{},
 	}
@@ -116,7 +116,7 @@ func (a *Screen) dropEdit() screen.Request {
 		return nil
 	}
 
-	return screen.Batch{screen.Unstage{}, a.deps.Clients.EditedWrite(edit.agent, nil)}
+	return screen.Batch{screen.UnstageEditor{}, a.deps.Clients.EditedWrite(edit.agent, nil)}
 }
 
 // ReconcileEditor catches the editor pane going away on its own and saves what it wrote.

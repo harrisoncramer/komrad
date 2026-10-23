@@ -36,9 +36,9 @@ func (d *Screen) openRename(in screen.Inputs) screen.Request {
 	read, asked := d.bodies[item.id]
 	switch {
 	case asked && read.err != nil:
-		return screen.NewNote(screen.Warning, fmt.Sprintf("%q could not be read, so it cannot be renamed", item.name))
+		return screen.NewPostMessage(screen.Warning, fmt.Sprintf("%q could not be read, so it cannot be renamed", item.name))
 	case !asked || read.version == 0:
-		return screen.NewNote(screen.Warning, fmt.Sprintf("%q has not been read yet, so it cannot be renamed", item.name))
+		return screen.NewPostMessage(screen.Warning, fmt.Sprintf("%q has not been read yet, so it cannot be renamed", item.name))
 	}
 
 	d.renaming = &rename{
@@ -60,7 +60,7 @@ func (d *Screen) reconcileRename(in screen.Inputs) {
 func (d *Screen) updateRename(msg tea.Msg) screen.Request {
 	switch d.renaming.Take(msg, d.deps.Register) {
 	case field.NameGone:
-		return screen.NewNote(screen.Warning, d.renaming.GoneWarning())
+		return screen.NewPostMessage(screen.Warning, d.renaming.GoneWarning())
 	case field.NameHidden:
 		return screen.Hide{}
 	case field.NameCancelled:
@@ -92,9 +92,9 @@ func (d *Screen) saveRename() screen.Request {
 	item.name = name
 
 	return d.deps.Clients.RenameWrite(api.RenameWriteParams{
-		Doing:   "renaming " + renaming.Was(),
-		Summary: fmt.Sprintf("Could not rename document %q", renaming.Was()),
-		Row:     renaming.Key(),
+		Doing:          "renaming " + renaming.Was(),
+		FailureSummary: fmt.Sprintf("Could not rename document %q", renaming.Was()),
+		Row:            renaming.Key(),
 		Write: func(a api.Clients) error {
 			return a.WriteDocument(api.WriteDocumentParams{
 				ID:      item.id,

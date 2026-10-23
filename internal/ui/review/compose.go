@@ -27,7 +27,7 @@ func (r *Screen) compose(in screen.Inputs) screen.Request {
 	// A thread whose code is gone has no line to anchor a new thread to, but replying to it is
 	// what it is still on screen for.
 	if _, ok := r.diff.View().GetAnchor(r.diff.Cursor()); !ok && !replying {
-		return screen.NewNote(screen.Warning, "put the cursor on a line of the diff to comment on it")
+		return screen.NewPostMessage(screen.Warning, "put the cursor on a line of the diff to comment on it")
 	}
 
 	r.threads.editing = ""
@@ -74,7 +74,7 @@ func (r *Screen) openInput(in screen.Inputs, params newInputFieldParams) screen.
 	input, cmd := newInputField(params)
 	r.threads.editor = input
 
-	return screen.Cmd(cmd)
+	return screen.RunCmd(cmd)
 }
 
 func (r *Screen) updateComposer(in screen.Inputs, key tea.KeyPressMsg) screen.Request {
@@ -103,7 +103,7 @@ func (r *Screen) updateComposer(in screen.Inputs, key tea.KeyPressMsg) screen.Re
 	editor, cmd := r.threads.editor.update(key)
 	r.threads.editor = editor
 
-	return screen.Cmd(cmd)
+	return screen.RunCmd(cmd)
 }
 
 // messageEditedMsg is what the reviewer wrote in their own editor.
@@ -122,7 +122,7 @@ func (r Screen) openMessageEditor() screen.Request {
 		return screen.Report{Summary: "Your editor could not be opened on that message", Err: err}
 	}
 
-	return screen.Cmd(r.deps.Editor.Edit(path, func(err error) tea.Msg {
+	return screen.RunCmd(r.deps.Editor.Edit(path, func(err error) tea.Msg {
 		if err != nil {
 			return messageEditedMsg{agentID: agentID, err: err}
 		}
@@ -398,7 +398,7 @@ func (r Screen) writeMsg(in screen.Inputs, doing string, unsent *unsentMessage, 
 
 	return screen.Write{
 		Doing: doing,
-		Send: func() screen.Landed {
+		Send: func() screen.WriteResult {
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
 
@@ -417,7 +417,7 @@ func (r Screen) writeMsg(in screen.Inputs, doing string, unsent *unsentMessage, 
 				wrote.threads, wrote.readErr = listReviewThreads(ctx, agents, taskID)
 			}
 
-			return screen.Landed{Then: wrote}
+			return screen.WriteResult{FollowUp: wrote}
 		},
 	}
 }

@@ -119,12 +119,12 @@ func (g Menus) planMerge(task panel.Task, choice mergeChoice) screen.Request {
 
 	return screen.Write{
 		Doing: "planning the merge of " + task.PullRequest.Ref(),
-		Send: func() screen.Landed {
+		Send: func() screen.WriteResult {
 			plan, err := clients.PlanPullRequestMerge(task.PullRequest.URL)
 
-			return screen.Landed{
-				Replaces: err == nil,
-				Then:     mergePlannedMsg{task: task, choice: choice, plan: plan, err: err},
+			return screen.WriteResult{
+				FollowUpReplacesForm: err == nil,
+				FollowUp:             mergePlannedMsg{task: task, choice: choice, plan: plan, err: err},
 			}
 		},
 	}
@@ -215,10 +215,10 @@ func (g Menus) reportMerged(in screen.Inputs, task panel.Task, archive bool, err
 		return screen.Report{Summary: "Could not merge " + standing.Ref() + " of " + task.Slug, Err: err}
 	}
 
-	merged := screen.Note{
-		Kind:    screen.Info,
-		Summary: task.Slug + ": merged " + standing.Ref(),
-		Detail:  standing.Title,
+	merged := screen.PostMessage{
+		MessageKind: screen.Info,
+		Summary:     task.Slug + ": merged " + standing.Ref(),
+		Detail:      standing.Title,
 	}
 	if !archive {
 		return merged

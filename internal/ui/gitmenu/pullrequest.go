@@ -24,7 +24,7 @@ func (g Menus) openPullRequest(task panel.Task) screen.Request {
 		return screen.Report{Summary: "Could not open the pull request of " + task.Slug, Err: pullRequestRefusal(task)}
 	}
 
-	return screen.Cmd(g.openURLCmd(standing.URL))
+	return screen.RunCmd(g.openURLCmd(standing.URL))
 }
 
 // copyPullRequestURL puts the agent's current pull request's address on the clipboard, or says

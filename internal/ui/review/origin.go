@@ -39,7 +39,7 @@ func (r *Screen) toggleJump() screen.Request {
 
 	snapshot := findSnapshot(r.diff.snapshots, thread.GetSnapshotId())
 	if snapshot == nil {
-		return screen.NewNote(screen.Warning, errCommentSnapshotGone.Error())
+		return screen.NewPostMessage(screen.Warning, errCommentSnapshotGone.Error())
 	}
 
 	origin := &commentOrigin{

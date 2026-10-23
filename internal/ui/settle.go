@@ -21,26 +21,26 @@ type parkedWrite struct {
 
 // awaitsOf is everything a landed write waits on: the rows it named, the live pane it made with
 // its harness warm, and the rows of the agents it killed gone.
-func awaitsOf(landed screen.Landed, unstaged []panel.Agent) screen.Awaits {
-	awaits := landed.Awaits
-	if made := landed.Made; made != nil && !made.Archived {
+func awaitsOf(landed screen.WriteResult, unstaged []panel.Agent) screen.WaitFor {
+	awaits := landed.WaitFor
+	if made := landed.CreatedRow; made != nil && !made.Archived {
 		awaits.Pane, awaits.Harness = made.Pane, made.Harness
 	}
 
 	if landed.Killed {
-		awaits.Gone = append(awaits.Gone, screen.RowsIn(screen.ListAgents, panel.IDs(unstaged)...)...)
+		awaits.RowsGone = append(awaits.RowsGone, screen.RowsIn(screen.ListAgents, panel.IDs(unstaged)...)...)
 	}
 
 	return awaits
 }
 
 // isSettled reports whether the panel shows everything a write waits on.
-func (m *model) isSettled(a screen.Awaits) bool {
-	if slices.ContainsFunc(a.Shown, func(row screen.Row) bool { return !isListed(m.listing, row) }) {
+func (m *model) isSettled(a screen.WaitFor) bool {
+	if slices.ContainsFunc(a.RowsShown, func(row screen.Row) bool { return !isListed(m.listing, row) }) {
 		return false
 	}
 
-	if slices.ContainsFunc(a.Gone, func(row screen.Row) bool { return isListed(m.listing, row) }) {
+	if slices.ContainsFunc(a.RowsGone, func(row screen.Row) bool { return isListed(m.listing, row) }) {
 		return false
 	}
 

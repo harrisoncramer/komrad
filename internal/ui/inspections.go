@@ -86,7 +86,7 @@ func (m *model) inspectTaskWorktree(now time.Time) screen.Request {
 		return nil
 	}
 
-	return screen.Inspect{Dir: task.Cwd}
+	return screen.InspectWorktree{Dir: task.Cwd}
 }
 
 // wakeCwdSyncCmd wakes the cwd sync while the cursor rests on a live task or agent.
@@ -126,7 +126,7 @@ func (m *model) rereadTaskWorktree() screen.Request {
 		return nil
 	}
 
-	return screen.Inspect{Dir: task.Cwd}
+	return screen.InspectWorktree{Dir: task.Cwd}
 }
 
 // hoveredRecordAgent is the agent the record under the agents list or the archive is about, which

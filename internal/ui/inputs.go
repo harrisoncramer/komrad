@@ -25,9 +25,9 @@ func (m *model) inputsFor(s screenModel) screen.Inputs {
 // the root needs to lay its own chrome out.
 func (m *model) measuredInputsFor(s screenModel) screen.Inputs {
 	in := screen.Inputs{
-		Listing:     m.listing,
-		Inspections: m.inspections,
-		Up:          s == m.active(),
+		Listing:             m.listing,
+		WorktreeInspections: m.inspections,
+		IsActive:            s == m.active(),
 		Room: screen.Room{
 			PaneHeight:         m.term.height,
 			AreMessagesFocused: m.isMessagesFocused(),

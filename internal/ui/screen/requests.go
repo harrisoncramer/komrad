@@ -2,8 +2,8 @@ package screen
 
 import tea "charm.land/bubbletea/v2"
 
-// Cmd is a command the root runs as it is, for a screen's own reads and timers.
-type Cmd tea.Cmd
+// RunCmd is a command the root runs as it is, for a screen's own reads and timers.
+type RunCmd tea.Cmd
 
 // Settle stages what the cursor comes to rest on once it stops moving.
 type Settle struct{}
@@ -19,27 +19,27 @@ type OpenTerminal struct {
 	Dir string
 }
 
-// Unstage takes the editor on the stage down and hands the keys back to the sidebar.
-type Unstage struct{}
+// UnstageEditor takes the editor on the stage down and hands the keys back to the sidebar.
+type UnstageEditor struct{}
 
-// SelectGuest hands the keyboard to the pane on the stage when it is the one named.
-type SelectGuest struct {
+// FocusStagedPane hands the keyboard to the pane on the stage when it is the one named.
+type FocusStagedPane struct {
 	Pane string
 }
 
-// Reconcile puts the window back the way the screen up wants it.
-type Reconcile struct{}
+// RestoreWindowLayout puts the window back the way the screen up wants it.
+type RestoreWindowLayout struct{}
 
-// PickView hands the keys to the view switcher.
-type PickView struct{}
+// FocusViewSwitcher hands the keys to the view switcher.
+type FocusViewSwitcher struct{}
 
-// Leave puts down what the screen up had open, then applies what Then returns where it is set.
+// Leave puts down what the screen up had open, then applies what AfterClose returns where it is set.
 type Leave struct {
-	Then func() Request
+	AfterClose func() Request
 }
 
-// ResetFilter drops the filter without placing any cursor.
-type ResetFilter struct{}
+// DropFilterLeaveCursor drops the filter without placing any cursor.
+type DropFilterLeaveCursor struct{}
 
 // BeginFilter opens the filter line on the list holding the keys.
 type BeginFilter struct{}
@@ -52,38 +52,39 @@ type StepMatch struct {
 // ClearFilter drops the filter and puts the cursor back where the filter found it.
 type ClearFilter struct{}
 
-// Filter narrows the list up by a query, as if it were typed and applied.
-type Filter struct {
+// ApplyFilter narrows the list up by a query, as if it were typed and applied.
+type ApplyFilter struct {
 	Query string
 }
 
-// FocusDoc hands the keys to the document beside the list.
-type FocusDoc struct{}
+// FocusDocument hands the keys to the document beside the list.
+type FocusDocument struct{}
 
-// PlaceDoc puts the reader on a line of the document beside the list, with the window from Top.
-type PlaceDoc struct {
-	Line, Top int
+// PlaceDocumentReader puts the reader on a line of the document beside the list, with the window
+// from TopLine.
+type PlaceDocumentReader struct {
+	CursorLine, TopLine int
 }
 
-// Wrap wraps a diff's lines wider than its pane, or cuts them off again.
-type Wrap struct {
-	On bool
+// SetDiffWrap wraps a diff's lines wider than its pane, or cuts them off again.
+type SetDiffWrap struct {
+	ShouldWrap bool
 }
 
-// Inspect asks the server for one worktree directory's standing.
-type Inspect struct {
+// InspectWorktree asks the server for one worktree directory's standing.
+type InspectWorktree struct {
 	Dir string
 }
 
-// ReadLastScreen asks for the saved screen of the agent the screen up answers for.
-type ReadLastScreen struct{}
+// ReadSavedScreen asks for the saved screen of the agent the screen up answers for.
+type ReadSavedScreen struct{}
 
 // Copy puts text on the clipboard.
 type Copy struct {
 	Text string
 }
 
-// Kind is how a note reads.
+// Kind is how a message reads.
 type Kind int
 
 const (
@@ -93,28 +94,29 @@ const (
 	Error
 )
 
-// Note puts a message on the messages list.
-type Note struct {
-	Kind Kind
-	// Key names the message so a later note or Unnote can find it, empty for one that stands alone.
-	Key     string
-	Summary string
-	Detail  string
-	Hint    string
+// PostMessage puts a message on the messages list.
+type PostMessage struct {
+	MessageKind Kind
+	// MessageKey names the message so a later PostMessage or RemoveMessage can find it, empty for
+	// one that stands alone.
+	MessageKey string
+	Summary    string
+	Detail     string
+	Hint       string
 }
 
-// NewNote is a note that needs no more said than its summary.
-func NewNote(kind Kind, summary string) Note {
-	return Note{Kind: kind, Summary: summary, Detail: summary}
+// NewPostMessage is a message that needs no more said than its summary.
+func NewPostMessage(kind Kind, summary string) PostMessage {
+	return PostMessage{MessageKind: kind, Summary: summary, Detail: summary}
 }
 
-// Unnote takes down the message a note was keyed by.
-type Unnote struct {
-	Key string
+// RemoveMessage takes down the message a PostMessage was keyed by.
+type RemoveMessage struct {
+	MessageKey string
 }
 
-// Request marks Cmd as a request.
-func (Cmd) Request() {}
+// Request marks RunCmd as a request.
+func (RunCmd) Request() {}
 
 // Request marks Settle as a request.
 func (Settle) Request() {}
@@ -128,23 +130,23 @@ func (StageTerminal) Request() {}
 // Request marks OpenTerminal as a request.
 func (OpenTerminal) Request() {}
 
-// Request marks Unstage as a request.
-func (Unstage) Request() {}
+// Request marks UnstageEditor as a request.
+func (UnstageEditor) Request() {}
 
-// Request marks SelectGuest as a request.
-func (SelectGuest) Request() {}
+// Request marks FocusStagedPane as a request.
+func (FocusStagedPane) Request() {}
 
-// Request marks Reconcile as a request.
-func (Reconcile) Request() {}
+// Request marks RestoreWindowLayout as a request.
+func (RestoreWindowLayout) Request() {}
 
-// Request marks PickView as a request.
-func (PickView) Request() {}
+// Request marks FocusViewSwitcher as a request.
+func (FocusViewSwitcher) Request() {}
 
 // Request marks Leave as a request.
 func (Leave) Request() {}
 
-// Request marks ResetFilter as a request.
-func (ResetFilter) Request() {}
+// Request marks DropFilterLeaveCursor as a request.
+func (DropFilterLeaveCursor) Request() {}
 
 // Request marks BeginFilter as a request.
 func (BeginFilter) Request() {}
@@ -155,29 +157,29 @@ func (StepMatch) Request() {}
 // Request marks ClearFilter as a request.
 func (ClearFilter) Request() {}
 
-// Request marks Filter as a request.
-func (Filter) Request() {}
+// Request marks ApplyFilter as a request.
+func (ApplyFilter) Request() {}
 
-// Request marks FocusDoc as a request.
-func (FocusDoc) Request() {}
+// Request marks FocusDocument as a request.
+func (FocusDocument) Request() {}
 
-// Request marks PlaceDoc as a request.
-func (PlaceDoc) Request() {}
+// Request marks PlaceDocumentReader as a request.
+func (PlaceDocumentReader) Request() {}
 
-// Request marks Wrap as a request.
-func (Wrap) Request() {}
+// Request marks SetDiffWrap as a request.
+func (SetDiffWrap) Request() {}
 
-// Request marks Inspect as a request.
-func (Inspect) Request() {}
+// Request marks InspectWorktree as a request.
+func (InspectWorktree) Request() {}
 
-// Request marks ReadLastScreen as a request.
-func (ReadLastScreen) Request() {}
+// Request marks ReadSavedScreen as a request.
+func (ReadSavedScreen) Request() {}
 
 // Request marks Copy as a request.
 func (Copy) Request() {}
 
-// Request marks Note as a request.
-func (Note) Request() {}
+// Request marks PostMessage as a request.
+func (PostMessage) Request() {}
 
-// Request marks Unnote as a request.
-func (Unnote) Request() {}
+// Request marks RemoveMessage as a request.
+func (RemoveMessage) Request() {}

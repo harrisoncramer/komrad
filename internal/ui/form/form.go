@@ -16,8 +16,8 @@ const SubformsKey = "subforms"
 // Inputs is what the panel hands a form each time it builds or answers it.
 type Inputs struct {
 	Listing panel.Listing
-	// Inspections is what git last answered for each worktree directory.
-	Inspections map[string]panel.WorktreeInspection
+	// WorktreeInspections is what git last answered for each worktree directory.
+	WorktreeInspections map[string]panel.WorktreeInspection
 }
 
 // Form is a question the panel puts over the screen, and what answering it does.

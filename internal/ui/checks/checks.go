@@ -100,12 +100,12 @@ func (c *Screen) Enter(in screen.Inputs, target screen.Target) screen.Request {
 		*c = Screen{
 			deps:       c.deps,
 			agentID:    target.AgentID,
-			openedFrom: target.OpenedFrom,
+			openedFrom: target.OpenedFromScreen,
 			logs:       c.logs,
 		}
 	}
 
-	return screen.Cmd(c.listCmd(in))
+	return screen.RunCmd(c.listCmd(in))
 }
 
 // Update sends a key to the screen's table.
@@ -123,8 +123,8 @@ func (c *Screen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 	switch msg := msg.(type) {
 	case listedMsg:
 		return c.applyListed(in, msg), true
-	case screen.Relisted:
-		return screen.Cmd(c.listCmd(in)), true
+	case screen.ListingChanged:
+		return screen.RunCmd(c.listCmd(in)), true
 	}
 
 	return nil, false
@@ -245,7 +245,7 @@ func (c *Screen) listActions(in screen.Inputs) keys.Spec[*Screen] {
 				ID:   actionLogs,
 				Keys: keys.FixedOpen,
 				Nav: func(*Screen, string) screen.Request {
-					return screen.Open{Screen: screen.StatusCheckLogs, Target: screen.Target{AgentID: c.agentID, OpenedFrom: screen.StatusChecks}}
+					return screen.Open{Screen: screen.StatusCheckLogs, Target: screen.Target{AgentID: c.agentID, OpenedFromScreen: screen.StatusChecks}}
 				},
 			},
 		),
@@ -358,7 +358,7 @@ func pullRequestOf(listing panel.Listing, agentID string) string {
 // listCmd lists the status checks again when the agent's pull request or its head has moved since
 // they were last listed, once at a time.
 func (c *Screen) listCmd(in screen.Inputs) tea.Cmd {
-	if !in.Up {
+	if !in.IsActive {
 		return nil
 	}
 
@@ -421,7 +421,7 @@ func (c *Screen) applyListed(in screen.Inputs, msg listedMsg) screen.Request {
 		return requests
 	}
 
-	return append(requests, screen.Cmd(c.listCmd(in)))
+	return append(requests, screen.RunCmd(c.listCmd(in)))
 }
 
 func isFinished(item check) bool {

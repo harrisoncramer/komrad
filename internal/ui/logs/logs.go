@@ -134,18 +134,18 @@ func (l *Screen) Enter(in screen.Inputs, target screen.Target) screen.Request {
 		deps:       l.deps,
 		agentID:    target.AgentID,
 		taskID:     target.TaskID,
-		openedFrom: target.OpenedFrom,
+		openedFrom: target.OpenedFromScreen,
 		viewer:     logview.NewTail(ceiling),
 		format:     logview.FormatCompact,
 		generation: l.generation + 1,
 	}
 	if l.taskID == "" {
-		return screen.Cmd(l.listCmd())
+		return screen.RunCmd(l.listCmd())
 	}
 
 	taskID := l.taskID
 
-	return screen.Batch{screen.Cmd(l.listCmd()), l.deps.Clients.Write("marking the task's runs read", "Could not mark the task's runs read", func(a api.Clients) error {
+	return screen.Batch{screen.RunCmd(l.listCmd()), l.deps.Clients.Write("marking the task's runs read", "Could not mark the task's runs read", func(a api.Clients) error {
 		return a.MarkTaskRunsRead(taskID)
 	})}
 }
@@ -222,7 +222,7 @@ func (l *Screen) applySources(in screen.Inputs, msg sourcesMsg) screen.Request {
 			return nil
 		}
 
-		return screen.Cmd(l.tickCmd(l.deps.Clock))
+		return screen.RunCmd(l.tickCmd(l.deps.Clock))
 	}
 
 	hovered := list.KeyAt(l.rows(in), l.Row)
@@ -247,7 +247,7 @@ func (l *Screen) applyRead(msg readMsg) screen.Request {
 
 	l.err = msg.err
 	if msg.err != nil {
-		return screen.Cmd(l.tickCmd(l.deps.Clock))
+		return screen.RunCmd(l.tickCmd(l.deps.Clock))
 	}
 
 	if msg.resp.GetReset_() || l.replacing {
@@ -258,10 +258,10 @@ func (l *Screen) applyRead(msg readMsg) screen.Request {
 	l.readCursor, l.read = msg.resp.GetCursor(), true
 
 	if msg.resp.GetMore() {
-		return screen.Cmd(l.readCmd())
+		return screen.RunCmd(l.readCmd())
 	}
 
-	return screen.Cmd(l.tickCmd(l.deps.Clock))
+	return screen.RunCmd(l.tickCmd(l.deps.Clock))
 }
 
 func (l *Screen) applyTick(msg tickMsg) screen.Request {
@@ -270,10 +270,10 @@ func (l *Screen) applyTick(msg tickMsg) screen.Request {
 	}
 
 	if !l.listed {
-		return screen.Cmd(l.listCmd())
+		return screen.RunCmd(l.listCmd())
 	}
 
-	return screen.Cmd(tea.Batch(l.listCmd(), l.readCmd()))
+	return screen.RunCmd(tea.Batch(l.listCmd(), l.readCmd()))
 }
 
 func (l *Screen) tickCmd(clock screen.Clock) tea.Cmd {
@@ -293,7 +293,7 @@ func (l *Screen) switchSource(in screen.Inputs) screen.Request {
 	l.logFilter, l.pattern = filter.State{}, ""
 	l.applyFormat(row)
 
-	return screen.Batch{screen.Cmd(l.restart()), l.markFailedRunRead(row)}
+	return screen.Batch{screen.RunCmd(l.restart()), l.markFailedRunRead(row)}
 }
 
 // StageResting reads the source the cursor came to rest on.
@@ -354,7 +354,7 @@ func (l *Screen) updateLogFilter(key tea.KeyPressMsg) screen.Request {
 	l.edits++
 	generation, edits := l.generation, l.edits
 
-	return screen.Cmd(l.deps.Clock.After(filterSettle, func(time.Time) tea.Msg { return settledMsg{generation: generation, edits: edits} }))
+	return screen.RunCmd(l.deps.Clock.After(filterSettle, func(time.Time) tea.Msg { return settledMsg{generation: generation, edits: edits} }))
 }
 
 func (l *Screen) applySettled(msg settledMsg) screen.Request {
@@ -381,7 +381,7 @@ func (l *Screen) narrow() screen.Request {
 
 	l.pattern = pattern
 
-	return screen.Cmd(l.reread())
+	return screen.RunCmd(l.reread())
 }
 
 // clearLogFilter drops the pattern standing over the log and reads it whole again.

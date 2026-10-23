@@ -55,7 +55,7 @@ func (r *Screen) pressEdit(in screen.Inputs) screen.Request {
 	}
 
 	if reason, refused := r.isEditRefused(in); refused {
-		return screen.NewNote(screen.Warning, reason)
+		return screen.NewPostMessage(screen.Warning, reason)
 	}
 
 	return r.editFile(in)
@@ -98,11 +98,11 @@ func (r Screen) isAgentUnreadable(in screen.Inputs) (string, bool) {
 func (r *Screen) editFile(in screen.Inputs) screen.Request {
 	path, line, ok := r.diff.View().GetEditTarget(r.diff.Cursor())
 	if !ok {
-		return screen.NewNote(screen.Warning, "that file was deleted, so there is nothing to open")
+		return screen.NewPostMessage(screen.Warning, "that file was deleted, so there is nothing to open")
 	}
 
 	if reason, busy := r.isAgentBusy(in); busy {
-		return screen.NewNote(screen.Warning, reason)
+		return screen.NewPostMessage(screen.Warning, reason)
 	}
 
 	return screen.Stage{
@@ -122,15 +122,15 @@ type editorStaged struct {
 func (r *Screen) applyEditorStaged(staged editorStaged) screen.Request {
 	path, pane := staged.path, staged.pane
 	if pane == "" {
-		return screen.NewNote(screen.Warning, "there is no room beside the sidebar for an editor")
+		return screen.NewPostMessage(screen.Warning, "there is no room beside the sidebar for an editor")
 	}
 
 	r.edit.openEditor(path, pane)
 
-	return screen.Note{
-		Kind:    screen.Info,
-		Summary: "editing " + path,
-		Detail:  keys.MenuChordLabel(r.deps.Keys, r.deps.Keys.Review.EditFile) + " to come back",
+	return screen.PostMessage{
+		MessageKind: screen.Info,
+		Summary:     "editing " + path,
+		Detail:      keys.MenuChordLabel(r.deps.Keys, r.deps.Keys.Review.EditFile) + " to come back",
 	}
 }
 
@@ -164,7 +164,7 @@ func (r Screen) agentRow(in screen.Inputs) (panel.AgentRow, bool) {
 // closeEdit gives the stage back to the diff, tells the agent which files the reader opened, and
 // reads the worktree again with the reader's own writing in it.
 func (r *Screen) closeEdit(in screen.Inputs) screen.Request {
-	return screen.Batch{screen.Unstage{}, r.mailEdited(in), screen.Restage{}, r.catchUp()}
+	return screen.Batch{screen.UnstageEditor{}, r.mailEdited(in), screen.Restage{}, r.catchUp()}
 }
 
 // mailEdited puts the editor down and tells the agent which files the reader opened in it.

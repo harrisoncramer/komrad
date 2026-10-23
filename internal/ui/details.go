@@ -196,7 +196,7 @@ func (m *model) detailsActions() keys.Spec[*model] {
 			{
 				ID:   keys.DetailsCopy,
 				Keys: func(k config.Keybindings) []string { return k.Details.Copy },
-				Nav:  func(*model, string) screen.Request { return screen.Cmd(m.copyDetailsField()) },
+				Nav:  func(*model, string) screen.Request { return screen.RunCmd(m.copyDetailsField()) },
 			},
 		}...),
 		Legend: []keys.LegendRow[*model]{

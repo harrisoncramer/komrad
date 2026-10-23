@@ -155,15 +155,15 @@ func (r *Screen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 	case editorStaged:
 		return r.applyEditorStaged(msg), true
 	case loadedMsg, wroteMsg, messageEditedMsg:
-		if !in.Up {
+		if !in.IsActive {
 			return nil, true
 		}
 
 		routed := r.route(in, msg)
 
 		return screen.Batch{routed, r.followWorld(in)}, true
-	case screen.Relisted:
-		if !in.Up || !doesMoveReview(msg.Changed, r.agentID) {
+	case screen.ListingChanged:
+		if !in.IsActive || !doesMoveReview(msg.Changed, r.agentID) {
 			return nil, true
 		}
 

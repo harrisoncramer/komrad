@@ -462,7 +462,7 @@ func (r *Screen) landOnThread(in screen.Inputs, id string) screen.Request {
 // openStackedReview leaves this review for the review of another task in the stack.
 func (r *Screen) openStackedReview(in screen.Inputs, taskID string) screen.Request {
 	if said := r.stackedOffSaid(in, taskID); said != "" {
-		return screen.NewNote(screen.Warning, said)
+		return screen.NewPostMessage(screen.Warning, said)
 	}
 
 	writer, _ := in.Listing.FindTaskWriter(in.Listing.Tasks[taskID])

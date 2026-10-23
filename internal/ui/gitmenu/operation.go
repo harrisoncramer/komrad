@@ -48,12 +48,12 @@ func (g Menus) planOperation(op operation) screen.Request {
 
 	return screen.Write{
 		Doing: op.planning,
-		Send: func() screen.Landed {
+		Send: func() screen.WriteResult {
 			confirm, err := op.plan(clients)
 
-			return screen.Landed{
-				Replaces: err == nil,
-				Then:     plannedMsg{op: op, form: confirm, err: err},
+			return screen.WriteResult{
+				FollowUpReplacesForm: err == nil,
+				FollowUp:             plannedMsg{op: op, form: confirm, err: err},
 			}
 		},
 	}
@@ -65,8 +65,8 @@ func (g Menus) operationWrite(op operation) screen.Write {
 
 	return screen.Write{
 		Doing: op.running,
-		Send: func() screen.Landed {
-			return screen.Landed{Then: doneMsg{report: op.run(clients)}}
+		Send: func() screen.WriteResult {
+			return screen.WriteResult{FollowUp: doneMsg{report: op.run(clients)}}
 		},
 	}
 }
@@ -79,7 +79,7 @@ func (g Menus) applyPlanned(msg plannedMsg) screen.Request {
 
 	var skipped skippedError
 	if errors.As(msg.err, &skipped) {
-		return screen.NewNote(screen.Warning, string(skipped))
+		return screen.NewPostMessage(screen.Warning, string(skipped))
 	}
 
 	return screen.Report{Summary: msg.op.planFailed, Err: msg.err}

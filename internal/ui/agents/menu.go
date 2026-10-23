@@ -100,7 +100,7 @@ func (a *Screen) taskJumpMenu(nest menu.NestedMenuBuilder, agentID, taskID strin
 // taskLogsEntry opens the runs of every agent on a task.
 func (a *Screen) taskLogsEntry(task panel.Task) menu.Entry {
 	return menu.Leaving("logs", a.deps.Keys.Menu.Logs, func(screen.Inputs) screen.Request {
-		return screen.Open{Screen: screen.Logs, Target: screen.Target{TaskID: task.ID, OpenedFrom: screen.Agents}}
+		return screen.Open{Screen: screen.Logs, Target: screen.Target{TaskID: task.ID, OpenedFromScreen: screen.Agents}}
 	})
 }
 

@@ -100,7 +100,7 @@ func (m *model) openForm(f formState) tea.Cmd {
 
 // formInputs is what a form reads of the panel as it is built or answered.
 func (m *model) formInputs() form.Inputs {
-	return form.Inputs{Listing: m.listing, Inspections: m.inspections}
+	return form.Inputs{Listing: m.listing, WorktreeInspections: m.inspections}
 }
 
 // formColumnFloor is the narrowest a form is worth rendering beside a list at, being a field's
@@ -417,7 +417,7 @@ func (m *model) closeForm() tea.Cmd {
 	m.leaveForm()
 	m.reconcileSolo()
 
-	return m.enter(m.screen, screen.Target{Resume: true})
+	return m.enter(m.screen, screen.Target{IsResuming: true})
 }
 
 // fixedKeys is what every screen, menu and form answers.

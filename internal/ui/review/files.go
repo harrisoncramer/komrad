@@ -422,5 +422,5 @@ func (r *Screen) jumpFilesMatch(in screen.Inputs, direction int) screen.Request 
 		return r.landOnFile(in, row)
 	}
 
-	return screen.NewNote(screen.Warning, noFileWord)
+	return screen.NewPostMessage(screen.Warning, noFileWord)
 }

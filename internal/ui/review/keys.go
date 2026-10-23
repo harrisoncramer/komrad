@@ -120,7 +120,7 @@ func (r *Screen) diffWindow(in screen.Inputs) diffview.Window {
 func (r *Screen) jumpOpenThread(in screen.Inputs, direction int) screen.Request {
 	next, ok := r.diff.View().JumpOpenThread(r.diff.Cursor(), direction)
 	if !ok || next == r.diff.Cursor() {
-		return screen.NewNote(screen.Warning, r.diff.noOpenThreadSaid())
+		return screen.NewPostMessage(screen.Warning, r.diff.noOpenThreadSaid())
 	}
 
 	return r.moveCursor(in, next)

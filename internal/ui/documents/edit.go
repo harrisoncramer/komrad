@@ -36,10 +36,10 @@ func (d *Screen) pressEdit(in screen.Inputs) screen.Request {
 
 	read, asked := d.bodies[item.id]
 	if !asked || read.err != nil || read.body == "" || read.pending || read.updatedAt.Before(item.updatedAt) {
-		return screen.Note{
-			Kind:    screen.Error,
-			Summary: "could not edit " + item.name,
-			Detail:  "its text has not been read yet",
+		return screen.PostMessage{
+			MessageKind: screen.Error,
+			Summary:     "could not edit " + item.name,
+			Detail:      "its text has not been read yet",
 		}
 	}
 
@@ -72,10 +72,10 @@ func (d *Screen) applyEditorStaged(staged editorStaged) screen.Request {
 	if pane == "" {
 		return screen.Batch{
 			screen.Report{Summary: "could not edit " + item.name, Err: removeCopy(path)},
-			screen.Note{
-				Kind:    screen.Error,
-				Summary: "could not edit " + item.name,
-				Detail:  "there is no room beside the sidebar for an editor",
+			screen.PostMessage{
+				MessageKind: screen.Error,
+				Summary:     "could not edit " + item.name,
+				Detail:      "there is no room beside the sidebar for an editor",
 			},
 		}
 	}
@@ -101,7 +101,7 @@ func (d *Screen) closeEdit() screen.Request {
 	edit := *d.editing
 	d.editing = nil
 
-	return screen.Batch{screen.Unstage{}, d.saveEdit(edit)}
+	return screen.Batch{screen.UnstageEditor{}, d.saveEdit(edit)}
 }
 
 // saveEdit writes back what changed in the copy.
@@ -114,10 +114,10 @@ func (d *Screen) saveEdit(edit editing) screen.Request {
 
 	body := string(content)
 	if strings.TrimSpace(body) == "" {
-		return screen.Note{
-			Kind:    screen.Error,
-			Summary: summary,
-			Detail:  "komrad does not save an empty document, so your copy stays at " + edit.path,
+		return screen.PostMessage{
+			MessageKind: screen.Error,
+			Summary:     summary,
+			Detail:      "komrad does not save an empty document, so your copy stays at " + edit.path,
 		}
 	}
 

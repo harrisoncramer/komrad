@@ -16,7 +16,7 @@ func (a *Screen) hideMenu(tasks []panel.Task) menu.Menu {
 				Label: a.showHiddenDesc(),
 				Keys:  a.deps.Keys.HideMenu.ShowHidden,
 				Pick: func(in screen.Inputs) screen.Request {
-					return screen.Batch{screen.Reconcile{}, a.toggleHidden(in)}
+					return screen.Batch{screen.RestoreWindowLayout{}, a.toggleHidden(in)}
 				},
 			},
 		},

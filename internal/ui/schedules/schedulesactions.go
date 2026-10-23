@@ -52,7 +52,7 @@ func (w *Screen) actions(in screen.Inputs) keys.Spec[*Screen] {
 			{
 				ID:   actionBack,
 				Keys: keys.FixedBack,
-				Nav:  func(*Screen, string) screen.Request { return screen.PickView{} },
+				Nav:  func(*Screen, string) screen.Request { return screen.FocusViewSwitcher{} },
 			},
 			{
 				ID:     actionRename,

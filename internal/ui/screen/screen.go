@@ -22,10 +22,10 @@ type Target struct {
 	AgentID string
 	// TaskID is the task the screen opens on, for a screen that shows a task's work.
 	TaskID string
-	// OpenedFrom is the screen that opened this one.
-	OpenedFrom ID
-	// Resume says the screen is being gone back to and keeps what it held.
-	Resume bool
+	// OpenedFromScreen is the screen that opened this one.
+	OpenedFromScreen ID
+	// IsResuming says the screen is being gone back to and keeps what it held.
+	IsResuming bool
 }
 
 // Request is what a screen asks the root to do.

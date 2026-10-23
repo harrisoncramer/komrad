@@ -41,7 +41,7 @@ func (a *Screen) Details(in screen.Inputs) record.Details {
 func taskDetails(in screen.Inputs, now time.Time, glyphs glyph.Set, r agentRow) record.Details {
 	var tags []string
 	if r.task.ArchivedAt == nil {
-		tags = taskDetailsTags(in.Inspections, *r.task)
+		tags = taskDetailsTags(in.WorktreeInspections, *r.task)
 	}
 	var writerFields []record.Field
 	if writer, ok := r.writer(); ok {
@@ -52,7 +52,7 @@ func taskDetails(in screen.Inputs, now time.Time, glyphs glyph.Set, r agentRow) 
 	return record.Details{
 		ID:      r.task.ID,
 		Notices: agentNotices(glyphs, in.Room.SpinnerFrame, in.Listing.Tasks, r),
-		Fields:  taskFields(buildCheckoutParams(in.Inspections, now, *r.task), writerFields),
+		Fields:  taskFields(buildCheckoutParams(in.WorktreeInspections, now, *r.task), writerFields),
 		Tags:    tags,
 	}
 }
@@ -70,9 +70,9 @@ func agentDetails(in screen.Inputs, now time.Time, glyphs glyph.Set, r agentRow)
 	if r.underTask {
 		params.headerCwd = task.Cwd
 	} else {
-		params.checkout = checkoutFields(buildCheckoutParams(in.Inspections, now, task))
+		params.checkout = checkoutFields(buildCheckoutParams(in.WorktreeInspections, now, task))
 		if r.item.Agent.ArchivedAt == nil {
-			tags = taskDetailsTags(in.Inspections, task)
+			tags = taskDetailsTags(in.WorktreeInspections, task)
 		}
 	}
 

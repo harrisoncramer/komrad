@@ -643,7 +643,7 @@ func (a *Screen) moveAfterSnooze(in screen.Inputs, slot int) screen.Request {
 	if len(heads) == 0 {
 		a.Row = firstAgentRowIndex(a.rows(in))
 
-		return screen.NewNote(screen.Info, "nothing left to triage")
+		return screen.NewPostMessage(screen.Info, "nothing left to triage")
 	}
 
 	a.Row = heads[min(max(slot-1, 0), len(heads)-1)]
@@ -672,7 +672,7 @@ func (a *Screen) landInTriage(in screen.Inputs, selected string, slot int) {
 // jumpToTriage puts the cursor on the zone's first agent.
 func (a *Screen) jumpToTriage(in screen.Inputs) screen.Request {
 	if len(a.layout(in).zone) == 0 {
-		return screen.NewNote(screen.Info, "nothing to triage")
+		return screen.NewPostMessage(screen.Info, "nothing to triage")
 	}
 
 	a.Row = 0

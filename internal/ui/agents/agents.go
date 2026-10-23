@@ -66,7 +66,7 @@ func (a *Screen) Receive(in screen.Inputs, msg tea.Msg) (screen.Request, bool) {
 		a.settleRename(in, msg.Row, msg.Err)
 
 		return nil, true
-	case screen.Relisted:
+	case screen.ListingChanged:
 		return a.relist(in, msg), true
 	}
 
@@ -98,9 +98,9 @@ func (a *Screen) archiveAgents(agents []panel.Agent) screen.Request {
 	}
 
 	return a.deps.Clients.ArchivingWrite(api.ArchivingWriteParams{
-		Doing:   "archiving " + describeAgents(agents),
-		Summary: fmt.Sprintf("Could not archive %s", describeAgents(agents)),
-		Agents:  agents,
+		Doing:          "archiving " + describeAgents(agents),
+		FailureSummary: fmt.Sprintf("Could not archive %s", describeAgents(agents)),
+		Agents:         agents,
 		Write: func(clients api.Clients) error {
 			return clients.ArchiveAgents(panel.IDs(agents))
 		},
@@ -137,7 +137,7 @@ func (a *Screen) openAgent(in screen.Inputs, item panel.AgentRow) screen.Request
 	if item.Alive {
 		a.seeFinished(in, item)
 
-		return screen.SelectGuest{Pane: item.Agent.Pane}
+		return screen.FocusStagedPane{Pane: item.Agent.Pane}
 	}
 
 	return a.resume(item.Agent)
@@ -153,12 +153,12 @@ func (a *Screen) resume(agent panel.Agent) screen.Request {
 	clients := a.deps.Clients
 
 	return screen.Write{
-		Doing:   "resuming " + agent.Name,
-		Summary: fmt.Sprintf("Could not resume agent %q", agent.Name),
-		Send: func() screen.Landed {
+		Doing:          "resuming " + agent.Name,
+		FailureSummary: fmt.Sprintf("Could not resume agent %q", agent.Name),
+		Send: func() screen.WriteResult {
 			_, err := clients.ResumeAgent(agent.ID)
 
-			return screen.Landed{Err: err, Then: resumeSettled{agentID: agent.ID, err: err}}
+			return screen.WriteResult{Err: err, FollowUp: resumeSettled{agentID: agent.ID, err: err}}
 		},
 	}
 }
@@ -184,8 +184,8 @@ func (a *Screen) settleResume(in screen.Inputs, id string, err error) screen.Req
 }
 
 // relist puts the cursors of the tree, the zone and the archive on show back on the rows they were on.
-func (a *Screen) relist(in screen.Inputs, relisted screen.Relisted) screen.Request {
-	before := relisted.Before(in)
+func (a *Screen) relist(in screen.Inputs, relisted screen.ListingChanged) screen.Request {
+	before := relisted.WithPreviousListing(in)
 	treeRow := a.list().Hovered(before)
 	triageSlot := a.findZoneSlot(before)
 	archiveShown := a.archiveOfKind()
@@ -215,10 +215,10 @@ func (a *Screen) followAwaitingCLI(in screen.Inputs) screen.Request {
 			delete(a.awaitingCLI, id)
 		case item.Alive && panel.DoesPaneDecide(item.Agent.State):
 			delete(a.awaitingCLI, id)
-			notes = append(notes, screen.Note{
-				Kind:    screen.Info,
-				Summary: item.Agent.Name + " is back up",
-				Detail:  "Press enter on it to open its pane.",
+			notes = append(notes, screen.PostMessage{
+				MessageKind: screen.Info,
+				Summary:     item.Agent.Name + " is back up",
+				Detail:      "Press enter on it to open its pane.",
 			})
 		case item.Agent.Pane != "":
 			a.awaitingCLI[id] = true
@@ -314,15 +314,15 @@ func (a *Screen) startOrchestrator(workflow panel.Workflow) screen.Request {
 	return rowWrite(a.deps.Clients,
 		"starting the orchestrator of "+workflow.Name,
 		fmt.Sprintf("Could not reach the orchestrator of workflow %q", workflow.Name),
-		func(clients api.Clients) screen.Landed {
+		func(clients api.Clients) screen.WriteResult {
 			agent, err := clients.StartOrchestrator(workflow.ID)
 			if err != nil {
-				return screen.Landed{Err: err}
+				return screen.WriteResult{Err: err}
 			}
 
 			// The orchestrator has no row of its own, so the landing goes to the workflow it
 			// stands behind.
-			return madeWorkflow(workflow.ID, agent)
+			return createdWorkflow(workflow.ID, agent)
 		},
 	)
 }
@@ -406,5 +406,5 @@ func (a *Screen) Dispatches() []keys.Table {
 
 // StageResting restages the row the cursor came to rest on and reads its agent's saved screen.
 func (a *Screen) StageResting(screen.Inputs) screen.Request {
-	return screen.Batch{screen.Restage{}, screen.ReadLastScreen{}}
+	return screen.Batch{screen.Restage{}, screen.ReadSavedScreen{}}
 }
