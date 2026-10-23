@@ -74,7 +74,7 @@ func (g Menus) openEditForm(task panel.Task, read *forgev1.PullRequestText) scre
 
 	return form.Open{Form: form.Form{
 		Build: func(form.Inputs) (*huh.Form, []string) {
-			return editForm(config.Fixed(), "Edit "+task.PullRequest.Ref(), values)
+			return editForm(config.Fixed(), task.PullRequest.Ref(), values)
 		},
 		Editable: []form.Editable{{Key: "body", Value: &values.Body}},
 		Submit: func(form.Inputs) screen.Request {
@@ -150,9 +150,9 @@ func showsEdit(task panel.Task, req *forgev1.EditForgePullRequestRequest) bool {
 }
 
 // editForm asks for a pull request's title and description.
-func editForm(fixed config.FixedKeys, title string, values *editFormValues) (*huh.Form, []string) {
+func editForm(fixed config.FixedKeys, ref string, values *editFormValues) (*huh.Form, []string) {
 	return form.Of(fixed,
-		huh.NewInput().Key("title").Title(title).Description("the title").Value(&values.Title),
+		huh.NewInput().Key("title").Title("Edit "+ref).Description("the title").Value(&values.Title),
 		form.Text("body").Title("Description").
 			Description(fmt.Sprintf("%s opens $EDITOR; %s saves", keys.Label(fixed.Editor), keys.Label(fixed.Submit))).
 			Value(&values.Body),
