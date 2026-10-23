@@ -40,8 +40,6 @@ const (
 // changeFolds is how many ways the change block can be rendered, roomiest first.
 const changeFolds = 2
 
-const locationWidth = 30
-
 // View renders the diff and, beside it, the file tree, with the thread the cursor is standing on
 // in a popup over them.
 func (r Screen) View(in screen.Inputs, chrome screen.Chrome) string {
@@ -270,14 +268,14 @@ func (d diffPane) anchorView() string {
 	anchor, ok := d.View().GetAnchor(d.Cursor())
 	if !ok {
 		if thread, ok := d.threadAtCursor(); ok {
-			return paint.Panel.Title(paint.Clip(diffview.FormatThreadLocation(thread), locationWidth)) +
+			return paint.Panel.Title(paint.Clip(diffview.FormatThreadLocation(thread), paint.NameWidth)) +
 				d.commentWhereView(thread) + "\n"
 		}
 
 		return paint.Panel.Style(paint.ToneMuted).Render("  move onto a line to start a thread on it") + "\n"
 	}
 
-	head := paint.Panel.Title(paint.Clip(diffview.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart), locationWidth))
+	head := paint.Panel.Title(paint.Clip(diffview.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart), paint.NameWidth))
 	if thread, ok := d.threadAtCursor(); ok {
 		head += d.commentWhereView(thread)
 	}

@@ -5,6 +5,7 @@ import (
 
 	"komrad/internal/glyph"
 	"komrad/internal/ui/column"
+	"komrad/internal/ui/paint"
 	"komrad/internal/ui/reader"
 	"komrad/internal/ui/screen"
 )
@@ -15,7 +16,7 @@ const dividerGlyph = glyph.Divider
 // splitOf divides a window between a block and the sidebar at the width it is handed, and refuses
 // a window that cannot hold both halves.
 func splitOf(width, rows, sidebar, floor int) column.Split {
-	if rows <= 0 || width < nameWidth+floor {
+	if rows <= 0 || width < paint.NameWidth+floor {
 		return column.Split{}
 	}
 
@@ -53,7 +54,7 @@ func (m *model) sidebarColumns(in screen.Inputs) (int, column.Spec, bool) {
 	// widened to what a list of names reads in and capped at what leaves the block its floor,
 	// while a measured one is rendered where the divider is whatever that leaves either half.
 	if !measured {
-		sidebar = min(max(sidebar, nameWidth+sidebarChrome), m.term.width-spec.Floor)
+		sidebar = min(max(sidebar, paint.NameWidth+sidebarChrome), m.term.width-spec.Floor)
 	}
 
 	// Clamped so the fold and the render are at one width.
