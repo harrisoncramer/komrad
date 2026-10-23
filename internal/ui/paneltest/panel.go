@@ -57,7 +57,7 @@ type Params struct {
 	TriageRows    int
 	Keys          *config.Keybindings
 	Git           *gittest.Repo
-	Settings      ui.PanelSettings
+	Settings      Settings
 	Engine        engine.Remote
 	ShellCommand  []string
 	// TerminalCommand is what the stage attaches to a remote agent with.
@@ -78,13 +78,13 @@ type Params struct {
 }
 
 // RemoteEditSettings opens files in the editor given over ssh to a host its own ssh config names.
-func RemoteEditSettings(t *testing.T, editor string) ui.PanelSettings {
+func RemoteEditSettings(t *testing.T, editor string) Settings {
 	t.Helper()
 
 	sshConfig := filepath.Join(t.TempDir(), "komrad-remote.conf")
 	require.NoError(t, os.WriteFile(sshConfig, []byte("Host komrad-remote\n"), 0o600))
 
-	return ui.PanelSettings{
+	return Settings{
 		Editor:        editor,
 		SSHHost:       "komrad-remote",
 		SSHConfig:     sshConfig,
