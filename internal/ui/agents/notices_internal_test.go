@@ -293,11 +293,11 @@ func TestAgentNoticesWearTheGlyphTheRowRenders(t *testing.T) {
 	line := view.Prepare(view.Snapshot{Rows: []view.Row{snapshotRow(buildNoticeRow(item), snapshotParams{tasks: tasks})}}).Lines[0]
 
 	want := map[string]view.Cell{
-		failedRunNotice:                     line.Alert,
-		unreadMailNotice:                    line.Mail,
-		documentsNotice:                     line.Document,
-		sequenceNotice:                      line.Columns[0],
-		"its pull request " + autoMergeSaid: line.AutoMerge,
+		failedRunNotice:                       line.Alert,
+		unreadMailNotice:                      line.Mail,
+		documentsNotice:                       line.Document,
+		sequenceNotice:                        line.Columns[0],
+		"its pull request " + autoMergeNotice: line.AutoMerge,
 		"its pull request " + forgeSaid[view.ForgeOpen]: line.Columns[1],
 	}
 
