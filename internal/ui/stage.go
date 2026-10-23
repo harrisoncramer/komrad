@@ -6,7 +6,6 @@ import (
 
 	"komrad/internal/ui/layout"
 	"komrad/internal/ui/panel"
-	"komrad/internal/ui/screen"
 	"komrad/lib/xptr"
 
 	tea "charm.land/bubbletea/v2"
@@ -80,10 +79,6 @@ func (m *model) applyStageTick(msg stageTickMsg) tea.Cmd {
 	return tea.Batch(m.apply(m.active().StageResting(m.inputs())), m.apply(m.inspectTaskWorktree(m.clock.Now())), m.wakeCwdSyncCmd())
 }
 
-func (a *agentsScreen) StageResting(screen.Inputs) screen.Request {
-	return screen.Batch{screen.Restage{}, screen.ReadLastScreen{}}
-}
-
 // paneStatusRows is the rows the blank status line tmux renders over every pane takes from its window.
 const paneStatusRows = 1
 
@@ -96,7 +91,7 @@ func (m *model) sizeAgentWindows() {
 
 // stageSelection puts the pane of whatever the agents cursor is standing on beside the list.
 func (m *model) stageSelection() {
-	if m.agents.isEditorOpen() {
+	if m.agents.IsEditorOpen() {
 		return
 	}
 
@@ -129,7 +124,7 @@ func (m *model) stagedAgent() (panel.AgentRow, bool) {
 		return beside()
 	}
 
-	return m.agents.hoveredPane(m.inputs())
+	return m.agents.HoveredPane(m.inputs())
 }
 
 // reclaimStageKeys puts the keys back on the panel when they sit on the pane in the stage.

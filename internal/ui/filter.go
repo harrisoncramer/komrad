@@ -180,34 +180,6 @@ func (m *model) placeFilteredCursor(hovered string) {
 	}
 }
 
-// agentRowName is the text a search reads a row of the tree by: the workflow's own name on a
-// header, the slug on a task, the agent's on a row.
-func agentRowName(row agentRow) string {
-	if row.isTask() {
-		return row.task.Slug
-	}
-	if row.header {
-		return row.workflow.Name
-	}
-
-	return row.item.Agent.Name
-}
-
-// agentRowDepth is how far a row of the tree is indented: a header, an agent or a task under it,
-// or a reviewer under its task.
-func agentRowDepth(row agentRow) int {
-	switch {
-	case row.isTask():
-		return 1 + row.depth
-	case row.header:
-		return 0
-	case row.underTask:
-		return 2 + row.depth
-	}
-
-	return 1
-}
-
 // stepFilterMatch walks the cursor delta rows the search matches along.
 func (m *model) stepFilterMatch(delta int) tea.Cmd {
 	if found, ok := m.matchAt(delta); ok {

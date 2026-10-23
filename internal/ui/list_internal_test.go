@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	"komrad/internal/ui/agents"
 	"komrad/internal/ui/checks"
 	"komrad/internal/ui/documents"
 	"komrad/internal/ui/keys"
@@ -105,9 +106,9 @@ func armsOf(t *testing.T, s screen.ID) []specArm {
 		switch spec := table.(type) {
 		case keys.Spec[*model]:
 			arms = append(arms, specArms(spec)...)
-		case keys.Spec[*agentsScreen]:
+		case keys.Spec[*agents.Screen]:
 			arms = append(arms, specArms(spec)...)
-		case keys.Spec[archivedAgentsScreen]:
+		case keys.Spec[agents.Archive]:
 			arms = append(arms, specArms(spec)...)
 		case keys.Spec[*schedules.Screen]:
 			arms = append(arms, specArms(spec)...)

@@ -20,7 +20,6 @@ import (
 	"connectrpc.com/connect"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -480,20 +479,6 @@ func measureListRule(frame string) int {
 	}
 
 	return 0
-}
-
-func findRowWith(t *testing.T, frame, want string) string {
-	t.Helper()
-
-	for _, line := range paneltest.Sidebar(frame) {
-		if strings.Contains(line, want) {
-			return line
-		}
-	}
-
-	require.Failf(t, "no row carries the text", "%q", want)
-
-	return ""
 }
 
 func buildListScreens() []listScreen {

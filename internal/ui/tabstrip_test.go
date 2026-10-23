@@ -111,7 +111,7 @@ func TestTabStrip(t *testing.T) {
 	})
 
 	t.Run("the record and the strip take the keys from each other", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, buildSelectable()...)
+		harness := paneltest.OpenAgents(t, paneltest.BuildSelectable()...)
 
 		harness.Press("pick:record", "f")
 		frame := harness.Frame()

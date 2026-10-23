@@ -6,6 +6,7 @@ import (
 	"komrad/internal/client"
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/screen"
 
 	tea "charm.land/bubbletea/v2"
 )
@@ -58,7 +59,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	cmd := m.route(msg)
 	caught := m.releaseWatch(false)
 
-	m.settleTriage()
+	m.agents.SettleTriage(m.inputsFor(&m.agents), m.screen == screen.Agents)
 	warming := m.pollWarmup()
 	spinning := m.spinLoader()
 	pulse := m.pulseMessages(landed)

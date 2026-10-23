@@ -7,8 +7,11 @@ import (
 	"komrad/internal/ui/paneltest"
 	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
+	taskv1 "komrad/proto/gen/task/v1"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -72,7 +75,7 @@ func TestDocumentsJump(t *testing.T) {
 		t.Helper()
 
 		harness := paneltest.OpenAgents(t, buildSubpagesAgents()...)
-		answerDocuments(harness, documents)
+		harness.AnswerDocuments(documents)
 		harness.MoveToRow("task-quiet")
 		harness.Press("tab", "tab")
 		harness.Advance(time.Second)
@@ -87,13 +90,13 @@ func TestDocumentsJump(t *testing.T) {
 	}{
 		{
 			name: "the jump menu lands on the task the hovered document belongs to",
-			open: func(t *testing.T) *paneltest.Panel { return openEvery(t, buildAuthorDocuments()) },
+			open: func(t *testing.T) *paneltest.Panel { return openEvery(t, paneltest.BuildAuthorDocuments()) },
 			jump: "t",
 		},
 		{
 			name: "the jump menu on a document with no task lands on its author",
 			open: func(t *testing.T) *paneltest.Panel {
-				documents := buildAuthorDocuments()
+				documents := paneltest.BuildAuthorDocuments()
 				for _, document := range documents {
 					document.TaskId = nil
 				}
@@ -105,7 +108,15 @@ func TestDocumentsJump(t *testing.T) {
 		{
 			name: "the jump menu lands on an archived task among the archived agents",
 			open: func(t *testing.T) *paneltest.Panel {
-				harness := openArchivedSubpages(t)
+				author := paneltest.ArchivedAgent("author", "author", "w1")
+				author.Documents = 2
+				author.DocumentsUpdatedAt = timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
+				task := paneltest.TaskOf(author)
+				task.ArchivedAt = paneltest.ArchivedAt
+				harness := paneltest.OpenArchivedAgents(t, paneltest.Workflow("w1", "komrad"), author, task)
+				harness.AnswerDocuments(paneltest.BuildAuthorDocuments())
+				harness.Press("j", "j", "space")
+				require.Contains(t, harness.Frame(), "  author")
 				harness.Press("J", "d")
 				harness.Advance(time.Second)
 
@@ -119,10 +130,13 @@ func TestDocumentsJump(t *testing.T) {
 				author := paneltest.ArchivedAgent("author", "author", "w1")
 				author.Documents = 2
 				author.DocumentsUpdatedAt = timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
+				deleted := paneltest.TaskOf(author)
+				deleted.ArchivedAt = paneltest.ArchivedAt
+				deleted.WorktreeRemovalReason = taskv1.WorktreeRemovalReason_WORKTREE_REMOVAL_REASON_DELETED
 				harness := paneltest.Start(t, paneltest.Params{})
 				harness.Press("F", "shift+tab", "esc")
-				harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "komrad"), author, newDeletedTaskOf(author)))
-				answerDocuments(harness, buildAuthorDocuments())
+				harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "komrad"), author, deleted))
+				harness.AnswerDocuments(paneltest.BuildAuthorDocuments())
 				harness.Press("j", "j", "space", "J", "d")
 				harness.Advance(time.Second)
 
@@ -142,5 +156,30 @@ func TestDocumentsJump(t *testing.T) {
 			assert.Equal(t, screen.Agents, paneltest.Screen(harness.Frame()))
 			assert.Contains(t, paneltest.HoveredRow(harness.Frame()), "task-author")
 		})
+	}
+}
+
+// buildSubpagesAgents is a workflow whose orchestrator and one agent have written, beside an agent
+// that has not and a reviewer of the one that has.
+func buildSubpagesAgents() []proto.Message {
+	written := timestamppb.New(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
+	orchestrator := paneltest.Orchestrator()
+	orchestrator.Documents = 2
+	orchestrator.DocumentsUpdatedAt = written
+
+	author := paneltest.Agent("author", "author", "w1")
+	author.Documents = 2
+	author.DocumentsUpdatedAt = written
+	author.Cwd = "/trees/author"
+	quiet := paneltest.Agent("quiet", "quiet", "w1")
+
+	return []proto.Message{
+		paneltest.Workflow("w1", "komrad"),
+		orchestrator,
+		author,
+		paneltest.TaskOf(author),
+		quiet,
+		paneltest.TaskOf(quiet),
+		paneltest.Reviewer("reviewer", "reviewer", "author"),
 	}
 }

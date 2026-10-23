@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -43,8 +44,14 @@ func openHelp(t *testing.T, params paneltest.Params, press ...string) *paneltest
 	harness := paneltest.Start(t, params)
 	harness.AnswerWorktreeReads()
 	harness.Refuse(agentv1connect.AgentServiceResumeAgentProcedure, newTracedRefusal("no such agent"))
-	harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), newThinking(), dormant))
+	harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), paneltest.Thinking(), dormant))
 	harness.Press(press...)
 
 	return harness
+}
+
+func findRule(frame string) int {
+	return slices.IndexFunc(paneltest.SplitLines(frame), func(line string) bool {
+		return strings.HasPrefix(line, "─")
+	})
 }

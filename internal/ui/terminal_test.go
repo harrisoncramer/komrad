@@ -52,8 +52,8 @@ func TestTerminal(t *testing.T) {
 		harness := openTerminal(t, paneltest.Params{}, agent)
 		harness.Press("space", "t")
 
-		harness.Watch(paneltest.Snapshot(withTasks([]proto.Message{paneltest.Workflow("w1", "backend"), agent})...))
-		harness.Watch(paneltest.Snapshot(withTasks([]proto.Message{paneltest.Workflow("w1", "backend"), agent})...))
+		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), agent, paneltest.TaskOf(agent)))
+		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), agent, paneltest.TaskOf(agent)))
 
 		assert.Len(t, readShells(harness), 1)
 	})
@@ -66,7 +66,7 @@ func TestTerminal(t *testing.T) {
 		harness.Tmux().SetActivePane(harness.Tmux().StagePane())
 		harness.Send(tea.BlurMsg{})
 
-		harness.Watch(paneltest.Snapshot(withTasks([]proto.Message{paneltest.Workflow("w1", "backend"), agent})...))
+		harness.Watch(paneltest.Snapshot(paneltest.Workflow("w1", "backend"), agent, paneltest.TaskOf(agent)))
 
 		assert.Empty(t, harness.Tmux().SelectedPanes()[selected:])
 		assert.False(t, harness.Tmux().IsZoomed())

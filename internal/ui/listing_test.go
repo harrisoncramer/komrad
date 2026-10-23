@@ -26,7 +26,7 @@ func TestListingSettlesWrites(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		open         func(t *testing.T, frames *harnessFrameFake) *paneltest.Panel
+		open         func(t *testing.T, frames *paneltest.HarnessFrames) *paneltest.Panel
 		setup        func(harness *paneltest.Panel)
 		press        []string
 		parkedPress  []string
@@ -40,14 +40,14 @@ func TestListingSettlesWrites(t *testing.T) {
 	}{
 		{
 			name:    "a created agent is parked until the watch carries it",
-			setup:   func(harness *paneltest.Panel) { answerAgentCreate(harness, "") },
+			setup:   func(harness *paneltest.Panel) { harness.AnswerAgentCreate("") },
 			press:   []string{"k", "space", "c", "h", "i", "enter"},
 			settle:  []*watchv1.WatchEvent{paneltest.Puts(paneltest.Agent("a2", "new", "w1"))},
 			wantRow: "├─ new",
 		},
 		{
 			name:    "a created workflow settles once its header arrives",
-			setup:   answerWorkflowCreate,
+			setup:   (*paneltest.Panel).AnswerWorkflowCreate,
 			press:   []string{"k", "space", "w", "w", "e", "b", "enter"},
 			settle:  []*watchv1.WatchEvent{paneltest.Puts(paneltest.Workflow("w2", "web"))},
 			wantRow: "web",
@@ -55,7 +55,7 @@ func TestListingSettlesWrites(t *testing.T) {
 		{
 			name: "a row the watch delivered before the write answered settles it at once",
 			setup: func(harness *paneltest.Panel) {
-				answerAgentCreate(harness, "")
+				harness.AnswerAgentCreate("")
 				harness.Watch(paneltest.Puts(paneltest.Agent("a2", "new", "w1")))
 			},
 			press:   []string{"k", "k", "space", "c", "h", "i", "enter"},
@@ -72,7 +72,7 @@ func TestListingSettlesWrites(t *testing.T) {
 		},
 		{
 			name:    "a row arriving after the parked write ran out of time leaves the cursor where it was",
-			setup:   func(harness *paneltest.Panel) { answerAgentCreate(harness, "") },
+			setup:   func(harness *paneltest.Panel) { harness.AnswerAgentCreate("") },
 			press:   []string{"k", "space", "c", "h", "i", "enter"},
 			expire:  true,
 			settle:  []*watchv1.WatchEvent{paneltest.Puts(paneltest.Agent("a2", "new", "w1"))},
@@ -80,7 +80,7 @@ func TestListingSettlesWrites(t *testing.T) {
 		},
 		{
 			name: "a key pressed while a write is parked takes the cursor back",
-			open: func(t *testing.T, _ *harnessFrameFake) *paneltest.Panel {
+			open: func(t *testing.T, _ *paneltest.HarnessFrames) *paneltest.Panel {
 				return paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), paneltest.Dormant("old"))
 			},
 			setup:       (*paneltest.Panel).AnswerResume,
@@ -106,7 +106,7 @@ func TestListingSettlesWrites(t *testing.T) {
 			name: "a focused write settled by one watch batch selects its pane once it is swapped in",
 			open: openSettlingBackend,
 			setup: func(harness *paneltest.Panel) {
-				answerWorkflowCreate(harness)
+				harness.AnswerWorkflowCreate()
 				answerOrchestratorStart(harness)
 			},
 			press:        []string{"space", "w", "a", "p", "i", "enter"},
@@ -117,7 +117,7 @@ func TestListingSettlesWrites(t *testing.T) {
 		},
 		{
 			name:    "a row the filter hides leaves the cursor on a row it can see",
-			setup:   func(harness *paneltest.Panel) { answerAgentCreate(harness, "") },
+			setup:   func(harness *paneltest.Panel) { harness.AnswerAgentCreate("") },
 			press:   []string{"/", "tab", "^", "o", "l", "d", "$", "enter", "k", "space", "c", "h", "i", "enter"},
 			settle:  []*watchv1.WatchEvent{paneltest.Puts(paneltest.Agent("a2", "new", "w1"))},
 			wantRow: "api",
@@ -125,9 +125,9 @@ func TestListingSettlesWrites(t *testing.T) {
 		{
 			name:         "a batch for another row after the write settled keeps the pane the write showed",
 			open:         openSettlingStaged,
-			setup:        func(harness *paneltest.Panel) { answerAgentCreate(harness, "%9") },
+			setup:        func(harness *paneltest.Panel) { harness.AnswerAgentCreate("%9") },
 			press:        []string{"k", "space", "c", "h", "i", "enter"},
-			settle:       []*watchv1.WatchEvent{paneltest.Puts(newCreatedAgent()), paneltest.Puts(newStagedOld("renamed"))},
+			settle:       []*watchv1.WatchEvent{paneltest.Puts(paneltest.CreatedAgent()), paneltest.Puts(newStagedOld("renamed"))},
 			wantRow:      "├─ check-ci",
 			wantGuest:    "%9",
 			wantSelected: []string{},
@@ -138,10 +138,10 @@ func TestListingSettlesWrites(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			frames := &harnessFrameFake{isShowing: !tt.showsLate}
+			frames := &paneltest.HarnessFrames{IsShowing: !tt.showsLate}
 			open := tt.open
 			if open == nil {
-				open = func(t *testing.T, _ *harnessFrameFake) *paneltest.Panel { return openSettling(t) }
+				open = func(t *testing.T, _ *paneltest.HarnessFrames) *paneltest.Panel { return openSettling(t) }
 			}
 			harness := open(t, frames)
 			tt.setup(harness)
@@ -158,7 +158,7 @@ func TestListingSettlesWrites(t *testing.T) {
 				harness.Watch(event)
 			}
 			if tt.showsLate {
-				frames.isShowing = true
+				frames.IsShowing = true
 				harness.Advance(time.Second)
 			}
 
@@ -250,10 +250,10 @@ func TestListingFocus(t *testing.T) {
 		t.Parallel()
 
 		harness := openSettling(t)
-		answerAgentCreate(harness, "%9")
+		harness.AnswerAgentCreate("%9")
 
 		harness.Press("k", "space", "c", "h", "i", "enter")
-		harness.Watch(paneltest.Puts(newCreatedAgent()))
+		harness.Watch(paneltest.Puts(paneltest.CreatedAgent()))
 
 		assert.Equal(t, "%9", harness.Tmux().GuestPane())
 		assert.Empty(t, harness.Tmux().SelectedPanes())
@@ -340,14 +340,6 @@ func TestListingUnreachable(t *testing.T) {
 
 const serverAddr = "127.0.0.1:8787"
 
-type harnessFrameFake struct {
-	isShowing bool
-}
-
-func (f *harnessFrameFake) DoesFrameShowHarness(string, string) bool {
-	return f.isShowing
-}
-
 func openSettling(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
@@ -357,7 +349,7 @@ func openSettling(t *testing.T) *paneltest.Panel {
 	return harness
 }
 
-func openSettlingTelescope(t *testing.T, frames *harnessFrameFake) *paneltest.Panel {
+func openSettlingTelescope(t *testing.T, frames *paneltest.HarnessFrames) *paneltest.Panel {
 	t.Helper()
 
 	harness := paneltest.Start(t, paneltest.Params{HarnessFrames: frames})
@@ -367,7 +359,7 @@ func openSettlingTelescope(t *testing.T, frames *harnessFrameFake) *paneltest.Pa
 	return harness
 }
 
-func openSettlingBackend(t *testing.T, frames *harnessFrameFake) *paneltest.Panel {
+func openSettlingBackend(t *testing.T, frames *paneltest.HarnessFrames) *paneltest.Panel {
 	t.Helper()
 
 	harness := paneltest.Start(t, paneltest.Params{HarnessFrames: frames})
@@ -377,7 +369,7 @@ func openSettlingBackend(t *testing.T, frames *harnessFrameFake) *paneltest.Pane
 	return harness
 }
 
-func openSettlingStaged(t *testing.T, _ *harnessFrameFake) *paneltest.Panel {
+func openSettlingStaged(t *testing.T, _ *paneltest.HarnessFrames) *paneltest.Panel {
 	t.Helper()
 
 	harness := paneltest.OpenAgents(t, paneltest.Workflow("w1", "api"), newStagedOld("old"))
@@ -400,20 +392,6 @@ func newWorkflowOrchestrator(workflow string) *agentv1.Agent {
 	orch.WorkflowId = workflow
 
 	return orch
-}
-
-func answerAgentCreate(harness *paneltest.Panel, pane string) {
-	harness.Answer(agentv1connect.AgentServiceCreateAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
-		return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: &agentv1.Agent{Id: "a2", PaneId: pane}}), nil
-	})
-}
-
-func newCreatedAgent() *agentv1.Agent {
-	agent := paneltest.Agent("a2", "check-ci", "w1")
-	agent.PaneId = "%9"
-	agent.Alive = xptr.Ptr(true)
-
-	return agent
 }
 
 func openUnreachable(t *testing.T, remote engine.Remote) *paneltest.Panel {

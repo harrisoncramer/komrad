@@ -129,7 +129,9 @@ func TestMenu(t *testing.T) {
 	t.Run("an entry that closes it hands the window back with the stage in one move", func(t *testing.T) {
 		t.Parallel()
 
-		harness := openTriage(t, 3, buildTriage()...)
+		harness := paneltest.Start(t, paneltest.Params{TriageRows: 3})
+		harness.AnswerWorktreeReads()
+		harness.Watch(paneltest.Snapshot(paneltest.BuildTriage()...))
 		harness.Press("t")
 		harness.Advance(time.Second)
 		harness.Press("space")
@@ -192,12 +194,12 @@ func openPullRequestReview(t *testing.T) *paneltest.Panel {
 	t.Helper()
 
 	harness, reviewed := startReviewed(t, paneltest.Params{})
-	reviewed.task.RepositoryUrl = xptr.Ptr(repositoryURL)
+	reviewed.task.RepositoryUrl = xptr.Ptr(paneltest.RepositoryURL)
 	reviewed.task.Branch = xptr.Ptr("agent/auth")
 	harness.Watch(reviewed.snapshot(&pullrequestv1.PullRequest{
 		Id:                "pr-1",
-		RepositoryUrl:     repositoryURL,
-		HeadRepositoryUrl: repositoryURL,
+		RepositoryUrl:     paneltest.RepositoryURL,
+		HeadRepositoryUrl: paneltest.RepositoryURL,
 		HeadBranch:        "agent/auth",
 		Number:            7,
 		State:             pullrequestv1.PullRequestState_PULL_REQUEST_STATE_OPEN,

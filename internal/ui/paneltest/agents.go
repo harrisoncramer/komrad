@@ -10,12 +10,16 @@ import (
 
 	agentv1 "komrad/proto/gen/agent/v1"
 	"komrad/proto/gen/agent/v1/agentv1connect"
+	workflowv1 "komrad/proto/gen/workflow/v1"
+	"komrad/proto/gen/workflow/v1/workflowv1connect"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 	"komrad/proto/gen/worktree/v1/worktreev1connect"
 
 	"connectrpc.com/connect"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -106,3 +110,39 @@ func (p *Panel) MoveToRow(name string) {
 
 	require.Contains(p.t, strings.Fields(HoveredRow(p.Frame())), name, "no row is named %q", name)
 }
+
+// HarnessFrames reads every pane as showing its harness while IsShowing holds.
+type HarnessFrames struct {
+	IsShowing bool
+}
+
+// DoesFrameShowHarness reports IsShowing whatever the pane.
+func (f *HarnessFrames) DoesFrameShowHarness(string, string) bool {
+	return f.IsShowing
+}
+
+// AnswerAgentCreate answers each agent create with agent a2 in the pane given.
+func (p *Panel) AnswerAgentCreate(pane string) {
+	p.Answer(agentv1connect.AgentServiceCreateAgentProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: &agentv1.Agent{Id: "a2", PaneId: pane}}), nil
+	})
+}
+
+// AnswerWorkflowCreate answers each workflow create with workflow w2.
+func (p *Panel) AnswerWorkflowCreate() {
+	p.Answer(workflowv1connect.WorkflowServiceCreateWorkflowProcedure, func(connect.AnyRequest) (connect.AnyResponse, error) {
+		return connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: &workflowv1.Workflow{Id: "w2"}}), nil
+	})
+}
+
+// AnswerDocuments lists the documents and reads the first of them whichever one is asked for.
+func (p *Panel) AnswerDocuments(documents []*agentv1.Document) {
+	read := proto.CloneOf(documents[0])
+	read.Body = "# Design the cache\n\nKeep the cache warm."
+
+	p.Answer(agentv1connect.AgentServiceListDocumentsProcedure, AnswerWith(&agentv1.ListDocumentsResponse{Documents: documents}))
+	p.Answer(agentv1connect.AgentServiceGetDocumentProcedure, AnswerWith(&agentv1.GetDocumentResponse{Document: read}))
+}
+
+// IgnoringEventPrompts compares a workflow create without its event prompts.
+var IgnoringEventPrompts = []cmp.Option{protocmp.IgnoreFields(&workflowv1.CreateWorkflowRequest{}, "event_prompts")}

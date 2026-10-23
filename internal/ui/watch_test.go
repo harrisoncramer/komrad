@@ -118,14 +118,14 @@ func TestWatch(t *testing.T) {
 	t.Run("unclaimed mail is marked until it expires by the panel's clock or is claimed", func(t *testing.T) {
 		t.Parallel()
 
-		expired := newUnreadMail("expired")
+		expired := paneltest.UnreadMail("expired")
 		expired.Id = "m2"
 		expired.ExpiresAt = timestamppb.New(time.Now().Add(-time.Hour).UTC())
 		harness := paneltest.OpenAgents(t,
 			paneltest.Workflow("w1", "api"),
 			paneltest.AgentAt("waiting", "w1", 2),
 			paneltest.AgentAt("expired", "w1", 1),
-			newUnreadMail("waiting"),
+			paneltest.UnreadMail("waiting"),
 			expired,
 		)
 

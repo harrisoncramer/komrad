@@ -18,7 +18,7 @@ import (
 // TestClickRow covers a left click putting the cursor on the list row under it.
 func TestClickRow(t *testing.T) {
 	t.Run("a click on a row puts the cursor on it", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, buildRecorded()...)
+		harness := paneltest.OpenAgents(t, paneltest.BuildRecorded()...)
 		require.Equal(t, "└─ auth", paneltest.HoveredRow(harness.Frame()))
 
 		harness.Send(harness.ClickOn("backend"))
@@ -27,7 +27,7 @@ func TestClickRow(t *testing.T) {
 	})
 
 	t.Run("a click on the row under the cursor opens the menu", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, buildRecorded()...)
+		harness := paneltest.OpenAgents(t, paneltest.BuildRecorded()...)
 
 		harness.Send(harness.ClickOnLine("└─ auth", "auth"))
 
@@ -35,7 +35,7 @@ func TestClickRow(t *testing.T) {
 	})
 
 	t.Run("a right click leaves the cursor where it was", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, buildRecorded()...)
+		harness := paneltest.OpenAgents(t, paneltest.BuildRecorded()...)
 		click := harness.ClickOn("backend")
 		click.Button = tea.MouseRight
 
@@ -65,11 +65,11 @@ func TestClickKind(t *testing.T) {
 
 // TestClickTab covers a left click on the sort strip choosing the column under it.
 func TestClickTab(t *testing.T) {
-	harness := paneltest.OpenAgents(t, buildSortable()...)
+	harness := paneltest.OpenAgents(t, paneltest.BuildSortable()...)
 
 	harness.Send(harness.ClickOnLine("f   ", "activity"))
 
-	assert.Equal(t, []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ task-alpha", "│  ├─ " + reviewerMark + "bob", "│  └─ " + reviewerMark + "charlie", "└─ delta"}, paneltest.ListRows(harness.Frame()))
+	assert.Equal(t, []string{"gadgets", "└─ echo", "komrad", "├─ Zulu", "├─ task-alpha", "│  ├─ " + paneltest.ReviewerMark + "bob", "│  └─ " + paneltest.ReviewerMark + "charlie", "└─ delta"}, paneltest.ListRows(harness.Frame()))
 }
 
 // TestClickBlock covers a left click that lands on no row handing the keys to the block under it.
@@ -95,7 +95,7 @@ func TestClickBlock(t *testing.T) {
 	})
 
 	t.Run("a click behind an open menu closes it and lands", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, buildRecorded()...)
+		harness := paneltest.OpenAgents(t, paneltest.BuildRecorded()...)
 		click := harness.ClickOn("backend")
 		harness.Press("space")
 
@@ -107,7 +107,7 @@ func TestClickBlock(t *testing.T) {
 	})
 
 	t.Run("a click on the row under the cursor behind an open menu closes it", func(t *testing.T) {
-		harness := paneltest.OpenAgents(t, buildRecorded()...)
+		harness := paneltest.OpenAgents(t, paneltest.BuildRecorded()...)
 		click := harness.ClickOnLine("└─ auth", "auth")
 		harness.Press("space")
 
@@ -121,7 +121,7 @@ func TestClickBlock(t *testing.T) {
 
 // TestClickMenu covers a left click on an open menu picking the entry under it.
 func TestClickMenu(t *testing.T) {
-	harness := paneltest.OpenAgents(t, buildRecorded()...)
+	harness := paneltest.OpenAgents(t, paneltest.BuildRecorded()...)
 	harness.Press("space")
 
 	harness.Send(harness.ClickOn("cancel"))

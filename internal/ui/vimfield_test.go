@@ -19,7 +19,7 @@ import (
 // TestVimEditing covers typing into a form's text fields with vim_mode on.
 func TestVimEditing(t *testing.T) {
 	t.Run("with vim off one esc closes the form", func(t *testing.T) {
-		harness := openForms(t, newFormWorkflow(), newFormAuthor())
+		harness := openForms(t, paneltest.FormWorkflow(), paneltest.FormAuthor())
 
 		harness.Press(slices.Concat([]string{"space", "c"}, strings.Split("go", ""), []string{"esc"})...)
 
@@ -96,7 +96,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("j above only fields that are not text stays on the field", func(t *testing.T) {
 		harness := paneltest.Start(t, paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
 		harness.AnswerWorktreeReads()
-		harness.Watch(paneltest.Snapshot(newConfiguredWorkflow(), newFormAuthor()))
+		harness.Watch(paneltest.Snapshot(paneltest.ConfiguredWorkflow(), paneltest.FormAuthor()))
 		harness.Press("g", "g")
 
 		harness.Press(slices.Concat([]string{"space", "c"}, strings.Split("go", ""), slices.Repeat([]string{"tab"}, 2), strings.Split("ab", ""), []string{"esc", "j"})...)
@@ -115,7 +115,7 @@ func TestVimEditing(t *testing.T) {
 	t.Run("u takes back what the editor wrote into the field", func(t *testing.T) {
 		harness := paneltest.Start(t, paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
 		harness.AnswerWorktreeReads()
-		harness.Watch(paneltest.Snapshot(newConfiguredWorkflow(), newFormAuthor()))
+		harness.Watch(paneltest.Snapshot(paneltest.ConfiguredWorkflow(), paneltest.FormAuthor()))
 		harness.Press("g", "g")
 		t.Cleanup(func() { removeEdited(harness) })
 
@@ -298,7 +298,7 @@ func TestVimEditingBadge(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			harness := paneltest.Start(t, paneltest.Params{Settings: ui.PanelSettings{VimMode: tt.vim}})
 			harness.AnswerWorktreeReads()
-			harness.Watch(paneltest.Snapshot(newFormWorkflow(), newFormAuthor()))
+			harness.Watch(paneltest.Snapshot(paneltest.FormWorkflow(), paneltest.FormAuthor()))
 			harness.Press("g", "g")
 			harness.Press(tt.press...)
 
@@ -312,7 +312,7 @@ func openVimForms(t *testing.T) *paneltest.Panel {
 
 	harness := paneltest.Start(t, paneltest.Params{Settings: ui.PanelSettings{VimMode: true}})
 	harness.AnswerWorktreeReads()
-	harness.Watch(paneltest.Snapshot(newFormWorkflow(), newFormAuthor()))
+	harness.Watch(paneltest.Snapshot(paneltest.FormWorkflow(), paneltest.FormAuthor()))
 	harness.Press("g", "g")
 
 	return harness
