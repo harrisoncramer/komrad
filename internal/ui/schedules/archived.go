@@ -152,7 +152,7 @@ func (a Archive) listRows(in screen.Inputs) []row {
 		return list.Narrowed(in.Room.Pattern, list.NarrowedParams[row]{
 			Rows:  xslice.Map(in.Listing.ArchivedSchedules, rowOf),
 			Depth: func(row) int { return 0 },
-			Name:  func(item row) string { return item.schedule.Name },
+			Name:  rowName,
 			Fits:  rowFits(in),
 		})
 	})
