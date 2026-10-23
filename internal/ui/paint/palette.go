@@ -58,6 +58,8 @@ type Palette struct {
 
 	// stage is held behind a pointer.
 	stage *ansi.StyleConfig
+
+	renders *docRenders
 }
 
 // NewPalette is the palette rendering in the given colours, refusing one it cannot render.
@@ -66,7 +68,7 @@ func NewPalette(colors theme.Colors) (*Palette, error) {
 		return nil, fmt.Errorf("failed to build the palette: %w", err)
 	}
 
-	palette := Palette{colors: colors}
+	palette := Palette{colors: colors, renders: &docRenders{rows: map[docRender][]string{}}}
 	style := stageStyle(palette)
 	palette.stage = &style
 

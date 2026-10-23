@@ -241,7 +241,7 @@ func (w *Screen) Column(in screen.Inputs) column.Spec {
 		Floor: column.Narrowest,
 		Read:  column.IsAlwaysRead,
 		DocRows: func(width int) []string {
-			return paint.DocStyledRows(w.doc(in), max(width, 1), paint.Panel.Stage())
+			return paint.Panel.DocRows(w.doc(in), max(width, 1))
 		},
 	}
 }

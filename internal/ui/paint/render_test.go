@@ -1,6 +1,7 @@
 package paint
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -161,6 +162,18 @@ func TestDocRowsFitTheColumn(t *testing.T) {
 			})
 		}
 	}
+}
+
+// TestDocRowsAreTheCallersOwn covers a caller writing over the rows it was handed, which leaves the
+// next render of the same markdown as it was.
+func TestDocRowsAreTheCallersOwn(t *testing.T) {
+	const body = "# Title\n\nSome prose.\n"
+
+	first := Panel.DocRows(body, 40)
+	want := slices.Clone(first)
+	first[0] = "overwritten"
+
+	assert.Equal(t, want, Panel.DocRows(body, 40))
 }
 
 // TestExpandTabs covers the stops the tabs are taken to, counted from the start of each line.

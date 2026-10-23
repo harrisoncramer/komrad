@@ -46,7 +46,7 @@ func (a *archivedAgents) doc(in screen.Inputs) string {
 
 // docRows is the block rendered beside the list at a width for the row the cursor is on.
 func (a *archivedAgents) docRows(in screen.Inputs, width int) []string {
-	return paint.DocStyledRows(a.doc(in), width, paint.Panel.Stage())
+	return paint.Panel.DocRows(a.doc(in), width)
 }
 
 // archiveDocument is what the panel renders beside an archived agent's row.
