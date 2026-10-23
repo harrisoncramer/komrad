@@ -10,6 +10,7 @@ import (
 	"komrad/internal/git"
 	forgestore "komrad/internal/store/forge"
 	reviewstore "komrad/internal/store/review"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -77,7 +78,7 @@ func newForgeReplyFixture(t *testing.T) *forgeReplyFixture {
 		forge: fake,
 		connection: forgestore.Connection{
 			Host:   "github.com",
-			Method: "token",
+			Method: forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN,
 			Login:  "komrad-bot",
 		},
 	}
@@ -275,7 +276,7 @@ func TestReconcilingForgeReplies(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		method    string
+		method    forgev1.CredentialMethod
 		held      []forge.ReviewComment
 		truncated bool
 		wantErr   bool
@@ -313,7 +314,7 @@ func TestReconcilingForgeReplies(t *testing.T) {
 		},
 		{
 			name:      "a GitHub App, whose login is unknown, matches on the words alone",
-			method:    forge.MethodGitHubApp,
+			method:    forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP,
 			held:      []forge.ReviewComment{postedOnForge("komrad[bot]", later)},
 			wantState: reviewstore.ForgeReplySent,
 		},
@@ -322,7 +323,7 @@ func TestReconcilingForgeReplies(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fx := newForgeReplyFixture(t)
-			if tt.method != "" {
+			if tt.method != forgev1.CredentialMethod_CREDENTIAL_METHOD_UNSPECIFIED {
 				fx.hosts.connection.Method = tt.method
 			}
 

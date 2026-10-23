@@ -11,6 +11,7 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/forge/graphql"
 	"komrad/internal/git"
+	forgev1 "komrad/proto/gen/forge/v1"
 )
 
 // pullRequestFragment is every field of a pull request the record is built from.
@@ -112,7 +113,7 @@ func (n *repositoryNode) remote() git.RemoteURL {
 // for it.
 func (n pullRequestNode) toPullRequest(withMergeReadiness bool) forge.PullRequest {
 	pullRequest := forge.PullRequest{
-		Forge:      forge.KindGitHub,
+		Forge:      forgev1.Kind_KIND_GITHUB,
 		ProviderID: n.ID,
 		URL:        n.URL,
 		Repository: n.BaseRepository.remote(),

@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -20,7 +21,7 @@ func TestTheMailNamesEachFailingCheck(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		forge        string
+		forge        forgev1.Kind
 		failures     []pullrequeststore.CheckFailure
 		heldSince    *time.Time
 		wantLines    []string
@@ -28,38 +29,38 @@ func TestTheMailNamesEachFailingCheck(t *testing.T) {
 	}{
 		{
 			name:         "github",
-			forge:        forge.KindGitHub,
+			forge:        forgev1.Kind_KIND_GITHUB,
 			wantLines:    []string{"komrad: pull request #7 ("},
 			wantNotLines: []string{"New failures:", "Still failing:"},
 		},
 		{
 			name:      "gitlab",
-			forge:     forge.KindGitLab,
+			forge:     forgev1.Kind_KIND_GITLAB,
 			wantLines: []string{"komrad: merge request !7 ("},
 		},
 		{
 			name:         "a failure the agent was not told of is new with its link",
-			forge:        forge.KindGitHub,
+			forge:        forgev1.Kind_KIND_GITHUB,
 			failures:     []pullrequeststore.CheckFailure{{Check: test}},
 			wantLines:    []string{"New failures:\n  test: https://github.com/harrisoncramer/komrad/runs/1\nReview comments"},
 			wantNotLines: []string{"Still failing:"},
 		},
 		{
 			name:      "a failing check without a link says so",
-			forge:     forge.KindGitHub,
+			forge:     forgev1.Kind_KIND_GITHUB,
 			failures:  []pullrequeststore.CheckFailure{{Check: deploy}},
 			wantLines: []string{"New failures:\n  deploy: no link\n"},
 		},
 		{
 			name:      "a failure the agent was told of before the held mail is still failing",
-			forge:     forge.KindGitHub,
+			forge:     forgev1.Kind_KIND_GITHUB,
 			failures:  []pullrequeststore.CheckFailure{{Check: test, NotedAt: &before}, {Check: deploy}},
 			heldSince: &heldSince,
 			wantLines: []string{"New failures:\n  deploy: no link\nStill failing:\n  test: https://github.com/harrisoncramer/komrad/runs/1\nReview comments"},
 		},
 		{
 			name:         "a failure the held mail told of is new",
-			forge:        forge.KindGitHub,
+			forge:        forgev1.Kind_KIND_GITHUB,
 			failures:     []pullrequeststore.CheckFailure{{Check: test, NotedAt: &heldSince}},
 			heldSince:    &heldSince,
 			wantLines:    []string{"New failures:\n  test: "},
@@ -67,7 +68,7 @@ func TestTheMailNamesEachFailingCheck(t *testing.T) {
 		},
 		{
 			name:         "a failure the agent was told of with no mail held is still failing",
-			forge:        forge.KindGitHub,
+			forge:        forgev1.Kind_KIND_GITHUB,
 			failures:     []pullrequeststore.CheckFailure{{Check: test, NotedAt: &before}},
 			wantLines:    []string{"Still failing:\n  test: "},
 			wantNotLines: []string{"New failures:"},

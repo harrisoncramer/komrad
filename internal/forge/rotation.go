@@ -8,6 +8,7 @@ import (
 	"time"
 
 	forgestore "komrad/internal/store/forge"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/google/uuid"
 )
@@ -24,7 +25,7 @@ func (s *Service) RotateTokens(ctx context.Context) error {
 
 	var errs []error
 	for _, connection := range connections {
-		if connection.Method != MethodRotatingToken {
+		if connection.Method != forgev1.CredentialMethod_CREDENTIAL_METHOD_ROTATING_TOKEN {
 			continue
 		}
 
@@ -45,7 +46,7 @@ func (s *Service) RotateTokens(ctx context.Context) error {
 // proveRotatingToken asks GitLab who a pasted token belongs to and refuses one that cannot
 // rotate itself.
 func (s *Service) proveRotatingToken(ctx context.Context, build Builder, params ConnectParams) (string, error) {
-	if params.Kind != KindGitLab {
+	if params.Kind != forgev1.Kind_KIND_GITLAB {
 		return "", errRotatingNotGitLab
 	}
 

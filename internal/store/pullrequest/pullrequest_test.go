@@ -13,6 +13,7 @@ import (
 	workflowstore "komrad/internal/store/workflow"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -104,7 +105,7 @@ func openPullRequest(providerID string, number int, branch string) UpsertParams 
 
 	return UpsertParams{
 		Host:              "github.com",
-		Forge:             "github",
+		Forge:             forgev1.Kind_KIND_GITHUB,
 		ProviderID:        providerID,
 		URL:               "https://github.com/harrisoncramer/komrad/pull/" + providerID,
 		RepositoryURL:     komrad,

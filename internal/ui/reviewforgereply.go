@@ -8,6 +8,7 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/ui/screen"
 	agentv1 "komrad/proto/gen/agent/v1"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"connectrpc.com/connect"
 )
@@ -61,7 +62,7 @@ func (r *reviewScreen) forgeThreadAtCursor() (*agentv1.ReviewThread, bool) {
 func (r reviewScreen) forgeName(in screen.Inputs) string {
 	pullRequest, ok := r.currentPullRequest(in)
 	if !ok {
-		return forge.Name("")
+		return forge.Name(forgev1.Kind_KIND_UNSPECIFIED)
 	}
 
 	return forge.Name(pullRequest.Forge)

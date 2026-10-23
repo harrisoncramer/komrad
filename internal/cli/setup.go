@@ -170,7 +170,7 @@ func (a *app) connectForge(ctx context.Context, host string, token forge.Secret)
 	return a.withAPI(ctx, func(ctx context.Context, base string) error {
 		_, err := a.forgeClient(base).ConnectForge(ctx, connect.NewRequest(&forgev1.ConnectForgeRequest{
 			Host:   host,
-			Method: forge.MethodToken,
+			Method: forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN,
 			Token:  tokenForTheWire(token),
 		}))
 

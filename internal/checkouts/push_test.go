@@ -11,6 +11,7 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 	taskstore "komrad/internal/store/task"
 	"komrad/lib/xptr"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -313,7 +314,7 @@ func (f *rebaseFixture) seedMerged(t *testing.T, branch string) {
 
 	_, err := f.stores.PullRequests.Upsert(t.Context(), pullrequeststore.UpsertParams{
 		Host:          "github.com",
-		Forge:         "github",
+		Forge:         forgev1.Kind_KIND_GITHUB,
 		ProviderID:    "PR_" + branch,
 		URL:           pushRepository + "/pull/1",
 		RepositoryURL: pushRepository,

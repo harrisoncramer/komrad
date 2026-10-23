@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/forge"
 	"komrad/internal/git"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -53,7 +54,7 @@ func TestList(t *testing.T) {
 		Path:   "harrisoncramer/komrad-forge-fixture",
 	}
 	assert.Equal(t, forge.PullRequest{
-		Forge:      forge.KindGitHub,
+		Forge:      forgev1.Kind_KIND_GITHUB,
 		ProviderID: "PR_kwDOUgkrbM8AAAABEIdmHw",
 		URL:        "https://github.com/harrisoncramer/komrad-forge-fixture/pull/1",
 		Repository: repository,

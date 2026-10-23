@@ -14,6 +14,7 @@ import (
 	"komrad/internal/storetest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -813,7 +814,7 @@ func TestUnlandedSnapshotsCarryTheNewestMerge(t *testing.T) {
 	for number, mergedAt := range map[int]*time.Time{1: &earlier, 2: &later, 3: nil} {
 		_, err := pullRequests.Upsert(ctx, pullrequeststore.UpsertParams{
 			Host:              "github.com",
-			Forge:             "github",
+			Forge:             forgev1.Kind_KIND_GITHUB,
 			ProviderID:        fmt.Sprintf("PR_%d", number),
 			URL:               fmt.Sprintf("%s/pull/%d", repository, number),
 			RepositoryURL:     repository,

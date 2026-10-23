@@ -14,14 +14,14 @@ option go_package = "komrad/proto/gen/forge/v1;forgev1";
 message Forge {
   // The connection's id.
   string id = 1;
-  // The kind of forge the host runs, `github` or `gitlab`.
-  string kind = 2;
+  // The kind of forge the host runs.
+  Kind kind = 2;
   // The host that git remotes name, such as `github.com`.
   string host = 3;
   // The address of an enterprise host's API. Empty for the public forge.
   string api_url = 4;
-  // How the credential was given, `token` or `github_app`.
-  string method = 5;
+  // How the credential was given.
+  CredentialMethod method = 5;
   // The account the forge says the credential belongs to, a user login or an App's name.
   string login = 6;
   // When the forge last accepted the credential. Unset once the forge refuses it.
@@ -36,14 +36,14 @@ message Forge {
 message ConnectForgeRequest {
   // The host that git remotes name, such as `github.com`.
   string host = 1;
-  // The kind of forge the host runs. Empty works it out from `github.com` or `gitlab.com`, and
-  // any other host needs it.
-  string kind = 2;
+  // The kind of forge the host runs. Unspecified works it out from `github.com` or `gitlab.com`,
+  // and any other host needs it.
+  Kind kind = 2 [(buf.validate.field).enum.defined_only = true];
   // The address of an enterprise host's API, over https.
   string api_url = 3;
-  // How the credential is given: `token`, or `github_app` for the App in the server's config.
-  string method = 4;
-  // The token for the `token` method. No call ever returns it.
+  // How the credential is given. Unspecified gives a token.
+  CredentialMethod method = 4 [(buf.validate.field).enum.defined_only = true];
+  // The token for the token and rotating token methods. No call ever returns it.
   string token = 5;
 }
 
@@ -73,8 +73,8 @@ message ForgeCheck {
   Forge forge = 1;
   // What the forge said was wrong. Empty when the forge accepted the credential.
   string problem = 2;
-  // The kind of problem, `refused`, `no_credential` or `unreachable`. Empty when there is none.
-  string problem_kind = 3;
+  // The kind of problem. Unspecified when there is none.
+  ProblemKind problem_kind = 3;
 }
 
 message ListForgePullRequestsRequest {
@@ -93,8 +93,8 @@ message ListForgePullRequestsRequest {
 
 // ForgePullRequest is a pull request as the forge describes it, read live and not kept.
 message ForgePullRequest {
-  // The forge the pull request is on, such as `github`.
-  string forge = 1;
+  // The kind of forge the pull request is on.
+  Kind forge = 1;
   // The forge's own stable id for the pull request, such as GitHub's `node_id`.
   string provider_id = 2;
   // The pull request's web address.
@@ -129,6 +129,40 @@ message ForgePullRequest {
   // When the pull request closed, merged or not. Unset while the pull request is
   // open.
   optional google.protobuf.Timestamp closed_at = 17;
+}
+
+// Kind is the kind of forge a host runs.
+enum Kind {
+  // No kind.
+  KIND_UNSPECIFIED = 0;
+  // GitHub, or a GitHub Enterprise host.
+  KIND_GITHUB = 1;
+  // GitLab, or a self-managed GitLab host.
+  KIND_GITLAB = 2;
+}
+
+// CredentialMethod is how a forge connection's credential is given.
+enum CredentialMethod {
+  // No method.
+  CREDENTIAL_METHOD_UNSPECIFIED = 0;
+  // A token the person supplied.
+  CREDENTIAL_METHOD_TOKEN = 1;
+  // A GitLab token that komrad rotates before it expires.
+  CREDENTIAL_METHOD_ROTATING_TOKEN = 2;
+  // A token minted from the GitHub App in the server's config.
+  CREDENTIAL_METHOD_GITHUB_APP = 3;
+}
+
+// ProblemKind is the kind of problem a check found with a forge connection.
+enum ProblemKind {
+  // No problem.
+  PROBLEM_KIND_UNSPECIFIED = 0;
+  // The forge refused the credential.
+  PROBLEM_KIND_REFUSED = 1;
+  // This machine no longer has the credential.
+  PROBLEM_KIND_NO_CREDENTIAL = 2;
+  // The forge could not be reached.
+  PROBLEM_KIND_UNREACHABLE = 3;
 }
 
 // MergeMethod is how a pull request's commits land on its base branch.

@@ -9,6 +9,7 @@ import "agent/v1/screen.proto";
 import "agent/v1/transcript.proto";
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
+import "forge/v1/forge.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "pagination/v1/pagination.proto";
@@ -182,8 +183,8 @@ message PullRequestStanding {
   // The commit at the head of the current pull request on the forge. Unset for `UNREAD` and
   // `NONE`.
   optional string head_sha = 6;
-  // The forge the current pull request is on, such as `github`. Unset for `UNREAD` and `NONE`.
-  optional string forge = 7;
+  // The kind of forge the current pull request is on. Unspecified for `UNREAD` and `NONE`.
+  forge.v1.Kind forge = 7;
 }
 
 message ListAgentsRequest {

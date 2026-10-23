@@ -24,7 +24,7 @@ func TestIntegrationPullRequestChecksReachTheAgent(t *testing.T) {
 	fake.setChecks("IN_PROGRESS")
 	instance := komradtest.Start(t, komradtest.Params{
 		WorktreesDir:  t.TempDir(),
-		ForgeBuilders: map[string]forge.Builder{forge.KindGitHub: buildGitHub(fake.server)},
+		ForgeBuilders: map[forgev1.Kind]forge.Builder{forgev1.Kind_KIND_GITHUB: buildGitHub(fake.server)},
 	})
 	ctx := t.Context()
 

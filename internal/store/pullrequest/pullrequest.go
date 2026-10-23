@@ -12,8 +12,10 @@ import (
 	"komrad/db/models"
 	"komrad/internal/forge"
 	"komrad/internal/store"
+	"komrad/lib/protoenum"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/google/uuid"
 )
@@ -23,8 +25,8 @@ type PullRequest struct {
 	ID uuid.UUID
 	// Host is the forge host the repository lives on, such as github.com.
 	Host string
-	// Forge is which kind of forge the host runs, github or gitlab.
-	Forge string
+	// Forge is which kind of forge the host runs.
+	Forge forgev1.Kind
 	// ProviderID is the forge's own stable identifier, which with Host is the identity.
 	ProviderID string
 	// URL is the web address a person opens.
@@ -110,7 +112,7 @@ func NewPullRequestStore(db store.DBTX) *PullRequestStore {
 // and when komrad first saw it.
 type UpsertParams struct {
 	Host              string
-	Forge             string
+	Forge             forgev1.Kind
 	ProviderID        string
 	URL               string
 	RepositoryURL     string
@@ -136,7 +138,7 @@ type UpsertParams struct {
 func (s *PullRequestStore) Upsert(ctx context.Context, params UpsertParams) (*outcome, error) {
 	row, err := s.queries.UpsertPullRequest(ctx, models.UpsertPullRequestParams{
 		Host:              params.Host,
-		Forge:             params.Forge,
+		Forge:             protoenum.Name(params.Forge),
 		ProviderID:        params.ProviderID,
 		Url:               params.URL,
 		RepositoryUrl:     params.RepositoryURL,
@@ -300,7 +302,16 @@ func (s *PullRequestStore) withMergeReadiness(ctx context.Context, rows []*model
 		return nil, err
 	}
 
-	return xslice.Map(rows, func(row *models.PullRequest) PullRequest { return fromRow(row, readings[row.ID]) }), nil
+	pullRequests := make([]PullRequest, len(rows))
+	for i, row := range rows {
+		pullRequest, err := fromRow(row, readings[row.ID])
+		if err != nil {
+			return nil, err
+		}
+		pullRequests[i] = *pullRequest
+	}
+
+	return pullRequests, nil
 }
 
 // Observe records every task beside every stored pull request opened from its checkout's branch
@@ -353,11 +364,16 @@ func (s *PullRequestStore) ListLiveRepositories(ctx context.Context) ([]string, 
 	return repositories, nil
 }
 
-func fromRow(row *models.PullRequest, checks StatusCheckReading) PullRequest {
-	return PullRequest{
+func fromRow(row *models.PullRequest, checks StatusCheckReading) (*PullRequest, error) {
+	kind, err := protoenum.Parse[forgev1.Kind](row.Forge)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read pull request %q: %w", row.ID, err)
+	}
+
+	return &PullRequest{
 		ID:                row.ID,
 		Host:              row.Host,
-		Forge:             row.Forge,
+		Forge:             kind,
 		ProviderID:        row.ProviderID,
 		URL:               row.Url,
 		RepositoryURL:     row.RepositoryUrl,
@@ -379,7 +395,7 @@ func fromRow(row *models.PullRequest, checks StatusCheckReading) PullRequest {
 		FirstSeenAt:       row.FirstSeenAt,
 		MergeReadiness:    rememberedMergeReadinessOf(row, checks),
 		HeadStatusChecks:  checks.StatusChecks,
-	}
+	}, nil
 }
 
 func rememberedMergeReadinessOf(row *models.PullRequest, checks StatusCheckReading) forge.RememberedMergeReadiness {

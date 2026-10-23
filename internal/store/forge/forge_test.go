@@ -6,6 +6,7 @@ import (
 
 	"komrad/internal/dbtest"
 	"komrad/internal/store"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -23,9 +24,9 @@ func newStore(t *testing.T) *ForgeStore {
 
 func github(verifiedAt time.Time) CreateParams {
 	return CreateParams{
-		Kind:       "github",
+		Kind:       forgev1.Kind_KIND_GITHUB,
 		Host:       "github.com",
-		Method:     "token",
+		Method:     forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN,
 		Login:      "harrisoncramer",
 		VerifiedAt: verifiedAt,
 	}

@@ -11,6 +11,7 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/lib/xsha"
 	eventv1 "komrad/proto/gen/event/v1"
+	forgev1 "komrad/proto/gen/forge/v1"
 )
 
 // PullRequestFieldName names one field of a pull request the mail lists.
@@ -61,7 +62,7 @@ func (m PullRequest) Body() string {
 
 	noun := "pull request"
 	ref := fmt.Sprintf("#%d", pullRequest.Number)
-	if pullRequest.Forge == forge.KindGitLab {
+	if pullRequest.Forge == forgev1.Kind_KIND_GITLAB {
 		noun = "merge request"
 		ref = fmt.Sprintf("!%d", pullRequest.Number)
 	}

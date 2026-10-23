@@ -5,6 +5,7 @@ import (
 	_ "embed"
 
 	"komrad/internal/forge"
+	forgev1 "komrad/proto/gen/forge/v1"
 )
 
 //go:embed rereviewtarget.gql
@@ -49,8 +50,8 @@ func (f *Forge) RequestRereview(ctx context.Context, address string) error {
 	target := data.Repository.PullRequest
 	if _, err := forge.ShouldChange(forge.ShouldChangeParams{
 		Sentinel: forge.ErrNoRereview,
-		Forge:    forge.KindGitHub,
-		Ref:      forge.Ref(forge.KindGitHub, number),
+		Forge:    forgev1.Kind_KIND_GITHUB,
+		Ref:      forge.Ref(forgev1.Kind_KIND_GITHUB, number),
 		Merged:   target.State == "MERGED",
 		Closed:   target.State == "CLOSED",
 	}); err != nil {

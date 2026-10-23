@@ -9,6 +9,7 @@ import (
 	pullrequeststore "komrad/internal/store/pullrequest"
 	taskstore "komrad/internal/store/task"
 	"komrad/lib/xptr"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -252,7 +253,7 @@ func (st *fixture) seedPullRequest(t *testing.T, agentID uuid.UUID) uuid.UUID {
 	opened := time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)
 	_, err := pullRequests.Upsert(ctx, pullrequeststore.UpsertParams{
 		Host:              "github.com",
-		Forge:             "github",
+		Forge:             forgev1.Kind_KIND_GITHUB,
 		ProviderID:        "PR_1",
 		URL:               repository + "/pull/1",
 		RepositoryURL:     repository,

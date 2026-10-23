@@ -3,6 +3,8 @@ package forge
 import (
 	"testing"
 
+	forgev1 "komrad/proto/gen/forge/v1"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -12,7 +14,7 @@ func TestNaming(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		kind   string
+		kind   forgev1.Kind
 		ref    string
 		noun   string
 		abbrev string
@@ -20,7 +22,7 @@ func TestNaming(t *testing.T) {
 	}{
 		{
 			name:   "github",
-			kind:   KindGitHub,
+			kind:   forgev1.Kind_KIND_GITHUB,
 			ref:    "#12",
 			noun:   "pull request",
 			abbrev: "pr",
@@ -28,7 +30,7 @@ func TestNaming(t *testing.T) {
 		},
 		{
 			name:   "gitlab",
-			kind:   KindGitLab,
+			kind:   forgev1.Kind_KIND_GITLAB,
 			ref:    "!12",
 			noun:   "merge request",
 			abbrev: "mr",
@@ -36,7 +38,7 @@ func TestNaming(t *testing.T) {
 		},
 		{
 			name:   "no forge",
-			kind:   "",
+			kind:   forgev1.Kind_KIND_UNSPECIFIED,
 			ref:    "#12",
 			noun:   "pull request",
 			abbrev: "pr",

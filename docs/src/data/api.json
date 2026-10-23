@@ -5137,14 +5137,14 @@
         },
         {
           "name": "forge",
-          "type": "string",
-          "ref": "",
+          "type": "Kind",
+          "ref": "forge.v1.Kind",
           "repeated": false,
           "map": false,
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "The forge the current pull request is on, such as `github`. Unset for `UNREAD` and `NONE`."
+          "description": "The kind of forge the current pull request is on. Unspecified for `UNREAD` and `NONE`."
         }
       ],
       "oneofs": []
@@ -7715,14 +7715,14 @@
         },
         {
           "name": "kind",
-          "type": "string",
-          "ref": "",
+          "type": "Kind",
+          "ref": "forge.v1.Kind",
           "repeated": false,
           "map": false,
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "The kind of forge the host runs, `github` or `gitlab`."
+          "description": "The kind of forge the host runs."
         },
         {
           "name": "host",
@@ -7748,14 +7748,14 @@
         },
         {
           "name": "method",
-          "type": "string",
-          "ref": "",
+          "type": "CredentialMethod",
+          "ref": "forge.v1.CredentialMethod",
           "repeated": false,
           "map": false,
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "How the credential was given, `token` or `github_app`."
+          "description": "How the credential was given."
         },
         {
           "name": "login",
@@ -7832,14 +7832,14 @@
         },
         {
           "name": "problem_kind",
-          "type": "string",
-          "ref": "",
+          "type": "ProblemKind",
+          "ref": "forge.v1.ProblemKind",
           "repeated": false,
           "map": false,
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "The kind of problem, `refused`, `no_credential` or `unreachable`. Empty when there is none."
+          "description": "The kind of problem. Unspecified when there is none."
         }
       ],
       "oneofs": []
@@ -7850,14 +7850,14 @@
       "fields": [
         {
           "name": "forge",
-          "type": "string",
-          "ref": "",
+          "type": "Kind",
+          "ref": "forge.v1.Kind",
           "repeated": false,
           "map": false,
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "The forge the pull request is on, such as `github`."
+          "description": "The kind of forge the pull request is on."
         },
         {
           "name": "provider_id",
@@ -9177,14 +9177,14 @@
         },
         {
           "name": "forge",
-          "type": "string",
-          "ref": "",
+          "type": "Kind",
+          "ref": "forge.v1.Kind",
           "repeated": false,
           "map": false,
           "oneof": "",
           "required": false,
           "constraints": {},
-          "description": "The forge the pull request is on, such as `github`."
+          "description": "The kind of forge the pull request is on."
         },
         {
           "name": "provider_id",
@@ -13106,6 +13106,38 @@
         }
       ]
     },
+    "forge.v1.CredentialMethod": {
+      "name": "CredentialMethod",
+      "description": "CredentialMethod is how a forge connection's credential is given.",
+      "values": [
+        {
+          "name": "CREDENTIAL_METHOD_TOKEN",
+          "description": "A token the person supplied."
+        },
+        {
+          "name": "CREDENTIAL_METHOD_ROTATING_TOKEN",
+          "description": "A GitLab token that komrad rotates before it expires."
+        },
+        {
+          "name": "CREDENTIAL_METHOD_GITHUB_APP",
+          "description": "A token minted from the GitHub App in the server's config."
+        }
+      ]
+    },
+    "forge.v1.Kind": {
+      "name": "Kind",
+      "description": "Kind is the kind of forge a host runs.",
+      "values": [
+        {
+          "name": "KIND_GITHUB",
+          "description": "GitHub, or a GitHub Enterprise host."
+        },
+        {
+          "name": "KIND_GITLAB",
+          "description": "GitLab, or a self-managed GitLab host."
+        }
+      ]
+    },
     "forge.v1.MergeMethod": {
       "name": "MergeMethod",
       "description": "MergeMethod is how a pull request's commits land on its base branch.",
@@ -13125,6 +13157,24 @@
         {
           "name": "MERGE_METHOD_FAST_FORWARD",
           "description": "The base branch moves to the head commit, with no commit of its own."
+        }
+      ]
+    },
+    "forge.v1.ProblemKind": {
+      "name": "ProblemKind",
+      "description": "ProblemKind is the kind of problem a check found with a forge connection.",
+      "values": [
+        {
+          "name": "PROBLEM_KIND_REFUSED",
+          "description": "The forge refused the credential."
+        },
+        {
+          "name": "PROBLEM_KIND_NO_CREDENTIAL",
+          "description": "This machine no longer has the credential."
+        },
+        {
+          "name": "PROBLEM_KIND_UNREACHABLE",
+          "description": "The forge could not be reached."
         }
       ]
     },

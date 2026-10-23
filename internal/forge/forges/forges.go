@@ -11,12 +11,13 @@ import (
 	"komrad/internal/forge/github"
 	"komrad/internal/forge/gitlab"
 	githubapp "komrad/internal/github/app"
+	forgev1 "komrad/proto/gen/forge/v1"
 )
 
 // Builders makes the forge for each kind this build knows.
-var Builders = map[string]forge.Builder{
-	forge.KindGitHub: github.Build,
-	forge.KindGitLab: gitlab.Build,
+var Builders = map[forgev1.Kind]forge.Builder{
+	forgev1.Kind_KIND_GITHUB: github.Build,
+	forgev1.Kind_KIND_GITLAB: gitlab.Build,
 }
 
 // TokenCachePath is where the App's minted token is kept under a cache directory.

@@ -8,6 +8,7 @@ import (
 	forgestore "komrad/internal/store/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
 	"komrad/lib/xslice"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,8 +51,8 @@ func newCommentFixture(t *testing.T) *commentFixture {
 			Forges: forge.NewService(forge.NewServiceParams{
 				Connections: f.connections,
 				Credentials: forge.NewFileStore(t.TempDir()),
-				Builders: map[string]forge.Builder{
-					forge.KindGitHub: func(string, forge.Authenticator) forge.Forge {
+				Builders: map[forgev1.Kind]forge.Builder{
+					forgev1.Kind_KIND_GITHUB: func(string, forge.Authenticator) forge.Forge {
 						return scripted
 					},
 				},
@@ -170,12 +171,12 @@ func TestCommentSyncViewer(t *testing.T) {
 	}{
 		{
 			name:       "a token reads as the login it was verified as",
-			connection: forgestore.Connection{Method: forge.MethodToken, Login: "harrisoncramer"},
+			connection: forgestore.Connection{Method: forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN, Login: "harrisoncramer"},
 			want:       "harrisoncramer",
 		},
 		{
 			name:       "an App reads as nobody, since its login is the App's",
-			connection: forgestore.Connection{Method: forge.MethodGitHubApp, Login: "komrad-app"},
+			connection: forgestore.Connection{Method: forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP, Login: "komrad-app"},
 		},
 	}
 	for _, tt := range tests {

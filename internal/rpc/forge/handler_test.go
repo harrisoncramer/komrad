@@ -192,7 +192,7 @@ func TestCheckForges(t *testing.T) {
 		name         string
 		checked      forge.CheckResult
 		wantProblem  string
-		wantKind     string
+		wantKind     forgev1.ProblemKind
 		wantVerified bool
 	}{
 		{
@@ -200,10 +200,10 @@ func TestCheckForges(t *testing.T) {
 			checked: forge.CheckResult{
 				Connection:  refused,
 				Problem:     forge.ErrUnauthorized.Saying("Bad credentials"),
-				ProblemKind: forge.ProblemRefused,
+				ProblemKind: forgev1.ProblemKind_PROBLEM_KIND_REFUSED,
 			},
 			wantProblem: "Bad credentials",
-			wantKind:    forge.ProblemRefused,
+			wantKind:    forgev1.ProblemKind_PROBLEM_KIND_REFUSED,
 		},
 		{
 			name:         "an accepted credential carries no problem",
@@ -237,9 +237,9 @@ func newConnection() forgestore.Connection {
 
 	return forgestore.Connection{
 		ID:         uuid.New(),
-		Kind:       forge.KindGitHub,
+		Kind:       forgev1.Kind_KIND_GITHUB,
 		Host:       "github.com",
-		Method:     forge.MethodToken,
+		Method:     forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN,
 		Login:      "harrisoncramer",
 		VerifiedAt: &at,
 		CreatedAt:  at,

@@ -8,6 +8,7 @@ import (
 
 	"komrad/internal/forge"
 	"komrad/internal/forge/graphql"
+	forgev1 "komrad/proto/gen/forge/v1"
 )
 
 // defaultAPI is where gitlab.com answers REST calls, with GraphQL beside it.
@@ -56,8 +57,8 @@ func NewForge(params NewForgeParams) *Forge {
 }
 
 // Kind is what the forge answers to.
-func (f *Forge) Kind() string {
-	return forge.KindGitLab
+func (f *Forge) Kind() forgev1.Kind {
+	return forgev1.Kind_KIND_GITLAB
 }
 
 // Build is the Builder for GitLab.

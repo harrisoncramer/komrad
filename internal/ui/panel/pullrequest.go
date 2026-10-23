@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"komrad/internal/forge"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 )
@@ -18,13 +19,13 @@ type PullRequestStanding struct {
 	// HeadSHA is the commit the forge holds at the head of the current one.
 	HeadSHA        string
 	MergeReadiness MergeReadiness
-	Forge          string
+	Forge          forgev1.Kind
 }
 
 // PullRequest is one pull request opened from an agent's branch as the server stored it.
 type PullRequest struct {
 	ID             string
-	Forge          string
+	Forge          forgev1.Kind
 	Number         int32
 	URL            string
 	Title          string

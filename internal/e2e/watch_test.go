@@ -18,6 +18,7 @@ import (
 	"komrad/internal/storetest"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
@@ -610,7 +611,7 @@ func upsertPullRequest(t *testing.T, st *storetest.Stores, number int, branch st
 
 	written, err := st.PullRequests.Upsert(t.Context(), pullrequeststore.UpsertParams{
 		Host:              "github.com",
-		Forge:             "github",
+		Forge:             forgev1.Kind_KIND_GITHUB,
 		ProviderID:        fmt.Sprintf("PR_%d", number),
 		URL:               fmt.Sprintf("%s/pull/%d", watchedRepository, number),
 		RepositoryURL:     watchedRepository,

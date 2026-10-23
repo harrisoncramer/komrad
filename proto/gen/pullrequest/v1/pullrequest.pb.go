@@ -12,6 +12,7 @@ import (
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	_ "komrad/proto/gen/annotation/v1"
+	v11 "komrad/proto/gen/forge/v1"
 	v1 "komrad/proto/gen/pagination/v1"
 	reflect "reflect"
 	sync "sync"
@@ -587,8 +588,8 @@ type PullRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The pull request's id.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// The forge the pull request is on, such as `github`.
-	Forge string `protobuf:"bytes,2,opt,name=forge,proto3" json:"forge,omitempty"`
+	// The kind of forge the pull request is on.
+	Forge v11.Kind `protobuf:"varint,2,opt,name=forge,proto3,enum=forge.v1.Kind" json:"forge,omitempty"`
 	// The forge's own stable id for the pull request, such as GitHub's `node_id`.
 	ProviderId string `protobuf:"bytes,3,opt,name=provider_id,json=providerId,proto3" json:"provider_id,omitempty"`
 	// The pull request's web address.
@@ -670,11 +671,11 @@ func (x *PullRequest) GetId() string {
 	return ""
 }
 
-func (x *PullRequest) GetForge() string {
+func (x *PullRequest) GetForge() v11.Kind {
 	if x != nil {
 		return x.Forge
 	}
-	return ""
+	return v11.Kind(0)
 }
 
 func (x *PullRequest) GetProviderId() string {
@@ -1990,7 +1991,7 @@ var File_pullrequest_v1_pullrequest_proto protoreflect.FileDescriptor
 
 const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
-	" pullrequest/v1/pullrequest.proto\x12\x0epullrequest.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\"\xc6\x01\n" +
+	" pullrequest/v1/pullrequest.proto\x12\x0epullrequest.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x14forge/v1/forge.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\"\xc6\x01\n" +
 	"\x17ListPullRequestsRequest\x121\n" +
 	"\x0erepository_url\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\rrepositoryUrl\x12)\n" +
@@ -1999,10 +2000,10 @@ const file_pullrequest_v1_pullrequest_proto_rawDesc = "" +
 	"\n" +
 	"pagination\x18\x03 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
 	"pagination\x88\x01\x01B\r\n" +
-	"\v_pagination\"\xb2\x06\n" +
+	"\v_pagination\"\xc2\x06\n" +
 	"\vPullRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
-	"\x05forge\x18\x02 \x01(\tR\x05forge\x12\x1f\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12$\n" +
+	"\x05forge\x18\x02 \x01(\x0e2\x0e.forge.v1.KindR\x05forge\x12\x1f\n" +
 	"\vprovider_id\x18\x03 \x01(\tR\n" +
 	"providerId\x12\x10\n" +
 	"\x03url\x18\x04 \x01(\tR\x03url\x12%\n" +
@@ -2253,52 +2254,54 @@ var file_pullrequest_v1_pullrequest_proto_goTypes = []any{
 	(*CheckLogStep)(nil),             // 23: pullrequest.v1.CheckLogStep
 	(*StatusCheckStep)(nil),          // 24: pullrequest.v1.StatusCheckStep
 	(*v1.Pagination)(nil),            // 25: pagination.v1.Pagination
-	(*timestamppb.Timestamp)(nil),    // 26: google.protobuf.Timestamp
+	(v11.Kind)(0),                    // 26: forge.v1.Kind
+	(*timestamppb.Timestamp)(nil),    // 27: google.protobuf.Timestamp
 }
 var file_pullrequest_v1_pullrequest_proto_depIdxs = []int32{
 	25, // 0: pullrequest.v1.ListPullRequestsRequest.pagination:type_name -> pagination.v1.Pagination
-	0,  // 1: pullrequest.v1.PullRequest.state:type_name -> pullrequest.v1.PullRequestState
-	26, // 2: pullrequest.v1.PullRequest.opened_at:type_name -> google.protobuf.Timestamp
-	26, // 3: pullrequest.v1.PullRequest.changed_at:type_name -> google.protobuf.Timestamp
-	26, // 4: pullrequest.v1.PullRequest.merged_at:type_name -> google.protobuf.Timestamp
-	26, // 5: pullrequest.v1.PullRequest.closed_at:type_name -> google.protobuf.Timestamp
-	9,  // 6: pullrequest.v1.PullRequest.merge_readiness:type_name -> pullrequest.v1.MergeReadiness
-	2,  // 7: pullrequest.v1.MergeReadiness.decision:type_name -> pullrequest.v1.ReviewDecision
-	3,  // 8: pullrequest.v1.MergeReadiness.checks:type_name -> pullrequest.v1.Checks
-	1,  // 9: pullrequest.v1.MergeReadiness.mergeability:type_name -> pullrequest.v1.Mergeability
-	8,  // 10: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
-	20, // 11: pullrequest.v1.ListStatusChecksResponse.readings:type_name -> pullrequest.v1.StatusCheckReading
-	16, // 12: pullrequest.v1.ReadCheckLogResponse.lines:type_name -> pullrequest.v1.CheckLogLine
-	19, // 13: pullrequest.v1.SearchCheckLogsResponse.hits:type_name -> pullrequest.v1.CheckLogHit
-	26, // 14: pullrequest.v1.StatusCheckReading.first_read_at:type_name -> google.protobuf.Timestamp
-	26, // 15: pullrequest.v1.StatusCheckReading.read_at:type_name -> google.protobuf.Timestamp
-	21, // 16: pullrequest.v1.StatusCheckReading.status_checks:type_name -> pullrequest.v1.StatusCheck
-	5,  // 17: pullrequest.v1.StatusCheck.kind:type_name -> pullrequest.v1.StatusCheckKind
-	6,  // 18: pullrequest.v1.StatusCheck.state:type_name -> pullrequest.v1.StatusCheckState
-	26, // 19: pullrequest.v1.StatusCheck.started_at:type_name -> google.protobuf.Timestamp
-	26, // 20: pullrequest.v1.StatusCheck.finished_at:type_name -> google.protobuf.Timestamp
-	24, // 21: pullrequest.v1.StatusCheck.steps:type_name -> pullrequest.v1.StatusCheckStep
-	26, // 22: pullrequest.v1.StatusCheck.run_started_at:type_name -> google.protobuf.Timestamp
-	22, // 23: pullrequest.v1.StatusCheck.log:type_name -> pullrequest.v1.CheckLog
-	4,  // 24: pullrequest.v1.CheckLog.state:type_name -> pullrequest.v1.CheckLogState
-	26, // 25: pullrequest.v1.CheckLog.fetched_at:type_name -> google.protobuf.Timestamp
-	23, // 26: pullrequest.v1.CheckLog.steps:type_name -> pullrequest.v1.CheckLogStep
-	6,  // 27: pullrequest.v1.StatusCheckStep.state:type_name -> pullrequest.v1.StatusCheckState
-	26, // 28: pullrequest.v1.StatusCheckStep.started_at:type_name -> google.protobuf.Timestamp
-	26, // 29: pullrequest.v1.StatusCheckStep.finished_at:type_name -> google.protobuf.Timestamp
-	7,  // 30: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
-	12, // 31: pullrequest.v1.PullRequestService.ListStatusChecks:input_type -> pullrequest.v1.ListStatusChecksRequest
-	14, // 32: pullrequest.v1.PullRequestService.ReadCheckLog:input_type -> pullrequest.v1.ReadCheckLogRequest
-	17, // 33: pullrequest.v1.PullRequestService.SearchCheckLogs:input_type -> pullrequest.v1.SearchCheckLogsRequest
-	11, // 34: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
-	13, // 35: pullrequest.v1.PullRequestService.ListStatusChecks:output_type -> pullrequest.v1.ListStatusChecksResponse
-	15, // 36: pullrequest.v1.PullRequestService.ReadCheckLog:output_type -> pullrequest.v1.ReadCheckLogResponse
-	18, // 37: pullrequest.v1.PullRequestService.SearchCheckLogs:output_type -> pullrequest.v1.SearchCheckLogsResponse
-	34, // [34:38] is the sub-list for method output_type
-	30, // [30:34] is the sub-list for method input_type
-	30, // [30:30] is the sub-list for extension type_name
-	30, // [30:30] is the sub-list for extension extendee
-	0,  // [0:30] is the sub-list for field type_name
+	26, // 1: pullrequest.v1.PullRequest.forge:type_name -> forge.v1.Kind
+	0,  // 2: pullrequest.v1.PullRequest.state:type_name -> pullrequest.v1.PullRequestState
+	27, // 3: pullrequest.v1.PullRequest.opened_at:type_name -> google.protobuf.Timestamp
+	27, // 4: pullrequest.v1.PullRequest.changed_at:type_name -> google.protobuf.Timestamp
+	27, // 5: pullrequest.v1.PullRequest.merged_at:type_name -> google.protobuf.Timestamp
+	27, // 6: pullrequest.v1.PullRequest.closed_at:type_name -> google.protobuf.Timestamp
+	9,  // 7: pullrequest.v1.PullRequest.merge_readiness:type_name -> pullrequest.v1.MergeReadiness
+	2,  // 8: pullrequest.v1.MergeReadiness.decision:type_name -> pullrequest.v1.ReviewDecision
+	3,  // 9: pullrequest.v1.MergeReadiness.checks:type_name -> pullrequest.v1.Checks
+	1,  // 10: pullrequest.v1.MergeReadiness.mergeability:type_name -> pullrequest.v1.Mergeability
+	8,  // 11: pullrequest.v1.ListPullRequestsResponse.pull_requests:type_name -> pullrequest.v1.PullRequest
+	20, // 12: pullrequest.v1.ListStatusChecksResponse.readings:type_name -> pullrequest.v1.StatusCheckReading
+	16, // 13: pullrequest.v1.ReadCheckLogResponse.lines:type_name -> pullrequest.v1.CheckLogLine
+	19, // 14: pullrequest.v1.SearchCheckLogsResponse.hits:type_name -> pullrequest.v1.CheckLogHit
+	27, // 15: pullrequest.v1.StatusCheckReading.first_read_at:type_name -> google.protobuf.Timestamp
+	27, // 16: pullrequest.v1.StatusCheckReading.read_at:type_name -> google.protobuf.Timestamp
+	21, // 17: pullrequest.v1.StatusCheckReading.status_checks:type_name -> pullrequest.v1.StatusCheck
+	5,  // 18: pullrequest.v1.StatusCheck.kind:type_name -> pullrequest.v1.StatusCheckKind
+	6,  // 19: pullrequest.v1.StatusCheck.state:type_name -> pullrequest.v1.StatusCheckState
+	27, // 20: pullrequest.v1.StatusCheck.started_at:type_name -> google.protobuf.Timestamp
+	27, // 21: pullrequest.v1.StatusCheck.finished_at:type_name -> google.protobuf.Timestamp
+	24, // 22: pullrequest.v1.StatusCheck.steps:type_name -> pullrequest.v1.StatusCheckStep
+	27, // 23: pullrequest.v1.StatusCheck.run_started_at:type_name -> google.protobuf.Timestamp
+	22, // 24: pullrequest.v1.StatusCheck.log:type_name -> pullrequest.v1.CheckLog
+	4,  // 25: pullrequest.v1.CheckLog.state:type_name -> pullrequest.v1.CheckLogState
+	27, // 26: pullrequest.v1.CheckLog.fetched_at:type_name -> google.protobuf.Timestamp
+	23, // 27: pullrequest.v1.CheckLog.steps:type_name -> pullrequest.v1.CheckLogStep
+	6,  // 28: pullrequest.v1.StatusCheckStep.state:type_name -> pullrequest.v1.StatusCheckState
+	27, // 29: pullrequest.v1.StatusCheckStep.started_at:type_name -> google.protobuf.Timestamp
+	27, // 30: pullrequest.v1.StatusCheckStep.finished_at:type_name -> google.protobuf.Timestamp
+	7,  // 31: pullrequest.v1.PullRequestService.ListPullRequests:input_type -> pullrequest.v1.ListPullRequestsRequest
+	12, // 32: pullrequest.v1.PullRequestService.ListStatusChecks:input_type -> pullrequest.v1.ListStatusChecksRequest
+	14, // 33: pullrequest.v1.PullRequestService.ReadCheckLog:input_type -> pullrequest.v1.ReadCheckLogRequest
+	17, // 34: pullrequest.v1.PullRequestService.SearchCheckLogs:input_type -> pullrequest.v1.SearchCheckLogsRequest
+	11, // 35: pullrequest.v1.PullRequestService.ListPullRequests:output_type -> pullrequest.v1.ListPullRequestsResponse
+	13, // 36: pullrequest.v1.PullRequestService.ListStatusChecks:output_type -> pullrequest.v1.ListStatusChecksResponse
+	15, // 37: pullrequest.v1.PullRequestService.ReadCheckLog:output_type -> pullrequest.v1.ReadCheckLogResponse
+	18, // 38: pullrequest.v1.PullRequestService.SearchCheckLogs:output_type -> pullrequest.v1.SearchCheckLogsResponse
+	35, // [35:39] is the sub-list for method output_type
+	31, // [31:35] is the sub-list for method input_type
+	31, // [31:31] is the sub-list for extension type_name
+	31, // [31:31] is the sub-list for extension extendee
+	0,  // [0:31] is the sub-list for field type_name
 }
 
 func init() { file_pullrequest_v1_pullrequest_proto_init() }

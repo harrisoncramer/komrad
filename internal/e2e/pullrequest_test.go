@@ -56,7 +56,7 @@ func TestIntegrationPullRequestsReachTheRowFromEachForge(t *testing.T) {
 			require.NoError(t, err)
 			instance := komradtest.Start(t, komradtest.Params{
 				WorktreesDir:  t.TempDir(),
-				ForgeBuilders: map[string]forge.Builder{kind: tt.build(fake.server)},
+				ForgeBuilders: map[forgev1.Kind]forge.Builder{kind: tt.build(fake.server)},
 			})
 			ctx := t.Context()
 

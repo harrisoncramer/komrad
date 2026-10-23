@@ -45,6 +45,7 @@ import (
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/config/v1/configv1connect"
 	"komrad/proto/gen/doctor/v1/doctorv1connect"
+	forgev1 "komrad/proto/gen/forge/v1"
 	"komrad/proto/gen/forge/v1/forgev1connect"
 	"komrad/proto/gen/git/v1/gitv1connect"
 	"komrad/proto/gen/hook/v1/hookv1connect"
@@ -109,7 +110,7 @@ type Params struct {
 	// test that reads it back.
 	KeepLog bool
 	// ForgeBuilders replaces the forges the instance speaks to.
-	ForgeBuilders map[string]forge.Builder
+	ForgeBuilders map[forgev1.Kind]forge.Builder
 	SignIn        config.SignIn
 }
 

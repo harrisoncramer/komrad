@@ -21,6 +21,7 @@ import (
 	"komrad/internal/worktrees"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -968,7 +969,7 @@ func (f *syncFixture) merge(t *testing.T, agentID uuid.UUID, mergedAt time.Time)
 	require.NoError(t, f.stores.PullRequestSyncs.EnsureSync(ctx, repository))
 	_, err := f.stores.PullRequests.Upsert(ctx, pullrequeststore.UpsertParams{
 		Host:              "github.com",
-		Forge:             "github",
+		Forge:             forgev1.Kind_KIND_GITHUB,
 		ProviderID:        "PR_1",
 		URL:               repository + "/pull/1",
 		RepositoryURL:     repository,

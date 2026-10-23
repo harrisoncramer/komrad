@@ -8,6 +8,7 @@ import (
 	"komrad/internal/ui/record"
 	"komrad/lib/xptr"
 	"komrad/lib/xslice"
+	forgev1 "komrad/proto/gen/forge/v1"
 	pullrequestv1 "komrad/proto/gen/pullrequest/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -95,7 +96,7 @@ func TestPullRequestFields(t *testing.T) {
 			state: pullrequestv1.PullRequestState_PULL_REQUEST_STATE_NONE,
 			pullRequests: []panel.PullRequest{
 				{
-					Forge:    "gitlab",
+					Forge:    forgev1.Kind_KIND_GITLAB,
 					Number:   711,
 					State:    pullrequestv1.PullRequestState_PULL_REQUEST_STATE_MERGED,
 					OpenedAt: yesterday,

@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"komrad/internal/fail"
 	"komrad/internal/git"
 	"komrad/lib/xhttp"
+	forgev1 "komrad/proto/gen/forge/v1"
 )
 
 // ErrNotFound says the forge has nothing at the address asked for.
@@ -91,18 +93,6 @@ func (r RateLimit) IsExhausted() bool {
 func (r RateLimit) IsLow() bool {
 	return r.Known && r.Limit > 0 && r.Remaining*5 < r.Limit
 }
-
-// KindGitHub is the kind a GitHub host records.
-const KindGitHub = "github"
-
-// KindGitLab is the kind a GitLab host records.
-const KindGitLab = "gitlab"
-
-// MethodToken is the method for a credential a person supplied.
-const MethodToken = "token"
-
-// MethodRotatingToken is the method for a GitLab token komrad rotates itself before it expires.
-const MethodRotatingToken = "rotating_token"
 
 // ReviewDecision is where a forge says a pull request's reviews stand, in komrad's own words.
 type ReviewDecision string
@@ -256,8 +246,8 @@ type AutoMerge struct {
 
 // PullRequest is one pull request as every forge describes it.
 type PullRequest struct {
-	// Forge is the kind of forge the pull request lives on, such as github.
-	Forge string
+	// Forge is the kind of forge the pull request lives on.
+	Forge forgev1.Kind
 	// ProviderID is the forge's own stable identifier, such as GitHub's node_id.
 	ProviderID string
 	// URL is the web address a person opens.
@@ -299,8 +289,8 @@ func (pr PullRequest) IsFromItsOwnRepository() bool {
 // ShouldChangeParams is what a forge read about a pull request it is about to change.
 type ShouldChangeParams struct {
 	Sentinel *fail.Error
-	// Forge names the forge in a refusal, such as github.
-	Forge string
+	// Forge names the forge in a refusal.
+	Forge forgev1.Kind
 	// Ref names the pull request in a refusal, such as #12 or !12.
 	Ref    string
 	Merged bool
@@ -313,9 +303,9 @@ type ShouldChangeParams struct {
 func ShouldChange(params ShouldChangeParams) (bool, error) {
 	switch {
 	case params.Merged:
-		return false, params.Sentinel.Saying("%s will not change %s: it has already merged", params.Forge, params.Ref)
+		return false, params.Sentinel.Saying("%s will not change %s: it has already merged", strings.ToLower(Name(params.Forge)), params.Ref)
 	case params.Closed:
-		return false, params.Sentinel.Saying("%s will not change %s: it was closed", params.Forge, params.Ref)
+		return false, params.Sentinel.Saying("%s will not change %s: it was closed", strings.ToLower(Name(params.Forge)), params.Ref)
 	}
 
 	return !params.IsSettled, nil
@@ -323,7 +313,7 @@ func ShouldChange(params ShouldChangeParams) (bool, error) {
 
 // Forge is one service pull requests live on, spoken to as one connection.
 type Forge interface {
-	Kind() string
+	Kind() forgev1.Kind
 	// Verify asks the forge who the credential belongs to.
 	Verify(ctx context.Context) (login string, err error)
 	// List is one page of the repository's pull requests: every one from the named branch,

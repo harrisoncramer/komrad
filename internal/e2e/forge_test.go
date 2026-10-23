@@ -43,7 +43,7 @@ type fakeForge struct {
 func TestIntegrationForges(t *testing.T) {
 	fake := startFakeGitHub(t)
 	instance := komradtest.Start(t, komradtest.Params{
-		ForgeBuilders: map[string]forge.Builder{forge.KindGitHub: buildGitHub(fake.server)},
+		ForgeBuilders: map[forgev1.Kind]forge.Builder{forgev1.Kind_KIND_GITHUB: buildGitHub(fake.server)},
 	})
 	ctx := t.Context()
 

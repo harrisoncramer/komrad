@@ -14,6 +14,7 @@ import (
 	"komrad/internal/store"
 	forgestore "komrad/internal/store/forge"
 	pullrequeststore "komrad/internal/store/pullrequest"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	"github.com/google/uuid"
 )
@@ -146,7 +147,7 @@ func (s *CommentSyncer) openHost(ctx context.Context, hostname string) *commentH
 // viewerOf is the person a connection reads as, or empty for one made from an App, whose login is
 // the App rather than anybody who comments.
 func viewerOf(connection forgestore.Connection) string {
-	if connection.Method == forge.MethodGitHubApp {
+	if connection.Method == forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP {
 		return ""
 	}
 

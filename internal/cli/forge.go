@@ -9,7 +9,9 @@ import (
 
 	"komrad/internal/forge"
 	"komrad/lib/dates"
+	"komrad/lib/protoenum"
 	"komrad/lib/xhttp"
+	"komrad/lib/xslice"
 	forgev1 "komrad/proto/gen/forge/v1"
 	"komrad/proto/gen/forge/v1/forgev1connect"
 
@@ -84,28 +86,25 @@ for GitHub or /api/v4 for GitLab. The address has to be https.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			req := &forgev1.ConnectForgeRequest{
 				Host:   args[0],
-				Kind:   kind,
 				ApiUrl: apiURL,
 			}
-			switch method {
-			case "token", "":
-				token, err := readToken(cmd.InOrStdin(), tokenFile)
+			if kind != "" {
+				found, err := forgeKindNamed(kind)
 				if err != nil {
 					return err
 				}
-
-				req.Method, req.Token = forge.MethodToken, tokenForTheWire(token)
-			case "rotating-token":
-				token, err := readToken(cmd.InOrStdin(), tokenFile)
-				if err != nil {
-					return err
-				}
-
-				req.Method, req.Token = forge.MethodRotatingToken, tokenForTheWire(token)
-			case "github-app":
-				req.Method = forge.MethodGitHubApp
-			default:
+				req.Kind = found
+			}
+			req.Method = methodNamed(method)
+			if method != "" && req.GetMethod() == forgev1.CredentialMethod_CREDENTIAL_METHOD_UNSPECIFIED {
 				return fmt.Errorf("--method is token, rotating-token or github-app, not %q", method)
+			}
+			if req.GetMethod() != forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP {
+				token, err := readToken(cmd.InOrStdin(), tokenFile)
+				if err != nil {
+					return err
+				}
+				req.Token = tokenForTheWire(token)
 			}
 
 			return state.withAPI(cmd.Context(), func(ctx context.Context, base string) error {
@@ -227,7 +226,7 @@ func printForges(out io.Writer, forges []*forgev1.Forge, problems map[string]str
 			verified = dates.Read(f.GetVerifiedAt()).Local().Format("2006-01-02 15:04")
 		}
 
-		rows = append(rows, []string{f.GetHost(), f.GetKind(), f.GetLogin(), f.GetMethod(), verified})
+		rows = append(rows, []string{f.GetHost(), strings.ToLower(forge.Name(f.GetKind())), f.GetLogin(), methodFlags[f.GetMethod()], verified})
 	}
 
 	return printTable(out, []string{"HOST", "KIND", "LOGIN", "METHOD", "VERIFIED"}, rows)
@@ -261,4 +260,36 @@ func readToken(stdin io.Reader, tokenFile string) (forge.Secret, error) {
 	}
 
 	return token, nil
+}
+
+// methodFlags is the --method value that names each way a credential is given.
+var methodFlags = map[forgev1.CredentialMethod]string{
+	forgev1.CredentialMethod_CREDENTIAL_METHOD_TOKEN:          "token",
+	forgev1.CredentialMethod_CREDENTIAL_METHOD_ROTATING_TOKEN: "rotating-token",
+	forgev1.CredentialMethod_CREDENTIAL_METHOD_GITHUB_APP:     "github-app",
+}
+
+// methodNamed is the way of giving a credential a --method value names, unspecified for none.
+func methodNamed(name string) forgev1.CredentialMethod {
+	for method, flag := range methodFlags {
+		if flag == name {
+			return method
+		}
+	}
+
+	return forgev1.CredentialMethod_CREDENTIAL_METHOD_UNSPECIFIED
+}
+
+// forgeKindNamed is the kind of forge a --kind value names, such as github.
+func forgeKindNamed(name string) (forgev1.Kind, error) {
+	kinds := protoenum.Values[forgev1.Kind]()
+	for _, kind := range kinds {
+		if strings.EqualFold(forge.Name(kind), name) {
+			return kind, nil
+		}
+	}
+
+	names := xslice.Map(kinds, func(kind forgev1.Kind) string { return strings.ToLower(forge.Name(kind)) })
+
+	return forgev1.Kind_KIND_UNSPECIFIED, fmt.Errorf("--kind is %s, not %q", strings.Join(names, " or "), name)
 }

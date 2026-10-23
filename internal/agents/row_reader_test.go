@@ -8,6 +8,7 @@ import (
 	"komrad/internal/forge"
 	"komrad/internal/storetest"
 	"komrad/lib/xslice"
+	forgev1 "komrad/proto/gen/forge/v1"
 
 	agentstore "komrad/internal/store/agent"
 	mailstore "komrad/internal/store/mail"
@@ -62,7 +63,7 @@ func TestListSurroundings(t *testing.T) {
 	openedAt := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
 	written, err := st.PullRequests.Upsert(ctx, pullrequeststore.UpsertParams{
 		Host:              "github.com",
-		Forge:             "github",
+		Forge:             forgev1.Kind_KIND_GITHUB,
 		ProviderID:        "PR_740",
 		URL:               readerRepository + "/pull/740",
 		RepositoryURL:     readerRepository,

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"komrad/internal/forge"
+	forgev1 "komrad/proto/gen/forge/v1"
 )
 
 //go:embed setbase.gql
@@ -27,8 +28,8 @@ func (f *Forge) SetBase(ctx context.Context, address, base string) error {
 	}
 	shouldChange, err := forge.ShouldChange(forge.ShouldChangeParams{
 		Sentinel:  forge.ErrNotRetargetable,
-		Forge:     forge.KindGitLab,
-		Ref:       forge.Ref(forge.KindGitLab, number),
+		Forge:     forgev1.Kind_KIND_GITLAB,
+		Ref:       forge.Ref(forgev1.Kind_KIND_GITLAB, number),
 		Merged:    target.MergedAt != nil,
 		Closed:    target.ClosedAt != nil,
 		IsSettled: target.BaseBranch == base,
