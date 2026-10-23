@@ -7,6 +7,7 @@
 // answers before a worktree is deleted. The root keeps the form host, which runs the open form and
 // holds it while its write is in flight.
 //
-// The root, the menus and every screen domain import form. It imports only the shared packages
-// below it, and never the root or a domain.
+// The root, api, the menu and git menu packages, and the agents, documents, review, schedules and
+// worktrees screens import form. It imports only the shared packages below it, and never the root
+// or a domain.
 package form
