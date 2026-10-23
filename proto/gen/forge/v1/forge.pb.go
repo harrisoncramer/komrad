@@ -384,7 +384,7 @@ type ConnectForgeRequest struct {
 	ApiUrl string `protobuf:"bytes,3,opt,name=api_url,json=apiUrl,proto3" json:"api_url,omitempty"`
 	// How the credential is given. Unspecified gives a token.
 	Method CredentialMethod `protobuf:"varint,4,opt,name=method,proto3,enum=forge.v1.CredentialMethod" json:"method,omitempty"`
-	// The token for the `token` and `rotating_token` methods. No call ever returns it.
+	// The token for the token and rotating token methods. No call ever returns it.
 	Token         string `protobuf:"bytes,5,opt,name=token,proto3" json:"token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
