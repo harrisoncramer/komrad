@@ -176,6 +176,8 @@ linters:
               desc: a shared package sits under the screen domains, so it never imports one
             - pkg: komrad/internal/ui/documents$
               desc: a shared package sits under the screen domains, so it never imports one
+            - pkg: komrad/internal/ui/gitmenu$
+              desc: a shared package sits under the screen domains, so it never imports one
         domains:
           files:
             - "**/internal/ui/logs/**"
@@ -183,6 +185,7 @@ linters:
             - "**/internal/ui/schedules/**"
             - "**/internal/ui/worktrees/**"
             - "**/internal/ui/documents/**"
+            - "**/internal/ui/gitmenu/**"
           list-mode: lax
           allow:
             - komrad/internal/ui/api$
@@ -517,6 +520,7 @@ linters:
               - komrad/internal/ui/schedules.Archive
               - komrad/internal/ui/worktrees.Screen
               - komrad/internal/ui/documents.Screen
+              - komrad/internal/ui/gitmenu.Menus
             # Unanchored regexps over the path lint was run from.
             exclude:
               # Table tests over the screens' key tables, which are typed over the model. They read
