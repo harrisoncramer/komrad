@@ -12,7 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// conversation is the conversation in the sidebar and what the reader is writing into it.
+// conversation is the threads on the review and the message the reader is writing into one.
 type conversation struct {
 	list []*agentv1.ReviewThread
 
