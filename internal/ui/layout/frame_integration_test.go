@@ -52,8 +52,8 @@ func TestIntegrationADeadStagePaneIsReplacedAtTheDraggedWidth(t *testing.T) {
 
 	server.Run("kill-pane", "-t", stage)
 	frame.Show(RegionStage, Content{
-		Key:   "back-to-diff",
-		Wraps: true,
+		Key:      "back-to-diff",
+		DoesWrap: true,
 		Render: func(Target) ([]string, bool) {
 			return []string{"sh", "-c", "sleep 10"}, true
 		},
@@ -86,8 +86,8 @@ func TestIntegrationAResizeWhileTheStagePaneIsDeadKeepsTheDivider(t *testing.T) 
 	frame.SyncSplit()
 
 	frame.Show(RegionStage, Content{
-		Key:   "back-to-diff",
-		Wraps: true,
+		Key:      "back-to-diff",
+		DoesWrap: true,
 		Render: func(Target) ([]string, bool) {
 			return []string{"sh", "-c", "sleep 10"}, true
 		},

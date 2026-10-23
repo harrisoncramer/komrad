@@ -35,8 +35,8 @@ func TestFrameRerendersWhenOnlyTheHeightMoves(t *testing.T) {
 
 	var heights []int
 	content := Content{
-		Key:   "diff",
-		Wraps: true,
+		Key:      "diff",
+		DoesWrap: true,
 		Render: func(target Target) ([]string, bool) {
 			heights = append(heights, target.Height)
 
@@ -1375,16 +1375,16 @@ func TestFrameBegin(t *testing.T) {
 
 func newDocument(markdown string) Content {
 	return Content{
-		Key:    "text:" + markdown,
-		Wraps:  true,
-		Render: func(Target) ([]string, bool) { return []string{"less", markdown}, true },
+		Key:      "text:" + markdown,
+		DoesWrap: true,
+		Render:   func(Target) ([]string, bool) { return []string{"less", markdown}, true },
 	}
 }
 
 func newProbe(key string, wraps bool, got *Target) Content {
 	return Content{
-		Key:   key,
-		Wraps: wraps,
+		Key:      key,
+		DoesWrap: wraps,
 		Render: func(target Target) ([]string, bool) {
 			*got = target
 

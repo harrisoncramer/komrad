@@ -95,39 +95,39 @@ func (d *Screen) legend(in screen.Inputs) []keys.LegendRow[*Screen] {
 
 	return slices.Concat(keys.SelectionLegend[*Screen](documents, in), []keys.LegendRow[*Screen]{
 		{
-			Of:   []keys.ID{keys.SelectToggle},
-			Desc: func(*Screen) string { return documents.ToggleDesc(in) },
-			Show: func(*Screen) bool { return !documents.IsSelecting() && d.isOnDocument(in) },
+			ActionIDs: []keys.ID{keys.SelectToggle},
+			Desc:      func(*Screen) string { return documents.ToggleDesc(in) },
+			Show:      func(*Screen) bool { return !documents.IsSelecting() && d.isOnDocument(in) },
 		},
 	}, keys.NavLegend[*Screen](), []keys.LegendRow[*Screen]{
 		{
-			Of:   []keys.ID{keys.FilterOpen},
-			Desc: keys.FilterDescOf[*Screen](in),
+			ActionIDs: []keys.ID{keys.FilterOpen},
+			Desc:      keys.FilterDescOf[*Screen](in),
 		},
 		{
-			Of:   []keys.ID{actionOlder},
-			Desc: func(*Screen) string { return "an earlier version" },
-			Show: onDocument,
+			ActionIDs: []keys.ID{actionOlder},
+			Desc:      func(*Screen) string { return "an earlier version" },
+			Show:      onDocument,
 		},
 		{
-			Of:   []keys.ID{actionNewer},
-			Desc: func(*Screen) string { return "a later version" },
-			Show: onDocument,
+			ActionIDs: []keys.ID{actionNewer},
+			Desc:      func(*Screen) string { return "a later version" },
+			Show:      onDocument,
 		},
 		{
-			Of:    []keys.ID{keys.FilterClear},
-			Desc:  keys.FilterClearDescOf[*Screen](in),
-			Strip: true,
+			ActionIDs: []keys.ID{keys.FilterClear},
+			Desc:      keys.FilterClearDescOf[*Screen](in),
+			Strip:     true,
 		},
 		{
-			Of:    []keys.ID{keys.FilterMatch},
-			Desc:  func(*Screen) string { return "next/prev match" },
-			Strip: true,
+			ActionIDs: []keys.ID{keys.FilterMatch},
+			Desc:      func(*Screen) string { return "next/prev match" },
+			Strip:     true,
 		},
 		{
-			Of:    []keys.ID{actionBack},
-			Desc:  func(*Screen) string { return "back" },
-			Strip: true,
+			ActionIDs: []keys.ID{actionBack},
+			Desc:      func(*Screen) string { return "back" },
+			Strip:     true,
 		},
 	})
 }
@@ -175,17 +175,17 @@ func (d *Screen) stepActions(in screen.Inputs) keys.Spec[*Screen] {
 		},
 		Legend: []keys.LegendRow[*Screen]{
 			{
-				Of:   []keys.ID{actionOlder},
-				Desc: func(*Screen) string { return "an earlier version" },
+				ActionIDs: []keys.ID{actionOlder},
+				Desc:      func(*Screen) string { return "an earlier version" },
 			},
 			{
-				Of:   []keys.ID{actionNewer},
-				Desc: func(*Screen) string { return "a later version" },
+				ActionIDs: []keys.ID{actionNewer},
+				Desc:      func(*Screen) string { return "a later version" },
 			},
 			{
-				Of:    []keys.ID{actionBack},
-				Desc:  func(*Screen) string { return "back to the list" },
-				Strip: true,
+				ActionIDs: []keys.ID{actionBack},
+				Desc:      func(*Screen) string { return "back to the list" },
+				Strip:     true,
 			},
 		},
 	}
@@ -279,8 +279,8 @@ func (d *Screen) docSpec(in screen.Inputs) keys.Spec[*Screen] {
 		},
 		Legend: []keys.LegendRow[*Screen]{
 			{
-				Of:   []keys.ID{actionOlder},
-				Desc: func(*Screen) string { return "an earlier version" },
+				ActionIDs: []keys.ID{actionOlder},
+				Desc:      func(*Screen) string { return "an earlier version" },
 			},
 		},
 	}

@@ -46,28 +46,28 @@ func ColumnScrollLabel(k config.Keybindings) string {
 // MoveRow names the move keys.
 func MoveRow[S any]() LegendRow[S] {
 	return LegendRow[S]{
-		Of:    []ID{Move},
-		Desc:  func(S) string { return "move" },
-		Label: MoveLabel,
-		Strip: true,
+		ActionIDs: []ID{Move},
+		Desc:      func(S) string { return "move" },
+		Label:     MoveLabel,
+		Strip:     true,
 	}
 }
 
 // NavPageRow names the page keys.
 func NavPageRow[S any]() LegendRow[S] {
 	return LegendRow[S]{
-		Of:    []ID{NavPage},
-		Desc:  func(S) string { return "page" },
-		Label: NavPageLabel,
+		ActionIDs: []ID{NavPage},
+		Desc:      func(S) string { return "page" },
+		Label:     NavPageLabel,
 	}
 }
 
 // JumpRow names the keys to either end.
 func JumpRow[S any]() LegendRow[S] {
 	return LegendRow[S]{
-		Of:    []ID{Jump},
-		Desc:  func(S) string { return "top/bottom" },
-		Label: jumpLabel,
+		ActionIDs: []ID{Jump},
+		Desc:      func(S) string { return "top/bottom" },
+		Label:     jumpLabel,
 	}
 }
 
@@ -81,9 +81,9 @@ func NavLegend[S any]() []LegendRow[S] {
 		JumpRow[S](),
 		NavPageRow[S](),
 		{
-			Of:    []ID{ColumnScroll},
-			Desc:  func(S) string { return "scroll" },
-			Label: ColumnScrollLabel,
+			ActionIDs: []ID{ColumnScroll},
+			Desc:      func(S) string { return "scroll" },
+			Label:     ColumnScrollLabel,
 		},
 	}
 }

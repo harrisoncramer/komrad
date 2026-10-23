@@ -14,7 +14,7 @@ import (
 // worktree komrad holds.
 func taskWorktree(inspections map[string]panel.WorktreeInspection, cwd string) (panel.WorktreeInspection, bool) {
 	read, ok := inspections[cwd]
-	if !ok || !read.Answered || read.IsSettled() {
+	if !ok || !read.IsAnswered || read.IsSettled() {
 		return panel.WorktreeInspection{}, false
 	}
 
@@ -73,17 +73,17 @@ func worktreeStandingFields(read panel.WorktreeInspection, now time.Time) []reco
 		return fields
 	}
 
-	if read.Item.Readable {
+	if read.Worktree.Readable {
 		fields = append(fields, record.Field{Label: "changes", Value: read.Changes()})
-		if read.Landed > 0 {
-			fields = append(fields, record.Field{Label: "landed", Value: fmt.Sprintf("%s the base already holds", label.Count(read.Landed, "commit", "commits"))})
+		if read.LandedCommits > 0 {
+			fields = append(fields, record.Field{Label: "landed", Value: fmt.Sprintf("%s the base already holds", label.Count(read.LandedCommits, "commit", "commits"))})
 		}
-		if read.Sequencing {
+		if read.IsSequencing {
 			fields = append(fields, record.Field{Label: "sequence", Value: "a merge or rebase is part-way through"})
 		}
 	}
 
-	return append(fields, record.Field{Label: "size", Value: read.Item.SizeAt(now)})
+	return append(fields, record.Field{Label: "size", Value: read.Worktree.SizeAt(now)})
 }
 
 // recordAgent is the agent the row's record is about, which for a task is its writer, and none on

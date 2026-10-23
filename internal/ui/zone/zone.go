@@ -35,9 +35,9 @@ const (
 
 // Hit is the marked row under a cell.
 type Hit struct {
-	Zone Name
-	Key  string
-	Nth  int
+	Zone       Name
+	Key        string
+	Occurrence int
 }
 
 // A mark is an invisible tag hidden in a frame, wrapped in escape codes the terminal skips over.
@@ -195,9 +195,9 @@ func HitAt(line string, x int) (Hit, bool) {
 		}
 
 		return Hit{
-			Zone: name,
-			Key:  string(key),
-			Nth:  nth,
+			Zone:       name,
+			Key:        string(key),
+			Occurrence: nth,
 		}, true
 	}
 

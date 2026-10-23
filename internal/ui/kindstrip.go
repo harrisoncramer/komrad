@@ -68,11 +68,11 @@ func (m *model) clickKind(label string) tea.Cmd {
 		m.closeViews()
 	}
 	cmd := m.enterStop(stopList)
-	if at == row.Lit {
+	if at == row.ChosenStop {
 		return cmd
 	}
 
-	return tea.Batch(cmd, m.apply(k.StepKind(m.inputs(), at-row.Lit)))
+	return tea.Batch(cmd, m.apply(k.StepKind(m.inputs(), at-row.ChosenStop)))
 }
 
 func (m *model) updateKinds(press tea.KeyPressMsg) tea.Cmd {

@@ -126,13 +126,13 @@ func describeStanding(inspections map[string]panel.WorktreeInspection, dirs []st
 	for _, dir := range dirs {
 		inspection := inspections[dir]
 		switch {
-		case !inspection.Answered || inspection.Pending:
+		case !inspection.IsAnswered || inspection.IsReadPending:
 			reading++
 		case inspection.IsSettled():
 			settled++
 		case inspection.Err != nil:
 			refusals = append(refusals, errui.GetReason(inspection.Err))
-		case !inspection.Item.Readable:
+		case !inspection.Worktree.Readable:
 			refusals = append(refusals, "git cannot read it")
 		default:
 			read++

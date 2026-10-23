@@ -26,14 +26,14 @@ func (s Stops) parts() []string {
 	for i := range s.Labels {
 		style := muted
 		switch i {
-		case s.Focus:
+		case s.FocusedStop:
 			style = paint.Panel.Cursor()
-		case s.Lit:
+		case s.ChosenStop:
 			style = lit
 		}
 		parts[i] = style.Render(s.Labels[i])
-		if s.Mark != nil {
-			parts[i] = s.Mark(i, parts[i])
+		if s.MarkStop != nil {
+			parts[i] = s.MarkStop(i, parts[i])
 		}
 	}
 
@@ -46,11 +46,11 @@ func (s Stops) View() string {
 }
 
 func (s Strip) groupLabel(state State) string {
-	if state.Flat {
+	if state.AreHeadingsOff {
 		return FlatLabel
 	}
 
-	return s.Grouped
+	return s.GroupedLabel
 }
 
 // View is the strip on one line, cut to the width where one is given.
@@ -65,23 +65,23 @@ func (s Strip) View(state State, width int, mark func(int, string) string) strin
 			labels[i] = state.Direction.glyph() + " " + option.Label
 		}
 	}
-	if s.Grouped != "" {
+	if s.GroupedLabel != "" {
 		labels = append(labels, s.groupLabel(state))
 	}
 
 	row := Stops{
-		Labels: labels,
-		Focus:  NoStop,
-		Lit:    NoStop,
-		Mark:   mark,
+		Labels:      labels,
+		FocusedStop: NoStop,
+		ChosenStop:  NoStop,
+		MarkStop:    mark,
 	}
-	if state.Focused {
-		row.Focus = s.focusIndex(state)
+	if state.IsFocused {
+		row.FocusedStop = s.focusIndex(state)
 	}
 	parts := row.parts()
 
 	line := muted.Render(s.Title) + "   " + strings.Join(parts[:len(s.Options)], "  ")
-	if s.Grouped != "" {
+	if s.GroupedLabel != "" {
 		line += "  " + muted.Render(glyph.Separator) + "  " + parts[len(s.Options)]
 	}
 	if width > 0 {

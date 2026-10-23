@@ -27,7 +27,7 @@ func (w *Screen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
 		selected: w.Selected,
 		focused:  list.KeyAt(rows, w.Row),
 		live:     in.Listing.Agents,
-		flat:     w.sort.Flat,
+		flat:     w.sort.AreHeadingsOff,
 		caret:    pane.Caret,
 		matcher:  in.Room.Pattern.Regexp,
 		pane:     pane.Width,
@@ -71,7 +71,7 @@ func recordFields(in screen.Inputs, item panel.Worktree) []record.Field {
 		record.Field{Label: "repository", Value: label.OrDash(label.Path(item.RepoDir, homeDir()))},
 	)
 	read := in.Inspections[item.Dir]
-	if read.Answered && read.Err != nil {
+	if read.IsAnswered && read.Err != nil {
 		fields = append(fields, record.Field{Label: "worktree", Value: "could not read: " + errui.GetReason(read.Err)})
 	}
 	if read.IsRead() {
@@ -177,7 +177,7 @@ func (w *Screen) gitDoc(in screen.Inputs) string {
 
 	read, ok := in.Inspections[row.item.Dir]
 	switch {
-	case !ok || !read.Answered:
+	case !ok || !read.IsAnswered:
 		return paint.DocumentMarkdown(row.name(), "_"+row.item.Dir+"_", "_reading the directory…_", "")
 	case read.Err != nil && !read.IsRead():
 		return paint.DocumentMarkdown(row.name(), "_"+row.item.Dir+"_", "could not read: "+errui.GetReason(read.Err), "")

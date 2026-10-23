@@ -118,8 +118,8 @@ func DiffLegend[S any](k Diff, in screen.Inputs) []LegendRow[S] {
 		DiffPanRow[S](),
 		JumpRow[S](),
 		{
-			Of:   []ID{diffExpand},
-			Desc: func(S) string { return k.ExpandDesc() },
+			ActionIDs: []ID{diffExpand},
+			Desc:      func(S) string { return k.ExpandDesc() },
 		},
 		diffWrapRow[S](in),
 	}
@@ -128,8 +128,8 @@ func DiffLegend[S any](k Diff, in screen.Inputs) []LegendRow[S] {
 // DiffFileRow names the keys that step between a diff's files.
 func DiffFileRow[S any]() LegendRow[S] {
 	return LegendRow[S]{
-		Of:   []ID{DiffFile},
-		Desc: func(S) string { return "next/previous file" },
+		ActionIDs: []ID{DiffFile},
+		Desc:      func(S) string { return "next/previous file" },
 		Label: func(k config.Keybindings) string {
 			return HeadLabel(k.Diff.NextFile) + "/" + HeadLabel(k.Diff.PrevFile)
 		},
@@ -139,16 +139,16 @@ func DiffFileRow[S any]() LegendRow[S] {
 // DiffSearchRow names the key that opens a diff's search.
 func DiffSearchRow[S any]() LegendRow[S] {
 	return LegendRow[S]{
-		Of:   []ID{FilterOpen},
-		Desc: func(S) string { return "search" },
+		ActionIDs: []ID{FilterOpen},
+		Desc:      func(S) string { return "search" },
 	}
 }
 
 // DiffMatchRow names the keys that step between a diff's matches.
 func DiffMatchRow[S any]() LegendRow[S] {
 	return LegendRow[S]{
-		Of:   []ID{diffMatch},
-		Desc: func(S) string { return "next/previous match" },
+		ActionIDs: []ID{diffMatch},
+		Desc:      func(S) string { return "next/previous match" },
 		Label: func(k config.Keybindings) string {
 			return HeadLabel(k.Diff.NextMatch) + "/" + HeadLabel(k.Diff.PrevMatch)
 		},
@@ -158,8 +158,8 @@ func DiffMatchRow[S any]() LegendRow[S] {
 // DiffPanRow is panning and its reset, which share a row.
 func DiffPanRow[S any]() LegendRow[S] {
 	return LegendRow[S]{
-		Of:   []ID{diffPan, diffPanReset},
-		Desc: func(S) string { return "pan sideways" },
+		ActionIDs: []ID{diffPan, diffPanReset},
+		Desc:      func(S) string { return "pan sideways" },
 		Label: func(k config.Keybindings) string {
 			return HeadLabel(k.Diff.PanLeft) + "/" + HeadLabel(k.Diff.PanRight) + "/" + Label(k.Diff.PanReset)
 		},
@@ -169,8 +169,8 @@ func DiffPanRow[S any]() LegendRow[S] {
 // diffWrapRow is the key that wraps long lines or cuts them off again.
 func diffWrapRow[S any](in screen.Inputs) LegendRow[S] {
 	return LegendRow[S]{
-		Of:   []ID{diffWrap},
-		Desc: func(S) string { return WrapDesc(in) },
+		ActionIDs: []ID{diffWrap},
+		Desc:      func(S) string { return WrapDesc(in) },
 	}
 }
 

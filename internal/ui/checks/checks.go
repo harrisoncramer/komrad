@@ -206,9 +206,9 @@ func (c *Screen) shownScope() scope {
 // Kinds is the row of scopes the status checks are listed under.
 func (c *Screen) Kinds() tabs.Stops {
 	return tabs.Stops{
-		Labels: scopeLabels,
-		Focus:  tabs.NoStop,
-		Lit:    int(c.shownScope()),
+		Labels:      scopeLabels,
+		FocusedStop: tabs.NoStop,
+		ChosenStop:  int(c.shownScope()),
 	}
 }
 
@@ -251,28 +251,28 @@ func (c *Screen) listActions(in screen.Inputs) keys.Spec[*Screen] {
 		),
 		Legend: slices.Concat(keys.NavLegend[*Screen](), []keys.LegendRow[*Screen]{
 			{
-				Of:   []keys.ID{keys.FilterOpen},
-				Desc: keys.FilterDescOf[*Screen](in),
+				ActionIDs: []keys.ID{keys.FilterOpen},
+				Desc:      keys.FilterDescOf[*Screen](in),
 			},
 			{
-				Of:    []keys.ID{keys.FilterClear},
-				Desc:  keys.FilterClearDescOf[*Screen](in),
-				Strip: true,
+				ActionIDs: []keys.ID{keys.FilterClear},
+				Desc:      keys.FilterClearDescOf[*Screen](in),
+				Strip:     true,
 			},
 			{
-				Of:    []keys.ID{keys.FilterMatch},
-				Desc:  func(*Screen) string { return "next/prev match" },
-				Strip: true,
+				ActionIDs: []keys.ID{keys.FilterMatch},
+				Desc:      func(*Screen) string { return "next/prev match" },
+				Strip:     true,
 			},
 			{
-				Of:    []keys.ID{actionBack},
-				Desc:  func(*Screen) string { return "back" },
-				Strip: true,
+				ActionIDs: []keys.ID{actionBack},
+				Desc:      func(*Screen) string { return "back" },
+				Strip:     true,
 			},
 			{
-				Of:    []keys.ID{actionLogs},
-				Desc:  func(*Screen) string { return "logs" },
-				Strip: true,
+				ActionIDs: []keys.ID{actionLogs},
+				Desc:      func(*Screen) string { return "logs" },
+				Strip:     true,
 			},
 		}),
 	}

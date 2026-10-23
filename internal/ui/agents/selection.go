@@ -20,13 +20,13 @@ func refsOf(rows []agentRow) []list.Ref {
 			task = ""
 		}
 		ref := list.Ref{
-			Key:    toTreeRowKey(rowKey(row)),
-			Header: row.header,
-			Group:  workflowRowKey(row.workflow.ID),
-			Task:   task,
+			Key:      toTreeRowKey(rowKey(row)),
+			IsHeader: row.header,
+			Group:    workflowRowKey(row.workflow.ID),
+			TaskKey:  task,
 		}
 		if writer, ok := row.writer(); ok {
-			ref.Writer = agentRowKey(writer.Agent.ID)
+			ref.WriterKey = agentRowKey(writer.Agent.ID)
 		}
 		refs = append(refs, ref)
 	}

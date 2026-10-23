@@ -278,23 +278,23 @@ func (c Logs) listActions(in screen.Inputs) keys.Spec[Logs] {
 		),
 		Legend: slices.Concat(keys.NavLegend[Logs](), []keys.LegendRow[Logs]{
 			{
-				Of:   []keys.ID{keys.FilterOpen},
-				Desc: keys.FilterDescOf[Logs](in),
+				ActionIDs: []keys.ID{keys.FilterOpen},
+				Desc:      keys.FilterDescOf[Logs](in),
 			},
 			{
-				Of:    []keys.ID{keys.FilterClear},
-				Desc:  keys.FilterClearDescOf[Logs](in),
-				Strip: true,
+				ActionIDs: []keys.ID{keys.FilterClear},
+				Desc:      keys.FilterClearDescOf[Logs](in),
+				Strip:     true,
 			},
 			{
-				Of:    []keys.ID{keys.FilterMatch},
-				Desc:  func(Logs) string { return "next/prev match" },
-				Strip: true,
+				ActionIDs: []keys.ID{keys.FilterMatch},
+				Desc:      func(Logs) string { return "next/prev match" },
+				Strip:     true,
 			},
 			{
-				Of:    []keys.ID{actionLogsBack},
-				Desc:  func(Logs) string { return "back" },
-				Strip: true,
+				ActionIDs: []keys.ID{actionLogsBack},
+				Desc:      func(Logs) string { return "back" },
+				Strip:     true,
 			},
 		}),
 	}

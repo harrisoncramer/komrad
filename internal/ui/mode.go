@@ -63,9 +63,9 @@ func (m *model) isEditing() bool {
 // typedLine is the one-row field taking the keys, if one is.
 func (m *model) typedLine() (field.Line, bool) {
 	switch {
-	case m.filter.Typing:
+	case m.filter.IsTyping:
 		return m.filter.Input, true
-	case m.reading.filter.Typing && m.isDocReadable(m.inputs()):
+	case m.reading.filter.IsTyping && m.isDocReadable(m.inputs()):
 		return m.reading.filter.Input, true
 	}
 

@@ -167,7 +167,7 @@ func (w *Screen) rows(in screen.Inputs) []row {
 		revision: w.revision,
 		scope:    w.scope,
 		order:    order,
-		flat:     w.sort.Flat,
+		flat:     w.sort.AreHeadingsOff,
 		filter:   in.Room.Pattern.Key(),
 	}
 
@@ -176,7 +176,7 @@ func (w *Screen) rows(in screen.Inputs) []row {
 			Rows: buildRows(buildRowsParams{
 				items: w.shown(),
 				order: order,
-				flat:  w.sort.Flat,
+				flat:  w.sort.AreHeadingsOff,
 			}),
 			Depth: rowDepth,
 			Name:  row.name,
@@ -211,9 +211,9 @@ func repoHeading(item panel.Worktree) string {
 func refs(rows []row) []list.Ref {
 	return xslice.Map(rows, func(r row) list.Ref {
 		return list.Ref{
-			Key:    r.Key(),
-			Header: r.header,
-			Group:  repoRowKey(r.repo),
+			Key:      r.Key(),
+			IsHeader: r.header,
+			Group:    repoRowKey(r.repo),
 		}
 	})
 }

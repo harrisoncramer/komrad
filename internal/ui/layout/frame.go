@@ -317,7 +317,7 @@ func (f *Frame) Show(region region, content Content) {
 	}
 
 	target := Target{Region: region}
-	if content.Wraps {
+	if content.DoesWrap {
 		target.Width = f.tmux.GetPaneWidth(pane)
 		target.Height = f.tmux.GetPaneHeight(pane)
 	}
@@ -848,7 +848,7 @@ func (f *Frame) isShowing(region region, content Content, target Target) bool {
 
 	// Height matters as much as width, with a region giving rows to a split under it and taking
 	// them back.
-	return !content.Wraps || (was.width == target.Width && was.height == target.Height)
+	return !content.DoesWrap || (was.width == target.Width && was.height == target.Height)
 }
 
 // visibleStagePane is the pane the user is actually looking at in the stage slot: the guest

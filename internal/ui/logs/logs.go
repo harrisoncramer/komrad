@@ -331,7 +331,7 @@ func (l *Screen) reread() tea.Cmd {
 
 // openLogFilter hands the keys to the prompt at the foot of the log.
 func (l *Screen) openLogFilter() {
-	l.logFilter.Typing = true
+	l.logFilter.IsTyping = true
 	l.logFilter.Input.Insert()
 	l.logFilter.Mode = filter.ModeFilter
 }
@@ -347,7 +347,7 @@ func (l *Screen) updateLogFilter(key tea.KeyPressMsg) screen.Request {
 		return nil
 	}
 	l.logFilter.Mode = filter.ModeFilter
-	if !l.logFilter.Typing {
+	if !l.logFilter.IsTyping {
 		return l.narrow()
 	}
 
@@ -367,7 +367,7 @@ func (l *Screen) applySettled(msg settledMsg) screen.Request {
 
 // narrow reads the log over with the pattern typed, unless it is broken or already the one read with.
 func (l *Screen) narrow() screen.Request {
-	if l.logFilter.Broken {
+	if l.logFilter.IsPatternBroken {
 		return nil
 	}
 
@@ -399,7 +399,7 @@ func (l *Screen) Update(in screen.Inputs, msg tea.Msg) screen.Request {
 		return nil
 	}
 
-	if l.logFilter.Typing {
+	if l.logFilter.IsTyping {
 		return l.updateLogFilter(key)
 	}
 
@@ -524,7 +524,7 @@ func (l *Screen) TakesEveryKey() bool {
 
 // IsSearchTyping reports whether the prompt at the foot of the log is typed into.
 func (l *Screen) IsSearchTyping() bool {
-	return l.logFilter.Typing
+	return l.logFilter.IsTyping
 }
 
 // Column is the log rendered in the block beside the list.
@@ -605,7 +605,7 @@ func (l *Screen) ActiveList() keys.KeyedList {
 
 // TypedLine is the prompt at the foot of the log and whether it is typed into.
 func (l *Screen) TypedLine() (field.Line, bool) {
-	return l.logFilter.Input, l.logFilter.Typing
+	return l.logFilter.Input, l.logFilter.IsTyping
 }
 
 // Dispatches is the list's table and the log's table.
@@ -629,9 +629,9 @@ var formatLabels = []string{"raw", "compact"}
 // Kinds is the row of formats a server log is rendered in.
 func (l *Screen) Kinds() tabs.Stops {
 	return tabs.Stops{
-		Labels: formatLabels,
-		Focus:  tabs.NoStop,
-		Lit:    int(l.format),
+		Labels:      formatLabels,
+		FocusedStop: tabs.NoStop,
+		ChosenStop:  int(l.format),
 	}
 }
 

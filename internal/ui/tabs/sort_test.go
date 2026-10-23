@@ -127,12 +127,12 @@ func TestOrderReadsTheState(t *testing.T) {
 		},
 		{
 			name:  "a choice the strip does not hold falls back and keeps its direction",
-			state: tabs.State{Chosen: "gone", Direction: tabs.Up},
+			state: tabs.State{ChosenColumn: "gone", Direction: tabs.Up},
 			want:  tabs.Order{Column: "size", Direction: tabs.Up},
 		},
 		{
 			name:  "a choice the strip holds is named as chosen",
-			state: tabs.State{Chosen: "age", Direction: tabs.Up},
+			state: tabs.State{ChosenColumn: "age", Direction: tabs.Up},
 			want:  tabs.Order{Column: "age", Direction: tabs.Up},
 		},
 	}

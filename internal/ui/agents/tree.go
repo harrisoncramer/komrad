@@ -427,7 +427,7 @@ func (a *Screen) buildTree(in screen.Inputs) []agentRow {
 	key := agentTreeKey{
 		generation: in.Listing.Generation,
 		order:      order,
-		flat:       a.sort.Flat,
+		flat:       a.sort.AreHeadingsOff,
 		showHidden: a.showHidden,
 		filter:     in.Room.Pattern.Key(),
 	}
@@ -438,7 +438,7 @@ func (a *Screen) buildTree(in screen.Inputs) []agentRow {
 			agents:            sortedAgents(in.Listing.Agents, agentSorts, order),
 			showHidden:        a.showHidden,
 			foldOrchestrators: true,
-			flat:              a.sort.Flat,
+			flat:              a.sort.AreHeadingsOff,
 			tasks:             in.Listing.Tasks,
 		}))
 	})

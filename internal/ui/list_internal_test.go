@@ -140,7 +140,7 @@ func specArms[S any](spec keys.Spec[S]) []specArm {
 			id:    action.ID,
 			moves: action.Nav != nil,
 			acts:  action.Direct != nil,
-			named: slices.ContainsFunc(spec.Legend, func(row keys.LegendRow[S]) bool { return slices.Contains(row.Of, action.ID) }),
+			named: slices.ContainsFunc(spec.Legend, func(row keys.LegendRow[S]) bool { return slices.Contains(row.ActionIDs, action.ID) }),
 		}
 		if action.Direct != nil {
 			arm.reason = action.Direct.Reason

@@ -41,9 +41,9 @@ type Target struct {
 type Content struct {
 	Key string
 	// Dir is the directory that roots the pane.
-	Dir    string
-	Wraps  bool
-	Render func(Target) ([]string, bool)
+	Dir      string
+	DoesWrap bool
+	Render   func(Target) ([]string, bool)
 }
 
 const unmeasuredWidth = 30

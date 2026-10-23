@@ -64,7 +64,7 @@ func (m *model) routeClick(click tea.MouseClickMsg) tea.Cmd {
 	settled := m.settleSearch()
 	if marked {
 		if c, ok := m.clickerOf(hit.Zone); ok {
-			return tea.Batch(settled, c.click(m, hit.Key, hit.Nth))
+			return tea.Batch(settled, c.click(m, hit.Key, hit.Occurrence))
 		}
 	}
 

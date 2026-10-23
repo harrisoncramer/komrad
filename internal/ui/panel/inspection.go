@@ -24,13 +24,13 @@ type WorktreeCommit struct {
 
 // WorktreeInspection is one directory read through git, or why it could not be.
 type WorktreeInspection struct {
-	// Pending says a fresh reading is on its way, and Answered that one has come at all.
-	Pending  bool
-	Answered bool
+	// IsReadPending says a fresh reading is on its way, and IsAnswered that one has come at all.
+	IsReadPending bool
+	IsAnswered    bool
 	// ReadAt is when the answer came.
 	ReadAt time.Time
-	// Item is the directory as the listing reports it, measured afresh by the read.
-	Item      Worktree
+	// Worktree is the directory as the listing reports it, measured afresh by the read.
+	Worktree  Worktree
 	Entries   []WorktreeEntry
 	Modified  []string
 	Untracked []string
@@ -39,23 +39,23 @@ type WorktreeInspection struct {
 	BaseError string
 	Ahead     int
 	Behind    int
-	Pushed    bool
+	IsPushed  bool
 	Unpushed  int
 	Unpulled  int
-	// UnpulledLanded says the base already holds every unpulled commit.
-	UnpulledLanded bool
-	// Landed is how many of the branch's own commits the base already holds whole.
-	Landed int
-	// Sequencing says a merge, a rebase or a cherry-pick is part-way through.
-	Sequencing  bool
-	KeepsBranch bool
-	Commits     []WorktreeCommit
-	Err         error
+	// AreUnpulledLanded says the base already holds every unpulled commit.
+	AreUnpulledLanded bool
+	// LandedCommits is how many of the branch's own commits the base already holds whole.
+	LandedCommits int
+	// IsSequencing says a merge, a rebase or a cherry-pick is part-way through.
+	IsSequencing bool
+	KeepsBranch  bool
+	Commits      []WorktreeCommit
+	Err          error
 }
 
 // IsRead reports whether git has answered for the directory.
 func (r WorktreeInspection) IsRead() bool {
-	return r.Answered && (r.Err == nil || r.Item.Dir != "")
+	return r.IsAnswered && (r.Err == nil || r.Worktree.Dir != "")
 }
 
 // Changes counts the files the directory has modified and left untracked, or says there are none.
@@ -78,7 +78,7 @@ func (r WorktreeInspection) Changes() string {
 // was pushed and git cannot name the base to count from.
 func (r WorktreeInspection) UnpushedCommits() (int, bool) {
 	switch {
-	case r.Pushed:
+	case r.IsPushed:
 		return r.Unpushed, true
 	case r.BaseRef == "":
 		return 0, false
@@ -89,5 +89,5 @@ func (r WorktreeInspection) UnpushedCommits() (int, bool) {
 
 // IsSettled reports whether the answer is one that will never change.
 func (r WorktreeInspection) IsSettled() bool {
-	return r.Answered && errui.IsNotFound(r.Err)
+	return r.IsAnswered && errui.IsNotFound(r.Err)
 }

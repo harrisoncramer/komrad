@@ -33,45 +33,45 @@ type Row struct {
 }
 
 type Pattern struct {
-	Typed      string
-	Query      string
-	Regexp     *regexp.Regexp
-	Broken     bool
-	Clauses    []searchsyntax.Clause
-	CompiledAt time.Time
-	Filtering  bool
+	Prompt      string
+	Compiled    string
+	Regexp      *regexp.Regexp
+	IsBroken    bool
+	Clauses     []searchsyntax.Clause
+	CompiledAt  time.Time
+	IsFiltering bool
 	// OpenedIn is the section the keys were in when the filter opened.
 	OpenedIn Section
 	Said     Said
 }
 
 type Said struct {
-	Text    string
-	Hits    map[string][]SaidHit
-	Waiting bool
+	Text      string
+	Hits      map[string][]SaidHit
+	IsWaiting bool
 }
 
 type PatternKey struct {
 	narrows    bool
-	query      string
+	compiled   string
 	compiledAt time.Time
 	said       string
-	waiting    bool
+	isWaiting  bool
 }
 
 // IsStanding reports whether anything is typed.
 func (p Pattern) IsStanding() bool {
-	return p.Typed != ""
+	return p.Prompt != ""
 }
 
 // HasQuery reports whether a pattern or a qualifier stands to match rows by.
 func (p Pattern) HasQuery() bool {
-	return !p.Broken && (p.Regexp != nil || len(p.Clauses) > 0)
+	return !p.IsBroken && (p.Regexp != nil || len(p.Clauses) > 0)
 }
 
 // IsNarrowing reports whether the pattern is taking rows off the screen.
 func (p Pattern) IsNarrowing() bool {
-	return p.Filtering && p.HasQuery()
+	return p.IsFiltering && p.HasQuery()
 }
 
 // DoesNarrow reports whether the pattern is taking rows off one section, which it does only in
@@ -88,10 +88,10 @@ func (p Pattern) Key() PatternKey {
 
 	return PatternKey{
 		narrows:    true,
-		query:      p.Query,
+		compiled:   p.Compiled,
 		compiledAt: p.CompiledAt,
 		said:       p.Said.Text,
-		waiting:    p.Said.Waiting,
+		isWaiting:  p.Said.IsWaiting,
 	}
 }
 
@@ -150,7 +150,7 @@ func (p Pattern) HasSaid(key string) bool {
 // SaidHits is the turns the server found the row saying the text in, and none while it has not
 // answered.
 func (p Pattern) SaidHits(key string) []SaidHit {
-	if p.Said.Waiting {
+	if p.Said.IsWaiting {
 		return nil
 	}
 
@@ -175,7 +175,7 @@ func (p Pattern) MarkSaid(key string, rows []string) []string {
 
 // Picked is the keys of the rows the pattern's qualifiers pick, nil when it names none.
 func Picked[T Keyed](p Pattern, rows []T, fits func(T) Fits) map[string]bool {
-	if p.Broken || len(p.Clauses) == 0 {
+	if p.IsBroken || len(p.Clauses) == 0 {
 		return nil
 	}
 

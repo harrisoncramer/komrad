@@ -46,9 +46,9 @@ type archivedAgents struct {
 // Kinds is the agents view's row of kinds, live, archived and deleted.
 func (a *Screen) Kinds() tabs.Stops {
 	return tabs.Stops{
-		Labels: []string{"live", "archived", "deleted"},
-		Focus:  tabs.NoStop,
-		Lit:    int(a.kind),
+		Labels:      []string{"live", "archived", "deleted"},
+		FocusedStop: tabs.NoStop,
+		ChosenStop:  int(a.kind),
 	}
 }
 
@@ -247,7 +247,7 @@ func (a *archivedAgents) listRows(in screen.Inputs) []agentRow {
 	key := archivedRowsKey{
 		generation: in.Listing.Generation,
 		order:      order,
-		flat:       a.sort.Flat,
+		flat:       a.sort.AreHeadingsOff,
 		filter:     in.Room.Pattern.Key(),
 	}
 
@@ -256,8 +256,8 @@ func (a *archivedAgents) listRows(in screen.Inputs) []agentRow {
 			workflows:         a.headers(in.Listing),
 			agents:            sortedAgents(a.listedAgents(in.Listing), archivedAgentSorts, order),
 			showHidden:        true,
-			foldOrchestrators: !a.sort.Flat,
-			flat:              a.sort.Flat,
+			foldOrchestrators: !a.sort.AreHeadingsOff,
+			flat:              a.sort.AreHeadingsOff,
 			tasks:             in.Listing.Tasks,
 		}))
 	})
@@ -533,11 +533,11 @@ func (a Archive) help(in screen.Inputs) legend.Help {
 
 func archivedAgentTabs() tabs.Strip {
 	return tabs.Strip{
-		Title:    "f",
-		Legend:   "sort",
-		Options:  tabs.OptionsOf(archivedAgentSorts),
-		Fallback: "archived",
-		Grouped:  "workflow",
+		Title:        "f",
+		Legend:       "sort",
+		Options:      tabs.OptionsOf(archivedAgentSorts),
+		Fallback:     "archived",
+		GroupedLabel: "workflow",
 	}
 }
 

@@ -11,9 +11,9 @@ import (
 func (m *model) kindsLine() string {
 	k, _ := m.activeKinds()
 	row := k.Kinds()
-	row.Mark = m.spanMarker(zoneKinds, row.Labels)
+	row.MarkStop = m.spanMarker(zoneKinds, row.Labels)
 	if *k.KindsFocused() {
-		row.Focus, row.Lit = row.Lit, tabs.NoStop
+		row.FocusedStop, row.ChosenStop = row.ChosenStop, tabs.NoStop
 	}
 
 	line := paint.Panel.Style(paint.ToneMuted).Render(keys.HeadLabel(m.keys.Kinds.Focus)) + "   " + row.View()

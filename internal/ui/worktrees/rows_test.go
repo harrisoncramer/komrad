@@ -34,7 +34,7 @@ func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 		{
 			name:  "nothing measured falls to the directory name",
 			items: worktreeFixture(),
-			state: tabs.State{Chosen: "size", Direction: tabs.Up},
+			state: tabs.State{ChosenColumn: "size", Direction: tabs.Up},
 			want: []string{
 				"repo:/home/h/gadgets/admin",
 				"tree:/trees/admin",
@@ -64,7 +64,7 @@ func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 		{
 			name:  "size up is smallest first with the failed walk still last",
 			items: items,
-			state: tabs.State{Chosen: "size", Direction: tabs.Up},
+			state: tabs.State{ChosenColumn: "size", Direction: tabs.Up},
 			want: []string{
 				"repo:/home/h/gadgets/admin",
 				"tree:/trees/admin",
@@ -79,7 +79,7 @@ func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 		{
 			name:  "last-accessed down is the most recent first, the failed walk placed by its own activity",
 			items: items,
-			state: tabs.State{Chosen: "last-accessed", Direction: tabs.Down},
+			state: tabs.State{ChosenColumn: "last-accessed", Direction: tabs.Down},
 			want: []string{
 				"repo:/home/h/gadgets/admin",
 				"tree:/trees/admin",
@@ -94,7 +94,7 @@ func TestWorktreeRowsOrderEachGroupByTheColumn(t *testing.T) {
 		{
 			name:  "last-accessed up is the coldest first",
 			items: items,
-			state: tabs.State{Chosen: "last-accessed", Direction: tabs.Up},
+			state: tabs.State{ChosenColumn: "last-accessed", Direction: tabs.Up},
 			want: []string{
 				"repo:/home/h/gadgets/admin",
 				"tree:/trees/admin",
@@ -132,21 +132,21 @@ func TestWorktreeRowsFlatOrderTheWholeListing(t *testing.T) {
 	}{
 		{
 			name:  "size down is the largest first across every repository",
-			state: tabs.State{Flat: true},
+			state: tabs.State{AreHeadingsOff: true},
 			want:  []string{"tree:/trees/admin", "tree:/trees/live", "tree:/trees/archived", "tree:/trees/broken", "tree:/trees/orphan"},
 		},
 		{
 			name: "size up is the smallest first with the unmeasured still last",
 			state: tabs.State{
-				Chosen:    "size",
-				Direction: tabs.Up,
-				Flat:      true,
+				ChosenColumn:   "size",
+				Direction:      tabs.Up,
+				AreHeadingsOff: true,
 			},
 			want: []string{"tree:/trees/archived", "tree:/trees/live", "tree:/trees/admin", "tree:/trees/broken", "tree:/trees/orphan"},
 		},
 		{
 			name:  "last-accessed down is the most recent first",
-			state: tabs.State{Chosen: "last-accessed", Flat: true},
+			state: tabs.State{ChosenColumn: "last-accessed", AreHeadingsOff: true},
 			want:  []string{"tree:/trees/live", "tree:/trees/orphan", "tree:/trees/admin", "tree:/trees/archived", "tree:/trees/broken"},
 		},
 	}

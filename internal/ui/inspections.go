@@ -17,12 +17,12 @@ import (
 // readWorktreeCmd asks the server for one directory's standing, once at a time.
 func (m *model) readWorktreeCmd(dir string) tea.Cmd {
 	last, asked := m.inspections[dir]
-	if asked && last.Pending {
+	if asked && last.IsReadPending {
 		return nil
 	}
 
 	pending := last
-	pending.Pending = true
+	pending.IsReadPending = true
 	m.applyWorktreeInspection(worktreeInspectedMsg{dir: dir, inspection: pending})
 	clients, clock := m.api, m.clock
 
@@ -30,7 +30,7 @@ func (m *model) readWorktreeCmd(dir string) tea.Cmd {
 		read, err := clients.GetWorktree(dir)
 		if err != nil {
 			// The last answer stays on the row with the refusal beside it.
-			last.Answered, last.ReadAt, last.Err = true, clock.Now(), err
+			last.IsAnswered, last.ReadAt, last.Err = true, clock.Now(), err
 
 			return worktreeInspectedMsg{dir: dir, inspection: last}
 		}
@@ -72,7 +72,7 @@ const worktreeReadTTL = time.Minute
 
 // isStale reports whether the answer is old enough to ask for again.
 func isStale(read panel.WorktreeInspection, now time.Time) bool {
-	return !read.Answered || (!read.IsSettled() && now.Sub(read.ReadAt) > worktreeReadTTL)
+	return !read.IsAnswered || (!read.IsSettled() && now.Sub(read.ReadAt) > worktreeReadTTL)
 }
 
 // inspectTaskWorktree asks for the hovered task's directory where nothing stands for it or

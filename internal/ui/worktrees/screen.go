@@ -137,20 +137,20 @@ func (w *Screen) ScreenNotice(screen.Inputs) string {
 
 func sortStrip() tabs.Strip {
 	return tabs.Strip{
-		Title:    "f",
-		Legend:   "sort",
-		Options:  tabs.OptionsOf(sorts),
-		Fallback: "size",
-		Grouped:  "repo",
+		Title:        "f",
+		Legend:       "sort",
+		Options:      tabs.OptionsOf(sorts),
+		Fallback:     "size",
+		GroupedLabel: "repo",
 	}
 }
 
 // Kinds is the worktrees screen's row of scopes.
 func (w *Screen) Kinds() tabs.Stops {
 	return tabs.Stops{
-		Labels: scopeLabels,
-		Focus:  tabs.NoStop,
-		Lit:    int(w.scope),
+		Labels:      scopeLabels,
+		FocusedStop: tabs.NoStop,
+		ChosenStop:  int(w.scope),
 	}
 }
 
@@ -179,7 +179,7 @@ func (w *Screen) StepKind(in screen.Inputs, delta int) screen.Request {
 func (w *Screen) tally() string {
 	shown := w.shown()
 	tally := fmt.Sprintf("%d"+separated+"%s", len(shown), totalLabel(shown))
-	if w.sort.Flat {
+	if w.sort.AreHeadingsOff {
 		tally += separated + tabs.FlatLabel
 	}
 

@@ -166,7 +166,7 @@ func (a *Screen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
 		tasks:        in.Listing.Tasks,
 		renaming:     a.renamingField(),
 		showHidden:   a.showHidden,
-		flat:         a.sort.Flat,
+		flat:         a.sort.AreHeadingsOff,
 		pane:         pane.Width,
 	})
 }
