@@ -46,7 +46,6 @@ func (g Menus) openPickForkPoint(in screen.Inputs, taskID string) screen.Request
 
 	values := &pickForkPointValues{}
 	parent := in.Listing.Tasks[task.Parent.GetTaskId()].Slug
-	clients := g.deps.Clients
 
 	return form.Open{Form: form.Form{
 		Build: func(form.Inputs) (*huh.Form, []string) {
@@ -55,7 +54,7 @@ func (g Menus) openPickForkPoint(in screen.Inputs, taskID string) screen.Request
 		Submit: func(form.Inputs) screen.Request {
 			commit := strings.TrimSpace(values.Commit)
 
-			return clients.Write(
+			return g.deps.Clients.Write(
 				"picking the fork point of "+task.Slug,
 				fmt.Sprintf("Could not pick the fork point of task %q on %s", task.Slug, parent),
 				func(clients api.Clients) error { return clients.PickForkPoint(task.ID, commit) },
