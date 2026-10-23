@@ -189,12 +189,12 @@ func TestInputSchema(t *testing.T) {
 			method:  "CreateAgent",
 			wantFields: map[string]map[string]any{
 				"prompt":      {"type": "string", "minLength": float64(1), "maxLength": float64(50000)},
-				"workflow_id": {"type": "string", "format": "uuid"},
+				"workflowId": {"type": "string", "format": "uuid"},
 				"title": {
 					"type": "string", "maxLength": float64(200), "description": "must not contain control characters",
 				},
 			},
-			wantRequired: []string{"prompt", "workflow_id"},
+			wantRequired: []string{"prompt", "workflowId"},
 		},
 		{
 			service:    agentService,
@@ -238,7 +238,7 @@ func TestInputSchema(t *testing.T) {
 			service: taskv1.File_task_v1_task_proto.Services().Get(0),
 			method:  "SetTaskNotes",
 			wantFields: map[string]map[string]any{
-				"notes_updated_at": {"type": "string", "format": "date-time"},
+				"notesUpdatedAt": {"type": "string", "format": "date-time"},
 			},
 		},
 	}
