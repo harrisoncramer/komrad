@@ -11,8 +11,10 @@ import (
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/screen"
+	"komrad/lib/xptr"
 	forgev1 "komrad/proto/gen/forge/v1"
 
+	"charm.land/bubbles/v2/textarea"
 	"charm.land/huh/v2"
 )
 
@@ -67,7 +69,8 @@ type editFormValues struct {
 // openEditForm opens the form that changes the pull request's title and description, starting
 // from the text the forge gave.
 func (g Menus) openEditForm(task panel.Task, read *forgev1.PullRequestText) screen.Request {
-	values := &editFormValues{Title: read.GetTitle(), Body: read.GetBody()}
+	started := editFormValues{Title: read.GetTitle(), Body: fieldBody(read.GetBody())}
+	values := xptr.Ptr(started)
 
 	return form.Open{Form: form.Form{
 		Build: func(form.Inputs) (*huh.Form, []string) {
@@ -78,24 +81,32 @@ func (g Menus) openEditForm(task panel.Task, read *forgev1.PullRequestText) scre
 			if strings.TrimSpace(values.Title) == "" {
 				return form.Refuse{Err: errNoTitle, ReturnToField: "title"}
 			}
-			if values.Title == read.GetTitle() && values.Body == read.GetBody() {
+			if *values == started {
 				return nil
 			}
 
-			return g.editWrite(task, values.editRequest(task.PullRequest.URL, read))
+			return g.editWrite(task, values.editRequest(task.PullRequest.URL, read, started))
 		},
 		CanUseNarrowestWidth: true,
 		ClosesOnRefusal:      true,
 	}}
 }
 
+// fieldBody is the description as the form's text field holds it, one newline to each line break.
+func fieldBody(body string) string {
+	field := textarea.New()
+	field.SetValue(strings.ReplaceAll(body, "\r\n", "\n"))
+
+	return field.Value()
+}
+
 // editRequest is the edit the form asks for, carrying only the fields the person changed.
-func (v editFormValues) editRequest(address string, read *forgev1.PullRequestText) *forgev1.EditForgePullRequestRequest {
+func (v editFormValues) editRequest(address string, read *forgev1.PullRequestText, started editFormValues) *forgev1.EditForgePullRequestRequest {
 	req := &forgev1.EditForgePullRequestRequest{Url: address, EditedFrom: read}
-	if v.Title != read.GetTitle() {
+	if v.Title != started.Title {
 		req.Title = &v.Title
 	}
-	if v.Body != read.GetBody() {
+	if v.Body != started.Body {
 		req.Body = &v.Body
 	}
 

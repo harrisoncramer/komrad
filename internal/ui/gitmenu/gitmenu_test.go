@@ -1098,6 +1098,21 @@ func TestGitMenuEditsThePullRequest(t *testing.T) {
 		harness.AssertSentTo(forgev1connect.ForgeServiceEditForgePullRequestProcedure)
 	})
 
+	t.Run("a description written with carriage returns stays out of a title edit", func(t *testing.T) {
+		t.Parallel()
+
+		carried := &forgev1.PullRequestText{Title: "Add the merge form", Body: "Pick a method.\r\n\r\nThen merge."}
+		harness := openEditForm(t, carried)
+
+		harness.Press(slices.Concat(strings.Split(" now", ""), []string{"tab", "enter"})...)
+
+		harness.AssertSentTo(forgev1connect.ForgeServiceEditForgePullRequestProcedure, &forgev1.EditForgePullRequestRequest{
+			Url:        pullRequestURL,
+			EditedFrom: carried,
+			Title:      xptr.Ptr("Add the merge form now"),
+		})
+	})
+
 	retitled := newOpenPullRequest()
 	retitled.Title = "Add the merge form now"
 	redescribed := newOpenPullRequest()
