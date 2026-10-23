@@ -1,4 +1,4 @@
-package ui_test
+package worktrees_test
 
 import (
 	"errors"
@@ -14,14 +14,17 @@ import (
 	"komrad/internal/ui/paneltest"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xptr"
+	"komrad/lib/xslice"
 	agentv1 "komrad/proto/gen/agent/v1"
 	taskv1 "komrad/proto/gen/task/v1"
 	"komrad/proto/gen/task/v1/taskv1connect"
+	watchv1 "komrad/proto/gen/watch/v1"
 	workflowv1 "komrad/proto/gen/workflow/v1"
 	worktreev1 "komrad/proto/gen/worktree/v1"
 	"komrad/proto/gen/worktree/v1/worktreev1connect"
 
 	"connectrpc.com/connect"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -146,7 +149,8 @@ func TestWorktreesDelete(t *testing.T) {
 		moveToWorktree(t, harness, "treeview")
 
 		harness.Press("space")
-		assert.Regexp(t, readOffEntry("delete unused worktrees", "c"), harness.RawFrame())
+		gray, _, _ := strings.Cut(paint.Panel.Style(paint.ToneMuted).Render("x"), "x")
+		assert.Regexp(t, regexp.QuoteMeta(gray+"delete unused worktrees")+" +c", harness.RawFrame())
 
 		harness.Press("c", "y")
 
@@ -493,12 +497,16 @@ func TestWorktreesDeleteAnswer(t *testing.T) {
 
 			harness.Press("space", "c", tt.answer)
 			if len(tt.gone) > 0 {
-				harness.Watch(buildDeletedWorktrees(tt.gone...))
+				harness.Watch(xslice.Map(tt.gone, func(dir string) *watchv1.WatchEvent {
+					return paneltest.Deleted(watchv1.Resource_RESOURCE_WORKTREE, dir)
+				})...)
 			}
 
 			harness.AssertSentTo(worktreev1connect.WorktreeServiceDeleteWorktreesProcedure, tt.wantSent...)
 			frame := harness.Frame()
-			assert.True(t, strings.HasSuffix(readEngineLine(frame), tt.want), readEngineLine(frame))
+			line, _, _ := strings.Cut(paneltest.SplitLines(frame)[1], "│")
+			engine := strings.TrimSpace(line)
+			assert.True(t, strings.HasSuffix(engine, tt.want), engine)
 			assert.NotContains(t, frame, "Delete 2 worktrees?")
 		})
 	}
@@ -581,7 +589,8 @@ func TestWorktreesRecord(t *testing.T) {
 		writer.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC))
 		task := paneltest.TaskOf(writer)
 		writer.Cwd = "/trees/" + task.GetId()
-		reviewer := newArchivedAgent("reviewer-id", "reviewer", "w1")
+		reviewer := paneltest.Agent("reviewer-id", "reviewer", "w1")
+		reviewer.ArchivedAt = archivedAt
 		reviewer.CreatedAt = timestamppb.New(time.Date(2026, 9, 20, 13, 0, 0, 0, time.UTC))
 		reviewer.Cwd = writer.GetCwd()
 		reviewer.TaskId = writer.TaskId
@@ -660,8 +669,11 @@ func TestWorktreesRecord(t *testing.T) {
 		harness := openReadWorktree(t)
 		harness.Press(append([]string{"pick:record", "/", "m", "a", "i", "n", "enter"}, paneltest.WidenListPresses...)...)
 
-		line := findRawLine(harness.RawFrame(), regexp.MustCompile(`base\s+origin/main`))
-		assert.Contains(t, line, paint.Panel.Match().Render("main"))
+		base := regexp.MustCompile(`base\s+origin/main`)
+		lines := paneltest.SplitLines(harness.RawFrame())
+		at := slices.IndexFunc(lines, func(line string) bool { return base.MatchString(ansi.Strip(line)) })
+		require.GreaterOrEqual(t, at, 0)
+		assert.Contains(t, lines[at], paint.Panel.Match().Render("main"))
 	})
 }
 
@@ -1079,6 +1091,39 @@ func TestWorktreesSort(t *testing.T) {
 	})
 }
 
+// TestWorktreesSortGolden renders the worktrees sidebar whole, grouped and flat.
+func TestWorktreesSortGolden(t *testing.T) {
+	tests := []struct {
+		name  string
+		press []string
+	}{
+		{
+			name:  "worktrees-sort-strip",
+			press: []string{"shift+tab", "esc", "f", "shift+tab", "j", "esc"},
+		},
+		{
+			name:  "worktrees-sort-strip-flat",
+			press: []string{"shift+tab", "esc"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rows := buildMeasuredWorktrees()
+			harness := paneltest.Start(t, paneltest.Params{
+				Width:  44,
+				Height: 28,
+			})
+			harness.AnswerWorktreeReads()
+			harness.Watch(paneltest.Snapshot(rows...))
+
+			harness.Press(tt.press...)
+
+			paneltest.RequireGolden(t, tt.name, harness.RawFrame())
+		})
+	}
+}
+
 // TestWorktreesScope covers the row of scopes narrowing which directories are listed.
 func TestWorktreesScope(t *testing.T) {
 	t.Parallel()
@@ -1237,12 +1282,14 @@ func buildWorktrees() []proto.Message {
 	occupant.Cwd = "/trees/live"
 	occupant.Alive = xptr.Ptr(true)
 
-	archived := newArchivedAgent("archived", "reviewer", "w1")
+	archived := paneltest.Agent("archived", "reviewer", "w1")
+	archived.ArchivedAt = archivedAt
 	archived.Harness = "claude"
 	archived.Cwd = "/trees/archived"
 	archived.Role = agentv1.AgentRole_AGENT_ROLE_WRITER
 
-	admin := newArchivedAgent("admin", "cargo-fix", "w1")
+	admin := paneltest.Agent("admin", "cargo-fix", "w1")
+	admin.ArchivedAt = archivedAt
 	admin.Cwd = "/trees/admin"
 	admin.Role = agentv1.AgentRole_AGENT_ROLE_WRITER
 
@@ -1456,3 +1503,5 @@ func answerForDir(dir string, answer, rest paneltest.AnswerFunc) paneltest.Answe
 		return rest(req)
 	}
 }
+
+var archivedAt = timestamppb.New(time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC))

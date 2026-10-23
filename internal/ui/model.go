@@ -33,7 +33,7 @@ import (
 	"komrad/internal/ui/schedules"
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/submitting"
-	"komrad/internal/ui/tabs"
+	"komrad/internal/ui/worktrees"
 	"komrad/internal/vim"
 	"komrad/proto/gen/agent/v1/agentv1connect"
 	"komrad/proto/gen/forge/v1/forgev1connect"
@@ -293,7 +293,7 @@ type model struct {
 	reactors        []worldReactor
 	agents          agentsScreen
 	schedules       schedules.Screen
-	worktrees       worktreesScreen
+	worktrees       worktrees.Screen
 	documents       documentsScreen
 	logs            logs.Screen
 	statusChecks    checks.Screen
@@ -498,14 +498,11 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 			editor:         shell,
 			editorSettings: editorSettings,
 		}},
-		worktrees: worktreesScreen{
-			deps: worktreesDeps{
-				keys:    deps.Keys,
-				clients: clients,
-				top:     top,
-			},
-			sort: tabs.State{Flat: true},
-		},
+		worktrees: worktrees.New(worktrees.Deps{
+			Keys:    deps.Keys,
+			Clients: clients,
+			Top:     top,
+		}),
 		documents: documentsScreen{deps: documents},
 		logs: logs.New(logs.Deps{
 			Keys:     deps.Keys,

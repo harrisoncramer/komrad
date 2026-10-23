@@ -1,4 +1,4 @@
-package ui
+package worktrees
 
 import (
 	"fmt"
@@ -18,10 +18,10 @@ import (
 	"komrad/lib/xslice"
 )
 
-func (w *worktreesScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
+func (w *Screen) snapshot(in screen.Inputs, pane list.Pane) view.Snapshot {
 	rows := w.rows(in)
 
-	return worktreesSnapshot(worktreesSnapshotParams{
+	return listSnapshot(listSnapshotParams{
 		rows:     rows,
 		items:    w.shown(),
 		selected: w.Selected,
@@ -35,7 +35,8 @@ func (w *worktreesScreen) snapshot(in screen.Inputs, pane list.Pane) view.Snapsh
 	})
 }
 
-func (w *worktreesScreen) Details(in screen.Inputs) record.Details {
+// Details is the record of the repository or directory the cursor is on.
+func (w *Screen) Details(in screen.Inputs) record.Details {
 	row, ok := list.At(w.rows(in), w.Row)
 	if !ok {
 		return record.Details{}
@@ -48,19 +49,19 @@ func (w *worktreesScreen) Details(in screen.Inputs) record.Details {
 		}
 	}
 
-	return record.Details{ID: row.Key(), Fields: worktreeFields(in, row.item)}
+	return record.Details{ID: row.Key(), Fields: recordFields(in, row.item)}
 }
 
-func worktreeFields(in screen.Inputs, item panel.Worktree) []record.Field {
+func recordFields(in screen.Inputs, item panel.Worktree) []record.Field {
 	fields := []record.Field{
-		{Label: "name", Value: worktreeRow{item: item}.name()},
+		{Label: "name", Value: row{item: item}.name()},
 		{Label: "directory", Value: item.Dir},
 		{Label: "size", Value: item.SizeAt(in.Room.Now)},
 		{Label: "last active", Value: lastActiveField(item, in.Room.Now)},
 	}
 
 	if !item.Readable {
-		fields = append(fields, record.Field{Label: "repository", Value: label.OrDash(item.RepoDir)}, worktreeTaskField(item))
+		fields = append(fields, record.Field{Label: "repository", Value: label.OrDash(item.RepoDir)}, taskField(item))
 
 		return appendOccupantsField(fields, "agents", item.Occupants)
 	}
@@ -80,13 +81,13 @@ func worktreeFields(in screen.Inputs, item panel.Worktree) []record.Field {
 		)
 	}
 
-	fields = append(fields, worktreeTaskField(item), record.Field{Label: "workflow", Value: worktreeWorkflowField(in.Listing, item)})
+	fields = append(fields, taskField(item), record.Field{Label: "workflow", Value: workflowField(in.Listing, item)})
 
 	return appendOccupantsField(fields, "agents", item.Occupants)
 }
 
-// worktreeTaskField names the task a directory is the checkout of.
-func worktreeTaskField(item panel.Worktree) record.Field {
+// taskField names the task a directory is the checkout of.
+func taskField(item panel.Worktree) record.Field {
 	if item.Task == nil {
 		return record.Field{Label: "task", Value: "none"}
 	}
@@ -152,7 +153,7 @@ func countTone(count int, tone paint.Tone) paint.Tone {
 	return tone
 }
 
-func worktreeWorkflowField(l panel.Listing, item panel.Worktree) string {
+func workflowField(l panel.Listing, item panel.Worktree) string {
 	if item.Task == nil {
 		return label.Dash
 	}
@@ -161,11 +162,11 @@ func worktreeWorkflowField(l panel.Listing, item panel.Worktree) string {
 }
 
 // doc is the markdown rendered beside the list for the row the cursor is on.
-func (w *worktreesScreen) doc(in screen.Inputs) string {
+func (w *Screen) doc(in screen.Inputs) string {
 	return w.gitDoc(in)
 }
 
-func (w *worktreesScreen) gitDoc(in screen.Inputs) string {
+func (w *Screen) gitDoc(in screen.Inputs) string {
 	row, ok := list.At(w.rows(in), w.Row)
 	switch {
 	case !ok:
@@ -181,14 +182,14 @@ func (w *worktreesScreen) gitDoc(in screen.Inputs) string {
 	case read.Err != nil && !read.IsRead():
 		return paint.DocumentMarkdown(row.name(), "_"+row.item.Dir+"_", "could not read: "+errui.GetReason(read.Err), "")
 	case read.Err != nil:
-		return paint.DocumentMarkdown(row.name(), "_"+row.item.Dir+"_", "_could not read: "+errui.GetReason(read.Err)+"_\n\n"+worktreeProse(row.item, read, in.Room.Now), "")
+		return paint.DocumentMarkdown(row.name(), "_"+row.item.Dir+"_", "_could not read: "+errui.GetReason(read.Err)+"_\n\n"+prose(row.item, read, in.Room.Now), "")
 	}
 
-	return paint.DocumentMarkdown(row.name(), "_"+row.item.Dir+"_", worktreeProse(row.item, read, in.Room.Now), "")
+	return paint.DocumentMarkdown(row.name(), "_"+row.item.Dir+"_", prose(row.item, read, in.Room.Now), "")
 }
 
-// worktreeProse is the three blocks the document renders, each fenced.
-func worktreeProse(item panel.Worktree, read panel.WorktreeInspection, now time.Time) string {
+// prose is the three blocks the document renders, each fenced.
+func prose(item panel.Worktree, read panel.WorktreeInspection, now time.Time) string {
 	var b strings.Builder
 
 	b.WriteString("## Contents\n\n")
