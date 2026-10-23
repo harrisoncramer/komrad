@@ -6,6 +6,9 @@ const atLeast = (count: number | undefined, unit: string, required: boolean) => 
   return count === 1 && !required ? ["not empty"] : [];
 };
 
+const atMost = (count: number | undefined, unit: string) =>
+  count === undefined ? [] : [`at most ${String(count)} ${unit}`];
+
 const bounds = ({ minimum, exclusiveMinimum, maximum, exclusiveMaximum }: Constraints) => {
   if (minimum !== undefined && maximum !== undefined) return [`between ${String(minimum)} and ${String(maximum)}`];
   return [
@@ -18,13 +21,13 @@ const bounds = ({ minimum, exclusiveMinimum, maximum, exclusiveMaximum }: Constr
 
 export const describeConstraints = (constraints: Constraints, required: boolean): string[] => [
   ...atLeast(constraints.minLength, "characters", required),
-  ...(constraints.maxLength === undefined ? [] : [`at most ${String(constraints.maxLength)} characters`]),
-  ...(constraints.maxBytes === undefined ? [] : [`at most ${String(constraints.maxBytes)} bytes`]),
+  ...atMost(constraints.maxLength, "characters"),
+  ...atMost(constraints.maxBytes, "bytes"),
   ...(constraints.pattern ? [`matching ${constraints.pattern}`] : []),
   ...(constraints.enum ? ["one of", ...constraints.enum] : []),
   ...bounds(constraints),
   ...atLeast(constraints.minItems, "items", required),
-  ...(constraints.maxItems === undefined ? [] : [`at most ${String(constraints.maxItems)} items`]),
+  ...atMost(constraints.maxItems, "items"),
   ...(constraints.uniqueItems ? ["no repeats"] : []),
   ...(constraints.items ? describeConstraints(constraints.items, false).map((part) => `each ${part}`) : []),
   ...(constraints.rules ?? []),
