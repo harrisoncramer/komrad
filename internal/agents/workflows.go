@@ -203,11 +203,11 @@ func (w *WorkflowService) normalizeHooks(hooks []workflowstore.Hook) ([]workflow
 		if hook.Script == "" {
 			continue
 		}
-		if !slices.Contains(config.HookMoments(), hook.Event) {
-			return nil, fmt.Errorf("%w: %s is not one of %s", ErrUnknownHookEvent, protoenum.Name(hook.Event), strings.Join(protoenum.Names(config.HookMoments()), ", "))
+		if !slices.Contains(config.HookMoments(), hook.Moment) {
+			return nil, fmt.Errorf("%w: %s is not one of %s", ErrUnknownHookEvent, protoenum.Name(hook.Moment), strings.Join(protoenum.Names(config.HookMoments()), ", "))
 		}
 		if _, err := w.hooks.FindHook(hook.Script); errors.Is(err, scripts.ErrScriptNotFound) {
-			return nil, fmt.Errorf("%w: %s: %s", ErrUnknownHookScript, protoenum.Name(hook.Event), err.Error())
+			return nil, fmt.Errorf("%w: %s: %s", ErrUnknownHookScript, protoenum.Name(hook.Moment), err.Error())
 		} else if err != nil {
 			return nil, fmt.Errorf("failed to find hook %q: %w", hook.Script, err)
 		}

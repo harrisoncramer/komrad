@@ -177,7 +177,7 @@ func (s *LifecycleService) deleteAgents(ctx context.Context, agents []agentstore
 			Scripts: s.scripts,
 			Agent:   agent,
 			Hooks:   hooks[agent.ID],
-			Event:   eventv1.Moment_MOMENT_AGENT_POST_DELETE,
+			Moment:  eventv1.Moment_MOMENT_AGENT_POST_DELETE,
 		}.Start(ctx)
 	}
 
@@ -229,7 +229,7 @@ func (s *LifecycleService) tearDown(ctx context.Context, agent agentstore.Agent,
 			Scripts: s.scripts,
 			Agent:   agent,
 			Hooks:   hooks,
-			Event:   eventv1.Moment_MOMENT_AGENT_PRE_DELETE,
+			Moment:  eventv1.Moment_MOMENT_AGENT_PRE_DELETE,
 		}.RunInTurn(ctx)
 	}
 

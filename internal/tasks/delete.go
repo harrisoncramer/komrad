@@ -174,7 +174,7 @@ func (s *TaskService) runPreDelete(ctx context.Context, task taskstore.Task, flo
 		scripts:  s.scripts,
 		workflow: flow,
 		task:     task,
-		event:    eventv1.Moment_MOMENT_TASK_PRE_DELETE,
+		moment:   eventv1.Moment_MOMENT_TASK_PRE_DELETE,
 	}.toHookRun().RunInTurn(ctx)
 }
 

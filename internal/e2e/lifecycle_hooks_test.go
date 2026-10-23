@@ -26,14 +26,14 @@ import (
 
 // writeHook writes a hook named for its moment and returns the request for a worktree workflow
 // that hangs it there.
-func writeHook(t *testing.T, instance *komradtest.Instance, event eventv1.Moment, body string) *workflowv1.CreateWorkflowRequest {
+func writeHook(t *testing.T, instance *komradtest.Instance, moment eventv1.Moment, body string) *workflowv1.CreateWorkflowRequest {
 	t.Helper()
 
-	name := protoenum.Name(event) + "-hook"
+	name := protoenum.Name(moment) + "-hook"
 	require.NoError(t, os.WriteFile(filepath.Join(instance.HooksDir, name), []byte(body), 0o755))
 
 	request := buildWorktreeWorkflow(t)
-	request.Hooks = []*workflowv1.WorkflowHook{{Event: event, Script: name}}
+	request.Hooks = []*workflowv1.WorkflowHook{{Event: moment, Script: name}}
 
 	return request
 }

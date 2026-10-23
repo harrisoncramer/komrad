@@ -95,8 +95,8 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 		ReviewerHarness: "codex",
 		ReviewerFlags:   "--model gpt-5",
 		Hooks: []Hook{
-			{Event: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH, Script: "install-deps"},
-			{Event: eventv1.Moment_MOMENT_AGENT_POST_LAUNCH, Script: "announce"},
+			{Moment: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH, Script: "install-deps"},
+			{Moment: eventv1.Moment_MOMENT_AGENT_POST_LAUNCH, Script: "announce"},
 		},
 		EventPrompts: []EventPrompt{{Event: eventv1.Event_EVENT_REVIEW_APPROVED, Prompt: "open the pull request"}, {Event: eventv1.Event_EVENT_PULL_REQUEST_BEHIND, Muted: true}},
 		Worktree: WorktreeConfig{

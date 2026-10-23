@@ -141,7 +141,7 @@ func TestWorkflowWritesPassDown(t *testing.T) {
 		},
 		Hooks: []workflowstore.Hook{
 			{
-				Event:  eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH,
+				Moment: eventv1.Moment_MOMENT_AGENT_PRE_LAUNCH,
 				Script: "warm-cache",
 			},
 		},

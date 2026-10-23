@@ -1562,7 +1562,7 @@ func refusingConfig(t *testing.T, name string) workflowstore.Config {
 	t.Helper()
 
 	config := worktreeConfig(t, name)
-	config.Hooks = []workflowstore.Hook{{Event: eventv1.Moment_MOMENT_AGENT_PRE_DELETE, Script: refusingHook}}
+	config.Hooks = []workflowstore.Hook{{Moment: eventv1.Moment_MOMENT_AGENT_PRE_DELETE, Script: refusingHook}}
 
 	return config
 }

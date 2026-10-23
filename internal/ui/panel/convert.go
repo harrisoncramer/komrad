@@ -227,7 +227,7 @@ func workflowFrom(w *workflowv1.Workflow) Workflow {
 		ReviewerFlags:   w.GetReviewerFlags(),
 		Worktree:        worktreeConfigFrom(w.GetWorktree()),
 		Hooks: xslice.Map(w.GetHooks(), func(hook *workflowv1.WorkflowHook) Hook {
-			return Hook{Event: hook.GetEvent(), Script: hook.GetScript()}
+			return Hook{Moment: hook.GetEvent(), Script: hook.GetScript()}
 		}),
 		EventPrompts: xslice.Map(w.GetEventPrompts(), func(prompt *workflowv1.WorkflowEventPrompt) EventPrompt {
 			return EventPrompt{

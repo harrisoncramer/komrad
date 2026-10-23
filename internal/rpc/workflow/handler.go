@@ -164,7 +164,7 @@ func (s *Handler) DeleteWorkflow(ctx context.Context, req *workflowv1komrad.Dele
 
 func buildHooksFromProto(hooks []*workflowv1.WorkflowHook) []workflowstore.Hook {
 	return xslice.Map(hooks, func(hook *workflowv1.WorkflowHook) workflowstore.Hook {
-		return workflowstore.Hook{Event: hook.GetEvent(), Script: hook.GetScript()}
+		return workflowstore.Hook{Moment: hook.GetEvent(), Script: hook.GetScript()}
 	})
 }
 

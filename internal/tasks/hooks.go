@@ -27,7 +27,7 @@ type moment struct {
 	workflow *workflowstore.Workflow
 	task     taskstore.Task
 	actor    *agentstore.Agent
-	event    eventv1.Moment
+	moment   eventv1.Moment
 }
 
 // QueueOpening takes a place in its task's hook queue for an agent opening the task, nil when it does not open it.
@@ -81,7 +81,7 @@ func (s *TaskService) RunPreOpen(ctx context.Context, params RunPreOpenParams) e
 		workflow: params.Workflow,
 		task:     params.Task,
 		actor:    &agent,
-		event:    eventv1.Moment_MOMENT_TASK_PRE_OPEN,
+		moment:   eventv1.Moment_MOMENT_TASK_PRE_OPEN,
 	}.toHookRun().Run(ctx)
 }
 
@@ -120,7 +120,7 @@ func (s *TaskService) RunPreOpenRestored(ctx context.Context, archived []agentst
 			workflow: s.readWorkflow(ctx, task.WorkflowID),
 			task:     task,
 			actor:    actor,
-			event:    eventv1.Moment_MOMENT_TASK_PRE_OPEN,
+			moment:   eventv1.Moment_MOMENT_TASK_PRE_OPEN,
 		}.toHookRun().RunInTurn(ctx)); err != nil {
 			return fmt.Errorf("failed to run the %s hook of task %q: %w", protoenum.Name(eventv1.Moment_MOMENT_TASK_PRE_OPEN), task.Slug, err)
 		}
@@ -137,7 +137,7 @@ func (s *TaskService) StartPostArchive(ctx context.Context, archived []taskstore
 			workflow: s.readWorkflow(ctx, task.WorkflowID),
 			task:     task,
 			actor:    findTaskActor(actors, task.ID),
-			event:    eventv1.Moment_MOMENT_TASK_POST_ARCHIVE,
+			moment:   eventv1.Moment_MOMENT_TASK_POST_ARCHIVE,
 		}.toHookRun().Start(ctx)
 	}
 }
@@ -185,7 +185,7 @@ func (p moment) toHookRun() scriptrun.HookRun {
 		Scripts: p.scripts,
 		Agent:   runAs,
 		Hooks:   hooks,
-		Event:   p.event,
+		Moment:  p.moment,
 	}
 }
 

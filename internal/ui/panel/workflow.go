@@ -88,7 +88,7 @@ type WorktreeConfig struct {
 
 // Hook is one script a workflow hangs on a moment.
 type Hook struct {
-	Event  eventv1.Moment
+	Moment eventv1.Moment
 	Script string
 }
 

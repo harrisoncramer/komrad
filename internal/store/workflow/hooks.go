@@ -20,7 +20,7 @@ func IsTaskMoment(moment eventv1.Moment) bool {
 
 // Hook is one script a workflow hangs on a moment, and a moment can hold several.
 type Hook struct {
-	Event  eventv1.Moment
+	Moment eventv1.Moment
 	Script string
 }
 
@@ -34,11 +34,11 @@ func (s *WorkflowStore) setHooks(ctx context.Context, workflowID uuid.UUID, hook
 	for position, hook := range hooks {
 		if err := s.queries.InsertWorkflowHook(ctx, models.InsertWorkflowHookParams{
 			WorkflowID: workflowID,
-			Event:      protoenum.Name(hook.Event),
+			Event:      protoenum.Name(hook.Moment),
 			Script:     hook.Script,
 			Position:   int32(position),
 		}); err != nil {
-			return fmt.Errorf("failed to add the %s hook %q to workflow %q: %w", protoenum.Name(hook.Event), hook.Script, workflowID, err)
+			return fmt.Errorf("failed to add the %s hook %q to workflow %q: %w", protoenum.Name(hook.Moment), hook.Script, workflowID, err)
 		}
 	}
 
@@ -95,5 +95,5 @@ func hookFromRow(event, script string) (*Hook, error) {
 		return nil, fmt.Errorf("komrad runs no hook at %s", event)
 	}
 
-	return &Hook{Event: moment, Script: script}, nil
+	return &Hook{Moment: moment, Script: script}, nil
 }

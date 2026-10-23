@@ -61,7 +61,7 @@ func workflowFormValuesFrom(cfg panel.WorkflowConfig) workflowFormValues {
 		ReviewerHarness:      cfg.ReviewerHarness,
 		ReviewerFlags:        cfg.ReviewerFlags,
 		Provisioner:          provisioner,
-		Hooks:                hooksByEvent(cfg.Hooks),
+		Hooks:                hooksByMoment(cfg.Hooks),
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    strings.Join(cfg.Worktree.CopyPaths, "\n"),
 		WorktreeSymlinkPaths: strings.Join(cfg.Worktree.SymlinkPaths, "\n"),
@@ -96,12 +96,12 @@ func (v workflowFormValues) toConfig() panel.WorkflowConfig {
 	}
 }
 
-// hooksByEvent is each event's first hook, which is the one the form shows.
-func hooksByEvent(hooks []panel.Hook) map[eventv1.Moment]*string {
+// hooksByMoment is each moment's first hook, which is the one the form shows.
+func hooksByMoment(hooks []panel.Hook) map[eventv1.Moment]*string {
 	byEvent := make(map[eventv1.Moment]*string, len(hooks))
 	for _, hook := range hooks {
-		if _, ok := byEvent[hook.Event]; !ok {
-			byEvent[hook.Event] = &hook.Script
+		if _, ok := byEvent[hook.Moment]; !ok {
+			byEvent[hook.Moment] = &hook.Script
 		}
 	}
 
@@ -127,7 +127,7 @@ func (v workflowFormValues) hookList() []panel.Hook {
 			continue
 		}
 
-		hooks = append(hooks, panel.Hook{Event: moment, Script: *script})
+		hooks = append(hooks, panel.Hook{Moment: moment, Script: *script})
 	}
 
 	return hooks
