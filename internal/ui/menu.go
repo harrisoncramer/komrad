@@ -93,41 +93,6 @@ func (a *agentsScreen) BuildItemMenu(in screen.Inputs, nest menu.Nester) (menu.M
 	return a.agentRowMenu(in, item), true
 }
 
-func (w *schedulesScreen) BuildItemMenu(in screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
-	item, ok := w.selected(in)
-	if !ok {
-		return menu.Menu{}, false
-	}
-
-	return menu.WithNested(w.scheduleMenu(item.schedule), "archive", w.deps.keys.Menu.Archive, w.scheduleArchiveMenu(item.schedule)), true
-}
-
-// BuildScreenMenu builds the schedules screen's own band, for writing a new schedule.
-func (w *schedulesScreen) BuildScreenMenu(_ screen.Inputs, _ menu.Nester) (menu.Menu, bool) {
-	return menu.Menu{
-		Title: "schedules",
-		Entries: []menu.Entry{
-			menu.Leaving("new schedule", w.deps.keys.ScheduleMenu.New, w.newScheduleForm),
-		},
-	}, true
-}
-
-// scheduleMenu is the band on the hovered schedule.
-func (w *schedulesScreen) scheduleMenu(schedule panel.Schedule) menu.Menu {
-	toggle := "pause"
-	if !schedule.Enabled {
-		toggle = "resume"
-	}
-
-	return menu.Menu{
-		Title: schedule.Name,
-		Entries: []menu.Entry{
-			menu.Leaving("edit", w.deps.keys.ScheduleMenu.Edit, func(screen.Inputs) screen.Request { return w.editScheduleForm(schedule) }),
-			menu.Holding(toggle, w.deps.keys.ScheduleMenu.Toggle, func(screen.Inputs) screen.Request { return w.toggleSchedule(schedule) }),
-		},
-	}
-}
-
 // rowMenu is a band titled for a row that has no entries of its own.
 func rowMenu(name string) menu.Menu {
 	return menu.Menu{

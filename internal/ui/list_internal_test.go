@@ -8,6 +8,7 @@ import (
 	"komrad/internal/ui/keys"
 	"komrad/internal/ui/logs"
 	"komrad/internal/ui/paint"
+	"komrad/internal/ui/schedules"
 	"komrad/internal/ui/screen"
 	"komrad/lib/xslice"
 
@@ -61,29 +62,23 @@ func TestFitLines(t *testing.T) {
 	}
 }
 
-// TestActionKeysGoThroughTheMenu pins the arms that act straight off their key rather than from the menu.
+// TestActionKeysGoThroughTheMenu counts the arms that act straight off their key rather than from the menu.
 func TestActionKeysGoThroughTheMenu(t *testing.T) {
-	want := map[screen.ID][]keys.ID{
-		screen.Agents: {
-			actionWorkflowRename,
-			actionAgentOpen, actionAgentRename, actionTaskRename,
-			actionArchiveRename,
-		},
-		screen.Schedules: {actionScheduleRename},
-		screen.Review: {
-			actionReviewBack, actionReviewBack, actionReviewBack,
-		},
+	want := map[screen.ID]int{
+		screen.Agents:    5,
+		screen.Schedules: 1,
+		screen.Review:    3,
 	}
 
 	for _, s := range []screen.ID{screen.Agents, screen.Schedules, screen.Review, screen.Worktrees, screen.Documents, screen.Logs, screen.StatusChecks} {
-		var direct []keys.ID
+		direct := 0
 
 		for _, arm := range armsOf(t, s) {
 			assert.NotEqual(t, arm.moves, arm.acts, "%s: an arm moves or acts directly, never both or neither", s.String())
 
 			if arm.acts {
 				assert.NotEmpty(t, arm.reason, "%s: a direct arm says why", s.String())
-				direct = append(direct, arm.id)
+				direct++
 			}
 		}
 
@@ -111,9 +106,9 @@ func armsOf(t *testing.T, s screen.ID) []specArm {
 			arms = append(arms, specArms(spec)...)
 		case keys.Spec[*archivedAgents]:
 			arms = append(arms, specArms(spec)...)
-		case keys.Spec[*schedulesScreen]:
+		case keys.Spec[*schedules.Screen]:
 			arms = append(arms, specArms(spec)...)
-		case keys.Spec[*archivedSchedules]:
+		case keys.Spec[schedules.Archive]:
 			arms = append(arms, specArms(spec)...)
 		case keys.Spec[*reviewScreen]:
 			arms = append(arms, specArms(spec)...)

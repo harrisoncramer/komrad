@@ -646,6 +646,9 @@ func TestFilterScreens(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			archivedSchedule := newNamedSchedule("s2", "monthly-gone")
+			archivedSchedule.ArchivedAt = archivedAt
+
 			harness := paneltest.Start(t, paneltest.Params{})
 			harness.AnswerWorktreeReads()
 			harness.Watch(paneltest.Snapshot(
@@ -653,7 +656,7 @@ func TestFilterScreens(t *testing.T) {
 				paneltest.Agent("a1", "auth", "w1"),
 				newArchivedAgent("a2", "old", "w1"),
 				newNamedSchedule("s1", "nightly"),
-				newArchivedSchedule("monthly-gone"),
+				archivedSchedule,
 				&worktreev1.WatchedWorktree{
 					Dir:      "/trees/auth",
 					RepoDir:  "/home/h/komrad",

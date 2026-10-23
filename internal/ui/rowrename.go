@@ -13,14 +13,12 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// rowRename is a listed row's name being typed over: an agent's, a task's slug, a workflow's or a
-// schedule's.
+// rowRename is a listed row's name being typed over: an agent's, a task's slug or a workflow's.
 type rowRename struct {
 	*field.NameEdit
 	agent    panel.Agent
 	task     *panel.Task
 	workflow *panel.Workflow
-	schedule *panel.Schedule
 }
 
 func renameAgentRow(row agentRow) *rowRename {
@@ -38,12 +36,6 @@ func renameAgentRow(row agentRow) *rowRename {
 	return &rowRename{NameEdit: field.NewNameEdit(rowKey(row), row.item.Agent.Name), agent: row.item.Agent}
 }
 
-func renameScheduleRow(item scheduleItem) *rowRename {
-	schedule := item.schedule
-
-	return &rowRename{NameEdit: field.NewNameEdit(item.Key(), schedule.Name), schedule: &schedule}
-}
-
 // save sends the typed name, or says there is nothing to send.
 func (r *rowRename) save(clients api.Clients) (screen.Request, bool) {
 	name, ok := r.Submit()
@@ -52,17 +44,6 @@ func (r *rowRename) save(clients api.Clients) (screen.Request, bool) {
 	}
 
 	switch {
-	case r.schedule != nil:
-		renamed := schedulePrefill(*r.schedule)
-		renamed.Name = name
-		id := r.schedule.ID
-
-		return clients.RenameWrite(api.RenameWriteParams{
-			Doing:   "renaming " + r.Was(),
-			Summary: fmt.Sprintf("Could not rename schedule %q", r.Was()),
-			Row:     r.Key(),
-			Write:   func(a api.Clients) error { return a.UpdateSchedule(id, renamed) },
-		}), true
 	case r.task != nil:
 		id := r.task.ID
 

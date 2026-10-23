@@ -30,6 +30,7 @@ import (
 	"komrad/internal/ui/layout"
 	"komrad/internal/ui/logs"
 	"komrad/internal/ui/panel"
+	"komrad/internal/ui/schedules"
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/submitting"
 	"komrad/internal/ui/tabs"
@@ -291,7 +292,7 @@ type model struct {
 	listing         panel.Listing
 	reactors        []worldReactor
 	agents          agentsScreen
-	schedules       schedulesScreen
+	schedules       schedules.Screen
 	worktrees       worktreesScreen
 	documents       documentsScreen
 	logs            logs.Screen
@@ -435,12 +436,6 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 		top:            top,
 		editorSettings: editorSettings,
 	}
-	schedules := schedulesDeps{
-		keys:     deps.Keys,
-		register: register,
-		clients:  clients,
-		top:      top,
-	}
 	documents := documentsDeps{
 		keys:          deps.Keys,
 		register:      register,
@@ -486,10 +481,12 @@ func newModel(deps Deps, isDark bool, post *postbox) model {
 			archived: archivedAgents{deps: agents, kind: agentsArchived},
 			deleted:  archivedAgents{deps: agents, kind: agentsDeleted},
 		},
-		schedules: schedulesScreen{
-			deps:     schedules,
-			archived: archivedSchedules{deps: schedules},
-		},
+		schedules: schedules.New(schedules.Deps{
+			Keys:     deps.Keys,
+			Register: register,
+			Clients:  clients,
+			Top:      top,
+		}),
 		review: reviewScreen{deps: reviewDeps{
 			keys:           deps.Keys,
 			glyphs:         deps.Glyphs,

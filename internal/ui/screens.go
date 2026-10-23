@@ -16,6 +16,7 @@ import (
 	"komrad/internal/ui/menu"
 	"komrad/internal/ui/panel"
 	"komrad/internal/ui/record"
+	"komrad/internal/ui/schedules"
 	"komrad/internal/ui/screen"
 	"komrad/internal/ui/tabs"
 	"komrad/lib/xslice"
@@ -233,7 +234,7 @@ func (m *model) screens() []screenModel {
 		m.agents.archiveScreen(&m.agents.archived),
 		m.agents.archiveScreen(&m.agents.deleted),
 		&m.schedules,
-		m.schedules.archiveScreen(),
+		m.schedules.Archive(),
 		&m.review,
 		&m.worktrees,
 		&m.documents,
@@ -300,6 +301,28 @@ var (
 	_ loadingReporter = checks.Logs{}
 	_ screenLeaver    = checks.Logs{}
 	_ docNamer        = checks.Logs{}
+)
+
+var (
+	_ recordRenderer    = (*schedules.Screen)(nil)
+	_ activeLister      = (*schedules.Screen)(nil)
+	_ hoveredNamer      = (*schedules.Screen)(nil)
+	_ screenMenuBuilder = (*schedules.Screen)(nil)
+	_ itemMenuBuilder   = (*schedules.Screen)(nil)
+	_ lineTyper         = (*schedules.Screen)(nil)
+	_ renamer           = (*schedules.Screen)(nil)
+	_ kindSwitcher      = (*schedules.Screen)(nil)
+	_ queryGrammarer    = (*schedules.Screen)(nil)
+)
+
+var (
+	_ recordRenderer  = schedules.Archive{}
+	_ activeLister    = schedules.Archive{}
+	_ rowStager       = schedules.Archive{}
+	_ hoveredNamer    = schedules.Archive{}
+	_ itemMenuBuilder = schedules.Archive{}
+	_ kindSwitcher    = schedules.Archive{}
+	_ queryGrammarer  = schedules.Archive{}
 )
 
 // stageEditor puts an editor on the stage with the keys in it, and answers the pane it was

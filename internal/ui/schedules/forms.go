@@ -1,6 +1,7 @@
-package ui
+package schedules
 
 import (
+	"fmt"
 	"slices"
 
 	"komrad/config"
@@ -14,23 +15,23 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// scheduleFormParams is what the schedule form offers to pick from.
-type scheduleFormParams struct {
+// buildFormParams is what the schedule form offers to pick from.
+type buildFormParams struct {
 	values        *panel.ScheduleConfig
 	workflows     []panel.Workflow
 	orchestrators []panel.Agent
 	keys          config.FixedKeys
 }
 
-func scheduleForm(params scheduleFormParams) (*huh.Form, []string) {
+func buildForm(params buildFormParams) (*huh.Form, []string) {
 	values := params.values
 
 	fields := []huh.Field{
 		kindField(values, params.orchestrators),
-		huh.NewInput().Key("name").Title("Name").Description(scheduleNameDescription(values.Kind)).Value(&values.Name),
+		huh.NewInput().Key("name").Title("Name").Description(nameDescription(values.Kind)).Value(&values.Name),
 		huh.NewInput().Key("cron").Title("Cron").Placeholder("0 9 * * 1-5").Description("minute hour day month weekday").Value(&values.Cron),
 		huh.NewInput().Key("timezone").Title("Timezone").Placeholder("America/New_York").Description("leave blank to use this machine's zone").Value(&values.Timezone),
-		form.Text("prompt").Title("Prompt").Description(schedulePromptDescription(values.Kind)).Value(&values.Prompt),
+		form.Text("prompt").Title("Prompt").Description(promptDescription(values.Kind)).Value(&values.Prompt),
 	}
 
 	if values.Kind == schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR {
@@ -65,7 +66,7 @@ func kindField(values *panel.ScheduleConfig, orchestrators []panel.Agent) huh.Fi
 	return huh.NewSelect[schedulev1.ScheduleKind]().Key("kind").Title("Kind").Description(description).Options(options...).Value(&values.Kind)
 }
 
-func scheduleNameDescription(kind schedulev1.ScheduleKind) string {
+func nameDescription(kind schedulev1.ScheduleKind) string {
 	if kind == schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR {
 		return "also signs the mail it sends"
 	}
@@ -73,7 +74,7 @@ func scheduleNameDescription(kind schedulev1.ScheduleKind) string {
 	return "also names the agents it launches"
 }
 
-func schedulePromptDescription(kind schedulev1.ScheduleKind) string {
+func promptDescription(kind schedulev1.ScheduleKind) string {
 	if kind == schedulev1.ScheduleKind_SCHEDULE_KIND_ORCHESTRATOR {
 		return "the mail komrad sends the orchestrator"
 	}
@@ -111,4 +112,13 @@ func orchestratorField(values *panel.ScheduleConfig, orchestrators []panel.Agent
 	}
 
 	return huh.NewSelect[string]().Key("orchestrator").Title("Orchestrator").Description("receives the prompt as mail").Options(options...).Value(&values.OrchestratorID)
+}
+
+func deleteForm(name string, keys config.FixedKeys) (*huh.Form, *bool) {
+	return form.Confirm(
+		fmt.Sprintf("Permanently delete schedule %q?", name),
+		"Komrad deletes its run history too and keeps the agents it launched.",
+		"Delete",
+		keys,
+	)
 }
