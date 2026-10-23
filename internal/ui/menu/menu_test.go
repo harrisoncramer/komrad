@@ -43,7 +43,7 @@ func TestFirstOn(t *testing.T) {
 	}
 }
 
-// TestNested checks a nested entry is off only when nothing inside it would do anything.
+// TestNested checks a nested entry is dimmed only when nothing inside it would do anything.
 func TestNested(t *testing.T) {
 	t.Parallel()
 

@@ -90,7 +90,7 @@ func (m Menu) FirstOn() int {
 	return Cancel
 }
 
-// Nested is an entry that opens a menu, off when nothing inside it would do anything.
+// Nested is an entry that opens a menu, dimmed when nothing inside it would do anything.
 func Nested(label string, keys []string, menu Menu) Entry {
 	return Entry{
 		Label:    label,

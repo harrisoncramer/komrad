@@ -104,7 +104,7 @@ func (a *Screen) taskLogsEntry(task panel.Task) menu.Entry {
 	})
 }
 
-// taskTerminalEntry opens a shell in a task's directory, off when it has none.
+// taskTerminalEntry opens a shell in a task's directory, dimmed when it has none.
 func (a *Screen) taskTerminalEntry(dir string) menu.Entry {
 	entry := menu.Leaving("terminal", a.deps.Keys.Menu.Terminal, func(screen.Inputs) screen.Request {
 		if dir == "" {
