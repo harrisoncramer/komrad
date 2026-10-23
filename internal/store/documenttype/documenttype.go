@@ -1,4 +1,3 @@
-// Package documenttype stores the sorts of document a person defines and the context agents read for each.
 package documenttype
 
 import (

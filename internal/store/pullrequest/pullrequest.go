@@ -1,5 +1,3 @@
-// Package pullrequest stores the pull requests komrad has read from its forges, the agents each
-// was seen with, and which repositories the sync has read.
 package pullrequest
 
 import (

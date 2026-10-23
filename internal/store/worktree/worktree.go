@@ -1,4 +1,3 @@
-// Package worktree stores each worktree directory as the filesystem last showed it.
 package worktree
 
 import (

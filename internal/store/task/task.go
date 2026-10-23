@@ -1,4 +1,3 @@
-// Package task stores tasks, the outcomes agents are linked to and work toward.
 package task
 
 import (

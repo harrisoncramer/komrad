@@ -1,5 +1,3 @@
-// Package textsearch reads a search query into the words it wants and leaves out, and shapes
-// them for the full text and near matching every searchable store shares.
 package textsearch
 
 import (

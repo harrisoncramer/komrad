@@ -1,4 +1,3 @@
-// Package notify opens the database connection that hears watch notifications.
 package notify
 
 import (

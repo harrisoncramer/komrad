@@ -1,4 +1,3 @@
-// Package forge stores the forges komrad has been connected to, one row per host.
 package forge
 
 import (

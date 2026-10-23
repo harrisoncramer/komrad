@@ -1,5 +1,3 @@
-// Package row reads what an agent's row in the panel says: the agent, and the facts drawn into
-// it from the tables that are attributes of an agent.
 package row
 
 import (

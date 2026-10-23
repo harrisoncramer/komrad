@@ -1,5 +1,3 @@
-// Package workflow stores the workflows agents are filed under, each carrying the working
-// directory, flags, shared context and provisioning its agents start from.
 package workflow
 
 import (
