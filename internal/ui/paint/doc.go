@@ -1,4 +1,4 @@
-// Package paint holds the panel's rendering primitives. It holds the palette and its tones, the
+// Package paint holds the panel's rendering primitives. These are the palette and its tones, the
 // styles, markdown rendering, the arithmetic that fits a list of rows into a pane, and the spans a
 // search hit marks.
 //
